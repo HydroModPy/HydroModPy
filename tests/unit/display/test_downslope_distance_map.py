@@ -1,13 +1,13 @@
 """The class map of the downslope distance field.
 
-The mesh is a strip of unit squares, one per cell, so a cell is identified by
-the abscissa of its polygon and a test can say which cell landed in which
-class without looking at a single pixel.
+The figure is driven by a run and nothing else, as a ``[display].figures`` entry
+drives it. The run is the V-shaped valley of
+:mod:`tests.unit.display._network_comparison_run`, where the descent of a cell
+is a whole number of cell widths, so a test says which cell landed in which
+class without looking at a single pixel and without asking the criterion.
 """
 
 from __future__ import annotations
-
-from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -20,6 +20,20 @@ from hydromodpy.display.figures.downslope_distance_map import (
     class_colors,
     class_labels,
 )
+
+from ._network_comparison_run import (
+    AXIS_COLUMN,
+    CELL_M,
+    NX,
+    NY,
+    cell,
+    column_cells,
+    comparison_run,
+    drawn_cells,
+)
+
+WIDE_CELL_M = 600.0
+"""A cell width that spreads the same geometry over the far classes."""
 
 
 @pytest.fixture
@@ -34,22 +48,6 @@ def mpl():
     plt.close("all")
 
 
-def _mesh_run(n_faces: int) -> SimpleNamespace:
-    """A run whose mesh is a strip of unit squares, one per cell."""
-    vertices = [[float(index), 0.0, 0.0] for index in range(n_faces + 1)]
-    vertices += [[float(index), 1.0, 0.0] for index in range(n_faces + 1)]
-    top = n_faces + 1
-    faces = [[index, index + 1, top + index + 1, top + index] for index in range(n_faces)]
-    return SimpleNamespace(
-        sim_id="sim-mesh",
-        name="cheze",
-        mesh=SimpleNamespace(
-            vertices=np.asarray(vertices, dtype=float),
-            face_node_connectivity=np.asarray(faces, dtype=int),
-        ),
-    )
-
-
 def _layer(ax, label: str):
     """The one collection drawn under ``label``."""
     return next(item for item in ax.collections if str(item.get_label()) == label)
@@ -59,9 +57,9 @@ def _has_layer(ax, label: str) -> bool:
     return any(str(item.get_label()) == label for item in ax.collections)
 
 
-def _cells(collection) -> list[int]:
-    """Indices of the strip cells one collection covers."""
-    return sorted(int(round(path.vertices[:, 0].min())) for path in collection.get_paths())
+def _cells(ax, label: str, cell_m: float = CELL_M) -> list[int]:
+    """The grid cells one drawn class covers."""
+    return drawn_cells(_layer(ax, label), cell_m)
 
 
 def _legend_labels(ax) -> list[str]:
@@ -89,6 +87,17 @@ def _relative_luminance(color: str) -> float:
     return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
 
 
+def _two_branch_run(cell_m: float = CELL_M):
+    """A run whose simulated network runs two cells up each flank.
+
+    Seepage at the far end of the northern east flank and one cell up the
+    western one: their water crosses the flank cell by cell and then joins the
+    mapped column, so the support of ``D_so`` holds one cell at every whole
+    number of cell widths from the map, and the axis column at zero.
+    """
+    return comparison_run(seepage_cells=[cell(4, 2), cell(0, 1)], cell_m=cell_m)
+
+
 # --------------------------------------------------------------------------- #
 # the four classes of the paper
 # --------------------------------------------------------------------------- #
@@ -104,68 +113,59 @@ def test_the_default_classes_are_the_ones_of_the_paper() -> None:
     )
 
 
-def test_each_cell_lands_in_its_own_class(mpl) -> None:
-    run = _mesh_run(4)
+def test_each_cell_of_the_support_lands_in_its_own_class(mpl) -> None:
+    # One cell width from the map is 600 m, two are 1200 m, so the two flanks
+    # split across the two far classes and the axis column sits at zero.
     fig, ax = mpl.subplots()
 
-    DownslopeDistanceMap().render(
-        run,
-        ax,
-        distance=np.array([10.0, 200.0, 800.0, 4000.0]),
-        support=np.ones(4, dtype=bool),
-    )
+    DownslopeDistanceMap().render(_two_branch_run(WIDE_CELL_M), ax)
 
     try:
-        assert _cells(_layer(ax, "0-75 m")) == [0]
-        assert _cells(_layer(ax, "75-500 m")) == [1]
-        assert _cells(_layer(ax, "500-1000 m")) == [2]
-        assert _cells(_layer(ax, "> 1000 m")) == [3]
+        assert _cells(ax, "0-75 m", WIDE_CELL_M) == column_cells(AXIS_COLUMN)
+        assert _cells(ax, "500-1000 m", WIDE_CELL_M) == [cell(1, 1), cell(3, 2)]
+        assert _cells(ax, "> 1000 m", WIDE_CELL_M) == [cell(0, 1), cell(4, 2)]
+        assert not _has_layer(ax, "75-500 m")
         assert _legend_labels(ax)[:4] == [
-            "0-75 m (1 cell)",
-            "75-500 m (1 cell)",
-            "500-1000 m (1 cell)",
-            "> 1000 m (1 cell)",
+            "0-75 m (3 cells)",
+            "75-500 m (0 cells)",
+            "500-1000 m (2 cells)",
+            "> 1000 m (2 cells)",
         ]
-        assert "cheze" in ax.get_title()
+        assert "nancon" in ax.get_title()
         assert ax.get_xlabel() == "x (m)"
     finally:
         mpl.close(fig)
 
 
-def test_a_boundary_value_opens_the_upper_class(mpl) -> None:
-    run = _mesh_run(3)
+def test_the_same_support_moves_class_with_the_size_of_a_cell(mpl) -> None:
+    # The same two branches on a hundred-metre mesh are one and two hundred
+    # metres from the map, so they share the near class instead of splitting.
     fig, ax = mpl.subplots()
 
-    DownslopeDistanceMap().render(
-        run,
-        ax,
-        distance=np.array([75.0, 500.0, 1000.0]),
-        support=np.ones(3, dtype=bool),
-    )
+    DownslopeDistanceMap().render(_two_branch_run(), ax)
 
     try:
-        assert _cells(_layer(ax, "75-500 m")) == [0]
-        assert _cells(_layer(ax, "500-1000 m")) == [1]
-        assert _cells(_layer(ax, "> 1000 m")) == [2]
+        assert _cells(ax, "0-75 m") == column_cells(AXIS_COLUMN)
+        assert _cells(ax, "75-500 m") == [
+            cell(0, 1),
+            cell(1, 1),
+            cell(3, 2),
+            cell(4, 2),
+        ]
+        assert not _has_layer(ax, "500-1000 m")
     finally:
         mpl.close(fig)
 
 
 def test_the_scale_is_discrete_with_one_flat_colour_per_class(mpl) -> None:
-    run = _mesh_run(4)
     fig, ax = mpl.subplots()
 
-    DownslopeDistanceMap().render(
-        run,
-        ax,
-        distance=np.array([10.0, 20.0, 30.0, 4000.0]),
-        support=np.ones(4, dtype=bool),
-    )
+    DownslopeDistanceMap().render(_two_branch_run(WIDE_CELL_M), ax)
 
     try:
         near = _layer(ax, "0-75 m")
-        # Three different distances, one single colour: the class is the value.
-        assert _cells(near) == [0, 1, 2]
+        # Three cells, one single colour: the class is the value.
+        assert len(near.get_paths()) == 3
         assert _face_color(near) == pytest.approx(_rgb(class_colors(4)[0]))
         assert _face_color(_layer(ax, "> 1000 m")) == pytest.approx(_rgb(class_colors(4)[3]))
         assert not fig.axes[1:], "a discrete class scale carries no continuous colorbar"
@@ -210,147 +210,120 @@ def test_an_off_support_cell_stays_apart_from_the_shortest_distance() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# the two states that are not a distance
+# the support is the one the criterion averages over
 # --------------------------------------------------------------------------- #
 
 
 def test_a_cell_off_the_support_is_out_of_the_scale_and_never_a_zero(mpl) -> None:
-    run = _mesh_run(3)
+    # Seepage halfway down the mapped column: the model produces no stream on
+    # its northern cell, which sits ON the map and so is zero metres from it.
+    # Drawn in the nearest class it would read as a perfect agreement where
+    # nothing was measured at all.
+    run = comparison_run(seepage_cells=[cell(AXIS_COLUMN, 1)])
     fig, ax = mpl.subplots()
 
-    DownslopeDistanceMap().render(
-        run,
-        ax,
-        # Cell 1 carries a zero distance but is not measured: it may not be
-        # drawn in the nearest class, which is what a plain zero would do.
-        distance=np.array([10.0, 0.0, 800.0]),
-        support=np.array([True, False, True]),
-    )
+    DownslopeDistanceMap().render(run, ax)
 
     try:
-        assert _cells(_layer(ax, "0-75 m")) == [0]
-        off = _layer(ax, "off support")
-        assert _cells(off) == [1]
-        assert _face_color(off) not in [_rgb(color) for color in class_colors(4)]
-        assert "not on the measured support (1 cell)" in _legend_labels(ax)
+        assert _cells(ax, "0-75 m") == [cell(AXIS_COLUMN, 0), cell(AXIS_COLUMN, 1)]
+        assert cell(AXIS_COLUMN, 2) in _cells(ax, "off support")
+        assert _face_color(_layer(ax, "off support")) not in [
+            _rgb(color) for color in class_colors(4)
+        ]
+        assert "not on the measured support (13 cells)" in _legend_labels(ax)
     finally:
         mpl.close(fig)
 
 
-def test_a_cell_whose_descent_never_arrives_gets_its_own_state(mpl) -> None:
-    run = _mesh_run(3)
+def test_the_direction_picks_the_network_the_descent_starts_from(mpl) -> None:
+    # D_os is measured over the mapped column, and its cells descend to the
+    # simulated network one cell at a time: zero at the outlet, one cell width
+    # above it, two at the top.
+    run = comparison_run(seepage_cells=[cell(4, 0)])
     fig, ax = mpl.subplots()
 
-    DownslopeDistanceMap().render(
-        run,
-        ax,
-        distance=np.array([10.0, np.inf, 4000.0]),
-        support=np.ones(3, dtype=bool),
-    )
+    DownslopeDistanceMap().render(run, ax, direction="to_simulated")
 
     try:
-        unreachable = _layer(ax, "unreachable")
-        assert _cells(unreachable) == [1]
-        assert _cells(_layer(ax, "> 1000 m")) == [2], (
-            "an unreachable cell has no distance and may not join the far class"
-        )
-        assert _face_color(unreachable) not in [_rgb(color) for color in class_colors(4)]
-        assert unreachable.get_hatch(), "the third state must not read as one more class"
-        assert any("unreachable" in label for label in _legend_labels(ax))
-        assert "never reaches" in " ".join(_legend_labels(ax))
+        assert _cells(ax, "0-75 m") == [cell(AXIS_COLUMN, 0)]
+        assert _cells(ax, "75-500 m") == [cell(AXIS_COLUMN, 1), cell(AXIS_COLUMN, 2)]
+        assert "D_os" in ax.get_title()
+        assert "descent of the mapped cells" in ax.texts[0].get_text()
     finally:
         mpl.close(fig)
 
 
-def test_an_unmeasured_cell_is_not_an_unreachable_one(mpl) -> None:
-    run = _mesh_run(2)
+def test_an_unknown_direction_is_refused(mpl) -> None:
     fig, ax = mpl.subplots()
 
-    # NaN is the value the distance field carries outside the active surface.
-    DownslopeDistanceMap().render(
-        run,
-        ax,
-        distance=np.array([10.0, np.nan]),
-        support=np.ones(2, dtype=bool),
-    )
-
     try:
-        assert _cells(_layer(ax, "off support")) == [1]
-        assert not _has_layer(ax, "unreachable")
-    finally:
-        mpl.close(fig)
-
-
-def test_the_support_defaults_to_the_measured_cells(mpl) -> None:
-    run = _mesh_run(3)
-    fig, ax = mpl.subplots()
-
-    DownslopeDistanceMap().render(run, ax, distance=np.array([10.0, np.nan, 800.0]))
-
-    try:
-        assert _cells(_layer(ax, "0-75 m")) == [0]
-        assert _cells(_layer(ax, "500-1000 m")) == [2]
-        assert _cells(_layer(ax, "off support")) == [1]
+        with pytest.raises(ValueError, match="direction must be one of"):
+            DownslopeDistanceMap().render(comparison_run(), ax, direction="sideways")
     finally:
         mpl.close(fig)
 
 
 # --------------------------------------------------------------------------- #
-# when there is nothing to show, the figure says so
+# when there is nothing to measure, the figure says so
 # --------------------------------------------------------------------------- #
-
-
-def test_an_empty_support_is_annotated_rather_than_drawn_empty(mpl) -> None:
-    run = _mesh_run(3)
-    fig, ax = mpl.subplots()
-
-    DownslopeDistanceMap().render(
-        run,
-        ax,
-        distance=np.array([10.0, 200.0, 800.0]),
-        support=np.zeros(3, dtype=bool),
-    )
-
-    try:
-        note = ax.texts[0].get_text()
-        assert "no cell" in note
-        assert not _has_layer(ax, "0-75 m")
-        assert _cells(_layer(ax, "off support")) == [0, 1, 2]
-    finally:
-        mpl.close(fig)
 
 
 def test_a_support_that_never_arrives_is_annotated(mpl) -> None:
-    run = _mesh_run(2)
+    # A run whose model releases nothing has no simulated network, so no
+    # mapped cell has a descent down to one.
     fig, ax = mpl.subplots()
 
-    DownslopeDistanceMap().render(
-        run,
-        ax,
-        distance=np.array([np.inf, np.inf]),
-        support=np.ones(2, dtype=bool),
-    )
+    DownslopeDistanceMap().render(comparison_run(), ax, direction="to_simulated")
 
     try:
         note = ax.texts[0].get_text()
         assert "no cell of the support reaches its target" in note
-        assert _cells(_layer(ax, "unreachable")) == [0, 1]
+        assert _cells(ax, "unreachable") == column_cells(AXIS_COLUMN)
+        assert _layer(ax, "unreachable").get_hatch(), (
+            "the third state must not read as one more class"
+        )
+        assert any("never reaches" in label for label in _legend_labels(ax))
     finally:
         mpl.close(fig)
 
 
-def test_nothing_is_annotated_when_the_classes_are_populated(mpl) -> None:
-    run = _mesh_run(2)
+def test_an_empty_support_is_annotated_rather_than_drawn_empty(mpl) -> None:
     fig, ax = mpl.subplots()
 
-    DownslopeDistanceMap().render(run, ax, distance=np.array([10.0, 800.0]))
+    DownslopeDistanceMap().render(comparison_run(), ax)
 
     try:
-        # The two classes must really be on the axes: an empty map carries no
-        # annotation either, and this test may not pass on one.
-        assert _cells(_layer(ax, "0-75 m")) == [0]
-        assert _cells(_layer(ax, "500-1000 m")) == [1]
-        assert len(ax.texts) == 0
+        assert "no cell is on the measured support" in ax.texts[0].get_text()
+        assert not _has_layer(ax, "0-75 m")
+        assert len(_cells(ax, "off support")) == NX * NY
+    finally:
+        mpl.close(fig)
+
+
+def test_the_note_names_the_measurement_and_its_threshold(mpl) -> None:
+    fig, ax = mpl.subplots()
+
+    DownslopeDistanceMap().render(_two_branch_run(), ax, tau_specific_ratio=0.0)
+
+    try:
+        # The classes must really be populated: an empty map carries the two
+        # lines too, and this test may not pass on one.
+        assert _cells(ax, "0-75 m") == column_cells(AXIS_COLUMN)
+        note = ax.texts[0].get_text()
+        assert note.startswith("D_so: descent of the simulated cells")
+        assert "seepage threshold: none (tau = 0)" in note
+        assert "no cell" not in note
+    finally:
+        mpl.close(fig)
+
+
+def test_the_note_names_the_threshold_the_partition_was_cut_at(mpl) -> None:
+    fig, ax = mpl.subplots()
+
+    DownslopeDistanceMap().render(_two_branch_run(), ax, tau_specific_ratio=0.25)
+
+    try:
+        assert "tau = 0.25 of the mean recharge" in ax.texts[0].get_text()
     finally:
         mpl.close(fig)
 
@@ -361,20 +334,14 @@ def test_nothing_is_annotated_when_the_classes_are_populated(mpl) -> None:
 
 
 def test_a_caller_may_give_its_own_class_edges(mpl) -> None:
-    run = _mesh_run(3)
     fig, ax = mpl.subplots()
 
-    DownslopeDistanceMap().render(
-        run,
-        ax,
-        distance=np.array([5.0, 40.0, 400.0]),
-        class_edges=(0.0, 25.0, 250.0),
-    )
+    DownslopeDistanceMap().render(_two_branch_run(), ax, class_edges=(0.0, 50.0, 150.0))
 
     try:
-        assert _cells(_layer(ax, "0-25 m")) == [0]
-        assert _cells(_layer(ax, "25-250 m")) == [1]
-        assert _cells(_layer(ax, "> 250 m")) == [2]
+        assert _cells(ax, "0-50 m") == column_cells(AXIS_COLUMN)
+        assert _cells(ax, "50-150 m") == [cell(1, 1), cell(3, 2)]
+        assert _cells(ax, "> 150 m") == [cell(0, 1), cell(4, 2)]
         assert not _has_layer(ax, "75-500 m")
     finally:
         mpl.close(fig)
@@ -385,20 +352,16 @@ def test_a_caller_may_give_its_own_class_edges(mpl) -> None:
     [(0.0, 500.0, 75.0, 1000.0), (0.0, 75.0, 75.0, 1000.0)],
 )
 def test_class_edges_that_do_not_increase_are_refused(mpl, edges) -> None:
-    run = _mesh_run(2)
     fig, ax = mpl.subplots()
 
     try:
         with pytest.raises(ValueError, match="strictly increasing"):
-            DownslopeDistanceMap().render(
-                run, ax, distance=np.array([10.0, 800.0]), class_edges=edges
-            )
+            DownslopeDistanceMap().render(comparison_run(), ax, class_edges=edges)
     finally:
         mpl.close(fig)
 
 
 def test_a_class_edge_that_is_not_a_number_is_refused(mpl) -> None:
-    run = _mesh_run(2)
     fig, ax = mpl.subplots()
 
     try:
@@ -406,80 +369,18 @@ def test_a_class_edge_that_is_not_a_number_is_refused(mpl) -> None:
         # or it reaches searchsorted on an unsorted array and scatters classes.
         with pytest.raises(ValueError, match="finite"):
             DownslopeDistanceMap().render(
-                run,
-                ax,
-                distance=np.array([10.0, 800.0]),
-                class_edges=(0.0, float("nan"), 500.0),
+                comparison_run(), ax, class_edges=(0.0, float("nan"), 500.0)
             )
     finally:
         mpl.close(fig)
 
 
 def test_a_single_class_edge_is_refused(mpl) -> None:
-    run = _mesh_run(2)
     fig, ax = mpl.subplots()
 
     try:
         with pytest.raises(ValueError, match="at least two"):
-            DownslopeDistanceMap().render(
-                run, ax, distance=np.array([10.0, 800.0]), class_edges=(0.0,)
-            )
-    finally:
-        mpl.close(fig)
-
-
-# --------------------------------------------------------------------------- #
-# refusals
-# --------------------------------------------------------------------------- #
-
-
-def test_a_distance_field_of_the_wrong_size_is_refused(mpl) -> None:
-    run = _mesh_run(2)
-    fig, ax = mpl.subplots()
-
-    try:
-        with pytest.raises(ValueError, match="the mesh holds 2"):
-            DownslopeDistanceMap().render(run, ax, distance=np.array([1.0, 2.0, 3.0]))
-    finally:
-        mpl.close(fig)
-
-
-def test_a_support_of_the_wrong_size_is_refused(mpl) -> None:
-    run = _mesh_run(2)
-    fig, ax = mpl.subplots()
-
-    try:
-        with pytest.raises(ValueError, match="the mesh holds 2"):
-            DownslopeDistanceMap().render(
-                run,
-                ax,
-                distance=np.array([1.0, 2.0]),
-                support=np.array([True, False, True]),
-            )
-    finally:
-        mpl.close(fig)
-
-
-def test_a_negative_distance_is_refused(mpl) -> None:
-    run = _mesh_run(2)
-    fig, ax = mpl.subplots()
-
-    try:
-        with pytest.raises(ValueError, match="negative"):
-            DownslopeDistanceMap().render(run, ax, distance=np.array([-5.0, 800.0]))
-    finally:
-        mpl.close(fig)
-
-
-def test_a_negative_infinity_is_refused_rather_than_called_unreachable(mpl) -> None:
-    run = _mesh_run(2)
-    fig, ax = mpl.subplots()
-
-    try:
-        # Only +inf means "the descent ends short"; -inf is a broken field and
-        # must not be promoted to the unreachable state.
-        with pytest.raises(ValueError, match="negative"):
-            DownslopeDistanceMap().render(run, ax, distance=np.array([-np.inf, 800.0]))
+            DownslopeDistanceMap().render(comparison_run(), ax, class_edges=(0.0,))
     finally:
         mpl.close(fig)
 
@@ -489,12 +390,25 @@ def test_a_negative_infinity_is_refused_rather_than_called_unreachable(mpl) -> N
 # --------------------------------------------------------------------------- #
 
 
-def test_it_names_what_it_needs_when_it_cannot_be_drawn() -> None:
-    reason = DownslopeDistanceMap().unavailable_reason(_mesh_run(2))
+def test_it_is_rendered_from_a_run_alone(tmp_path) -> None:
+    pytest.importorskip("matplotlib")
+    from hydromodpy.display.config import DisplayConfig
+    from hydromodpy.display.runs import render_figures_for_run
+
+    cfg = DisplayConfig(enabled=True, figures=["downslope_distance_map"], on_error="raise")
+
+    report = render_figures_for_run(_two_branch_run(), cfg, output_dir=tmp_path)
+
+    assert report.rendered == ("downslope_distance_map",)
+    assert report.skipped == ()
+    assert (tmp_path / "downslope_distance_map.png").exists()
+
+
+def test_it_names_what_it_needs_when_the_run_kept_no_release_flux() -> None:
+    reason = DownslopeDistanceMap().unavailable_reason(comparison_run(with_release=False))
 
     assert reason is not None
-    assert "calibration" in reason
-    assert "render()" in reason
+    assert "release_flux" in reason
 
 
 def test_it_is_skipped_by_the_gallery_rather_than_crashing(tmp_path) -> None:
@@ -502,17 +416,13 @@ def test_it_is_skipped_by_the_gallery_rather_than_crashing(tmp_path) -> None:
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.display.runs import render_figures_for_run
 
-    cfg = DisplayConfig(
-        enabled=True,
-        figures=["downslope_distance_map"],
-        on_error="raise",
-    )
+    cfg = DisplayConfig(enabled=True, figures=["downslope_distance_map"], on_error="raise")
 
-    report = render_figures_for_run(_mesh_run(4), cfg, output_dir=tmp_path)
+    report = render_figures_for_run(comparison_run(with_release=False), cfg, output_dir=tmp_path)
 
     assert report.rendered == ()
     assert [item.name for item in report.skipped] == ["downslope_distance_map"]
-    assert "distance" in report.skipped[0].reason
+    assert "release_flux" in report.skipped[0].reason
     assert "render failed" not in report.skipped[0].reason
 
 
@@ -522,3 +432,4 @@ def test_it_is_registered_under_its_own_name() -> None:
     assert isinstance(figure, DownslopeDistanceMap)
     assert figure.spec.name == "downslope_distance_map"
     assert figure.spec.kind == "spatial"
+    assert figure.spec.required_fields == ("release_flux",)

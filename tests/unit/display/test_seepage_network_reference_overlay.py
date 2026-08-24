@@ -1,15 +1,14 @@
 """The visual check of a simulated stream network against the mapped one.
 
 The figure answers one question before any number is trusted: do the two
-networks live in the same place, and does the simulated one follow the
-talwegs of the routing surface. So the tests assert on the relief behind the
-linework, on the two networks staying apart without colour, and on what the
-figure says when one of them is empty.
+networks live in the same place, and does the simulated one follow the talwegs
+of the routing surface. Both come from the run itself, so the tests drive it
+the way a ``[display].figures`` entry does and assert on the two networks the
+run's release flux implies, on the relief behind them, on the pair staying
+apart without colour, and on what the figure says when one of them is empty.
 """
 
 from __future__ import annotations
-
-from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -18,6 +17,17 @@ from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.display.figures.seepage_network_reference_overlay import (
     NETWORK_COLORS,
     SeepageNetworkReferenceOverlay,
+)
+
+from ._network_comparison_run import (
+    AXIS_COLUMN,
+    CELL_M,
+    NX,
+    NY,
+    cell,
+    column_cells,
+    comparison_run,
+    drawn_cells,
 )
 
 
@@ -33,65 +43,13 @@ def mpl():
     plt.close("all")
 
 
-def _grid_run(
-    nx: int = 4,
-    ny: int = 3,
-    *,
-    topography: np.ndarray | str | None = "valley",
-    cell_m: float = 10.0,
-    name: str = "cheze",
-    outlet: tuple[float, float] | None = None,
-) -> SimpleNamespace:
-    """A run whose mesh is a ``nx x ny`` grid of square cells, row-major.
+def _flank_run(**kwargs):
+    """A run whose stream climbs two cells up the northern east flank.
 
-    ``topography`` defaults to a V-shaped valley running north-south, the
-    relief this figure exists to show a network against. ``None`` builds a run
-    that persisted no topography at all.
+    Its water crosses those two cells and then runs down the mapped column, so
+    the simulated network is the map plus the two cells of the flank.
     """
-    vertices = [[i * cell_m, j * cell_m, 0.0] for j in range(ny + 1) for i in range(nx + 1)]
-    faces = [
-        [
-            j * (nx + 1) + i,
-            j * (nx + 1) + i + 1,
-            (j + 1) * (nx + 1) + i + 1,
-            (j + 1) * (nx + 1) + i,
-        ]
-        for j in range(ny)
-        for i in range(nx)
-    ]
-    mesh = SimpleNamespace(
-        vertices=np.asarray(vertices, dtype=float),
-        face_node_connectivity=np.asarray(faces, dtype=int),
-    )
-
-    if isinstance(topography, str):
-        centre = nx * cell_m / 2.0
-        x = np.asarray([(i + 0.5) * cell_m for _ in range(ny) for i in range(nx)])
-        elevation = np.abs(x - centre) * 2.0
-    elif topography is None:
-        elevation = None
-    else:
-        elevation = np.asarray(topography, dtype=float)
-
-    run = SimpleNamespace(
-        sim_id="sim-mesh",
-        name=name,
-        mesh=mesh,
-        has_field=lambda variable, _has=elevation is not None: variable == "topography" and _has,
-        field=lambda variable, **_: elevation,
-    )
-    if outlet is not None:
-        run.outlet = outlet
-    return run
-
-
-def _column_mask(nx: int, ny: int, columns: list[int]) -> np.ndarray:
-    """A mask holding every cell of the given grid columns."""
-    mask = np.zeros(nx * ny, dtype=bool)
-    for j in range(ny):
-        for i in columns:
-            mask[j * nx + i] = True
-    return mask
+    return comparison_run(seepage_cells=[cell(4, 2)], **kwargs)
 
 
 def _relative_luminance(color: str) -> float:
@@ -118,75 +76,97 @@ def _collection(ax, label_prefix: str):
     )
 
 
+def _shading(ax) -> np.ndarray:
+    return np.asarray(_collection(ax, "_relief").get_array(), dtype=float)
+
+
 # --------------------------------------------------------------------------- #
 # the composition
 # --------------------------------------------------------------------------- #
 
 
-def test_overlay_draws_the_two_networks_over_the_relief(mpl) -> None:
-    run = _grid_run(4, 3)
+def test_overlay_draws_the_two_networks_the_run_implies(mpl) -> None:
     fig, ax = mpl.subplots()
 
-    SeepageNetworkReferenceOverlay().render(
-        run,
-        ax,
-        observed=_column_mask(4, 3, [1]),
-        simulated=_column_mask(4, 3, [1, 2]),
-    )
+    SeepageNetworkReferenceOverlay().render(_flank_run(), ax)
+
+    try:
+        assert drawn_cells(_collection(ax, "_observed")) == column_cells(AXIS_COLUMN)
+        assert drawn_cells(_collection(ax, "_simulated")) == sorted(
+            [*column_cells(AXIS_COLUMN), cell(3, 2), cell(4, 2)]
+        )
+        labels = [text.get_text() for text in ax.get_legend().get_texts()]
+        assert labels[:2] == ["mapped network (3 cells)", "simulated network (5 cells)"]
+        assert ax.get_xlabel() == "x (m)"
+        assert ax.get_ylabel() == "y (m)"
+        assert "nancon" in ax.get_title()
+    finally:
+        mpl.close(fig)
+
+
+def test_overlay_stacks_the_networks_over_the_relief(mpl) -> None:
+    fig, ax = mpl.subplots()
+
+    SeepageNetworkReferenceOverlay().render(_flank_run(), ax)
 
     try:
         relief = _collection(ax, "_relief")
-        assert len(relief.get_paths()) == 12, "the relief covers every mesh cell"
+        assert len(relief.get_paths()) == NX * NY, "the relief covers every mesh cell"
         assert relief.get_zorder() < _collection(ax, "_observed").get_zorder()
         assert (
             _collection(ax, "_observed").get_zorder() < _collection(ax, "_simulated").get_zorder()
         ), "the simulated network is drawn over the mapped one"
-        assert len(_collection(ax, "_observed").get_paths()) == 3
-        assert len(_collection(ax, "_simulated").get_paths()) == 6
-        labels = [text.get_text() for text in ax.get_legend().get_texts()]
-        assert labels[:2] == ["mapped network (3 cells)", "simulated network (6 cells)"]
-        assert ax.get_xlabel() == "x (m)"
-        assert ax.get_ylabel() == "y (m)"
-        assert "cheze" in ax.get_title()
     finally:
         mpl.close(fig)
 
 
 def test_overlay_frames_the_whole_mesh(mpl) -> None:
-    run = _grid_run(4, 3)
     fig, ax = mpl.subplots()
 
-    SeepageNetworkReferenceOverlay().render(
-        run,
-        ax,
-        observed=_column_mask(4, 3, [1]),
-        simulated=_column_mask(4, 3, [1]),
-    )
+    SeepageNetworkReferenceOverlay().render(_flank_run(), ax)
 
     try:
         xmin, xmax = ax.get_xlim()
         ymin, ymax = ax.get_ylim()
-        assert xmin <= 0.0 and xmax >= 40.0
-        assert ymin <= 0.0 and ymax >= 30.0
+        assert xmin <= 0.0 and xmax >= NX * CELL_M
+        assert ymin <= 0.0 and ymax >= NY * CELL_M
     finally:
         mpl.close(fig)
 
 
 def test_overlay_draws_the_outlet_when_the_run_carries_one(mpl) -> None:
-    run = _grid_run(4, 3, outlet=(15.0, 5.0))
     fig, ax = mpl.subplots()
 
-    SeepageNetworkReferenceOverlay().render(
-        run,
-        ax,
-        observed=_column_mask(4, 3, [1]),
-        simulated=_column_mask(4, 3, [1]),
-    )
+    SeepageNetworkReferenceOverlay().render(_flank_run(), ax)
 
     try:
         labels = [text.get_text() for text in ax.get_legend().get_texts()]
         assert "Outlet" in labels
-        assert _collection(ax, "Outlet").get_offsets().tolist() == [[15.0, 5.0]]
+        assert _collection(ax, "Outlet").get_offsets().tolist() == [[250.0, 50.0]]
+    finally:
+        mpl.close(fig)
+
+
+def test_overlay_names_the_threshold_it_was_drawn_at(mpl) -> None:
+    fig, ax = mpl.subplots()
+
+    SeepageNetworkReferenceOverlay().render(_flank_run(), ax, tau_specific_ratio=0.25)
+
+    try:
+        assert "tau = 0.25 of the mean recharge" in ax.texts[0].get_text()
+    finally:
+        mpl.close(fig)
+
+
+def test_a_threshold_above_every_release_leaves_no_simulated_network(mpl) -> None:
+    fig, ax = mpl.subplots()
+
+    SeepageNetworkReferenceOverlay().render(_flank_run(), ax, tau_specific_ratio=1.0e6)
+
+    try:
+        labels = [text.get_text() for text in ax.get_legend().get_texts()]
+        assert "simulated network (0 cells)" in labels
+        assert "mapped network (3 cells)" in labels
     finally:
         mpl.close(fig)
 
@@ -206,20 +186,14 @@ def test_the_two_networks_stay_apart_in_greyscale() -> None:
 
 
 def test_the_simulated_network_is_inset_so_shape_carries_the_distinction(mpl) -> None:
-    run = _grid_run(4, 3)
     fig, ax = mpl.subplots()
 
-    SeepageNetworkReferenceOverlay().render(
-        run,
-        ax,
-        observed=_column_mask(4, 3, [1]),
-        simulated=_column_mask(4, 3, [1]),
-    )
+    SeepageNetworkReferenceOverlay().render(_flank_run(), ax)
 
     try:
         mapped = _polygon_area(_collection(ax, "_observed").get_paths()[0].vertices)
         simulated = _polygon_area(_collection(ax, "_simulated").get_paths()[0].vertices)
-        assert mapped == pytest.approx(100.0), "the mapped network fills its cell"
+        assert mapped == pytest.approx(CELL_M**2), "the mapped network fills its cell"
         assert simulated < 0.5 * mapped, (
             "the simulated network must be drawn inset inside the cell, so the "
             "two networks are told apart by shape and not only by colour"
@@ -234,40 +208,29 @@ def test_the_simulated_network_is_inset_so_shape_carries_the_distinction(mpl) ->
 
 
 def test_the_relief_lights_the_flank_that_faces_the_lamp(mpl) -> None:
-    # A V-shaped valley lit from the west: the east flank faces the lamp and
-    # must come out brighter than the west one, otherwise the shading carries
-    # no aspect and the talwegs do not read.
-    run = _grid_run(4, 3)
+    # The valley is lit from the west: the east flank faces the lamp and must
+    # come out brighter than the west one, otherwise the shading carries no
+    # aspect and the talwegs do not read.
     fig, ax = mpl.subplots()
 
-    SeepageNetworkReferenceOverlay().render(
-        run,
-        ax,
-        observed=_column_mask(4, 3, [1]),
-        simulated=_column_mask(4, 3, [1]),
-        azimuth_deg=270.0,
-    )
+    SeepageNetworkReferenceOverlay().render(_flank_run(), ax, azimuth_deg=270.0)
 
     try:
-        shading = np.asarray(_collection(ax, "_relief").get_array(), dtype=float)
-        assert shading.shape == (12,)
+        shading = _shading(ax)
+        assert shading.shape == (NX * NY,)
         assert np.all((shading >= 0.0) & (shading <= 1.0))
-        west = shading.reshape(3, 4)[:, 0]
-        east = shading.reshape(3, 4)[:, 3]
-        assert np.all(east > west)
+        grid = shading.reshape(NY, NX)
+        assert np.all(grid[:, NX - 1] > grid[:, 0])
     finally:
         mpl.close(fig)
 
 
 def test_flat_ground_takes_one_uniform_shade(mpl) -> None:
-    run = _grid_run(4, 3, topography=np.full(12, 120.0))
     fig, ax = mpl.subplots()
 
     SeepageNetworkReferenceOverlay().render(
-        run,
+        _flank_run(relief=np.full(NX * NY, 120.0)),
         ax,
-        observed=_column_mask(4, 3, [1]),
-        simulated=_column_mask(4, 3, [1]),
     )
 
     try:
@@ -286,17 +249,13 @@ def test_flat_ground_takes_one_uniform_shade(mpl) -> None:
 def test_a_gentle_relief_is_stretched_over_the_greys_it_occupies(mpl) -> None:
     # A shallow valley lights within a narrow band of the theoretical range.
     # Left on that range it prints as one flat plate and no talweg reads.
-    centre = 20.0
-    x = np.asarray([(i + 0.5) * 10.0 for _ in range(3) for i in range(4)])
-    run = _grid_run(4, 3, topography=np.abs(x - centre) * 0.08)
+    gentle = np.asarray(
+        [abs(column - AXIS_COLUMN) * 8.0 for _row in range(NY) for column in range(NX)],
+        dtype=float,
+    )
     fig, ax = mpl.subplots()
 
-    SeepageNetworkReferenceOverlay().render(
-        run,
-        ax,
-        observed=_column_mask(4, 3, [1]),
-        simulated=_column_mask(4, 3, [1]),
-    )
+    SeepageNetworkReferenceOverlay().render(_flank_run(relief=gentle), ax)
 
     try:
         relief = _collection(ax, "_relief")
@@ -311,38 +270,26 @@ def test_a_gentle_relief_is_stretched_over_the_greys_it_occupies(mpl) -> None:
 
 
 def test_a_cell_without_an_elevation_stays_unshaded(mpl) -> None:
-    elevation = np.full(12, 120.0)
-    elevation[5] = np.nan
-    run = _grid_run(4, 3, topography=elevation)
+    elevation = np.full(NX * NY, 120.0)
+    elevation[cell(1, 1)] = np.nan
     fig, ax = mpl.subplots()
 
-    SeepageNetworkReferenceOverlay().render(
-        run,
-        ax,
-        observed=_column_mask(4, 3, [1]),
-        simulated=_column_mask(4, 3, [1]),
-    )
+    SeepageNetworkReferenceOverlay().render(_flank_run(relief=elevation), ax)
 
     try:
-        shading = np.asarray(_collection(ax, "_relief").get_array(), dtype=float)
-        assert np.isnan(shading[5]), (
+        shading = _shading(ax)
+        assert np.isnan(shading[cell(1, 1)]), (
             "a cell the run gave no elevation must stay blank, never take the shade of flat ground"
         )
-        assert np.isfinite(shading[np.arange(12) != 5]).all()
+        assert np.isfinite(shading[np.arange(NX * NY) != cell(1, 1)]).all()
     finally:
         mpl.close(fig)
 
 
 def test_overlay_says_when_the_run_persisted_no_topography(mpl) -> None:
-    run = _grid_run(4, 3, topography=None)
     fig, ax = mpl.subplots()
 
-    SeepageNetworkReferenceOverlay().render(
-        run,
-        ax,
-        observed=_column_mask(4, 3, [1]),
-        simulated=_column_mask(4, 3, [1]),
-    )
+    SeepageNetworkReferenceOverlay().render(_flank_run(with_relief=False), ax)
 
     try:
         assert not [
@@ -358,15 +305,9 @@ def test_overlay_says_when_the_run_persisted_no_topography(mpl) -> None:
 def test_overlay_says_when_no_cell_carries_an_elevation(mpl) -> None:
     # A field of nothing but NaN prints exactly like flat white ground. Left
     # unsaid, a reader takes the blank for a relief with no talweg in it.
-    run = _grid_run(4, 3, topography=np.full(12, np.nan))
     fig, ax = mpl.subplots()
 
-    SeepageNetworkReferenceOverlay().render(
-        run,
-        ax,
-        observed=_column_mask(4, 3, [1]),
-        simulated=_column_mask(4, 3, [1]),
-    )
+    SeepageNetworkReferenceOverlay().render(_flank_run(relief=np.full(NX * NY, np.nan)), ax)
 
     try:
         assert "relief background is missing" in ax.texts[0].get_text()
@@ -375,17 +316,11 @@ def test_overlay_says_when_no_cell_carries_an_elevation(mpl) -> None:
 
 
 def test_overlay_refuses_a_topography_that_does_not_match_the_mesh(mpl) -> None:
-    run = _grid_run(4, 3, topography=np.arange(5.0))
     fig, ax = mpl.subplots()
 
     try:
-        with pytest.raises(ValueError, match="the mesh holds 12"):
-            SeepageNetworkReferenceOverlay().render(
-                run,
-                ax,
-                observed=_column_mask(4, 3, [1]),
-                simulated=_column_mask(4, 3, [1]),
-            )
+        with pytest.raises(ValueError, match=f"the mesh holds {NX * NY}"):
+            SeepageNetworkReferenceOverlay().render(_flank_run(relief=np.arange(5.0)), ax)
     finally:
         mpl.close(fig)
 
@@ -396,15 +331,9 @@ def test_overlay_refuses_a_topography_that_does_not_match_the_mesh(mpl) -> None:
 
 
 def test_overlay_says_when_the_simulated_network_is_empty(mpl) -> None:
-    run = _grid_run(4, 3)
     fig, ax = mpl.subplots()
 
-    SeepageNetworkReferenceOverlay().render(
-        run,
-        ax,
-        observed=_column_mask(4, 3, [1]),
-        simulated=np.zeros(12, dtype=bool),
-    )
+    SeepageNetworkReferenceOverlay().render(comparison_run(), ax)
 
     try:
         assert "simulated network is empty" in ax.texts[0].get_text()
@@ -414,35 +343,16 @@ def test_overlay_says_when_the_simulated_network_is_empty(mpl) -> None:
         mpl.close(fig)
 
 
-def test_overlay_says_when_the_mapped_network_is_empty(mpl) -> None:
-    run = _grid_run(4, 3)
+def test_overlay_says_when_the_mapped_network_leaves_the_catchment(mpl) -> None:
+    # The mapped column runs outside the delineated watershed, so the criterion
+    # scores none of it. The figure has nothing to compare against and says so
+    # rather than drawing a simulated network alone as if it agreed.
     fig, ax = mpl.subplots()
 
-    SeepageNetworkReferenceOverlay().render(
-        run,
-        ax,
-        observed=np.zeros(12, dtype=bool),
-        simulated=_column_mask(4, 3, [1]),
-    )
+    SeepageNetworkReferenceOverlay().render(_flank_run(catchment_columns=[0, 1]), ax)
 
     try:
         assert "mapped network is empty" in ax.texts[0].get_text()
-    finally:
-        mpl.close(fig)
-
-
-def test_overlay_refuses_a_mask_of_the_wrong_size(mpl) -> None:
-    run = _grid_run(2, 1)
-    fig, ax = mpl.subplots()
-
-    try:
-        with pytest.raises(ValueError, match="the mesh holds 2"):
-            SeepageNetworkReferenceOverlay().render(
-                run,
-                ax,
-                observed=np.array([True, False, False]),
-                simulated=np.array([False, True]),
-            )
     finally:
         mpl.close(fig)
 
@@ -452,10 +362,8 @@ def test_overlay_refuses_a_mask_of_the_wrong_size(mpl) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_overlay_is_skipped_by_the_gallery_rather_than_crashing(mpl, tmp_path) -> None:
-    # The two masks live inside the criterion and no run persists them, so
-    # driven from a config the figure must report itself as not applicable
-    # instead of dying on its own signature.
+def test_overlay_is_rendered_from_a_run_alone(tmp_path) -> None:
+    pytest.importorskip("matplotlib")
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.display.runs import render_figures_for_run
 
@@ -465,20 +373,37 @@ def test_overlay_is_skipped_by_the_gallery_rather_than_crashing(mpl, tmp_path) -
         on_error="raise",
     )
 
-    report = render_figures_for_run(_grid_run(4, 3), cfg, output_dir=tmp_path)
+    report = render_figures_for_run(_flank_run(), cfg, output_dir=tmp_path)
+
+    assert report.rendered == ("seepage_network_reference_overlay",)
+    assert report.skipped == ()
+    assert (tmp_path / "seepage_network_reference_overlay.png").exists()
+
+
+def test_overlay_is_skipped_by_the_gallery_rather_than_crashing(tmp_path) -> None:
+    pytest.importorskip("matplotlib")
+    from hydromodpy.display.config import DisplayConfig
+    from hydromodpy.display.runs import render_figures_for_run
+
+    cfg = DisplayConfig(
+        enabled=True,
+        figures=["seepage_network_reference_overlay"],
+        on_error="raise",
+    )
+
+    report = render_figures_for_run(comparison_run(with_release=False), cfg, output_dir=tmp_path)
 
     assert report.rendered == ()
     assert [item.name for item in report.skipped] == ["seepage_network_reference_overlay"]
-    reason = report.skipped[0].reason
-    assert all(word in reason for word in ("simulated", "observed"))
-    assert "render failed" not in reason
+    assert "release_flux" in report.skipped[0].reason
+    assert "render failed" not in report.skipped[0].reason
 
 
-def test_overlay_names_what_it_needs_when_it_cannot_be_drawn() -> None:
-    reason = SeepageNetworkReferenceOverlay().unavailable_reason(_grid_run(2, 1))
+def test_overlay_names_what_it_needs_when_the_run_kept_no_release_flux() -> None:
+    reason = SeepageNetworkReferenceOverlay().unavailable_reason(comparison_run(with_release=False))
 
     assert reason is not None
-    assert "calibration" in reason
+    assert "release_flux" in reason
 
 
 def test_the_figure_is_registered_under_its_own_name() -> None:
@@ -487,3 +412,4 @@ def test_the_figure_is_registered_under_its_own_name() -> None:
     assert isinstance(figure, SeepageNetworkReferenceOverlay)
     assert figure.spec.name == "seepage_network_reference_overlay"
     assert figure.spec.kind == "comparison"
+    assert figure.spec.required_fields == ("release_flux",)

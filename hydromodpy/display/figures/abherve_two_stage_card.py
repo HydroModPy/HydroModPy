@@ -35,11 +35,12 @@ import pandas as pd
 from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.figures._trial_diagnostics import TrialTable, trial_table
-from hydromodpy.display.figures.seepage_network_confusion_map import (
-    CONFUSION_COLORS,
-    CONFUSION_LABELS,
+from hydromodpy.display.figures._stream_comparison import (
+    AGREEMENT_COLORS,
+    CRITERION_NAMES,
+    class_label,
 )
+from hydromodpy.display.figures._trial_diagnostics import TrialTable, trial_table
 from hydromodpy.results.calibration_trials import calibration_trials
 
 if TYPE_CHECKING:
@@ -51,7 +52,7 @@ if TYPE_CHECKING:
 DEFAULT_ROPTIM_MAX = 2.0
 """Equation 4 of the method: below it the agreement is declared valid."""
 
-CLASS_NAMES: tuple[str, str, str] = ("valid", "excess", "missing")
+CLASS_NAMES: tuple[str, ...] = tuple(CRITERION_NAMES.values())
 """The three classes of the confusion map, in the order the card stacks them."""
 
 _STAGE_LABELS: tuple[str, str] = ("root search", "storage")
@@ -417,7 +418,7 @@ class AbherveTwoStageCard(BaseFigure):
             _blank(ax, title, "no root was closed: no calibrated point to split")
             return
 
-        for index, name in enumerate(CLASS_NAMES):
+        for index, (agreement, name) in enumerate(CRITERION_NAMES.items()):
             count = _diagnostic_at(table, row, f"n_{name}", output=output)
             if count is None:
                 # On the row of the class itself, where its bar would have
@@ -433,8 +434,10 @@ class AbherveTwoStageCard(BaseFigure):
                     color=_EVALUATION_COLOR,
                 )
                 continue
-            bars = ax.barh([index], [count], height=0.6, color=CONFUSION_COLORS[name], zorder=3)
-            bars[0].set_label(f"{CONFUSION_LABELS[name]} ({int(count)} cells)")
+            bars = ax.barh(
+                [index], [count], height=0.6, color=AGREEMENT_COLORS[agreement], zorder=3
+            )
+            bars[0].set_label(f"{class_label(agreement)} ({int(count)} cells)")
             ax.annotate(
                 f"{int(count)}",
                 xy=(count, index),
