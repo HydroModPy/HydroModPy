@@ -13258,7 +13258,7 @@
     "section": "solver",
     "anchor": "solver-backend",
     "page": "solver.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L90",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L93",
     "description": "Active flow backend selector (discriminated union)."
   },
   {
@@ -13320,6 +13320,22 @@
     "page": "solver.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L59",
     "description": ""
+  },
+  {
+    "path": "solver.sink_fill",
+    "name": "sink_fill",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "solver",
+    "anchor": "solver-sink-fill",
+    "page": "solver.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L97",
+    "description": "Dimensionless. Remove the drain from every cell sitting in a closed depression of the model top, by setting its DRN conductance to zero. A closed depression has no outlet, so water reaching it ponds instead of seeping into a stream, and a d",
+    "examples": [
+      "false",
+      "true"
+    ]
   },
   {
     "path": "modflownwt.runtime",

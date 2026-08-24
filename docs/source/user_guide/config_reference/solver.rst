@@ -17,6 +17,9 @@ The V1 TOML form is ``backend = { backend = "modflow6" }`` for a
 built-in backend, or ``backend = { backend = "custom", name = "x" }``
 for a plugin-registered backend.
 
+It also carries the backend-agnostic preprocessing switches both MODFLOW
+backends read, so one TOML key drives both.
+
 .. raw:: html
 
    <div class="hmp-level-toggle" data-section="solver">
@@ -42,7 +45,7 @@ Fields
         <code class="hmp-field-toml">[solver.backend]</code>
       </div>
 
-   :bdg-primary:`backend = "modflow6" | "modflow_nwt" | "boussinesq" | "custom"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L90>`__
+   :bdg-primary:`backend = "modflow6" | "modflow_nwt" | "boussinesq" | "custom"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L93>`__
 
       Active flow backend selector (discriminated union).
 
@@ -93,6 +96,26 @@ Fields
 
 
 
+.. container:: hmp-field hmp-field-level-user
+   :name: solver-sink-fill
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="solver.sink_fill">
+        <code class="hmp-field-name">sink_fill</code>
+      </div>
+
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L97>`__
+
+      Dimensionless. Remove the drain from every cell sitting in a closed depression of the model top, by setting its DRN conductance to zero. A closed depression has no outlet, so water reaching it ponds instead of seeping into a stream, and a drain there invents a discharge point. The depressions are measured on the solver mesh, by a priority flood seeded on every cell water can leave the domain through; both MODFLOW backends read the same mask. This does NOT move the topography: no elevation is raised, no DEM is rewritten, and every other package sees the surface it would have seen. Refused when the mask cannot be built. Default false, which drains every cell as before.
+
+   .. admonition:: Examples
+      :class: hmp-field-examples
+
+      * ``false``
+      * ``true``
+
+
 Starter TOML snippet
 --------------------
 
@@ -107,6 +130,7 @@ Starter TOML snippet
    .. code-block:: toml
 
       [solver]
+      # sink_fill = false
 
       [solver.backend]
       # backend = "modflow6"
