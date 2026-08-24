@@ -19,10 +19,9 @@ from hydromodpy.calibration.metrics.downslope_network import (
     SeepageDistanceResult,
     seepage_distance_cost,
 )
-from hydromodpy.calibration.observations.network_geometry import build_network_geometry
-from hydromodpy.calibration.observations.network_supports import criterion_supports
 from hydromodpy.calibration.observations.observed_network import water_body_mask
-from hydromodpy.calibration.observations.simulated_network import (
+from hydromodpy.core.stream_geometry import build_network_geometry, criterion_supports
+from hydromodpy.core.stream_network import (
     SimulatedNetwork,
     build_simulated_network,
     downstream_closure,

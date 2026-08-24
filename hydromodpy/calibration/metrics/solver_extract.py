@@ -19,7 +19,6 @@ from hydromodpy.calibration.metrics.downslope_network import (
 )
 from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.calibration.observations.network_geometry import geometry_from_run
-from hydromodpy.calibration.observations.simulated_network import build_simulated_network
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
     ObservableResult,
@@ -27,6 +26,7 @@ from hydromodpy.core.contracts.observables import (
 )
 from hydromodpy.core.exceptions import ObjectiveError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.stream_network import build_simulated_network
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
 from hydromodpy.simulation.planning.plan import RunContext
 from hydromodpy.solver.base.registry import get_solver_adapter

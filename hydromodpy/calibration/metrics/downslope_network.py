@@ -30,8 +30,8 @@ from typing import Literal
 
 import numpy as np
 
-from hydromodpy.calibration.observations.network_supports import criterion_supports
-from hydromodpy.calibration.observations.simulated_network import SimulatedNetwork
+from hydromodpy.core.stream_geometry import criterion_supports
+from hydromodpy.core.stream_network import SimulatedNetwork
 from hydromodpy.core.topographic_distance import (
     DownslopeMetric,
     downslope_distance_to_mask,

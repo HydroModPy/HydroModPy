@@ -26,13 +26,13 @@ from hydromodpy.calibration.metrics.solver_extract import (
     extract_outputs,
     observable_request_for_output,
 )
-from hydromodpy.calibration.observations.network_geometry import (
+from hydromodpy.core.contracts.observables import ObservableResult
+from hydromodpy.core.exceptions import ObjectiveError
+from hydromodpy.core.stream_geometry import (
     build_network_geometry,
     reference_length,
     resolve_outlet,
 )
-from hydromodpy.core.contracts.observables import ObservableResult
-from hydromodpy.core.exceptions import ObjectiveError
 from tests._helpers.ugrid_meshes import quad_mesh
 from tests._helpers.v_valley import (
     AXIS_COL,
