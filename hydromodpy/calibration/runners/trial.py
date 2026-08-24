@@ -186,7 +186,7 @@ class TrialContext:
             for pname, pvalue in values.items():
                 path = self.override_paths.get(pname)
                 if path:
-                    _set_by_path(new_cfg, path, pvalue)
+                    set_by_path(new_cfg, path, pvalue)
 
         new_setup = _copy.copy(self.ctx.setup)
         new_setup.flow = None
@@ -689,28 +689,6 @@ def _step_index_by_name(steps: Sequence[TrialStep], name: str) -> int | None:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _set_by_path(cfg: Any, path: str, value: Any) -> None:
-    """Set ``value`` on the leaf at dotted ``path`` under ``cfg``.
-
-    Traversal handles Pydantic attributes (``getattr``/``setattr``) and
-    mapping entries (``"cfg.flow.param.K"`` where ``param`` is a dict
-    keyed by parameter name) transparently.
-    """
-    parts = path.split(".")
-    target: Any = cfg
-    for part in parts[:-1]:
-        if isinstance(target, Mapping):
-            target = target[part]
-        else:
-            target = getattr(target, part)
-    leaf_key = parts[-1]
-    if isinstance(target, Mapping):
-        target[leaf_key] = value
-    else:
-        setattr(target, leaf_key, value)
-
 
 __all__ = (
     "TrialContext",

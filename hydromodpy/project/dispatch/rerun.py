@@ -32,13 +32,13 @@ class ProjectRerunProvider:
         ``source_sim_id`` is pinned as the child's ``parent_sim_id`` so rerun
         lineage is preserved.
         """
-        from hydromodpy.calibration.runners.trial import _set_by_path
+        from hydromodpy.calibration.optim.parameters import set_by_path
         from hydromodpy.project import Project
         from hydromodpy.project.runner import _pin_parent_sim_id
 
         project = Project(dict(snapshot))
         for dotted, value in overrides.items():
-            _set_by_path(project.config, dotted, value)
+            set_by_path(project.config, dotted, value)
         with _pin_parent_sim_id(project._ctx, source_sim_id):
             run = project.simulate(name=name)
         if run is None:
