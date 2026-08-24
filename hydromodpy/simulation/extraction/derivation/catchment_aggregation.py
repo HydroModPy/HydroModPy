@@ -289,8 +289,9 @@ def _add_runoff_to_discharge_series(
     # day closest to its stamp: on a yearly steady step the Nancon received the
     # 1.36 mm of 1 January instead of the 0.33 mm the year averaged, and the
     # reported discharge came out 67 per cent above what its own water balance
-    # allowed. observed_on_simulation_index is the one place that alignment is
-    # written; the calibration metric has always used it.
+    # allowed. ``period_mean_on_index`` is the one place that rule is written,
+    # and the calibration metric calls it directly, so what a run is scored on
+    # is what it reports.
     aligned = period_mean_on_index(runoff_mm_per_d, target_index)
     runoff_m3_per_s = aligned * 1e-3 * catch_area_m2 / 86400.0
     return discharge.add(runoff_m3_per_s, fill_value=0.0)

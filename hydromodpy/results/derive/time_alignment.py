@@ -7,6 +7,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.time.period_aggregation import period_mean_on_index
+
 
 def solver_time_index(catalog: Any, sim_id: Any, n_timesteps: int) -> pd.DatetimeIndex | None:
     """Return the solver's CF ``/time`` axis as a tz-naive ``DatetimeIndex``.
@@ -81,7 +83,27 @@ def observed_on_simulation_index(
     *,
     tolerance: pd.Timedelta | None = None,
 ) -> pd.Series:
-    """Average or nearest-match observations on the simulation index."""
+    """Average or nearest-match observations on the simulation index.
+
+    The choice is made on MEDIAN spacings, not on which index is coarser where
+    it matters. When the median spacing of the simulation index exceeds the
+    median spacing of the observations, every stress period takes the MEAN of
+    the samples it covers, by the single rule written in
+    :func:`hydromodpy.core.time.period_aggregation.period_mean_on_index`: a
+    period reaches halfway to each of its neighbours, so a non-uniform index
+    (months of 28 to 31 days) reads its own edges rather than a constant half
+    of the median spacing.
+
+    Otherwise each stamp takes the nearest sample within ``tolerance``
+    (default: the median spacing), which is what a chronicle coarser than the
+    run needs, since a per-period mean would leave most periods empty. A
+    non-uniform index whose median is small takes that branch for EVERY period,
+    the long ones included: a long spin-up followed by short transient steps is
+    read at the nearest sample throughout. A caller aligning a FORCING rather
+    than an observation chronicle should call ``period_mean_on_index`` itself,
+    the way :func:`hydromodpy.calibration.metrics.series.add_runoff_to_discharge`
+    does.
+    """
     obs = normalize_datetime_series(observed).dropna()
     sim_index = pd.DatetimeIndex(simulation_index)
     if sim_index.tz is not None:
@@ -93,12 +115,7 @@ def observed_on_simulation_index(
     sim_step = median_step(sim_index)
     obs_step = median_step(obs.index)
     if sim_step is not None and obs_step is not None and sim_step > obs_step:
-        half = sim_step / 2
-        bin_edges = pd.DatetimeIndex([sim_index[0] - half] + [t + half for t in sim_index])
-        bins = pd.cut(obs.index, bins=bin_edges, labels=sim_index, right=False)
-        binned = obs.groupby(bins, observed=True).mean()
-        binned.index = pd.DatetimeIndex(binned.index)
-        return binned.reindex(sim_index).rename(observed.name)
+        return period_mean_on_index(obs, sim_index).rename(observed.name)
 
     tol = tolerance
     if tol is None:
