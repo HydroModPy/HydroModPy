@@ -184,7 +184,12 @@ class _SessionRunStub:
 
     def __init__(self, session_id: str, iterations: list[dict]) -> None:
         self.session_id = session_id
-        self._iterations = _flatten_iterations(iterations)
+        # The rows as the journal wrote them. Flattening the nested parameters
+        # here would be a second convention beside the one the figures already
+        # apply, and the two named the cost differently: the report labelled a
+        # panel "objective" where the same figure on a promoted run labelled it
+        # "objective_value".
+        self._iterations = list(iterations)
         self.name = f"calibration_{session_id[:8]}"
         self.sim_id = session_id
 
@@ -195,45 +200,17 @@ class _SessionRunStub:
     def timeseries(self, variable: str, station: str | None = None):  # noqa: ARG002
         import pandas as pd
 
-        values = [row.get("objective", float("nan")) for row in self._iterations]
+        values = [_float_or_nan(row.get("objective_value")) for row in self._iterations]
         idx = pd.RangeIndex(len(values), name="iteration")
         return pd.DataFrame({variable: values}, index=idx)
 
 
-def _flatten_iterations(iterations: list[dict]) -> list[dict]:
-    """Lift each iteration's nested ``parameters`` into numeric columns.
-
-    The registered ``calibration_*`` figures consume one DataFrame row per
-    iteration with one column per parameter plus an ``objective`` column. The
-    persisted rows instead carry the parameters as a nested mapping (or a JSON
-    string), so this flattens them: ``{"K": value, "bedleak": value,
-    "objective": cost, "iteration": i}``. Non-numeric or missing values are
-    dropped so the figures never try to plot a string.
-    """
-    flat: list[dict] = []
-    for row in iterations:
-        rec: dict[str, Any] = {"iteration": row.get("iteration")}
-        obj = row.get("objective_value")
-        if obj is not None:
-            try:
-                rec["objective"] = float(obj)
-            except (TypeError, ValueError):
-                pass
-        params = row.get("parameters") or {}
-        if isinstance(params, str):
-            try:
-                params = json.loads(params)
-            except (TypeError, ValueError):
-                params = {}
-        if isinstance(params, dict):
-            for pname, pinfo in params.items():
-                value = pinfo.get("value") if isinstance(pinfo, dict) else pinfo
-                try:
-                    rec[str(pname)] = float(value)
-                except (TypeError, ValueError):
-                    continue
-        flat.append(rec)
-    return flat
+def _float_or_nan(value: Any) -> float:
+    """Return ``value`` as a float, or NaN when it is absent or not a number."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float("nan")
 
 
 def _render_figures(

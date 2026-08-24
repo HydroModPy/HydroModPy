@@ -132,8 +132,17 @@ def test_render_session_renders_lake_level_fit_panel(tmp_path, monkeypatch) -> N
     assert "best_lake_level_fit.png" in (tmp_path / "report" / "report.html").read_text()
 
 
-def test_flatten_iterations_lifts_params_into_numeric_columns() -> None:
+def test_the_report_hands_the_figures_the_rows_a_session_wrote() -> None:
+    """One flattening for both carriers, so one figure gives one reading.
+
+    The report used to flatten the journal itself, under its own convention: it
+    renamed ``objective_value`` to ``objective`` and dropped every other column.
+    The figures flatten too, and label the cost panel after the column they
+    resolve, so the same figure named the same quantity differently depending on
+    whether it was drawn from a session journal or from a promoted run.
+    """
     import hydromodpy.reporting.calibration_report as report
+    from hydromodpy.display.figures._trial_diagnostics import trial_table
 
     rows = [
         {
@@ -146,19 +155,26 @@ def test_flatten_iterations_lifts_params_into_numeric_columns() -> None:
                 "bedleak": {"value": 2e-6},
             },
         },
-        # parameters as a JSON string (as persisted in DuckDB)
+        # parameters as a JSON string, the way DuckDB persists them
         {
             "iteration": 1,
             "objective_value": 0.3,
             "parameters": '{"K": {"value": 5e-5}, "bedleak": {"value": 9e-6}}',
         },
     ]
-    flat = report._flatten_iterations(rows)
-    assert flat[0] == {"iteration": 0, "objective": 0.5, "K": 1e-4, "bedleak": 2e-6}
-    assert flat[1]["K"] == 5e-5
-    assert flat[1]["bedleak"] == 9e-6
-    # No nested dict / non-numeric leaks through (figures float-convert columns).
-    assert all(isinstance(v, (int, float)) for v in flat[0].values())
+    stub = report._SessionRunStub("session-0", rows)
+
+    assert stub.calibration_iterations == rows
+
+    table = trial_table(stub)
+    assert table.parameters == ("K", "bedleak")
+    assert table.objective_column() == "objective_value"
+    assert table.parameter_values("K")[1].tolist() == pytest.approx([1e-4, 5e-5])
+    assert table.objective_values()[1].tolist() == pytest.approx([0.5, 0.3])
+
+    # The HTML path reads the same key rather than a renamed copy of it.
+    series = stub.timeseries("objective_value")
+    assert series["objective_value"].tolist() == pytest.approx([0.5, 0.3])
 
 
 def test_render_html_escapes_session_rows_figures_and_iteration_preview() -> None:

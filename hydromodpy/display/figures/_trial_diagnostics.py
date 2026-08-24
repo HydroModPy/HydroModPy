@@ -29,6 +29,9 @@ if TYPE_CHECKING:
 
 _ORDER_COLUMNS: tuple[str, ...] = ("iteration", "iter", "trial", "i")
 
+_OBJECTIVE_COLUMNS: tuple[str, ...] = ("objective_value", "objective")
+"""The cost of a trial, as a session writes it and as a hand-built table names it."""
+
 _META_COLUMNS: frozenset[str] = frozenset(
     {
         "duration_s",
@@ -79,6 +82,43 @@ class TrialTable:
             )
         only = self.parameters[0]
         return only, _numeric_column(self.frame, only)
+
+    def iterations(self) -> np.ndarray:
+        """Return the trial numbers, or their rank when the session recorded none."""
+        for column in _ORDER_COLUMNS:
+            if column in self.frame.columns:
+                return _numeric_column(self.frame, column)
+        return np.arange(len(self.frame), dtype="float64")
+
+    def objective_values(self, name: str | None = None) -> tuple[str, np.ndarray]:
+        """Return the name and the per-trial values of the objective."""
+        column = self.objective_column(name)
+        return column, _numeric_column(self.frame, column)
+
+    def has_objective(self) -> bool:
+        """Whether an objective is resolvable, so a caller can make its panel optional."""
+        try:
+            self.objective_column()
+        except ValueError:
+            return False
+        return True
+
+    def objective_column(self, name: str | None = None) -> str:
+        """Resolve the column holding the cost of each trial."""
+        if name is not None:
+            if name not in self.frame.columns:
+                raise ValueError(
+                    f"the session recorded no objective {name!r}; it recorded "
+                    f"{', '.join(sorted(self.frame.columns))}."
+                )
+            return name
+        for candidate in _OBJECTIVE_COLUMNS:
+            if candidate in self.frame.columns:
+                return candidate
+        raise ValueError(
+            f"no trial recorded an objective under {' or '.join(_OBJECTIVE_COLUMNS)}; "
+            f"the session recorded {', '.join(sorted(self.frame.columns))}."
+        )
 
     def diagnostic(self, name: str, *, output: str | None = None) -> np.ndarray:
         """Return one diagnostic as float, NaN wherever a trial published none."""

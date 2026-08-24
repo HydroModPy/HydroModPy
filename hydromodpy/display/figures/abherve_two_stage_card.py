@@ -55,7 +55,14 @@ CLASS_NAMES: tuple[str, str, str] = ("valid", "excess", "missing")
 """The three classes of the confusion map, in the order the card stacks them."""
 
 _STAGE_LABELS: tuple[str, str] = ("root search", "storage")
-_RECHARGE_KEYS: tuple[str, ...] = ("R_mean", "mean_recharge")
+
+RECHARGE_KEY: str = "R_mean_m_s"
+"""The key the network criterion publishes the mean recharge under, per trial.
+
+Spelled out here rather than imported: ``display`` sits below ``calibration``
+in the layer matrix, so the two ends of this name are held by the tests that
+build a trial the way the criterion writes it.
+"""
 
 _VALID_COLOR = HIGH_CONTRAST_TRIPLET[0]
 _BREACH_COLOR = HIGH_CONTRAST_TRIPLET[2]
@@ -646,14 +653,11 @@ def _mean_recharge(table: TrialTable, given: float | None, *, output: str | None
     """Return the recharge the criterion ran with, declared or published."""
     if given is not None:
         return float(given)
-    for key in _RECHARGE_KEYS:
-        if not table.has_diagnostic(key, output=output):
-            continue
-        values = table.diagnostic(key, output=output)
-        finite = values[np.isfinite(values)]
-        if finite.size:
-            return float(np.median(finite))
-    return None
+    if not table.has_diagnostic(RECHARGE_KEY, output=output):
+        return None
+    values = table.diagnostic(RECHARGE_KEY, output=output)
+    finite = values[np.isfinite(values)]
+    return float(np.median(finite)) if finite.size else None
 
 
 def _diagnostic_at(

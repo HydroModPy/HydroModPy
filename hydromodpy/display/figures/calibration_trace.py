@@ -6,30 +6,13 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.results.calibration_trials import calibration_trials
+from hydromodpy.display.figures._trial_diagnostics import trial_table
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure as MplFigure
 
     from hydromodpy.results.run import Run
-
-
-_META_COLUMNS = frozenset(
-    {
-        "iter",
-        "iteration",
-        "i",
-        "session_id",
-        "sim_id",
-        "params_hash",
-        "status",
-        "from_cache",
-        "duration_s",
-        "metrics",
-        "parameters",
-    }
-)
 
 
 @register
@@ -67,7 +50,7 @@ class CalibrationTraceFigure(BaseFigure):
         sim: Run,
         *,
         parameters: list[str] | None = None,
-        objective: str = "objective",
+        objective: str | None = None,
         session_id: str | None = None,
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
@@ -76,24 +59,24 @@ class CalibrationTraceFigure(BaseFigure):
     ) -> MplFigure:
         import matplotlib.pyplot as plt
         import numpy as np
-        import pandas as pd
 
-        iters = calibration_trials(sim)
-        df = pd.DataFrame(iters)
-        if session_id is not None and "session_id" in df.columns:
-            df = df[df["session_id"].astype(str) == str(session_id)]
-        if len(df) == 0:
-            raise ValueError("calibration_trace: no iteration rows available")
+        table = trial_table(sim, session_id=session_id)
+        names = list(parameters) if parameters is not None else list(table.parameters)
+        if not names:
+            raise ValueError(
+                "calibration_trace: no parameter columns found; the session recorded "
+                f"{', '.join(sorted(table.frame.columns))}"
+            )
+        traces = [table.parameter_values(name) for name in names]
 
-        if parameters is None:
-            parameters = [c for c in df.columns if c not in _META_COLUMNS and c != objective]
-        if not parameters:
-            raise ValueError("calibration_trace: no parameter columns found")
+        x = table.iterations()
+        cost_name, cost = (
+            table.objective_values(objective)
+            if objective is not None or table.has_objective()
+            else (None, None)
+        )
 
-        iter_col = next((c for c in ("iter", "iteration", "i") if c in df.columns), None)
-        x = df[iter_col].to_numpy() if iter_col else np.arange(len(df))
-
-        n_panels = len(parameters) + (1 if objective in df.columns else 0)
+        n_panels = len(traces) + (1 if cost_name is not None else 0)
         fig, axes = plt.subplots(
             n_panels,
             1,
@@ -103,18 +86,16 @@ class CalibrationTraceFigure(BaseFigure):
             constrained_layout=True,
         )
         axes = np.atleast_1d(axes)
-        for ax, name in zip(axes[: len(parameters)], parameters, strict=False):
-            y = df[name].to_numpy(dtype=float)
+        for ax, (name, y) in zip(axes, traces, strict=False):
             ax.plot(x, y, color="#888", lw=0.8, zorder=1)
             ax.scatter(x, y, s=12, color="steelblue", zorder=2)
             ax.set_ylabel(name)
             ax.grid(True, ls=":", lw=0.4)
-        if objective in df.columns:
+        if cost_name is not None:
             ax = axes[-1]
-            y = df[objective].to_numpy(dtype=float)
-            ax.plot(x, y, color="#888", lw=0.8, zorder=1)
-            ax.scatter(x, y, s=12, color="tab:red", zorder=2)
-            ax.set_ylabel(objective)
+            ax.plot(x, cost, color="#888", lw=0.8, zorder=1)
+            ax.scatter(x, cost, s=12, color="tab:red", zorder=2)
+            ax.set_ylabel(cost_name)
             ax.grid(True, ls=":", lw=0.4)
         axes[-1].set_xlabel("Iteration")
         fig.suptitle(f"Calibration trace - {sim.name or sim.sim_id}")
