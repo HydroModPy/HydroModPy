@@ -60,6 +60,16 @@ if TYPE_CHECKING:
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
 
 
+def _sink_mask_on_grid(solver_mesh: SolverMesh, sink: np.ndarray) -> np.ndarray:
+    """Return the flat closed-depression mask reshaped to the structured grid."""
+    mask = np.asarray(sink, dtype=bool).reshape(-1)
+    if mask.size != solver_mesh.n_cells:
+        raise ValueError(
+            f"the sink mask holds {mask.size} cells, the solver mesh {solver_mesh.n_cells}."
+        )
+    return solver_mesh.reshape_to_grid(mask)
+
+
 @dataclass(slots=True)
 class FlowModflowInputs:
     """Solver-ready payloads produced from one validated ``Flow`` runtime object.
@@ -113,7 +123,7 @@ class FlowToModflowAdapter:
         grid: GridReference | None = None,
         simulation_window: ResolvedSimulationTimeWindow | None = None,
         sink_fill: bool,
-        sink=None,
+        sink: np.ndarray | None = None,
         flow_runtime_overrides: Mapping[str, object] | None = None,
     ):
         """Store adaptation context and normalize primitive arrays/scalars."""
@@ -144,7 +154,7 @@ class FlowToModflowAdapter:
             self.characteristic_length = float(self.grid.characteristic_length)
         self.resolution = float(self.characteristic_length)
         self.sink_fill = bool(sink_fill)
-        self.sink = None if sink is None else np.asarray(sink, dtype=float)
+        self.sink = None if sink is None else _sink_mask_on_grid(solver_mesh, sink)
         self.inactive_mask = solver_mesh.reshape_to_grid(solver_mesh.inactive_mask[0])
         self.flow_runtime_overrides = (
             None if flow_runtime_overrides is None else dict(flow_runtime_overrides)

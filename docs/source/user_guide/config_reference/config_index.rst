@@ -6571,7 +6571,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `solver <solver.html#solver-backend>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L90>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L93>`__
    * - ``solver.backend.backend``
      - ``Literal['modflow6']``
      - user
@@ -6602,6 +6602,12 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `solver <solver.html#solver-backend-name>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L59>`__
+   * - ``solver.sink_fill``
+     - ``bool``
+     - user
+     - -
+     - `solver <solver.html#solver-sink-fill>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L97>`__
    * - ``modflownwt.runtime``
      - ``ModflowRuntimeConfig``
      - expert

@@ -79,6 +79,7 @@ from hydromodpy.solver.modflow_common import (
     build_solver_routing_context,
     write_grid_array_to_raster,
 )
+from hydromodpy.solver.modflow_common.sink_mask import resolve_sink_mask
 from hydromodpy.solver.modflow_grid import (
     build_spatial_discretization,
     build_temporal_discretization_from_time_grid,
@@ -813,6 +814,15 @@ def run_pre_processing(  # noqa: PLR0915
         )
 
     idomain = solver_mesh.idomain()
+
+    # Measured here and not on the raw grid: the lake mask and the optional top
+    # conditioning both move the surface the drains sit on, and a depression the
+    # conditioning already raised is no longer one.
+    model.sink = resolve_sink_mask(
+        solver_mesh,
+        sink_fill=bool(model.sink_fill),
+        model_name=model.model_name,
+    )
 
     # SFR reaches resolve on the post-lake-mask mesh so every reach cell is an
     # active aquifer cell. Resolution happens before DRN so the drain rows

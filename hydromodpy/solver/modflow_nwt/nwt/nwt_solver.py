@@ -34,6 +34,7 @@ from hydromodpy.solver.modflow_common.options import (
     ModflowRunOptions,
 )
 from hydromodpy.solver.modflow_common.progress import run_model_with_progress
+from hydromodpy.solver.modflow_common.sink_mask import resolve_sink_mask
 from hydromodpy.solver.modflow_grid import (
     SolverGridContext,
     build_spatial_discretization,
@@ -119,10 +120,7 @@ class ModflowNwt:
         self.resolution = geographic.dem_res
         self.xul = geographic.xmin
         self.yul = geographic.ymax
-        try:
-            self.sink = geographic.depressions_data
-        except AttributeError:
-            pass
+        self.sink: np.ndarray | None = None
 
         if preprocess_options is None:
             preprocess_options = ModflowPreprocessOptions()
@@ -287,6 +285,11 @@ class ModflowNwt:
         self.cell_area = float(self.grid_ctx.grid.cell_area)
         self.resolution = float(self.grid_ctx.grid.characteristic_length)
         self.dem_watershed_path = self._write_solver_grid_template()
+        self.sink = resolve_sink_mask(
+            self.solver_mesh,
+            sink_fill=self.sink_fill,
+            model_name=self.model_name,
+        )
         return self.solver_mesh
 
     def _write_solver_grid_template(self) -> str:
@@ -351,7 +354,7 @@ class ModflowNwt:
             grid=None if self.grid_ctx is None else self.grid_ctx.grid,
             simulation_window=None if self.time_grid is None else self.time_grid.window,
             sink_fill=bool(self.sink_fill),
-            sink=getattr(self, "sink", None),
+            sink=self.sink,
             flow_runtime_overrides=getattr(self, "flow_runtime_overrides", None),
         )
         return adapter.build()

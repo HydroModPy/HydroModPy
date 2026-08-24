@@ -110,7 +110,7 @@ Sections
 
       **[solver]**
       ^^^
-      Global solver selection loaded from [solver.backend].
+      Global solver block loaded from [solver]: the backend selector in [solver.backend], plus the backend-agnostic preprocessing switches both MODFLOW backends read (solver.sink_fill).
 
    .. grid-item-card::
       :link: modflownwt

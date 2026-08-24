@@ -40,6 +40,7 @@ from hydromodpy.core.field_routing import (
     build_downhill_graph,
     cell_adjacency_from_face_connectivity,
     cell_centroids_from_mesh,
+    domain_edge_cells,
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.topographic_distance import shared_node_adjacency
@@ -226,7 +227,7 @@ def routing_surface_from_run(sim: Run, *, diagonal_neighbors: bool = False) -> R
         vertices=vertices,
         active=active,
         catchment=catchment,
-        domain_edge=_domain_edge_cells(connectivity, active),
+        domain_edge=domain_edge_cells(connectivity, active),
         outlet=_lowest_cell(topography, active if catchment is None else catchment),
         diagonal_neighbors=bool(diagonal_neighbors),
     )
@@ -235,36 +236,6 @@ def routing_surface_from_run(sim: Run, *, diagonal_neighbors: bool = False) -> R
 def _lowest_cell(topography: np.ndarray, within: np.ndarray) -> int:
     """Return the lowest cell of a support, the way the stream criterion does."""
     return int(np.argmin(np.where(within, topography, np.inf)))
-
-
-def _domain_edge_cells(connectivity: np.ndarray, active: np.ndarray) -> np.ndarray:
-    """Return the active cells holding a face edge no other active cell shares.
-
-    Read off the mesh rather than off the neighbour count: a degree below the
-    maximum means "on the edge" only on a structured grid, and a Voronoi dual
-    carries every degree from three upwards in its interior.
-    """
-    rows = np.asarray(connectivity, dtype=np.int64)
-    if rows.ndim == 1:
-        rows = rows.reshape(1, -1)
-    rows = rows[: active.size]
-    present = rows >= 0
-    # Compact the nodes of each face to the front, keeping the ring order, so
-    # the following node of slot j is slot (j + 1) modulo the face arity.
-    ring = np.take_along_axis(rows, np.argsort(~present, axis=1, kind="stable"), axis=1)
-    arity = present.sum(axis=1)
-    slots = np.arange(rows.shape[1])
-    following = np.take_along_axis(
-        ring, np.mod(slots[None, :] + 1, np.maximum(arity, 1)[:, None]), axis=1
-    )
-    low = np.minimum(ring, following)
-    high = np.maximum(ring, following)
-    drawn = (slots[None, :] < arity[:, None]) & active[:, None] & (low != high)
-    key = low * (int(rows.max(initial=0)) + 1) + high
-    _, inverse, counts = np.unique(key[drawn], return_inverse=True, return_counts=True)
-    shared = np.zeros(key.shape, dtype=bool)
-    shared[drawn] = counts[inverse] > 1
-    return active & (drawn & ~shared).any(axis=1)
 
 
 def _catchment_cells(

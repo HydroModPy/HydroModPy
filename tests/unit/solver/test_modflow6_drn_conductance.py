@@ -49,7 +49,12 @@ def _drn_mesh(thickness: float) -> SolverMesh:
 
 def _drn_model() -> SimpleNamespace:
     return SimpleNamespace(
-        dem_mask=np.zeros(6, dtype=bool), nper=1, ncpl=6, hk=np.full((1, 6), 1e-4)
+        dem_mask=np.zeros(6, dtype=bool),
+        nper=1,
+        ncpl=6,
+        hk=np.full((1, 6), 1e-4),
+        sink_fill=False,
+        sink=None,
     )
 
 

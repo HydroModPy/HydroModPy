@@ -91,7 +91,7 @@ class Modflow6:
         self.resolution = geographic.dem_res
         self.xul = geographic.xmin
         self.yul = geographic.ymax
-        self.sink = getattr(geographic, "depressions_data", None)
+        self.sink: np.ndarray | None = None
 
         self.preprocess_options = preprocess_options or ModflowPreprocessOptions()
         self._apply_preprocess_options(self.preprocess_options)

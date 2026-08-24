@@ -85,11 +85,30 @@ class SolverConfig(HydroModelBase):
     The V1 TOML form is ``backend = { backend = "modflow6" }`` for a
     built-in backend, or ``backend = { backend = "custom", name = "x" }``
     for a plugin-registered backend.
+
+    It also carries the backend-agnostic preprocessing switches both MODFLOW
+    backends read, so one TOML key drives both.
     """
 
     backend: Annotated[SolverBackendConfig, Profile.USER] = Field(
         default_factory=Modflow6Backend,
         description="Active flow backend selector (discriminated union).",
+    )
+    sink_fill: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Dimensionless. Remove the drain from every cell sitting in a closed "
+            "depression of the model top, by setting its DRN conductance to zero. "
+            "A closed depression has no outlet, so water reaching it ponds instead "
+            "of seeping into a stream, and a drain there invents a discharge point. "
+            "The depressions are measured on the solver mesh, by a priority flood "
+            "seeded on every cell water can leave the domain through; both MODFLOW "
+            "backends read the same mask. This does NOT move the topography: no "
+            "elevation is raised, no DEM is rewritten, and every other package sees "
+            "the surface it would have seen. Refused when the mask cannot be built. "
+            "Default false, which drains every cell as before."
+        ),
+        examples=[False, True],
     )
 
     @property

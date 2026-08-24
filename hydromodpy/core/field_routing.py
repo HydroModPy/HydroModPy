@@ -189,6 +189,41 @@ def cell_adjacency_from_face_connectivity(
     return adjacency
 
 
+def domain_edge_cells(face_node_connectivity: Any, active: Any) -> np.ndarray:
+    """Return the active cells holding a face edge no other active cell shares.
+
+    The geometric boundary of the modelled domain, where water leaves the mesh.
+    It is the seed set a priority flood needs to raise the closed depressions
+    and nothing else.
+
+    Read off the mesh rather than off the neighbour count: a degree below the
+    maximum means "on the edge" only on a structured grid, and a Voronoi dual
+    carries every degree from three upwards in its interior.
+    """
+    selected = np.asarray(active, dtype=bool).reshape(-1)
+    rows = np.asarray(face_node_connectivity, dtype=np.int64)
+    if rows.ndim == 1:
+        rows = rows.reshape(1, -1)
+    rows = rows[: selected.size]
+    present = rows >= 0
+    # Compact the nodes of each face to the front, keeping the ring order, so
+    # the following node of slot j is slot (j + 1) modulo the face arity.
+    ring = np.take_along_axis(rows, np.argsort(~present, axis=1, kind="stable"), axis=1)
+    arity = present.sum(axis=1)
+    slots = np.arange(rows.shape[1])
+    following = np.take_along_axis(
+        ring, np.mod(slots[None, :] + 1, np.maximum(arity, 1)[:, None]), axis=1
+    )
+    low = np.minimum(ring, following)
+    high = np.maximum(ring, following)
+    drawn = (slots[None, :] < arity[:, None]) & selected[:, None] & (low != high)
+    key = low * (int(rows.max(initial=0)) + 1) + high
+    _, inverse, counts = np.unique(key[drawn], return_inverse=True, return_counts=True)
+    shared = np.zeros(key.shape, dtype=bool)
+    shared[drawn] = counts[inverse] > 1
+    return selected & (drawn & ~shared).any(axis=1)
+
+
 def cell_centroids_from_mesh(
     vertices: Any,
     face_node_connectivity: Any,
@@ -349,6 +384,7 @@ __all__ = [
     "build_downhill_graph",
     "cell_adjacency_from_face_connectivity",
     "cell_centroids_from_mesh",
+    "domain_edge_cells",
     "drain_budget_stack_to_positive_outflow",
     "drain_budget_to_positive_outflow",
     "find_drain_budget_key",

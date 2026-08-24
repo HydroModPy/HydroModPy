@@ -192,7 +192,11 @@ class HydroModPyConfig(HydroModelBase):
     )
     solver: Annotated[SolverConfig, Profile.USER] = Field(
         default_factory=SolverConfig,
-        description="Global solver selection loaded from [solver.backend].",
+        description=(
+            "Global solver block loaded from [solver]: the backend selector in "
+            "[solver.backend], plus the backend-agnostic preprocessing switches "
+            "both MODFLOW backends read (solver.sink_fill)."
+        ),
     )
     modflownwt: Annotated[ModflowConfig, Profile.EXPERT] = Field(
         default_factory=ModflowConfig,

@@ -306,6 +306,10 @@ Sub-models are linked back to their per-section page.
       [solver]
       # Active flow backend selector (discriminated union).
       # backend = ...  # uses factory default
+      # Dimensionless. Remove the drain from every cell sitting in a closed depression of the model top, by setting its DRN conductance to zero. A closed depression has no outlet, so water reaching it ponds instead of seeping into a stream, and a drain there invents a discharge point. The depressions are measured on the solver mesh, by a priority flood seeded on every cell water can leave the domain through; both MODFLOW backends read the same mask. This does NOT move the topography: no elevation is raised, no DEM is rewritten, and every other package sees the surface it would have seen. Refused when the mask cannot be built. Default false, which drains every cell as before.
+      # example: sink_fill = false
+      # example: sink_fill = true
+      sink_fill = false
 
 .. dropdown:: ``[modflownwt]`` (ModflowConfig)
    :icon: gear

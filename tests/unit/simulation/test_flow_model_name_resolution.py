@@ -37,9 +37,10 @@ def test_build_preprocess_options_returns_defaults() -> None:
     settings.py is deprecated; options are sourced from FlowConfig /
     ModflowPreprocessOptions defaults instead.
     """
+    from hydromodpy.solver.base.solver_config import SolverConfig
     from hydromodpy.solver.modflow_nwt import ModflowPreprocessOptions
 
-    state = SimpleNamespace(setup=SimpleNamespace())
+    state = SimpleNamespace(setup=SimpleNamespace(), cfg=SimpleNamespace(solver=SolverConfig()))
     options = build_preprocess_options(state)
 
     defaults = ModflowPreprocessOptions()
