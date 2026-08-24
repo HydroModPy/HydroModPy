@@ -394,7 +394,9 @@ def _figure_budget_fields(
 
     These fields have no ``results.derived`` flag of their own: the budget
     group is their only switch, so a figure declaring one is a request for
-    the group.
+    the group. Optional fields count too: a map over a family of packages
+    cannot require every member without reporting itself unavailable on a run
+    that carries only one, yet asking for it is still asking for the group.
     """
     from hydromodpy.display import figure_registry
     from hydromodpy.results.field_registry import FIELD_REGISTRY
@@ -403,7 +405,8 @@ def _figure_budget_fields(
         return ()
     wanted: set[str] = set()
     for figure_name in display.figures:
-        for field in figure_registry.get(figure_name).spec.required_fields:
+        spec = figure_registry.get(figure_name).spec
+        for field in (*spec.required_fields, *spec.optional_fields):
             descriptor = FIELD_REGISTRY.get(field)
             if descriptor is not None and descriptor.zarr_path.startswith("budget/"):
                 wanted.add(field)

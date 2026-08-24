@@ -106,6 +106,7 @@ Figure contract
        title: str
        kind: str                     # "spatial" | "timeseries" | "balance" | "calibration" | ...
        required_fields: tuple[str, ...]
+       optional_fields: tuple[str, ...]
        required_tables: tuple[str, ...]
        default_figsize: tuple[float, float]
 
