@@ -1259,7 +1259,7 @@
           },
           "max_unreachable_fraction": {
             "default": 0.05,
-            "description": "Share of a support whose descent may end without meeting its target before the trial fails. Beyond a few per cent the surface is not conditioned and the averages would be a fiction.",
+            "description": "Bound on 'frac_unreachable_so' alone: the share of the simulated network whose descent never meets the mapped one, whose target does not move between trials. Beyond a few per cent the routing surface is not conditioned and D_so would be a fiction. The reciprocal share, 'frac_unreachable_os', is reported and deliberately left unbounded: its target is the simulated network, which the search itself retracts.",
             "examples": [
               0.05
             ],
@@ -1292,22 +1292,6 @@
               "last"
             ],
             "title": "Time",
-            "x-hmp-profile": "user"
-          },
-          "reducer": {
-            "default": "none",
-            "description": "Kept for symmetry with the other supports; the pair this output produces is already reduced.",
-            "enum": [
-              "mean",
-              "sum",
-              "last",
-              "none"
-            ],
-            "examples": [
-              "mean"
-            ],
-            "title": "Reducer",
-            "type": "string",
             "x-hmp-profile": "user"
           },
           "observed_values": {
