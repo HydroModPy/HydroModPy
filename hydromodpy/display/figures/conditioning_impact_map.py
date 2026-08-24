@@ -46,6 +46,29 @@ class ConditioningImpactMap(BaseFigure):
         default_figsize=(7.5, 6.0),
     )
 
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Skip, with a sentence, a run that kept no surface to compare against.
+
+        The pre-conditioning top is persisted only by the MODFLOW 6 runtime mesh
+        under ``condition_top``. Every other run legitimately has nothing to
+        compare, and a gallery has to skip it rather than lose its whole pass to
+        a figure that was never applicable.
+        """
+        try:
+            mesh = sim.mesh
+        except (RuntimeError, KeyError, FileNotFoundError) as exc:
+            return f"run carries no mesh to compare ({type(exc).__name__})"
+        if mesh is None or mesh.topography is None:
+            return "run persisted no mesh topography"
+        if mesh.topography_reference is None:
+            return (
+                "run kept no pre-conditioning top to compare against: it is written by the "
+                "MODFLOW 6 runtime mesh under [mesh_input] condition_top = true, and a run "
+                "on another mesh has nothing to difference. Pass reference=<run> to compare "
+                "two runs sharing a mesh instead."
+            )
+        return super().unavailable_reason(sim)
+
     def render(
         self,
         sim: Run,

@@ -48,12 +48,21 @@ class FigureSpec:
     given run: :meth:`BaseFigure.unavailable_reason` turns them into a
     human-readable reason, so a figure that does not fit the configured
     processes is skipped explicitly instead of failing at render time.
+
+    ``optional_fields`` lists fields the figure reads when they are there and
+    does without otherwise. Required means "cannot render without"; optional
+    means "compute it when this figure is asked for, but refuse with a
+    sentence rather than be reported unavailable". A categorical map over a
+    family of packages needs the family computed, not every member of it, so
+    it declares the family here and its own ``unavailable_reason`` decides
+    what a run missing all of them is told.
     """
 
     name: str
     title: str
     kind: FigureKind = "spatial"
     required_fields: tuple[str, ...] = ()
+    optional_fields: tuple[str, ...] = ()
     required_tables: tuple[str, ...] = ()
     required_solvers: tuple[str, ...] = ()
     default_figsize: tuple[float, float] = (7.0, 5.0)
