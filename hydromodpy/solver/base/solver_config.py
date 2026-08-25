@@ -109,6 +109,15 @@ class SolverConfig(HydroModelBase):
             "backends read the same mask. This does NOT move the topography: no "
             "elevation is raised, no DEM is rewritten, and every other package sees "
             "the surface it would have seen. Refused when the mask cannot be built. "
+            "The depressions are counted on the four shared faces MODFLOW "
+            "connects, not on the eight neighbours a raster fill uses: measured "
+            "on the Nancon, 4.56 per cent of the mesh against 2.12 per cent, a "
+            "factor of two that is the neighbourhood and nothing else. NOT "
+            "SANCTIONED BY ANY SOURCE: no manual, no USGS document and no "
+            "guideline removes a discharge boundary where a pit is detected, and "
+            "measured here it degrades both scores. The remedy the USGS does "
+            "document for the same question is solver.drain_band_depth_m, which "
+            "gives every cell a discharge band instead of taking the drain away. "
             "Default false, which drains every cell as before."
         ),
         examples=[False, True],

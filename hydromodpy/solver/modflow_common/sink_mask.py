@@ -12,6 +12,19 @@ new pits once it is resampled onto a mesh with a different neighbourhood, so
 the only support that answers the question the drain package asks is the mesh
 top itself. Nothing is written to disk and nothing is moved: the topography the
 solver receives is untouched, only the drain conductance changes.
+
+**The neighbourhood is the four shared faces, and the count depends on it.**
+Same top, same flood, same seed, only the graph changes::
+
+    rook  (4 shared faces, what MODFLOW connects)   2 753 cells   4.56 %
+    queen (8 neighbours, the D8 convention)         1 280 cells   2.12 %
+
+A factor of 2.15, which is the whole gap with the 2.30 % a raster fill reports
+on the same DEM: a raster fill routes in D8, hence queen. Rook is the right
+answer to THIS question. A structured MODFLOW grid connects four faces, so a
+cell whose only lower neighbour lies on a diagonal genuinely cannot pass its
+water on. The split by support rules out clipping as the cause: 5.14 % inside
+the catchment against 4.12 % in the buffer.
 """
 
 from __future__ import annotations

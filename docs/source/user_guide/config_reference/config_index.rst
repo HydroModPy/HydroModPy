@@ -6613,7 +6613,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `solver <solver.html#solver-drain-band-depth-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L116>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L125>`__
    * - ``modflownwt.runtime``
      - ``ModflowRuntimeConfig``
      - expert

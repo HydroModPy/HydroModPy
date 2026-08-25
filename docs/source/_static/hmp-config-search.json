@@ -13346,7 +13346,7 @@
     "section": "solver",
     "anchor": "solver-drain-band-depth-m",
     "page": "solver.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L116",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L125",
     "description": "Metres. Depth D of the sub-cell discharge band every drain cell gets instead of a single elevation: the drain sits at top - D/2 and its conductance is multiplied by top_layer_thickness / D. The multiplier is the thickness and not the cell a",
     "examples": [
       "0.0",
