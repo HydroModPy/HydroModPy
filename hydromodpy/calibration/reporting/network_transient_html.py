@@ -1,24 +1,85 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from argparse import Namespace
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-
-from hydromodpy.calibration.network_transient_truth import (
-    mesh_cell_geometry,
-    q_total_release_from_drain_by_cell,
-)
 from hydromodpy.calibration.reporting.network_transient import args as _nt_args
 from hydromodpy.calibration.reporting.network_transient import blocks as _blocks
 from hydromodpy.calibration.reporting.network_transient import io as _nt_io
 from hydromodpy.calibration.reporting.network_transient import state as _state
-from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.results.run import Run
+from hydromodpy.calibration.reporting.network_transient.figures_balance import (
+    _q_total_release_series,
+    _recharge_values_from_config,
+    _save_q_timeseries_figure,
+    _save_recharge_chronicle_figure,
+    _save_steady_balance_didactic,
+)
+from hydromodpy.calibration.reporting.network_transient.figures_objective import (
+    _axis_bounds,
+    _best_completed_candidate_id,
+    _log_objective_values,
+    _nearest_value,
+    _objective_grid_image,
+    _plot_objective_cut,
+    _save_objective_parameter_maps,
+    _save_objective_profile_cuts,
+    _truth_parameters,
+)
+from hydromodpy.calibration.reporting.network_transient.figures_outflow import (
+    _network_map_source_label,
+    _outflow_drain_from_npz,
+    _save_dem_context_map,
+    _save_outflow_map_grid,
+    _steady_drain_from_score_row,
+)
+from hydromodpy.calibration.reporting.network_transient.figures_watershed import (
+    _as_int_str,
+    _draw_watershed_metadata,
+    _draw_watershed_topography,
+    _extent_from_transform,
+    _load_run_dem,
+    _mark_watershed_outlet,
+    _open_first_run,
+    _plot_watershed_id_card,
+    _plot_watershed_id_card_placeholder,
+    _save_watershed_id_card,
+)
+
+# Re-export the moved private helpers so the facade surface
+# (network_transient_html.<name>) and its monkeypatch points stay stable.
+from hydromodpy.calibration.reporting.network_transient.geometry import (
+    _candidate_is_truth,
+    _cell_node_id_values,
+    _drain_facecolors,
+    _first_non_truth_candidate,
+    _iter_geometry_line_coords,
+    _mesh_context_from_cell_geometry,
+    _mesh_context_from_truth_package,
+    _mesh_polygons,
+    _origin_from_config_or_centroids,
+    _plot_geographic_lines,
+    _plot_topography,
+    _polygon_bounds,
+    _relative_gdf_bounds,
+    _relative_origin,
+    _relative_polygons,
+    _safe_geographic,
+    _score_catalog_path,
+    _score_file_path,
+    _topography_context,
+    _watershed_clip_patch,
+)
+from hydromodpy.calibration.reporting.network_transient.manifest import (
+    _manifest_contract,
+    _manifest_normalization,
+    _manifest_score_row,
+    _reference_manifest_payload,
+    _sha256_file,
+    _write_reference_manifest,
+)
 
 REPO_ROOT = _state.REPO_ROOT
 DEFAULT_EXAMPLE_ROOT = _state.DEFAULT_EXAMPLE_ROOT
@@ -36,6 +97,69 @@ STEADY_SUMMARY_CSV = _state.STEADY_SUMMARY_CSV
 
 
 NetworkTransientHtmlArtifactReport = _nt_io.NetworkTransientHtmlArtifactReport
+
+__all__ = [
+    "NetworkTransientHtmlArtifactReport",
+    "build_network_transient_html",
+    "build_network_transient_html_from_args",
+    "inspect_network_transient_html_artifacts",
+    "main",
+    "_as_int_str",
+    "_axis_bounds",
+    "_best_completed_candidate_id",
+    "_candidate_is_truth",
+    "_cell_node_id_values",
+    "_drain_facecolors",
+    "_draw_watershed_metadata",
+    "_draw_watershed_topography",
+    "_extent_from_transform",
+    "_first_non_truth_candidate",
+    "_iter_geometry_line_coords",
+    "_load_run_dem",
+    "_log_objective_values",
+    "_manifest_contract",
+    "_manifest_normalization",
+    "_manifest_score_row",
+    "_mark_watershed_outlet",
+    "_mesh_context_from_cell_geometry",
+    "_mesh_context_from_truth_package",
+    "_mesh_polygons",
+    "_nearest_value",
+    "_network_map_source_label",
+    "_objective_grid_image",
+    "_open_first_run",
+    "_origin_from_config_or_centroids",
+    "_outflow_drain_from_npz",
+    "_plot_geographic_lines",
+    "_plot_objective_cut",
+    "_plot_topography",
+    "_plot_watershed_id_card",
+    "_plot_watershed_id_card_placeholder",
+    "_polygon_bounds",
+    "_q_total_release_series",
+    "_recharge_values_from_config",
+    "_reference_manifest_payload",
+    "_relative_gdf_bounds",
+    "_relative_origin",
+    "_relative_polygons",
+    "_safe_geographic",
+    "_save_dem_context_map",
+    "_save_objective_parameter_maps",
+    "_save_objective_profile_cuts",
+    "_save_outflow_map_grid",
+    "_save_q_timeseries_figure",
+    "_save_recharge_chronicle_figure",
+    "_save_steady_balance_didactic",
+    "_save_watershed_id_card",
+    "_score_catalog_path",
+    "_score_file_path",
+    "_sha256_file",
+    "_steady_drain_from_score_row",
+    "_topography_context",
+    "_truth_parameters",
+    "_watershed_clip_patch",
+    "_write_reference_manifest",
+]
 
 
 def main() -> None:
@@ -197,229 +321,8 @@ def inspect_network_transient_html_artifacts(
 
 _read_csv = _nt_io.read_csv
 _read_json = _nt_io.read_json
-_read_toml = _nt_io.read_toml
 _read_truth_discharge = _nt_io.read_truth_discharge
 _float = _nt_io.coerce_float
-_fmt = _nt_io.fmt_float
-_as_int_str = _nt_io.as_int_str
-
-
-def _write_reference_manifest(
-    html_report: Path,
-    *,
-    artifact_report: NetworkTransientHtmlArtifactReport,
-    normalization: dict[str, Any],
-    score_rows: list[dict[str, str]],
-) -> Path:
-    manifest = _reference_manifest_payload(
-        html_report,
-        artifact_report=artifact_report,
-        normalization=normalization,
-        score_rows=score_rows,
-    )
-    path = REAL_ROOT / "b0_reference_manifest.json"
-    path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return path
-
-
-def _reference_manifest_payload(
-    html_report: Path,
-    *,
-    artifact_report: NetworkTransientHtmlArtifactReport,
-    normalization: dict[str, Any],
-    score_rows: list[dict[str, str]],
-) -> dict[str, Any]:
-    truth_dir = artifact_report.truth_dir
-    score_table = artifact_report.score_table
-    metadata = _read_json(truth_dir / "metadata.json") if truth_dir is not None else {}
-    completed = [row for row in score_rows if row.get("status") == "completed"]
-    failed = [row for row in score_rows if row.get("status") != "completed"]
-    best_global = (
-        min(completed, key=lambda row: _float(row.get("J"), float("inf"))) if completed else None
-    )
-    non_target = [row for row in completed if not _candidate_is_truth(row)]
-    best_non_target = (
-        min(non_target, key=lambda row: _float(row.get("J"), float("inf"))) if non_target else None
-    )
-    status_counts: dict[str, int] = {}
-    for row in score_rows:
-        status = str(row.get("status", "") or "").strip() or "unknown"
-        status_counts[status] = status_counts.get(status, 0) + 1
-
-    truth_files = {
-        "metadata_json": truth_dir / "metadata.json" if truth_dir is not None else None,
-        "normalization_json": truth_dir / "normalization.json" if truth_dir is not None else None,
-        "steady_network_drain_by_cell_npz": (
-            truth_dir / "steady_network_drain_by_cell.npz" if truth_dir is not None else None
-        ),
-        "steady_network_active_mask_npz": (
-            truth_dir / "steady_network_active_mask.npz" if truth_dir is not None else None
-        ),
-        "transient_q_total_release_csv": (
-            truth_dir / "transient_q_total_release.csv" if truth_dir is not None else None
-        ),
-    }
-    contract_version = str(
-        normalization.get("contract_version") or "b0_network_steady_discharge_transient.v1"
-    )
-
-    return {
-        "schema": "hydromodpy.calibration.b0_reference_manifest.v1",
-        "contract_version": contract_version,
-        "contract": _manifest_contract(
-            contract_version,
-            normalization=normalization,
-            metadata=metadata,
-        ),
-        "paths": {
-            "truth_dir": None if truth_dir is None else str(truth_dir),
-            "score_table": None if score_table is None else str(score_table),
-            "html_report": str(html_report),
-        },
-        "truth": {
-            "site_id": metadata.get("site_id"),
-            "mK_true": metadata.get("mK_true"),
-            "Sy_true": metadata.get("Sy_true"),
-            "n_cells": metadata.get("n_cells"),
-            "n_timesteps": metadata.get("n_timesteps"),
-        },
-        "score_window": {
-            "warmup_periods": normalization.get("warmup_periods"),
-            "score_start_index": normalization.get("score_start_index"),
-            "score_stop_index": normalization.get("score_stop_index"),
-            "scored_periods": normalization.get("scored_periods"),
-        },
-        "normalization": _manifest_normalization(contract_version, normalization),
-        "grid": {
-            "rows_total": len(score_rows),
-            "completed": len(completed),
-            "failed": len(failed),
-            "status_counts": status_counts,
-        },
-        "best_global": _manifest_score_row(best_global),
-        "best_non_target": _manifest_score_row(best_non_target),
-        "contract_warnings": list(artifact_report.contract_warnings),
-        "hashes": {
-            "score_table": _sha256_file(score_table),
-            **{f"truth.{name}": _sha256_file(path) for name, path in truth_files.items()},
-        },
-    }
-
-
-def _manifest_score_row(row: dict[str, str] | None) -> dict[str, Any] | None:
-    if row is None:
-        return None
-    keys = (
-        "candidate_id",
-        "mK",
-        "Sy",
-        "status",
-        "J",
-        "C_reseau_phys",
-        "C_debit_phys",
-        "C_reseau_naturel",
-        "C_debit_obs",
-        "network_map_source",
-        "error",
-    )
-    out: dict[str, Any] = {}
-    for key in keys:
-        value = row.get(key)
-        if key in {
-            "mK",
-            "Sy",
-            "J",
-            "C_reseau_phys",
-            "C_debit_phys",
-            "C_reseau_naturel",
-            "C_debit_obs",
-        }:
-            numeric = _float(value)
-            out[key] = numeric if np.isfinite(numeric) else None
-        elif value not in (None, ""):
-            out[key] = value
-    return out
-
-
-def _manifest_normalization(
-    contract_version: str,
-    normalization: dict[str, Any],
-) -> dict[str, Any]:
-    if contract_version.startswith("natural_"):
-        keys = (
-            "Q_ref_steady",
-            "Qbar_ref",
-            "L_ref",
-            "d_tol",
-            "tau_network",
-            "eta_dist",
-            "network_distance_metric",
-            "discharge_metric",
-            "alpha_Q",
-            "nse_log_epsilon",
-            "w_reseau",
-            "w_debit",
-        )
-    else:
-        keys = (
-            "Q_ref_steady",
-            "Qbar_ref",
-            "L_ref",
-            "d_tol",
-            "tau_network",
-            "eta_flux",
-            "eta_dist",
-            "eta_len",
-            "network_distance_metric",
-            "discharge_metric",
-            "alpha_Q",
-            "nse_log_epsilon",
-            "w_reseau",
-            "w_debit",
-        )
-    return {key: normalization.get(key) for key in keys}
-
-
-def _manifest_contract(
-    contract_version: str,
-    *,
-    normalization: dict[str, Any],
-    metadata: dict[str, Any],
-) -> dict[str, Any]:
-    w_network = _float(normalization.get("w_reseau"), 0.5)
-    w_discharge = _float(normalization.get("w_debit"), 0.5)
-    if contract_version.startswith("natural_") or metadata.get("package_type") == (
-        "natural_observation_package"
-    ):
-        objective = f"{w_network:g}*C_reseau_naturel + {w_discharge:g}*C_debit_obs"
-        network_observable = metadata.get(
-            "network_observable",
-            "observed_hydrography_presence_vs_steady_outflow_support",
-        )
-        discharge_observable = metadata.get("discharge_observable", "observed_streamflow")
-    else:
-        objective = f"{w_network:g}*C_reseau_phys + {w_discharge:g}*C_debit_phys"
-        network_observable = "steady_outflow_drain"
-        discharge_observable = "transient_Q_total_release"
-    return {
-        "network_observable": network_observable,
-        "discharge_observable": discharge_observable,
-        "objective": objective,
-        "failure_policy": {
-            "reporting": "failed candidates keep status and NaN objective; they are excluded from ranking",
-            "future_optimizer": "return pruned/failed or a finite penalty outside the report ranking path",
-        },
-    }
-
-
-def _sha256_file(path: Path | None) -> str | None:
-    if path is None or not path.is_file():
-        return None
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _generate_figures(

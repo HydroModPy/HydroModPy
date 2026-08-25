@@ -28,7 +28,7 @@ REPO_ROOT = EXAMPLE_ROOT.parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.solver.modflow6.prt_tracks import (
+from hydromodpy.solver.modflow6.extractors._prt_tracks import (
     read_prt_track_csv,
     read_time_units_from_tdis,
 )

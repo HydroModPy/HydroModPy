@@ -1,9 +1,9 @@
 """Composite metric extractors.
 
-The legacy ``build_metric_extractor`` factory and its composite variant live
-here. They wire ``CalibrationConfig.outputs`` and ``objective_blocks`` to the
-solver extractors and produce the ``(primary, components)`` payload consumed by
-the calibration engine.
+The ``build_metric_extractor`` factory and its composite variant live here.
+They wire ``CalibrationConfig.outputs`` and ``objective_blocks`` to the solver
+extractors and produce the ``(primary, components)`` payload consumed by the
+calibration engine.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import pandas as pd
 
 from hydromodpy.calibration.metrics.scalar import score
 from hydromodpy.calibration.metrics.series import (
@@ -21,19 +22,30 @@ from hydromodpy.calibration.metrics.series import (
     resolve_time_index,
 )
 from hydromodpy.calibration.metrics.solver_extract import (
-    extract_boundary,
-    extract_cell,
-    extract_point,
+    extract_outputs,
+    observable_series,
     resolve_flow_adapter,
     resolve_station_cells,
 )
-from hydromodpy.calibration.objective import build_objective_from_config
+from hydromodpy.calibration.optim.objective import build_objective_from_config
+from hydromodpy.core.contracts.observables import ObservableRequest
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibOutputDecl
 
 logger = get_logger(__name__)
+
+# Station id the discharge target uses when a run has a single catchment outlet.
+_CATCHMENT = "_catchment"
+
+
+def _series_for(results: Mapping[str, Any], request_id: str, *, name: str) -> pd.Series:
+    """Read one observable out of a batch, or say which one is missing."""
+    result = results.get(request_id)
+    if result is None:
+        raise NotImplementedError(f"Solver returned no {name} observable for {request_id!r}")
+    return observable_series(result, name=name)
 
 
 def build_metric_extractor(
@@ -43,6 +55,8 @@ def build_metric_extractor(
     *,
     outputs: Mapping[str, CalibOutputDecl] | None = None,
     objective_blocks: list[CalibObjectiveBlockDecl] | None = None,
+    warmup_periods: int = 0,
+    scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
 ) -> Callable[..., tuple[float, Mapping[str, float]]]:
     """Return a metric function closed over the loaded observations.
 
@@ -50,11 +64,24 @@ def build_metric_extractor(
     ``metric_fn(ctx, *, objective=..., variable=...) -> (primary, metrics)``.
 
     When ``outputs`` and ``objective_blocks`` are both provided, the extractor
-    routes through :func:`build_objective_from_config`. Otherwise the legacy
+    routes through :func:`build_objective_from_config`. Otherwise the
     single-metric path runs against ``loaded_data`` (variable + objective).
+    Both branches are supported: the single-metric one is the standard TOML
+    route taken whenever no ``objective_blocks`` are declared.
+
+    ``warmup_periods`` reaches both branches. ``scoring_window`` bounds the
+    scored samples in dates, which only the single-metric branch can do: the
+    composite branch scores plain value vectors that carry no time axis to cut
+    on, so a window declared with objective blocks is refused rather than
+    ignored.
     """
     if outputs and objective_blocks:
-        return _build_composite_metric_extractor(outputs, objective_blocks)
+        return _build_composite_metric_extractor(
+            outputs,
+            objective_blocks,
+            warmup_periods=warmup_periods,
+            scoring_window=scoring_window,
+        )
 
     observed = load_observed(ctx, variable) if variable else []
     if not observed:
@@ -71,12 +98,13 @@ def build_metric_extractor(
         time_idx = resolve_time_index(trial_ctx, n_timesteps=0)
         try:
             if variable == "discharge":
-                simulated = adapter.extract_calibration_series(
+                results = adapter.extract_observables(
                     run_ctx,
                     None,
-                    variable="discharge",
+                    [ObservableRequest(id=_CATCHMENT, name="discharge", support="domain")],
                     time_index=time_idx,
                 )
+                simulated = _series_for(results, _CATCHMENT, name="discharge")
                 if simulated.empty:
                     raise NotImplementedError(
                         f"Solver {run_ctx.run.solver!r} returned no discharge calibration series"
@@ -85,8 +113,14 @@ def build_metric_extractor(
                 components: dict[str, float] = {}
                 costs: list[float] = []
                 for obs_rec in observed:
-                    cost = score(obs_rec.series, simulated, objective)
-                    components[f"{objective}@{obs_rec.station_id}"] = cost
+                    cost = score(
+                        obs_rec.series,
+                        simulated,
+                        objective,
+                        warmup_periods=warmup_periods,
+                        scoring_window=scoring_window,
+                    )
+                    components[f"cost:{objective}@{obs_rec.station_id}"] = cost
                     if np.isfinite(cost):
                         costs.append(cost)
                 if not costs:
@@ -101,27 +135,79 @@ def build_metric_extractor(
                     )
                 components = {}
                 costs = []
+                # One call for every piezometer: the head file opens once.
+                results = adapter.extract_observables(
+                    run_ctx,
+                    None,
+                    [
+                        ObservableRequest(
+                            id=obs_rec.station_id,
+                            name="head",
+                            support="cell",
+                            cell=station_cells[obs_rec.station_id],
+                        )
+                        for obs_rec in observed
+                        if obs_rec.station_id in station_cells
+                    ],
+                    time_index=time_idx,
+                )
                 for obs_rec in observed:
-                    cell = station_cells.get(obs_rec.station_id)
-                    if cell is None:
+                    if obs_rec.station_id not in station_cells:
                         continue
-                    sim = adapter.extract_calibration_series(
-                        run_ctx,
-                        None,
-                        variable="head",
-                        station_cells={obs_rec.station_id: cell},
-                        time_index=time_idx,
-                    )
+                    sim = _series_for(results, obs_rec.station_id, name="head")
                     if sim.empty:
                         raise NotImplementedError(
                             f"Solver {run_ctx.run.solver!r} returned no head calibration series"
                         )
-                    cost = score(obs_rec.series, sim, objective)
-                    components[f"{objective}@{obs_rec.station_id}"] = cost
+                    cost = score(
+                        obs_rec.series,
+                        sim,
+                        objective,
+                        warmup_periods=warmup_periods,
+                        scoring_window=scoring_window,
+                    )
+                    components[f"cost:{objective}@{obs_rec.station_id}"] = cost
                     if np.isfinite(cost):
                         costs.append(cost)
                 if not costs:
                     raise ValueError("No finite head calibration costs were produced")
+                return float(np.mean(costs)), components
+
+            elif variable == "lake_level":
+                components = {}
+                costs = []
+                results = adapter.extract_observables(
+                    run_ctx,
+                    None,
+                    [
+                        ObservableRequest(
+                            id=obs_rec.station_id,
+                            name="stage",
+                            support="lake",
+                            key=obs_rec.station_id,
+                        )
+                        for obs_rec in observed
+                    ],
+                    time_index=time_idx,
+                )
+                for obs_rec in observed:
+                    sim = _series_for(results, obs_rec.station_id, name="stage")
+                    if sim.empty:
+                        raise NotImplementedError(
+                            f"Solver {run_ctx.run.solver!r} returned no lake stage series"
+                        )
+                    cost = score(
+                        obs_rec.series,
+                        sim,
+                        objective,
+                        warmup_periods=warmup_periods,
+                        scoring_window=scoring_window,
+                    )
+                    components[f"cost:{objective}@{obs_rec.station_id}"] = cost
+                    if np.isfinite(cost):
+                        costs.append(cost)
+                if not costs:
+                    raise ValueError("No finite lake-level calibration costs were produced")
                 return float(np.mean(costs)), components
 
             else:
@@ -136,27 +222,40 @@ def build_metric_extractor(
 def _build_composite_metric_extractor(
     outputs: Mapping[str, CalibOutputDecl],
     objective_blocks: list[CalibObjectiveBlockDecl],
+    *,
+    warmup_periods: int = 0,
+    scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
 ) -> Callable[..., tuple[float, Mapping[str, float]]]:
     """Build a metric_fn that routes through ``build_objective_from_config``."""
-    cfg_subset = SimpleNamespace(outputs=dict(outputs), objective_blocks=list(objective_blocks))
+    if scoring_window is not None and any(bound is not None for bound in scoring_window):
+        start, end = scoring_window
+        # extract_outputs returns plain value vectors, with no date to compare the
+        # bounds against. Honouring the window is impossible, and dropping it would
+        # report a cost over the whole run under the name of a windowed one.
+        raise ValueError(
+            f"scoring_window {start} to {end} cannot be applied to the objective "
+            f"block(s) {[str(block.name) for block in objective_blocks]}: a block "
+            "scores extracted value vectors, which carry no time axis to cut on. "
+            "Use warmup_periods, which counts samples, or score on a single variable."
+        )
+    cfg_subset = SimpleNamespace(
+        outputs=dict(outputs),
+        objective_blocks=list(objective_blocks),
+        warmup_periods=int(warmup_periods),
+    )
     composite = build_objective_from_config(cfg_subset)
 
     def metric_fn(trial_ctx: Any, *, objective: str | None = None, variable: str | None = None):
         del objective, variable
-        simulated_by_output: dict[str, list[float]] = {}
-        for name, decl in outputs.items():
-            try:
-                if decl.support == "point":
-                    simulated_by_output[name] = extract_point(trial_ctx, decl)
-                elif decl.support == "boundary":
-                    simulated_by_output[name] = extract_boundary(trial_ctx, decl)
-                else:
-                    simulated_by_output[name] = extract_cell(trial_ctx, decl)
-            except Exception as exc:
-                logger.exception("Output %r extraction failed", name)
-                raise RuntimeError(
-                    f"Output {name!r} extraction failed: {type(exc).__name__}: {exc}"
-                ) from exc
+        # extract_outputs already names the output whose declaration is at
+        # fault, so there is nothing to add by re-wrapping here. Note that
+        # NotImplementedError is a RuntimeError, which is why catching the
+        # latter to "pass typed errors through" would swallow the former.
+        try:
+            simulated_by_output, extraction_diagnostics = extract_outputs(trial_ctx, outputs)
+        except Exception:
+            logger.exception("Output extraction failed")
+            raise
 
         try:
             value = composite.evaluate(simulated_by_output)
@@ -167,6 +266,10 @@ def _build_composite_metric_extractor(
             ) from exc
 
         components = {key: float(val) for key, val in value.components.items()}
+        # The criterion emits its thirty diagnostics beside the cost, so a
+        # session records them in trials.jsonl and in the iteration table
+        # without promoting a single run.
+        components.update({key: float(val) for key, val in extraction_diagnostics.items()})
         total = float(value.total)
         return total, components
 

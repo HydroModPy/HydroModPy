@@ -23,6 +23,11 @@ for _var in (
 ):
     os.environ.setdefault(_var, "1")
 os.environ.setdefault("PYTHONHASHSEED", "42")
+# The Whitebox native binding aborts after repeated fd-level dup2 cycles in one
+# long-lived worker. Its backend only avoids that path when PYTEST_CURRENT_TEST
+# happens to be set the first time the cached singleton is built, which depends
+# on test order; pin the Python-level redirect so every pytest process is safe.
+os.environ.setdefault("HMP_WHITEBOX_REDIRECT_NATIVE_STDIO", "0")
 
 
 _LAYER_DIR_NAMES = ("unit", "integration", "validation", "regression", "e2e")
@@ -50,7 +55,10 @@ _SCRATCH_SESSION_ENV = "HMP_TEST_SESSION_SCRATCH_ROOT"
 _SCRATCH_OWNER_ENV = "HMP_TEST_SCRATCH_OWNER"
 _XDIST_WORKER_ENV = "PYTEST_XDIST_WORKER"
 _INHERITED_SCRATCH_OWNER = os.environ.get(_SCRATCH_OWNER_ENV)
-_SCRATCH_OWNER_TOKEN = _INHERITED_SCRATCH_OWNER or f"{os.getpid()}-{uuid.uuid4().hex[:12]}"
+# The pid alone separates concurrent runs; the suffix only guards against
+# reusing a stale session directory after a pid is recycled. Keep it short so
+# long-path tests keep headroom under the 259-character Windows limit.
+_SCRATCH_OWNER_TOKEN = _INHERITED_SCRATCH_OWNER or f"{os.getpid()}-{uuid.uuid4().hex[:4]}"
 _OWNS_TEST_SCRATCH = _INHERITED_SCRATCH_OWNER is None
 
 
@@ -262,7 +270,7 @@ def tmp_workspace(tmp_path: Path) -> Path:
     Populates the standard layout (``data/``, ``projects/``, one
     ``data/<variable>/`` folder per variable) using the same code path as
     ``hmp workspace init``, so integration tests can open the workspace with
-    ``hmp.open(...)`` or instantiate a :class:`~hydromodpy.results.catalog.SimulationCatalog`
+    ``hmp.open(...)`` or instantiate a :class:`~hydromodpy.results.catalog.Catalog`
     on top of it.  The catalog itself is opened lazily - this fixture
     only creates folders (without the geospatial example files), keeping it
     cheap and free of DuckDB I/O until a test explicitly needs it.

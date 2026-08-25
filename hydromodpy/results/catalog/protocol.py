@@ -1,7 +1,7 @@
 """SimulationStore Protocol for result-catalog backends.
 
 The default in-tree implementation is
-:class:`hydromodpy.results.catalog.SimulationCatalog`, backed by DuckDB
+:class:`hydromodpy.results.catalog.Catalog`, backed by DuckDB
 for tabular state and Zarr / Parquet for field arrays and timeseries.
 
 Conforming alternative backends (PostgreSQL, Parquet-only, in-memory for
@@ -11,7 +11,7 @@ conform structurally - no base class to inherit from.
 
 The contract is the minimal write/read surface that workflow steps,
 solver adapters, and post-run extractors actually call. Methods absent
-from this Protocol stay implementation-specific to ``SimulationCatalog``
+from this Protocol stay implementation-specific to ``Catalog``
 (``find``, ``rank``, archive package_io ...).
 """
 
@@ -58,7 +58,7 @@ class SimulationStore(Protocol):
         solver: str,
         *,
         name: str | None = None,
-        on_collision: str = "replace",
+        if_exists: str = "version",
         **kwargs: Any,
     ) -> RegistrationResult:
         """Allocate a new simulation row and return its registration result."""
@@ -130,6 +130,18 @@ class SimulationStore(Protocol):
         subgroup: str | None = None,
     ) -> None:
         """Persist a 2D / 3D field array slice for ``sim_id`` at ``timestep``."""
+
+    def write_field_stack(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        values: np.ndarray,
+        *,
+        n_timesteps: int | None = None,
+        timestep_offset: int = 0,
+        subgroup: str | None = None,
+    ) -> None:
+        """Persist a full ``(time, ...)`` field stack for ``sim_id`` in one call."""
 
     def write_time(
         self,
@@ -229,6 +241,9 @@ class SimulationStore(Protocol):
         project_root: Path | str | None = None,
         solver_name: str | None = None,
         solver_binary_path: Path | str | None = None,
+        solver_engine: str | None = None,
+        solver_execution_mode: str | None = None,
+        solver_version_text: str | None = None,
         rng_seed: int | None = None,
     ) -> None:
         """Capture and persist host environment snapshot for ``sim_id``."""

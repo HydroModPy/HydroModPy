@@ -1,4 +1,9 @@
-"""``hmp data add`` - thin wrapper around :func:`hydromodpy.add_data_entry`."""
+"""``hmp data add`` - thin wrapper around :func:`hydromodpy.add_data_entry`.
+
+``--workspace`` names the data cache the file lands in. ``--frozen`` compares
+the file against ``hydromodpy.lock``, which lives at a project root: that is
+what ``--project`` names, so the check works from outside a project too.
+"""
 
 from __future__ import annotations
 
@@ -19,7 +24,12 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument("--crs", default=None, help="EPSG code (e.g. EPSG:2154)")
     parser.add_argument("--unit", default=None, help="Override unit")
     parser.add_argument("--station-id", default=None, dest="station_id")
-    parser.add_argument("--workspace", default=None)
+    parser.add_argument("--workspace", default=None, help="Workspace holding the data cache")
+    parser.add_argument(
+        "--project",
+        default=None,
+        help="Project root owning hydromodpy.lock (--frozen only; defaults to the current one)",
+    )
     parser.add_argument(
         "--frozen", action="store_true", help="Refuse to ingest if lockfile has no matching entry"
     )
@@ -43,6 +53,7 @@ def run(args: argparse.Namespace) -> None:
             unit=args.unit,
             station_id=args.station_id,
             workspace=args.workspace,
+            project=args.project,
             frozen=args.frozen,
         )
     except FileNotFoundError as exc:

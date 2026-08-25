@@ -1,0 +1,24 @@
+case_id = "dupuit_seepage_limit_1d"
+category = "analytical"
+regime = "steady"
+dimension = "1d"
+config_file = "config_modflow6.toml"
+default_solver = "modflow6"
+base_config = "config_modflow6.toml"
+
+[config_files]
+modflow6 = "config_modflow6.toml"
+modflow6_scaled_down = "config_modflow6_scaled_down.toml"
+modflow6_scaled_up = "config_modflow6_scaled_up.toml"
+modflow6_k_only = "config_modflow6_k_only.toml"
+
+[workspace]
+results_folder_name = "results_simulations"
+
+[output]
+expected_shape = [5, 80]
+
+[reference]
+hillslope_length_m = 400.0
+hillslope_width_m = 25.0
+substratum_elevation_m = 0.0

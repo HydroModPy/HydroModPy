@@ -13,6 +13,7 @@ import numpy as np
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._gmsh_driver import (
     iter_river_lines_from_trace,
 )
@@ -24,6 +25,8 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.geometry_utils import (
     iter_polygon_parts,
     make_valid_geometry,
 )
+
+logger = get_logger(__name__)
 
 
 def _constraint_sort_key(constraint: ZoneLinearConstraint) -> tuple[int, str]:
@@ -95,6 +98,11 @@ def normalize_regional_size_fields(
         )
         polygons = list(iter_polygon_parts(clipped_geometry))
         if not polygons:
+            logger.warning(
+                "regional size field '%s' lies entirely outside the meshing domain "
+                "(check its CRS and coordinates); the field is skipped.",
+                name,
+            )
             continue
         normalized.append(
             ZoneRegionalSizeField(

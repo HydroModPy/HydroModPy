@@ -75,7 +75,7 @@ Key public symbols
   relative paths against the file's directory and applies
   ``base_config`` chains.
 - ``HydroModPyConfig.model_dump()`` -- canonical JSON dump used by
-  ``hmp schema export``.
+  ``hmp dev schema export``.
 
 Recommended reading path
 ------------------------

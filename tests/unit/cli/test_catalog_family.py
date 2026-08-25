@@ -1,4 +1,4 @@
-"""Tests for the ``hmp catalog`` family (ls, query, show, gc, vacuum, delete)."""
+"""Tests for the ``hmp catalog`` family (ls, query, show, gc, delete)."""
 
 from __future__ import annotations
 
@@ -24,15 +24,14 @@ def _run(monkeypatch, argv: list[str]) -> int:
 
 
 def _make_workspace_with_catalog(tmp_path: Path) -> Path:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace = tmp_path / "ws"
     workspace.mkdir()
     project = workspace / "projects" / "demo"
     project.mkdir(parents=True)
-    (project / "simulations").mkdir()
     (workspace / "data").mkdir()
-    with SimulationCatalog(project):
+    with Catalog(project):
         pass
     return workspace
 
@@ -41,7 +40,7 @@ def test_catalog_family_help_lists_actions(monkeypatch, capsys) -> None:
     code = _run(monkeypatch, ["hmp", "catalog", "--help"])
     assert code == 0
     out = capsys.readouterr().out
-    for action in ("ls", "query", "show", "gc", "vacuum", "delete"):
+    for action in ("ls", "query", "show", "gc", "delete"):
         assert action in out
 
 

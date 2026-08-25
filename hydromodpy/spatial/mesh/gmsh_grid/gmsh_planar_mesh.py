@@ -101,13 +101,19 @@ class GmshPlanarMesh2D(BaseFieldMesh):
 
     @classmethod
     def from_hydro_mesh(cls, hydro_mesh) -> GmshPlanarMesh2D:
-        """Build a ``GmshPlanarMesh2D`` from a 2D ``HydroMesh``."""
-        from hydromodpy.spatial.mesh.hydro_mesh import HydroMesh
+        """Build a ``GmshPlanarMesh2D`` from a 2D fixed-arity ``HydroMesh``."""
+        from hydromodpy.spatial.mesh.model.cell_types import CellType
+        from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
 
         if not isinstance(hydro_mesh, HydroMesh):
             raise TypeError("Expected a HydroMesh instance")
         if hydro_mesh.ndim != 2:
             raise ValueError("GmshPlanarMesh2D requires a 2D HydroMesh")
+        if CellType.POLYGON in hydro_mesh.cell_types:
+            raise NotImplementedError(
+                "GmshPlanarMesh2D is a fixed-arity gmsh bridge and cannot wrap a ragged "
+                "POLYGON (Voronoi) mesh; consume it as a HydroMesh instead."
+            )
         return cls(
             points_xy=hydro_mesh.vertices,
             connectivity=hydro_mesh.flat_connectivity,

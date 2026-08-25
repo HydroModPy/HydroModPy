@@ -15,7 +15,10 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
 from hydromodpy.core.units.volumetric_flow import factor_to_m3_per_s
-from hydromodpy.physics.flow.history_contract import build_transient_time_axes
+from hydromodpy.physics.flow.history_contract import (
+    build_transient_time_axes,
+    saturated_thickness_from_head_history,
+)
 
 from .base import (
     _as_float,
@@ -24,7 +27,7 @@ from .base import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
 logger = get_logger(__name__)
 
@@ -91,8 +94,7 @@ def _saturated_thickness_from_head_history(
     z_bottom = np.asarray(z_bottom_m, dtype=float).reshape(-1)
     if not (head.shape[1] == z_top.size == z_bottom.size):
         return None
-    aquifer_thickness = np.maximum(z_top - z_bottom, 0.0)
-    return np.clip(head - z_bottom[None, :], 0.0, aquifer_thickness[None, :])
+    return saturated_thickness_from_head_history(head, top_m=z_top, bottom_m=z_bottom)
 
 
 def _elapsed_seconds_axis(period_lengths: np.ndarray, *, n_snapshots: int) -> np.ndarray:
@@ -319,10 +321,10 @@ def _storage_change_series_m3_s(
 
 
 def _load_boussinesq_state_from_store(
-    store: SimulationCatalog,
+    store: Catalog,
     sim_id: str,
 ) -> Mapping[str, Any] | None:
-    """Try reading Boussinesq state arrays from the SimulationCatalog Zarr group.
+    """Try reading Boussinesq state arrays from the Catalog Zarr group.
 
     Returns a dict-like mapping of array names to numpy arrays (same
     interface as ``np.load(...)``), or ``None`` if unavailable.
@@ -374,7 +376,7 @@ def _load_boussinesq_payload(
         payload = _load_boussinesq_state_from_store(store, sim_id)
         if payload is not None:
             logger.debug(
-                "Loaded Boussinesq state from SimulationCatalog for budget (sim_id=%s).",
+                "Loaded Boussinesq state from Catalog for budget (sim_id=%s).",
                 sim_id,
             )
             return payload, f"SimulationCatalog(sim_id={sim_id})"
@@ -749,7 +751,7 @@ def _mf_budget_component_value_m3_s(component: str, flux_in: float, flux_out: fl
 
 def _load_catalog_budget_rows(
     summary: Mapping[str, Any],
-    store: SimulationCatalog | None,
+    store: Catalog | None,
     sim_id: str | None,
 ) -> list[dict[str, Any]]:
     """Load generic catalog budget rows and normalize them to comparison terms."""
@@ -844,7 +846,7 @@ def _load_catalog_budget_rows(
                     "time_label": time_label,
                     "is_initial_state": False,
                     "value": float(value),
-                    "source": f"SimulationCatalog budgets(sim_id={sim_id})",
+                    "source": f"Catalog budgets(sim_id={sim_id})",
                 }
             )
     return rows
@@ -875,7 +877,7 @@ BOUSSINESQ_OBSTACLE_DIAGNOSTICS_FIELDS = [
 
 def _load_boussinesq_obstacle_diagnostic_rows(
     summary: Mapping[str, Any],
-    store: SimulationCatalog | None = None,
+    store: Catalog | None = None,
     sim_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Load lower/upper obstacle diagnostics from Boussinesq state histories."""
@@ -888,7 +890,7 @@ def _load_boussinesq_obstacle_diagnostic_rows(
     if store is not None and sim_id is not None:
         payload = _load_boussinesq_state_from_store(store, sim_id)
         if payload is not None:
-            source_label = f"SimulationCatalog(sim_id={sim_id})"
+            source_label = f"Catalog(sim_id={sim_id})"
 
     if payload is None:
         npz_path = run_folder / "_boussinesq_state_history.npz"

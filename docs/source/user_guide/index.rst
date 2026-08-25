@@ -139,6 +139,41 @@ Topic guides
       solvers, with the trade-offs between MODFLOW-NWT, MODFLOW 6,
       Boussinesq, mesh families, and the XT3D option.
 
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: modflow6-lake
+      :link-type: doc
+
+      **Lakes and reservoirs**
+      ^^^
+      How to declare a MODFLOW 6 LAK lake in config: geometry polygon,
+      stage-volume-area abacus, bed leakance, spillway and controlled
+      outlets, forcings, and where the solved stage and lake-aquifer
+      exchange land.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: modflow6-sfr
+      :link-type: doc
+
+      **Streams and routing**
+      ^^^
+      How to declare a MODFLOW 6 SFR network in config: delineation
+      from the river products, streambed hydraulics, reach width laws,
+      routed forcings, and the MVR coupling that feeds a reservoir
+      from its catchment streamflow.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: modflow6-flow-barrier
+      :link-type: doc
+
+      **Flow barriers and cutoff walls**
+      ^^^
+      How to declare a MODFLOW 6 HFB barrier in config: a dam cutoff
+      wall on a lake or a general low-K wall on a trace line, the depth
+      and hydraulic characteristic, and how it forces the flow under it.
+
 Capability and API-oriented guides
 ----------------------------------
 
@@ -237,10 +272,15 @@ Use these pages once you have generated or opened result pages:
    cli-reference
    Data loading <data/index>
    results-and-exports
+   point-queries
    catalog
    figures
    catchment-report
    project-api
    solvers
+   initialization
    modflow6-prt
+   modflow6-lake
+   modflow6-sfr
+   modflow6-flow-barrier
    troubleshooting

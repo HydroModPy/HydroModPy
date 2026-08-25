@@ -45,7 +45,7 @@ les tests de contrat.
 
 | Appel | Retour | Rôle |
 |---|---|---|
-| `hmp.open(workspace)` | `SimulationCatalog` | porte unique sur le catalogue (`cat.find(...)`, `cat.frame`, `cat.latest()`, `cat[ref]`, `cat.read(ref, var)`). |
+| `hmp.open(workspace)` | `Catalog` | porte unique sur le catalogue (`cat.find(...)`, `cat.frame`, `cat.latest()`, `cat[ref]`, `cat.read(ref, var)`). |
 | `hmp.index()` | fédération | registre des workspaces (anciennement `.projects`). |
 | `hydromodpy.catalog.InputsNamespace(workspace)` | namespace inputs | cache d'inputs (anciennement `.inputs`, sinon `hmp data` en CLI). |
 
@@ -118,7 +118,7 @@ Liste à jour via `hmp --help`. Les nouveautés à connaître :
 
 Parcours data-scientist : `00` → `01` → explorer
 `hmp.open("examples/")` (`cat.frame`, `cat.find(...)`, `cat.read(ref,
-var)`, `hmp.index()` pour la fédération) puis `SimulationGroup` pour
+var)`, `hmp.index()` pour la fédération) puis `RunSet` pour
 les exports ML-ready.
 
 ## État courant après migration

@@ -39,7 +39,7 @@ The current public package choices are mainly assembled in the following code
 locations:
 
 - ``hydromodpy/solver/modflow6/modflow6.py``
-- ``hydromodpy/solver/modflow6/flow_to_modflow_adapter.py``
+- ``hydromodpy/solver/modflow6/adapters/flow.py``
 - ``hydromodpy/solver/modflow6/modflow6_config.py``
 - ``hydromodpy/solver/modflow_nwt/nwt/nwt_solver.py``
 - ``hydromodpy/solver/modflow_nwt/nwt/flow_to_modflow_adapter.py``

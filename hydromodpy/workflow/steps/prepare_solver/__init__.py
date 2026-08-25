@@ -44,6 +44,33 @@ from hydromodpy.workflow.steps.prepare_solver.validate import (
 logger = get_logger(__name__)
 
 
+def _resolve_plan_and_results(ctx, *, skip_display: bool) -> None:
+    """Populate the simulation plan and the reconciled results config on ``ctx``.
+
+    Both are deterministic derivations of the config, shared by the fresh run
+    and the resume path so a rebuilt state carries the same effective results
+    flags as the run that produced the artefacts.
+    """
+    from hydromodpy.simulation.planning.planner import SimulationPlanner
+    from hydromodpy.workflow.steps.planning import step_configure_results
+
+    if ctx.execution.simulation_plan is None:
+        sim_cfg = getattr(ctx.cfg, "simulation", None)
+        if sim_cfg is not None:
+            ctx.execution.simulation_plan = SimulationPlanner().build(sim_cfg)
+
+    if ctx.execution.simulation_plan is None:
+        return
+    reconciled = step_configure_results(
+        ctx.cfg.simulation.results,
+        ctx.execution.simulation_plan,
+        ctx.cfg.display,
+        display_active=not skip_display,
+    )
+    ctx.effective_results_config = reconciled.config
+    ctx.forced_results_flags = reconciled.forced_flags
+
+
 class PrepareSolverStep:
     """Build the simulation plan + open the store.
 
@@ -66,23 +93,11 @@ class PrepareSolverStep:
         return ("setup_process",)
 
     def run(self, state: PipelineState) -> PipelineState:
-        from hydromodpy.simulation.planning.planner import SimulationPlanner
-        from hydromodpy.workflow.steps.planning import step_configure_results
-
         ctx = state.get("ctx")
         if ctx is None:
             raise ConfigError("PrepareSolverStep requires 'ctx' in state.data")
 
-        if ctx.execution.simulation_plan is None:
-            sim_cfg = getattr(ctx.cfg, "simulation", None)
-            if sim_cfg is not None:
-                ctx.execution.simulation_plan = SimulationPlanner().build(sim_cfg)
-
-        if ctx.execution.simulation_plan is not None:
-            ctx.effective_results_config = step_configure_results(
-                ctx.cfg.simulation.results,
-                ctx.execution.simulation_plan,
-            )
+        _resolve_plan_and_results(ctx, skip_display=bool(state.get("skip_display")))
 
         if not ctx.execution.lightweight:
             step_open_store(ctx)
@@ -114,12 +129,20 @@ class PrepareSolverStep:
         workspace: Path,
         run_id: str,
     ) -> PipelineState:
-        """Reopen the simulation store written by a previous ``run`` call."""
-        from hydromodpy.results.catalog import SimulationCatalog
+        """Reopen the simulation store written by a previous ``run`` call.
+
+        The plan and the reconciled results config are pure functions of the
+        config, so they are recomputed here: without them a resumed run would
+        derive and draw against the raw ``[simulation.results]`` section and
+        silently drop the fields a figure had forced on.
+        """
+        from hydromodpy.results.catalog import Catalog
 
         ctx = prior_state.get("ctx")
         if ctx is None:
             raise ConfigError("PrepareSolverStep.rebuild_state requires 'ctx' in state.data")
+
+        _resolve_plan_and_results(ctx, skip_display=bool(prior_state.get("skip_display")))
 
         ws = getattr(getattr(ctx, "setup", None), "workspace", None)
         if ws is None:
@@ -130,17 +153,26 @@ class PrepareSolverStep:
         sim_id = getattr(ctx, "sim_id", None)
         results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
         if ctx.store is None and results_cfg.persistence.save_catalog:
-            ctx.store = SimulationCatalog.from_workspace(
+            ctx.store = Catalog.from_workspace(
                 ws,
                 persistence=results_cfg.persistence,
             )
             if sim_id is None:
+                # Resolve the resumed run by its NAME (the identity column), not by
+                # "latest sim in project", so a resume after a later run was
+                # registered attaches to the right simulation, not the newest one.
+                # The index is per project, so the directory name is not part of
+                # the lookup: renaming or copying a project must not break resume.
                 row = ctx.store.connection.execute(
-                    "SELECT sim_id FROM simulations WHERE project = ? ORDER BY created_at DESC LIMIT 1",
-                    [ws.project_root.name],
+                    "SELECT sim_id FROM simulations WHERE name = ? ORDER BY created_at DESC LIMIT 1",
+                    [str(run_id)],
                 ).fetchone()
-                if row is not None:
-                    ctx.sim_id = str(row[0])
+                if row is None:
+                    raise ConfigError(
+                        f"resume: no simulation named {run_id!r} in the project index at "
+                        f"{ws.project_root}; cannot rebuild the run state."
+                    )
+                ctx.sim_id = str(row[0])
 
         return prior_state.advance(
             step_index=prior_state.step_index + 1,

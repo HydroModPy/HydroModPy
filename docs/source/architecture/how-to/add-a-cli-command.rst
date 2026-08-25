@@ -6,12 +6,15 @@ The ``hmp`` and ``hydromodpy`` CLIs share the same dispatcher in
 ``hydromodpy/cli/commands/`` registered through ``ALL_COMMANDS`` in
 ``cli/commands/__init__.py``.
 
-Today's verbs: ``init``, ``new``, ``config``, ``schema``, ``run``,
-``dev``, ``catalog``, ``display``, ``report``, ``list``, ``export``,
-``test``, ``data``, ``lock``, ``show``, ``compare``, ``add``,
-``import``, ``doctor``, ``inspect``, ``manage``,
-``install-binaries``, ``rank``, ``delete``, ``workspace``,
-``completion``.
+Today's verbs, in ``ALL_COMMANDS`` order: ``workspace``, ``project``,
+``catalog``, ``data``, ``viz``, ``config``, ``dev``, ``audit``,
+``privacy``, ``run``, ``calibrate``, ``spinup``, ``site-selection``,
+``test``, ``report``, ``doctor``, ``install-binaries``. That tuple is
+the inventory; anything not in it is not a verb.
+
+Six of them are families, not leaves: ``workspace``, ``project``,
+``catalog``, ``data``, ``viz`` and ``dev`` are sub-packages whose
+``__init__.py`` carries ``NAME``, ``HELP`` and an ``ACTIONS`` tuple.
 
 Contract
 --------
@@ -41,6 +44,13 @@ Each command file exposes:
 
 The dispatcher iterates ``ALL_COMMANDS``, calls ``register`` on each,
 and forwards the parsed namespace to ``args._handler``.
+
+Reuse the shared grammar from ``hydromodpy/cli/_conventions.py`` instead
+of re-declaring flags: ``workspace_parser()`` for ``-w/--workspace``,
+``confirm_parser()`` for ``-y/--yes``, ``format_parser()`` for
+``--format {table,json,csv}``, ``add_sim_ref()`` for the canonical
+``sim_ref`` positional. ``tests/unit/cli/test_cli_conventions.py``
+introspects the argparse tree and fails on drift.
 
 Files to create
 ---------------
@@ -100,34 +110,48 @@ Conventions
 - Import expensive subpackages (``flopy``, ``zarr``,
   ``geopandas``) **inside** the handler, not at the top of the
   module. The CLI must boot fast.
-- Never write to ``stdout`` directly; use ``logging`` so ``--verbose``
-  / ``--quiet`` work.
-- Wrap user-facing errors in clear ``SystemExit`` messages; let
-  unexpected errors propagate.
+- ``stdout`` carries the result the user asked for; diagnostics and
+  progress go to ``stderr`` or through ``logging``. A read command that
+  accepts ``--format json`` must emit parseable JSON on ``stdout`` and
+  nothing else.
+- Map user-facing errors to a typed exit code with
+  ``hydromodpy.cli.helpers.exit_code_for``; let unexpected errors
+  propagate. Exit codes are 0 success, 1 generic, 2 usage, 10..20
+  specific failure categories, 130 SIGINT.
 
 Workflow flags
 --------------
 
 If the verb dispatches to a workflow, accept the standard overlay
 flags (``--overlay``, ``--set``, ``--frozen``, ``--no-display``,
-``--from``, ``--until``, ``--no-checkpoint``, ``--resume``) so the
-override precedence (defaults < ``base_config`` chain < overlays <
-``--set`` < env) stays consistent. ``hmp run`` is the canonical
-example.
+``--from``, ``--until``, ``--resume``) so the override precedence
+(defaults < ``base_config`` chain < overlays < ``--set`` < env) stays
+consistent. ``hmp run`` is the canonical example; it also carries
+``--dry-run``, ``--force``, ``--no-lock``, ``--no-parallel`` and
+``--profile``.
 
 Subcommands
 -----------
 
-When a verb has its own subcommands (``hmp config template``,
-``hmp test regression``, ``hmp data list``), nest a second
-``add_subparsers`` and reuse the same NAME / HELP / register / run
-contract for each subcommand module.
+A verb with a handful of actions nests a second ``add_subparsers`` in
+its own module: ``hmp config template``, ``hmp config check``,
+``hmp report render``, ``hmp test regression``.
+
+A verb with a whole lifecycle becomes a **family**: a sub-package under
+``cli/commands/`` whose ``__init__.py`` declares ``NAME``, ``HELP`` and
+an ``ACTIONS`` tuple, with one module per action following the same
+four-symbol shape. ``hmp catalog`` (``ls``, ``query``, ``show``,
+``point``, ``gc``, ``reindex``, ``delete``, ``restore``, ``trash``,
+``tag``, ``note``, ``rename``, ``diff``, ``watch``, ``export``,
+``import``, ``rerun``) is the reference. Attach the group with
+``add_action_subparsers`` so a bare ``hmp catalog`` is a usage error and
+exits 2.
 
 Tests to add
 ------------
 
-- **Unit** under ``tests/unit/cli/commands/`` with
-  ``argparse.Namespace`` assertions and a stubbed handler.
+- **Unit** under ``tests/unit/cli/`` with ``argparse.Namespace``
+  assertions and a stubbed handler.
 - **Integration** under ``tests/integration/cli/`` with
   ``subprocess.run([sys.executable, "-m", "hydromodpy", ...])`` for
   one realistic invocation.

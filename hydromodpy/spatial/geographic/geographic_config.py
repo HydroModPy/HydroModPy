@@ -256,6 +256,223 @@ class RiverNetworkConfig(HydroModelBase):
         return self
 
 
+class LakeEnforcementConfig(HydroModelBase):
+    """Hydro-enforce lakes into the ROUTING DEM before D8 flow routing.
+
+    A topographic breach/fill is lake-blind: on a dammed reservoir it carves a
+    thalweg that misses the flat water body, so streams dead-end short of the lake
+    and the outlet-delineated catchment excludes the reservoir. When enabled, the
+    lake footprints are carved (a gentle ramp toward the outlet plus an outlet
+    notch) into a SEPARATE routing DEM used only for delineation; the model grid
+    top stays on the raw DEM, so the lake-aquifer geometry is untouched. It reuses
+    the lake footprint polygons already supplied for LAK cells -- no river source.
+    """
+
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Carve the lake footprints into the routing DEM before D8 so streams "
+            "converge into the lakes and drain to the outlet through them."
+        ),
+    )
+    lake_geometry_path: Annotated[
+        Path | None,
+        Profile.USER,
+        InputFile(role="lake_enforcement_geometry", category="geometry"),
+    ] = Field(
+        default=None,
+        description=(
+            "Lake footprint polygons (gpkg/shp) to carve. A bare filename resolves "
+            "against <workspace>/data/lake_geometry/. Required when enabled."
+        ),
+    )
+    slope: Annotated[float, Profile.USER] = Field(
+        default=0.003,
+        gt=0.0,
+        description=(
+            "Ramp gradient (m per m of distance to the outlet). Small and positive "
+            "so each lake slopes gently toward the outlet with no flat depression "
+            "(a flat sink would make the breach crawl)."
+        ),
+    )
+    buffer_m: Annotated[LengthMeters, Profile.USER] = Field(
+        default=15.0,
+        ge=0.0,
+        description=(
+            "Buffer (metres) applied to each lake footprint to bridge inter-lake "
+            "sills and knit the shoreline into the carve."
+        ),
+    )
+    capture_radius_m: Annotated[LengthMeters, Profile.USER] = Field(
+        default=0.0,
+        ge=0.0,
+        description=(
+            "If > 0, run a SECOND delineation pass: any stream that dead-ends within "
+            "this distance of a lake (a near-miss over a flat forebay) is carved to "
+            "the lake and re-delineated, so its channel reaches the shoreline. 0 "
+            "disables the capture pass (lake carve only)."
+        ),
+    )
+    capture_max_streams: Annotated[int, Profile.EXPERT] = Field(
+        default=8,
+        ge=1,
+        description=(
+            "Capture pass: cap on how many near-miss stream terminals are carved to "
+            "lakes per pass (kept by decreasing flow accumulation)."
+        ),
+    )
+    capture_min_acc_fraction: Annotated[float, Profile.EXPERT] = Field(
+        default=0.3,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Capture pass: keep only near-miss terminals whose flow accumulation is at "
+            "least this fraction of the largest, so a tiny rivulet is not carved."
+        ),
+    )
+
+
+class StreamEnforcementConfig(HydroModelBase):
+    """Burn the observed stream network into the ROUTING DEM before D8 routing.
+
+    A mapped stream network is surveyed independently of the DEM, so its trace
+    rarely follows the thalwegs the DEM computes: on five Armorican catchments at
+    75 m, a quarter to a third of the D8 trace seeded on the mapped cells leaves
+    that network at the first step. Any length measured along those paths then
+    reports a DEM-versus-map disagreement instead of hydrogeology. When enabled,
+    the mapped cells are lowered in a SEPARATE routing DEM used only for
+    delineation, before the lake carve and the fill/breach pass. The model grid
+    top stays on the raw DEM, which matters more here than for lakes: a top
+    lowered along the observed network would agree with that network by
+    construction.
+
+    The whole supplied linework is burned, fictitious arcs included: filtering
+    them out cuts the trench at every water body and caps the agreement below
+    0.97 whatever the depth. Selecting reaches by nature belongs to the metric,
+    not to the preprocessing.
+    """
+
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Lower the mapped stream cells in the routing DEM before D8 so the "
+            "computed flow paths follow the observed network."
+        ),
+    )
+    stream_geometry_path: Annotated[
+        Path | None,
+        Profile.USER,
+        InputFile(role="stream_enforcement_geometry", category="geometry"),
+    ] = Field(
+        default=None,
+        description=(
+            "Observed stream network (gpkg/shp) to burn. A bare filename resolves "
+            "against <workspace>/data/hydrography/. Required when enabled."
+        ),
+    )
+    mode: Annotated[Literal["constant", "adaptive"], Profile.USER] = Field(
+        default="constant",
+        description=(
+            "Trench depth rule. 'constant' lowers every stream cell by depth_m. "
+            "'adaptive' derives one depth from the measured local relief along the "
+            "network. Either way a single depth is used, so the along-channel "
+            "gradient the trench exists to preserve is not rewritten."
+        ),
+    )
+    depth_m: Annotated[
+        LengthMeters,
+        Profile.USER,
+        VisibleWhen("mode", "constant"),
+    ] = Field(
+        default=30.0,
+        gt=0.0,
+        description=(
+            "Trench depth (metres) for mode='constant'. It must exceed the local "
+            "drop between a stream cell and its lowest non-stream neighbour; 5 m "
+            "clears 0.90 agreement on every measured catchment, 10 to 20 m are "
+            "needed for 0.95 to 0.99 on the difficult ones, and 1 m buys almost "
+            "nothing. Accepts inline units (e.g. 30, '30 m')."
+        ),
+    )
+    adaptive_percentile: Annotated[
+        float,
+        Profile.USER,
+        VisibleWhen("mode", "adaptive"),
+    ] = Field(
+        default=95.0,
+        ge=50.0,
+        le=100.0,
+        description=(
+            "Percentile of the local relief along the network used as the trench "
+            "depth when mode='adaptive'."
+        ),
+    )
+    max_catchment_area_drift: Annotated[float, Profile.USER] = Field(
+        default=0.05,
+        ge=0.0,
+        description=(
+            "Relative change of the delineated catchment area the burn may cause. "
+            "A trench that crosses a divide (mis-georeferenced trace, canal, flat "
+            "area) reconnects two catchments and the delineation changes without "
+            "any other sign, so the catchment is delineated before and after the "
+            "burn and a larger drift raises. This costs one extra delineation pass "
+            "whenever the burn is on."
+        ),
+    )
+
+
+class DamCarveConfig(HydroModelBase):
+    """Optional dam structure-carve of the MODEL-TOP DEM.
+
+    A raw DEM samples the concrete dam crest as terrain, so the aquifer column
+    under the dam is lifted to the crest (~87 m on the Cheze 5 m DEM) and a
+    cutoff-wall HFB band lands above the real seepage. This carves ONLY the dam
+    footprint of the model-top DEM down to the surrounding valley floor, so the
+    cutoff wall can sit on the surveyed axis at the dam (not shifted downstream,
+    and no need for a stream-burned DEM that would lower every channel). It is
+    the mirror of enforce_lakes: enforce_lakes carves the routing DEM, this
+    carves the top DEM, at the dam only.
+    """
+
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Carve the dam footprint of the model-top DEM down to the local "
+            "valley floor so the cutoff wall sits at the true dam on a raw DEM."
+        ),
+    )
+    line_path: Annotated[
+        Path | None,
+        Profile.USER,
+        InputFile(role="dam_carve_line", category="geometry"),
+    ] = Field(
+        default=None,
+        description=(
+            "Dam trace (gpkg/shp/csv) along which the top is carved. A bare "
+            "filename resolves against <workspace>/data/cutoff_wall/. Usually the "
+            "same surveyed voile axis as the cutoff_wall. Required when enabled."
+        ),
+    )
+    buffer_m: Annotated[LengthMeters, Profile.USER] = Field(
+        default=40.0,
+        gt=0.0,
+        description=(
+            "Half-width (metres) of the carved corridor around the dam trace. "
+            "Make it a bit wider than one DEM/cell size so the whole dam body is "
+            "brought to the valley floor."
+        ),
+    )
+    search_radius_m: Annotated[LengthMeters | None, Profile.USER] = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "Radius (metres) of the neighborhood whose minimum elevation defines "
+            "the valley floor the corridor is carved to. When omitted, derives "
+            "3 * buffer_m."
+        ),
+    )
+
+
 class GeographicConfig(HydroModelBase):
     """Geographic configuration for watershed delineation.
 
@@ -296,6 +513,18 @@ class GeographicConfig(HydroModelBase):
         default="breach",
         description="DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point.",
     )
+    domain_extent: Annotated[Literal["box", "watershed_buff", "watershed"], Profile.USER] = Field(
+        default="box",
+        description=(
+            "Selects the DEM surface used for the domain. 'box' (default) keeps "
+            "the full buffered rectangular support. 'watershed' / 'watershed_buff' "
+            "select the catchment (optionally with a buffer ring) surface. Note: "
+            "the MODFLOW 6 mesh still covers the buffered box (the buffer stays "
+            "active for inter-basin exchange); out-of-watershed drainage is kept "
+            "out of the catchment discharge by the DRN watershed-routing, not by "
+            "an idomain mask. Experimental."
+        ),
+    )
     bottom_path: Annotated[
         Path | None,
         Profile.USER,
@@ -322,6 +551,30 @@ class GeographicConfig(HydroModelBase):
             "When disabled, no stream network is generated in geographic preprocessing."
         ),
     )
+    enforce_streams: Annotated[StreamEnforcementConfig, Profile.USER] = Field(
+        default_factory=StreamEnforcementConfig,
+        description=(
+            "Optional stream burning of the routing DEM: lower the mapped network "
+            "cells so the computed D8 paths follow the observed network, without "
+            "touching the model grid top. Applied before the lake carve."
+        ),
+    )
+    enforce_lakes: Annotated[LakeEnforcementConfig, Profile.USER] = Field(
+        default_factory=LakeEnforcementConfig,
+        description=(
+            "Optional lake hydro-enforcement of the routing DEM: carve the lake "
+            "footprints so streams route into the lakes and drain to the outlet, "
+            "without touching the model grid top."
+        ),
+    )
+    dam_carve: Annotated[DamCarveConfig, Profile.USER] = Field(
+        default_factory=DamCarveConfig,
+        description=(
+            "Optional dam structure-carve of the model-top DEM: lower the dam "
+            "footprint to the valley floor so a cutoff wall sits at the dam on a "
+            "raw DEM (mirror of enforce_lakes, on the top instead of the routing DEM)."
+        ),
+    )
     reuse_existing_outputs: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
@@ -336,8 +589,8 @@ class GeographicConfig(HydroModelBase):
         default=False,
         description=(
             "Keep intermediate rasters and shapefiles on disk after geographic "
-            "preprocessing. When false (default), results_stable/ is removed "
-            "after ingestion into the simulation Zarr store."
+            "preprocessing. When false (default), .hmp/scratch/_preprocessing/ is "
+            "removed after ingestion into the run field store."
         ),
     )
 

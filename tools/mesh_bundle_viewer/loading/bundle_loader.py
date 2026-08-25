@@ -8,6 +8,7 @@ from typing import cast
 from ..bundle_contracts import (
     MeshBundleLike,
 )
+from ..long_paths import filesystem_path
 from ..reader import (
     load_catchment_mesh_bundle as load_internal_catchment_mesh_bundle,
 )
@@ -22,9 +23,10 @@ from .toml_loader import load_toml_config
 def _resolve_bundle_dir(bundle_dir: Path) -> Path:
     """Validate one bundle directory before trying to read it."""
     resolved = Path(bundle_dir).resolve()
-    if not resolved.exists():
+    probe = filesystem_path(resolved)
+    if not probe.exists():
         raise FileNotFoundError(f"Bundle directory not found: {resolved}")
-    if not resolved.is_dir():
+    if not probe.is_dir():
         raise NotADirectoryError(f"Bundle path is not a directory: {resolved}")
     return resolved
 

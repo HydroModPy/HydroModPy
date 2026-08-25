@@ -279,7 +279,7 @@ catalog.projects.list()      # registered projects
 ```
 
 `hmp.open(...)` keeps returning the legacy simulations-only facade
-(`SimulationCatalog`) for backwards-compatible flows.
+(`Catalog`) for backwards-compatible flows.
 
 ## Resuming an interrupted run
 

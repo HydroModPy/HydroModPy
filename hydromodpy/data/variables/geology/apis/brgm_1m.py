@@ -10,6 +10,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -57,30 +58,39 @@ def fetch_brgm_1m(
     full_gpkg = output_dir / "geology_brgm_1m_france.gpkg"
 
     if not full_gpkg.exists():
-        logger.info("[geology] Downloading BRGM 1:1M geological map...")
         zip_path = output_dir / "FR_vecteur.zip"
 
         if not zip_path.exists():
-            urllib.request.urlretrieve(BRGM_1M_URL, str(zip_path))
-            logger.info("[geology] Downloaded: %s", zip_path)
+            with progress.task(
+                "Downloading BRGM 1:1M geological map", total=None, unit="bytes"
+            ) as handle:
+
+                def _report(block_count: int, block_size: int, total_size: int) -> None:
+                    if total_size > 0:
+                        handle.update(total=total_size)
+                    handle.update(completed=block_count * block_size)
+
+                urllib.request.urlretrieve(BRGM_1M_URL, str(zip_path), reporthook=_report)
+            logger.debug("Downloaded: %s", zip_path)
 
         extract_dir = output_dir / "_brgm_1m_extract"
         extract_dir.mkdir(parents=True, exist_ok=True)
 
-        with zipfile.ZipFile(str(zip_path)) as zf:
+        with progress.status("Extracting archive"), zipfile.ZipFile(str(zip_path)) as zf:
             zf.extractall(str(extract_dir))
 
         shp_path = _find_fgeol_shp(extract_dir)
-        logger.info("[geology] Loading shapefile: %s", shp_path.name)
+        logger.debug("Loading shapefile: %s", shp_path.name)
 
-        gdf = gpd.read_file(str(shp_path))
-        gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()].copy()
+        with progress.status("Converting to GeoPackage"):
+            gdf = gpd.read_file(str(shp_path))
+            gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()].copy()
 
-        if gdf.crs is not None and gdf.crs.to_epsg() != 2154:
-            gdf = gdf.to_crs("EPSG:2154")
+            if gdf.crs is not None and gdf.crs.to_epsg() != 2154:
+                gdf = gdf.to_crs("EPSG:2154")
 
-        gdf.to_file(str(full_gpkg), driver="GPKG")
-        logger.info("[geology] Cached national map: %s", full_gpkg)
+            gdf.to_file(str(full_gpkg), driver="GPKG")
+        logger.debug("Cached national map: %s", full_gpkg)
 
         # Cleanup extracted files
         import shutil
@@ -95,15 +105,18 @@ def fetch_brgm_1m(
         if not cropped_gpkg.exists():
             from shapely.geometry import box
 
-            gdf = gpd.read_file(str(full_gpkg))
-            bbox_geom = box(*bbox)
-            bbox_gdf = gpd.GeoDataFrame(geometry=[bbox_geom], crs="EPSG:2154")
-            gdf = gpd.clip(gdf, bbox_gdf)
+            with progress.status("Cropping to model area"):
+                gdf = gpd.read_file(str(full_gpkg))
+                bbox_geom = box(*bbox)
+                bbox_gdf = gpd.GeoDataFrame(geometry=[bbox_geom], crs="EPSG:2154")
+                gdf = gpd.clip(gdf, bbox_gdf)
 
-            if gdf.empty:
-                raise ValueError("No geology feature from the 1M map intersects the requested bbox")
-            gdf.to_file(str(cropped_gpkg), driver="GPKG")
-            logger.info("[geology] Cropped 1M map: %s", cropped_gpkg)
+                if gdf.empty:
+                    raise ValueError(
+                        "No geology feature from the 1M map intersects the requested bbox"
+                    )
+                gdf.to_file(str(cropped_gpkg), driver="GPKG")
+            logger.debug("Cropped 1M map: %s", cropped_gpkg)
 
         return cropped_gpkg
 

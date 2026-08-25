@@ -1,6 +1,6 @@
 """Unit tests for LTTB downsampling of dense time series.
 
-Covers ``hydromodpy.results.timeseries_downsample``:
+Covers ``hydromodpy.results.derive.downsample``:
 - threshold detection
 - LTTB reduces a dense series to ``n_out`` points
 - the algorithm preserves boundary samples
@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.results import timeseries_downsample as tsd
+from hydromodpy.results.derive import downsample as tsd
 
 
 def _dense_series(n: int, *, seed: int = 0) -> pd.Series:

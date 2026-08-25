@@ -141,7 +141,7 @@ def test_testbed_launcher_runs_calibration_cases_and_collects_metrics(
         def run_calibration(self, child_config: Path) -> dict[str, object]:
             calls.append(child_config)
             payload = load_toml_with_base_config(child_config)
-            assert payload["workflow"] == "calibration"
+            assert payload["workflow"] == {"mode": "calibration"}
             return {
                 "calibration_id": payload["calibration"]["campaign_id"],
                 "best_score": 0.92,
@@ -156,7 +156,7 @@ def test_testbed_launcher_runs_calibration_cases_and_collects_metrics(
     assert summary["successful_count"] == 1
     generated = Path(summary["generated_configs_dir"]) / "site_01.toml"
     child_payload = load_toml_with_base_config(generated)
-    assert child_payload["workflow"] == "calibration"
+    assert child_payload["workflow"] == {"mode": "calibration"}
     assert child_payload["calibration"]["campaign_id"] == "site_01_calibration"
     assert child_payload["calibration"]["output_root"].endswith("calibration_outputs/site_01")
     metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
@@ -280,7 +280,7 @@ def test_testbed_launcher_runs_catalog_backed_comparison_cases(
     assert "# Shared TOML overlay applied to the base simulation config" in generated_text
     assert "# X coordinate of the watershed outlet" in generated_text
     child_payload = load_toml_with_base_config(generated)
-    assert child_payload["workflow"] == "comparison"
+    assert child_payload["workflow"] == {"mode": "comparison"}
     assert child_payload["comparison"]["comparison_id"] == "site_01_mf6_bouss"
     assert child_payload["comparison"]["base_simulation_config"] == flow_base.resolve().as_posix()
     geographic = child_payload["comparison"]["base_simulation_overlay"]["geographic"]
@@ -345,7 +345,7 @@ def test_testbed_launcher_runs_mesh_cases_and_collects_metrics(
             assert no_display is True
             calls.append(child_config)
             payload = load_toml_with_base_config(child_config)
-            assert payload["workflow"] == "simulation"
+            assert payload["workflow"] == {"mode": "simulation"}
             assert payload["simulation"]["process"][0]["type"] == "mesh"
             size = payload["mesh_catchment"]["zone_meshing"]["global_size"]
             n_cells = 10 if size == 400.0 else 40

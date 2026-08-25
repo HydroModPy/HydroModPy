@@ -25,6 +25,7 @@ from __future__ import annotations
 import os
 import types as _stdlib_types
 import typing
+from collections.abc import Mapping as _abc_Mapping
 from enum import Enum
 from pathlib import Path
 from typing import Any, get_args, get_origin
@@ -260,7 +261,13 @@ def _render_mapping_value(
         lines.append("")
         lines.append(_line(f"[{section_name}]"))
         for key, value in scalar_items:
-            lines.append(_line(f"{key} = {_fmt(value)}"))
+            if value is None:
+                # A None scalar has no TOML literal; comment it out rather
+                # than emit ``key =`` (which is invalid TOML). Reload restores
+                # None as the optional-field default.
+                lines.append(_line(f"# {key} ="))
+            else:
+                lines.append(_line(f"{key} = {_fmt(value)}"))
 
     for key, nested in nested_items:
         lines.extend(
@@ -285,6 +292,8 @@ def _render_mapping_value(
                             _commented=_commented,
                         )
                     )
+                elif item_value is None:
+                    lines.append(_line(f"# {item_key} ="))
                 else:
                     lines.append(_line(f"{item_key} = {_fmt(item_value)}"))
     return lines
@@ -394,6 +403,27 @@ def _is_union_origin(origin: Any) -> bool:
         return True
     if hasattr(_stdlib_types, "UnionType") and origin is _stdlib_types.UnionType:
         return True
+    return False
+
+
+def _is_mapping_field(field_info: FieldInfo) -> bool:
+    """True when the field annotation is a mapping (``dict``/``Mapping``).
+
+    A mapping field must never be emitted as an inline ``name = {}`` in a
+    template: an inline table cannot be extended by later
+    ``[section.name.<id>]`` sub-tables (e.g. the dynamic ``[flow.param.*]``
+    blocks), which produces invalid TOML.
+    """
+    annotation = field_info.annotation
+    candidates = (
+        list(get_args(annotation)) if _is_union_origin(get_origin(annotation)) else [annotation]
+    )
+    for cand in candidates:
+        origin = get_origin(cand)
+        if origin is dict:
+            return True
+        if isinstance(origin, type) and issubclass(origin, _abc_Mapping):
+            return True
     return False
 
 
@@ -801,6 +831,15 @@ def _section(
                     deferred_mappings.append((name, raw_value))
                 else:
                     lines.append(_line(f"{name} = {_fmt(raw_value)}"))
+            elif _is_mapping_field(field_info):
+                # Mapping field with no concrete value: render populated
+                # defaults as sub-tables, never as an inline ``name = {}``
+                # (an inline table cannot be extended by later
+                # ``[section.name.<id>]`` sub-tables -> invalid TOML).
+                if isinstance(default, dict) and default:
+                    deferred_mappings.append((name, default))
+                else:
+                    lines.append(f"# {name}: entries go under [{section_name}.{name}.<id>]")
             elif default is not _UNDEFINED and default is not None:
                 lines.append(_line(f"{name} = {_fmt(default)}"))
             elif level == Profile.USER and default is _UNDEFINED:

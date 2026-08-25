@@ -1,23 +1,25 @@
 from __future__ import annotations
 
-from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.results.storage_contract import PARQUET_FILE_SUFFIX
-from hydromodpy.results.storage_diagnostics import (
-    diagnose_result_storage,
-    storage_artefact_basename,
-    storage_artefact_kind,
+import shutil
+
+from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.storage.contract import (
+    FIELDS_STORE_NAME,
+    PARQUET_FILE_SUFFIX,
+    TABLES_DIRNAME,
 )
+from hydromodpy.results.storage.diagnostics import diagnose_result_storage, is_run_directory
 
 
 def _by_name(diagnostics):
     return {diagnostic.name: diagnostic for diagnostic in diagnostics}
 
 
-def test_clean_workspace_storage_reports_ok(tmp_path):
-    workspace = tmp_path / "workspace"
+def test_clean_project_storage_reports_ok(tmp_path):
+    project = tmp_path / "project"
     sid = "00000000-0000-4000-8000-000000000010"
 
-    with SimulationCatalog(workspace) as catalog:
+    with Catalog(project) as catalog:
         reg = catalog.register_simulation(
             sid,
             project="p",
@@ -29,44 +31,44 @@ def test_clean_workspace_storage_reports_ok(tmp_path):
         assert reg.zarr is not None
         reg.zarr.close()
 
-    diagnostics = _by_name(diagnose_result_storage(workspace))
+    diagnostics = _by_name(diagnose_result_storage(project))
 
     assert diagnostics["results:layout"].status == "OK"
-    assert "1 catalog row(s)" in diagnostics["results:layout"].detail
-    assert "1 Zarr artefact(s)" in diagnostics["results:layout"].detail
+    assert "1 index row(s)" in diagnostics["results:layout"].detail
+    assert "1 run director" in diagnostics["results:layout"].detail
 
 
-def test_completed_row_missing_zarr_is_reported(tmp_path):
-    workspace = tmp_path / "workspace"
+def test_completed_row_missing_fields_store_is_reported(tmp_path):
+    project = tmp_path / "project"
     sid = "00000000-0000-4000-8000-000000000011"
 
-    with SimulationCatalog(workspace) as catalog:
+    with Catalog(project) as catalog:
         reg = catalog.register_simulation(
             sid,
             project="p",
             solver="modflow6",
-            name="missing-zarr",
+            name="missing-fields",
             n_cells=1,
             n_layers=1,
         )
         assert reg.zarr is not None
         reg.zarr.close()
         catalog.finalize(sid, status="completed")
-        zarr_path = catalog.zarr_path_for(sid)
+        fields_path = catalog.fields_path_for(sid)
 
-    zarr_path.unlink()
-    diagnostics = _by_name(diagnose_result_storage(workspace))
+    shutil.rmtree(fields_path)
+    diagnostics = _by_name(diagnose_result_storage(project))
 
     assert diagnostics["results:missing_zarr"].status == "WARN"
-    assert "1 completed catalog row(s)" in diagnostics["results:missing_zarr"].detail
+    assert "1 completed index row(s)" in diagnostics["results:missing_zarr"].detail
     assert sid in str(diagnostics["results:missing_zarr"].hint)
 
 
-def test_orphans_and_tmp_parquet_are_reported(tmp_path):
-    workspace = tmp_path / "workspace"
+def test_orphan_run_directory_and_tmp_parquet_are_reported(tmp_path):
+    project = tmp_path / "project"
     sid = "00000000-0000-4000-8000-000000000012"
 
-    with SimulationCatalog(workspace) as catalog:
+    with Catalog(project) as catalog:
         reg = catalog.register_simulation(
             sid,
             project="p",
@@ -77,53 +79,47 @@ def test_orphans_and_tmp_parquet_are_reported(tmp_path):
         )
         assert reg.zarr is not None
         reg.zarr.close()
-        parquet_dir = catalog.parquet_dir_for(sid)
-        parquet_dir.mkdir(parents=True)
-        (parquet_dir / f"timeseries{PARQUET_FILE_SUFFIX}.tmp").write_bytes(b"partial")
+        tables_dir = catalog.tables_dir_for(sid)
+        tables_dir.mkdir(parents=True, exist_ok=True)
+        tmp_parquet = tables_dir / f"timeseries{PARQUET_FILE_SUFFIX}.tmp-0a1b2c3d"
+        tmp_parquet.write_bytes(b"partial")
 
-        orphan_zarr = catalog.simulations_dir / "orphan.zarr"
-        orphan_zarr.mkdir()
-        orphan_parquet = catalog.simulations_dir / "orphan.parquet"
-        orphan_parquet.mkdir()
+        orphan_run = catalog.runs_dir / "orphan_run"
+        (orphan_run / FIELDS_STORE_NAME).mkdir(parents=True)
 
-    diagnostics = _by_name(diagnose_result_storage(workspace))
+    diagnostics = _by_name(diagnose_result_storage(project))
 
-    assert diagnostics["results:orphan_zarr"].status == "WARN"
-    assert diagnostics["results:orphan_zarr"].hint == "first: orphan"
-    assert diagnostics["results:orphan_zarr"].paths == (str(orphan_zarr),)
-    assert diagnostics["results:orphan_parquet"].status == "WARN"
-    assert diagnostics["results:orphan_parquet"].hint == "first: orphan"
-    assert diagnostics["results:orphan_parquet"].paths == (str(orphan_parquet),)
+    assert diagnostics["results:orphan_runs"].status == "WARN"
+    assert diagnostics["results:orphan_runs"].hint == "first: orphan_run"
+    assert diagnostics["results:orphan_runs"].paths == (str(orphan_run),)
     assert diagnostics["results:parquet_tmp"].status == "WARN"
-    assert diagnostics["results:parquet_tmp"].paths == (
-        str(parquet_dir / f"timeseries{PARQUET_FILE_SUFFIX}.tmp"),
-    )
+    assert diagnostics["results:parquet_tmp"].paths == (str(tmp_parquet),)
 
 
-def test_storage_artefact_helpers_use_shared_suffix_contract(tmp_path):
-    zarr_zip = tmp_path / "demo.zarr.zip"
-    zarr_zip.write_bytes(b"zip")
-    zarr_dir = tmp_path / "demo.zarr"
-    zarr_dir.mkdir()
-    parquet_dir = tmp_path / "demo.parquet"
-    parquet_dir.mkdir()
+def test_is_run_directory_recognises_fields_or_tables(tmp_path):
+    with_fields = tmp_path / "with_fields"
+    (with_fields / FIELDS_STORE_NAME).mkdir(parents=True)
+    with_tables = tmp_path / "with_tables"
+    (with_tables / TABLES_DIRNAME).mkdir(parents=True)
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    a_file = tmp_path / "a_file"
+    a_file.write_bytes(b"x")
 
-    assert storage_artefact_kind(zarr_zip) == "zarr.zip"
-    assert storage_artefact_kind(zarr_dir) == "zarr"
-    assert storage_artefact_kind(parquet_dir) == "parquet-dir"
-    assert storage_artefact_basename(zarr_zip) == "demo"
-    assert storage_artefact_basename(zarr_dir) == "demo"
-    assert storage_artefact_basename(parquet_dir) == "demo"
+    assert is_run_directory(with_fields)
+    assert is_run_directory(with_tables)
+    assert not is_run_directory(plain)
+    assert not is_run_directory(a_file)
 
 
 def test_doctor_probe_returns_cli_check_shape(tmp_path):
     from hydromodpy.cli.commands.doctor import _probe_result_storage
 
-    workspace = tmp_path / "workspace"
-    with SimulationCatalog(workspace):
+    project = tmp_path / "project"
+    with Catalog(project):
         pass
 
-    checks = {check["name"]: check for check in _probe_result_storage(workspace)}
+    checks = {check["name"]: check for check in _probe_result_storage(project)}
 
     assert checks["results:layout"]["status"] == "OK"
     assert checks["results:layout"]["hint"] is None
@@ -132,8 +128,8 @@ def test_doctor_probe_returns_cli_check_shape(tmp_path):
 def test_manage_backend_exposes_and_cleans_diagnostic_paths(tmp_path):
     from hydromodpy.cli.commands.dev.manage import _WorkspaceManagerBackend
 
-    workspace = tmp_path / "workspace"
-    with SimulationCatalog(workspace) as catalog:
+    project = tmp_path / "project"
+    with Catalog(project) as catalog:
         sid = "00000000-0000-4000-8000-000000000013"
         reg = catalog.register_simulation(
             sid,
@@ -145,14 +141,14 @@ def test_manage_backend_exposes_and_cleans_diagnostic_paths(tmp_path):
         )
         assert reg.zarr is not None
         reg.zarr.close()
-        parquet_dir = catalog.parquet_dir_for(sid)
-        parquet_dir.mkdir(parents=True)
-        tmp_file = parquet_dir / f"timeseries{PARQUET_FILE_SUFFIX}.tmp"
+        tables_dir = catalog.tables_dir_for(sid)
+        tables_dir.mkdir(parents=True, exist_ok=True)
+        tmp_file = tables_dir / f"timeseries{PARQUET_FILE_SUFFIX}.tmp-0a1b2c3d"
         tmp_file.write_bytes(b"partial")
-        orphan = catalog.simulations_dir / "orphan.zarr"
-        orphan.mkdir()
+        orphan = catalog.runs_dir / "orphan_run"
+        (orphan / FIELDS_STORE_NAME).mkdir(parents=True)
 
-    backend = _WorkspaceManagerBackend(workspace_root=workspace)
+    backend = _WorkspaceManagerBackend(workspace_root=project)
     diagnostics = backend.result_diagnostics()["rows"]
     cleanup_paths = {path for row in diagnostics for path in row.get("paths", [])}
 

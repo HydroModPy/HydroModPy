@@ -24,6 +24,8 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import (
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import (
     ZoneMeshingDomainGeographicBoxBuffer,
 )
+from hydromodpy.spatial.mesh.refinement.lake_refinement import LakeRefinementConfig
+from hydromodpy.spatial.mesh.refinement.refinement_zones import RefinementZoneConfig
 from hydromodpy.spatial.protocols import get_geology_data_source
 
 
@@ -47,7 +49,8 @@ class MeshCatchmentConfig(HydroModelBase):
         default=None,
         description=(
             "Optional `.msh` output path for the generated planar mesh. "
-            "When omitted, the launcher writes the mesh to `results_stable/mesh/mesh_catchment.msh` "
+            "When omitted, the launcher writes the mesh to "
+            "`.hmp/scratch/_preprocessing/mesh/mesh_catchment.msh` "
             "inside the active catchment workspace in standard layout, or directly to "
             "`workspace.project_root/mesh_catchment.msh` when `output_layout='flat'` is used."
         ),
@@ -91,6 +94,17 @@ class MeshCatchmentConfig(HydroModelBase):
             "Downstream solvers that require runtime mesh support may fail without this bundle."
         ),
     )
+    cache: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "If true, reuse a previously generated mesh when its inputs (domain geometry, "
+            "river constraint, lake/dam refinement, mesh and delineation configuration) are "
+            "unchanged, instead of regenerating it. Gmsh is not reproducible run to run "
+            "(it reseeds from the system clock), so regeneration yields a different mesh and "
+            "makes results and calibration objectives irreproducible; caching pins the mesh. "
+            "Default off (regenerate every run). See hydromodpy.spatial.mesh.mesh_cache."
+        ),
+    )
     figure_dpi: Annotated[PositiveInt, Profile.USER] = Field(
         default=300,
         description=(
@@ -109,7 +123,7 @@ class MeshCatchmentConfig(HydroModelBase):
         default="standard",
         description=(
             "Dedicated-launcher output layout. "
-            "Use 'standard' to keep final mesh artifacts under `results_stable/mesh/`, "
+            "Use 'standard' to keep final mesh artifacts under `.hmp/scratch/_preprocessing/mesh/`, "
             "or 'flat' to write final mesh artifacts directly under `workspace.project_root` "
             "while keeping intermediate runtime folders out of that final directory."
         ),
@@ -125,9 +139,9 @@ class MeshCatchmentConfig(HydroModelBase):
         default="keep",
         description=(
             "Control what happens to intermediate geographic preprocessing artifacts after the mesh run. "
-            "Use 'keep' to preserve the canonical `results_stable/geographic` and `results_stable/demcorrecflow` "
-            "folders, or 'cleanup' to delete them at the end of the dedicated mesh launcher once the mesh outputs "
-            "and exchange bundle have been written."
+            "Use 'keep' to preserve the canonical `.hmp/scratch/_preprocessing/geographic` and "
+            "`.hmp/scratch/_preprocessing/demcorrecflow` folders, or 'cleanup' to delete them at the end of "
+            "the dedicated mesh launcher once the mesh outputs and exchange bundle have been written."
         ),
     )
     rivers: Annotated[MeshCatchmentRiversConfig, Profile.USER] = Field(
@@ -178,6 +192,22 @@ class MeshCatchmentConfig(HydroModelBase):
             "Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, "
             "and interface refinement. Defaults are valid, but project examples typically override them "
             "to target a desired number of cells."
+        ),
+    )
+    lake_refinement: Annotated[LakeRefinementConfig, Profile.USER] = Field(
+        default_factory=LakeRefinementConfig,
+        description=(
+            "Optional local refinement on the lake shoreline band and the hydraulic "
+            "structures (cutoff wall, sill, dam outlet). Disabled by default; set "
+            "enabled = true to add the lake size fields."
+        ),
+    )
+    refinement_zone: Annotated[list[RefinementZoneConfig], Profile.USER] = Field(
+        default_factory=list,
+        description=(
+            "User-provided zones of interest for local refinement. Each entry names one "
+            "vector layer (polygons = zones, points / lines = corridors) and a target "
+            "cell size; declare entries as [[mesh_catchment.refinement_zone]] tables."
         ),
     )
 

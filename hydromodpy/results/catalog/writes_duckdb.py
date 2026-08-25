@@ -1,11 +1,11 @@
-"""DuckDB write concern for :class:`SimulationCatalog`.
+"""DuckDB write concern for :class:`Catalog`.
 
 Tabular catalog writes against the DuckDB backend: parameters, metrics,
 stations, scientific objectives, run environment snapshots, geographic
-metadata, provenance, and the registration of observation points and
-tracked input files. Methods that also mirror to Parquet (``write_metric``,
-``write_provenance``) call ``self._write_parquet_records`` which the facade
-inherits from :class:`WritesMixinParquet` via the MRO.
+metadata, provenance, and the registration of tracked input files. Methods
+that also mirror to Parquet (``write_metric``, ``write_provenance``) call
+``self._write_parquet_records`` which the facade inherits from
+:class:`WritesMixinParquet` via the MRO.
 """
 
 from __future__ import annotations
@@ -21,23 +21,22 @@ import pandas as pd
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path as _encode_workspace_path
-from hydromodpy.results.array_fingerprint import fingerprint
+from hydromodpy.results.annotations import RunAnnotations, RunNote, write_annotations
 from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE
 from hydromodpy.results.catalog.writes_helpers import (
     _coerce_timestamp,
     _coerce_timestamp_utc,
-    _epsg_from_crs,
     _path_size_bytes,
     _python_value_type,
     _sha256_directory,
     _sha256_streaming,
 )
-from hydromodpy.results.parquet_schemas import (
+from hydromodpy.results.storage.array_fingerprint import fingerprint
+from hydromodpy.results.storage.parquet_schemas import (
     METRICS_SCHEMA,
     PROVENANCE_SCHEMA,
 )
-from hydromodpy.results.spatial_index import point_in_cell
 
 logger = get_logger(__name__)
 
@@ -58,18 +57,27 @@ class WritesMixinDuckDB:
         sim_id: str | UUID,
         new_name: str,
     ) -> None:
-        """Rename a simulation row in-place.
+        """Rename a run: move its directory, then update the row.
 
-        The (project, name) pair must remain unique: a collision raises
-        :class:`~hydromodpy.results.catalog.registration.DuplicateSimulationNameError`.
-        The audit row carries the new name only; the previous value can be
-        recovered from earlier ``sim.register`` events if needed.
+        The run directory is named after the run, so a rename is a move on
+        disk plus an index update. The rename routes through the same
+        stem-versioning accounting as registration: the resulting
+        ``(name_stem, version_int)`` slot must be free among live rows,
+        otherwise a
+        :class:`~hydromodpy.results.catalog.registration.DuplicateSimulationNameError`
+        is raised. A bare stem takes version 1, so renaming into a stem that
+        already owns ``.v1`` is rejected rather than creating a duplicate
+        ``(stem, 1)`` that would later break ``if_exists='version'``.
         """
         if not self._persistence.save_catalog:
             return
+        from hydromodpy.core.state.paths import RUNS_DIRNAME
         from hydromodpy.results.catalog.registration import (
             DuplicateSimulationNameError,
+            split_stem_version,
         )
+        from hydromodpy.results.catalog.storage_paths import run_dirname
+        from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 
         sid = str(sim_id)
         if not new_name or not str(new_name).strip():
@@ -78,16 +86,159 @@ class WritesMixinDuckDB:
         if row is None:
             raise KeyError(f"No simulation with sim_id={sid[:8]}")
         project = row[0]
+        stem, requested_version = split_stem_version(str(new_name))
+        target_version = requested_version or 1
         clash = self._backend.fetch_one(
-            "SELECT sim_id FROM simulations WHERE project = ? AND name = ? AND sim_id <> ?",
-            [project, str(new_name), sid],
+            "SELECT CAST(sim_id AS VARCHAR) FROM simulations "
+            "WHERE project = ? AND name_stem = ? AND version_int = ? AND sim_id <> ? "
+            "AND status_id <> (SELECT id FROM statuses WHERE code = 'trashed')",
+            [project, stem, target_version, sid],
         )
         if clash is not None:
             raise DuplicateSimulationNameError(str(project), str(new_name), str(clash[0]))
+        dirname = run_dirname(str(new_name))
+        self._paths.move(sid, dirname)
         self._backend.execute(
-            "UPDATE simulations SET name = ?, updated_at = current_timestamp WHERE sim_id = ?",
-            [str(new_name), sid],
+            "UPDATE simulations SET name = ?, name_stem = ?, version_int = ?, "
+            "storage_basename = ?, zarr_path = ?, "
+            "updated_at = current_timestamp WHERE sim_id = ?",
+            [
+                str(new_name),
+                stem,
+                target_version,
+                dirname,
+                f"{RUNS_DIRNAME}/{dirname}/{FIELDS_STORE_NAME}",
+                sid,
+            ],
         )
+
+    @audited("sim.tag_add", payload_keys=("tag",))
+    @with_lock_retry()
+    def add_tag(
+        self,
+        sim_id: str | UUID,
+        tag: str,
+    ) -> bool:
+        """Attach a ``(sim_id, tag)`` row to ``tags`` (idempotent).
+
+        Returns ``True`` when a row was inserted, ``False`` when the tag was
+        already present.
+        """
+        if not self._persistence.save_catalog:
+            return False
+        sid = str(sim_id)
+        existing = self._backend.fetch_one(
+            "SELECT 1 FROM tags WHERE sim_id = ? AND tag = ?",
+            [sid, str(tag)],
+        )
+        if existing is not None:
+            return False
+        self._backend.execute(
+            "INSERT INTO tags (sim_id, tag) VALUES (?, ?)",
+            [sid, str(tag)],
+        )
+        self._mirror_annotations(sid)
+        return True
+
+    def write_tags(self, sim_id: str | UUID, tags: list[str]) -> None:
+        """Attach several tags to ``sim_id`` (each idempotent and audited)."""
+        for tag in tags:
+            if tag and str(tag).strip():
+                self.add_tag(sim_id, str(tag).strip())
+
+    def _mirror_annotations(self, sim_id: str | UUID) -> None:
+        """Rewrite ``runs/<name>/annotations.json`` from the index rows.
+
+        Tags and notes are the only run metadata a human edits after the seal,
+        and no other file carries them, so an index rebuild would drop them.
+        The sidecar is rewritten in full from the rows that just changed, which
+        keeps the file a projection of the index rather than a second truth.
+        A run whose directory does not exist yet (registration in flight) is
+        left alone: its next annotation writes the file.
+        """
+        sid = str(sim_id)
+        run_dir = self._paths.run_dir_for(sid)
+        if not run_dir.is_dir():
+            return
+        tags = tuple(
+            str(row[0])
+            for row in self._backend.fetch_all(
+                "SELECT tag FROM tags WHERE sim_id = ? ORDER BY added_at, tag", [sid]
+            )
+        )
+        notes = tuple(
+            RunNote(note=str(row[0]), added_at=str(row[1]), added_by=row[2])
+            for row in self._backend.fetch_all(
+                "SELECT note, added_at, added_by FROM sim_notes WHERE sim_id = ? ORDER BY added_at",
+                [sid],
+            )
+        )
+        write_annotations(run_dir, RunAnnotations(tags=tags, notes=notes), sim_id=sid)
+
+    @audited("note.add")
+    @with_lock_retry()
+    def add_note(
+        self,
+        sim_id: str | UUID,
+        note: str,
+        *,
+        added_by: str | None = None,
+    ) -> None:
+        """Append a timestamped note to ``sim_notes`` for ``sim_id``."""
+        if not self._persistence.save_catalog:
+            return
+        self._backend.execute(
+            "INSERT INTO sim_notes (note_id, sim_id, note, added_by) "
+            "VALUES (gen_random_uuid(), ?, ?, ?)",
+            [str(sim_id), str(note), added_by],
+        )
+        self._mirror_annotations(sim_id)
+
+    def record_export(self, sim_id: str | UUID, *, kind: str, path: str | Path) -> None:
+        """Record one emitted export artefact in ``export_log`` (best-effort).
+
+        No-op on a read-only catalog or when persistence is disabled, so read-
+        side export helpers never fail over bookkeeping. ``show``/``gc`` read
+        this table instead of globbing the export tree. Files get a SHA-256;
+        directories record their total size only.
+        """
+        if self._read_only or not self._persistence.save_catalog:
+            return
+        p = Path(path)
+        if not p.exists():
+            return
+        try:
+            n_bytes = _path_size_bytes(p)
+            sha: str | None = _sha256_streaming(p) if p.is_file() else None
+        except OSError:
+            return
+        # POSIX-normalised like every other relative path in the catalog, so the
+        # idempotency key below keeps matching a row written on another platform.
+        try:
+            rel = p.resolve().relative_to(self.project_path.resolve()).as_posix()
+        except ValueError:
+            rel = p.as_posix()
+        # Idempotent on (sim_id, kind, rel_path): re-exporting the same artefact
+        # to the same path refreshes its row instead of accumulating duplicates
+        # that no longer map one-to-one to on-disk files.
+        self._backend.execute(
+            "DELETE FROM export_log WHERE sim_id = ? AND kind = ? AND rel_path = ?",
+            [str(sim_id), str(kind), rel],
+        )
+        self._backend.execute(
+            "INSERT INTO export_log (export_id, sim_id, kind, rel_path, bytes, sha256) "
+            "VALUES (gen_random_uuid(), ?, ?, ?, ?, ?)",
+            [str(sim_id), str(kind), rel, int(n_bytes), sha],
+        )
+        try:
+            emit_audit_event(
+                self._db,
+                event_type="export.write",
+                sim_id=str(sim_id),
+                payload={"kind": str(kind), "rel_path": rel},
+            )
+        except Exception:
+            pass
 
     @audited("sim.tag_remove", payload_keys=("tag",))
     @with_lock_retry()
@@ -114,6 +265,7 @@ class WritesMixinDuckDB:
             "DELETE FROM tags WHERE sim_id = ? AND tag = ?",
             [sid, str(tag)],
         )
+        self._mirror_annotations(sid)
         return True
 
     @audited("param.write")
@@ -246,6 +398,9 @@ class WritesMixinDuckDB:
         project_root: Path | str | None = None,
         solver_name: str | None = None,
         solver_binary_path: Path | str | None = None,
+        solver_engine: str | None = None,
+        solver_execution_mode: str | None = None,
+        solver_version_text: str | None = None,
         rng_seed: int | None = None,
     ) -> None:
         """Capture and persist the host environment snapshot for ``sim_id``.
@@ -254,13 +409,19 @@ class WritesMixinDuckDB:
         steps (``pip list``, ``cpuinfo``) tolerate failures and fall back
         to partial values rather than raising.
 
+        ``solver_binary_path`` is the engine the solve used, executable or
+        shared library; ``solver_engine`` says which of the two it is and
+        ``solver_execution_mode`` how it was driven. ``solver_version_text``
+        overrides the probed banner: a shared library reports no ``--version``,
+        so its caller resolves the version and passes it here.
+
         ``rng_seed`` is the master seed driving ``RngManager``. Pass the
         same value to reproduce stochastic stages (mesh sampling, random
         forcing, calibration draws) from the catalog snapshot.
         """
         if not self._persistence.save_catalog:
             return
-        from hydromodpy.results.run_environment import capture_environment
+        from hydromodpy.results.run.environment import capture_environment
 
         snap = capture_environment(
             project_root=project_root,
@@ -273,11 +434,12 @@ class WritesMixinDuckDB:
             """INSERT INTO runs_environment
                (sim_id, python_version, hydromodpy_version, platform,
                 hostname, user_name, cpu_info, memory_gb,
-                git_commit, project_git_commit,
-                solver_name, solver_binary_path,
+                git_commit, git_dirty, project_git_commit,
+                solver_name, solver_engine, solver_execution_mode,
+                solver_binary_path,
                 solver_binary_sha256, solver_version_text,
                 conda_env_hash, env_packages, rng_seed)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
                 sid,
                 snap.get("python_version"),
@@ -288,11 +450,14 @@ class WritesMixinDuckDB:
                 json.dumps(snap.get("cpu_info") or {}),
                 snap.get("memory_gb"),
                 snap.get("git_commit"),
+                snap.get("git_dirty"),
                 snap.get("project_git_commit"),
                 snap.get("solver_name"),
+                solver_engine,
+                solver_execution_mode,
                 snap.get("solver_binary_path"),
                 snap.get("solver_binary_sha256"),
-                snap.get("solver_version_text"),
+                solver_version_text or snap.get("solver_version_text"),
                 snap.get("conda_env_hash"),
                 json.dumps(snap.get("env_packages") or []),
                 None if rng_seed is None else int(rng_seed),
@@ -354,14 +519,19 @@ class WritesMixinDuckDB:
         *,
         solver_binary_path: Path | str | None,
     ) -> None:
-        """Refine the recorded binary identity with the path the solver ran.
+        """Refine the recorded executable identity with the path the solver ran.
 
         Registration records a best-guess managed-cache binary; this overwrites
         it with the exact binary used, honouring a custom ``mf6_executable_name``.
+
+        Runs whose engine is a shared library are left alone. Their model object
+        still carries an ``exe`` attribute (the api runner never opens it), so
+        refining from it would replace the library that solved with an
+        executable that did not.
         """
         if not self._persistence.save_catalog or solver_binary_path is None:
             return
-        from hydromodpy.results.run_environment import solver_binary_identity
+        from hydromodpy.results.run.environment import solver_binary_identity
 
         sha256, version_text = solver_binary_identity(solver_binary_path)
         self._backend.execute(
@@ -369,7 +539,8 @@ class WritesMixinDuckDB:
                    solver_binary_path = ?,
                    solver_binary_sha256 = COALESCE(?, solver_binary_sha256),
                    solver_version_text = COALESCE(?, solver_version_text)
-               WHERE sim_id = ?""",
+               WHERE sim_id = ?
+                 AND (solver_engine IS NULL OR solver_engine = 'executable')""",
             [str(solver_binary_path), sha256, version_text, str(sim_id)],
         )
 
@@ -433,6 +604,13 @@ class WritesMixinDuckDB:
         period_start: Any | None = None,
         period_end: Any | None = None,
     ) -> None:
+        """Write one metric to the DuckDB ``metrics`` table (authoritative).
+
+        The DuckDB row is the source of truth (queried by find/leaderboards and
+        the ``metrics`` view). The Parquet mirror written below is a portable
+        columnar copy for export and ML scans, not a second source of truth; the
+        two sinks are not written in one transaction, so on any drift DuckDB wins.
+        """
         if not self._persistence.save_catalog:
             return
         self._backend.execute(
@@ -475,7 +653,7 @@ class WritesMixinDuckDB:
                 }
             ]
             self._write_parquet_records(
-                target=self._paths.parquet_path_for(sid, "metrics"),
+                target=self._paths.table_path_for(sid, "metrics"),
                 records=records,
                 schema=METRICS_SCHEMA,
                 pk_cols=("sim_id", "station_id", "variable", "metric"),
@@ -498,6 +676,12 @@ class WritesMixinDuckDB:
         period_start: Any = None,
         period_end: Any = None,
     ) -> None:
+        """Write one provenance record to the DuckDB ``provenance`` table (authoritative).
+
+        As with :meth:`write_metric`, the DuckDB row is the source of truth and
+        the Parquet mirror is a portable copy; the two are not written in one
+        transaction, so DuckDB wins on any drift.
+        """
         if not self._persistence.save_catalog:
             return
         fp = fingerprint(data)
@@ -569,65 +753,12 @@ class WritesMixinDuckDB:
                 }
             ]
             self._write_parquet_records(
-                target=self._paths.parquet_path_for(sid, "provenance"),
+                target=self._paths.table_path_for(sid, "provenance"),
                 records=records,
                 schema=PROVENANCE_SCHEMA,
                 pk_cols=("sim_id", "variable", "source_ref"),
                 sim_id=sid,
             )
-
-    @with_lock_retry()
-    def register_observation_points(
-        self,
-        sim_id: str | UUID,
-        points: dict[str, tuple[float, float]],
-        variable: str = "head",
-        layer: int = 0,
-        *,
-        crs: str | None = None,
-        crs_epsg: int | None = None,
-    ) -> None:
-        if not self._persistence.save_catalog:
-            return
-        sid = str(sim_id)
-        if crs is None or crs_epsg is None:
-            row = self._backend.fetch_one(
-                "SELECT crs_wkt, crs_epsg FROM simulations WHERE sim_id = ?",
-                [sid],
-            )
-            if row is not None:
-                crs = crs or row[0]
-                crs_epsg = crs_epsg if crs_epsg is not None else row[1]
-        if crs is None:
-            raise ValueError("Observation point CRS is required.")
-        if crs_epsg is None:
-            crs_epsg = _epsg_from_crs(crs)
-        sz = self.open_zarr(sim_id)
-        try:
-            mesh = sz.root["mesh"]
-            vertices = mesh["vertices"][:]
-            connectivity = mesh["face_node_connectivity"][:]
-
-            _ = variable
-            mapping = point_in_cell(vertices, connectivity, points)
-            for station_id, (x, y) in points.items():
-                cell_id = mapping[station_id]
-                self._backend.execute(
-                    """INSERT INTO observation_points
-                       (sim_id, station_id, x, y, cell_id, layer, crs_wkt, crs_epsg)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                       ON CONFLICT (sim_id, station_id)
-                       DO UPDATE SET
-                           x = EXCLUDED.x,
-                           y = EXCLUDED.y,
-                           cell_id = EXCLUDED.cell_id,
-                           layer = EXCLUDED.layer,
-                           crs_wkt = EXCLUDED.crs_wkt,
-                           crs_epsg = EXCLUDED.crs_epsg""",
-                    [sid, station_id, x, y, cell_id, layer, str(crs), crs_epsg],
-                )
-        finally:
-            sz.close()
 
     @with_lock_retry()
     def register_tracked_files(

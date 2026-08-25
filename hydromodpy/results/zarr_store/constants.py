@@ -13,19 +13,23 @@ BLOSC_ZSTD = zarr.codecs.BloscCodec(
 )
 
 # CF + ACDD + UGRID conventions advertised at the root of every store.
+# CF compliance is partial by design: core hydrogeology variables (head,
+# concentration, most derived/budget fields) have no CF standard_name in the
+# CF v85 table and carry a CSDMS csdms_standard_name instead, so a strict
+# cfchecker flags them as missing standard_name.
 CF_CONVENTIONS = "CF-1.11, ACDD-1.3, UGRID-1.0"
 
 # Schema version of the Zarr layout produced by HydroModPy V1 (P6).
 # Stored in the ``meta`` group attributes and validated on open.
 ZARR_SCHEMA_VERSION = "2"
 
-# Subgroups created at store init.
+# Subgroups created at store init. ``derived`` and ``budget`` are NOT pre-created:
+# they are opt-in (results.derived.* / budget.spatial_fields) and materialised on
+# demand by the first field write, so a default run carries neither group.
 _SUBGROUPS = (
     "meta",
     "mesh",
     "state",
-    "derived",
-    "budget",
     "particles",
     "forcing",
 )

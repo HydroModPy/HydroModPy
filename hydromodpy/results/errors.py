@@ -24,7 +24,7 @@ class RunNotFoundError(CatalogError, KeyError):
 
 
 class ProjectNotFoundError(CatalogError, FileNotFoundError):
-    """A project root or its ``hydromodpy.toml`` is missing."""
+    """A project root or its ``project.toml`` is missing."""
 
     code = "HMPY.E823"
 

@@ -1,6 +1,6 @@
-"""Parquet-backed DuckDB view helpers for per-simulation tabular outputs.
+"""Parquet-backed DuckDB view helpers for per-run tabular outputs.
 
-Five views map onto ``simulations/<basename>.parquet/<view>.parquet`` files:
+Five views map onto ``runs/<name>/tables.parquet/<view>.parquet`` files:
 ``timeseries``, ``budgets``, ``mass_balance``, ``metrics`` and ``provenance``.
 Empty typed views are installed when no file exists yet, then swapped to a
 ``read_parquet`` view on the first write.
@@ -17,11 +17,11 @@ from typing import TYPE_CHECKING
 import pyarrow as pa
 
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
-from hydromodpy.results.parquet_schemas import VIEW_SCHEMAS
-from hydromodpy.results.storage_contract import (
-    PARQUET_DIR_SUFFIX,
+from hydromodpy.results.storage.contract import (
     PARQUET_FILE_SUFFIX,
+    TABLES_DIRNAME,
 )
+from hydromodpy.results.storage.parquet_schemas import VIEW_SCHEMAS
 
 if TYPE_CHECKING:
     import duckdb
@@ -79,19 +79,15 @@ def _read_parquet_view_ddl(view_name: str, glob_path: str) -> str:
     )
 
 
-def _glob_for_view(simulations_dir: Path, view_name: str) -> str:
-    return str(simulations_dir / f"*{PARQUET_DIR_SUFFIX}" / f"{view_name}{PARQUET_FILE_SUFFIX}")
+def _glob_for_view(runs_dir: Path, view_name: str) -> str:
+    return str(runs_dir / "*" / TABLES_DIRNAME / f"{view_name}{PARQUET_FILE_SUFFIX}")
 
 
-def _parquet_files_exist(simulations_dir: Path, view_name: str) -> bool:
-    if not simulations_dir.is_dir():
+def _parquet_files_exist(runs_dir: Path, view_name: str) -> bool:
+    if not runs_dir.is_dir():
         return False
-    # ``*.parquet`` matches both container dirs and single-file payloads;
-    # restrict the trailing segment with ``is_file()`` so an empty container
-    # named like a view does not falsely report a payload.
     return any(
-        p.is_file()
-        for p in simulations_dir.glob(f"*{PARQUET_DIR_SUFFIX}/{view_name}{PARQUET_FILE_SUFFIX}")
+        p.is_file() for p in runs_dir.glob(f"*/{TABLES_DIRNAME}/{view_name}{PARQUET_FILE_SUFFIX}")
     )
 
 
@@ -116,7 +112,12 @@ def view_name_for(view: str, existing_tables: set[str]) -> str:
     return view
 
 
-def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, simulations_dir: Path) -> None:
+def ensure_parquet_views(
+    conn: duckdb.DuckDBPyConnection,
+    runs_dir: Path,
+    *,
+    temporary: bool = False,
+) -> None:
     """Create or refresh every Parquet-backed view on ``conn``.
 
     If no Parquet file exists for a given view, an empty typed view is
@@ -126,16 +127,19 @@ def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, simulations_dir: Path)
 
     When a Parquet view collides with an existing DuckDB table (``metrics``,
     ``provenance``), a ``<view>_parquet`` alias is used instead so the SQL
-    table remains intact.
+    table remains intact. With ``temporary=True`` the views are session-local
+    ``TEMPORARY`` views so a read-only connection can rebuild them.
     """
-    simulations_dir = Path(simulations_dir)
+    runs_dir = Path(runs_dir)
     existing = _existing_tables(conn)
     for view in PARQUET_VIEW_NAMES:
         target_view = view_name_for(view, existing)
-        if _parquet_files_exist(simulations_dir, view):
-            ddl = _read_parquet_view_ddl(target_view, _glob_for_view(simulations_dir, view))
+        if _parquet_files_exist(runs_dir, view):
+            ddl = _read_parquet_view_ddl(target_view, _glob_for_view(runs_dir, view))
         else:
             ddl = _empty_view_ddl_named(view, target_view)
+        if temporary:
+            ddl = ddl.replace("CREATE OR REPLACE VIEW", "CREATE OR REPLACE TEMPORARY VIEW", 1)
         conn.execute(ddl)
 
 

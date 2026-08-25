@@ -16,9 +16,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hydromodpy.calibration.optimizer import EvaluationResult, ParamSuggestion
+from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.persistence import CalibrationPersistence
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
@@ -31,7 +31,7 @@ def catalog(tmp_path: Path):
 
 
 @pytest.fixture()
-def seeded_session(catalog: SimulationCatalog) -> str:
+def seeded_session(catalog: Catalog) -> str:
     """Insert a calibration session with a few iterations; return the sid."""
     persistence = CalibrationPersistence(catalog)
     sid = uuid.uuid4().hex
@@ -40,6 +40,7 @@ def seeded_session(catalog: SimulationCatalog) -> str:
         project="unit_test",
         method="optuna",
         objective_name="nse",
+        search_space={"K": {"bounds": [1e-5, 1e-3]}},
         config={"max_iter": 3},
     )
     for i in range(3):
@@ -71,7 +72,7 @@ def seeded_session(catalog: SimulationCatalog) -> str:
 
 
 class TestCalibrationSessionsDataFrame:
-    def test_returns_dataframe(self, catalog: SimulationCatalog, seeded_session: str):
+    def test_returns_dataframe(self, catalog: Catalog, seeded_session: str):
         df = catalog.calibration_sessions
         assert isinstance(df, pd.DataFrame)
         assert len(df) >= 1
@@ -84,7 +85,7 @@ class TestCalibrationSessionsDataFrame:
 
 
 class TestCalibrationIterationsDataFrame:
-    def test_three_rows(self, catalog: SimulationCatalog, seeded_session: str):
+    def test_three_rows(self, catalog: Catalog, seeded_session: str):
         df = catalog.calibration_iterations(seeded_session)
         assert len(df) == 3
         assert set(df["iteration"]) == {0, 1, 2}
@@ -102,7 +103,7 @@ class TestCalibrationIterationsDataFrame:
 
 
 class TestPersistIterationDetail:
-    def _seed_session(self, catalog: SimulationCatalog) -> str:
+    def _seed_session(self, catalog: Catalog) -> str:
         persistence = CalibrationPersistence(catalog)
         sid = uuid.uuid4().hex
         persistence.start_session(
@@ -110,13 +111,14 @@ class TestPersistIterationDetail:
             project="detail_test",
             method="optuna",
             objective_name="rmse",
+            search_space={"K": {"bounds": [1e-5, 1e-3]}},
             config={"max_iter": 1},
         )
         return sid
 
     def test_persist_iteration_detail_full_writes_block_costs(
         self,
-        catalog: SimulationCatalog,
+        catalog: Catalog,
     ):
         sid = self._seed_session(catalog)
         persistence = CalibrationPersistence(catalog)
@@ -140,7 +142,7 @@ class TestPersistIterationDetail:
 
     def test_persist_iteration_detail_none_clears_metrics(
         self,
-        catalog: SimulationCatalog,
+        catalog: Catalog,
     ):
         sid = self._seed_session(catalog)
         persistence = CalibrationPersistence(catalog)

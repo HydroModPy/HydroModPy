@@ -152,7 +152,7 @@ def _show_series(
 ) -> MplFigure:
     import matplotlib.pyplot as plt
 
-    from hydromodpy.results.timeseries_downsample import (
+    from hydromodpy.results.derive.downsample import (
         DEFAULT_TIMESERIES_THRESHOLD,
         lttb_downsample,
         should_downsample,

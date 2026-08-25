@@ -1,20 +1,23 @@
 # validity_frame/src/validity_frame/semantic_model/config_loader.py
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
 
-from .meta_model import ModelStructure, PropertiesOfInterest, InfluenceFactors, PropertyDetail
 from .context_model import ContextModel
-from .validation_store import ValidationStore, UncertaintyDescriptors
+from .meta_model import InfluenceFactors, ModelStructure, PropertiesOfInterest, PropertyDetail
+from .validation_store import UncertaintyDescriptors, ValidationStore
 
 
 def _load_toml(path: Path) -> dict[str, Any]:
     try:
         import tomllib
+
         with open(path, "rb") as f:
             return tomllib.load(f)
     except ImportError:
         import tomli
+
         with open(path, "rb") as f:
             return tomli.load(f)
 
@@ -31,14 +34,16 @@ def _to_property_details(items: list[Any]) -> tuple[PropertyDetail, ...]:
         if isinstance(item, str):
             result.append(PropertyDetail(id=item, name=item, description=""))
         elif isinstance(item, dict):
-            result.append(PropertyDetail(
-                id=item.get("id", ""),
-                name=item.get("name", item.get("id", "")),
-                description=item.get("description", ""),
-                unit=item.get("unit"),
-                min=item.get("min"),
-                max=item.get("max"),
-            ))
+            result.append(
+                PropertyDetail(
+                    id=item.get("id", ""),
+                    name=item.get("name", item.get("id", "")),
+                    description=item.get("description", ""),
+                    unit=item.get("unit"),
+                    min=item.get("min"),
+                    max=item.get("max"),
+                )
+            )
     return tuple(result)
 
 

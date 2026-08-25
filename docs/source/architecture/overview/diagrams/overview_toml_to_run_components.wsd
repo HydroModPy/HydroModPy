@@ -32,7 +32,7 @@ package "Solver execution" {
 }
 
 package "Persistence and reading" {
-  database "SimulationCatalog" as SimulationCatalog
+  database "Catalog" as Catalog
   component "Run\nread handle" as Run
 }
 
@@ -57,10 +57,10 @@ Pipeline --> SimulationRunner : dispatch ProcessRun
 SimulationRunner --> AdapterRegistry : resolve adapter
 AdapterRegistry --> Solver
 
-Solver --> SimulationCatalog : persist outputs
-Pipeline --> SimulationCatalog : ingest metadata\nand derived artifacts
-Project --> SimulationCatalog : register run
+Solver --> Catalog : persist outputs
+Pipeline --> Catalog : ingest metadata\nand derived artifacts
+Project --> Catalog : register run
 
-SimulationCatalog --> Run : reopen persisted result
+Catalog --> Run : reopen persisted result
 Project --> Run : return handle
 @enduml

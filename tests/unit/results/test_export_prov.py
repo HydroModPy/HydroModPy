@@ -19,6 +19,7 @@ from hydromodpy.results.export.context import (
     InputEntry,
 )
 from hydromodpy.results.export.prov import (
+    HYDROMODPY_NAMESPACE,
     PROV_CONTEXT,
     build_prov_document,
     serialise_prov,
@@ -261,6 +262,12 @@ def test_two_inputs_produce_distinct_entity_and_fetch_ids() -> None:
 
     used_ids = {ref["@id"] for ref in action["prov:used"]}
     assert used_ids == set(input_ids)
+
+
+def test_hydromodpy_namespace_is_the_canonical_docs_host() -> None:
+    """The vocabulary IRI is pinned to the canonical documentation host."""
+    assert HYDROMODPY_NAMESPACE == "https://docs.hydromodpy.fr/schema#"
+    assert PROV_CONTEXT["hydromodpy"] == HYDROMODPY_NAMESPACE
 
 
 def test_serialise_prov_graph_head_is_action(context: FairExportContext) -> None:

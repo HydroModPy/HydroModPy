@@ -114,6 +114,9 @@ docs/source/_generated/
 # ──────────────────────────────────────────────
 _workspace/
 out/
+**/runs/
+**/sessions/
+**/share/
 **/simulations/
 **/exports/
 !tests/integration/exports/
@@ -160,9 +163,12 @@ examples/data/**/*.csv.json
 examples/data/**/*.gpkg.json
 examples/data/**/*.nc.json
 examples/data/**/*.tif.json
+examples/data/**/*.parquet
+examples/data/**/*.parquet.json
 examples/data/etp/etp_sim2_*.nc
 examples/data/precipitation/precipitation_*_sim2_*.nc
 examples/data/recharge/recharge_sim2_*.nc
+examples/data/runoff/runoff_sim2_*.nc
 examples/projects/**/data/cache.duckdb*
 tests/regression/fixtures/**/cache.duckdb*
 
@@ -368,35 +374,42 @@ examples/projects/00_getting_started/catalog.duckdb.bak-20260522T115059Z
 
 # Local-only test-suite overhaul working notes (plan/report/continuation).
 docs/_dev_notes/test_suite_overhaul_*.md
-examples/data/blobs/hydrometry/custom/hydrometry_custom_CANUT_LS_19900101_19901231_D.parquet
-examples/data/blobs/hydrometry/custom/hydrometry_custom_CANUT01_19900101_19921231_D.parquet
-examples/data/blobs/hydrometry/custom/hydrometry_custom_CANUT02_19900101_19921231_D.parquet
-examples/data/blobs/hydrometry/custom/hydrometry_custom_CONST01_19900101_19921231_D.parquet
-examples/data/blobs/hydrometry/custom/hydrometry_custom_NANCON_19820201_20220125_D.parquet
-examples/data/blobs/hydrometry/custom/hydrometry_custom_RENNES01_19900101_19921231_D.parquet
-examples/data/blobs/piezometry/custom/piezometry_custom_PIEZO_CM_19900101_19901231_D.parquet
-examples/data/blobs/piezometry/custom/piezometry_custom_PIEZO_CONST_19900101_19921231_D.parquet
-examples/data/blobs/piezometry/custom/piezometry_custom_PIEZO_GAPS_19900101_19921231_D.parquet
-examples/data/blobs/piezometry/custom/piezometry_custom_PIEZO01_19900101_19921231_D.parquet
-examples/data/blobs/piezometry/custom/piezometry_custom_PIEZO02_19900101_19921231_D.parquet
-examples/data/blobs/piezometry/custom/piezometry_custom_RENNES_P01_19900101_19921231_D.parquet
-examples/data/blobs/recharge/custom/recharge_custom_00_20170101_20171231_M.parquet
-examples/data/blobs/recharge/custom/recharge_custom_EX04_20000101_20021231_M.parquet
-examples/data/blobs/recharge/custom/recharge_custom_NANCON_20000101_20021231_M.parquet
-examples/data/blobs/recharge/custom/recharge_custom_RECH01_20200101_20201231_D.parquet
-examples/data/blobs/recharge/custom/recharge_custom_RECH02_20200101_20201231_D.parquet
-examples/data/blobs/recharge/custom/recharge_custom_RECH03_20200101_20201231_D.parquet
-examples/data/blobs/runoff/custom/runoff_custom_EX04_20000101_20021231_M.parquet
-examples/data/blobs/runoff/custom/runoff_custom_NANCON_20000101_20021231_M.parquet
-examples/data/blobs/water_quality/custom/waterquality_custom_RENNES_WQ_19900101_19921231_D.parquet
-examples/data/blobs/water_quality/custom/waterquality_custom_WQ_CONST_19900101_19921231_D.parquet
-examples/data/blobs/water_quality/custom/waterquality_custom_WQ_GAPS_19900101_19921231_D.parquet
-examples/data/blobs/water_quality/custom/waterquality_custom_WQ_NO3_19900101_19921231_D.parquet
-examples/data/blobs/water_quality/custom/waterquality_custom_WQ_NO3B_19900101_19921231_D.parquet
-examples/data/blobs/water_quality/custom/waterquality_custom_WQ_UGL_19900101_19901231_D.parquet
+
+# Lakeres refact review (2026-07-03) local-only artifacts and junk to keep out of history.
+/modflow/
+/data_tempo/
+/MESH_DISCRETIZATION_RESEARCH.md
+/abaque_cheze_mobilisable_extended.csv
+/LAKERES_REFACT_CHANGES.md
+/ANALYSE_APPLIED_GROUNDWATER_MODELING.md
+docs/_dev_notes/
+catalog.duckdb.bak.*
+catalog.duckdb.pre_*
+catalog.duckdb.preexisting_corrupt
+examples/projects/**/catalog.duckdb.bak.*
+examples/projects/**/catalog.duckdb.pre_*
+
+# CLI --set/--overlay materialized effective configs (temporary)
+*.effective.*.toml
+
+# Chèze reservoir working data (large rasters / meshes / blobs — not versioned)
+examples/data/dem/DEM_cheze_*.tif
+examples/data/dem/DEM_ille_vilaine_*.tif
+examples/data/dem/DEM_ille_vilaine_*.tif.aux.xml
+examples/data/blobs/
+examples/data/cutoff_wall/
+examples/projects/19_cheze_reservoir/mesh/
+
+# Local scratch copies of old example material (multi-GB, never versioned).
+# The root-anchored `old/*` rule above does not reach nested directories.
+examples/old/
+
+# Underscore-prefixed scratch config drafts kept next to an example project.
+examples/projects/**/_*.toml
+
+# Files the dev line keeps out of history (three of them are tracked there,
+# so their rule is inert; kept as declared rather than second-guessed).
 validity_frame/examples/testbed_real_example.py
-examples/data/blobs/hydrometry/custom/hydrometry_custom_CANUT_GAPS_19900101_19921231_D.parquet
-examples/data/blobs/water_quality/custom/waterquality_custom_WQ_UGL_19900101_19901231_D.parquet
 docs/class_diagrams/architecture_condensee_corrigee.png
 docs/class_diagrams/architecture_condensee_corrigee.puml
 examples/data/hydrography/bdtopage_-1.2451_48.3618_-1.1072_48.4651.gpkg

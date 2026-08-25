@@ -18,7 +18,7 @@ still missing from the declared plan.
 
    import hydromodpy as hmp
 
-   with hmp.Project("hydromodpy.toml") as p:
+   with hmp.Project("project.toml") as p:
        df = p.data.list()          # variables loaded in cache
        todo = p.data.missing()     # variables declared but not loaded
 
@@ -31,7 +31,7 @@ project.runs
 
 :attr:`Project.runs` returns a
 :class:`hydromodpy.project.accessors.ProjectRunsAccessor`. It wraps the
-project's :class:`~hydromodpy.results.catalog.SimulationCatalog` and
+project's :class:`~hydromodpy.results.catalog.Catalog` and
 pre-filters every query by the current project name.
 
 The accessor exposes four common queries:
@@ -49,7 +49,7 @@ The accessor exposes four common queries:
 
 .. code-block:: python
 
-   with hmp.Project("hydromodpy.toml") as p:
+   with hmp.Project("project.toml") as p:
        p.simulate(Sy=0.05, name="probe-1")
        p.simulate(Sy=0.08, name="probe-2")
 

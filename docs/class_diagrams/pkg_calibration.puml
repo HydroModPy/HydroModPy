@@ -204,7 +204,7 @@ package "calibration.runners (execution d'un essai)" {
     + make_pipeline(steps) : Any
   }
   interface CalibrationSeriesExtractor <<Protocol>> {
-    + extract_calibration_series(ctx, store, variable) : Series
+    + extract_observables(ctx, store, requests) : dict[str, ObservableResult]
   }
   note bottom of TrialPipelineProvider
     Frontière d'inversion de dépendance : calibration/
@@ -234,7 +234,7 @@ package "calibration.lumped (GR4J, sans binaire externe)" {
   class Gr4jAdapter {
     + process_type = "flow"
     + solver_name = "gr4j"
-    + extract_calibration_series(...) : Series
+    + extract_observables(...) : dict[str, ObservableResult]
   }
   class LumpedRamCache {
     + series : Map<Tuple,Series>

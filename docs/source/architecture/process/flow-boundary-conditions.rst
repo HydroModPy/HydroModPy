@@ -35,7 +35,7 @@ Quick Access
      - ``hydromodpy.physics.flow.FLOW_BOUNDARY_DEFINITIONS``
      - Canonical id, family, support kind, and backend support.
    * - How is TOML normalized?
-     - ``hydromodpy.physics.flow.boundary_conditions_config``
+     - ``hydromodpy.physics.flow.boundary_condition_registry``
      - Accepted ``[flow.bc]`` shapes before typed validation.
    * - What does a solver adapter consume?
      - ``hydromodpy.physics.flow.BoundaryConditionBundle``
@@ -44,7 +44,7 @@ Quick Access
      - ``hydromodpy.solver.modflow6.builders.boundary_conditions``
      - ``CHD`` and ``DRN`` package payload construction.
    * - Where is MODFLOW-NWT assembly handled?
-     - ``hydromodpy.solver.modflow_nwt.nwt._chd_payloads``
+     - ``hydromodpy.solver.modflow_nwt.nwt.payloads.chd``
      - ``BAS`` / ``CHD`` boundary-head payloads.
    * - Where is Boussinesq assembly handled?
      - ``hydromodpy.solver.boussinesq.forcing``
@@ -58,7 +58,7 @@ Code Map
 
 - ``hydromodpy.physics.flow.boundary_conditions``:
   normalized boundary-condition payload model.
-- ``hydromodpy.physics.flow.boundary_conditions_config``:
+- ``hydromodpy.physics.flow.boundary_condition_registry``:
   TOML shape normalization.
 - ``hydromodpy.physics.flow.boundary_condition_registry``:
   canonical boundary registry and runtime bundle helpers.
@@ -66,7 +66,7 @@ Code Map
   runtime ``Flow`` object storing the boundary bundle.
 - ``hydromodpy.solver.modflow6.builders.boundary_conditions``:
   MF6 ``CHD`` / ``DRN`` translation.
-- ``hydromodpy.solver.modflow_nwt.nwt._chd_payloads`` and
+- ``hydromodpy.solver.modflow_nwt.nwt.payloads.chd`` and
   ``_well_drainage_payloads``:
   MODFLOW-NWT ``BAS`` / ``CHD`` / ``DRN`` translation.
 - ``hydromodpy.solver.boussinesq.forcing``:

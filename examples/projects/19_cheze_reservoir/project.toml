@@ -1,0 +1,332 @@
+# ======================================================================
+# HydroModPy - Cheze reservoir (EBR), MODFLOW 6 LAK + SFR, weekly transient.
+#
+# Port of the legacy EBR Cheze reservoir model to the MF6 architecture.
+# The reservoir is a native LAK package (abacus + spillway + managed
+# transfers) FED BY ITS CATCHMENT STREAMFLOW through a delineated SFR
+# network: the reaches capture the aquifer baseflow through their streambed
+# (the DRN entries on reach cells are dropped), the SIM2 catchment runoff is
+# routed along the network, and the terminal reach hands the accumulated
+# flow to the reservoir through an MVR water-mover record.
+#
+# Meteo comes from the SIM2 Meteo-France API (recharge), fetched at run time.
+# Lake geometry, abacus and the managed inflow/withdrawal series live under
+# the shared examples/data/ tree: this project sits at
+# <workspace>/projects/<name>/, so bare filenames resolve against
+# <workspace>/data/<variable>/ (workspace data convention).
+# ======================================================================
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+[simulation]
+name = "cheze_reservoir_transient"
+description = "Cheze reservoir (EBR, Plelan-le-Grand), MODFLOW 6 LAK, weekly transient 2019, recharge from SIM2."
+
+[simulation.time]
+start_datetime = "2019-01-01"
+# Inclusive-end semantics: 2019-12-30 = exactly 52 weekly stress periods.
+end_datetime = "2019-12-30"
+step_value = "7 day"
+coverage_policy = "warn"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]   # LAK is a MODFLOW 6 advanced package; modflow6 is required.
+
+# ---------------------------------------------------------------------- geographic
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+# Mask the active groundwater domain to the delineated catchment: only the
+# watershed's recharge and hillslope drainage feed the reservoir (the full
+# rectangular box would over-collect ~2.5x and peg the lake at the spillway).
+domain_extent = "watershed"
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+# Shared regional DEM (Armorican massif), reused from the Canut example.
+dem_init_path = "DEM_armorican_massif.tif"
+# Outlet just downstream of the dam ("pont romain"), legacy from_xyv.
+x_outlet = 331315.0
+y_outlet = 6781273.0
+snap_dist = "200 m"
+buff_area = "10%"
+
+# Stream network products: the SFR delineation consumes the stream-link raster
+# (compute_stream_links is MANDATORY for SFR) and the Strahler orders. The
+# 1 km2 initiation threshold draws the Cheze river and its main tributaries
+# upstream of the reservoir; the legacy 0.7 x acc_max main-stem-only mask is
+# superseded (it kept only the reach under the dam, useless once the network
+# is truncated at the reservoir shoreline).
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 1.0
+compute_stream_links = true
+compute_strahler_order = true
+
+# ---------------------------------------------------------------------- domain
+[domain]
+# No geology zonation: a single homogeneous aquifer (35 m constant thickness).
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "35.0 m"
+
+# ---------------------------------------------------------------------- data
+[data]
+types = ["recharge", "precipitation", "etp", "runoff", "lake_geometry", "lake_abacus", "lake_bathymetry", "lake_inflow", "lake_withdrawal"]
+inference_mode = "warn"
+
+# All meteo comes from the SIM2 Meteo-France EDR API (fetched at run time, cached).
+# recharge feeds the aquifer; precipitation / etp / runoff feed the lake surface
+# forcings (rain, open-water evaporation, and the catchment runoff inflow) via the
+# lake meteo binder.
+[data.recharge]
+date_start = "2019-01-01"
+date_end = "2019-12-31"
+[[data.recharge.sources]]
+source = "sim2"
+extent = "watershed"
+
+[data.precipitation]
+date_start = "2019-01-01"
+date_end = "2019-12-31"
+[[data.precipitation.sources]]
+source = "sim2"
+extent = "watershed"
+
+[data.etp]
+date_start = "2019-01-01"
+date_end = "2019-12-31"
+[[data.etp.sources]]
+source = "sim2"
+extent = "watershed"
+
+[data.runoff]
+date_start = "2019-01-01"
+date_end = "2019-12-31"
+[[data.runoff.sources]]
+source = "sim2"
+extent = "watershed"
+
+# Reservoir footprint polygon (EPSG:2154) -> LAK cell selection.
+[[data.lake_geometry.sources]]
+source = "custom"
+path = "reservoir_cheze.gpkg"
+
+# Stage-volume-area abacus -> ModflowUtllaktab.
+[[data.lake_abacus.sources]]
+source = "custom"
+path = "reservoir_cheze.csv"
+lake_id = "reservoir_cheze"
+
+# Bathymetry raster (m NGF) -> carved lake bed (active-littoral marnage),
+# reconciled to the abacus by area-weighted quantile mapping.
+[[data.lake_bathymetry.sources]]
+source = "custom"
+path = "reservoir_cheze.tif"
+
+# Managed transfers INTO the lake (Meu + Canut), m3/day. The path names the
+# <workspace>/data/lake_inflow/ directory (location file + chronicle CSVs).
+[data.lake_inflow]
+date_start = "2019-01-01"
+date_end = "2019-12-31"
+[[data.lake_inflow.sources]]
+source = "custom"
+path = "lake_inflow"
+
+# Managed abstraction + restitution leaving the lake, m3/day.
+[data.lake_withdrawal]
+date_start = "2019-01-01"
+date_end = "2019-12-31"
+[[data.lake_withdrawal.sources]]
+source = "custom"
+path = "lake_withdrawal"
+
+# ---------------------------------------------------------------------- flow
+[flow]
+flow_regime = "transient"
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge"]
+active_bc = ["lake", "sfr", "drainage"]
+# Warm-up: solve the first stress period in steady state so the aquifer heads
+# equilibrate around the initial lake stage and mean recharge before the transient
+# (avoids a cold-start shock). The lake starts at the observed level (stageinit).
+first_period_steady = true
+
+[flow.param.K.field]
+kind = "homogeneous"
+value = "1e-4 m/s"     # legacy hk = 1e-4 m/s (8.64 m/day)
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+value = "0.001 -"      # legacy sy = 0.1 %
+
+[flow.param.Ss.field]
+kind = "homogeneous"
+value = "1e-5 m-1"
+
+[flow.ic]
+type = "top"
+
+[flow.bc.cauchy.drainage]
+application_domain = "top"
+kind = "cauchy"
+value = "0.0 m2/s"
+data_value = false
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+negative_to_evt = true
+
+# ---- The Cheze reservoir ----------------------------------------------------
+# The Cheze reservoir (EBR), Plelan-le-Grand.
+[flow.sinks_sources.lakes.reservoir_cheze]
+# Lakebed leakance [1/T] = K_bed / bed_thickness. The bibliographic reference
+# leakance is 1e-6 m/s; with no measured bed thickness it is used as an effective
+# 1e-6 1/s (i.e. a 1 m equivalent lakebed). It is the under-dam-leakage calibration
+# handle, so refine it against observed levels rather than from first principles.
+bedleak = 1e-6
+bedleak_unit = "1/s"
+# Initial lake stage = observed Cheze level at the window start (2019-01-01), m
+# NGF. The reservoir was drawn down for works: far below the natural steady
+# equilibrium, so the warm-up HOLDS the stage there (status CONSTANT) and the
+# aquifer equilibrates around the observed level; the lake re-activates on the
+# first transient period.
+stageinit = "81.82 m"
+steady_stage_hold = true
+occupied_layers = 1
+
+# Carve the real lake bed from the bathymetry raster, active-littoral (marnage):
+# the lakebed cells stay active with their bathymetric bed as cell top, MF6 toggles
+# recharge/ET per cell as the shoreline moves, and the exposed-band runoff is shed
+# to the lake per timestep through the BMI API. The wide surfdep (above) + the
+# top_offset IC + the moderate 80 m lake refinement keep the marnage steady warm-up
+# tractable.
+[flow.sinks_sources.lakes.reservoir_cheze.bed_reconstruction]
+reconcile_to_abacus = true
+dynamic_area = true
+exposed_band_runoff = true
+
+# Spillway: the 35 m concrete crest at 87.3 m caps the stage; overflow leaves the
+# model (lakeout = 0). Replaces the legacy stagemax = 87.3 m.
+[[flow.sinks_sources.lakes.reservoir_cheze.outlets]]
+couttype = "WEIR"
+invert = "87.3 m"
+width = "35 m"
+lakeout = 0
+
+# Dam cutoff wall (voile d'injection / grout curtain) under the dam crest, modeled
+# as a MODFLOW 6 HFB: a near-impermeable vertical barrier on the dam axis at the
+# downstream edge of the reservoir (line in travers de la vallee, ~perpendicular
+# to the W->E flow, midpoint ~331131 / 6780579 just upstream of the outlet). It
+# blocks the top layer so the under-dam seepage dives below the wall (depth 10 m <
+# the 17.5 m top-layer thickness) and resurfaces in the downstream domain. hydchr =
+# K_barrier / thickness ~ 1e-9 1/s is quasi-impermeable.
+[flow.sinks_sources.lakes.reservoir_cheze.cutoff_wall]
+line = [[331142.0, 6780439.3], [331119.4, 6780718.7]]
+depths = [10.0]
+hydchr = 1e-9
+hydchr_unit = "1/s"
+
+# Note: the lake forcings are bound automatically and need no inline entry here:
+#   - inflow (Meu+Canut transfers) and withdrawal (abstraction+restitution) come
+#     from the lake_inflow / lake_withdrawal data families;
+#   - rainfall and open-water evaporation come from the SIM2 precipitation / etp
+#     families. The catchment runoff is NOT applied to the lake directly: the
+#     active SFR network routes it (see below) and it arrives through MVR.
+
+# ---- The Cheze river (SFR streamflow routing) --------------------------------
+# The reservoir's natural feed: the Cheze river and its tributaries, delineated
+# from the DEM products (threshold matching geographic.river_network), truncated
+# at the reservoir shoreline, and coupled to the lake through MVR
+# (outflow_to_lake = 1 -> the first declared lake). Reaches sit on active
+# aquifer cells and capture the baseflow head-dependently; the DRN entries on
+# reach cells are dropped so that water stops leaking out of the model. The
+# SIM2 catchment runoff is bound automatically as the routed 'runoff' forcing
+# (distributed over the reaches by length).
+[flow.sinks_sources.sfr.cheze]
+stream_threshold_km2 = 1.0
+# Legacy NWT streambed: hcond = 0.08 m/day on a 0.1 m bed; kept as the port
+# baseline. With rhk*rlen*rwid/rbth this is the reach-aquifer conductance and
+# the baseflow-capture calibration handle.
+streambed_k = 0.08
+streambed_k_unit = "m/day"
+streambed_thickness = "0.1 m"
+# Legacy roughch = 0.03 (rectangular Manning routing, icalc = 1).
+manning = 0.03
+# The hillslope DRN discharge converges to the nearest reach (MVR) instead of
+# leaving the model: this is the catchment streamflow generation (the legacy
+# post-processed accumulation_flux, now INSIDE the MF6 budget). Without it only
+# the reach cells' streambed captures baseflow and the reservoir starves.
+route_drainage = true
+outflow_to_lake = 1
+
+[flow.sinks_sources.sfr.cheze.width]
+kind = "constant"
+value = "2 m"
+
+# ---------------------------------------------------------------------- solver
+[modflow6.runtime]
+# COMPLEX is the robust IMS preset for the stiff steady lake-aquifer coupling
+# (a strong initial head gradient between the topography and the reservoir stage).
+mf6_ims_complexity = "COMPLEX"
+# Relax the outer head-change criterion to 1 cm: the strict 1e-4 m default leaves
+# a few lake-edge cells oscillating sub-mm in the steady warm-up while the budget
+# already closes to <0.1%. 1 cm is ample for a catchment-scale reservoir model.
+mf6_outer_dvclose = 1e-2
+# XT3D is left to the auto-advisor (mf6_enable_xt3d unset). The aquifer is
+# isotropic and the Frontal-Delaunay mesh is near-orthogonal (median ~0.4 deg),
+# so the advisor logs "XT3D auto-off" and uses the conductance flux, which is
+# accurate here and converges. Set mf6_enable_xt3d = true to force it on (you get
+# a warning that the checks disagree), e.g. once you add anisotropy or geology.
+
+# Unstructured conformal (GMSH triangular) grid: the catchment is meshed at a
+# ~150 m baseline, refined along the delineated Cheze river network, and (when
+# lake_refinement is on) locally refined on the reservoir footprint + the
+# under-dam outlet. Replaces the uniform [modflow6.sgrid.planar] grid that
+# over-counted the elongated reservoir footprint (~2.3x the abacus area).
+[mesh_catchment]
+constraints_mode = "rivers_only"
+
+[mesh_catchment.zone_meshing]
+# Frontal-Delaunay (GMSH algo 6): markedly more equilateral triangles than plain
+# Delaunay, which keeps XT3D's cross-conductance terms small and well conditioned
+# on the unstructured grid (XT3D stays ON).
+algorithm = "frontal"
+global_size = 150.0
+min_size = 50.0
+
+# Local refinement on the reservoir footprint (any shape, from the lake polygon)
+# and the under-dam outlet (the vertical-leakage zone at the catchment outlet).
+# Small cells exactly on the lake stop the coarse-grid footprint over-count.
+# 80 m keeps the marnage (active) cell budget tractable for the Newton steady
+# warm-up; the over-count still drops from ~2.29x (structured) toward ~1.6x.
+# Drop to 40 m for the best abacus when the lake is fixed-area (deactivated).
+[mesh_catchment.lake_refinement]
+enabled = true
+cell_size = 80.0
+buffer = 160.0
+dam_cell_size = 60.0
+dam_buffer = 130.0
+
+# Vertical layering still comes from the backend sgrid.vertical block; only the
+# planar grid is now the GMSH unstructured mesh above.
+[modflow6.sgrid.vertical]
+genmtd_lay = "constant"
+nlay = 2
+
+# ---------------------------------------------------------------------- display
+[display]
+enabled = true
+show = false
+save = true
+# Auto-render the reference-vs-simulated abacus QC figure for the carved bed.
+figures = ["lake_abacus_comparison"]

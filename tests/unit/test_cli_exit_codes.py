@@ -15,6 +15,8 @@ Contract (see ``reports/99_target_architecture.md`` §5.3):
 - 17  cross-project error
 - 18  backup failed
 - 19  migration failed
+- 20  ambiguous reference
+- 21  calibration error
 - 130 SIGINT (POSIX KeyboardInterrupt)
 """
 
@@ -57,6 +59,8 @@ def test_exit_code_constants_exposed() -> None:
     assert helpers.EXIT_CROSS_PROJECTS == 17
     assert helpers.EXIT_BACKUP_FAILED == 18
     assert helpers.EXIT_MIGRATION_FAILED == 19
+    assert helpers.EXIT_AMBIGUOUS_REFERENCE == 20
+    assert helpers.EXIT_CALIBRATION == 21
     assert helpers.EXIT_SIGINT == 130
 
 
@@ -116,3 +120,22 @@ def test_import_missing_package_returns_not_found(monkeypatch, tmp_path) -> None
         ["hmp", "data", "import", str(tmp_path / "no_such.hmp"), "-w", str(tmp_path)],
     )
     assert code == 10
+
+
+def test_exit_code_for_calibration_error() -> None:
+    """A calibration failure has its own code, not the generic one."""
+    from hydromodpy.core.exceptions import CalibrationError, ObjectiveError, OptimizerError
+
+    helpers = _load_helpers()
+    assert helpers.exit_code_for(CalibrationError("no root")) == helpers.EXIT_CALIBRATION
+    # The two subclasses land on the same code rather than falling through to
+    # the generic one, which is what used to happen.
+    assert helpers.exit_code_for(ObjectiveError("x")) == helpers.EXIT_CALIBRATION
+    assert helpers.exit_code_for(OptimizerError("x")) == helpers.EXIT_CALIBRATION
+
+
+def test_a_solver_error_is_not_a_calibration_error() -> None:
+    from hydromodpy.core.exceptions import SolverError
+
+    helpers = _load_helpers()
+    assert helpers.exit_code_for(SolverError("diverged")) == helpers.EXIT_SOLVER_ERROR

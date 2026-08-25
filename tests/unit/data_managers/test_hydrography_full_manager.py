@@ -16,6 +16,7 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, Point, Polygon
 
+from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
@@ -135,7 +136,7 @@ class TestHydrographyManager:
 
     def test_data_folder_created(self, tmp_path):
         mgr = self._make_manager(tmp_path, [{"source": "osm"}])
-        assert (tmp_path / ".solver_scratch/_preprocessing" / "hydrography").is_dir()
+        assert (tmp_path / PREPROCESSING_DIR / "hydrography").is_dir()
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
     @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
@@ -256,7 +257,7 @@ class TestHydrographyManager:
         mgr.load()
 
         # Verify the saved shapefile now has FID column
-        saved_shp = tmp_path / ".solver_scratch/_preprocessing" / "hydrography" / "streams.shp"
+        saved_shp = tmp_path / PREPROCESSING_DIR / "hydrography" / "streams.shp"
         saved_gdf = gpd.read_file(saved_shp)
         assert "FID" in saved_gdf.columns
         assert list(saved_gdf["FID"]) == [1, 2]
@@ -517,7 +518,7 @@ class TestCatalogCacheManager:
         mock_osm_fetch.return_value = lines
 
         # Write fake TIF for read_tif_array
-        tif_path = tmp_path / ".solver_scratch/_preprocessing" / "hydrography" / "streams.tif"
+        tif_path = tmp_path / PREPROCESSING_DIR / "hydrography" / "streams.tif"
         tif_path.parent.mkdir(parents=True, exist_ok=True)
         _write_dummy_tif(tif_path)
 
@@ -561,7 +562,7 @@ class TestCatalogCacheManager:
         )
         mock_osm_fetch.return_value = lines
 
-        tif_path = tmp_path / ".solver_scratch/_preprocessing" / "hydrography" / "streams.tif"
+        tif_path = tmp_path / PREPROCESSING_DIR / "hydrography" / "streams.tif"
         tif_path.parent.mkdir(parents=True, exist_ok=True)
         _write_dummy_tif(tif_path)
 
@@ -701,14 +702,14 @@ class TestHydrographyMetadata:
 @pytest.mark.fast
 class TestDataStoreHydrography:
     def test_load_hydrography_method_exists(self):
-        from hydromodpy.data.store import DataStore
+        from hydromodpy.data.loading.store import DataStore
 
         assert hasattr(DataStore, "load_hydrography")
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager.load")
     @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
     def test_load_hydrography_delegates(self, mock_backend, mock_load, tmp_path):
-        from hydromodpy.data.store import DataStore
+        from hydromodpy.data.loading.store import DataStore
 
         mock_load.return_value = _make_hydrography_load_result(
             raster_path="/tmp/s.tif",

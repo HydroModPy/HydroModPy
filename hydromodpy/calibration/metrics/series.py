@@ -12,7 +12,7 @@ from typing import Any
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.time_alignment import observed_on_simulation_index
+from hydromodpy.core.time.period_aggregation import period_mean_on_index
 
 logger = get_logger(__name__)
 
@@ -30,11 +30,15 @@ def load_observed(ctx: Any, variable: str) -> list[ObservedSeries]:
     """Pull observation timeseries from the loaded-data context.
 
     ``variable`` is the calibration-target variable (``"discharge"``,
-    ``"head"``). Discharge comes from ``hydrometry``, head from
-    ``piezometry``. Returns one ``ObservedSeries`` per station so
-    multi-station calibration works uniformly.
+    ``"head"``, ``"lake_level"``). Discharge comes from ``hydrometry``, head
+    from ``piezometry``, lake level from ``lake_levels``. Returns one
+    ``ObservedSeries`` per station so multi-station calibration works uniformly.
     """
-    field_name = {"discharge": "hydrometry", "head": "piezometry"}.get(variable)
+    field_name = {
+        "discharge": "hydrometry",
+        "head": "piezometry",
+        "lake_level": "lake_levels",
+    }.get(variable)
     if field_name is None:
         return []
     result = getattr(ctx.loaded_data, field_name, None)
@@ -96,10 +100,11 @@ def add_runoff_to_discharge(simulated: pd.Series, ctx: Any) -> pd.Series:
     """Add the surface-runoff forcing to a baseflow series in m³/s.
 
     The runoff data manager exposes one or more station time-series in
-    ``mm/day``. Stations are averaged, resampled to the simulated stress-period
-    index, and converted to ``m³/s`` using the catchment area read from the
-    geographic runtime. When no runoff is loaded, a one-shot warning is
-    emitted and the baseflow is returned unchanged.
+    ``mm/day``. Stations are averaged, then averaged OVER each stress period by
+    the one rule the derived catchment discharge also uses
+    (``core.time.period_aggregation.period_mean_on_index``), and converted to
+    ``m³/s`` using the catchment area read from the geographic runtime. When no runoff is loaded, a
+    one-shot warning is emitted and the baseflow is returned unchanged.
     """
     runoff = getattr(getattr(ctx, "loaded_data", None), "runoff", None)
     points = getattr(runoff, "points", None) if runoff is not None else None
@@ -146,7 +151,15 @@ def add_runoff_to_discharge(simulated: pd.Series, ctx: Any) -> pd.Series:
         runoff_mm_per_d = runoff_mm_per_d.tz_localize(None)
     elif runoff_index.tz is not None and target_index.tz is not None:
         runoff_mm_per_d = runoff_mm_per_d.tz_convert(target_index.tz)
-    aligned = observed_on_simulation_index(runoff_mm_per_d, pd.DatetimeIndex(target_index))
+    # The canonical rule, called directly and not through the observation
+    # helper: a runoff FORCING is not an observation chronicle. The helper picks
+    # between a per-period mean and a nearest sample on the MEDIAN spacing of
+    # the two indices, which sends a single steady period, or one long period
+    # followed by short ones, to the nearest sample: the phase-one steady stage
+    # would then be scored on the runoff of one day. The derived catchment
+    # discharge already averages, and what a run is scored on has to be what it
+    # reports.
+    aligned = period_mean_on_index(runoff_mm_per_d, pd.DatetimeIndex(target_index))
     runoff_m3_per_s = aligned * 1e-3 * catch_area_m2 / 86400.0
     return simulated.add(runoff_m3_per_s, fill_value=0.0)
 

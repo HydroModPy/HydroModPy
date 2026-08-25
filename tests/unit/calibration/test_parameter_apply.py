@@ -16,7 +16,7 @@ from typing import Annotated
 import pytest
 from pydantic import BaseModel, Field
 
-from hydromodpy.calibration.parameters import (
+from hydromodpy.calibration.optim.parameters import (
     CalibParameter,
     ParameterSpace,
     apply_parameter_to_config,

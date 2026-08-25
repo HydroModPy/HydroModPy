@@ -5,11 +5,20 @@ with three guarantees that the bare runner does not provide:
 
 - a ``FileLock`` on ``<db>.lock`` so two processes never migrate the same
   DuckDB file simultaneously (the bare ``ensure_schema`` is unlocked).
-- an atomic file-level backup ``<db>.bak-<ISO8601Z>`` taken right before
-  any migration runs, with automatic restore-on-failure if the schema
-  upgrade raises.
+- an atomic file-level backup ``.hmp/backups/<db name>.bak-<ISO8601Z>``
+  taken right before any migration runs, with automatic restore-on-failure
+  if the schema upgrade raises.
 - a rolling history of at most ``MAX_BACKUPS`` snapshots per database
   (oldest removed on overflow).
+
+One database is worth that backup: the source-data cache (``cache.duckdb``),
+which records downloads nothing on disk can reproduce. Every index is
+excluded, because an index is rebuilt, not restored: the per-project catalog
+comes back with ``hmp catalog reindex`` and the machine-wide index with
+``hmp workspace register``. Their components are listed in
+:data:`NO_BACKUP_COMPONENTS` and skip the snapshot entirely. A database that
+holds no table yet is never backed up either: copying it produces an empty
+shell that restores nothing.
 
 The opt-out ``HMP_AUTO_MIGRATE=0`` raises :class:`AutoMigrationDisabled`
 when a pending migration is detected, leaving the on-disk file untouched.
@@ -27,6 +36,8 @@ from typing import TYPE_CHECKING
 
 from filelock import FileLock
 
+from hydromodpy.core.exceptions import BackupFailedError
+from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.migrations.errors import MigrationError
 from hydromodpy.core.migrations.runner import (
@@ -48,7 +59,15 @@ logger = get_logger(__name__)
 MAX_BACKUPS = 5
 BACKUP_SUFFIX = ".bak-"
 _BACKUP_TS_RE = re.compile(r"^(?P<stem>.+)\.bak-(?P<ts>\d{8}T\d{6}Z)$")
+
+_WINDOWS_MAX_PATH = 259
+"""Usable path length without extended-length support. DuckDB ignores the prefix."""
 _ENV_OPT_OUT = "HMP_AUTO_MIGRATE"
+
+# Components whose database is a reconstructible index rather than a primary
+# record. Backing them up before a migration protects nothing that a rebuild
+# cannot produce, so they opt out.
+NO_BACKUP_COMPONENTS = frozenset({"catalog", "index"})
 
 
 class AutoMigrationDisabled(MigrationError):
@@ -82,19 +101,25 @@ def backup_path_for(db_path: Path, *, timestamp: str | None = None) -> Path:
     return _backup_dir(db_path) / f"{db_path.name}{BACKUP_SUFFIX}{stamp}"
 
 
+def _backup_exists(backup: Path) -> bool:
+    """Return whether ``backup`` is an existing file, overlong paths included."""
+    return os.path.isfile(native_io_path(backup))
+
+
 def list_backups(db_path: Path) -> list[Path]:
     """Return existing backups for ``db_path`` ordered oldest -> newest."""
     backup_dir = _backup_dir(db_path)
-    if not backup_dir.is_dir():
+    backup_dir_io = native_io_path(backup_dir)
+    if not os.path.isdir(backup_dir_io):
         return []
     matches: list[tuple[str, Path]] = []
-    for candidate in backup_dir.iterdir():
-        m = _BACKUP_TS_RE.match(candidate.name)
+    for name in os.listdir(backup_dir_io):
+        m = _BACKUP_TS_RE.match(name)
         if m is None:
             continue
         if m.group("stem") != db_path.name:
             continue
-        matches.append((m.group("ts"), candidate))
+        matches.append((m.group("ts"), backup_dir / name))
     matches.sort(key=lambda item: item[0])
     return [path for _ts, path in matches]
 
@@ -107,7 +132,7 @@ def _prune_old_backups(db_path: Path, *, keep: int = MAX_BACKUPS) -> None:
         return
     for stale in backups[:overflow]:
         try:
-            stale.unlink()
+            os.unlink(native_io_path(stale))
         except OSError as exc:
             logger.warning("Could not prune stale backup %s: %s", stale, exc)
 
@@ -122,20 +147,33 @@ def _copy_backup_from_connection(
     backup: Path,
 ) -> None:
     """Duplicate an open DuckDB database into ``backup``."""
-    if backup.exists():
-        backup.unlink()
-    with TemporaryDirectory(prefix="hmp_duckdb_backup_") as export_root:
-        export_dir = Path(export_root)
+    backup_io = native_io_path(backup)
+    if os.path.isfile(backup_io):
+        os.unlink(backup_io)
+    with TemporaryDirectory(prefix="hmp_duckdb_backup_") as work_root:
+        work_dir = Path(work_root)
+        export_dir = work_dir / "export"
         connection.execute(f"EXPORT DATABASE {_sql_string(export_dir)}")
 
         import duckdb as duckdb_module
 
-        backup_connection = duckdb_module.connect(str(backup))
+        # DuckDB opens files through the plain Win32 API and drops any
+        # extended-length prefix, so the snapshot is built under a short
+        # temporary path and only then copied to its final location.
+        staged = work_dir / backup.name
+        if os.name == "nt" and len(str(staged)) > _WINDOWS_MAX_PATH:
+            raise BackupFailedError(
+                f"Staging path for the pre-migration backup is {len(str(staged))} characters, "
+                f"over the {_WINDOWS_MAX_PATH} Windows limit, and DuckDB cannot open it. "
+                "Point TMP at a shorter directory."
+            )
+        backup_connection = duckdb_module.connect(str(staged))
         try:
             backup_connection.execute(f"IMPORT DATABASE {_sql_string(export_dir)}")
             backup_connection.execute("CHECKPOINT")
         finally:
             backup_connection.close()
+        shutil.copy2(native_io_path(staged), backup_io)
 
 
 def _copy_backup(
@@ -145,27 +183,92 @@ def _copy_backup(
     connection: duckdb.DuckDBPyConnection | None = None,
 ) -> None:
     """Atomically duplicate ``db_path`` to ``backup``."""
-    backup.parent.mkdir(parents=True, exist_ok=True)
+    os.makedirs(native_io_path(backup.parent), exist_ok=True)
+    # Fold the WAL into the main file before the file-level copy so the backup
+    # cannot miss committed-but-uncheckpointed rows or capture a torn main file.
+    if connection is not None:
+        try:
+            connection.execute("CHECKPOINT")
+        except Exception:  # noqa: BLE001 - a checkpoint hiccup must not block the backup
+            logger.debug("Pre-backup CHECKPOINT failed for %s", db_path, exc_info=True)
     try:
-        shutil.copy2(db_path, backup)
+        shutil.copy2(native_io_path(db_path), native_io_path(backup))
     except PermissionError:
+        # Windows keeps an exclusive handle on an open DuckDB file, so the
+        # file-level copy is impossible while the caller holds the connection.
         if connection is None:
             raise
         _copy_backup_from_connection(connection, backup)
+    backup_io = native_io_path(backup)
+    if not os.path.isfile(backup_io) or os.path.getsize(backup_io) == 0:
+        raise BackupFailedError(
+            f"Pre-migration backup of {db_path} could not be written to {backup}; "
+            "refusing to migrate a database it cannot restore."
+        )
 
 
-def restore_backup(db_path: Path, backup: Path) -> None:
+def _base_table_count(connection: duckdb.DuckDBPyConnection) -> int:
+    """Return how many base tables the main schema of ``connection`` holds."""
+    row = connection.execute(
+        "SELECT COUNT(*) FROM information_schema.tables "
+        "WHERE table_schema = 'main' AND table_type = 'BASE TABLE'"
+    ).fetchone()
+    return int(row[0]) if row is not None else 0
+
+
+def _should_backup(
+    connection: duckdb.DuckDBPyConnection,
+    db_path: Path,
+    *,
+    component: str,
+) -> bool:
+    """Return whether a pre-migration snapshot of ``db_path`` is worth writing."""
+    if component in NO_BACKUP_COMPONENTS:
+        logger.debug(
+            "No pre-migration backup for component %r at %s (reconstructible index).",
+            component,
+            db_path,
+        )
+        return False
+    if not os.path.isfile(native_io_path(db_path)):
+        return False
+    if _base_table_count(connection) == 0:
+        logger.warning(
+            "Refusing to write an empty pre-migration backup of %s: the database "
+            "holds no table yet, so the snapshot would restore nothing.",
+            db_path,
+        )
+        return False
+    return True
+
+
+def _restore_backup(db_path: Path, backup: Path) -> None:
     """Restore ``db_path`` from ``backup`` overwriting the current file.
 
-    Raises ``FileNotFoundError`` when the backup is gone. The restore is a
-    file-level copy: callers are expected to have released the DuckDB
-    connection first.
+    Only the failure path of :func:`ensure_schema_safe` calls this: an index
+    is rebuilt rather than restored, so there is no user-facing restore verb.
+    The restore is a file-level copy, with the DuckDB connection released
+    first.
     """
-    if not backup.is_file():
+    if not _backup_exists(backup):
         raise FileNotFoundError(f"Backup file not found: {backup}")
-    if db_path.exists():
-        db_path.unlink()
-    shutil.copy2(backup, db_path)
+    db_path_io = native_io_path(db_path)
+    if os.path.exists(db_path_io):
+        os.unlink(db_path_io)
+    shutil.copy2(native_io_path(backup), db_path_io)
+
+
+def _resolve_db_path_from_connection(connection: duckdb.DuckDBPyConnection) -> Path:
+    """Best-effort discovery of the on-disk database path from a live connection."""
+    try:
+        rows = connection.execute("PRAGMA database_list").fetchall()
+    except Exception:
+        return Path("memory.duckdb")
+    for row in rows:
+        candidate = row[2] if len(row) >= 3 else None
+        if candidate and candidate != ":memory:":
+            return Path(str(candidate))
+    return Path("memory.duckdb")
 
 
 def _has_pending_migrations(
@@ -186,7 +289,7 @@ def _has_pending_migrations(
 def ensure_schema_safe(
     connection: duckdb.DuckDBPyConnection,
     *,
-    db_path: Path,
+    db_path: Path | None = None,
     versions_dir: Path,
     component: str = DEFAULT_COMPONENT,
     lock_timeout: float = DEFAULT_LOCK_TIMEOUT,
@@ -199,15 +302,24 @@ def ensure_schema_safe(
 
     - acquires a :class:`filelock.FileLock` on ``<db_path>.lock`` so concurrent
       processes serialise their migrations against the same file.
-    - when migrations are pending and ``db_path`` is non-empty, writes a
-      backup ``<db_path>.bak-<ISO8601Z>`` first, then calls
-      :func:`ensure_schema`.
+    - when migrations are pending, writes a backup
+      ``.hmp/backups/<db name>.bak-<ISO8601Z>`` first, then calls
+      :func:`ensure_schema`. Components in :data:`NO_BACKUP_COMPONENTS` and
+      databases that hold no table yet are skipped: the snapshot would restore
+      nothing. When a snapshot is due but cannot land on disk, the migration
+      is aborted with a :class:`hydromodpy.core.exceptions.BackupFailedError`
+      rather than run unprotected.
     - on success prunes old backups so at most :data:`MAX_BACKUPS` remain.
     - on failure restores the backup (file-level copy) and re-raises.
     - when ``HMP_AUTO_MIGRATE=0`` (and ``allow_auto`` is True), pending
       migrations raise :class:`AutoMigrationDisabled` instead of running.
+
+    ``db_path`` is resolved from the live connection when omitted so every
+    scope (catalog, global index, data cache) can share this safe path.
     """
-    lock = FileLock(f"{db_path}.lock", timeout=lock_timeout)
+    if db_path is None:
+        db_path = _resolve_db_path_from_connection(connection)
+    lock = FileLock(f"{native_io_path(db_path)}.lock", timeout=lock_timeout)
     with lock:
         pending = _has_pending_migrations(
             connection,
@@ -231,7 +343,7 @@ def ensure_schema_safe(
             )
 
         backup: Path | None = None
-        if db_path.is_file():
+        if _should_backup(connection, db_path, component=component):
             backup = backup_path_for(db_path)
             _copy_backup(db_path, backup, connection=connection)
             logger.debug("Pre-migration backup written: %s", backup)
@@ -244,13 +356,13 @@ def ensure_schema_safe(
                 post_apply=post_apply,
             )
         except Exception:
-            if backup is not None and backup.is_file():
+            if backup is not None and _backup_exists(backup):
                 try:
                     connection.close()
                 except Exception:
                     pass
                 try:
-                    restore_backup(db_path, backup)
+                    _restore_backup(db_path, backup)
                     logger.warning("Migration failed; restored backup %s", backup)
                 except Exception as restore_exc:  # noqa: BLE001
                     logger.error(
@@ -267,8 +379,8 @@ __all__ = [
     "AutoMigrationDisabled",
     "BACKUP_SUFFIX",
     "MAX_BACKUPS",
+    "NO_BACKUP_COMPONENTS",
     "backup_path_for",
     "ensure_schema_safe",
     "list_backups",
-    "restore_backup",
 ]

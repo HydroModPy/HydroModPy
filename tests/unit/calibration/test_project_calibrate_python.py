@@ -27,11 +27,11 @@ from unittest.mock import patch
 import pytest
 
 from hydromodpy.calibration import CalibrationReport
-from hydromodpy.calibration import cli_runner as cli_runner_module
-from hydromodpy.calibration import programmatic_runner as programmatic_runner_module
-from hydromodpy.calibration import promotion as promotion_module
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.programmatic_runner import run_calibration_programmatic
+from hydromodpy.calibration.optim import promotion as promotion_module
+from hydromodpy.calibration.runners import cli_runner as cli_runner_module
+from hydromodpy.calibration.runners import programmatic_runner as programmatic_runner_module
+from hydromodpy.calibration.runners.programmatic_runner import run_calibration_programmatic
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -299,9 +299,9 @@ class TestRunCalibrationProgrammatic:
             project=fake_project,
             metric_fn=quadratic_metric,
         )
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
-        with SimulationCatalog(tmp_path) as catalog:
+        with Catalog(tmp_path) as catalog:
             rows = catalog.connection.execute(
                 "SELECT COUNT(*) FROM calibration_iterations WHERE session_id = ?",
                 [uuid.UUID(report.session_id)],
@@ -338,9 +338,9 @@ class TestRunCalibrationProgrammatic:
             metric_fn=quadratic_metric,
         )
 
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
-        with SimulationCatalog(tmp_path) as catalog:
+        with Catalog(tmp_path) as catalog:
             row = catalog.connection.execute(
                 "SELECT st.code, cs.error_message FROM calibration_sessions cs "
                 "JOIN statuses st ON cs.status_id = st.id "
@@ -408,7 +408,7 @@ class TestProjectCalibratePythonModeDispatch:
             promoted=0,
         )
         with patch(
-            "hydromodpy.calibration.programmatic_runner.run_calibration_programmatic",
+            "hydromodpy.calibration.runners.programmatic_runner.run_calibration_programmatic",
             return_value=sentinel,
         ) as mocked:
             result = Project.calibrate(
@@ -454,7 +454,7 @@ class TestProjectCalibratePythonModeDispatch:
             promoted=0,
         )
         with patch(
-            "hydromodpy.calibration.programmatic_runner.run_calibration_programmatic",
+            "hydromodpy.calibration.runners.programmatic_runner.run_calibration_programmatic",
             return_value=sentinel,
         ) as mocked:
             result = Project.calibrate(

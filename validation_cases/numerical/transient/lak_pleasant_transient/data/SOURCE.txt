@@ -1,0 +1,11 @@
+stage_area_volume.csv
+
+Copied verbatim from USGS modflow-setup (Leaf & Fienen), Plainfield Lakes test
+data: mfsetup/tests/data/plainfieldlakes/source_data/all_lakes_stage_area_volume.csv
+(public domain, U.S. Geological Survey).
+
+Columns: index, stage (m), volume (m3), area (m2), name, hydroid. One stage-area
+-volume abacus per named Plainfield lake. This case reads the "Plainfield" lake
+rows and feeds them to the LAK stage-volume-area table.
+
+The file is committed here so the test never reads the gitignored modflow/ tree.

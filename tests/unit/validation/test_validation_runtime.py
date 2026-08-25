@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 import validation_cases.shared.runtime as runtime
+from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from validation_cases.shared.loaders import load_case_tolerances, load_time_series_fields
 from validation_cases.shared.runtime import (
     resolve_validation_results_dir,
@@ -114,7 +115,7 @@ def test_run_launcher_validation_case_resolves_solver_name_and_output_run_name(
 
     def _fake_subprocess_run(*args, **kwargs):
         del args
-        captured["auto_register"] = kwargs["env"].get("HMP_AUTO_REGISTER_WORKSPACE")
+        captured["auto_register"] = kwargs["env"].get("HMP_AUTO_REGISTER_PROJECT")
         return SimpleNamespace(
             returncode=0,
             stdout="ok",
@@ -224,7 +225,7 @@ def test_resolve_validation_results_dir_falls_back_from_long_windows_output_root
     )
 
     assert long_root.resolve() not in out_dir.parents
-    scratch_probe = out_dir / ".solver_scratch" / "_preprocessing" / "geographic"
+    scratch_probe = out_dir / PREPROCESSING_DIR / "geographic"
     assert len(str(scratch_probe)) < runtime._WINDOWS_VALIDATION_PATH_LIMIT
 
 

@@ -15,10 +15,12 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import StepError
-from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.workflow.journal import WorkflowJournal
-from hydromodpy.workflow.resume import ResumePlanner
+from hydromodpy.core.state.paths import RUNS_DIRNAME
+from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.workflow.runner import Pipeline
+from hydromodpy.workflow.tracking.journal import WorkflowJournal
+from hydromodpy.workflow.tracking.resume import ResumePlanner
 
 SIM_ID = "55555555-5555-5555-5555-555555555555"
 
@@ -53,7 +55,8 @@ class _ArtifactStep:
         return (f"artefacts/{self.name}.txt",)
 
 
-def _register_running_sim(catalog: SimulationCatalog, sim_id: str) -> None:
+def _register_running_sim(catalog: Catalog, sim_id: str) -> None:
+    run_name = "x"
     catalog.connection.execute(
         """
         INSERT INTO simulations
@@ -64,7 +67,7 @@ def _register_running_sim(catalog: SimulationCatalog, sim_id: str) -> None:
                 (SELECT id FROM statuses WHERE code = 'running'),
                 ?, ?)
         """,
-        [sim_id, "simulations/x.zarr", "x"],
+        [sim_id, f"{RUNS_DIRNAME}/{run_name}/{FIELDS_STORE_NAME}", run_name],
     )
 
 
@@ -80,7 +83,7 @@ def _initial_state(workspace: Path, run_id: str, sim_id: str | None = None):
 @pytest.mark.integration
 def test_crash_then_resume_skips_completed_prefix(tmp_path: Path) -> None:
     workspace = tmp_path
-    SimulationCatalog(workspace).close()
+    Catalog(workspace).close()
 
     blueprint = (
         _ArtifactStep("step0"),
@@ -93,7 +96,7 @@ def test_crash_then_resume_skips_completed_prefix(tmp_path: Path) -> None:
     with pytest.raises(StepError):
         pipeline.run(_initial_state(workspace, "run-A"))
 
-    catalog = SimulationCatalog(workspace)
+    catalog = Catalog(workspace)
     try:
         journal = WorkflowJournal(catalog)
         rows = journal.list_steps("run-A")
@@ -125,7 +128,7 @@ def test_crash_then_resume_skips_completed_prefix(tmp_path: Path) -> None:
     completed = final.get("completed")
     assert completed == ["step2", "step3", "step4"]
 
-    catalog = SimulationCatalog(workspace)
+    catalog = Catalog(workspace)
     try:
         journal = WorkflowJournal(catalog)
         rows = journal.list_steps("run-A")
@@ -141,7 +144,7 @@ def test_crash_then_resume_skips_completed_prefix(tmp_path: Path) -> None:
 @pytest.mark.integration
 def test_heartbeat_keeps_sim_fresh_during_run(tmp_path: Path) -> None:
     workspace = tmp_path
-    catalog = SimulationCatalog(workspace)
+    catalog = Catalog(workspace)
     try:
         _register_running_sim(catalog, SIM_ID)
     finally:
@@ -155,7 +158,7 @@ def test_heartbeat_keeps_sim_fresh_during_run(tmp_path: Path) -> None:
     pipeline = Pipeline(blueprint, workspace=workspace)
     pipeline.run(_initial_state(workspace, "run-B", sim_id=SIM_ID))
 
-    catalog = SimulationCatalog(workspace)
+    catalog = Catalog(workspace)
     try:
         row = catalog.connection.execute(
             "SELECT last_heartbeat FROM v_workflow_heartbeats WHERE run_id = ?",
@@ -175,7 +178,7 @@ def test_heartbeat_keeps_sim_fresh_during_run(tmp_path: Path) -> None:
 def test_simulated_hard_crash_leaves_stale_heartbeat(tmp_path: Path) -> None:
     """A run that dies without writing a final status leaves the sim stale."""
     workspace = tmp_path
-    catalog = SimulationCatalog(workspace)
+    catalog = Catalog(workspace)
     try:
         _register_running_sim(catalog, SIM_ID)
         catalog.connection.execute(
@@ -188,7 +191,7 @@ def test_simulated_hard_crash_leaves_stale_heartbeat(tmp_path: Path) -> None:
     finally:
         catalog.close()
 
-    catalog = SimulationCatalog(workspace)
+    catalog = Catalog(workspace)
     try:
         cutoff = datetime.now(UTC) - timedelta(minutes=10)
         row = catalog.connection.execute(
@@ -210,7 +213,7 @@ def test_simulated_hard_crash_leaves_stale_heartbeat(tmp_path: Path) -> None:
 def test_artifact_deletion_triggers_partial_redo(tmp_path: Path) -> None:
     """Deleting a downstream artefact reruns the affected steps only."""
     workspace = tmp_path
-    SimulationCatalog(workspace).close()
+    Catalog(workspace).close()
 
     blueprint = (
         _ArtifactStep("alpha"),
@@ -222,7 +225,7 @@ def test_artifact_deletion_triggers_partial_redo(tmp_path: Path) -> None:
 
     (workspace / "artefacts" / "beta.txt").unlink()
 
-    catalog = SimulationCatalog(workspace)
+    catalog = Catalog(workspace)
     try:
         journal = WorkflowJournal(catalog)
         planner = ResumePlanner(journal, workspace)
@@ -248,7 +251,7 @@ def test_artifact_deletion_triggers_partial_redo(tmp_path: Path) -> None:
     final = pipeline.run(_initial_state(workspace, "run-C"), resume_from=1)
     assert final.get("completed") == ["beta", "gamma"]
 
-    catalog = SimulationCatalog(workspace)
+    catalog = Catalog(workspace)
     try:
         journal = WorkflowJournal(catalog)
         rows = journal.list_steps("run-C")

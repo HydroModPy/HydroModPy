@@ -9,6 +9,9 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.state.paths import RUNS_DIRNAME, catalog_path_for
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
+
 
 def _load_main():
     return importlib.import_module("hydromodpy.cli.main")
@@ -23,14 +26,13 @@ def _run(monkeypatch, argv: list[str]) -> int:
 
 
 def _make_workspace_with_project(tmp_path: Path) -> tuple[Path, Path]:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace = tmp_path / "ws"
     workspace.mkdir()
     project = workspace / "projects" / "demo"
     project.mkdir(parents=True)
-    (project / "simulations").mkdir()
-    with SimulationCatalog(project):
+    with Catalog(project):
         pass
     return workspace, project
 
@@ -38,8 +40,7 @@ def _make_workspace_with_project(tmp_path: Path) -> tuple[Path, Path]:
 def _seed_simulation(project: Path, sim_id: str = "00000000-0000-0000-0000-000000000010") -> str:
     import duckdb
 
-    cat_path = project / "catalog.duckdb"
-    conn = duckdb.connect(str(cat_path))
+    conn = duckdb.connect(str(catalog_path_for(project)))
     try:
         conn.execute(
             """
@@ -52,7 +53,13 @@ def _seed_simulation(project: Path, sim_id: str = "00000000-0000-0000-0000-00000
                     ?, ?,
                     (SELECT id FROM mesh_topologies WHERE code = 'structured_3d'))
             """,
-            [sim_id, "to-be-purged", "demo", "simulations/x.zarr", "x"],
+            [
+                sim_id,
+                "to-be-purged",
+                "demo",
+                f"{RUNS_DIRNAME}/to-be-purged/{FIELDS_STORE_NAME}",
+                "to-be-purged",
+            ],
         )
     finally:
         conn.close()
@@ -205,7 +212,7 @@ def test_privacy_purge_removes_simulation_row(monkeypatch, tmp_path) -> None:
     )
     assert code == 0
 
-    conn = duckdb.connect(str(project / "catalog.duckdb"), read_only=True)
+    conn = duckdb.connect(str(catalog_path_for(project)), read_only=True)
     try:
         row = conn.execute("SELECT 1 FROM simulations WHERE sim_id = ?", [sim_id]).fetchone()
     finally:

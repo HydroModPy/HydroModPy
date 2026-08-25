@@ -279,7 +279,7 @@ configs remain valid simulation configs. This is the important boundary:
 execution.
 
 For flow children, the launcher tries to reopen the generated run through the
-``SimulationCatalog`` and enriches the child summary with:
+``Catalog`` and enriches the child summary with:
 
 - ``catalog``: run metadata such as solver, status, duration, cell count, and
   time-step count;

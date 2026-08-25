@@ -8,9 +8,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
     _CATCHMENT_STATION,
     _add_runoff_to_discharge_series,
+    _aggregate_from_lumped_budget,
     _aggregate_variable,
     _build_active_mask,
     _detect_n_timesteps,
@@ -296,14 +298,14 @@ class TestAggregateVariable:
         return _DictGroup({name: _FakeArray(np.asarray(frames, dtype="float64"))})
 
     def test_resolves_root_alternative_and_abs_sum(self):
-        # store_var "drains|drn|drain" must resolve to the "drn" root array.
+        # store_var alternatives must resolve to the stored root array.
         frames = np.array([[-1.0, 2.0, -3.0], [4.0, -5.0, 6.0]])  # 2 timesteps
-        grp = self._grp_with_root_field("drn", frames)
+        grp = self._grp_with_root_field("drain", frames)
         out = _aggregate_variable(
             store=None,
             sim_id="s",
             grp=grp,
-            store_var="drains|drn|drain",
+            store_var="drains|drain",
             n_timesteps=2,
             active_mask=None,
             reducer="abs_sum",
@@ -320,14 +322,14 @@ class TestAggregateVariable:
 
     def test_missing_variable_returns_none(self):
         grp = _DictGroup({"head": _FakeArray(np.zeros((1, 3)))})
-        out = _aggregate_variable(None, "s", grp, "wells|wel", 1, None, "sum")
+        out = _aggregate_variable(None, "s", grp, "wells|well", 1, None, "sum")
         assert out is None
 
     def test_mask_excludes_inactive_cells(self):
         frames = np.array([[1.0, 999.0, 2.0]])
-        grp = self._grp_with_root_field("drn", frames)
+        grp = self._grp_with_root_field("drain", frames)
         mask = np.array([True, False, True])
-        out = _aggregate_variable(None, "s", grp, "drn", 1, mask, "sum")
+        out = _aggregate_variable(None, "s", grp, "drain", 1, mask, "sum")
         # Masked middle cell ignored: 1 + 2 = 3.
         assert out == pytest.approx([3.0])
 
@@ -412,7 +414,7 @@ class TestAggregateEndToEnd:
         }
         for t in range(n_ts):
             catalog.write_field(
-                sid, "drn", t, drain_frames[t], n_timesteps=n_ts if t == 0 else None
+                sid, "drain", t, drain_frames[t], n_timesteps=n_ts if t == 0 else None
             )
 
         aggregate_catchment_timeseries(sid, catalog)
@@ -433,6 +435,96 @@ class TestAggregateEndToEnd:
         aggregate_catchment_timeseries(sid, catalog)
         with pytest.raises(KeyError):
             catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+
+
+class TestRoutedDischarge:
+    """discharge = SFR/LAK ext_outflow only (buffer DRN excluded) when routed."""
+
+    def _setup_sim(self, catalog, n_ts=3, n_cells=4, with_drains=True):
+        sid = str(uuid4())
+        reg = catalog.register_simulation(
+            sid,
+            project="test",
+            solver="modflow6",
+            n_cells=n_cells,
+            n_layers=1,
+            n_timesteps=n_ts,
+            period_start="2020-01-01",
+            period_end="2020-01-03",
+        )
+        if reg.zarr is not None:
+            reg.zarr.close()
+        for t in range(n_ts):
+            catalog.write_field(
+                sid, "head", t, np.full((1, n_cells), 5.0), n_timesteps=n_ts if t == 0 else None
+            )
+        if with_drains:
+            drain_frames = {
+                0: np.array([[-1.0, -2.0, -3.0, -4.0]]),  # abs_sum = 10
+                1: np.array([[-2.0, -2.0, -2.0, -2.0]]),  # abs_sum = 8
+                2: np.array([[1.0, 1.0, 1.0, 1.0]]),  # abs_sum = 4
+            }
+            for t in range(n_ts):
+                catalog.write_field(
+                    sid, "drain", t, drain_frames[t], n_timesteps=n_ts if t == 0 else None
+                )
+        return sid
+
+    def _write_ext_outflow(self, catalog, sid, station, values):
+        idx = pd.date_range("2020-01-01", periods=len(values), freq="D")
+        catalog.write_timeseries(
+            sid, station, "ext_outflow", pd.Series(values, index=idx), unit="m3/s"
+        )
+
+    def test_discharge_is_routed_outflow_excluding_buffer_drains(self, catalog):
+        sid = self._setup_sim(catalog)
+        # Both extractors store ext_outflow positive. The buffer plain-DRN field
+        # (neighbouring-basin drainage) must NOT be added to the routed discharge.
+        self._write_ext_outflow(catalog, sid, "sfr:net:7", [1.0, 2.0, 3.0])
+        self._write_ext_outflow(catalog, sid, "sfr:net:2", [0.0, 0.0, 0.0])
+        self._write_ext_outflow(catalog, sid, "lake:res", [0.5, 0.5, 1.0])
+
+        aggregate_catchment_timeseries(sid, catalog)
+
+        ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        # routed = sfr + lake per timestep; the |DRN| buffer field is excluded.
+        np.testing.assert_allclose(ts.values, [1.5, 2.5, 4.0])
+
+    def test_routed_branch_skips_lumped_runoff(self, catalog, monkeypatch):
+        import hydromodpy.simulation.extraction.derivation.catchment_aggregation as mod
+
+        def _must_not_run(*args, **kwargs):
+            raise AssertionError("lumped runoff must not be added on the routed branch")
+
+        monkeypatch.setattr(mod, "_add_runoff_to_discharge_series", _must_not_run)
+        sid = self._setup_sim(catalog)
+        self._write_ext_outflow(catalog, sid, "sfr:net:7", [1.0, 1.0, 1.0])
+
+        aggregate_catchment_timeseries(sid, catalog)
+
+        ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        # routed only; the buffer DRN field and lumped runoff are both excluded.
+        np.testing.assert_allclose(ts.values, [1.0, 1.0, 1.0])
+
+    def test_routed_only_discharge_written_without_drain_field(self, catalog):
+        # Pure SFR drainage: no DRN array at all, discharge = routed outflow.
+        sid = self._setup_sim(catalog, with_drains=False)
+        self._write_ext_outflow(catalog, sid, "sfr:net:7", [2.0, 4.0, 6.0])
+
+        aggregate_catchment_timeseries(sid, catalog)
+
+        ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        np.testing.assert_allclose(ts.values, [2.0, 4.0, 6.0])
+
+    def test_non_network_stations_do_not_trigger_routed_branch(self, catalog):
+        # An ext_outflow series on a foreign station must not be summed.
+        sid = self._setup_sim(catalog)
+        self._write_ext_outflow(catalog, sid, "piezo:42", [100.0, 100.0, 100.0])
+
+        aggregate_catchment_timeseries(sid, catalog)
+
+        ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        np.testing.assert_allclose(ts.values, [10.0, 8.0, 4.0])
 
 
 class TestReadCatchmentArea:
@@ -470,3 +562,117 @@ class TestReadCatchmentArea:
         # _read_catchment_area_m2 uses store.connection first; confirm it works.
         assert catalog.connection is not None
         assert _read_catchment_area_m2(catalog, sid) == pytest.approx(1.0e6)
+
+
+class TestAggregateFromLumpedBudget:
+    """The fallback that keeps discharge alive once ``budget.spatial_fields`` is off.
+
+    With the per-cell budget unpersisted (the default), the catchment scalars
+    come from the lumped per-component ``budgets`` table instead of a Zarr
+    field, so this path is the one carrying discharge in a default run.
+    """
+
+    def _register(self, catalog, n_ts: int = 3) -> str:
+        sid = str(uuid4())
+        reg = catalog.register_simulation(
+            sid,
+            project="test",
+            solver="modflow6",
+            n_cells=4,
+            n_layers=1,
+            n_timesteps=n_ts,
+            period_start="2020-01-01",
+            period_end="2020-01-03",
+        )
+        if reg.zarr is not None:
+            reg.zarr.close()
+        return sid
+
+    def _write_drain_budget(self, catalog, sid, values, *, component="drain"):
+        for timestep, flux_out in values.items():
+            catalog.write_budget(
+                sid,
+                timestep=timestep,
+                zone_id="total",
+                component=component,
+                flux_in=0.0,
+                flux_out=flux_out,
+            )
+
+    def test_drain_component_gives_discharge(self, catalog):
+        sid = self._register(catalog)
+        self._write_drain_budget(catalog, sid, {0: 10.0, 1: 8.0, 2: 4.0})
+
+        values = _aggregate_from_lumped_budget(catalog, sid, "drain", "abs_sum", 3)
+
+        assert values == pytest.approx([10.0, 8.0, 4.0])
+
+    def test_alternative_component_name_is_resolved(self, catalog):
+        # store_var carries alternatives ("drains|drain"): the first match wins.
+        sid = self._register(catalog)
+        self._write_drain_budget(catalog, sid, {0: 2.0, 1: 3.0, 2: 5.0})
+
+        values = _aggregate_from_lumped_budget(catalog, sid, "drains|drain", "abs_sum", 3)
+
+        assert values == pytest.approx([2.0, 3.0, 5.0])
+
+    def test_signed_reducer_returns_in_minus_out(self, catalog):
+        sid = self._register(catalog)
+        catalog.write_budget(
+            sid, timestep=0, zone_id="total", component="well", flux_in=1.0, flux_out=4.0
+        )
+
+        values = _aggregate_from_lumped_budget(catalog, sid, "well", "sum", 1)
+
+        assert values == pytest.approx([-3.0])
+
+    def test_missing_timestep_is_nan_not_zero(self, catalog):
+        # A gap must stay missing: a zero would bias the metrics toward a null flux.
+        sid = self._register(catalog)
+        self._write_drain_budget(catalog, sid, {0: 10.0, 2: 4.0})
+
+        values = _aggregate_from_lumped_budget(catalog, sid, "drain", "abs_sum", 3)
+
+        assert values[0] == pytest.approx(10.0)
+        assert np.isnan(values[1])
+        assert values[2] == pytest.approx(4.0)
+
+    def test_unknown_component_returns_none(self, catalog):
+        sid = self._register(catalog)
+        self._write_drain_budget(catalog, sid, {0: 1.0})
+
+        assert _aggregate_from_lumped_budget(catalog, sid, "river", "abs_sum", 1) is None
+
+    def test_unsupported_reducer_returns_none(self, catalog):
+        sid = self._register(catalog)
+        self._write_drain_budget(catalog, sid, {0: 1.0})
+
+        assert _aggregate_from_lumped_budget(catalog, sid, "drain", "mean_active", 1) is None
+
+    def test_unreadable_budgets_table_raises(self, catalog):
+        sid = self._register(catalog)
+
+        class _BrokenConnection:
+            def execute(self, *args, **kwargs):
+                raise RuntimeError("budgets table is unreadable")
+
+        class _BrokenStore:
+            connection = _BrokenConnection()
+
+        with pytest.raises(ExtractError, match="lumped budget"):
+            _aggregate_from_lumped_budget(_BrokenStore(), sid, "drain", "abs_sum", 1)
+
+    def test_end_to_end_discharge_without_spatial_budget(self, catalog):
+        # No drain Zarr field at all: the lumped budget alone must produce the
+        # catchment discharge series, which is what a default run relies on.
+        sid = self._register(catalog)
+        for t in range(3):
+            catalog.write_field(
+                sid, "head", t, np.full((1, 4), 5.0), n_timesteps=3 if t == 0 else None
+            )
+        self._write_drain_budget(catalog, sid, {0: 10.0, 1: 8.0, 2: 4.0})
+
+        aggregate_catchment_timeseries(sid, catalog)
+
+        ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        np.testing.assert_allclose(ts.values, [10.0, 8.0, 4.0])

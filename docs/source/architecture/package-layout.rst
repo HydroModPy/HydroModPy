@@ -14,8 +14,7 @@ Top-level facade
    hydromodpy/
    |-- __init__.py             Lazy public exports plus PROJ bootstrap.
    |-- _api.py                 Top-level helpers (open, run, calibrate,
-   |                           index, compare_pair, report,
-   |                           audit_prune, doctor).
+   |                           index, compare_pair, report, doctor).
    |-- _bootstrap.py           PROJ database setup at import time.
    |-- _lazy.py                Lazy-export tables (LAZY_IMPORTS,
    |                           MODULE_EXPORTS).
@@ -57,7 +56,7 @@ Subpackages
    * - ``catalog/``
      - Read-only view over the workspace data cache. The simulation
        catalog itself is opened with ``hmp.open`` (returns a
-       ``SimulationCatalog``); the machine-wide index is reached via
+       ``Catalog``); the machine-wide index is reached via
        ``hmp.index()``. Entry: ``catalog/inputs.py``. See
        :doc:`packages/catalog`.
    * - ``cli/``
@@ -86,7 +85,7 @@ Subpackages
        :doc:`packages/data`.
    * - ``display/``
      - Solver-agnostic figures registered through
-       ``display/catalog.py``. 33 named figures under
+       ``display/figure_registry.py``. 45 named figures under
        ``display/figures/``, plus geographic helpers (``display/geo``)
        and overview rendering (``display/overview``). See
        :doc:`packages/display`.

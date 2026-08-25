@@ -12,30 +12,27 @@ first.
 Source contract
 ---------------
 
-Every source registers itself through
-``hydromodpy/data/sources.py`` with the ``@register_source``
-decorator:
+There is no source registry and no registration decorator. A source is
+wired by two explicit edits inside its own variable package:
+
+1. a new literal in the variable's discriminated source union
+   (``hydromodpy/data/variables/<variable>/config.py``);
+2. a new branch in the variable manager's ``_fetch_from_source``
+   (``hydromodpy/data/variables/<variable>/manager.py``), which imports
+   the adapter module lazily and calls its module-level ``fetch``.
+
+The adapter itself is a plain module exposing a ``fetch`` function that
+returns contract records:
 
 .. code-block:: python
 
-   from hydromodpy.data.sources import register_source
-
-
-   @register_source(variable_type="hydrometry", source_name="mysource")
-   class MySource:
-       def fetch(self, source_cfg, context) -> "LoadResult":
-           ...
-
-The minimal Protocol exposes:
-
-- ``variable_type`` (class attribute or decorator argument);
-- ``source_name`` (class attribute or decorator argument);
-- ``fetch(source_cfg, context) -> LoadResult``.
+   # hydromodpy/data/variables/<variable>/apis/<source_name>.py
+   def fetch(station_ids, start, end, ...) -> list[PointRecord]:
+       ...
 
 ``source_cfg`` is the validated Pydantic block from
-``[[data.<variable>.sources]]``; ``context`` carries the project
-period, the workspace cache handle, and the geographic context when
-needed.
+``[data.<variable>]``; the manager supplies the project period, the
+workspace cache handle, and the geographic context when needed.
 
 Public API source
 -----------------
@@ -51,27 +48,23 @@ Skeleton:
 
 .. code-block:: python
 
-   from hydromodpy.core.io import HTTPClient, json_loads
-   from hydromodpy.data.contracts.records import PointRecord
-   from hydromodpy.data.contracts.results import LoadResult
-   from hydromodpy.data.sources import register_source
+   from hydromodpy.data.common.api_client import get_json
+   from hydromodpy.data.contracts.timeseries import PointRecord
 
 
-   @register_source(variable_type="hydrometry", source_name="mysource")
-   class MyHydrometrySource:
-       def fetch(self, source_cfg, context) -> LoadResult:
-           client = HTTPClient.get_default()
-           response = client.get(
-               "https://api.example.org/hydrometry",
-               params={"product": source_cfg.product, "extent": "watershed"},
-               timeout=30,
-           )
-           payload = json_loads(response.text)
-           records = [PointRecord(...) for entry in payload["data"]]
-           return LoadResult(points=records, fields=[], warnings=[])
+   API_BASE = "https://api.example.org/hydrometry"
 
-Use ``HTTPClient`` (``hydromodpy/core/io/http_client.py``) instead of
-raw ``requests``: it handles retry, backoff, timeout, and SHA-256
+
+   def fetch(station_ids, start, end) -> list[PointRecord]:
+       payload = get_json(
+           f"{API_BASE}/observations",
+           params={"stations": ",".join(station_ids), "start": start, "end": end},
+       )
+       return [PointRecord(...) for entry in payload["data"]]
+
+Use ``get_json`` (``hydromodpy/data/common/api_client.py``) or
+``HTTPClient`` (``hydromodpy/core/io/http_client.py``) instead of raw
+``requests``: they handle retry, backoff, timeout, and SHA-256
 streaming.
 
 Cache integrity goes through ``DataCatalogDuckDB``: every fetched
@@ -93,9 +86,8 @@ the supported formats.
        # parse CSV / NetCDF / shapefile / GeoTIFF
        return LoadResult(points=[...], fields=[...], warnings=[...])
 
-Custom sources usually do not register through ``@register_source``
-because they are dispatched directly by the manager (``source ==
-"custom"`` branch).
+Custom sources need no extra wiring beyond the ``source == "custom"``
+branch the manager already carries.
 
 Synthetic source
 ----------------
@@ -108,11 +100,9 @@ parameters declared in the TOML.
 .. code-block:: python
 
    # hydromodpy/data/variables/recharge/synthetic.py
-   @register_source(variable_type="recharge", source_name="synthetic")
-   class SyntheticRecharge:
-       def fetch(self, source_cfg, context) -> LoadResult:
-           series = build_series(source_cfg.amplitude, source_cfg.period)
-           return LoadResult(points=[...], fields=[...], warnings=[])
+   def load_synthetic(source_cfg, project_period) -> list[PointRecord]:
+       series = build_series(source_cfg.amplitude, source_cfg.period)
+       return [PointRecord(...) for value in series]
 
 Wire the source config
 ----------------------
@@ -144,14 +134,14 @@ Most variable managers dispatch on ``source_cfg.source`` inside
 
 .. code-block:: python
 
-   def _fetch_from_source(self, source_cfg, project_period):
+   def _fetch_from_source(self, source_cfg):
        if source_cfg.source == "custom":
-           return load_custom(source_cfg, project_period)
+           return load_custom(source_cfg, self.project_period)
        if source_cfg.source == "mysource":
-           return get_source(self.VARIABLE_NAME, "mysource").fetch(
-               source_cfg, project_period
-           )
-       raise ValueError(f"unknown source {source_cfg.source!r}")
+           from hydromodpy.data.variables.myvariable.apis.mysource import fetch
+
+           return fetch(source_cfg.station_ids, self.start, self.end)
+       raise ValueError(f"Unknown myvariable source: {source_cfg.source}")
 
 Provenance
 ----------

@@ -28,7 +28,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--project",
         default=None,
-        help="Restrict to one project (looks at projects/<name>/catalog.duckdb)",
+        help="Restrict to one project (looks at projects/<name>/.hmp/index.duckdb)",
     )
     parser.add_argument(
         "--solver",
@@ -38,18 +38,29 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--catchment", default=None, help="Filter by study area name (substring match)"
     )
+    parser.add_argument(
+        "--status",
+        default=None,
+        help="Filter by status (completed, running, failed, trashed, ...)",
+    )
+    parser.add_argument("--tag", default=None, help="Filter by an exact tag (e.g. pinned)")
     parser.add_argument("--limit", type=int, default=None, help="Maximum number of rows to print")
     parser.set_defaults(_handler=run)
     return parser
 
 
 def _resolve_workspace(workspace_arg: str | None) -> Path:
+    """Resolve what to list: an explicit root, the enclosing project, or the workspace."""
+    from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
     from hydromodpy.data.scaffold import DEFAULT_ROOT
 
     if workspace_arg:
         return Path(workspace_arg).expanduser().resolve()
     ws_override = os.environ.get("HMP_WORKSPACE")
     start = Path(ws_override).expanduser().resolve() if ws_override else Path.cwd()
+    project_root = resolve_project_root(start)
+    if (catalog_path_for(project_root)).is_file():
+        return project_root
     found = find_workspace_root(start)
     if (found / "projects").is_dir() or (found / "data").is_dir():
         return found
@@ -58,11 +69,11 @@ def _resolve_workspace(workspace_arg: str | None) -> Path:
 
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.catalog import list_simulations
-    from hydromodpy.results.catalog import short_id
+    from hydromodpy.results.catalog import iter_project_catalog_roots, short_id
 
     workspace_root = _resolve_workspace(args.workspace)
-    if not (workspace_root / "projects").is_dir():
-        print(f"No projects/ directory found in {workspace_root}", file=sys.stderr)
+    if not iter_project_catalog_roots(workspace_root):
+        print(f"No indexed project found under {workspace_root}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 
     df = list_simulations(
@@ -70,10 +81,12 @@ def run(args: argparse.Namespace) -> None:
         project=args.project,
         solver=args.solver,
         catchment=args.catchment,
+        status=args.status,
+        tag=args.tag,
         limit=args.limit,
     )
     if df.empty:
-        print(f"(no simulations recorded under {workspace_root / 'projects'})")
+        print(f"(no simulations recorded under {workspace_root})")
         return
 
     if args.format == "json":

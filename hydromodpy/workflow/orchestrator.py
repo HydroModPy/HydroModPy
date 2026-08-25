@@ -15,11 +15,14 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.core import progress
 from hydromodpy.workflow.steps.display import step_render_figures
 from hydromodpy.workflow.steps.export import (
     step_cleanup_scratch,
-    step_finalize_store,
+    step_close_store,
+    step_drop_intermediate_budget,
     step_save_run_artifacts,
+    step_seal_store,
 )
 from hydromodpy.workflow.steps.extract import step_ingest_observations
 from hydromodpy.workflow.steps.planning import (
@@ -36,9 +39,9 @@ from hydromodpy.workflow.steps.prepare_solver import (
 )
 
 if TYPE_CHECKING:
+    from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.results.run import Run
     from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
-    from hydromodpy.workflow.context import WorkflowContext
     from hydromodpy.workflow.launcher_protocol import Launcher
 
 
@@ -116,7 +119,13 @@ def prepare_run(
         solver=solver,
     )
 
-    ctx.effective_results_config = step_configure_results(ctx.cfg.simulation.results, plan)
+    reconciled = step_configure_results(
+        ctx.cfg.simulation.results,
+        plan,
+        ctx.cfg.display,
+    )
+    ctx.effective_results_config = reconciled.config
+    ctx.forced_results_flags = reconciled.forced_flags
     if properties is not None:
         ctx.setup.flow_runtime_overrides = {
             "source": "project_run",
@@ -170,10 +179,15 @@ def execute_run(
     from hydromodpy.simulation.planning.plan import RunContext
 
     plan = ctx.execution.simulation_plan
-    results_cfg = ctx.effective_results_config or step_configure_results(
-        ctx.cfg.simulation.results,
-        plan,
-    )
+    results_cfg = ctx.effective_results_config
+    if results_cfg is None:
+        reconciled = step_configure_results(
+            ctx.cfg.simulation.results,
+            plan,
+            ctx.cfg.display,
+        )
+        results_cfg = reconciled.config
+        ctx.forced_results_flags = reconciled.forced_flags
     ctx.effective_results_config = results_cfg
 
     def _after_run(run, result, state):
@@ -189,6 +203,7 @@ def execute_run(
             sim_id=sim_id,
             results_config=results_cfg,
             store=ctx.store,
+            export_config=ctx.cfg.export,
             run_id=final_name,
         )
 
@@ -222,7 +237,8 @@ def ingest_run(
     callback. This step covers the complementary ingestion that does not
     require the solver output directory to stay open.
     """
-    step_ingest_observations(ctx, sim_id)
+    with progress.status("Ingesting observations"):
+        step_ingest_observations(ctx, sim_id)
 
 
 def render_run(
@@ -265,6 +281,8 @@ def cleanup_run(
 ) -> None:
     """Finalize the simulation row and remove the scratch directory.
 
+    Call it last: it drops the intermediate per-cell budget, so every reader
+    of the run (:func:`render_run` included) must have run before.
     ``close_store=False`` leaves the catalog open so the caller can keep using
     it (Project lifetime). ``status`` selects the final DuckDB status and is
     usually "completed"; pass "failed" when the run raised.
@@ -286,14 +304,37 @@ def cleanup_run(
         )
 
         geo_cfg = getattr(ctx.cfg, "geographic", None)
-        if geo_cfg is not None and getattr(geo_cfg, "write_intermediates", False):
+        keep_intermediates = bool(getattr(geo_cfg, "write_intermediates", False))
+        if keep_intermediates:
             dump_cached_rasters_to_disk(geo)
-        cleanup_stable_folder(geo)
+        # Same flag on both calls: dumping the rasters and then deleting the
+        # folder that holds them would make the option write for nothing.
+        cleanup_stable_folder(geo, keep=keep_intermediates)
 
-    if close_store:
-        step_finalize_store(ctx, wall_seconds=wall_seconds, status=status)
-    elif ctx.store is not None:
-        ctx.store.finalize(sim_id, status=status, duration_s=wall_seconds)
+    if status == "completed":
+        step_drop_intermediate_budget(ctx)
+
+    if ctx.store is None:
+        return
+
+    # Seal first, package second: the .hmp archive must carry the manifest and
+    # the provenance that sealing writes into the run directory.
+    try:
+        step_seal_store(ctx, wall_seconds=wall_seconds, status=status)
+        if status == "completed":
+            from hydromodpy.simulation.extraction.post_run import auto_export_package
+
+            results_cfg = effective or ctx.cfg.simulation.results
+            auto_export_package(
+                sim_id=sim_id,
+                store=ctx.store,
+                export_config=ctx.cfg.export,
+                save_catalog=bool(results_cfg.persistence.save_catalog),
+                run_id=ctx.setup.run_id,
+            )
+    finally:
+        if close_store:
+            step_close_store(ctx)
 
 
 def standard_steps() -> tuple:
@@ -302,7 +343,9 @@ def standard_steps() -> tuple:
     Order matches the shared phase contract in
     :mod:`hydromodpy.workflow.phases`: build the geographic/domain runtime,
     load data into that runtime, build/import the mesh, bind processes, then
-    prepare and run the solver.
+    prepare and run the solver. The tail is extract, derive, display, export:
+    figures are the last reader of the run, so they draw before the export
+    step drops the intermediate fields and seals the store.
     """
     from hydromodpy.workflow.steps import (
         BuildGeographicStep,
@@ -330,8 +373,8 @@ def standard_steps() -> tuple:
         RunSolverStep(),
         ExtractStep(),
         DeriveStep(),
-        ExportStep(),
         DisplayStep(),
+        ExportStep(),
     )
 
 

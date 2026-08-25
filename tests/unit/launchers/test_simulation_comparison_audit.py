@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -75,6 +76,103 @@ def test_resolve_bundle_cells_reads_mesh_input_from_generated_config(
     assert cells.x.tolist() == [12.0]
     assert cells.area_m2 is not None
     assert cells.area_m2.tolist() == [56.0]
+
+
+def _write_structured_child_config(tmp_path: Path) -> Path:
+    config_path = tmp_path / "structured_child.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "simulation"',
+                "",
+                "[workspace]",
+                'project_root = "."',
+                "",
+                "[modflow6.sgrid.planar]",
+                "nx = 4",
+                "ny = 2",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return config_path
+
+
+def test_resolve_bundle_cells_rebuilds_structured_centroids_from_preprocessing(
+    tmp_path: Path,
+) -> None:
+    """Structured centroids come from the geographic preprocessing raster."""
+    rasterio = pytest.importorskip("rasterio")
+    import hydromodpy
+    from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+
+    hydromodpy.bootstrap()
+    geographic_dir = tmp_path / PREPROCESSING_DIR / "geographic"
+    geographic_dir.mkdir(parents=True)
+    with rasterio.open(
+        geographic_dir / "watershed_box_buff_dem.tif",
+        "w",
+        driver="GTiff",
+        height=2,
+        width=4,
+        count=1,
+        dtype="float32",
+        transform=rasterio.transform.from_origin(100.0, 220.0, 10.0, 10.0),
+    ) as dataset:
+        dataset.write(np.zeros((2, 4), dtype="float32"), 1)
+
+    cells = resolve_bundle_cells(
+        tmp_path / "run_without_metrics",
+        config_path=_write_structured_child_config(tmp_path),
+        expected_size=8,
+    )
+
+    assert cells is not None
+    assert cells.cell_ids.tolist() == list(range(8))
+    assert cells.x[:4].tolist() == [105.0, 115.0, 125.0, 135.0]
+    assert cells.y[0] == pytest.approx(215.0)
+    assert cells.area_m2 is not None
+    assert cells.area_m2[0] == pytest.approx(100.0)
+
+
+def test_resolve_bundle_cells_warns_when_structured_support_raster_is_absent(
+    tmp_path: Path,
+) -> None:
+    """A missing geographic raster is reported instead of failing silently."""
+    import logging
+
+    pytest.importorskip("rasterio")
+    import hydromodpy
+    from hydromodpy.core.logging import get_logger
+    from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+
+    hydromodpy.bootstrap()
+    records: list[logging.LogRecord] = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    # The ``hydromodpy`` logger does not propagate, so caplog never sees it.
+    parent = get_logger("hydromodpy")
+    handler = _Capture(level=logging.WARNING)
+    parent.addHandler(handler)
+    try:
+        cells = resolve_bundle_cells(
+            tmp_path / "run_without_metrics",
+            config_path=_write_structured_child_config(tmp_path),
+            expected_size=8,
+        )
+    finally:
+        parent.removeHandler(handler)
+
+    assert cells is None
+    warnings = [record.getMessage() for record in records if record.levelno >= logging.WARNING]
+    assert any("Cannot rebuild structured cell centroids" in message for message in warnings)
+    # The warning interpolates a Path, so it renders with the native separator.
+    native_preprocessing_dir = str(Path(PREPROCESSING_DIR))
+    assert any(native_preprocessing_dir in message for message in warnings)
 
 
 def test_equivalence_audit_flags_physical_config_mismatch(

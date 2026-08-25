@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import (
     CF_EPOCH,
@@ -14,6 +15,8 @@ from hydromodpy.core.units.time import (
     cf_time_axis_seconds,
     factor_to_seconds,
 )
+from hydromodpy.solver.modflow_common.budget_components import canonical_budget_component
+from hydromodpy.solver.modflow_common.field_slab import slab_steps
 
 logger = get_logger(__name__)
 
@@ -75,30 +78,30 @@ def _write_time_coordinate(
     writer(sim_id, values, epoch=CF_EPOCH, units=CF_TIME_UNITS)
 
 
-def _budget_key(name: str) -> str:
-    """Normalize a MODFLOW listing budget column name."""
-    return str(name).upper().replace("-", "_").replace(" ", "_")
+def _listing_path(solver_output_dir: Path, model_name: str) -> Path:
+    """Return the listing file MODFLOW-NWT wrote for ``model_name``.
+
+    FloPy declares the LIST unit with the ``.list`` extension, so the listing
+    never shares the ``.lst`` suffix MODFLOW 6 uses. Deriving it from the
+    ``.hds`` stem with the wrong suffix silently skips the mass balance.
+    """
+    return Path(solver_output_dir) / f"{model_name}.list"
 
 
-def _budget_field_lookup(names: tuple[str, ...]) -> dict[str, str]:
-    """Map normalized listing field names to their native dtype names."""
-    return {_budget_key(name): name for name in names}
+def _budget_field(row: np.void, names: tuple[str, ...] | None, key: str) -> float:
+    """Return one listing-budget field, or 0.0 when the column is absent.
 
-
-def _budget_value(row: np.void, fields: dict[str, str], *candidates: str) -> float:
-    """Return a listing-budget value or NaN when the field is absent."""
-    for candidate in candidates:
-        native = fields.get(_budget_key(candidate))
-        if native is not None:
-            return float(row[native])
-    return float("nan")
+    FloPy already normalizes the listing column names (``TOTAL IN`` becomes
+    ``TOTAL_IN``), so the canonical key is the only spelling to look up.
+    """
+    return float(row[key]) if names is not None and key in names else 0.0
 
 
 class ModflowNwtOutputAdapter:
-    """Read MODFLOW-NWT binary outputs and inject them into a SimulationCatalog.
+    """Read MODFLOW-NWT binary outputs and inject them into a Catalog.
 
     Expects a solver output directory containing ``{model_name}.hds``,
-    ``{model_name}.cbc``, and optionally ``{model_name}.lst``.
+    ``{model_name}.cbc``, and optionally ``{model_name}.list``.
     """
 
     solver_name = "modflow_nwt"
@@ -110,13 +113,20 @@ class ModflowNwtOutputAdapter:
         solver_output_dir: Path,
         store: Any,
         *,
+        hdry: float,
+        hnoflo: float,
         model_name: str | None = None,
         budget_spatial_fields: bool = False,
-        hdry: float = -100.0,
-        hnoflo: float = -9999.0,
         start_datetime: object | None = None,
     ) -> None:
-        """Read .hds and .cbc files and write fields into the store."""
+        """Read .hds and .cbc files and write fields into the store.
+
+        ``hdry`` and ``hnoflo`` are the sentinels the run was configured with
+        (``[modflownwt.runtime.upw] hdry`` and ``[modflownwt.runtime.bas]
+        hnoflo``). They carry no default here: masking a user's heads against
+        the stock -100 / -9999 would silently keep sentinel values in the
+        field, or blank out real heads that happen to sit near them.
+        """
         import flopy.utils.binaryfile as bf
 
         solver_output_dir = Path(solver_output_dir)
@@ -153,17 +163,23 @@ class ModflowNwtOutputAdapter:
 
         # Mask HDRY/HNOFLO sentinels to NaN so all downstream consumers
         # (watertable, seepage, cross-section, etc.) receive clean data.
-        for t, time in enumerate(times):
-            head = head_file.get_data(totim=time)
-            values = head.reshape(nlay, n_cells).astype("float64")
-            values[np.isclose(values, hdry, atol=1.0)] = np.nan
-            values[np.isclose(values, hnoflo, atol=1.0)] = np.nan
-            store.write_field(
+        # Batched stack writes: per-timestep writes into a sharded Zarr array
+        # cost one whole-shard read-modify-write per timestep.
+        head_slab = slab_steps(nlay, n_cells)
+        for t0 in range(0, n_timesteps, head_slab):
+            t1 = min(t0 + head_slab, n_timesteps)
+            slab = np.empty((t1 - t0, nlay, n_cells), dtype="float64")
+            for t in range(t0, t1):
+                head = head_file.get_data(totim=times[t])
+                slab[t - t0] = head.reshape(nlay, n_cells)
+            slab[np.isclose(slab, hdry, atol=1.0)] = np.nan
+            slab[np.isclose(slab, hnoflo, atol=1.0)] = np.nan
+            store.write_field_stack(
                 sim_id,
                 "head",
-                t,
-                values,
-                n_timesteps=n_timesteps if t == 0 else None,
+                slab,
+                n_timesteps=n_timesteps,
+                timestep_offset=t0,
             )
 
         if cbc_path.exists():
@@ -180,7 +196,7 @@ class ModflowNwtOutputAdapter:
                 flux_scale_to_m3_s=flux_scale_to_m3_s,
             )
 
-        lst_path = solver_output_dir / f"{model_name}.lst"
+        lst_path = _listing_path(solver_output_dir, model_name)
         if lst_path.exists():
             self._extract_mass_balance(sim_id, store, lst_path, flux_scale_to_m3_s)
 
@@ -211,9 +227,15 @@ class ModflowNwtOutputAdapter:
         record_names = [r.decode().strip() for r in cbb.get_unique_record_names()]
 
         n_cells = nrow * ncol
+        n_timesteps = len(times)
         budget_records: list[dict] = []
-        for t, (time, kstpkper) in enumerate(zip(times, kstpkpers, strict=False)):
-            for component in record_names:
+        budget_slab = slab_steps(nlay, n_cells)
+        for component in record_names:
+            comp_key = canonical_budget_component(component)
+            slab_stack: np.ndarray | None = None
+            window_t0 = 0
+            spatial_written = False
+            for t, (time, kstpkper) in enumerate(zip(times, kstpkpers, strict=False)):
                 try:
                     data = cbb.get_data(
                         text=component,
@@ -242,7 +264,7 @@ class ModflowNwtOutputAdapter:
                     {
                         "timestep": t,
                         "zone_id": "0",
-                        "component": component.lower().strip(),
+                        "component": comp_key,
                         "flux_in": flux_in,
                         "flux_out": abs(flux_out),
                         "unit": "m3/s",
@@ -250,15 +272,45 @@ class ModflowNwtOutputAdapter:
                 )
                 if spatial_fields and arr.ndim >= 2:
                     field = arr.reshape(nlay, n_cells) if arr.ndim == 3 else arr.reshape(1, n_cells)
-                    store.write_field(
+                    if slab_stack is not None and t >= window_t0 + budget_slab:
+                        store.write_field_stack(
+                            sim_id,
+                            comp_key,
+                            slab_stack,
+                            n_timesteps=n_timesteps,
+                            timestep_offset=window_t0,
+                            subgroup="budget",
+                        )
+                        spatial_written = True
+                        slab_stack = None
+                    if slab_stack is None:
+                        window_t0 = (t // budget_slab) * budget_slab
+                        slab_len = min(budget_slab, n_timesteps - window_t0)
+                        slab_stack = np.full((slab_len, *field.shape), np.nan, dtype="float64")
+                    if slab_stack.shape[1:] == field.shape:
+                        slab_stack[t - window_t0] = field
+            if slab_stack is not None:
+                if not spatial_written and window_t0 != 0:
+                    primer = np.full((1, *slab_stack.shape[1:]), np.nan, dtype="float64")
+                    store.write_field_stack(
                         sim_id,
-                        component.lower().strip(),
-                        t,
-                        field,
-                        n_timesteps=len(times),
+                        comp_key,
+                        primer,
+                        n_timesteps=n_timesteps,
+                        timestep_offset=0,
                         subgroup="budget",
                     )
+                store.write_field_stack(
+                    sim_id,
+                    comp_key,
+                    slab_stack,
+                    n_timesteps=n_timesteps,
+                    timestep_offset=window_t0,
+                    subgroup="budget",
+                )
 
+        # Keep the historical time-major record order for downstream readers.
+        budget_records.sort(key=lambda record: record["timestep"])
         if budget_records:
             store.write_budgets(sim_id, budget_records)
         cbb.close()
@@ -270,50 +322,36 @@ class ModflowNwtOutputAdapter:
         lst_path: Path,
         flux_scale_to_m3_s: float,
     ) -> None:
-        """Parse MODFLOW listing file for mass balance summary."""
-        try:
-            from flopy.utils import MfListBudget
+        """Parse the MODFLOW-NWT listing file for the mass balance summary.
 
-            mf_list = MfListBudget(str(lst_path))
-            inc, cum = mf_list.get_budget_from_list()
-            del cum
-            if inc is not None:
-                records = []
-                fields = _budget_field_lookup(inc.dtype.names or ())
-                for t in range(len(inc)):
-                    row = inc[t]
-                    total_in = (
-                        _budget_value(row, fields, "TOTAL_IN", "TOTAL IN") * flux_scale_to_m3_s
-                    )
-                    total_out = (
-                        _budget_value(row, fields, "TOTAL_OUT", "TOTAL OUT") * flux_scale_to_m3_s
-                    )
-                    storage_in = (
-                        _budget_value(row, fields, "STORAGE_IN", "STORAGE IN") * flux_scale_to_m3_s
-                    )
-                    storage_out = (
-                        _budget_value(row, fields, "STORAGE_OUT", "STORAGE OUT")
-                        * flux_scale_to_m3_s
-                    )
-                    pct_err = _budget_value(
-                        row,
-                        fields,
-                        "PERCENT_DISCREPANCY",
-                        "PERCENT DISCREPANCY",
-                    )
-                    records.append(
-                        {
-                            "timestep": t,
-                            "total_in": total_in,
-                            "total_out": total_out,
-                            "storage_in": storage_in,
-                            "storage_out": storage_out,
-                            "percent_error": pct_err,
-                        }
-                    )
-                store.write_mass_balances(sim_id, records)
-        except Exception:
-            logger.warning("Could not parse listing file %s", lst_path, exc_info=True)
+        Volumetric rates scale to m3/s like the cell budget fluxes;
+        PERCENT_DISCREPANCY is unitless and must not be scaled.
+        """
+        from flopy.utils import MfListBudget
+
+        try:
+            incremental, _cumulative = MfListBudget(str(lst_path)).get_budget()
+        except Exception as exc:
+            raise ExtractError(
+                f"Cannot read the MODFLOW-NWT mass balance from {lst_path}: {exc}"
+            ) from exc
+        if incremental is None:
+            raise ExtractError(f"MODFLOW-NWT listing {lst_path} carries no volumetric budget.")
+
+        names = incremental.dtype.names
+        scale = float(flux_scale_to_m3_s)
+        records = [
+            {
+                "timestep": t,
+                "total_in": _budget_field(incremental[t], names, "TOTAL_IN") * scale,
+                "total_out": _budget_field(incremental[t], names, "TOTAL_OUT") * scale,
+                "storage_in": _budget_field(incremental[t], names, "STORAGE_IN") * scale,
+                "storage_out": _budget_field(incremental[t], names, "STORAGE_OUT") * scale,
+                "percent_error": _budget_field(incremental[t], names, "PERCENT_DISCREPANCY"),
+            }
+            for t in range(len(incremental))
+        ]
+        store.write_mass_balances(sim_id, records)
 
     def _write_surface_elevation(
         self,
@@ -349,11 +387,16 @@ class ModflowNwtOutputAdapter:
                 )
             top = np.asarray(m.dis.top.array, dtype="float64").ravel()[:n_cells]
             botm = np.asarray(m.dis.botm.array, dtype="float64")
+            botm_per_layer = botm.reshape(-1, n_cells) if botm.ndim == 3 else None
             z_flat = (
                 np.concatenate([top[:1], botm[:, 0, 0]])
                 if botm.ndim == 3
                 else np.array([float(top[0]), float(top[0]) - 10.0])
             )
+            layer_thickness = None
+            if botm_per_layer is not None:
+                interfaces = np.vstack([top[None, :], botm_per_layer])
+                layer_thickness = -np.diff(interfaces, axis=0)
 
             # Synthesize UGRID (vertices + face_node_connectivity) from the
             # structured DIS grid so downstream readers (piezometric_map,
@@ -383,6 +426,7 @@ class ModflowNwtOutputAdapter:
                     face_node_connectivity=fnc,
                     z_interfaces=z_flat,
                     topography=top,
+                    layer_thickness=layer_thickness,
                     grid_type="dis",
                     structured_shape=(int(nrow), int(ncol)),
                 )

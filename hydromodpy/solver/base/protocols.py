@@ -23,6 +23,7 @@ class FlowModelLike(Protocol):
     gwf: Any
     nlay: int
     ncpl: int
+    nper: int
     solver_mesh: Any
 
     @property

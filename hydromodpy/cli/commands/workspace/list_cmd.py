@@ -1,4 +1,4 @@
-"""``hmp workspace list`` - thin wrapper around :func:`hydromodpy.list_workspaces`."""
+"""``hmp workspace list`` - projects registered in the machine-wide global index."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import sys
 from hydromodpy.cli.helpers import EXIT_OK
 
 NAME: str = "list"
-HELP: str = "List workspaces registered in the machine-wide global index"
+HELP: str = "List the projects registered in the machine-wide global index"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -19,18 +19,22 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.workspace import list_workspaces
+    from hydromodpy.cli._workers.workspace import list_registered_projects
 
-    df = list_workspaces()
+    df = list_registered_projects()
     if df is None or df.empty:
-        print("(no registered workspaces)")
+        print("(no registered projects)")
         sys.exit(EXIT_OK)
 
     if args.json:
         print(df.to_json(orient="records", date_format="iso", indent=2))
         sys.exit(EXIT_OK)
 
-    columns = [c for c in ("workspace_id", "label", "uri", "registered_at") if c in df.columns]
+    columns = [
+        c
+        for c in ("project_id", "label", "project_uri", "created_at", "last_scanned_at")
+        if c in df.columns
+    ]
     if not columns:
         columns = list(df.columns)
     print(df[columns].to_string(index=False))

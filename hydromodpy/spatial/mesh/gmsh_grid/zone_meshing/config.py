@@ -37,7 +37,11 @@ class ZoneMeshingRefinementFamilySettings(HydroModelBase):
 
     enabled: Annotated[bool, Profile.USER] = Field(
         default=True,
-        description="If False, this family is parsed but skipped during refinement.",
+        description=(
+            "If False, this family is parsed but skipped during refinement. "
+            "Per-family defaults: river and geology_interface are enabled, "
+            "watershed_boundary is disabled (whole-divide refinement is opt-in)."
+        ),
     )
     priority: Annotated[int, Profile.USER] = Field(
         default=0,
@@ -80,10 +84,15 @@ class ZoneMeshingRefinementFamilies(HydroModelBase):
     )
     watershed_boundary: Annotated[ZoneMeshingRefinementFamilySettings, Profile.USER] = Field(
         default_factory=lambda: ZoneMeshingRefinementFamilySettings(
-            enabled=True,
+            enabled=False,
             priority=100,
         ),
-        description="Refinement settings for the watershed-boundary family.",
+        description=(
+            "Refinement settings for the watershed-boundary family. Disabled by "
+            "default: refining the whole water divide is an opt-in for a sharp "
+            "DRN watershed-routing frontier; the boundary constraint alone keeps "
+            "the divide conformal at the background size."
+        ),
     )
 
 
@@ -150,7 +159,9 @@ class ZoneMeshingRefinementGridSettings(HydroModelBase):
 _FAMILY_DEFAULTS: dict[str, dict[str, Any]] = {
     "river": {"enabled": True, "priority": 300},
     "geology_interface": {"enabled": True, "priority": 200},
-    "watershed_boundary": {"enabled": True, "priority": 100},
+    # Whole-divide refinement is opt-in (DRN-routing frontier); see the
+    # watershed_boundary field description above.
+    "watershed_boundary": {"enabled": False, "priority": 100},
 }
 
 
@@ -200,10 +211,16 @@ class ZoneMeshingRefinementPolicy(HydroModelBase):
         if isinstance(value, dict):
             merged: dict[str, Any] = {}
             for name, defaults in _FAMILY_DEFAULTS.items():
-                if name in value:
-                    merged[name] = value[name]
-                else:
+                entry = value.get(name)
+                if entry is None:
                     merged[name] = defaults
+                elif isinstance(entry, Mapping):
+                    # A partial table inherits the per-family defaults, so e.g. a
+                    # bare priority override does not silently re-enable a family
+                    # whose default is opt-in (watershed_boundary).
+                    merged[name] = {**defaults, **dict(entry)}
+                else:
+                    merged[name] = entry
             for name in value:
                 if name not in merged:
                     merged[name] = value[name]

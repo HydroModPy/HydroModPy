@@ -438,7 +438,7 @@ Why This Page Matters
 
 Without this page, readers have to infer the scientific contract by combining:
 
-- ``hydromodpy.physics.flow.flow.py``,
+- ``hydromodpy.physics.flow.flow``,
 - backend adapter code,
 - validation-case names,
 - and scattered developer notes.

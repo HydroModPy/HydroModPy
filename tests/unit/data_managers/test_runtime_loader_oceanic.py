@@ -3,8 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from hydromodpy.data.loader import DataManagersRuntimeLoader
-from hydromodpy.data.plan import DataLoadPlan
+from hydromodpy.data.loading import loader as loader_module
+from hydromodpy.data.loading.loader import DataManagersRuntimeLoader
+from hydromodpy.data.managers.plan import DataLoadPlan
 
 
 def _build_loader(tmp_path: Path) -> DataManagersRuntimeLoader:
@@ -45,8 +46,14 @@ def test_load_generic_oceanic_variable_passes_geographic_to_manager(
             return SimpleNamespace(OceanicConfig=FakeConfig)
         raise AssertionError(f"Unexpected import: {name}")
 
-    monkeypatch.setattr("hydromodpy.data.loader.importlib.import_module", fake_import_module)
-    monkeypatch.setattr("hydromodpy.data.store.get_manager_class", lambda variable: FakeManager)
+    # Rebind the loader module's own importlib name: a dotted target would resolve
+    # the stdlib module and mutate it for the whole session.
+    monkeypatch.setattr(
+        loader_module, "importlib", SimpleNamespace(import_module=fake_import_module)
+    )
+    monkeypatch.setattr(
+        "hydromodpy.data.loading.store.get_manager_class", lambda variable: FakeManager
+    )
 
     result = SimpleNamespace(
         cfg=SimpleNamespace(

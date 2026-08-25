@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow6.common.forcing_discretization import (
+from hydromodpy.solver.modflow6.support.forcing_discretization import (
     broadcast_to_stress_periods,
     stress_period_axes,
 )

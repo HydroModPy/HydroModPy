@@ -3,18 +3,40 @@
 ``resolve`` is the canonical lookup that turns a user reference (full UUID,
 prefix, or ``name`` within a project) into a simulation ``sim_id``.
 ``__getitem__`` / ``find`` / ``latest`` / ``best`` build :class:`Run` and
-:class:`SimulationGroup` views on top of it.
+:class:`RunSet` views on top of it.
 """
 
 from __future__ import annotations
 
+import difflib
 import re
+from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from hydromodpy.results.catalog.constants import OUTLET_STATION
+
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
-    from hydromodpy.results.simulation_group import SimulationGroup
+    from hydromodpy.results.run.group import RunSet
+
+
+def iter_project_catalog_roots(workspace_root: Path | str) -> list[Path]:
+    """Return every project catalog root under ``workspace_root``.
+
+    The layout rule lives in
+    :func:`hydromodpy.core.state.paths.project_roots_under`; this helper only
+    narrows its answer to the roots that already carry an index database, since
+    a caller here is about to read one. Sorted, workspace root first.
+    """
+    from hydromodpy.core.state.paths import catalog_path_for, project_roots_under
+
+    return [
+        root
+        for root in project_roots_under(Path(workspace_root))
+        if catalog_path_for(root).is_file()
+    ]
+
 
 _MIN_PREFIX_LEN = 4
 _UUID_FULL_RE = re.compile(
@@ -22,6 +44,8 @@ _UUID_FULL_RE = re.compile(
     re.IGNORECASE,
 )
 _HEX_RE = re.compile(r"^[0-9a-f]+$", re.IGNORECASE)
+_LAST_SELECTOR_RE = re.compile(r"^(?:last|latest)(?:~(\d+))?$")
+_RANK_SELECTOR_RE = re.compile(r"^(best|worst):(.+)$")
 
 
 def short_id(sim_id: str | UUID) -> str:
@@ -29,19 +53,27 @@ def short_id(sim_id: str | UUID) -> str:
     return str(sim_id)[:8]
 
 
-class SimulationNotFoundError(KeyError):
+class ReferenceResolutionError(Exception):
+    """Base class for catalog reference resolution failures.
+
+    Deliberately not a :class:`KeyError`: that subclassing doubled the quotes
+    in error rendering and collapsed not-found and ambiguous into one exit code.
+    """
+
+
+class SimulationNotFoundError(ReferenceResolutionError):
     """Raised when a reference does not match any simulation in the catalog."""
 
 
-class AmbiguousReferenceError(KeyError):
-    """Raised when a UUID prefix matches more than one simulation."""
+class AmbiguousReferenceError(ReferenceResolutionError):
+    """Raised when a reference matches more than one simulation."""
 
     def __init__(self, ref: str, candidates: list[tuple[str, str | None]]) -> None:
         self.ref = ref
         self.candidates = candidates
         head = candidates[:10]
         lines = "\n".join(f"  {short_id(sid)}  {name or '(no name)'}" for sid, name in head)
-        suffix = f"\n  … and {len(candidates) - 10} more" if len(candidates) > 10 else ""
+        suffix = f"\n  ... and {len(candidates) - 10} more" if len(candidates) > 10 else ""
         super().__init__(
             f"Reference '{ref}' is ambiguous; matches {len(candidates)} "
             f"simulations:\n{lines}{suffix}"
@@ -49,7 +81,7 @@ class AmbiguousReferenceError(KeyError):
 
 
 class DiscoveryMixin:
-    """Reference-resolution and view-builder methods for :class:`SimulationCatalog`.
+    """Reference-resolution and view-builder methods for :class:`Catalog`.
 
     Relies on the facade attribute ``self._backend`` (CatalogBackend port).
     """
@@ -62,20 +94,27 @@ class DiscoveryMixin:
     ) -> str:
         """Resolve a user reference to a simulation UUID.
 
-        Accepts three forms, tried in order:
+        Accepted forms, tried in order:
 
-        1. Full UUID (with dashes, 36 chars).
-        2. UUID prefix of ≥ 4 hex characters (no dashes). Must match a single
-           simulation globally; raises :class:`AmbiguousReferenceError`
-           otherwise.
-        3. Exact ``name`` within ``project`` - requires the ``project``
-           keyword.
+        1. ``@``-selectors: ``@last``, ``@last~N`` (N-th newest completed),
+           ``@best:METRIC`` / ``@worst:METRIC`` (outlet first, any station as
+           fallback; add ``@STATION`` to scope explicitly), ``@running``.
+        2. Full UUID (36 chars with dashes).
+        3. UUID prefix of >= 4 hex characters. Must match a single simulation;
+           raises :class:`AmbiguousReferenceError` otherwise.
+        4. Exact ``name`` (globally, or within ``project``).
+        5. ``name_stem``: a bare name resolves to the latest live version of
+           that stem (``cheze_baseline`` -> ``cheze_baseline.v3``).
 
-        Raises :class:`SimulationNotFoundError` when nothing matches.
+        Raises :class:`SimulationNotFoundError` when nothing matches, with the
+        closest known names and tags suggested.
         """
         ref_s = str(ref).strip()
         if not ref_s:
             raise SimulationNotFoundError("Empty reference")
+
+        if ref_s.startswith("@"):
+            return self._resolve_selector(ref_s[1:], project=project)
 
         if _UUID_FULL_RE.match(ref_s):
             row = self._backend.fetch_one(
@@ -92,14 +131,27 @@ class DiscoveryMixin:
                 "WHERE REPLACE(CAST(sim_id AS VARCHAR), '-', '') LIKE ? || '%'",
                 [ref_nodash],
             )
+            # A hex-looking name (e.g. 'beef1234') can be both a UUID prefix and
+            # an exact run name. Detect the cross-kind collision: if an exact
+            # name matches a different sim, raise rather than silently return
+            # the prefix hit.
+            name_rows = self._backend.fetch_all(
+                "SELECT CAST(sim_id AS VARCHAR), project FROM simulations WHERE name = ?"
+                + (" AND project = ?" if project is not None else ""),
+                ([ref_s, project] if project is not None else [ref_s]),
+            )
+            candidate_ids = {str(r[0]) for r in rows} | {str(r[0]) for r in name_rows}
+            if len(candidate_ids) > 1:
+                combined = {str(r[0]): r[1] for r in rows}
+                for r in name_rows:
+                    combined.setdefault(str(r[0]), ref_s)
+                raise AmbiguousReferenceError(ref_s, list(combined.items()))
             if len(rows) == 1:
                 return str(rows[0][0])
-            if len(rows) > 1:
-                raise AmbiguousReferenceError(
-                    ref_s,
-                    [(str(r[0]), r[1]) for r in rows],
-                )
+            if len(name_rows) == 1:
+                return str(name_rows[0][0])
 
+        # Exact name match.
         if project is not None:
             row = self._backend.fetch_one(
                 "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE project = ? AND name = ?",
@@ -120,12 +172,136 @@ class DiscoveryMixin:
                     [(str(r[0]), f"{ref_s} (project={r[1]})") for r in rows],
                 )
 
-        where = f"'{ref_s}'"
-        context = f" in project '{project}'" if project else ""
-        raise SimulationNotFoundError(
-            f"Reference {where} not found{context}. "
-            "Try `hmp list <project>` or `catalog.simulations` to see known runs."
+        # Bare stem -> latest live version of the stem.
+        stem_sql = (
+            "SELECT CAST(sim_id AS VARCHAR), project FROM simulations "
+            "WHERE name_stem = ? "
+            "AND status_id <> (SELECT id FROM statuses WHERE code = 'trashed') "
         )
+        params: list[str] = [ref_s]
+        if project is not None:
+            stem_sql += "AND project = ? "
+            params.append(project)
+        stem_sql += "ORDER BY version_int DESC"
+        stem_rows = self._backend.fetch_all(stem_sql, params)
+        if stem_rows:
+            projects = {r[1] for r in stem_rows}
+            if len(projects) == 1:
+                return str(stem_rows[0][0])
+            raise AmbiguousReferenceError(
+                ref_s,
+                [(str(r[0]), f"{ref_s} (project={r[1]})") for r in stem_rows],
+            )
+
+        raise SimulationNotFoundError(self._not_found_message(ref_s, project))
+
+    def _resolve_selector(self, body: str, *, project: str | None) -> str:
+        """Resolve an ``@``-selector body (the part after ``@``)."""
+        last_match = _LAST_SELECTOR_RE.match(body)
+        if last_match:
+            offset = int(last_match.group(1) or 0)
+            row = self._backend.fetch_one(
+                "SELECT CAST(s.sim_id AS VARCHAR) FROM simulations s "
+                "JOIN statuses st ON s.status_id = st.id "
+                "WHERE st.code = 'completed' "
+                + ("AND s.project = ? " if project else "")
+                + "ORDER BY s.created_at DESC LIMIT 1 OFFSET ?",
+                ([project, offset] if project else [offset]),
+            )
+            if row:
+                return str(row[0])
+            scope = f" in project '{project}'" if project else ""
+            raise SimulationNotFoundError(f"No completed run for '@{body}'{scope}")
+
+        rank_match = _RANK_SELECTOR_RE.match(body)
+        if rank_match:
+            kind, remainder = rank_match.group(1), rank_match.group(2).strip()
+            # Optional station scope: '@best:kge@lake:forebay'. Without one, the
+            # outlet station is preferred and any-station best is the fallback.
+            metric, _, station = remainder.partition("@")
+            metric = metric.strip()
+            station = station.strip() or None
+            order = "DESC" if kind == "best" else "ASC"
+            row = self._rank_best_run(metric, order, station=station, project=project)
+            if row is not None:
+                return str(row)
+            scope = f" in project '{project}'" if project else ""
+            where = f"at station '{station}'" if station else "at outlet or any station"
+            raise SimulationNotFoundError(
+                f"No completed run with metric '{metric}' {where} for '@{body}'{scope}"
+            )
+
+        if body == "running":
+            row = self._backend.fetch_one(
+                "SELECT CAST(s.sim_id AS VARCHAR) FROM simulations s "
+                "JOIN statuses st ON s.status_id = st.id "
+                "WHERE st.code = 'running' "
+                + ("AND s.project = ? " if project else "")
+                + "ORDER BY s.created_at DESC LIMIT 1",
+                ([project] if project else []),
+            )
+            if row:
+                return str(row[0])
+            raise SimulationNotFoundError("No running run")
+
+        raise SimulationNotFoundError(
+            f"Unknown selector '@{body}'. "
+            "Known: @last, @last~N, @best:METRIC, @worst:METRIC, @running"
+        )
+
+    def _rank_best_run(
+        self,
+        metric: str,
+        order: str,
+        *,
+        station: str | None,
+        project: str | None,
+    ) -> str | None:
+        """Return the best/worst run for ``metric``, honouring a station scope.
+
+        With an explicit ``station`` the rank is scoped to it. Without one, the
+        outlet station is tried first, then any station (lake-level metrics live
+        at lake/station scopes, not at the outlet).
+        """
+        stations = [station] if station is not None else [OUTLET_STATION, None]
+        for scope in stations:
+            sql = (
+                "SELECT CAST(s.sim_id AS VARCHAR) FROM simulations s "
+                "JOIN statuses st ON s.status_id = st.id "
+                "JOIN metrics m ON s.sim_id = m.sim_id "
+                "WHERE st.code = 'completed' AND m.metric_name = ? "
+            )
+            params: list = [metric]
+            if scope is not None:
+                sql += "AND m.station_id = ? "
+                params.append(scope)
+            if project:
+                sql += "AND s.project = ? "
+                params.append(project)
+            sql += f"ORDER BY m.value {order} LIMIT 1"
+            row = self._backend.fetch_one(sql, params)
+            if row is not None:
+                return str(row[0])
+        return None
+
+    def _not_found_message(self, ref: str, project: str | None) -> str:
+        """Build a not-found message suggesting the closest names and tags."""
+        context = f" in project '{project}'" if project else ""
+        name_rows = self._backend.fetch_all(
+            "SELECT name FROM simulations WHERE name IS NOT NULL"
+            + (" AND project = ?" if project else ""),
+            ([project] if project else []),
+        )
+        names = [str(r[0]) for r in name_rows]
+        close = difflib.get_close_matches(ref, names, n=3, cutoff=0.4)
+        if not close:
+            tag_rows = self._backend.fetch_all(
+                "SELECT DISTINCT tag FROM tags",
+            )
+            tags = [str(r[0]) for r in tag_rows]
+            close = difflib.get_close_matches(ref, tags, n=3, cutoff=0.4)
+        suggestion = f" Closest: {', '.join(close)}." if close else ""
+        return f"Reference '{ref}' not found{context}. Run `hmp ls` to list known runs.{suggestion}"
 
     def __getitem__(self, ref: str | UUID) -> Run:
         from hydromodpy.results.run import Run
@@ -133,8 +309,8 @@ class DiscoveryMixin:
         sid = self.resolve(ref)
         return Run(sid, self)
 
-    def find(self, **filters) -> SimulationGroup:
-        from hydromodpy.results.simulation_group import SimulationGroup
+    def find(self, **filters) -> RunSet:
+        from hydromodpy.results.run.group import RunSet
 
         # v2 dim-table joins for filters that hit text codes (solver/status/etc.).
         # Always-on JOINs keep the WHERE clause uniform whether or not the
@@ -152,6 +328,7 @@ class DiscoveryMixin:
         clause_params: list = []
         # v2: tags moved out of simulations into a per-sim table.
         tag_join_added = False
+        has_status_filter = "status" in filters
 
         for key, val in filters.items():
             if key == "tags":
@@ -164,28 +341,41 @@ class DiscoveryMixin:
                 metric = key[:-3]
                 alias = f"m_{len(joins)}"
                 joins.append(
-                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id AND {alias}.metric_name = ?"
+                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
+                    f"AND {alias}.metric_name = ? AND {alias}.station_id = ?"
                 )
-                join_params.append(metric)
+                join_params.extend([metric, OUTLET_STATION])
                 clauses.append(f"{alias}.value > ?")
                 clause_params.append(val)
             elif key.endswith("_lt"):
                 metric = key[:-3]
                 alias = f"m_{len(joins)}"
                 joins.append(
-                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id AND {alias}.metric_name = ?"
+                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
+                    f"AND {alias}.metric_name = ? AND {alias}.station_id = ?"
                 )
-                join_params.append(metric)
+                join_params.extend([metric, OUTLET_STATION])
                 clauses.append(f"{alias}.value < ?")
                 clause_params.append(val)
             elif key.endswith("_gte"):
                 metric = key[:-4]
                 alias = f"m_{len(joins)}"
                 joins.append(
-                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id AND {alias}.metric_name = ?"
+                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
+                    f"AND {alias}.metric_name = ? AND {alias}.station_id = ?"
                 )
-                join_params.append(metric)
+                join_params.extend([metric, OUTLET_STATION])
                 clauses.append(f"{alias}.value >= ?")
+                clause_params.append(val)
+            elif key.endswith("_lte"):
+                metric = key[:-4]
+                alias = f"m_{len(joins)}"
+                joins.append(
+                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
+                    f"AND {alias}.metric_name = ? AND {alias}.station_id = ?"
+                )
+                join_params.extend([metric, OUTLET_STATION])
+                clauses.append(f"{alias}.value <= ?")
                 clause_params.append(val)
             elif key == "crs":
                 clauses.append("s.crs_wkt = ?")
@@ -208,6 +398,8 @@ class DiscoveryMixin:
             elif key in (
                 "project",
                 "name",
+                "name_stem",
+                "config_hash",
                 "crs_wkt",
                 "geographic_fingerprint",
             ):
@@ -216,9 +408,13 @@ class DiscoveryMixin:
             else:
                 raise ValueError(
                     f"Unknown filter {key!r}. Valid: solver, solver_category, status, "
-                    "flow_regime, mesh_topology, project, name, crs, tags, "
-                    "<metric>_gt, <metric>_lt, <metric>_gte"
+                    "flow_regime, mesh_topology, project, name, name_stem, config_hash, "
+                    "crs, tags, <metric>_gt, <metric>_lt, <metric>_gte, <metric>_lte"
                 )
+
+        # Trashed runs are hidden from find() unless explicitly asked for.
+        if not has_status_filter:
+            clauses.append("st.code <> 'trashed'")
 
         if joins:
             query += " " + " ".join(joins)
@@ -228,7 +424,7 @@ class DiscoveryMixin:
 
         rows = self._backend.fetch_all(query, join_params + clause_params)
         sim_ids = [str(r[0]) for r in rows]
-        return SimulationGroup(sim_ids, self)
+        return RunSet(sim_ids, self)
 
     def latest(self, project: str | None = None) -> Run:
         from hydromodpy.results.run import Run
@@ -254,6 +450,52 @@ class DiscoveryMixin:
             raise KeyError(f"No completed simulation {where}")
         return Run(str(row[0]), self)
 
+    def diff(
+        self,
+        ref_a: str,
+        ref_b: str,
+        *,
+        project: str | None = None,
+    ) -> dict:
+        """Compare two runs' parameters and outlet metrics.
+
+        Returns ``{"a", "b", "params", "metrics"}`` where ``params``/``metrics``
+        map each differing key to ``(value_a, value_b)`` (``None`` when absent
+        from one side).
+        """
+        sid_a = self.resolve(ref_a, project=project)
+        sid_b = self.resolve(ref_b, project=project)
+
+        def _params(sid: str) -> dict:
+            rows = self._backend.fetch_all(
+                "SELECT param_name, zone_id, value FROM parameters WHERE sim_id = ?",
+                [sid],
+            )
+            return {(r[0], r[1]): r[2] for r in rows}
+
+        def _metrics(sid: str) -> dict:
+            rows = self._backend.fetch_all(
+                "SELECT metric_name, station_id, value FROM metrics WHERE sim_id = ?",
+                [sid],
+            )
+            return {(r[0], r[1]): r[2] for r in rows}
+
+        def _delta(map_a: dict, map_b: dict) -> dict:
+            keys = sorted(set(map_a) | set(map_b), key=lambda k: (str(k[0]), str(k[1])))
+            out: dict = {}
+            for key in keys:
+                va, vb = map_a.get(key), map_b.get(key)
+                if va != vb:
+                    out[key] = (va, vb)
+            return out
+
+        return {
+            "a": sid_a,
+            "b": sid_b,
+            "params": _delta(_params(sid_a), _params(sid_b)),
+            "metrics": _delta(_metrics(sid_a), _metrics(sid_b)),
+        }
+
     def best(self, project: str, metric: str = "nse") -> Run:
         return self.rank(project, metric, ascending=False, n=1)[0]
 
@@ -267,8 +509,8 @@ class DiscoveryMixin:
         *,
         ascending: bool = False,
         n: int = 1,
-    ) -> SimulationGroup:
-        from hydromodpy.results.simulation_group import SimulationGroup
+    ) -> RunSet:
+        from hydromodpy.results.run.group import RunSet
 
         order = "ASC" if ascending else "DESC"
         rows = self._backend.fetch_all(
@@ -276,12 +518,12 @@ class DiscoveryMixin:
             "JOIN statuses st ON s.status_id = st.id "
             "JOIN metrics m ON s.sim_id = m.sim_id "
             "WHERE s.project = ? AND st.code = 'completed' "
-            "AND m.metric_name = ? "
+            "AND m.metric_name = ? AND m.station_id = ? "
             f"ORDER BY m.value {order} LIMIT ?",
-            [project, metric, n],
+            [project, metric, OUTLET_STATION, n],
         )
         if not rows:
             raise KeyError(
-                f"No completed simulation with metric '{metric}' for project '{project}'"
+                f"No completed simulation with metric '{metric}' at outlet for project '{project}'"
             )
-        return SimulationGroup([str(r[0]) for r in rows], self)
+        return RunSet([str(r[0]) for r in rows], self)

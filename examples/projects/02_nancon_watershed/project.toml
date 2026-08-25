@@ -284,7 +284,7 @@ name = "nancon_base"
 description = "Nançon watershed - shared base config for runs."
 # `replace` overwrites a run with the same name in the catalog. Useful
 # when you keep iterating on the same configuration.
-on_collision = "replace"
+if_exists = "replace"
 
 
 [simulation.time]

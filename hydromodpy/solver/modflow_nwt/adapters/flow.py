@@ -7,22 +7,24 @@ shared execution lifecycle lives in
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from pathlib import Path
+from collections.abc import Sequence
 from typing import Any
 
 import pandas as pd
 
+from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
+from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
-from hydromodpy.solver.modflow_common.calibration_extractors import (
-    extract_discharge_from_cbc,
-    extract_head_from_hds,
-)
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     build_preprocess_options,
+    nwt_safe_name,
     resolve_run_model_name,
     run_flow_model,
+)
+from hydromodpy.solver.modflow_common.observable_extraction import (
+    extract_common_modflow_observables,
+    resolve_run_output,
 )
 from hydromodpy.solver.modflow_nwt.nwt import ModflowNwt
 
@@ -43,55 +45,41 @@ class ModflowNwtFlowAdapter:
         if solver_output_dir is not None:
             cleanup_solver_files(solver_output_dir)
 
-    def extract_calibration_series(
+    def extract_observables(
         self,
         ctx: RunContext,
         store: Any,
+        requests: Sequence[ObservableRequest],
         *,
-        variable: str,
-        station_cells: Mapping[str, tuple[int, int, int]] | None = None,
         time_index: pd.DatetimeIndex | None = None,
-    ) -> pd.Series:
-        """Read the simulated calibration series from the scratch CBC/HDS files.
+    ) -> dict[str, ObservableResult]:
+        """Read observables from the scratch CBC and HDS files.
 
-        Lightweight calibration trials never go through the ``store``: they read
-        ``ctx.state.execution.output_dirs_by_run_id`` directly. ``store`` is
-        accepted for Protocol uniformity but unused here.
+        Lightweight calibration trials never go through the ``store``: they
+        read ``ctx.state.execution.output_dirs_by_run_id`` directly. ``store``
+        is accepted for Protocol uniformity but unused here. MODFLOW-NWT has no
+        lake package on this path, so anything the shared helper leaves unserved
+        is refused by name.
         """
         del store
-        output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
-        model = ctx.state.execution.models_by_run_id.get(ctx.run.id)
-        if output_dir is None or model is None:
-            raise RuntimeError(f"No solver output recorded for run {ctx.run.id!r}")
-        model_name = getattr(model, "model_name", None) or getattr(model, "name", None)
-        if model_name is None:
-            raise RuntimeError(f"Model name is missing for run {ctx.run.id!r}")
-        output_dir = Path(output_dir)
-
-        if variable == "discharge":
-            return extract_discharge_from_cbc(output_dir, model_name, time_index)
-        if variable == "head":
-            if not station_cells:
-                raise ValueError("head calibration requires station_cells")
-            series_by_station = extract_head_from_hds(
-                output_dir,
-                model_name,
-                station_cells=station_cells,
-                time_index=time_index,
-            )
-            if len(station_cells) == 1:
-                station_id = next(iter(station_cells))
-                try:
-                    return series_by_station[station_id]
-                except KeyError as exc:
-                    raise KeyError(f"No head series extracted for station {station_id!r}") from exc
-            raise ValueError(
-                "extract_calibration_series returns one series; pass station_cells "
-                "with a single entry per call for head calibration."
-            )
-        raise NotImplementedError(
-            f"MODFLOW-NWT calibration extraction is not implemented for variable {variable!r}."
+        if not requests:
+            return {}
+        output_dir, model, model_name = resolve_run_output(
+            ctx, name_attributes=("model_name", "name")
         )
+        served, unserved = extract_common_modflow_observables(
+            output_dir,
+            model_name,
+            model,
+            requests,
+            time_index=time_index,
+        )
+        for request in unserved:
+            raise ObservableNotAvailableError(
+                f"MODFLOW-NWT does not produce observable {request.name!r} on support "
+                f"{request.support!r}."
+            )
+        return served
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one MODFLOW-NWT flow run.
@@ -106,7 +94,9 @@ class ModflowNwtFlowAdapter:
 
         state = ctx.state
         preprocess_options = build_preprocess_options(state)
-        model_name = resolve_run_model_name(ctx)
+        # MODFLOW-NWT truncates a NAME-file path at the first space, so collapse
+        # whitespace before the name reaches the solver files (mirrors MF6).
+        model_name = nwt_safe_name(resolve_run_model_name(ctx))
         # This is the only MODFLOW-NWT-specific part of the adapter: wiring
         # the correct config section into the concrete solver class.
         model_modflow = ModflowNwt(

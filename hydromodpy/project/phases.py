@@ -15,6 +15,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.core.logging import get_logger
 
@@ -35,6 +36,7 @@ def configure(
 ) -> None:
     """Resolve the config, time grid and data plan, then build an empty ctx."""
     from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.core.time import (
         apply_explicit_time_window_to_tgrids,
         require_flow_simulation_time_grid,
@@ -44,7 +46,6 @@ def configure(
     from hydromodpy.spatial.domain.spatial_support import (
         build_default_spatial_support_provider_registry,
     )
-    from hydromodpy.workflow.context import WorkflowContext
     from hydromodpy.workflow.steps.data import log_data_plan
     from hydromodpy.workflow.steps.mesh import (
         resolve_optional_mesh_input,
@@ -87,7 +88,7 @@ def configure(
             "exclusive. Use only one mesh source."
         )
     if project._mesh_section_data is not None:
-        from hydromodpy.spatial.mesh.runtime import (
+        from hydromodpy.spatial.mesh.launcher.runtime import (
             prepare_geographic_config_for_meshing,
         )
 
@@ -99,7 +100,7 @@ def configure(
     elif project._external_mesh_input is not None and "stream" in {
         str(bc_id).strip().lower() for bc_id in getattr(project._cfg.flow, "active_bc", ())
     }:
-        from hydromodpy.spatial.mesh.runtime import (
+        from hydromodpy.spatial.mesh.launcher.runtime import (
             prepare_geographic_config_for_meshing,
         )
 
@@ -188,9 +189,11 @@ def build_geographic(project: Project, *, reuse_dem: bool = False) -> None:
     and invalidates downstream data/mesh state.
     """
     if project._phase == "uninitialized":
-        setup_workspace(project)
+        with progress.phase("build_geographic"):
+            setup_workspace(project)
     project._phase = "geographic"
     project._data_loaded.clear()
+    project._ctx.loaded_data.loaded_plan_types = None
     project._ctx.setup.mesh_planar = None
     project._ctx.setup.mesh_bundle = None
 
@@ -202,13 +205,14 @@ def load_data(project: Project, *, types: list[str] | None = None) -> None:
 
     if project._phase == "uninitialized":
         build_geographic(project)
-    step_data_loading(project._ctx)
-    step_spatial_supports(
-        project._ctx,
-        phase="data",
-        requested_domain_supports=project._requested_domain_supports,
-        registry=project._spatial_support_registry,
-    )
+    with progress.phase("load_data"):
+        step_data_loading(project._ctx)
+        step_spatial_supports(
+            project._ctx,
+            phase="data",
+            requested_domain_supports=project._requested_domain_supports,
+            registry=project._spatial_support_registry,
+        )
     if types is None:
         project._data_loaded = set(getattr(project._ctx.data_plan, "types", ()))
     else:
@@ -223,6 +227,13 @@ def reload_data(project: Project, *, types: list[str]) -> None:
 
 def rebuild_geographic(project: Project, *, reuse_dem: bool = False) -> None:
     """Rerun the geographic pipeline and invalidate the mesh."""
+    # Drop the setup products so the pipeline re-runs the geographic step
+    # instead of reusing the in-memory context.
+    setup = project._ctx.setup
+    setup.geographic = None
+    setup.geographic_features = None
+    setup.domain_geographic = None
+    setup.domain = None
     build_geographic(project, reuse_dem=reuse_dem)
 
 
@@ -243,25 +254,26 @@ def build_mesh(project: Project, **overrides: object) -> None:
         else:
             merged = {**project._cfg.mesh_catchment.model_dump(), **overrides}
             project._cfg.mesh_catchment = MeshCatchmentConfig.model_validate(merged)
-    step_mesh(
-        project._ctx,
-        mesh_section_data=project._mesh_section_data,
-        constraints_mode=project._mesh_constraints_mode,
-    )
-    step_mesh_input(project._ctx, external_mesh_input=project._external_mesh_input)
+    with progress.phase("build_mesh"):
+        step_mesh(
+            project._ctx,
+            mesh_section_data=project._mesh_section_data,
+            constraints_mode=project._mesh_constraints_mode,
+        )
+        step_mesh_input(project._ctx, external_mesh_input=project._external_mesh_input)
     project._phase = "mesh"
 
 
 def open_catalog(project: Project) -> None:
-    """Open the SimulationCatalog for this workspace (idempotent)."""
-    from hydromodpy.results.catalog import SimulationCatalog
+    """Open the Catalog for this workspace (idempotent)."""
+    from hydromodpy.results.catalog import Catalog
 
     if project._store is not None:
         return
     ws = project._ctx.setup.workspace
     if ws is None:
         return
-    project._store = SimulationCatalog.from_workspace(ws)
+    project._store = Catalog.from_workspace(ws)
     project._project_name = ws.project_root.name
 
 

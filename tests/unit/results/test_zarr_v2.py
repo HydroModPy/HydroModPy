@@ -8,7 +8,6 @@ mapping, schema version checks, and the topography/particles renames.
 from __future__ import annotations
 
 import os
-import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -16,6 +15,7 @@ import pytest
 import zarr
 
 import hydromodpy.results.zarr_store.zarr_schema as zarr_schema
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store import (
     BALANCED_TARGET_BYTES,
     HIGHLY_RECOMMENDED,
@@ -23,7 +23,6 @@ from hydromodpy.results.zarr_store import (
     ZARR_SCHEMA_VERSION,
     SimulationZarr,
     ZarrSchemaVersionError,
-    atomic_write_array,
     compose_acdd_root_attrs,
     compute_balanced_chunks_2d,
     should_use_sharding,
@@ -39,30 +38,6 @@ def fresh_store(tmp_path: Path) -> SimulationZarr:
     )
     yield sz
     sz.close()
-
-
-def test_atomic_write_completes_marker(tmp_path: Path) -> None:
-    path = atomic_write_array(
-        tmp_path,
-        "alpha",
-        np.arange(20, dtype="float64"),
-        attrs={"long_name": "demo"},
-    )
-    root = zarr.open_group(zarr.storage.LocalStore(str(path)), mode="r")
-    assert root.attrs["_status"] == "complete"
-    assert path.name == "alpha"
-    assert "value" in root
-    assert np.allclose(root["value"][:], np.arange(20))
-
-
-def test_atomic_write_rolls_back_on_failure(tmp_path: Path) -> None:
-    bad_attrs: dict = {"unserializable": object()}
-    with pytest.raises(Exception):
-        atomic_write_array(tmp_path, "boom", np.arange(5, dtype="float64"), attrs=bad_attrs)
-    siblings = list(tmp_path.iterdir())
-    # No final 'boom' directory, and the tmp directory has been removed.
-    assert not any(s.name == "boom" for s in siblings)
-    assert not any(s.name.startswith("boom.zarr.tmp-") for s in siblings)
 
 
 def test_filelock_prevents_concurrent_write(tmp_path: Path) -> None:
@@ -196,14 +171,20 @@ def test_consolidate_metadata_written_on_finalize(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows long-path regression")
-def test_pack_to_zip_preserves_long_named_arrays_under_long_paths(tmp_path: Path) -> None:
+def test_store_keeps_long_named_arrays_under_long_paths(tmp_path: Path) -> None:
     long_dir = tmp_path
     idx = 0
     while (
         len(
             str(
                 (
-                    long_dir / "sim.zarr" / "derived" / "watertable_elevation" / "c" / "0" / "0"
+                    long_dir
+                    / FIELDS_STORE_NAME
+                    / "derived"
+                    / "watertable_elevation"
+                    / "c"
+                    / "0"
+                    / "0"
                 ).resolve()
             )
         )
@@ -213,7 +194,8 @@ def test_pack_to_zip_preserves_long_named_arrays_under_long_paths(tmp_path: Path
         idx += 1
 
     values = np.array([220.0, 221.0, 222.0, 223.0], dtype="float64")
-    sz = SimulationZarr.create(long_dir / "sim.zarr", n_cells=4, n_layers=1)
+    store_path = long_dir / FIELDS_STORE_NAME
+    sz = SimulationZarr.create(store_path, n_cells=4, n_layers=1)
     try:
         sz.write_field(
             "watertable_elevation",
@@ -222,16 +204,16 @@ def test_pack_to_zip_preserves_long_named_arrays_under_long_paths(tmp_path: Path
             n_timesteps=1,
             subgroup="derived",
         )
-        zip_path = sz.pack_to_zip()
     finally:
         sz.close()
 
-    with zipfile.ZipFile(str(zip_path), "r") as zf:
-        names = set(zf.namelist())
-    assert "derived/watertable_elevation/zarr.json" in names
-    assert any(name.startswith("derived/watertable_elevation/c/") for name in names)
+    # The store writes through the extended-length form, so read it back the
+    # same way: a bare path over 259 chars is invisible to the Win32 API.
+    array_dir = zarr_schema.windows_long_path(store_path) / "derived" / "watertable_elevation"
+    assert (array_dir / "zarr.json").is_file()
+    assert any(path.is_file() for path in (array_dir / "c").rglob("*"))
 
-    reopened = SimulationZarr(zip_path)
+    reopened = SimulationZarr(store_path)
     try:
         np.testing.assert_allclose(
             reopened.root["derived"]["watertable_elevation"][0],
@@ -389,10 +371,14 @@ def test_compose_acdd_bounds_wkt_empty_when_nan() -> None:
 
 
 def test_subgroups_created_at_init(fresh_store: SimulationZarr) -> None:
-    expected = {"meta", "mesh", "state", "derived", "budget", "particles", "forcing"}
+    # ``derived`` and ``budget`` are NOT pre-created: they are opt-in and appear
+    # only when a field is written to them.
+    expected = {"meta", "mesh", "state", "particles", "forcing"}
     actual = set(fresh_store.root.keys())
     # Subgroups are a subset; root may also have other arrays added later.
     assert expected.issubset(actual)
+    assert "derived" not in actual
+    assert "budget" not in actual
 
 
 def test_shard_trigger_constant_is_100_mib() -> None:

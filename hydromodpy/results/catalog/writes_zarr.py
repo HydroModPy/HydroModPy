@@ -1,4 +1,4 @@
-"""Zarr write concern for :class:`SimulationCatalog`.
+"""Zarr write concern for :class:`Catalog`.
 
 Field/time/CRS/mesh and geographic raster writes are forwarded to the
 per-simulation :class:`SimulationZarr` handle opened through
@@ -19,6 +19,16 @@ if TYPE_CHECKING:
 class WritesMixinZarr:
     """Zarr-backed write operations for the catalog facade."""
 
+    @property
+    def save_zarr(self) -> bool:
+        """Whether Zarr artefact writes are enabled (read-only view of persistence).
+
+        Lets a writer that opens the Zarr directly (e.g. the solver extractor
+        persisting a lake's restart state) honour the same switch as the guarded
+        ``write_*`` verbs without growing the facade's method surface.
+        """
+        return self._persistence.save_zarr
+
     def write_geographic_raster(
         self,
         sim_id: str | UUID,
@@ -37,6 +47,15 @@ class WritesMixinZarr:
         finally:
             sz.close()
 
+    def write_lake_abacus(self, sim_id: str | UUID, lake_id: str, **arrays) -> None:
+        if not self._persistence.save_zarr:
+            return
+        sz = self.open_zarr(sim_id)
+        try:
+            sz.write_lake_abacus(lake_id, **arrays)
+        finally:
+            sz.close()
+
     def write_field(
         self,
         sim_id: str | UUID,
@@ -52,6 +71,30 @@ class WritesMixinZarr:
         sz = self.open_zarr(sim_id)
         try:
             sz.write_field(variable, timestep, values, n_timesteps=n_timesteps, subgroup=subgroup)
+        finally:
+            sz.close()
+
+    def write_field_stack(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        values: np.ndarray,
+        *,
+        n_timesteps: int | None = None,
+        timestep_offset: int = 0,
+        subgroup: str | None = None,
+    ) -> None:
+        if not self._persistence.save_zarr:
+            return
+        sz = self.open_zarr(sim_id)
+        try:
+            sz.write_field_stack(
+                variable,
+                values,
+                n_timesteps=n_timesteps,
+                timestep_offset=timestep_offset,
+                subgroup=subgroup,
+            )
         finally:
             sz.close()
 

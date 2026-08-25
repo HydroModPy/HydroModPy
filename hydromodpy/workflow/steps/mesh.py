@@ -34,7 +34,7 @@ def resolve_optional_mesh_section(
 ) -> MeshCatchmentConfig | None:
     """Extract and validate the optional [mesh_catchment] section from raw TOML."""
     from hydromodpy.spatial.mesh.config import parse_mesh_catchment_batch_config_data
-    from hydromodpy.spatial.mesh.runtime import get_optional_mesh_section
+    from hydromodpy.spatial.mesh.launcher.runtime import get_optional_mesh_section
 
     section = get_optional_mesh_section(raw_toml)
     batch_section = raw_toml.get("mesh_catchment_batch")
@@ -90,6 +90,117 @@ def resolve_optional_mesh_input(
 # ---------------------------------------------------------------------------
 
 
+def _resolve_setup_lake_polygon(setup_state: object):
+    """Union of the lake footprints bound on the flow payload, or None."""
+    flow = getattr(setup_state, "flow", None)
+    if flow is None:
+        return None
+    lakes = getattr(flow, "sinks_sources", {}).get("lakes", {})
+    polygons = [
+        payload["polygon"]
+        for payload in lakes.values()
+        if isinstance(payload, dict) and payload.get("polygon") is not None
+    ]
+    if not polygons:
+        return None
+    if len(polygons) == 1:
+        return polygons[0]
+    from shapely.ops import unary_union
+
+    return unary_union(polygons)
+
+
+def _hydraulic_feature_geometries(setup_state: object, lr_cfg: object) -> list:
+    """Collect (label, geometry, target_size, zone_buffer) refinement targets.
+
+    So each structure resolves cleanly on the mesh: the dam cutoff wall (voile)
+    line at ``dam_cell_size``, dilated by ``hfb_buffer`` into a zone wide enough
+    to cover the lake outlet, and the sill between every pair of coupled lakes
+    (the shortest segment between the two footprints). The SILL size is forced
+    BELOW the lake-to-lake gap (0.4 * gap), else a single cell straddles both
+    lakes and MF6 LAK rejects the model (one lake per cell). Outlet / SFR-entry
+    points can be appended later.
+    """
+    flow = getattr(setup_state, "flow", None)
+    if flow is None:
+        return []
+    lakes = getattr(flow, "sinks_sources", {}).get("lakes", {})
+    if not isinstance(lakes, dict):
+        return []
+    dam_cell_size = float(getattr(lr_cfg, "dam_cell_size", 30.0))
+    dam_buffer = float(getattr(lr_cfg, "dam_buffer", 150.0))
+    hfb_buffer = getattr(lr_cfg, "hfb_buffer", None)
+    hfb_width = float(hfb_buffer) if hfb_buffer is not None else 2.0 * dam_buffer
+    features: list = []
+    # dam cutoff walls (voile): the resolved trace line, one per lake that has one
+    for lake_id, payload in lakes.items():
+        if not isinstance(payload, dict):
+            continue
+        line = payload.get("cutoff_wall_line")
+        if line is not None and not line.is_empty:
+            features.append((f"voile:{lake_id}", line, dam_cell_size, hfb_width))
+    # sill between every pair of lakes: refine the WHOLE proximity ZONE (not just the
+    # single nearest point) to below the gap, so no cell anywhere along the sill
+    # straddles both footprints. The lakes can run close over a long stretch.
+    from itertools import combinations
+
+    polys = {
+        lid: payload["polygon"]
+        for lid, payload in lakes.items()
+        if isinstance(payload, dict) and payload.get("polygon") is not None
+    }
+    for (ida, pa), (idb, pb) in combinations(polys.items(), 2):
+        gap = float(pa.distance(pb))
+        if gap <= 0.0:
+            continue  # overlapping/touching footprints cannot be separated by refinement
+        sill_size = max(5.0, min(dam_cell_size, 0.4 * gap))
+        margin = max(1.5 * gap, dam_cell_size)
+        sill_zone = pa.buffer(margin).intersection(pb.buffer(margin))
+        if not sill_zone.is_empty:
+            features.append((f"sill:{ida}-{idb}", sill_zone, sill_size, margin))
+    return features
+
+
+def _build_lake_mesh_refinement(
+    *, cfg: object, section_data: MeshCatchmentConfig, setup_state: object
+) -> tuple:
+    """Build the lake/dam/feature GMSH regional size fields for local refinement, or ()."""
+    lr = getattr(section_data, "lake_refinement", None)
+    if lr is None or not getattr(lr, "enabled", False):
+        return ()
+    from hydromodpy.spatial.mesh.refinement.lake_refinement import build_lake_refinement_size_fields
+
+    dam_xy = None
+    geographic = getattr(cfg, "geographic", None)
+    x_outlet = getattr(geographic, "x_outlet", None)
+    y_outlet = getattr(geographic, "y_outlet", None)
+    if x_outlet is not None and y_outlet is not None:
+        dam_xy = (float(x_outlet), float(y_outlet))
+    feature_geometries = _hydraulic_feature_geometries(setup_state, lr)
+    # The dam-outlet disk is redundant only when a cutoff-wall zone actually
+    # reaches the outlet: the wall zone (radius = its zone_buffer) must overlap
+    # the would-be disk (radius = dam_buffer). A wall on another lake far from
+    # the outlet must not suppress the under-dam refinement.
+    has_cutoff_wall = False
+    if dam_xy is not None:
+        from shapely.geometry import Point
+
+        outlet = Point(dam_xy)
+        has_cutoff_wall = any(
+            label.startswith("voile:")
+            and float(geom.distance(outlet)) <= float(width) + float(lr.dam_buffer)
+            for label, geom, _size, width in feature_geometries
+        )
+    return build_lake_refinement_size_fields(
+        lake_polygon=_resolve_setup_lake_polygon(setup_state),
+        dam_xy=dam_xy,
+        cfg=lr,
+        global_size=float(section_data.zone_meshing.global_size),
+        feature_geometries=feature_geometries,
+        has_cutoff_wall=has_cutoff_wall,
+    )
+
+
 def run_mesh_phase(
     config_path: str | Path,
     cfg: object,
@@ -101,11 +212,43 @@ def run_mesh_phase(
     if mesh_section_data is None or constraints_mode is None:
         return
 
-    from hydromodpy.spatial.mesh.runtime import (
+    from hydromodpy.spatial.mesh.launcher.runtime import (
         run_single_mesh_catchment_workflow_with_runtime_artifacts,
+    )
+    from hydromodpy.spatial.mesh.mesh_cache import (
+        cached_mesh_paths,
+        compute_mesh_cache_key,
+        mesh_cache_is_valid,
+        write_mesh_cache_key,
     )
 
     setup_state = run_state.setup
+    extra_size_fields = _build_lake_mesh_refinement(
+        cfg=cfg, section_data=mesh_section_data, setup_state=setup_state
+    )
+
+    # Gmsh is not reproducible run to run (see mesh_cache), so when caching is enabled
+    # reuse a previously generated mesh whose inputs are unchanged instead of
+    # regenerating. Fail-safe: a key mismatch or any missing file regenerates.
+    mesh_dir = Path(getattr(setup_state.workspace, "project_root", ".")) / "mesh"
+    cache_key: str | None = None
+    if bool(getattr(mesh_section_data, "cache", False)):
+        cache_key = compute_mesh_cache_key(
+            section_data=mesh_section_data,
+            geographic_cfg=cfg.geographic,
+            domain_cfg=getattr(cfg, "domain", None),
+            constraints_mode=constraints_mode,
+            extra_size_fields=extra_size_fields,
+            domain_geographic=setup_state.domain_geographic,
+        )
+        if mesh_cache_is_valid(mesh_dir, cache_key):
+            cached_msh, cached_bundle, _ = cached_mesh_paths(mesh_dir)
+            run_mesh_input_phase(
+                run_state,
+                {"mesh_path": str(cached_msh), "bundle_dir": str(cached_bundle)},
+            )
+            return
+
     mesh_runtime = run_single_mesh_catchment_workflow_with_runtime_artifacts(
         config_path=config_path,
         section_data=mesh_section_data,
@@ -116,10 +259,13 @@ def run_mesh_phase(
         workspace=setup_state.workspace,
         geographic_features=setup_state.geographic_features,
         domain_geographic=setup_state.domain_geographic,
+        extra_size_fields=extra_size_fields,
     )
     setup_state.mesh_summary = mesh_runtime.summary
     setup_state.mesh_planar = mesh_runtime.mesh_planar
     load_mesh_artifacts_from_summary(run_state, strict=False, preserve_preloaded=True)
+    if cache_key is not None:
+        write_mesh_cache_key(mesh_dir, cache_key)
 
 
 def run_mesh_input_phase(
@@ -292,3 +438,8 @@ class BuildMeshStep:
             step_name=self.name,
             ctx=ctx,
         )
+
+    def is_prebuilt(self, state: PipelineState) -> bool:
+        """True when the in-memory ctx already carries the mesh."""
+        ctx = state.get("ctx")
+        return ctx is not None and getattr(ctx.setup, "mesh_planar", None) is not None

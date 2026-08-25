@@ -20,7 +20,7 @@ Launch (after at least one run has been executed):
 from pathlib import Path
 
 import hydromodpy as hmp
-from hydromodpy.results.views import saturated_fraction
+from hydromodpy.results.derive.views import saturated_fraction
 
 HERE = Path(__file__).resolve().parent
 PROJECT_DIR = HERE.parent

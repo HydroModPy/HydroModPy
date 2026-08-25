@@ -18,7 +18,7 @@ The current ``hydromodpy.physics`` stack is split into six concerns:
   the main process symbols.
 - ``hydromodpy.physics.contracts``: explicit import path for generic
   process-layer contracts reused internally.
-- ``hydromodpy.physics.prototype``: process-agnostic building blocks
+- ``hydromodpy.physics.base``: process-agnostic building blocks
   (``ProcessSpatial``, ``ProcessSpatialConfig``,
   ``InitialCondition``, ``BoundaryCondition``, ``SinkSource``).
 - ``hydromodpy.physics.flow``: concrete flow process plus typed
@@ -42,30 +42,30 @@ Reading paths by concern
 **Generic process contracts** ("what is the shared contract behind
 process objects?"):
 
-1. ``hydromodpy/process/contracts.py``
-2. ``hydromodpy/process/prototype/__init__.py``
-3. files under ``hydromodpy/process/prototype/``
+1. ``hydromodpy/physics/contracts.py``
+2. ``hydromodpy/physics/base/__init__.py``
+3. files under ``hydromodpy/physics/base/``
 
 **Flow process** ("what does the project materialize before a flow
 solve?"):
 
-1. ``hydromodpy/process/flow/__init__.py``
-2. ``hydromodpy/process/flow/flow.py``
-3. ``hydromodpy/process/flow/flow_config.py``
+1. ``hydromodpy/physics/flow/__init__.py``
+2. ``hydromodpy/physics/flow/flow.py``
+3. ``hydromodpy/physics/flow/flow_config.py``
 4. initial / boundary / sinks-source payload files in the same
    package
 
 **Transport process** ("what transport runtime object is passed to
 the adapter?"):
 
-1. ``hydromodpy/process/transport/transport.py``
-2. ``hydromodpy/process/transport/transport_config.py``
+1. ``hydromodpy/physics/transport/transport.py``
+2. ``hydromodpy/physics/transport/transport_config.py``
 
 **Forcing bridge** ("how do loaded data become solver-ready time
 series?"):
 
-1. ``hydromodpy/process/forcing/forcing_bridge.py``
-2. ``hydromodpy/process/forcing/time_alignment.py``
+1. ``hydromodpy/physics/forcing/forcing_bridge.py``
+2. ``hydromodpy/physics/forcing/time_alignment.py``
 
 **Adding a new process** (extension workflow): see the activity
 diagram below.
@@ -183,11 +183,11 @@ expected before final integration.
 
 Reading path before extending:
 
-1. ``hydromodpy/process/prototype/process_spatial_config.py``
-2. ``hydromodpy/process/prototype/process_spatial.py``
-3. ``hydromodpy/process/flow/`` as the main concrete example
+1. ``hydromodpy/physics/base/process_spatial_config.py``
+2. ``hydromodpy/physics/base/process_spatial.py``
+3. ``hydromodpy/physics/flow/`` as the main concrete example
 4. ``hydromodpy/solver/base/registry.py``
-5. ``hydromodpy/solver/compatibility.py``
+5. ``hydromodpy/solver/base/adapter_protocol.py``
 
 .. uml:: diagrams/process_extension_activity.wsd
 
