@@ -168,6 +168,7 @@ class ModflowNwt:
 
         self.preprocess_options = options
         self.sink_fill = bool(options.sink_fill)
+        self.drain_band_depth_m = float(options.drain_band_depth_m)
         self.time_grid = getattr(options, "time_grid", None)
         self.check_grid = bool(options.check_grid)
         self._select_active_dem(box=bool(options.box))
@@ -355,6 +356,7 @@ class ModflowNwt:
             simulation_window=None if self.time_grid is None else self.time_grid.window,
             sink_fill=bool(self.sink_fill),
             sink=self.sink,
+            drain_band_depth_m=float(self.drain_band_depth_m),
             flow_runtime_overrides=getattr(self, "flow_runtime_overrides", None),
         )
         return adapter.build()

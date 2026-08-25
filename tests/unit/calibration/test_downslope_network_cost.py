@@ -620,3 +620,86 @@ class TestSupportPartition:
             supports.seepage,
         ):
             assert not np.any(mask & lake)
+
+
+class TestAlphaIsMeasuredOnTheScoredSupport:
+    """``alpha_obs_closure`` on the whole mesh answers a different question.
+
+    A mapped linework is routinely wider than the catchment it is used on: the
+    hydrography of a department gets loaded, the catchment is one basin of it.
+    Outside the catchment the mesh is a buffer, so nothing there is required to
+    descend into the network, and the trace of those reaches inflates the
+    closure without adding to the numerator. Measured on the Nancon, the raw
+    linework puts 1362 of its 2479 mapped cells outside the catchment and reads
+    0.306 on the mesh against 0.693 on the catchment: a factor of two that says
+    nothing about the agreement being tested.
+    """
+
+    FIRST_ROW = 20
+
+    def _geometry(self, bench, catchment, case="aligned"):
+        vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
+        return build_network_geometry(
+            topography=bench.elevation,
+            face_node_connectivity=connectivity,
+            vertices=vertices,
+            observed=observed_network(case),
+            cell_area_m2=np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
+            mean_recharge_m_s=3.2e-8,
+            tau_specific_ratio=1e-2,
+            delineated_catchment=catchment,
+        )
+
+    def _clipped_catchment(self):
+        catchment = np.zeros(N_CELLS, dtype=bool)
+        for row in range(self.FIRST_ROW, N_ROWS):
+            for col in range(N_COLS):
+                catchment[cell_id(row, col)] = True
+        return catchment
+
+    @pytest.mark.parametrize("case", ["aligned", "shifted", "hole", "truncated"])
+    def test_both_ratios_are_the_ones_the_masks_hold(self, bench, case) -> None:
+        geometry = self._geometry(bench, self._clipped_catchment(), case=case)
+        closure = downstream_closure(geometry.metric, geometry.observed)
+        inside = closure & geometry.catchment
+
+        assert geometry.alpha_obs_closure == pytest.approx(geometry.observed.sum() / closure.sum())
+        assert geometry.alpha_obs_closure_catchment == pytest.approx(
+            (geometry.observed & geometry.catchment).sum() / inside.sum()
+        )
+
+    def test_a_catchment_holding_the_whole_network_makes_the_two_agree(self, bench) -> None:
+        geometry = self._geometry(bench, np.ones(N_CELLS, dtype=bool))
+
+        assert geometry.frac_obs_outside_catchment == pytest.approx(0.0)
+        assert geometry.alpha_obs_closure_catchment == pytest.approx(geometry.alpha_obs_closure)
+
+    def test_the_share_left_outside_is_the_one_the_masks_hold(self, bench) -> None:
+        geometry = self._geometry(bench, self._clipped_catchment())
+
+        # Rows 12 to 19 of the axis column are mapped and out of the catchment.
+        outside = self.FIRST_ROW - FIRST_OBSERVED_ROW
+        mapped = N_ROWS - FIRST_OBSERVED_ROW
+        assert geometry.frac_obs_outside_catchment == pytest.approx(outside / mapped)
+
+    def test_a_clipping_that_does_not_move_the_ratio_stays_silent(self, bench, caplog) -> None:
+        with caplog.at_level("WARNING"):
+            geometry = self._geometry(bench, self._clipped_catchment())
+
+        # A sixth of the mapped cells are out, over ground that routes the same
+        # way, so both ratios read 1.000 and there is nothing to report.
+        assert geometry.frac_obs_outside_catchment > 0.10
+        messages = " ".join(record.getMessage() for record in caplog.records)
+        assert "outside the delineated catchment" not in messages
+
+    def test_the_top_versus_map_warning_never_prescribes_a_burn(self, bench, caplog) -> None:
+        with caplog.at_level("WARNING"):
+            geometry = self._geometry(bench, np.ones(N_CELLS, dtype=bool), case="shifted")
+
+        assert geometry.alpha_obs_closure_catchment < 0.90
+        messages = " ".join(record.getMessage() for record in caplog.records)
+        assert "alpha_obs_closure_catchment" in messages
+        # The criterion descends the raw model top by design, so telling a user
+        # to burn the routing DEM is advice they may already have followed, and
+        # that would not move this number if they did.
+        assert "urn the network" not in messages

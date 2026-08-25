@@ -699,7 +699,18 @@ is set, which is what makes it usable to decide that the burning is needed. It
 is written to ``stream_dem_agreement.json`` in the geographic directory and
 logged with a warning below 0.90. A run declaring no network there measures
 nothing. A calibration declaring a network output recomputes the same ratio on
-the solver mesh and publishes it per trial as ``alpha_obs_closure``.
+the solver mesh and publishes it per trial as ``alpha_obs_closure``, together
+with ``alpha_obs_closure_catchment``, the same ratio restricted to the
+delineated catchment.
+
+The restriction is not cosmetic. Outside the catchment the mesh is a buffer, so
+no cell there is required to descend into the mapped network, and every reach
+of the linework lying beyond the basin adds to the closure without adding to
+the numerator. A whole-mesh :math:`lpha` therefore drops with the extent of
+the dataset that was loaded, not with the quality of its registration. On the
+Nancon, 1362 of the 2479 mapped cells sit outside the catchment and the two
+ratios read 0.306 and 0.693. **The agreement is judged on the catchment one**,
+which is the support the supports of the criterion live on.
 
 Burning and flooding are two different repairs, and neither replaces the other.
 Burning fixes the registration between two datasets, once, on the routing

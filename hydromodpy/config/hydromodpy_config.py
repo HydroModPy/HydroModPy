@@ -195,7 +195,8 @@ class HydroModPyConfig(HydroModelBase):
         description=(
             "Global solver block loaded from [solver]: the backend selector in "
             "[solver.backend], plus the backend-agnostic preprocessing switches "
-            "both MODFLOW backends read (solver.sink_fill)."
+            "both MODFLOW backends read (solver.sink_fill, "
+            "solver.drain_band_depth_m)."
         ),
     )
     modflownwt: Annotated[ModflowConfig, Profile.EXPERT] = Field(

@@ -12,6 +12,7 @@ class ModflowPreprocessOptions:
 
     box: bool = True
     sink_fill: bool = False
+    drain_band_depth_m: float = 0.0
     check_grid: bool = True
     time_grid: Any = None
 

@@ -15,6 +15,7 @@ from hydromodpy.results.catalog import Catalog
 from hydromodpy.simulation.extraction.post_run import post_run_results
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.simulation.planning.results_config import ResultsConfig
+from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
 from tests._helpers.fixtures_catalog import simulation_catalog
 
@@ -48,7 +49,7 @@ def _build_run_context(
     if solver_output_dir is not None:
         output_dirs[run.id] = solver_output_dir
     state = SimpleNamespace(
-        cfg=SimpleNamespace(modflownwt=ModflowConfig()),
+        cfg=SimpleNamespace(modflownwt=ModflowConfig(), solver=SolverConfig()),
         execution=SimpleNamespace(output_dirs_by_run_id=output_dirs),
     )
     return RunContext(plan=plan, run=run, state=state)

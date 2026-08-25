@@ -298,6 +298,17 @@ def derive_run_outputs(
     if extractor is None:
         raise RuntimeError(f"No output adapter registered for {ctx.run.process_type}/{solver_name}")
 
+    # The discharge band the drains were given changes what "this cell seeps"
+    # means, so it has to be in the store BEFORE anything derives a seepage
+    # mask from it, and it has to stay there for every figure drawn afterwards.
+    # Written here rather than in the workflow step because this function is
+    # the one funnel both the step and the direct post-run path go through.
+    sim_zarr = store.open_zarr(sim_id)
+    try:
+        sim_zarr.drain_band_depth_m = float(ctx.state.cfg.solver.drain_band_depth_m)
+    finally:
+        sim_zarr.close()
+
     derived_flags = results_config.derived.model_dump()
     extractor.derive(sim_id, store, derived_flags)
 

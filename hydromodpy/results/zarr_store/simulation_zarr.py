@@ -135,6 +135,16 @@ class SimulationZarr:
     def resolve_geographic_dir(self, workspace_path: Path | str) -> Path | None:
         return zarr_reader.resolve_geographic_dir(self, workspace_path)
 
+    # -- Drain discharge band ------------------------------------------------
+
+    @property
+    def drain_band_depth_m(self) -> float:
+        return zarr_reader.get_drain_band_depth(self)
+
+    @drain_band_depth_m.setter
+    def drain_band_depth_m(self, value: float) -> None:
+        zarr_reader.set_drain_band_depth(self, value)
+
     # -- Mesh ----------------------------------------------------------------
 
     def write_mesh(

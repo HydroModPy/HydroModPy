@@ -32,7 +32,11 @@ import numpy as np
 
 from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.field_routing import seepage_mask, warn_on_geometric_seepage_fallback
+from hydromodpy.core.field_routing import (
+    drain_band_depth,
+    seepage_mask,
+    warn_on_geometric_seepage_fallback,
+)
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.derive import derived as _pure
 from hydromodpy.results.zarr_store import SimulationZarr
@@ -241,6 +245,7 @@ def _run_seepage_mask(sim_zarr: SimulationZarr) -> DerivedResult:
         watertable=wt_stack,
         topography=top,
         surface_excess=excess,
+        band_depth=drain_band_depth(sim_zarr.root),
     )
     _write_derived_stack(sim_zarr, "seepage_mask", mask)
     return DerivedResult(name="seepage_mask", status="computed")

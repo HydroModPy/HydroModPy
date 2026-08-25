@@ -277,6 +277,8 @@ class TestEndToEnd:
             "net.beta_sim_continuity",
             "net.zero_fraction_os",
             "net.alpha_obs_closure",
+            "net.alpha_obs_closure_catchment",
+            "net.frac_obs_outside_catchment",
             "net.frac_reachable_obs_raw",
             "net.L_ref",
             "net.L_cap",

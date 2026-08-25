@@ -156,6 +156,7 @@ def build_preprocess_options(state) -> ModflowPreprocessOptions:
     return ModflowPreprocessOptions(
         time_grid=time_grid,
         sink_fill=bool(state.cfg.solver.sink_fill),
+        drain_band_depth_m=float(state.cfg.solver.drain_band_depth_m),
     )
 
 

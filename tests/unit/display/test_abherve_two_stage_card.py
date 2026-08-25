@@ -87,6 +87,8 @@ def _criterion_diagnostics(mean_recharge: float) -> dict[str, float]:
         saturation_cap_m=1.0,
         excluded=None,
         alpha_obs_closure=1.0,
+        alpha_obs_closure_catchment=1.0,
+        frac_obs_outside_catchment=0.0,
         frac_reachable_obs_raw=1.0,
     )
     return geometry.diagnostics

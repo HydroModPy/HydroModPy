@@ -13,6 +13,7 @@ from hydromodpy.core.field_routing import (
     accumulate_on_downhill_graph,
     active_surface_mask,
     build_downhill_graph,
+    drain_band_depth,
     drain_budget_stack_to_positive_outflow,
     find_drain_budget_key,
     seepage_mask,
@@ -215,6 +216,7 @@ def _compute_seepage_mask(
         else:
             logger.debug("No surface elevation data, skipping seepage_mask for sim %s", sim_id)
             return
+        band_depth = drain_band_depth(grp)
         budget_grp = grp.get("budget")
         surface_excess_stack = None
         if budget_grp is not None and "surface_excess" in budget_grp:
@@ -241,7 +243,9 @@ def _compute_seepage_mask(
     else:
         excess = None
         wt = watertable_stack.reshape(watertable_stack.shape[0], -1)[:n_timesteps, :n_cells]
-    seepage = seepage_mask(watertable=wt, topography=top_elev, surface_excess=excess)
+    seepage = seepage_mask(
+        watertable=wt, topography=top_elev, surface_excess=excess, band_depth=band_depth
+    )
     store.write_field_stack(sim_id, "seepage_mask", seepage, subgroup="derived")
 
     logger.debug("Derived seepage_mask for sim %s", sim_id)
@@ -759,7 +763,7 @@ def _seepage_mask_stack(grp: Any, sim_id: str, n_timesteps: int, n_cells: int) -
         raise KeyError("seepage_mask unavailable")
     wt = _watertable_stack_from_head(np.asarray(grp["head"][:], dtype="float64"))
     wt = wt[:n_timesteps, :n_cells]
-    return seepage_mask(watertable=wt, topography=top)
+    return seepage_mask(watertable=wt, topography=top, band_depth=drain_band_depth(grp))
 
 
 def _compute_concentration_seepage(

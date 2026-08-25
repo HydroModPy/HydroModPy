@@ -59,6 +59,8 @@ class NetworkGeometry:
     saturation_cap_m: float
     excluded: np.ndarray | None
     alpha_obs_closure: float
+    alpha_obs_closure_catchment: float
+    frac_obs_outside_catchment: float
     frac_reachable_obs_raw: float
 
     @property
@@ -68,9 +70,17 @@ class NetworkGeometry:
         ``R_mean_m_s`` is the denominator of the calibrated ratio: the criterion
         fits ``K/R``, so a per-trial record of ``R`` is what makes a recharge
         moving mid-session readable in ``trials.jsonl`` afterwards.
+
+        ``alpha_obs_closure`` and ``alpha_obs_closure_catchment`` are the same
+        ratio on two supports, the whole mesh and the delineated catchment.
+        They part company exactly when the mapped linework is wider than the
+        catchment, which ``frac_obs_outside_catchment`` says outright, so the
+        gap between them is attributable rather than mysterious.
         """
         return {
             "alpha_obs_closure": self.alpha_obs_closure,
+            "alpha_obs_closure_catchment": self.alpha_obs_closure_catchment,
+            "frac_obs_outside_catchment": self.frac_obs_outside_catchment,
             "frac_reachable_obs_raw": self.frac_reachable_obs_raw,
             "n_outlet_sealed": float(0.0 if self.observed[self.outlet] else 1.0),
             "R_mean_m_s": self.mean_recharge_m_s,
@@ -298,6 +308,20 @@ def build_network_geometry(
 
     closure = downstream_closure(metric, observed_mask)
     alpha = float(observed_mask.sum() / closure.sum()) if closure.any() else float("nan")
+    # The same ratio on the support the criterion actually scores. A mapped
+    # linework wider than the catchment drags the whole-mesh ratio for a reason
+    # that is not an agreement defect: outside the catchment the mesh is a
+    # buffer, nothing there is required to descend into the network, and the
+    # trace of those reaches inflates the closure alone. Measured on the
+    # Nancon, the raw linework puts 1362 of its 2479 mapped cells outside the
+    # catchment and reads 0.306 on the mesh against 0.693 on the catchment.
+    outside = float(np.mean(~catchment[observed_mask])) if observed_mask.any() else float("nan")
+    closure_in = closure & catchment
+    alpha_catchment = (
+        float((observed_mask & catchment).sum() / closure_in.sum())
+        if closure_in.any()
+        else float("nan")
+    )
     # Measured on the MAPPED network alone even when water bodies joined the
     # target: the diagnostic answers "how much of the surface descends into the
     # linework", and a reservoir absorbing paths would flatter it.
@@ -305,14 +329,33 @@ def build_network_geometry(
         distance_raw if excluded_mask is None else downslope_distance_to_mask(metric, observed_mask)
     )
     reachable = float(np.mean(np.isfinite(reach_from[active]))) if active.any() else float("nan")
-    if np.isfinite(alpha) and alpha < 0.90:
+    gap = abs(alpha_catchment - alpha)
+    # Only when the clipping MOVES the number. A linework spilling out of the
+    # catchment over ground that routes the same way leaves the two ratios
+    # equal, and a warning there would be noise on every ordinary project.
+    if np.isfinite(gap) and outside > 0.10 and gap > 0.05:
         logger.warning(
-            "The mapped stream network agrees poorly with the routing surface: "
-            "alpha_obs_closure = %.3f. Below 0.90 a large share of the D8 trace leaving "
-            "the mapped cells falls outside the network, so the distances measure a "
-            "DEM-versus-network disagreement rather than hydrogeology. Burn the network "
-            "into the routing DEM before calibrating.",
+            "%.0f%% of the mapped stream cells sit outside the delineated catchment, and "
+            "that alone moves the ratio by %.3f: alpha_obs_closure = %.3f on the mesh "
+            "against alpha_obs_closure_catchment = %.3f on the support the criterion "
+            "scores. Those reaches trace through the buffer, where no cell is required to "
+            "descend into the network. Read the catchment one, or clip the linework to the "
+            "catchment to make the two agree.",
+            100.0 * outside,
+            gap,
             alpha,
+            alpha_catchment,
+        )
+    if np.isfinite(alpha_catchment) and alpha_catchment < 0.90:
+        logger.warning(
+            "The mapped stream network agrees poorly with the MODEL TOP: "
+            "alpha_obs_closure_catchment = %.3f. Below 0.90 a large share of the D8 trace "
+            "leaving the mapped cells falls outside the network, so the distances carry a "
+            "top-versus-map disagreement on top of the hydrogeology. This is NOT evidence "
+            "the routing DEM was left unburned: the criterion descends the raw top by "
+            "design, never the burned surface, so read this beside the alpha the geographic "
+            "step reports and expect the two to differ.",
+            alpha_catchment,
         )
 
     areas = np.asarray(cell_area_m2, dtype=float).reshape(-1)
@@ -340,6 +383,8 @@ def build_network_geometry(
         saturation_cap_m=longest_descent_length(metric, outlet_mask, within=catchment),
         excluded=excluded_mask,
         alpha_obs_closure=alpha,
+        alpha_obs_closure_catchment=alpha_catchment,
+        frac_obs_outside_catchment=outside,
         frac_reachable_obs_raw=reachable,
     )
 

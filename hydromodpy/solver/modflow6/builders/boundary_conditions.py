@@ -17,7 +17,10 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     is_boundary_condition_active,
 )
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
-from hydromodpy.solver.modflow_common.drain_conductance import hk_fallback_drain_conductance
+from hydromodpy.solver.modflow_common.drain_conductance import (
+    drain_discharge_band,
+    hk_fallback_drain_conductance,
+)
 
 
 def is_scalar_number(value: object) -> bool:
@@ -379,6 +382,10 @@ def build_drain_stress_period_data(
     gets zero conductance, the same rule the NWT backend applies: the ponded
     water of a pit has no outlet, so its drain must not discharge.
 
+    With ``drain_band_depth_m = D > 0``, every row is turned into a discharge
+    band of depth D by ``drain_discharge_band``, the same rule the NWT backend
+    applies.
+
     The drain geometry and elevation are static, so the per-cell conductance is a
     pure function of the period's configured conductance value. A period is
     emitted only when that value changes (period 0 always); MF6 reuses the
@@ -386,6 +393,7 @@ def build_drain_stress_period_data(
     drain from rewriting all its rows for every period of a long daily run.
     """
     sink_flat = _sink_mask_flat(model, n_cells=int(model.ncpl)) if model.sink_fill else None
+    band_depth = float(model.drain_band_depth_m)
     drn_spd: dict[int, list[list[float]]] = {}
     top_flat = solver_mesh.top
     dem_mask_flat = np.asarray(model.dem_mask, dtype=bool).reshape(-1)
@@ -413,7 +421,13 @@ def build_drain_stress_period_data(
                     cell_area=float(cell_areas[cid]),
                     top_thickness=float(top_thickness[cid]),
                 )
-            period_cells.append([0, cid, float(top_flat[cid]), cond_value])
+            elevation, cond_value = drain_discharge_band(
+                top=float(top_flat[cid]),
+                conductance=cond_value,
+                top_thickness=float(top_thickness[cid]),
+                band_depth=band_depth,
+            )
+            period_cells.append([0, cid, elevation, cond_value])
         drn_spd[kper] = period_cells
     return drn_spd
 
