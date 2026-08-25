@@ -9,7 +9,7 @@ TOML section: ``[solver]``
 
 Pydantic model: ``SolverConfig`` defined in ``hydromodpy.solver.base.solver_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L82>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L83>`__
 
 Configuration block defining the active groundwater solver engine.
 
@@ -18,7 +18,9 @@ built-in backend, or ``backend = { backend = "custom", name = "x" }``
 for a plugin-registered backend.
 
 It also carries the backend-agnostic preprocessing switches both MODFLOW
-backends read, so one TOML key drives both.
+backends read, so one TOML key drives both. ``sink_fill`` and
+``drain_band_depth_m`` both act on the drains of a depressed model top and
+are mutually exclusive.
 
 .. raw:: html
 
@@ -45,7 +47,7 @@ Fields
         <code class="hmp-field-toml">[solver.backend]</code>
       </div>
 
-   :bdg-primary:`backend = "modflow6" | "modflow_nwt" | "boussinesq" | "custom"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L93>`__
+   :bdg-primary:`backend = "modflow6" | "modflow_nwt" | "boussinesq" | "custom"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L96>`__
 
       Active flow backend selector (discriminated union).
 
@@ -89,7 +91,7 @@ Fields
                     <code class="hmp-field-name">name</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L59>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L60>`__
 
                   Plugin-registered flow backend name (matches registry).
 
@@ -105,7 +107,7 @@ Fields
         <code class="hmp-field-name">sink_fill</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L97>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L100>`__
 
       Dimensionless. Remove the drain from every cell sitting in a closed depression of the model top, by setting its DRN conductance to zero. A closed depression has no outlet, so water reaching it ponds instead of seeping into a stream, and a drain there invents a discharge point. The depressions are measured on the solver mesh, by a priority flood seeded on every cell water can leave the domain through; both MODFLOW backends read the same mask. This does NOT move the topography: no elevation is raised, no DEM is rewritten, and every other package sees the surface it would have seen. Refused when the mask cannot be built. Default false, which drains every cell as before.
 
@@ -114,6 +116,26 @@ Fields
 
       * ``false``
       * ``true``
+
+
+.. container:: hmp-field hmp-field-level-user
+   :name: solver-drain-band-depth-m
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="solver.drain_band_depth_m">
+        <code class="hmp-field-name">drain_band_depth_m</code>
+      </div>
+
+   :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L116>`__
+
+      Metres. Depth D of the sub-cell discharge band every drain cell gets instead of a single elevation: the drain sits at top - D/2 and its conductance is multiplied by top_layer_thickness / D. The multiplier is the thickness and not the cell area because the conductance it scales is already Kv*A/b, so scaling by b/D gives Kv*A/D, which is CDRN exactly; scaling by A/D would give an m3/s where a conductance is m2/s, too high by A/b. The cell therefore starts discharging before the head reaches its mean elevation, and discharges harder the higher the head climbs into the band. This answers the one question the USGS documents about a model top, that the land inside a cell is not flat: UZF1 exposes the same depth as SURFDEP, 'the average undulation depth within a finite-difference cell', and MODFLOW 6 carries it into DRN as DDRN, with HDRN = land surface - DDRN/2 and CDRN = Kv*A/DDRN. MODFLOW 6 solves its DDRN band with a smooth (linear then cubic) curve; the option here is the piecewise equivalent of the same idea, applied identically by both MODFLOW backends, so a later switch to the native smooth form is a documented refinement and not a surprise. It does NOT move the topography: no elevation is raised, no DEM is rewritten, and every other package sees the surface it would have seen. The seepage criterion is the one reader that cannot: a banded cell discharges at top - D/2 and never climbs back to top, so the mask follows the band and the run persists D in its store for every figure drawn afterwards. It classifies no cell: every drain cell gets the same band, so nothing has to be sorted into artefact and real. Pick D the way Feinstein et al. 2020 (Groundwater 58:524-534, doi:10.1111/gwat.12931) do, from the standard deviation of the fine land-surface elevations inside a cell; they obtain 0.61 m. Mutually exclusive with solver.sink_fill, which answers the same question by removing drains instead. Default 0.0: one elevation per drain, unchanged from every earlier run.
+
+   .. admonition:: Examples
+      :class: hmp-field-examples
+
+      * ``0.0``
+      * ``0.5``
 
 
 Starter TOML snippet
@@ -131,6 +153,7 @@ Starter TOML snippet
 
       [solver]
       # sink_fill = false
+      # drain_band_depth_m = 0.0
 
       [solver.backend]
       # backend = "modflow6"

@@ -55,6 +55,7 @@ def _drn_model() -> SimpleNamespace:
         hk=np.full((1, 6), 1e-4),
         sink_fill=False,
         sink=None,
+        drain_band_depth_m=0.0,
     )
 
 

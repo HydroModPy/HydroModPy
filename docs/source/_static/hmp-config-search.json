@@ -13258,7 +13258,7 @@
     "section": "solver",
     "anchor": "solver-backend",
     "page": "solver.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L93",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L96",
     "description": "Active flow backend selector (discriminated union)."
   },
   {
@@ -13270,7 +13270,7 @@
     "section": "solver",
     "anchor": "solver-backend-backend",
     "page": "solver.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L22",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L23",
     "description": "Discriminator tag selecting the MODFLOW 6 flow backend."
   },
   {
@@ -13282,7 +13282,7 @@
     "section": "solver",
     "anchor": "solver-backend-backend",
     "page": "solver.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L31",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L32",
     "description": "Discriminator tag selecting the MODFLOW 6 flow backend."
   },
   {
@@ -13294,7 +13294,7 @@
     "section": "solver",
     "anchor": "solver-backend-backend",
     "page": "solver.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L40",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L41",
     "description": "Discriminator tag selecting the MODFLOW 6 flow backend."
   },
   {
@@ -13306,7 +13306,7 @@
     "section": "solver",
     "anchor": "solver-backend-backend",
     "page": "solver.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L55",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L56",
     "description": "Discriminator tag selecting the MODFLOW 6 flow backend."
   },
   {
@@ -13318,7 +13318,7 @@
     "section": "solver",
     "anchor": "solver-backend-name",
     "page": "solver.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L59",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L60",
     "description": ""
   },
   {
@@ -13330,11 +13330,27 @@
     "section": "solver",
     "anchor": "solver-sink-fill",
     "page": "solver.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L97",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L100",
     "description": "Dimensionless. Remove the drain from every cell sitting in a closed depression of the model top, by setting its DRN conductance to zero. A closed depression has no outlet, so water reaching it ponds instead of seeping into a stream, and a d",
     "examples": [
       "false",
       "true"
+    ]
+  },
+  {
+    "path": "solver.drain_band_depth_m",
+    "name": "drain_band_depth_m",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "solver",
+    "anchor": "solver-drain-band-depth-m",
+    "page": "solver.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L116",
+    "description": "Metres. Depth D of the sub-cell discharge band every drain cell gets instead of a single elevation: the drain sits at top - D/2 and its conductance is multiplied by top_layer_thickness / D. The multiplier is the thickness and not the cell a",
+    "examples": [
+      "0.0",
+      "0.5"
     ]
   },
   {

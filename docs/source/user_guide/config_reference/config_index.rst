@@ -6571,43 +6571,49 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `solver <solver.html#solver-backend>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L93>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L96>`__
    * - ``solver.backend.backend``
      - ``Literal['modflow6']``
      - user
      - -
      - `solver <solver.html#solver-backend-backend>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L22>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L23>`__
    * - ``solver.backend.backend``
      - ``Literal['modflow_nwt']``
      - user
      - -
      - `solver <solver.html#solver-backend-backend>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L31>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L32>`__
    * - ``solver.backend.backend``
      - ``Literal['boussinesq']``
      - user
      - -
      - `solver <solver.html#solver-backend-backend>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L40>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L41>`__
    * - ``solver.backend.backend``
      - ``Literal['custom']``
      - user
      - -
      - `solver <solver.html#solver-backend-backend>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L55>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L56>`__
    * - ``solver.backend.name``
      - ``str``
      - user
      - -
      - `solver <solver.html#solver-backend-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L59>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L60>`__
    * - ``solver.sink_fill``
      - ``bool``
      - user
      - -
      - `solver <solver.html#solver-sink-fill>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L97>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L100>`__
+   * - ``solver.drain_band_depth_m``
+     - ``float``
+     - user
+     - -
+     - `solver <solver.html#solver-drain-band-depth-m>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L116>`__
    * - ``modflownwt.runtime``
      - ``ModflowRuntimeConfig``
      - expert

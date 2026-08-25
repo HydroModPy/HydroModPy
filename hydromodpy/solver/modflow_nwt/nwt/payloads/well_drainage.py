@@ -13,7 +13,10 @@ from hydromodpy.core.units.volumetric_flow import (
     normalize_m3_per_s_unit,
 )
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
-from hydromodpy.solver.modflow_common.drain_conductance import hk_fallback_drain_conductance
+from hydromodpy.solver.modflow_common.drain_conductance import (
+    drain_discharge_band,
+    hk_fallback_drain_conductance,
+)
 from hydromodpy.solver.modflow_grid.grid_context import grid_reference_from_solver_mesh
 from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import forcing_units
 
@@ -48,6 +51,10 @@ def build_drainage_spd(
     - With ``sink_fill=True``: cells in a closed depression receive zero
       conductance, so the ponded water they hold has no invented outlet.
 
+    With ``drain_band_depth_m = D > 0``, every row is then turned into a
+    discharge band of depth D by ``drain_discharge_band``, the same rule the
+    MODFLOW 6 backend applies.
+
     Returns ``None`` when drainage is not activated.
     """
     if not adapter._is_bc_active("drainage"):
@@ -78,6 +85,7 @@ def build_drainage_spd(
             top_thickness=float(top_thickness[i, j]),
         )
 
+    band_depth = float(adapter.drain_band_depth_m)
     count = 0
     for i in range(adapter.nrow):
         for j in range(adapter.ncol):
@@ -86,14 +94,20 @@ def build_drainage_spd(
 
             drn_data[count, 1] = i
             drn_data[count, 2] = j
-            drn_data[count, 3] = adapter.dem[i, j]
 
             if adapter.sink_fill and adapter.sink[i, j]:
-                drn_data[count, 4] = 0.0
+                conductance = 0.0
             elif drainage_value > 0:
-                drn_data[count, 4] = drainage_value
+                conductance = drainage_value
             else:
-                drn_data[count, 4] = _fallback(i, j)
+                conductance = _fallback(i, j)
+
+            drn_data[count, 3], drn_data[count, 4] = drain_discharge_band(
+                top=float(adapter.dem[i, j]),
+                conductance=conductance,
+                top_thickness=float(top_thickness[i, j]),
+                band_depth=band_depth,
+            )
             count += 1
 
     return {0: drn_data}
