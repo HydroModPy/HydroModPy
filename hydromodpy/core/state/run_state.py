@@ -54,6 +54,11 @@ class WorkflowContext:
     store: Any = field(default=None, repr=False)
     sim_id: str | None = None
     parent_sim_id: str | None = None
+
+    # Run id minted by the caller before the pipeline starts, consumed once by
+    # the store-opening step. Calibration promotion reserves it so the row
+    # linking the run to its session exists before the run draws its figures.
+    reserved_sim_id: str | None = None
     postprocess_runner: Any = field(default=None, repr=False)
     effective_results_config: Any = field(default=None, repr=False)
 

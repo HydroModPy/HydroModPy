@@ -276,6 +276,10 @@ def _register_tracked_input_files(ctx: WorkflowContext) -> None:
 def step_open_store(ctx: WorkflowContext) -> None:
     """Open a ``Catalog`` and register the current simulation.
 
+    The run takes the id its caller reserved on ``ctx.reserved_sim_id``, and
+    mints one when there is none. The reservation is consumed here, so a
+    context replayed for a second run always gets a fresh id.
+
     Helpers are looked up on the :mod:`hydromodpy.workflow.steps.prepare_solver`
     package namespace so unit tests can monkeypatch them via
     ``prepare_solver_module.<helper>``.
@@ -297,7 +301,9 @@ def step_open_store(ctx: WorkflowContext) -> None:
         workspace,
         persistence=results_cfg.persistence,
     )
-    ctx.sim_id = str(uuid4())
+    reserved = ctx.reserved_sim_id
+    ctx.reserved_sim_id = None
+    ctx.sim_id = reserved or str(uuid4())
 
     project_name = workspace.project_root.name
     plan = ctx.execution.simulation_plan

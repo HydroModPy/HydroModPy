@@ -558,8 +558,14 @@ def promote_prepared_trial(
     name: str | None = None,
     tags: Sequence[str] = (),
     session_id: str | None = None,
+    sim_id: str | None = None,
 ) -> str:
-    """Run a full promoted simulation from an already prepared trial context."""
+    """Run a full promoted simulation from an already prepared trial context.
+
+    ``sim_id`` reserves the id of the promoted run instead of letting the
+    pipeline mint one. A caller can then write everything keyed on that id
+    before the run reaches its last step, which renders the figures.
+    """
     provider = get_trial_pipeline_provider()
     forked = trial_ctx.fork(values)
     ctx = forked.ctx
@@ -568,6 +574,7 @@ def promote_prepared_trial(
     ctx.setup.run_id = name or "promoted"
     ctx.store = None
     ctx.sim_id = None
+    ctx.reserved_sim_id = None if sim_id is None else str(sim_id)
 
     state = provider.make_state(
         f"calibration-promote-{ctx.setup.run_id}",
@@ -596,17 +603,22 @@ def promote_prepared_trial(
         raise
 
     final_ctx = final.get("ctx") if final is not None else None
-    sim_id = getattr(final_ctx, "sim_id", None) if final_ctx is not None else None
-    if sim_id is None:
+    produced = getattr(final_ctx, "sim_id", None) if final_ctx is not None else None
+    if produced is None:
         raise RuntimeError("Promoted calibration trial did not produce a simulation id")
+    if sim_id is not None and str(produced) != str(sim_id):
+        raise RuntimeError(
+            f"Promoted run took the id {produced} instead of the reserved {sim_id}; "
+            "everything written against the reservation would name another run."
+        )
 
     tag_list: list[str] = list(tags)
     if session_id:
         tag_list.append(f"calibration:{session_id}")
     if tag_list:
-        _attach_tags_to_simulation(final_ctx, sim_id, tag_list)
+        _attach_tags_to_simulation(final_ctx, produced, tag_list)
 
-    return str(sim_id)
+    return str(produced)
 
 
 def promote_trial(

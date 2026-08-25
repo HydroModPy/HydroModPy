@@ -79,9 +79,9 @@ End-to-end workflow
      - Indexes trial fingerprints and session metadata. Read by
        ``hmp report render``, rebuilt from the session journal.
    * - ``promote_trial`` (top-N)
-     - Replays the chosen trials through the full pipeline. Writes
-       Zarr + Parquet + ``simulations`` rows and back-fills
-       ``calibration_iterations.sim_id``.
+     - Replays the chosen trials through the full pipeline. Reserves the
+       run id and writes ``calibration_iterations.sim_id`` first, then
+       Zarr + Parquet + ``simulations`` rows.
    * - Catalog (simulations + Zarr + Parquet)
      - Read by ``hmp report render`` alongside the DuckDB iteration
        history.
@@ -124,8 +124,11 @@ Node by node:
   chosen trials are replayed through the *full* pipeline (steps
   ``00..11``) by ``hydromodpy.Project(cfg_path).simulate(**values)``. Each
   promotion creates a Zarr store, a Parquet directory, and a
-  ``simulations`` row, and back-fills the corresponding
-  ``calibration_iterations.sim_id``.
+  ``simulations`` row. The corresponding
+  ``calibration_iterations.sim_id`` is written before the replay, not
+  after it: the last step of the promoted run renders the figures, and
+  the ones about the calibration only draw when an iteration row names
+  that run. A promotion that fails clears the link again.
 - **``hmp report render <session_ref>``**: post-processing CLI that
   reads the session descriptor and its trial log, renders the six
   calibration figures, and emits a standalone HTML report at
