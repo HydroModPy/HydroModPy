@@ -103,6 +103,7 @@ def seepage_mask(
     watertable: Any | None = None,
     topography: Any | None = None,
     surface_excess: Any | None = None,
+    band_depth: float = 0.0,
 ) -> np.ndarray:
     """Canonical seepage criterion, shared by every reader and writer.
 
@@ -112,6 +113,16 @@ def seepage_mask(
     seepage flows through that flux, so the geometric test over-reports. Without
     it (MODFLOW 6, MODFLOW-NWT) the mask is ``watertable >= topography``.
 
+    ``band_depth`` is the sub-cell discharge band the run gave its drains
+    (``solver.drain_band_depth_m``). A banded drain sits at ``top - D/2``, the
+    lowest land the cell is declared to hold, so a cell discharges as soon as
+    the water table reaches that elevation and never climbs back to ``top``.
+    Testing against ``top`` on a banded run therefore returns an all-false mask
+    while the drains are discharging: measured on the Nancon, reaching ``top``
+    would take four orders of magnitude more flux than the recharge supplies.
+    The criterion is ``watertable >= topography - band_depth / 2``, and
+    ``band_depth = 0`` is the unbanded test unchanged.
+
     Accepts a single timestep ``(n_cells,)`` or a stack ``(time, n_cells)`` and
     returns a float mask of the same shape.
     """
@@ -120,10 +131,33 @@ def seepage_mask(
     if watertable is None or topography is None:
         raise ValueError("seepage_mask needs either surface_excess or watertable + topography")
     wt = np.asarray(watertable, dtype=float)
-    top = np.asarray(topography, dtype=float).reshape(-1)
+    top = np.asarray(topography, dtype=float).reshape(-1) - 0.5 * float(band_depth)
     if wt.ndim == 2:
         top = top[None, :]
     return (wt >= top).astype("float64")
+
+
+DRAIN_BAND_DEPTH_ATTR = "drain_band_depth_m"
+
+
+def drain_band_depth(root: Any) -> float:
+    """Read the discharge band a run gave its drains back from its store.
+
+    The band changes what "this cell seeps" means, so every reader of
+    :func:`seepage_mask` has to know it, including a figure drawn months after
+    the run. It travels in the store rather than through a call chain for the
+    same reason the surface-release flux does: the criterion interrogates the
+    file, not the object that produced it. Absent, which is every run written
+    before the option existed, it reads 0.0 and the criterion is unchanged.
+    """
+    try:
+        value = root.attrs.get(DRAIN_BAND_DEPTH_ATTR)
+    except (AttributeError, TypeError):
+        return 0.0
+    if value is None:
+        return 0.0
+    depth = float(value)
+    return depth if np.isfinite(depth) and depth > 0.0 else 0.0
 
 
 # Zarr group the Boussinesq adapter writes for every run it extracts. Its
@@ -377,6 +411,7 @@ def accumulate_on_downhill_graph(graph: DownhillGraph, local_values: Any) -> np.
 
 
 __all__ = [
+    "DRAIN_BAND_DEPTH_ATTR",
     "DRAIN_BUDGET_KEYS",
     "DownhillGraph",
     "accumulate_on_downhill_graph",
@@ -387,6 +422,7 @@ __all__ = [
     "domain_edge_cells",
     "drain_budget_stack_to_positive_outflow",
     "drain_budget_to_positive_outflow",
+    "drain_band_depth",
     "find_drain_budget_key",
     "seepage_mask",
 ]

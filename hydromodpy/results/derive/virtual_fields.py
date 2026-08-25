@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.field_routing import (
+    drain_band_depth,
     drain_budget_to_positive_outflow,
     find_drain_budget_key,
     seepage_mask,
@@ -68,10 +69,11 @@ def _seepage_mask(store: Any, sim_id: str, timestep: int) -> np.ndarray:
     sz = store.open_zarr(sim_id)
     try:
         warn_on_geometric_seepage_fallback(sz.root, sim_id=sim_id)
+        band = drain_band_depth(sz.root)
     finally:
         sz.close()
     wt = store.query_field(sim_id, "watertable_elevation", timestep)
-    return seepage_mask(watertable=wt, topography=top)
+    return seepage_mask(watertable=wt, topography=top, band_depth=band)
 
 
 def _surface_excess(

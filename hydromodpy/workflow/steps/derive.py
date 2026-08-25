@@ -119,6 +119,12 @@ class DeriveStep:
         except Exception as exc:
             raise ExtractError(f"DeriveStep cannot open Zarr for sim {sim_id}") from exc
         try:
+            # Before the registry derives a seepage mask: the discharge band
+            # the drains were given changes what "this cell seeps" means, and a
+            # figure drawn months later reads it back from the store rather
+            # than from a config it no longer has. ``derive_run_outputs``
+            # writes the same value on the direct post-run path.
+            sim_zarr.drain_band_depth_m = float(ctx.cfg.solver.drain_band_depth_m)
             if enabled and "head" in sim_zarr.root:
                 results = self._registry.apply(sim_zarr, names=enabled)
                 for result in results:

@@ -11,11 +11,13 @@ free of hidden state.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.core.field_routing import DRAIN_BAND_DEPTH_ATTR, drain_band_depth
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 
@@ -62,6 +64,25 @@ def set_geographic_fingerprint(store_obj: SimulationZarr, value: str | None) -> 
             del store_obj._root.attrs["geographic_fingerprint"]
     else:
         store_obj._root.attrs["geographic_fingerprint"] = str(value)
+
+
+def get_drain_band_depth(store_obj: SimulationZarr) -> float:
+    """Return the sub-cell discharge band the run gave its drains, 0.0 if none."""
+    return drain_band_depth(store_obj._root)
+
+
+def set_drain_band_depth(store_obj: SimulationZarr, value: float) -> None:
+    """Persist the discharge band so a reader can rebuild the seepage criterion.
+
+    Cleared when it is not strictly positive, so an unbanded run leaves no
+    attribute and reads exactly like every run written before the option.
+    """
+    depth = float(value)
+    if not math.isfinite(depth) or depth <= 0.0:
+        if DRAIN_BAND_DEPTH_ATTR in store_obj._root.attrs:
+            del store_obj._root.attrs[DRAIN_BAND_DEPTH_ATTR]
+        return
+    store_obj._root.attrs[DRAIN_BAND_DEPTH_ATTR] = depth
 
 
 def resolve_geographic_dir(store_obj: SimulationZarr, workspace_path: Path | str) -> Path | None:
@@ -266,7 +287,9 @@ __all__ = [
     "read_geographic_raster",
     "read_lake_abacus",
     "resolve_geographic_dir",
+    "get_drain_band_depth",
     "root_attrs_json",
+    "set_drain_band_depth",
     "set_geographic_fingerprint",
     "to_xarray",
 ]

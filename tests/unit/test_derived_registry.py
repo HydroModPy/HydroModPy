@@ -17,6 +17,7 @@ import pytest
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.simulation.planning.results_config import ResultsConfig
+from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.workflow.internals.derived import (
     DerivedComputation,
     DerivedRegistry,
@@ -319,7 +320,10 @@ class _CtxStub:
 
         self.store = store
         self.sim_id = sim_id
-        self.cfg = SimpleNamespace(simulation=SimpleNamespace(results=ResultsConfig()))
+        self.cfg = SimpleNamespace(
+            simulation=SimpleNamespace(results=ResultsConfig()),
+            solver=SolverConfig(),
+        )
         # Use the real ExecutionRegistry so the stub honours the same contract as
         # WorkflowContext.execution (notably models_by_run_id, which DeriveStep
         # clears); a bare SimpleNamespace was missing that attribute.
