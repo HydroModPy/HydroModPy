@@ -58,9 +58,8 @@ def test_step_register_simulation_closes_unused_bootstrap_zarr(monkeypatch) -> N
     assert fake_zarr.close_calls == 1
 
 
-def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Path) -> None:
-    fake_zarr = _FakeZarr()
-    registration = SimpleNamespace(name="run_0002", replaced_sim_id=None, zarr=fake_zarr)
+def _fake_catalog_class(registration):
+    """Return a Catalog stand-in recording what it was asked to register."""
 
     class FakeCatalog:
         def __init__(self, workspace_root, *, persistence=None) -> None:
@@ -76,10 +75,16 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
             self.calls.append((args, kwargs))
             return registration
 
-    ctx = SimpleNamespace(
+    return FakeCatalog
+
+
+def _open_store_ctx(tmp_path: Path, *, reserved_sim_id: str | None = None) -> SimpleNamespace:
+    """A context shaped the way ``step_open_store`` expects to find it."""
+    return SimpleNamespace(
         parent_sim_id="parent-456",
         store=None,
         sim_id=None,
+        reserved_sim_id=reserved_sim_id,
         cfg=SimpleNamespace(
             simulation=SimpleNamespace(
                 results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=True)),
@@ -102,9 +107,12 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
         ),
     )
 
+
+def _silence_store_writes(monkeypatch, catalog_class) -> None:
+    """Neutralise everything ``step_open_store`` persists besides the id."""
     import hydromodpy.results.catalog as catalog_module
 
-    monkeypatch.setattr(catalog_module, "Catalog", FakeCatalog)
+    monkeypatch.setattr(catalog_module, "Catalog", catalog_class)
     monkeypatch.setattr(prepare_solver_module, "collect_registration_kwargs", lambda ctx: {})
     monkeypatch.setattr(prepare_solver_module, "_register_tracked_input_files", lambda ctx: None)
     monkeypatch.setattr(prepare_solver_module, "step_persist_params", lambda *args, **kwargs: None)
@@ -113,6 +121,14 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
         prepare_solver_module, "step_persist_geographic", lambda *args, **kwargs: None
     )
 
+
+def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Path) -> None:
+    fake_zarr = _FakeZarr()
+    registration = SimpleNamespace(name="run_0002", replaced_sim_id=None, zarr=fake_zarr)
+    ctx = _open_store_ctx(tmp_path)
+
+    _silence_store_writes(monkeypatch, _fake_catalog_class(registration))
+
     prepare_solver_module.step_open_store(ctx)
 
     assert ctx.store is not None
@@ -120,6 +136,32 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
     assert ctx.setup.run_id == "run_0002"
     assert ctx.store.calls[0][1]["parent_sim_id"] == "parent-456"
     assert fake_zarr.close_calls == 1
+
+
+def test_step_open_store_takes_the_reserved_id_once(monkeypatch, tmp_path: Path) -> None:
+    """A reserved id becomes the run id, and is not handed to a second run.
+
+    Calibration promotion reserves the id so it can link the run to its
+    session before the pipeline reaches the step that draws the figures. The
+    reservation is consumed here: a context replayed for another run must mint
+    a fresh id rather than register twice under the same one.
+    """
+    registration = SimpleNamespace(name="run_0003", replaced_sim_id=None, zarr=None)
+    reserved = "0e6a5f5c-6f3c-4a6b-9c2f-2f0f5c1b7a11"
+    ctx = _open_store_ctx(tmp_path, reserved_sim_id=reserved)
+
+    _silence_store_writes(monkeypatch, _fake_catalog_class(registration))
+
+    prepare_solver_module.step_open_store(ctx)
+
+    assert ctx.sim_id == reserved
+    assert ctx.store.calls[0][0][0] == reserved
+    assert ctx.reserved_sim_id is None
+
+    ctx.store = None
+    prepare_solver_module.step_open_store(ctx)
+
+    assert ctx.sim_id != reserved
 
 
 class _Dumpable:

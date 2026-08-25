@@ -1,11 +1,19 @@
 """Top-N promotion of calibration trials.
 
 After the ask/tell loop converges, the runner promotes selected trials
-(top-N or all completed) into full simulations and back-fills the
-``sim_id`` column on the iterations table. This module isolates that
+(top-N or all completed) into full simulations. This module isolates that
 post-loop logic so the runners only deal with control flow. The promoted
 best run is returned to the runner, which records it when the session is
 closed by :class:`~hydromodpy.calibration.persistence.CalibrationPersistence`.
+
+The ``sim_id`` column of the iterations table is filled BEFORE the run
+replays, not after it: the last step of a promoted run renders the figures
+declared in ``[display].figures``, and the ones about the calibration gate on
+the run being named in ``calibration_iterations``. Filling the column after
+the pipeline returned made every session figure report itself unavailable for
+a reason that stopped being true one instruction later. Each promotion
+therefore reserves its run id, writes the link, and clears it again when the
+run fails, so a link never names a run that does not exist.
 """
 
 from __future__ import annotations
@@ -36,14 +44,20 @@ def stored_parameter_value(raw: Any) -> float:
     return float(raw)
 
 
-def update_iter_sim_id(catalog, session_id: str, iteration: int, sim_id: str) -> None:
-    """Write the promoted ``sim_id`` into ``calibration_iterations``."""
+def update_iter_sim_id(catalog, session_id: str, iteration: int, sim_id: str | None) -> None:
+    """Write the promoted ``sim_id`` into ``calibration_iterations``.
+
+    ``None`` clears the link, which is what a promotion that failed after its
+    id was reserved must leave behind.
+    """
     from hydromodpy.core.io.db_retry import with_lock_retry
 
     @with_lock_retry()
     def _run() -> None:
         sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
-        sim_uuid = uuid.UUID(sim_id) if len(sim_id) == 32 else sim_id
+        sim_uuid: uuid.UUID | str | None = None
+        if sim_id is not None:
+            sim_uuid = uuid.UUID(sim_id) if len(sim_id) == 32 else sim_id
         catalog.connection.execute(
             """
             UPDATE calibration_iterations
@@ -111,19 +125,24 @@ def promote_iterations(
             for name in override_paths
             if name in row["parameters"]
         }
+        sim_id = str(uuid.uuid4())
+        # Linked first: the promoted run renders its figures as its own last
+        # step, and the ones about the calibration read this link.
+        update_iter_sim_id(catalog, session_id, row["iteration"], sim_id)
         try:
             with progress.suppressed():
-                sim_id = promote_prepared_trial(
+                promote_prepared_trial(
                     trial_ctx,
                     values,
                     name=run_name,
                     session_id=session_id,
+                    sim_id=sim_id,
                 )
         except Exception as exc:
+            update_iter_sim_id(catalog, session_id, row["iteration"], None)
             logger.exception("Promotion failed for iteration %d.", row["iteration"])
             failures.append(f"iteration {row['iteration']}: {exc}")
             continue
-        update_iter_sim_id(catalog, session_id, row["iteration"], sim_id)
         count += 1
         if best is not None and int(row["iteration"]) == best.trial_id:
             best_sim_id = sim_id

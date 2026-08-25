@@ -74,7 +74,7 @@ Storage rule
 - DuckDB rows for the trace
   (``calibration_iterations.sim_id`` stays NULL by default).
 - Zarr / Parquet only for promoted trials (``save_runs = "best_n"``
-  or ``"all"``), with ``sim_id`` back-filled.
+  or ``"all"``), each linked by ``sim_id`` before it replays.
 
 The ``ParamsHashCache`` (SHA-256 of canonical parameter JSON)
 deduplicates trials across sessions when ``use_cache = true``
