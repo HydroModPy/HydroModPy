@@ -537,6 +537,44 @@ def _observable_point_legend_lines(cfg: RuntimeComparisonConfig) -> tuple[str, .
     return tuple(lines)
 
 
+def _load_case_mesh_and_recharge_from_store(
+    config_path: Path | None,
+    selected: dict[str, Any],
+) -> tuple[
+    np.ndarray | None,
+    np.ndarray | None,
+    np.ndarray | None,
+    np.ndarray | None,
+    str,
+]:
+    """Load mesh geometry and recharge from the result store, if available."""
+    vertices = faces = topography = None
+    recharge_values = None
+    recharge_unit = ""
+    store = None
+    sim_id = None
+    try:
+        store, sim_id = discover_result_store(
+            config_path,
+            preferred_sim_id=(
+                None if selected.get("sim_id") in (None, "") else str(selected.get("sim_id"))
+            ),
+            preferred_name=(
+                None if selected.get("run_name") in (None, "") else str(selected.get("run_name"))
+            ),
+        )
+        if store is not None and sim_id is not None:
+            vertices, faces, topography = _mesh_payload_from_store(store, sim_id)
+            recharge_values, recharge_unit = _recharge_payload_from_store(store, sim_id)
+    finally:
+        if store is not None:
+            try:
+                store.close()
+            except Exception:
+                pass
+    return vertices, faces, topography, recharge_values, recharge_unit
+
+
 def _build_case_configuration_payload(
     *,
     cfg: RuntimeComparisonConfig,
@@ -562,30 +600,9 @@ def _build_case_configuration_payload(
     config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
     config_payload = _safe_config_payload(config_path)
 
-    vertices = faces = topography = None
-    recharge_values = None
-    recharge_unit = ""
-    store = None
-    sim_id = None
-    try:
-        store, sim_id = discover_result_store(
-            config_path,
-            preferred_sim_id=(
-                None if selected.get("sim_id") in (None, "") else str(selected.get("sim_id"))
-            ),
-            preferred_name=(
-                None if selected.get("run_name") in (None, "") else str(selected.get("run_name"))
-            ),
-        )
-        if store is not None and sim_id is not None:
-            vertices, faces, topography = _mesh_payload_from_store(store, sim_id)
-            recharge_values, recharge_unit = _recharge_payload_from_store(store, sim_id)
-    finally:
-        if store is not None:
-            try:
-                store.close()
-            except Exception:
-                pass
+    vertices, faces, topography, recharge_values, recharge_unit = (
+        _load_case_mesh_and_recharge_from_store(config_path, selected)
+    )
 
     run_folder = Path(str(selected.get("run_folder", "")))
     if vertices is None or faces is None:
@@ -665,6 +682,34 @@ def _choose_map_slice(
     return np.asarray(chosen.values, dtype=float).ravel(), str(chosen.time_key)
 
 
+def _load_map_variable_series(
+    *,
+    run_folder_path: Path,
+    config_path: Path | None,
+    observable: ComparisonObservable,
+) -> VariableSeries:
+    """Load and depth-mask the variable series for one map payload."""
+    store = None
+    sim_id = None
+    try:
+        store, sim_id = discover_result_store(config_path)
+        series = load_variable_series(
+            run_folder=run_folder_path,
+            variable=observable.variable,
+            store=store,
+            sim_id=sim_id,
+        )
+        return mask_depth_series_from_head_nodata(
+            run_folder=run_folder_path,
+            series=series,
+            store=store,
+            sim_id=sim_id,
+        )
+    finally:
+        if store is not None:
+            store.close()
+
+
 def _build_map_payload(
     *,
     cfg: RuntimeComparisonConfig,
@@ -684,25 +729,11 @@ def _build_map_payload(
     config_path = None if config_path_raw in ("", None) else Path(str(config_path_raw))
     if config_path is None:
         config_path = cfg.resolve_simulation_config_path(simulation)
-    store = None
-    sim_id = None
-    try:
-        store, sim_id = discover_result_store(config_path)
-        series = load_variable_series(
-            run_folder=run_folder_path,
-            variable=observable.variable,
-            store=store,
-            sim_id=sim_id,
-        )
-        series = mask_depth_series_from_head_nodata(
-            run_folder=run_folder_path,
-            series=series,
-            store=store,
-            sim_id=sim_id,
-        )
-    finally:
-        if store is not None:
-            store.close()
+    series = _load_map_variable_series(
+        run_folder_path=run_folder_path,
+        config_path=config_path,
+        observable=observable,
+    )
     selected = _choose_map_slice(series=series, observable=observable)
     if selected is None:
         return None

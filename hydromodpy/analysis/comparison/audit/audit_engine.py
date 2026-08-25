@@ -473,6 +473,191 @@ def _initial_state_policy_diagnostics(
     return diagnostics
 
 
+def _audit_subject(
+    subject: dict[str, Any],
+    *,
+    reference: Mapping[str, Any],
+    reference_id: str | None,
+    ref_metadata: Mapping[str, Any],
+    ref_parameters: Any,
+    ref_config: Mapping[str, Any],
+    ref_fingerprints: Mapping[str, Any],
+    ref_recharge_raw: Mapping[str, Any],
+    on_mismatch: str,
+    issues: list[dict[str, Any]],
+    ignored_issues: list[dict[str, Any]],
+) -> None:
+    """Compare one subject against the reference, appending findings in place."""
+    simulation_id = str(subject.get("id", ""))
+    metadata = subject.get("metadata", {})
+    for key in STRICT_METADATA_KEYS:
+        left = _normalized_value(metadata.get(key))
+        right = _normalized_value(ref_metadata.get(key))
+        if left == "" and right == "":
+            continue
+        if left != right:
+            issues.append(
+                {
+                    "level": "error" if on_mismatch == "fail" else "warning",
+                    "kind": "metadata_mismatch",
+                    "simulation_id": simulation_id,
+                    "reference_simulation": reference_id,
+                    "field": key,
+                    "value": metadata.get(key),
+                    "reference_value": ref_metadata.get(key),
+                }
+            )
+    if subject.get("parameters", []) != ref_parameters:
+        issues.append(
+            {
+                "level": "error" if on_mismatch == "fail" else "warning",
+                "kind": "parameter_mismatch",
+                "simulation_id": simulation_id,
+                "reference_simulation": reference_id,
+                "message": "Persisted parameter tables differ from the reference.",
+            }
+        )
+    config = subject.get("physical_config", {})
+    config_sections = config.get("sections", {})
+    fingerprints = config.get("fingerprints", {})
+    for section_name, reference_fingerprint in ref_fingerprints.items():
+        candidate_fingerprint = fingerprints.get(section_name, "")
+        if candidate_fingerprint == reference_fingerprint:
+            continue
+        if (
+            section_name == "flow.bc"
+            and isinstance(config_sections, Mapping)
+            and isinstance(ref_config.get("sections", {}), Mapping)
+            and _is_expected_boussinesq_drainage_bc_difference(
+                candidate_section=config_sections.get(section_name),
+                reference_section=ref_config.get("sections", {}).get(section_name),
+                subject=subject,
+                reference=reference,
+            )
+        ):
+            ignored_issues.append(
+                {
+                    "level": "ignored",
+                    "kind": "config_section_mismatch",
+                    "simulation_id": simulation_id,
+                    "reference_simulation": reference_id,
+                    "field": section_name,
+                    "message": (
+                        "Ignored solver-method drainage conductance difference "
+                        "between MODFLOW 6 and Boussinesq."
+                    ),
+                }
+            )
+            continue
+        issues.append(
+            {
+                "level": "error" if on_mismatch == "fail" else "warning",
+                "kind": "config_section_mismatch",
+                "simulation_id": simulation_id,
+                "reference_simulation": reference_id,
+                "field": section_name,
+                "message": "Physical-case TOML section differs from the reference.",
+            }
+        )
+
+    budget_components = subject.get("budget_components", {})
+    recharge_raw = budget_components.get(RECHARGE_COMPONENT, {}).get("series", {})
+    recharge_keys = sorted(set(ref_recharge_raw).union(set(recharge_raw)))
+    ref_recharge = _recharge_series_for_audit(
+        reference,
+        fallback_keys=recharge_keys,
+    )
+    recharge = _recharge_series_for_audit(
+        subject,
+        fallback_keys=recharge_keys,
+    )
+    recharge_check = _compare_scalar_series(
+        simulation_id=simulation_id,
+        reference_simulation=str(reference_id),
+        component=RECHARGE_COMPONENT,
+        values=recharge,
+        reference_values=ref_recharge,
+    )
+    subject.setdefault("budget_checks", {})[RECHARGE_COMPONENT] = recharge_check
+    if recharge_check.get("status") != "pass":
+        issues.append(
+            {
+                "level": "error" if on_mismatch == "fail" else "warning",
+                "kind": "recharge_budget_mismatch",
+                "simulation_id": simulation_id,
+                "reference_simulation": reference_id,
+                "field": RECHARGE_COMPONENT,
+                "message": "Persisted recharge totals differ from the reference.",
+                "max_abs_diff": recharge_check.get("max_abs_diff"),
+                "max_abs_rel_diff": recharge_check.get("max_abs_rel_diff"),
+                "n_pairs": recharge_check.get("n_pairs"),
+            }
+        )
+
+
+def _apply_head_bounds_issues(
+    head_bounds: list[dict[str, Any]],
+    *,
+    on_mismatch: str,
+    issues: list[dict[str, Any]],
+    ignored_issues: list[dict[str, Any]],
+) -> None:
+    for item in head_bounds:
+        above_fraction = _as_float(item.get("above_top_fraction")) or 0.0
+        above_max = _as_float(item.get("above_top_max_m")) or 0.0
+        if above_fraction > HEAD_ABOVE_TOP_FRACTION_TOL and above_max > HEAD_ABOVE_TOP_TOL_M:
+            issue = {
+                "level": "error" if on_mismatch == "fail" else "warning",
+                "kind": "watertable_above_top",
+                "simulation_id": item.get("simulation_id", ""),
+                "field": item.get("observable", ""),
+                "message": (
+                    "Watertable elevation is above the model top on a large fraction of cells."
+                ),
+                "above_top_fraction": above_fraction,
+                "above_top_max_m": above_max,
+                "fraction_tolerance": HEAD_ABOVE_TOP_FRACTION_TOL,
+                "height_tolerance_m": HEAD_ABOVE_TOP_TOL_M,
+            }
+            if _solver_name(item) in {"modflow6", "mf6"}:
+                ignored_issues.append(
+                    {
+                        **issue,
+                        "level": "ignored",
+                        "message": (
+                            "Ignored MODFLOW 6 watertable-above-top diagnostic; "
+                            "unconfined heads can be above cell top."
+                        ),
+                    }
+                )
+                continue
+            issues.append(issue)
+
+
+def _apply_initial_state_policy_issues(
+    initial_state_policy: list[dict[str, Any]],
+    *,
+    issues: list[dict[str, Any]],
+) -> None:
+    for item in initial_state_policy:
+        if str(item.get("severity", "")) != "warning":
+            continue
+        issues.append(
+            {
+                "level": "warning",
+                "kind": "initial_state_policy_mismatch",
+                "simulation_id": ",".join(item.get("simulations_with_initial_state", [])),
+                "field": item.get("observable", ""),
+                "message": item.get("message", ""),
+                "requested_time": item.get("requested_time", ""),
+                "simulations_with_initial_state": item.get("simulations_with_initial_state", []),
+                "simulations_without_initial_state": item.get(
+                    "simulations_without_initial_state", []
+                ),
+            }
+        )
+
+
 def build_equivalence_audit(
     *,
     simulation_summaries: Iterable[Mapping[str, Any]] | None = None,
@@ -515,169 +700,37 @@ def build_equivalence_audit(
         ref_budget_components = reference.get("budget_components", {})
         ref_recharge_raw = ref_budget_components.get(RECHARGE_COMPONENT, {}).get("series", {})
         for subject in subjects:
-            simulation_id = str(subject.get("id", ""))
-            if simulation_id == reference_id:
+            if str(subject.get("id", "")) == reference_id:
                 continue
-            metadata = subject.get("metadata", {})
-            for key in STRICT_METADATA_KEYS:
-                left = _normalized_value(metadata.get(key))
-                right = _normalized_value(ref_metadata.get(key))
-                if left == "" and right == "":
-                    continue
-                if left != right:
-                    issues.append(
-                        {
-                            "level": "error" if on_mismatch == "fail" else "warning",
-                            "kind": "metadata_mismatch",
-                            "simulation_id": simulation_id,
-                            "reference_simulation": reference_id,
-                            "field": key,
-                            "value": metadata.get(key),
-                            "reference_value": ref_metadata.get(key),
-                        }
-                    )
-            if subject.get("parameters", []) != ref_parameters:
-                issues.append(
-                    {
-                        "level": "error" if on_mismatch == "fail" else "warning",
-                        "kind": "parameter_mismatch",
-                        "simulation_id": simulation_id,
-                        "reference_simulation": reference_id,
-                        "message": "Persisted parameter tables differ from the reference.",
-                    }
-                )
-            config = subject.get("physical_config", {})
-            config_sections = config.get("sections", {})
-            fingerprints = config.get("fingerprints", {})
-            for section_name, reference_fingerprint in ref_fingerprints.items():
-                candidate_fingerprint = fingerprints.get(section_name, "")
-                if candidate_fingerprint == reference_fingerprint:
-                    continue
-                if (
-                    section_name == "flow.bc"
-                    and isinstance(config_sections, Mapping)
-                    and isinstance(ref_config.get("sections", {}), Mapping)
-                    and _is_expected_boussinesq_drainage_bc_difference(
-                        candidate_section=config_sections.get(section_name),
-                        reference_section=ref_config.get("sections", {}).get(section_name),
-                        subject=subject,
-                        reference=reference,
-                    )
-                ):
-                    ignored_issues.append(
-                        {
-                            "level": "ignored",
-                            "kind": "config_section_mismatch",
-                            "simulation_id": simulation_id,
-                            "reference_simulation": reference_id,
-                            "field": section_name,
-                            "message": (
-                                "Ignored solver-method drainage conductance difference "
-                                "between MODFLOW 6 and Boussinesq."
-                            ),
-                        }
-                    )
-                    continue
-                issues.append(
-                    {
-                        "level": "error" if on_mismatch == "fail" else "warning",
-                        "kind": "config_section_mismatch",
-                        "simulation_id": simulation_id,
-                        "reference_simulation": reference_id,
-                        "field": section_name,
-                        "message": "Physical-case TOML section differs from the reference.",
-                    }
-                )
-
-            budget_components = subject.get("budget_components", {})
-            recharge_raw = budget_components.get(RECHARGE_COMPONENT, {}).get("series", {})
-            recharge_keys = sorted(set(ref_recharge_raw).union(set(recharge_raw)))
-            ref_recharge = _recharge_series_for_audit(
-                reference,
-                fallback_keys=recharge_keys,
-            )
-            recharge = _recharge_series_for_audit(
+            _audit_subject(
                 subject,
-                fallback_keys=recharge_keys,
+                reference=reference,
+                reference_id=reference_id,
+                ref_metadata=ref_metadata,
+                ref_parameters=ref_parameters,
+                ref_config=ref_config,
+                ref_fingerprints=ref_fingerprints,
+                ref_recharge_raw=ref_recharge_raw,
+                on_mismatch=on_mismatch,
+                issues=issues,
+                ignored_issues=ignored_issues,
             )
-            recharge_check = _compare_scalar_series(
-                simulation_id=simulation_id,
-                reference_simulation=str(reference_id),
-                component=RECHARGE_COMPONENT,
-                values=recharge,
-                reference_values=ref_recharge,
-            )
-            subject.setdefault("budget_checks", {})[RECHARGE_COMPONENT] = recharge_check
-            if recharge_check.get("status") != "pass":
-                issues.append(
-                    {
-                        "level": "error" if on_mismatch == "fail" else "warning",
-                        "kind": "recharge_budget_mismatch",
-                        "simulation_id": simulation_id,
-                        "reference_simulation": reference_id,
-                        "field": RECHARGE_COMPONENT,
-                        "message": "Persisted recharge totals differ from the reference.",
-                        "max_abs_diff": recharge_check.get("max_abs_diff"),
-                        "max_abs_rel_diff": recharge_check.get("max_abs_rel_diff"),
-                        "n_pairs": recharge_check.get("n_pairs"),
-                    }
-                )
 
     head_bounds = _head_bounds_diagnostics(
         observable_rows=observable_rows,
         simulation_summaries=completed,
     )
-    for item in head_bounds:
-        above_fraction = _as_float(item.get("above_top_fraction")) or 0.0
-        above_max = _as_float(item.get("above_top_max_m")) or 0.0
-        if above_fraction > HEAD_ABOVE_TOP_FRACTION_TOL and above_max > HEAD_ABOVE_TOP_TOL_M:
-            issue = {
-                "level": "error" if on_mismatch == "fail" else "warning",
-                "kind": "watertable_above_top",
-                "simulation_id": item.get("simulation_id", ""),
-                "field": item.get("observable", ""),
-                "message": (
-                    "Watertable elevation is above the model top on a large fraction of cells."
-                ),
-                "above_top_fraction": above_fraction,
-                "above_top_max_m": above_max,
-                "fraction_tolerance": HEAD_ABOVE_TOP_FRACTION_TOL,
-                "height_tolerance_m": HEAD_ABOVE_TOP_TOL_M,
-            }
-            if _solver_name(item) in {"modflow6", "mf6"}:
-                ignored_issues.append(
-                    {
-                        **issue,
-                        "level": "ignored",
-                        "message": (
-                            "Ignored MODFLOW 6 watertable-above-top diagnostic; "
-                            "unconfined heads can be above cell top."
-                        ),
-                    }
-                )
-                continue
-            issues.append(issue)
+    _apply_head_bounds_issues(
+        head_bounds,
+        on_mismatch=on_mismatch,
+        issues=issues,
+        ignored_issues=ignored_issues,
+    )
 
     initial_state_policy = _initial_state_policy_diagnostics(
         observable_rows=observable_rows,
     )
-    for item in initial_state_policy:
-        if str(item.get("severity", "")) != "warning":
-            continue
-        issues.append(
-            {
-                "level": "warning",
-                "kind": "initial_state_policy_mismatch",
-                "simulation_id": ",".join(item.get("simulations_with_initial_state", [])),
-                "field": item.get("observable", ""),
-                "message": item.get("message", ""),
-                "requested_time": item.get("requested_time", ""),
-                "simulations_with_initial_state": item.get("simulations_with_initial_state", []),
-                "simulations_without_initial_state": item.get(
-                    "simulations_without_initial_state", []
-                ),
-            }
-        )
+    _apply_initial_state_policy_issues(initial_state_policy, issues=issues)
 
     has_error = any(issue.get("level") == "error" for issue in issues)
     has_warning = any(issue.get("level") == "warning" for issue in issues)

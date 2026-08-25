@@ -194,18 +194,25 @@ def dependency_cycles_text(graph: Any, n: int = 5) -> str:
     return "Cycles de dependances:\n" + "\n".join(lines)
 
 
-def top_outliers_text(frame: "pd.DataFrame", value_col: str, label_cols: list[str], n: int = 5) -> str:
+def top_outliers_text(
+    frame: "pd.DataFrame",
+    value_col: str,
+    label_cols: list[str],
+    n: int = 5,
+    ascending: bool = False,
+    heading: str = "Valeurs extremes:",
+) -> str:
     if frame.empty or value_col not in frame.columns:
         return ""
     subset = frame.dropna(subset=[value_col])
     if subset.empty:
         return ""
-    subset = subset.nlargest(n, value_col)
+    subset = subset.nsmallest(n, value_col) if ascending else subset.nlargest(n, value_col)
     lines: list[str] = []
     for _, row in subset.iterrows():
         label = "::".join(str(row[col]) for col in label_cols if col in row and pd.notna(row[col]))
         lines.append(f"{label} = {row[value_col]:.1f}")
-    return "Valeurs extremes:\n" + "\n".join(lines)
+    return f"{heading}\n" + "\n".join(lines)
 
 
 def explode_complexity_frame(radon: "pd.DataFrame") -> "pd.DataFrame":
@@ -227,6 +234,87 @@ def explode_complexity_frame(radon: "pd.DataFrame") -> "pd.DataFrame":
                     }
                 )
     return pd.DataFrame(rows)
+
+
+_KIND_COLORS = {
+    "business-logic": "#d62728",
+    "facade": "#1f77b4",
+    "protocol": "#7f7f7f",
+    "dataclass": "#7f7f7f",
+    "model": "#7f7f7f",
+    "mixin": "#9467bd",
+}
+
+
+def write_afferent_efferent_scatter(coupling: "pd.DataFrame", output_path: Path) -> None:
+    """Plot outgoing (Ce) vs incoming (Ca) coupling, colored by class kind.
+
+    A facade/orchestrator is expected to land in the bottom-right (high Ce,
+    low Ca) -- it deliberately depends on many collaborators so nothing else
+    has to. A class in the top-right (high on both axes) is a stronger
+    coupling-problem signal than either number alone: many things call it
+    *and* it depends on many things.
+    """
+    data = coupling.dropna(subset=["efferent_coupling", "afferent_coupling"])
+    if data.empty:
+        return
+
+    kinds = data["kind"] if "kind" in data.columns else pd.Series("business-logic", index=data.index)
+    fig, ax = plt.subplots(figsize=(11, 8))
+    for kind, group in data.groupby(kinds):
+        ax.scatter(
+            group["efferent_coupling"],
+            group["afferent_coupling"],
+            s=28,
+            alpha=0.65,
+            label=str(kind),
+            color=_KIND_COLORS.get(str(kind), "#333333"),
+        )
+
+    # Every dot is a class, but labeling all of them would be unreadable, so
+    # only the ones that stand out on at least one axis are named: highest
+    # Ce alone (big facades/orchestrators), highest Ca alone (heavily reused
+    # types), and highest combined score (the rarer, more interesting case
+    # of a class that is both -- see the docstring).
+    risk = data.assign(risk_score=data["efferent_coupling"] + data["afferent_coupling"] * 3)
+    notable = pd.concat(
+        [
+            data.nlargest(8, "efferent_coupling"),
+            data.nlargest(8, "afferent_coupling"),
+            risk.nlargest(8, "risk_score"),
+        ]
+    ).drop_duplicates(subset=["module", "class"] if "module" in data.columns else ["class"])
+
+    for _, row in notable.iterrows():
+        ax.annotate(
+            str(row.get("class", "")),
+            (row["efferent_coupling"], row["afferent_coupling"]),
+            fontsize=6.5,
+            xytext=(4, 4),
+            textcoords="offset points",
+        )
+
+    label_cols = ["module", "class"] if "module" in data.columns else ["class"]
+    legend_lines = [
+        f"{'::'.join(str(row[col]) for col in label_cols if col in row)} "
+        f"(Ce={int(row['efferent_coupling'])}, Ca={int(row['afferent_coupling'])})"
+        for _, row in notable.sort_values("efferent_coupling", ascending=False).head(15).iterrows()
+    ]
+    if legend_lines:
+        ax.text(
+            1.02, 0.98, "Classes notables:\n" + "\n".join(legend_lines),
+            transform=ax.transAxes, fontsize=6.5, va="top", ha="left",
+            bbox=dict(boxstyle="round", facecolor="white", edgecolor="gray", alpha=0.9),
+        )
+
+    ax.set_xlabel("Couplage sortant (Ce) -- ce dont la classe depend")
+    ax.set_ylabel("Couplage entrant (Ca) -- ce qui depend de la classe")
+    ax.set_title("Couplage entrant vs sortant par classe")
+    ax.legend(fontsize=7, loc="upper left")
+    ax.grid(True, ls=":", alpha=0.4)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
 
 
 def write_excel(output_path: Path, frames: tuple[Any, ...]) -> None:
@@ -284,6 +372,12 @@ def write_charts(
         if not complexity.empty:
             ax = complexity["complexity"].plot(kind="hist", bins=20, figsize=(10, 6), title="Cyclomatic complexity distribution")
             ax.set_xlabel("Complexity")
+            outliers_text = top_outliers_text(complexity, "complexity", ["module", "name"])
+            if outliers_text:
+                ax.text(
+                    0.98, 0.98, outliers_text, transform=ax.transAxes, fontsize=7, va="top", ha="right",
+                    bbox=dict(boxstyle="round", facecolor="white", edgecolor="gray", alpha=0.9),
+                )
             plt.tight_layout()
             plt.savefig(output_dir / "complexity_distribution.png", dpi=200)
             plt.close()
@@ -314,6 +408,14 @@ def write_charts(
             if not series.empty:
                 ax = series.plot(kind="hist", bins=20, figsize=(10, 6), title="Maintainability Index distribution")
                 ax.set_xlabel("Maintainability Index")
+                outliers_text = top_outliers_text(
+                    radon, "maintainability_index", ["module"], ascending=True, heading="Pires valeurs (MI bas):"
+                )
+                if outliers_text:
+                    ax.text(
+                        0.98, 0.98, outliers_text, transform=ax.transAxes, fontsize=7, va="top", ha="right",
+                        bbox=dict(boxstyle="round", facecolor="white", edgecolor="gray", alpha=0.9),
+                    )
                 plt.tight_layout()
                 plt.savefig(output_dir / "maintainability.png", dpi=200)
                 plt.close()
@@ -324,21 +426,41 @@ def write_charts(
         if not cbo_values.empty:
             ax = cbo_values.plot(kind="hist", bins=20, figsize=(10, 6), title="CBO distribution")
             ax.set_xlabel("CBO")
+            outliers_text = top_outliers_text(coupling, "cbo", ["module", "class"])
+            if outliers_text:
+                ax.text(
+                    0.98, 0.98, outliers_text, transform=ax.transAxes, fontsize=7, va="top", ha="right",
+                    bbox=dict(boxstyle="round", facecolor="white", edgecolor="gray", alpha=0.9),
+                )
             plt.tight_layout()
             plt.savefig(output_dir / "coupling_distribution.png", dpi=200)
             plt.close()
 
-            coupling["package_group"] = package_group_column(coupling, package_depth)
-            packages = coupling.groupby("package_group").size()
+        if {"efferent_coupling", "afferent_coupling"}.issubset(coupling.columns):
+            write_afferent_efferent_scatter(coupling, output_dir / "coupling_afferent_vs_efferent.png")
+
+        if "kind" in coupling.columns:
+            coupling_ranked = coupling[coupling["kind"] == "business-logic"]
+            title_suffix = " (business-logic classes only)"
+        else:
+            coupling_ranked = coupling
+            title_suffix = ""
+        if not coupling_ranked.empty:
+            coupling_ranked = coupling_ranked.copy()
+            coupling_ranked["package_group"] = package_group_column(coupling_ranked, package_depth)
+            packages = coupling_ranked.groupby("package_group").size()
             order = select_package_order(packages, TOP_N_BOXPLOT_PACKAGES, pinned_packages)
             if order:
-                data = [coupling.loc[coupling["package_group"] == package, "cbo"].dropna().tolist() for package in order]
+                data = [
+                    coupling_ranked.loc[coupling_ranked["package_group"] == package, "cbo"].dropna().tolist()
+                    for package in order
+                ]
                 fig, ax = plt.subplots(figsize=(14, 7))
                 ax.boxplot(data, tick_labels=order, showmeans=True)
-                ax.set_title("CBO by package")
+                ax.set_title(f"CBO by package{title_suffix}")
                 ax.set_ylabel("CBO")
                 ax.tick_params(axis="x", rotation=30)
-                coupling_subset = coupling[coupling["package_group"].isin(order)]
+                coupling_subset = coupling_ranked[coupling_ranked["package_group"].isin(order)]
                 outliers_text = top_outliers_text(coupling_subset, "cbo", ["module", "class"])
                 if outliers_text:
                     ax.text(
@@ -355,6 +477,12 @@ def write_charts(
         if not lcom_values.empty:
             ax = lcom_values.plot(kind="hist", bins=20, figsize=(10, 6), title="LCOM distribution")
             ax.set_xlabel("LCOM")
+            outliers_text = top_outliers_text(cohesion, "lcom", ["module", "class"])
+            if outliers_text:
+                ax.text(
+                    0.98, 0.98, outliers_text, transform=ax.transAxes, fontsize=7, va="top", ha="right",
+                    bbox=dict(boxstyle="round", facecolor="white", edgecolor="gray", alpha=0.9),
+                )
             plt.tight_layout()
             plt.savefig(output_dir / "cohesion_distribution.png", dpi=200)
             plt.close()
@@ -366,7 +494,10 @@ def write_charts(
                 data = [cohesion.loc[cohesion["package_group"] == package, "lcom"].dropna().tolist() for package in order]
                 fig, ax = plt.subplots(figsize=(14, 7))
                 ax.boxplot(data, tick_labels=order, showmeans=True)
-                ax.set_title("LCOM by package")
+                # "lcom" is already None for dataclass/model/protocol/mixin/facade
+                # classes (see cohesion.py), so dropna() above already limits this
+                # chart to business-logic classes -- the only ones LCOM applies to.
+                ax.set_title("LCOM by package (business-logic classes only)")
                 ax.set_ylabel("LCOM")
                 ax.tick_params(axis="x", rotation=30)
                 cohesion_subset = cohesion[cohesion["package_group"].isin(order)]

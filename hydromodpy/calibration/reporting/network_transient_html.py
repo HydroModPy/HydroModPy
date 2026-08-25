@@ -1163,33 +1163,22 @@ def _axis_bounds(values: np.ndarray) -> tuple[float, float]:
     return vmin - margin, vmax + margin
 
 
-def _save_outflow_map_grid(
-    truth_dir: Path | None, score_rows: list[dict[str, str]], path: Path
-) -> None:
-    if truth_dir is None:
-        return
-    candidate = _first_non_truth_candidate(score_rows)
-    if candidate is None:
-        return
+def _reference_run_geometry_context(
+    *,
+    fallback_origin: Any,
+    fallback_polygons: Any,
+    fallback_cell_topography: Any,
+) -> tuple[Any, Any, Any, Any, Any, Any, Any]:
+    """Load geometry/geography from the reference run.
 
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    from matplotlib.cm import ScalarMappable
-    from matplotlib.collections import PolyCollection
-    from matplotlib.colors import LogNorm, Normalize
-
-    from hydromodpy.calibration.metrics.network import active_network_mask
-
-    d_ref = np.load(truth_dir / "steady_network_drain_by_cell.npz")["outflow_drain"]
-    normalization = _read_json(truth_dir / "normalization.json")
-    threshold = float(normalization.get("tau_network", 0.0))
-
-    fallback_context = _mesh_context_from_truth_package(truth_dir)
-    origin = None if fallback_context is None else fallback_context["origin"]
-    polygons = None if fallback_context is None else fallback_context["polygons"]
-    cell_topography = None if fallback_context is None else fallback_context["cell_topography"]
+    Falls back to the truth-package context (mesh + topography) when the
+    reference run is unavailable or its geometry cannot be resolved.
+    Returns ``(origin, polygons, cell_topography, topo, watershed,
+    watershed_contour, river_network)``.
+    """
+    origin = fallback_origin
+    polygons = fallback_polygons
+    cell_topography = fallback_cell_topography
     topo = None
     watershed = None
     watershed_contour = None
@@ -1218,6 +1207,43 @@ def _save_outflow_map_grid(
                     river_network = _safe_geographic(run, "hydrographic_network_generated")
             finally:
                 catalog.close()
+
+    return origin, polygons, cell_topography, topo, watershed, watershed_contour, river_network
+
+
+def _save_outflow_map_grid(
+    truth_dir: Path | None, score_rows: list[dict[str, str]], path: Path
+) -> None:
+    if truth_dir is None:
+        return
+    candidate = _first_non_truth_candidate(score_rows)
+    if candidate is None:
+        return
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.cm import ScalarMappable
+    from matplotlib.collections import PolyCollection
+    from matplotlib.colors import LogNorm, Normalize
+
+    from hydromodpy.calibration.metrics.network import active_network_mask
+
+    d_ref = np.load(truth_dir / "steady_network_drain_by_cell.npz")["outflow_drain"]
+    normalization = _read_json(truth_dir / "normalization.json")
+    threshold = float(normalization.get("tau_network", 0.0))
+
+    fallback_context = _mesh_context_from_truth_package(truth_dir)
+    origin, polygons, cell_topography, topo, watershed, watershed_contour, river_network = (
+        _reference_run_geometry_context(
+            fallback_origin=None if fallback_context is None else fallback_context["origin"],
+            fallback_polygons=None if fallback_context is None else fallback_context["polygons"],
+            fallback_cell_topography=(
+                None if fallback_context is None else fallback_context["cell_topography"]
+            ),
+        )
+    )
 
     if origin is None or polygons is None or len(polygons) != d_ref.size:
         return

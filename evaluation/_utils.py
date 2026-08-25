@@ -74,6 +74,96 @@ def is_public_module_path(path: Path) -> bool:
     return True
 
 
+def _is_trivial_stub_statement(stmt: ast.stmt) -> bool:
+    if isinstance(stmt, ast.Pass):
+        return True
+    if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant):
+        return stmt.value.value is Ellipsis or isinstance(stmt.value.value, str)
+    if isinstance(stmt, ast.Raise):
+        return True
+    return False
+
+
+def _method_body_without_docstring(method: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.stmt]:
+    body = method.body
+    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+        if isinstance(body[0].value.value, str):
+            return body[1:]
+    return body
+
+
+def _is_delegating_statement(stmt: ast.stmt) -> bool:
+    """True when ``stmt`` is a single call, forwarding the work elsewhere."""
+    if isinstance(stmt, ast.Return):
+        return isinstance(stmt.value, ast.Call)
+    if isinstance(stmt, ast.Expr):
+        return isinstance(stmt.value, ast.Call)
+    return False
+
+
+def _is_delegating_method_body(method: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """True when a method only forwards to another callable.
+
+    Local ``import``/``from ... import`` lines (common in this codebase to
+    avoid eager imports) are ignored; what matters is the single remaining
+    statement being a delegating call.
+    """
+    body = [
+        stmt
+        for stmt in _method_body_without_docstring(method)
+        if not isinstance(stmt, (ast.Import, ast.ImportFrom))
+    ]
+    return len(body) == 1 and _is_delegating_statement(body[0])
+
+
+def classify_class(node: ast.ClassDef) -> str:
+    """Classify a class so raw coupling/cohesion numbers can be read in context.
+
+    A low-cohesion or high-coupling score means something different for a
+    Pydantic model than for hand-written business logic, so callers should
+    branch on this before judging a class's LCOM/CBO value.
+
+    Returns one of: ``"dataclass"``, ``"model"``, ``"protocol"``, ``"mixin"``,
+    ``"facade"``, ``"business-logic"``.
+    """
+    decorators = [ast.unparse(decorator) for decorator in node.decorator_list]
+    bases = [ast.unparse(base) for base in node.bases]
+
+    if any("dataclass" in decorator for decorator in decorators):
+        return "dataclass"
+    if any("BaseModel" in base or "NamedTuple" in base for base in bases):
+        return "model"
+    if any("Protocol" in base for base in bases):
+        return "protocol"
+    if node.name.endswith("Mixin"):
+        return "mixin"
+
+    all_methods = [
+        item for item in node.body if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+    ]
+    if not all_methods:
+        return "business-logic"
+
+    # __init__/__post_init__ legitimately does real setup work even in a
+    # facade, so it is excluded from the "every method just delegates" check.
+    delegate_check_methods = [
+        method for method in all_methods if method.name not in {"__init__", "__post_init__"}
+    ]
+
+    if all(
+        all(_is_trivial_stub_statement(stmt) for stmt in _method_body_without_docstring(method))
+        for method in all_methods
+    ):
+        return "protocol"
+
+    if delegate_check_methods and all(
+        _is_delegating_method_body(method) for method in delegate_check_methods
+    ):
+        return "facade"
+
+    return "business-logic"
+
+
 def public_module_rank(path: Path, root: Path) -> tuple[int, int, str]:
     module_name = module_name_from_path(root, path)
     return (0 if is_public_module_path(path) else 1, len(module_name.split(".")), module_name)

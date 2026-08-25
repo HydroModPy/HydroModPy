@@ -1,0 +1,2872 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "results": [
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/_utils.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 28,
+                        "endLine": 9,
+                        "startColumn": 1,
+                        "startLine": 9
+                      },
+                      "insertedContent": {
+                        "text": "from collections.abc import Iterator"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Import from `collections.abc`"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/_utils.py"
+                },
+                "region": {
+                  "endColumn": 28,
+                  "endLine": 9,
+                  "startColumn": 1,
+                  "startLine": 9
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Import from `collections.abc` instead: `Iterator`"
+          },
+          "ruleId": "UP035"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/cohesion.py"
+                },
+                "region": {
+                  "endColumn": 2,
+                  "endLine": 25,
+                  "startColumn": 1,
+                  "startLine": 17
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/cohesion.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 11,
+                        "endLine": 299,
+                        "startColumn": 11,
+                        "startLine": 299
+                      },
+                      "insertedContent": {
+                        "text": "\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Add trailing newline"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/cohesion.py"
+                },
+                "region": {
+                  "endColumn": 11,
+                  "endLine": 299,
+                  "startColumn": 11,
+                  "startLine": 299
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "No newline at end of file"
+          },
+          "ruleId": "W292"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/compare_repositories.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 1,
+                        "endLine": 13,
+                        "startColumn": 1,
+                        "startLine": 1
+                      },
+                      "insertedContent": {
+                        "text": "from __future__ import annotations\n\nimport argparse\nimport json\nimport math\nimport sys\nfrom collections import defaultdict\nfrom pathlib import Path\nfrom typing import Any\nfrom urllib.parse import urlparse\n\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Organize imports"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/compare_repositories.py"
+                },
+                "region": {
+                  "endColumn": 11,
+                  "endLine": 11,
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Import block is un-sorted or un-formatted"
+          },
+          "ruleId": "I001"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/compare_repositories.py"
+                },
+                "region": {
+                  "endColumn": 54,
+                  "endLine": 27,
+                  "startColumn": 1,
+                  "startLine": 27
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/compare_repositories.py"
+                },
+                "region": {
+                  "endColumn": 49,
+                  "endLine": 28,
+                  "startColumn": 1,
+                  "startLine": 28
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/compare_repositories.py"
+                },
+                "region": {
+                  "endColumn": 44,
+                  "endLine": 29,
+                  "startColumn": 1,
+                  "startLine": 29
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/compare_repositories.py"
+                },
+                "region": {
+                  "endColumn": 65,
+                  "endLine": 30,
+                  "startColumn": 1,
+                  "startLine": 30
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/compare_repositories.py"
+                },
+                "region": {
+                  "endColumn": 59,
+                  "endLine": 31,
+                  "startColumn": 1,
+                  "startLine": 31
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/compare_repositories.py"
+                },
+                "region": {
+                  "endColumn": 63,
+                  "endLine": 32,
+                  "startColumn": 1,
+                  "startLine": 32
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/coupling.py"
+                },
+                "region": {
+                  "endColumn": 2,
+                  "endLine": 24,
+                  "startColumn": 1,
+                  "startLine": 16
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/coupling.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 1,
+                        "endLine": 28,
+                        "startColumn": 1,
+                        "startLine": 16
+                      },
+                      "insertedContent": {
+                        "text": "from evaluation._utils import (\n    classify_class,\n    is_public_module_path,\n    iter_python_files,\n    module_name_from_path,\n    package_name_from_path,\n    parse_ast,\n    resolve_repository_root,\n)\n\n\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Organize imports"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/coupling.py"
+                },
+                "region": {
+                  "endColumn": 2,
+                  "endLine": 24,
+                  "startColumn": 1,
+                  "startLine": 16
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Import block is un-sorted or un-formatted"
+          },
+          "ruleId": "I001"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/coupling.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 11,
+                        "endLine": 328,
+                        "startColumn": 11,
+                        "startLine": 328
+                      },
+                      "insertedContent": {
+                        "text": "\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Add trailing newline"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/coupling.py"
+                },
+                "region": {
+                  "endColumn": 11,
+                  "endLine": 328,
+                  "startColumn": 11,
+                  "startLine": 328
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "No newline at end of file"
+          },
+          "ruleId": "W292"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/duplication.py"
+                },
+                "region": {
+                  "endColumn": 2,
+                  "endLine": 33,
+                  "startColumn": 1,
+                  "startLine": 28
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/extract_architecture.py"
+                },
+                "region": {
+                  "endColumn": 2,
+                  "endLine": 22,
+                  "startColumn": 1,
+                  "startLine": 16
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/extract_architecture.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 1,
+                        "endLine": 25,
+                        "startColumn": 1,
+                        "startLine": 16
+                      },
+                      "insertedContent": {
+                        "text": "from evaluation._utils import (\n    count_lines,\n    iter_python_files,\n    module_name_from_path,\n    parse_ast,\n    resolve_repository_root,\n)\n\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Organize imports"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/extract_architecture.py"
+                },
+                "region": {
+                  "endColumn": 2,
+                  "endLine": 22,
+                  "startColumn": 1,
+                  "startLine": 16
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Import block is un-sorted or un-formatted"
+          },
+          "ruleId": "I001"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/extract_architecture.py"
+                },
+                "region": {
+                  "endColumn": 10,
+                  "endLine": 388,
+                  "startColumn": 9,
+                  "startLine": 386
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling"
+          },
+          "ruleId": "B904"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/extract_architecture.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 11,
+                        "endLine": 552,
+                        "startColumn": 11,
+                        "startLine": 552
+                      },
+                      "insertedContent": {
+                        "text": "\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Add trailing newline"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/extract_architecture.py"
+                },
+                "region": {
+                  "endColumn": 11,
+                  "endLine": 552,
+                  "startColumn": 11,
+                  "startLine": 552
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "No newline at end of file"
+          },
+          "ruleId": "W292"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 54,
+                  "endLine": 30,
+                  "startColumn": 1,
+                  "startLine": 30
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 1,
+                        "endLine": 38,
+                        "startColumn": 1,
+                        "startLine": 30
+                      },
+                      "insertedContent": {
+                        "text": "from evaluation._utils import resolve_repository_root\nfrom evaluation.cohesion import compute_cohesion\nfrom evaluation.coupling import compute_cbo\nfrom evaluation.extract_architecture import collect_architecture\nfrom evaluation.radon_metrics import compute_radon_metrics\nfrom evaluation.repository_summary import summarize_repository\n\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Organize imports"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 63,
+                  "endLine": 35,
+                  "startColumn": 1,
+                  "startLine": 30
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Import block is un-sorted or un-formatted"
+          },
+          "ruleId": "I001"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 49,
+                  "endLine": 31,
+                  "startColumn": 1,
+                  "startLine": 31
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 44,
+                  "endLine": 32,
+                  "startColumn": 1,
+                  "startLine": 32
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 65,
+                  "endLine": 33,
+                  "startColumn": 1,
+                  "startLine": 33
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 59,
+                  "endLine": 34,
+                  "startColumn": 1,
+                  "startLine": 34
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 63,
+                  "endLine": 35,
+                  "startColumn": 1,
+                  "startLine": 35
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 69,
+                        "endLine": 50,
+                        "startColumn": 55,
+                        "startLine": 50
+                      },
+                      "insertedContent": {
+                        "text": "pd.DataFrame"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Remove quotes"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 69,
+                  "endLine": 50,
+                  "startColumn": 55,
+                  "startLine": 50
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Remove quotes from type annotation"
+          },
+          "ruleId": "UP037"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 65,
+                        "endLine": 74,
+                        "startColumn": 51,
+                        "startLine": 74
+                      },
+                      "insertedContent": {
+                        "text": "pd.DataFrame"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Remove quotes"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 65,
+                  "endLine": 74,
+                  "startColumn": 51,
+                  "startLine": 74
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Remove quotes from type annotation"
+          },
+          "ruleId": "UP037"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 81,
+                        "endLine": 134,
+                        "startColumn": 50,
+                        "startLine": 134
+                      },
+                      "insertedContent": {
+                        "text": "pd.DataFrame | dict[str, Any]"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Remove quotes"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 81,
+                  "endLine": 134,
+                  "startColumn": 50,
+                  "startLine": 134
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Remove quotes from type annotation"
+          },
+          "ruleId": "UP037"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 126,
+                        "endLine": 134,
+                        "startColumn": 112,
+                        "startLine": 134
+                      },
+                      "insertedContent": {
+                        "text": "pd.DataFrame"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Remove quotes"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 126,
+                  "endLine": 134,
+                  "startColumn": 112,
+                  "startLine": 134
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Remove quotes from type annotation"
+          },
+          "ruleId": "UP037"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 38,
+                        "endLine": 158,
+                        "startColumn": 24,
+                        "startLine": 158
+                      },
+                      "insertedContent": {
+                        "text": "pd.DataFrame"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Remove quotes"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 38,
+                  "endLine": 158,
+                  "startColumn": 24,
+                  "startLine": 158
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Remove quotes from type annotation"
+          },
+          "ruleId": "UP037"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 57,
+                        "endLine": 158,
+                        "startColumn": 43,
+                        "startLine": 158
+                      },
+                      "insertedContent": {
+                        "text": "pd.DataFrame"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Remove quotes"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 57,
+                  "endLine": 158,
+                  "startColumn": 43,
+                  "startLine": 158
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Remove quotes from type annotation"
+          },
+          "ruleId": "UP037"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 47,
+                        "endLine": 168,
+                        "startColumn": 33,
+                        "startLine": 168
+                      },
+                      "insertedContent": {
+                        "text": "pd.DataFrame"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Remove quotes"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 47,
+                  "endLine": 168,
+                  "startColumn": 33,
+                  "startLine": 168
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Remove quotes from type annotation"
+          },
+          "ruleId": "UP037"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 104,
+                        "endLine": 168,
+                        "startColumn": 93,
+                        "startLine": 168
+                      },
+                      "insertedContent": {
+                        "text": "pd.Series"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Remove quotes"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 104,
+                  "endLine": 168,
+                  "startColumn": 93,
+                  "startLine": 168
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Remove quotes from type annotation"
+          },
+          "ruleId": "UP037"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 45,
+                        "endLine": 174,
+                        "startColumn": 34,
+                        "startLine": 174
+                      },
+                      "insertedContent": {
+                        "text": "pd.Series"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Remove quotes"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 45,
+                  "endLine": 174,
+                  "startColumn": 34,
+                  "startLine": 174
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Remove quotes from type annotation"
+          },
+          "ruleId": "UP037"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 26,
+                        "endLine": 198,
+                        "startColumn": 12,
+                        "startLine": 198
+                      },
+                      "insertedContent": {
+                        "text": "pd.DataFrame"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Remove quotes"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 26,
+                  "endLine": 198,
+                  "startColumn": 12,
+                  "startLine": 198
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Remove quotes from type annotation"
+          },
+          "ruleId": "UP037"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 51,
+                        "endLine": 218,
+                        "startColumn": 37,
+                        "startLine": 218
+                      },
+                      "insertedContent": {
+                        "text": "pd.DataFrame"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Remove quotes"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 51,
+                  "endLine": 218,
+                  "startColumn": 37,
+                  "startLine": 218
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Remove quotes from type annotation"
+          },
+          "ruleId": "UP037"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 70,
+                        "endLine": 218,
+                        "startColumn": 56,
+                        "startLine": 218
+                      },
+                      "insertedContent": {
+                        "text": "pd.DataFrame"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Remove quotes"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 70,
+                  "endLine": 218,
+                  "startColumn": 56,
+                  "startLine": 218
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Remove quotes from type annotation"
+          },
+          "ruleId": "UP037"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 61,
+                        "endLine": 249,
+                        "startColumn": 47,
+                        "startLine": 249
+                      },
+                      "insertedContent": {
+                        "text": "pd.DataFrame"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Remove quotes"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/generate_report.py"
+                },
+                "region": {
+                  "endColumn": 61,
+                  "endLine": 249,
+                  "startColumn": 47,
+                  "startLine": 249
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Remove quotes from type annotation"
+          },
+          "ruleId": "UP037"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/radon_metrics.py"
+                },
+                "region": {
+                  "endColumn": 2,
+                  "endLine": 22,
+                  "startColumn": 1,
+                  "startLine": 15
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/radon_metrics.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 1,
+                        "endLine": 25,
+                        "startColumn": 1,
+                        "startLine": 15
+                      },
+                      "insertedContent": {
+                        "text": "from evaluation._utils import (\n    is_public_module_path,\n    iter_python_files,\n    module_name_from_path,\n    package_name_from_path,\n    parse_ast,\n    resolve_repository_root,\n)\n\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Organize imports"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/radon_metrics.py"
+                },
+                "region": {
+                  "endColumn": 2,
+                  "endLine": 22,
+                  "startColumn": 1,
+                  "startLine": 15
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Import block is un-sorted or un-formatted"
+          },
+          "ruleId": "I001"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/radon_metrics.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 11,
+                        "endLine": 292,
+                        "startColumn": 11,
+                        "startLine": 292
+                      },
+                      "insertedContent": {
+                        "text": "\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Add trailing newline"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/radon_metrics.py"
+                },
+                "region": {
+                  "endColumn": 11,
+                  "endLine": 292,
+                  "startColumn": 11,
+                  "startLine": 292
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "No newline at end of file"
+          },
+          "ruleId": "W292"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/repository_summary.py"
+                },
+                "region": {
+                  "endColumn": 2,
+                  "endLine": 23,
+                  "startColumn": 1,
+                  "startLine": 15
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/run_all.py"
+                },
+                "region": {
+                  "endColumn": 66,
+                  "endLine": 17,
+                  "startColumn": 1,
+                  "startLine": 17
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/run_all.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 1,
+                        "endLine": 26,
+                        "startColumn": 1,
+                        "startLine": 17
+                      },
+                      "insertedContent": {
+                        "text": "from evaluation._utils import resolve_repository_root, safe_mkdir\nfrom evaluation.cohesion import compute_cohesion\nfrom evaluation.coupling import compute_cbo\nfrom evaluation.extract_architecture import collect_architecture, save_graph\nfrom evaluation.generate_report import (\n    build_frames,\n    build_package_dependency_frame,\n    write_charts,\n    write_excel,\n)\nfrom evaluation.radon_metrics import compute_radon_metrics\nfrom evaluation.repository_summary import summarize_repository\n\n\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Organize imports"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/run_all.py"
+                },
+                "region": {
+                  "endColumn": 63,
+                  "endLine": 23,
+                  "startColumn": 1,
+                  "startLine": 17
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Import block is un-sorted or un-formatted"
+          },
+          "ruleId": "I001"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/run_all.py"
+                },
+                "region": {
+                  "endColumn": 49,
+                  "endLine": 18,
+                  "startColumn": 1,
+                  "startLine": 18
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/run_all.py"
+                },
+                "region": {
+                  "endColumn": 44,
+                  "endLine": 19,
+                  "startColumn": 1,
+                  "startLine": 19
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/run_all.py"
+                },
+                "region": {
+                  "endColumn": 77,
+                  "endLine": 20,
+                  "startColumn": 1,
+                  "startLine": 20
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/run_all.py"
+                },
+                "region": {
+                  "endColumn": 111,
+                  "endLine": 21,
+                  "startColumn": 1,
+                  "startLine": 21
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/run_all.py"
+                },
+                "region": {
+                  "endColumn": 59,
+                  "endLine": 22,
+                  "startColumn": 1,
+                  "startLine": 22
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/run_all.py"
+                },
+                "region": {
+                  "endColumn": 63,
+                  "endLine": 23,
+                  "startColumn": 1,
+                  "startLine": 23
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Module level import not at top of file"
+          },
+          "ruleId": "E402"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/run_all.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 34,
+                        "endLine": 33,
+                        "startColumn": 20,
+                        "startLine": 33
+                      },
+                      "insertedContent": {
+                        "text": "pd.DataFrame"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Remove quotes"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/run_all.py"
+                },
+                "region": {
+                  "endColumn": 34,
+                  "endLine": 33,
+                  "startColumn": 20,
+                  "startLine": 33
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Remove quotes from type annotation"
+          },
+          "ruleId": "UP037"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/run_all.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 37,
+                        "endLine": 35,
+                        "startColumn": 23,
+                        "startLine": 35
+                      },
+                      "insertedContent": {
+                        "text": "pd.DataFrame"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Remove quotes"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/run_all.py"
+                },
+                "region": {
+                  "endColumn": 37,
+                  "endLine": 35,
+                  "startColumn": 23,
+                  "startLine": 35
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Remove quotes from type annotation"
+          },
+          "ruleId": "UP037"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/run_all.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 34,
+                        "endLine": 49,
+                        "startColumn": 20,
+                        "startLine": 49
+                      },
+                      "insertedContent": {
+                        "text": "pd.DataFrame"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Remove quotes"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/evaluation/run_all.py"
+                },
+                "region": {
+                  "endColumn": 34,
+                  "endLine": 49,
+                  "startColumn": 20,
+                  "startLine": 49
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Remove quotes from type annotation"
+          },
+          "ruleId": "UP037"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/examples/calibration_example.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 1,
+                        "endLine": 33,
+                        "startColumn": 1,
+                        "startLine": 24
+                      },
+                      "insertedContent": {
+                        "text": "from validity_frame.semantic_model import (\n    ExecutionKnowledgeRecord,\n    FidelityLevel,\n    UncertaintyDescriptors,\n    ValidationStore,\n    ValidityDomain,\n    load_semantic_model,\n)\n\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Organize imports"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/examples/calibration_example.py"
+                },
+                "region": {
+                  "endColumn": 2,
+                  "endLine": 31,
+                  "startColumn": 1,
+                  "startLine": 24
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Import block is un-sorted or un-formatted"
+          },
+          "ruleId": "I001"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/examples/calibration_example.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 62,
+                        "endLine": 115,
+                        "startColumn": 50,
+                        "startLine": 115
+                      },
+                      "insertedContent": {
+                        "text": "_metrics_json"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Rename unused `metrics_json` to `_metrics_json`"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/examples/calibration_example.py"
+                },
+                "region": {
+                  "endColumn": 62,
+                  "endLine": 115,
+                  "startColumn": 50,
+                  "startLine": 115
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Loop control variable `metrics_json` not used within loop body"
+          },
+          "ruleId": "B007"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/__init__.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 1,
+                        "endLine": 15,
+                        "startColumn": 1,
+                        "startLine": 2
+                      },
+                      "insertedContent": {
+                        "text": "from .config_loader import load_semantic_model\nfrom .context_model import ContextModel\nfrom .expert import ExpertAnnotation, ExpertVerdict\nfrom .knowledge_record import (\n    ExecutionKnowledgeRecord,\n    FidelityLevel,\n    ValidationDecision,\n)\nfrom .meta_model import InfluenceFactors, ModelStructure, PropertiesOfInterest, PropertyDetail\nfrom .validation_store import UncertaintyDescriptors, ValidationStore\nfrom .validity_domain import ValidityDomain\n\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Organize imports"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/__init__.py"
+                },
+                "region": {
+                  "endColumn": 47,
+                  "endLine": 12,
+                  "startColumn": 1,
+                  "startLine": 2
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Import block is un-sorted or un-formatted"
+          },
+          "ruleId": "I001"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/config_loader.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 1,
+                        "endLine": 11,
+                        "startColumn": 1,
+                        "startLine": 2
+                      },
+                      "insertedContent": {
+                        "text": "from __future__ import annotations\n\nfrom pathlib import Path\nfrom typing import Any\n\nfrom .context_model import ContextModel\nfrom .meta_model import InfluenceFactors, ModelStructure, PropertiesOfInterest, PropertyDetail\nfrom .validation_store import UncertaintyDescriptors, ValidationStore\n\n\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Organize imports"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/config_loader.py"
+                },
+                "region": {
+                  "endColumn": 70,
+                  "endLine": 8,
+                  "startColumn": 1,
+                  "startLine": 2
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Import block is un-sorted or un-formatted"
+          },
+          "ruleId": "I001"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/context_model.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 56,
+                        "endLine": 36,
+                        "startColumn": 56,
+                        "startLine": 36
+                      },
+                      "insertedContent": {
+                        "text": "\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Add trailing newline"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/context_model.py"
+                },
+                "region": {
+                  "endColumn": 56,
+                  "endLine": 36,
+                  "startColumn": 56,
+                  "startLine": 36
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "No newline at end of file"
+          },
+          "ruleId": "W292"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/expert.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 1,
+                        "endLine": 9,
+                        "startColumn": 1,
+                        "startLine": 2
+                      },
+                      "insertedContent": {
+                        "text": "from __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom datetime import UTC, datetime\nfrom enum import Enum\nfrom typing import Any\n\n\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Organize imports"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/expert.py"
+                },
+                "region": {
+                  "endColumn": 23,
+                  "endLine": 6,
+                  "startColumn": 1,
+                  "startLine": 2
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Import block is un-sorted or un-formatted"
+          },
+          "ruleId": "I001"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/expert.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 22,
+                        "endLine": 5,
+                        "startColumn": 1,
+                        "startLine": 5
+                      },
+                      "insertedContent": {
+                        "text": "from enum import Enum, StrEnum"
+                      }
+                    },
+                    {
+                      "deletedRegion": {
+                        "endColumn": 31,
+                        "endLine": 9,
+                        "startColumn": 20,
+                        "startLine": 9
+                      },
+                      "insertedContent": {
+                        "text": "(StrEnum)"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Inherit from `enum.StrEnum`"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/expert.py"
+                },
+                "region": {
+                  "endColumn": 20,
+                  "endLine": 9,
+                  "startColumn": 7,
+                  "startLine": 9
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Class ExpertVerdict inherits from both `str` and `enum.Enum`"
+          },
+          "ruleId": "UP042"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/expert.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 62,
+                        "endLine": 25,
+                        "startColumn": 62,
+                        "startLine": 25
+                      },
+                      "insertedContent": {
+                        "text": "\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Add trailing newline"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/expert.py"
+                },
+                "region": {
+                  "endColumn": 62,
+                  "endLine": 25,
+                  "startColumn": 62,
+                  "startLine": 25
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "No newline at end of file"
+          },
+          "ruleId": "W292"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/knowledge_record.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 1,
+                        "endLine": 15,
+                        "startColumn": 1,
+                        "startLine": 2
+                      },
+                      "insertedContent": {
+                        "text": "from __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom datetime import UTC, datetime\nfrom enum import Enum\nfrom typing import Any\n\nfrom .context_model import ContextModel\nfrom .expert import ExpertAnnotation, ExpertVerdict\nfrom .meta_model import InfluenceFactors, ModelStructure, PropertiesOfInterest\nfrom .validation_store import ValidationStore\nfrom .validity_domain import ValidityDomain\n\n\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Organize imports"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/knowledge_record.py"
+                },
+                "region": {
+                  "endColumn": 52,
+                  "endLine": 12,
+                  "startColumn": 1,
+                  "startLine": 2
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Import block is un-sorted or un-formatted"
+          },
+          "ruleId": "I001"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/knowledge_record.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 22,
+                        "endLine": 5,
+                        "startColumn": 1,
+                        "startLine": 5
+                      },
+                      "insertedContent": {
+                        "text": "from enum import Enum, StrEnum"
+                      }
+                    },
+                    {
+                      "deletedRegion": {
+                        "endColumn": 36,
+                        "endLine": 15,
+                        "startColumn": 25,
+                        "startLine": 15
+                      },
+                      "insertedContent": {
+                        "text": "(StrEnum)"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Inherit from `enum.StrEnum`"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/knowledge_record.py"
+                },
+                "region": {
+                  "endColumn": 25,
+                  "endLine": 15,
+                  "startColumn": 7,
+                  "startLine": 15
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Class ValidationDecision inherits from both `str` and `enum.Enum`"
+          },
+          "ruleId": "UP042"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/knowledge_record.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 51,
+                        "endLine": 86,
+                        "startColumn": 51,
+                        "startLine": 86
+                      },
+                      "insertedContent": {
+                        "text": "\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Add trailing newline"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/knowledge_record.py"
+                },
+                "region": {
+                  "endColumn": 51,
+                  "endLine": 86,
+                  "startColumn": 51,
+                  "startLine": 86
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "No newline at end of file"
+          },
+          "ruleId": "W292"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/meta_model.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 72,
+                        "endLine": 37,
+                        "startColumn": 72,
+                        "startLine": 37
+                      },
+                      "insertedContent": {
+                        "text": "\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Add trailing newline"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/meta_model.py"
+                },
+                "region": {
+                  "endColumn": 72,
+                  "endLine": 37,
+                  "startColumn": 72,
+                  "startLine": 37
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "No newline at end of file"
+          },
+          "ruleId": "W292"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/validation_store.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 1,
+                        "endLine": 7,
+                        "startColumn": 1,
+                        "startLine": 2
+                      },
+                      "insertedContent": {
+                        "text": "from __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Organize imports"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/validation_store.py"
+                },
+                "region": {
+                  "endColumn": 23,
+                  "endLine": 4,
+                  "startColumn": 1,
+                  "startLine": 2
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Import block is un-sorted or un-formatted"
+          },
+          "ruleId": "I001"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/validation_store.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 89,
+                        "endLine": 43,
+                        "startColumn": 89,
+                        "startLine": 43
+                      },
+                      "insertedContent": {
+                        "text": "\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Add trailing newline"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/validation_store.py"
+                },
+                "region": {
+                  "endColumn": 89,
+                  "endLine": 43,
+                  "startColumn": 89,
+                  "startLine": 43
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "No newline at end of file"
+          },
+          "ruleId": "W292"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/validity_domain.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 1,
+                        "endLine": 4,
+                        "startColumn": 1,
+                        "startLine": 1
+                      },
+                      "insertedContent": {
+                        "text": "from __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Organize imports"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/validity_domain.py"
+                },
+                "region": {
+                  "endColumn": 23,
+                  "endLine": 3,
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Import block is un-sorted or un-formatted"
+          },
+          "ruleId": "I001"
+        },
+        {
+          "fixes": [
+            {
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/validity_domain.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "endColumn": 81,
+                        "endLine": 11,
+                        "startColumn": 81,
+                        "startLine": 11
+                      },
+                      "insertedContent": {
+                        "text": "\n"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "description": {
+                "text": "Add trailing newline"
+              }
+            }
+          ],
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/validity_frame/src/validity_frame/semantic_model/validity_domain.py"
+                },
+                "region": {
+                  "endColumn": 81,
+                  "endLine": 11,
+                  "startColumn": 81,
+                  "startLine": 11
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "No newline at end of file"
+          },
+          "ruleId": "W292"
+        }
+      ],
+      "tool": {
+        "driver": {
+          "informationUri": "https://github.com/astral-sh/ruff",
+          "name": "ruff",
+          "rules": [
+            {
+              "fullDescription": {
+                "text": "## What it does\nChecks for unused variables in loops (e.g., `for` and `while` statements).\n\n## Why is this bad?\nDefining a variable in a loop statement that is never used can confuse\nreaders.\n\nIf the variable is intended to be unused (e.g., to facilitate\ndestructuring of a tuple or other object), prefix it with an underscore\nto indicate the intent. Otherwise, remove the variable entirely.\n\n## Example\n```python\nfor i, j in foo:\n    bar(i)\n```\n\nUse instead:\n```python\nfor i, _j in foo:\n    bar(i)\n```\n\n## Options\n\n- `lint.dummy-variable-rgx`\n\n## References\n- [PEP 8: Naming Conventions](https://peps.python.org/pep-0008/#naming-conventions)\n"
+              },
+              "help": {
+                "text": "Loop control variable `{name}` not used within loop body"
+              },
+              "helpUri": "https://docs.astral.sh/ruff/rules/unused-loop-control-variable",
+              "id": "B007",
+              "properties": {
+                "id": "B007",
+                "kind": "flake8-bugbear",
+                "name": "unused-loop-control-variable",
+                "problem.severity": "error"
+              },
+              "shortDescription": {
+                "text": "Loop control variable `{name}` not used within loop body"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "## What it does\nChecks for `raise` statements in exception handlers that lack a `from`\nclause.\n\n## Why is this bad?\nIn Python, `raise` can be used with or without an exception from which the\ncurrent exception is derived. This is known as exception chaining. When\nprinting the stack trace, chained exceptions are displayed in such a way\nso as make it easier to trace the exception back to its root cause.\n\nWhen raising a new exception from within an `except` clause, it's recommended to\ninclude a `from` clause to explicitly set the exception's cause. Without it,\nPython will implicitly chain from the current exception (setting `__context__`),\nbut the `__cause__` attribute won't be set, which may make debugging slightly\nmore difficult.\n\n## Example\n```python\ntry:\n    ...\nexcept FileNotFoundError:\n    if ...:\n        raise RuntimeError(\"...\")\n    else:\n        raise UserWarning(\"...\")\n```\n\nUse instead:\n```python\ntry:\n    ...\nexcept FileNotFoundError as exc:\n    if ...:\n        raise RuntimeError(\"...\") from None\n    else:\n        raise UserWarning(\"...\") from exc\n```\n\n## References\n- [Python documentation: `raise` statement](https://docs.python.org/3/reference/simple_stmts.html#the-raise-statement)\n"
+              },
+              "help": {
+                "text": "Within an `except*` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling"
+              },
+              "helpUri": "https://docs.astral.sh/ruff/rules/raise-without-from-inside-except",
+              "id": "B904",
+              "properties": {
+                "id": "B904",
+                "kind": "flake8-bugbear",
+                "name": "raise-without-from-inside-except",
+                "problem.severity": "error"
+              },
+              "shortDescription": {
+                "text": "Within an `except*` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "## What it does\nChecks for imports that are not at the top of the file.\n\n## Why is this bad?\nAccording to [PEP 8], \"imports are always put at the top of the file, just after any\nmodule comments and docstrings, and before module globals and constants.\"\n\nThis rule makes an exception for both `sys.path` modifications (allowing for\n`sys.path.insert`, `sys.path.append`, etc.) and `os.environ` modifications\nbetween imports.\n\n## Example\n```python\n\"One string\"\n\"Two string\"\na = 1\nimport os\nfrom sys import x\n```\n\nUse instead:\n```python\nimport os\nfrom sys import x\n\n\"One string\"\n\"Two string\"\na = 1\n```\n\n## Notebook behavior\nFor Jupyter notebooks, this rule checks for imports that are not at the top of a *cell*.\n\n[PEP 8]: https://peps.python.org/pep-0008/#imports\n"
+              },
+              "help": {
+                "text": "Module level import not at top of cell"
+              },
+              "helpUri": "https://docs.astral.sh/ruff/rules/module-import-not-at-top-of-file",
+              "id": "E402",
+              "properties": {
+                "id": "E402",
+                "kind": "pycodestyle",
+                "name": "module-import-not-at-top-of-file",
+                "problem.severity": "error"
+              },
+              "shortDescription": {
+                "text": "Module level import not at top of cell"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "## What it does\nDe-duplicates, groups, and sorts imports based on the provided `isort` settings.\n\n## Why is this bad?\nConsistency is good. Use a common convention for imports to make your code\nmore readable and idiomatic.\n\n## Example\n```python\nimport pandas\nimport numpy as np\n```\n\nUse instead:\n```python\nimport numpy as np\nimport pandas\n```\n\n"
+              },
+              "help": {
+                "text": "Import block is un-sorted or un-formatted"
+              },
+              "helpUri": "https://docs.astral.sh/ruff/rules/unsorted-imports",
+              "id": "I001",
+              "properties": {
+                "id": "I001",
+                "kind": "isort",
+                "name": "unsorted-imports",
+                "problem.severity": "error"
+              },
+              "shortDescription": {
+                "text": "Import block is un-sorted or un-formatted"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "## What it does\nChecks for uses of deprecated imports based on the minimum supported\nPython version.\n\n## Why is this bad?\nDeprecated imports may be removed in future versions of Python, and\nshould be replaced with their new equivalents.\n\nNote that, in some cases, it may be preferable to continue importing\nmembers from `typing_extensions` even after they're added to the Python\nstandard library, as `typing_extensions` can backport bugfixes and\noptimizations from later Python versions. This rule thus avoids flagging\nimports from `typing_extensions` in such cases.\n\n## Example\n```python\nfrom collections import Sequence\n```\n\nUse instead:\n```python\nfrom collections.abc import Sequence\n```\n"
+              },
+              "help": {
+                "text": "Import from `{target}` instead: {names}"
+              },
+              "helpUri": "https://docs.astral.sh/ruff/rules/deprecated-import",
+              "id": "UP035",
+              "properties": {
+                "id": "UP035",
+                "kind": "pyupgrade",
+                "name": "deprecated-import",
+                "problem.severity": "error"
+              },
+              "shortDescription": {
+                "text": "Import from `{target}` instead: {names}"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "## What it does\nChecks for the presence of unnecessary quotes in type annotations.\n\n## Why is this bad?\nIn Python, type annotations can be quoted to avoid forward references.\n\nHowever, if `from __future__ import annotations` is present, Python\nwill always evaluate type annotations in a deferred manner, making\nthe quotes unnecessary.\n\nSimilarly, if the annotation is located in a typing-only context and\nwon't be evaluated by Python at runtime, the quotes will also be\nconsidered unnecessary. For example, Python does not evaluate type\nannotations on assignments in function bodies.\n\n## Example\n\nGiven:\n\n```python\nfrom __future__ import annotations\n\n\ndef foo(bar: \"Bar\") -> \"Bar\": ...\n```\n\nUse instead:\n\n```python\nfrom __future__ import annotations\n\n\ndef foo(bar: Bar) -> Bar: ...\n```\n\nGiven:\n\n```python\ndef foo() -> None:\n    bar: \"Bar\"\n```\n\nUse instead:\n\n```python\ndef foo() -> None:\n    bar: Bar\n```\n\n## Preview\n\nWhen [preview] is enabled, if [`lint.future-annotations`] is set to `true`,\n`from __future__ import annotations` will be added if doing so would allow an annotation to be\nunquoted.\n\n## Fix safety\n\nThe rule's fix is marked as safe, unless [preview] and\n[`lint.future-annotations`] are enabled and a `from __future__ import\nannotations` import is added. Such an import may change the behavior of all annotations in the\nfile.\n\n## Options\n- `lint.future-annotations`\n\n## See also\n- [`quoted-annotation-in-stub`][PYI020]: A rule that\n  removes all quoted annotations from stub files\n- [`quoted-type-alias`][TC008]: A rule that removes unnecessary quotes\n  from type aliases.\n\n## References\n- [PEP 563 – Postponed Evaluation of Annotations](https://peps.python.org/pep-0563/)\n- [Python documentation: `__future__`](https://docs.python.org/3/library/__future__.html#module-__future__)\n\n[PYI020]: https://docs.astral.sh/ruff/rules/quoted-annotation-in-stub/\n[TC008]: https://docs.astral.sh/ruff/rules/quoted-type-alias/\n[preview]: https://docs.astral.sh/ruff/preview/\n"
+              },
+              "help": {
+                "text": "Remove quotes from type annotation"
+              },
+              "helpUri": "https://docs.astral.sh/ruff/rules/quoted-annotation",
+              "id": "UP037",
+              "properties": {
+                "id": "UP037",
+                "kind": "pyupgrade",
+                "name": "quoted-annotation",
+                "problem.severity": "error"
+              },
+              "shortDescription": {
+                "text": "Remove quotes from type annotation"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "## What it does\nChecks for classes that inherit from both `str` and `enum.Enum`.\n\n## Why is this bad?\nPython 3.11 introduced `enum.StrEnum`, which is preferred over inheriting\nfrom both `str` and `enum.Enum`.\n\n## Example\n\n```python\nimport enum\n\n\nclass Foo(str, enum.Enum): ...\n```\n\nUse instead:\n\n```python\nimport enum\n\n\nclass Foo(enum.StrEnum): ...\n```\n\n## Fix safety\n\nPython 3.11 introduced a [breaking change] for enums that inherit from both\n`str` and `enum.Enum`. Consider the following enum:\n\n```python\nfrom enum import Enum\n\n\nclass Foo(str, Enum):\n    BAR = \"bar\"\n```\n\nIn Python 3.11, the formatted representation of `Foo.BAR` changed as\nfollows:\n\n```python\n# Python 3.10\nf\"{Foo.BAR}\"  # > bar\n# Python 3.11\nf\"{Foo.BAR}\"  # > Foo.BAR\n```\n\nMigrating from `str` and `enum.Enum` to `enum.StrEnum` will restore the\nprevious behavior, such that:\n\n```python\nfrom enum import StrEnum\n\n\nclass Foo(StrEnum):\n    BAR = \"bar\"\n\n\nf\"{Foo.BAR}\"  # > bar\n```\n\nAs such, migrating to `enum.StrEnum` will introduce a behavior change for\ncode that relies on the Python 3.11 behavior.\n\n## Options\n\n- `target-version`\n\n## References\n- [enum.StrEnum](https://docs.python.org/3/library/enum.html#enum.StrEnum)\n\n[breaking change]: https://blog.pecar.me/python-enum\n"
+              },
+              "help": {
+                "text": "Class {name} inherits from both `str` and `enum.Enum`"
+              },
+              "helpUri": "https://docs.astral.sh/ruff/rules/replace-str-enum",
+              "id": "UP042",
+              "properties": {
+                "id": "UP042",
+                "kind": "pyupgrade",
+                "name": "replace-str-enum",
+                "problem.severity": "error"
+              },
+              "shortDescription": {
+                "text": "Class {name} inherits from both `str` and `enum.Enum`"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "## What it does\nChecks for files missing a new line at the end of the file.\n\n## Why is this bad?\nTrailing blank lines in a file are superfluous.\n\nHowever, the last line of the file should end with a newline.\n\n## Example\n```python\nspam(1)\n```\n\nUse instead:\n```python\nspam(1)\\n\n```\n"
+              },
+              "help": {
+                "text": "No newline at end of file"
+              },
+              "helpUri": "https://docs.astral.sh/ruff/rules/missing-newline-at-end-of-file",
+              "id": "W292",
+              "properties": {
+                "id": "W292",
+                "kind": "pycodestyle",
+                "name": "missing-newline-at-end-of-file",
+                "problem.severity": "error"
+              },
+              "shortDescription": {
+                "text": "No newline at end of file"
+              }
+            }
+          ],
+          "version": "0.15.13"
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}

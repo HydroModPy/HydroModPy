@@ -400,3 +400,5 @@ examples/data/blobs/water_quality/custom/waterquality_custom_WQ_UGL_19900101_199
 docs/class_diagrams/architecture_condensee_corrigee.png
 docs/class_diagrams/architecture_condensee_corrigee.puml
 examples/data/hydrography/bdtopage_-1.2451_48.3618_-1.1072_48.4651.gpkg
+sonar-project.properties
+hydromodpy/sonar-project.properties

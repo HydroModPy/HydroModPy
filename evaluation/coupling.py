@@ -14,6 +14,7 @@ if str(REPO_ROOT) not in sys.path:
 
 
 from evaluation._utils import (
+    classify_class,
     is_public_module_path,
     iter_python_files,
     module_name_from_path,
@@ -107,6 +108,7 @@ class CBOVisitor(ast.NodeVisitor):
         self.classes.append(
             {
                 "class": node.name,
+                "kind": classify_class(node),
                 "cbo": len(self.current_dependencies),
                 "dependencies": sorted(
                     self.current_dependencies
@@ -203,11 +205,98 @@ def compute_cbo(root: Path) -> dict[str, Any]:
         )
 
 
+    _annotate_afferent_coupling(rows)
+
+
     return {
         "root": str(root),
         "files": rows,
     }
 
+
+def _annotate_afferent_coupling(rows: list[dict[str, Any]]) -> None:
+    """Add afferent coupling (Ca) next to the existing efferent one (Ce, the "cbo" field).
+
+    Ce counts how many other names a class depends on (outgoing). Ca counts
+    the opposite direction: how many other classes in the repository depend
+    on this one (incoming). A facade is expected to have a high Ce and a low
+    Ca -- it exists precisely so other classes only depend on it instead of
+    on everything it coordinates. A class with both Ce and Ca high is a
+    stronger signal of a real coupling problem than either number alone.
+    """
+
+    all_class_names = {
+        cls["class"] for file_row in rows for cls in file_row["classes"]
+    }
+    afferent_sources: dict[str, set[str]] = {name: set() for name in all_class_names}
+
+    for file_row in rows:
+        for cls in file_row["classes"]:
+            source_name = cls["class"]
+            for dependency in cls["dependencies"]:
+                if dependency in afferent_sources and dependency != source_name:
+                    afferent_sources[dependency].add(source_name)
+
+    for file_row in rows:
+        for cls in file_row["classes"]:
+            cls["efferent_coupling"] = cls["cbo"]
+            sources = afferent_sources.get(cls["class"], set())
+            cls["afferent_coupling"] = len(sources)
+            cls["afferent_sources"] = sorted(sources)
+            denominator = cls["efferent_coupling"] + cls["afferent_coupling"]
+            cls["instability"] = (
+                cls["efferent_coupling"] / denominator if denominator else None
+            )
+
+
+def compute_package_coupling(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Aggregate class-level Ce/Ca into Martin's original package-level Ca/Ce/I.
+
+    Martin (2002) defines, for a package P: Ce(P) = number of *distinct*
+    external classes that a class inside P depends on; Ca(P) = number of
+    *distinct* external classes that depend on a class inside P. This is a
+    count of distinct external classes, not a sum of per-class Ce/Ca (which
+    would double-count a shared external dependency/dependent across several
+    classes in the same package). Coupling between two classes that are both
+    inside P does not count towards either number.
+    """
+
+    class_to_package: dict[str, str] = {}
+    for file_row in data.get("files", []):
+        package = file_row.get("package", "")
+        for cls in file_row.get("classes", []):
+            class_to_package[cls["class"]] = package
+
+    packages = sorted(set(class_to_package.values()))
+    efferent_targets: dict[str, set[str]] = {package: set() for package in packages}
+    afferent_sources: dict[str, set[str]] = {package: set() for package in packages}
+
+    for file_row in data.get("files", []):
+        package = file_row.get("package", "")
+        for cls in file_row.get("classes", []):
+            for dependency in cls.get("dependencies", []):
+                dependency_package = class_to_package.get(dependency)
+                if dependency_package is not None and dependency_package != package:
+                    efferent_targets[package].add(dependency)
+            for source in cls.get("afferent_sources", []):
+                source_package = class_to_package.get(source)
+                if source_package is not None and source_package != package:
+                    afferent_sources[package].add(source)
+
+    rows: list[dict[str, Any]] = []
+    for package in packages:
+        ce = len(efferent_targets[package])
+        ca = len(afferent_sources[package])
+        denominator = ce + ca
+        rows.append(
+            {
+                "package": package,
+                "efferent_coupling": ce,
+                "afferent_coupling": ca,
+                "instability": ce / denominator if denominator else None,
+            }
+        )
+    return rows
 
 
 def main() -> None:
@@ -261,6 +350,7 @@ def main() -> None:
 
 
         result = compute_cbo(root)
+        result["package_coupling"] = compute_package_coupling(result)
 
 
         output = json.dumps(
