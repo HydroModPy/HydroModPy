@@ -363,48 +363,75 @@ def _load_boussinesq_state_from_store(
     return result if result else None
 
 
-def _load_boussinesq_budget_rows(
+def _load_boussinesq_payload(
     summary: Mapping[str, Any],
-    store: SimulationCatalog | None = None,
-    sim_id: str | None = None,
-) -> list[dict[str, Any]]:
-    run_folder = Path(str(summary.get("run_folder", "")))
-    config_path_raw = summary.get("config_path")
-    config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
-    payload: Mapping[str, Any] | None = None
-    source_label: str = ""
+    store: SimulationCatalog | None,
+    sim_id: str | None,
+    run_folder: Path,
+) -> tuple[Mapping[str, Any] | None, str]:
+    """Resolve the Boussinesq state payload from the catalog or the npz sidecar."""
     if store is not None and sim_id is not None:
         payload = _load_boussinesq_state_from_store(store, sim_id)
         if payload is not None:
-            source_label = f"SimulationCatalog(sim_id={sim_id})"
             logger.debug(
                 "Loaded Boussinesq state from SimulationCatalog for budget (sim_id=%s).",
                 sim_id,
             )
+            return payload, f"SimulationCatalog(sim_id={sim_id})"
 
-    if payload is None:
-        npz_path = run_folder / "_boussinesq_state_history.npz"
-        if not npz_path.exists():
-            return []
-        payload = np.load(npz_path, allow_pickle=True)
-        source_label = str(npz_path)
+    npz_path = run_folder / "_boussinesq_state_history.npz"
+    if not npz_path.exists():
+        return None, ""
+    return np.load(npz_path, allow_pickle=True), str(npz_path)
 
-    recharge_history = _history_matrix(payload, "recharge_rate_history_m_s")
-    well_history = _history_matrix(payload, "well_flux_history_m3_s")
-    drainage_history = _history_matrix(payload, "drainage_flux_history_m3_s")
-    surface_history = _history_matrix(payload, "saturation_excess_history_m_s")
-    dry_deficit_history = _history_matrix(payload, "dry_deficit_history_m_s")
-    prescribed_head_history = _history_matrix(payload, "prescribed_head_flux_history_m3_s")
-    head_history = _history_matrix(payload, "head_history_m")
-    saturated_thickness_history = _history_matrix(payload, "saturated_thickness_history_m")
-    residual_history = _history_matrix(payload, "residual_history_m3_s")
-    budget_recharge_total = _budget_field_total_series(payload, "budget_recharge_m3_s")
-    budget_well_total = _budget_field_total_series(payload, "budget_well_m3_s")
-    budget_drainage_total = _budget_field_total_series(payload, "budget_drainage_m3_s")
-    budget_surface_excess_total = _budget_field_total_series(
-        payload,
-        "budget_surface_excess_m3_s",
-    )
+
+def _boussinesq_history_arrays(payload: Mapping[str, Any]) -> dict[str, np.ndarray | None]:
+    """Read every named history / budget-total array from the Boussinesq payload."""
+    return {
+        "recharge_history": _history_matrix(payload, "recharge_rate_history_m_s"),
+        "well_history": _history_matrix(payload, "well_flux_history_m3_s"),
+        "drainage_history": _history_matrix(payload, "drainage_flux_history_m3_s"),
+        "surface_history": _history_matrix(payload, "saturation_excess_history_m_s"),
+        "dry_deficit_history": _history_matrix(payload, "dry_deficit_history_m_s"),
+        "prescribed_head_history": _history_matrix(payload, "prescribed_head_flux_history_m3_s"),
+        "head_history": _history_matrix(payload, "head_history_m"),
+        "saturated_thickness_history": _history_matrix(payload, "saturated_thickness_history_m"),
+        "residual_history": _history_matrix(payload, "residual_history_m3_s"),
+        "budget_recharge_total": _budget_field_total_series(payload, "budget_recharge_m3_s"),
+        "budget_well_total": _budget_field_total_series(payload, "budget_well_m3_s"),
+        "budget_drainage_total": _budget_field_total_series(payload, "budget_drainage_m3_s"),
+        "budget_surface_excess_total": _budget_field_total_series(
+            payload, "budget_surface_excess_m3_s"
+        ),
+    }
+
+
+def _boussinesq_component_series(
+    payload: Mapping[str, Any],
+    arrays: Mapping[str, np.ndarray | None],
+    *,
+    run_folder: Path,
+    config_path: Path | None,
+) -> tuple[int, np.ndarray, np.ndarray, dict[str, np.ndarray]]:
+    """Build every budget component series (m3/s) for one Boussinesq run.
+
+    Returns ``(n_snapshots, elapsed_seconds, period_lengths,
+    component_series)``. ``n_snapshots`` is 0 when no history array carries
+    any snapshot, in which case the other values are empty.
+    """
+    recharge_history = arrays["recharge_history"]
+    well_history = arrays["well_history"]
+    drainage_history = arrays["drainage_history"]
+    surface_history = arrays["surface_history"]
+    dry_deficit_history = arrays["dry_deficit_history"]
+    prescribed_head_history = arrays["prescribed_head_history"]
+    head_history = arrays["head_history"]
+    saturated_thickness_history = arrays["saturated_thickness_history"]
+    residual_history = arrays["residual_history"]
+    budget_recharge_total = arrays["budget_recharge_total"]
+    budget_well_total = arrays["budget_well_total"]
+    budget_drainage_total = arrays["budget_drainage_total"]
+    budget_surface_excess_total = arrays["budget_surface_excess_total"]
 
     n_snapshots = max(
         (
@@ -429,7 +456,7 @@ def _load_boussinesq_budget_rows(
         default=0,
     )
     if n_snapshots <= 0:
-        return []
+        return 0, np.asarray([], dtype=float), np.asarray([], dtype=float), {}
 
     area_m2: np.ndarray | None = None
     storage_coefficient: np.ndarray | None = None
@@ -596,6 +623,19 @@ def _load_boussinesq_budget_rows(
                 0.0,
             )
 
+    return n_snapshots, elapsed_seconds, period_lengths, component_series
+
+
+def _boussinesq_rows_from_component_series(
+    component_series: Mapping[str, np.ndarray],
+    *,
+    summary: Mapping[str, Any],
+    n_snapshots: int,
+    elapsed_seconds: np.ndarray,
+    period_lengths: np.ndarray,
+    source_label: str,
+) -> list[dict[str, Any]]:
+    """Flatten every component series into one row per (component, time_index)."""
     time_labels = [
         (f"{elapsed / 86400.0:.1f} d" if math.isfinite(float(elapsed)) else str(index))
         for index, elapsed in enumerate(elapsed_seconds.tolist())
@@ -638,6 +678,40 @@ def _load_boussinesq_budget_rows(
                 }
             )
     return rows
+
+
+def _load_boussinesq_budget_rows(
+    summary: Mapping[str, Any],
+    store: SimulationCatalog | None = None,
+    sim_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Load one row per (budget component, time step) for a Boussinesq run."""
+    run_folder = Path(str(summary.get("run_folder", "")))
+    config_path_raw = summary.get("config_path")
+    config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+
+    payload, source_label = _load_boussinesq_payload(summary, store, sim_id, run_folder)
+    if payload is None:
+        return []
+
+    arrays = _boussinesq_history_arrays(payload)
+    n_snapshots, elapsed_seconds, period_lengths, component_series = _boussinesq_component_series(
+        payload,
+        arrays,
+        run_folder=run_folder,
+        config_path=config_path,
+    )
+    if n_snapshots <= 0:
+        return []
+
+    return _boussinesq_rows_from_component_series(
+        component_series,
+        summary=summary,
+        n_snapshots=n_snapshots,
+        elapsed_seconds=elapsed_seconds,
+        period_lengths=period_lengths,
+        source_label=source_label,
+    )
 
 
 def _mf_budget_component_name(component: str) -> str:

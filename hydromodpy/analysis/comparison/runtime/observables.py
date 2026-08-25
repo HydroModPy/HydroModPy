@@ -237,30 +237,38 @@ def normalize_observable_value(
     }
 
 
-def _select_time_slices(
+def _select_time_slices_by_window(
     series: VariableSeries,
-    observable: ComparisonObservable,
+    *,
+    start: Any,
+    end: Any,
 ) -> tuple[TimeSlice, ...]:
-    """Select time slices requested by one observable."""
-    if observable.time_window is not None:
-        start, end = observable.time_window
-        if isinstance(start, numbers.Real) and isinstance(end, numbers.Real):
-            selected = [
-                item
-                for item in series.slices
-                if item.elapsed_seconds is not None
-                and float(start) <= float(item.elapsed_seconds) <= float(end)
-            ]
-        else:
-            selected = [
-                item for item in series.slices if str(start) <= str(item.time_key) <= str(end)
-            ]
-        return tuple(selected or series.slices)
+    """Select slices whose elapsed time or time_key falls in ``[start, end]``."""
+    if isinstance(start, numbers.Real) and isinstance(end, numbers.Real):
+        selected = [
+            item
+            for item in series.slices
+            if item.elapsed_seconds is not None
+            and float(start) <= float(item.elapsed_seconds) <= float(end)
+        ]
+    else:
+        selected = [
+            item for item in series.slices if str(start) <= str(item.time_key) <= str(end)
+        ]
+    return tuple(selected or series.slices)
 
-    time_selector = observable.time
-    if time_selector is None or str(time_selector).strip().lower() == "all":
-        return series.slices
-    selector_text = str(time_selector).strip().lower()
+
+def _select_time_slices_by_named_selector(
+    series: VariableSeries,
+    *,
+    selector_text: str,
+    time_selector: Any,
+) -> tuple[TimeSlice, ...] | None:
+    """Select a slice for a named selector (initial-state, first, last...).
+
+    Returns ``None`` when ``selector_text`` is not one of the recognised
+    named selectors, so the caller can fall back to index/key matching.
+    """
     if selector_text in _INITIAL_STATE_SELECTORS:
         for item in series.slices:
             if item.is_initial_state:
@@ -281,6 +289,30 @@ def _select_time_slices(
         return (series.slices[-1],)
     if selector_text == "first":
         return (series.slices[0],)
+    return None
+
+
+def _select_time_slices(
+    series: VariableSeries,
+    observable: ComparisonObservable,
+) -> tuple[TimeSlice, ...]:
+    """Select time slices requested by one observable."""
+    if observable.time_window is not None:
+        start, end = observable.time_window
+        return _select_time_slices_by_window(series, start=start, end=end)
+
+    time_selector = observable.time
+    if time_selector is None or str(time_selector).strip().lower() == "all":
+        return series.slices
+    selector_text = str(time_selector).strip().lower()
+
+    named_result = _select_time_slices_by_named_selector(
+        series,
+        selector_text=selector_text,
+        time_selector=time_selector,
+    )
+    if named_result is not None:
+        return named_result
 
     if isinstance(time_selector, numbers.Integral):
         index = int(time_selector)

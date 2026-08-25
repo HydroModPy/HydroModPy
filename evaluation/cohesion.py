@@ -15,6 +15,7 @@ if str(REPO_ROOT) not in sys.path:
 
 
 from evaluation._utils import (
+    classify_class,
     is_public_module_path,
     iter_python_files,
     module_name_from_path,
@@ -31,23 +32,27 @@ class ClassCohesion:
     methods: set[str] = field(default_factory=set)
     attributes_by_method: dict[str, set[str]] = field(default_factory=dict)
     declared_fields: set[str] = field(default_factory=set)
+    kind: str = "business-logic"
 
     def lcom(self) -> float | None:
         """
         Simple LCOM calculation:
         0 = high cohesion
         1 = low cohesion
-        None = not applicable (fewer than 2 methods to compare, e.g. a
-        Pydantic/dataclass-style class whose fields are declared at class
-        level instead of assigned in methods)
+        None = not applicable. LCOM only means something for a class whose
+        methods are expected to collaborate through shared instance state
+        ("business-logic"); a dataclass/model/protocol/mixin/facade is
+        allowed to bundle independent members by construction, and a class
+        with fewer than 2 methods has nothing to compare pairwise.
         """
+
+        if self.kind != "business-logic":
+            return None
 
         methods = list(self.attributes_by_method)
 
         if len(methods) < 2:
-            if self.declared_fields:
-                return None
-            return 0.0
+            return None
 
         disjoint = 0
         shared = 0
@@ -88,7 +93,8 @@ class CohesionVisitor(ast.NodeVisitor):
 
         class_info = ClassCohesion(
             name=node.name,
-            module=self.module
+            module=self.module,
+            kind=classify_class(node),
         )
 
         self.current_class = class_info
@@ -200,6 +206,7 @@ def compute_cohesion(root: Path) -> dict[str, Any]:
                     {
                         "class": class_info.name,
                         "module": class_info.module,
+                        "kind": class_info.kind,
                         "methods": sorted(class_info.methods),
                         "declared_fields": sorted(class_info.declared_fields),
                         "lcom": class_info.lcom(),

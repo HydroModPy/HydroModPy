@@ -1,0 +1,6 @@
+projectKey=hackathon
+serverUrl=http://localhost:9000
+serverVersion=26.7.0.124771
+dashboardUrl=http://localhost:9000/dashboard?id=hackathon
+ceTaskId=cc532898-1577-4a60-a667-d04165b20d09
+ceTaskUrl=http://localhost:9000/api/ce/task?id=cc532898-1577-4a60-a667-d04165b20d09
