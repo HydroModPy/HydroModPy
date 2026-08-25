@@ -70,7 +70,6 @@ def test_rasterize_points_unstructured_centroids() -> None:
 
 
 def test_rasterize_field_rejects_zero_dimensions() -> None:
-    pytest.importorskip("datashader")
     import xarray as xr
 
     da = xr.DataArray(
@@ -83,7 +82,6 @@ def test_rasterize_field_rejects_zero_dimensions() -> None:
 
 
 def test_rasterize_field_rejects_unknown_agg() -> None:
-    pytest.importorskip("datashader")
     import xarray as xr
 
     da = xr.DataArray(

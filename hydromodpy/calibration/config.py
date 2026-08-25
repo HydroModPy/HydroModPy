@@ -55,11 +55,11 @@ from hydromodpy.core.units import Length
 
 SaveRunsMode = Literal["none", "best_n", "all"]
 ParameterMode = Literal["replace", "scale"]
-OutputSupport = Literal["point", "boundary", "cell"]
+OutputSupport = Literal["point", "boundary", "cell", "lake", "network"]
 OutputReducer = Literal["mean", "sum", "last", "none"]
 ObjectiveTransform = Literal["identity", "log", "inverse"]
 PersistIterationDetail = Literal["none", "summary", "full"]
-MetricKind = Literal["rmse", "nse", "kge", "mae"]
+MetricKind = Literal["rmse", "nse", "kge", "mae", "nse_log", "distance_gap", "distance_mean"]
 CalibrationMethod = NonEmptyStr
 OutputTime = Literal["all", "last", "first"] | list[str]
 
@@ -244,8 +244,153 @@ class CalibOutputCell(HydroModelBase):
         return self
 
 
+class CalibOutputLake(HydroModelBase):
+    """Observable extracted from a MODFLOW 6 LAK lake state.
+
+    Use this variant to score a lake water level, stored volume or free surface
+    inside a composite objective. ``lake_id`` matches the lake declared under
+    ``flow.sinks_sources.lakes.<lake_id>``.
+
+    For calibration against a real observed chronicle, prefer the top-level
+    ``variable = "lake_level"`` path: it loads the ``lake_levels`` data family
+    and time-aligns the simulated stage to the observations. This output
+    variant scores positionally against ``observed_values``, like the other
+    composite outputs.
+    """
+
+    variable: Annotated[Literal["stage", "volume", "surface_area"], Profile.USER] = Field(
+        default="stage",
+        description=(
+            "Simulated lake quantity: 'stage' (water level, m), 'volume' (m3) or "
+            "'surface_area' (m2). All three are LAK observation states, read in native "
+            "units and never time-scaled."
+        ),
+    )
+    support: Annotated[Literal["lake"], Profile.USER] = Field(
+        default="lake",
+        description="Discriminator tag. 'lake' reads a LAK lake stage by lake_id.",
+    )
+    lake_id: Annotated[str, Profile.USER] = Field(
+        description="Lake identifier, matching flow.sinks_sources.lakes.<lake_id>.",
+    )
+    time: Annotated[OutputTime, Profile.USER] = Field(
+        default="all",
+        description="'all' keeps every time step; 'last' / 'first' selects one; "
+        "a list of ISO timestamps selects specific steps.",
+    )
+    reducer: Annotated[OutputReducer, Profile.USER] = Field(
+        default="none",
+        description="Aggregation over the retained time slice.",
+    )
+    observed_values: Annotated[list[float] | None, Profile.USER] = Field(
+        default=None,
+        description="Hard-coded observed values (used by twin-synthetic cases).",
+    )
+
+
+class CalibOutputNetwork(HydroModelBase):
+    """The mapped stream network as a calibration target.
+
+    The model is compared to a hydrographic network rather than to a gauge:
+    for every cell where it releases water to the surface, the descent to the
+    mapped network is measured, and reciprocally. The output produces the pair
+    ``(D_so, D_os)``; the metric on top of it is ``distance_gap``, their signed
+    difference in absolute value, whose zero is the balance between an excess
+    of simulated stream and a missing one.
+
+    ``observed_values`` is not asked of the user and defaults to a pair of
+    zeros: the criterion balances two simulated quantities against each other,
+    so there is no observed vector to fit. The mapped network enters through
+    ``stream_geometry_path``, as a geometry, not as a series.
+    """
+
+    variable: Annotated[str, Profile.USER] = Field(
+        default="release_flux",
+        description="Per-cell observable read from the solver, in m3/s, positive "
+        "when the aquifer feeds the surface.",
+    )
+    support: Annotated[Literal["network"], Profile.USER] = Field(
+        default="network",
+        description="Discriminator: compare a simulated stream network to a mapped one.",
+    )
+    stream_geometry_path: Annotated[str, Profile.USER] = Field(
+        description="Vector file holding the mapped stream network. Required, and "
+        "read only from here: the criterion resolves no geometry of its own and "
+        "does not reuse the one the hydrography data family loaded.",
+    )
+    tau_specific_ratio: Annotated[float, Profile.USER] = Field(
+        default=1.0e-4,
+        ge=0.0,
+        description="A cell releasing less than this fraction of its own recharge is "
+        "not a seepage face. Zero reproduces the purely geometric criterion of the "
+        "paper. Frozen over the whole search: a threshold moving with the trial would "
+        "cost the criterion its monotonicity.",
+    )
+    weighting: Annotated[Literal["cell", "area"], Profile.USER] = Field(
+        default="cell",
+        description="Average one cell one vote (the paper) or weighted by cell area. "
+        "Both values are always reported; use 'area' on a mesh refined along the "
+        "streams, where cell density is highest exactly where distances are smallest.",
+    )
+    diagonal_neighbors: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="Route over shared nodes rather than shared edges, which recovers "
+        "the diagonal descents of a D8 grid. Only meaningful on a structured quad mesh.",
+    )
+    observed_position_accuracy: Annotated[Length | None, Profile.USER] = Field(
+        default=None,
+        description="Positional accuracy of the mapped network. The validity ratio is "
+        "normalised by max(cell size, this), because the error floor is set by the "
+        "network's own precision and not by the model resolution. Unset is the "
+        "literal reading of the paper.",
+    )
+    roptim_max: Annotated[PositiveFloat, Profile.USER] = Field(
+        default=2.0,
+        description="Validity bound of Eq. 4. It qualifies the result and never "
+        "penalises the cost: a bad ratio says the agreement is coarse, not that the "
+        "calibrated value should be discarded.",
+    )
+    on_roptim_violation: Annotated[Literal["warn", "error"], Profile.USER] = Field(
+        default="warn",
+        description="What a violation of the validity bound does. Default warns and "
+        "returns the value, because a calibration is asked for a number.",
+    )
+    max_unreachable_fraction: Annotated[float, Profile.USER] = Field(
+        default=0.05,
+        ge=0.0,
+        le=1.0,
+        description="Bound on 'frac_unreachable_so' alone: the share of the simulated "
+        "network whose descent never meets the mapped one, whose target does not move "
+        "between trials. Beyond a few per cent the routing surface is not conditioned "
+        "and D_so would be a fiction. The reciprocal share, 'frac_unreachable_os', is "
+        "reported and deliberately left unbounded: its target is the simulated network, "
+        "which the search itself retracts.",
+    )
+    time: Annotated[OutputTime, Profile.USER] = Field(
+        default="last",
+        description="Which timesteps the release flux is read at. Phase one runs a "
+        "single steady period, so 'last' is the whole run.",
+    )
+    observed_values: Annotated[list[float] | None, Profile.USER] = Field(
+        default=None,
+        description="Structurally absent: the criterion balances two simulated "
+        "quantities. Defaults to a pair of zeros so a block can be declared on it.",
+    )
+
+    @model_validator(mode="after")
+    def _default_observed_pair(self) -> CalibOutputNetwork:
+        if self.observed_values is None:
+            self.observed_values = [0.0, 0.0]
+        elif len(self.observed_values) != 2:
+            raise ValueError(
+                "a network output produces the pair (D_so, D_os); observed_values must "
+                f"hold two entries, got {len(self.observed_values)}."
+            )
+        return self
+
+
 CalibOutputDecl: TypeAlias = Annotated[
-    CalibOutputPoint | CalibOutputBoundary | CalibOutputCell,
+    CalibOutputPoint | CalibOutputBoundary | CalibOutputCell | CalibOutputLake | CalibOutputNetwork,
     Field(
         discriminator="support",
         description="Discriminated union of calibration output variants selected by 'support'.",
@@ -257,9 +402,63 @@ CalibOutputDecl: TypeAlias = Annotated[
 _CALIB_OUTPUT_ADAPTER: TypeAdapter[CalibOutputDecl] = TypeAdapter(CalibOutputDecl)
 
 
-def validate_calib_output(payload: Any) -> CalibOutputPoint | CalibOutputBoundary | CalibOutputCell:
+def validate_calib_output(
+    payload: Any,
+) -> (
+    CalibOutputPoint | CalibOutputBoundary | CalibOutputCell | CalibOutputLake | CalibOutputNetwork
+):
     """Validate one output mapping and return the concrete variant instance."""
     return _CALIB_OUTPUT_ADAPTER.validate_python(payload)
+
+
+class CalibScoringWindow(HydroModelBase):
+    """Dates bounding the samples a metric is computed on.
+
+    A window in dates rather than in sample counts: it says the same thing
+    whatever the output frequency, whereas ``warmup_periods`` counts samples
+    after alignment and therefore means a different span at daily and at weekly
+    resolution. The two are mutually exclusive, which
+    :class:`CalibrationConfig` enforces.
+    """
+
+    start: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="First date scored, ISO 8601. Unset means from the first sample.",
+    )
+    end: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Last date scored, ISO 8601. Unset means up to the last sample.",
+    )
+
+    @model_validator(mode="after")
+    def _check_bounds(self) -> CalibScoringWindow:
+        bounds = _parsed_scoring_bounds(self)
+        if bounds[0] is not None and bounds[1] is not None and bounds[0] > bounds[1]:
+            raise ValueError(f"scoring_window start {self.start!r} is after end {self.end!r}.")
+        return self
+
+
+def _parsed_scoring_bounds(window: CalibScoringWindow) -> tuple[Any, Any]:
+    """Parse the window bounds into timestamps, raising on a bad date."""
+    import pandas as pd
+
+    parsed = []
+    for label, raw in (("start", window.start), ("end", window.end)):
+        if raw is None:
+            parsed.append(None)
+            continue
+        try:
+            parsed.append(pd.Timestamp(raw))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"scoring_window {label}={raw!r} is not a date.") from exc
+    return parsed[0], parsed[1]
+
+
+def scoring_window_bounds(window: CalibScoringWindow | None) -> tuple[Any, Any] | None:
+    """Return the parsed ``(start, end)`` of a window, or None when unset."""
+    if window is None:
+        return None
+    return _parsed_scoring_bounds(window)
 
 
 class CalibObjectiveBlockDecl(HydroModelBase):
@@ -276,7 +475,7 @@ class CalibObjectiveBlockDecl(HydroModelBase):
     )
     metric: Annotated[MetricKind, Profile.USER] = Field(
         default="rmse",
-        description="Metric key. One of rmse, nse, kge, mae.",
+        description="Metric key. One of rmse, nse, kge, mae, nse_log.",
     )
     weight: Annotated[PositiveFloat, Profile.USER] = Field(
         default=1.0,
@@ -293,8 +492,126 @@ class CalibObjectiveBlockDecl(HydroModelBase):
     )
     transform: Annotated[ObjectiveTransform, Profile.USER] = Field(
         default="identity",
-        description="Per-block cost transform applied before weighting.",
+        description="Per-block cost transform applied before weighting. Note that "
+        "transform='log' takes the logarithm of the cost, which is not the same "
+        "thing as metric='nse_log', an NSE computed on log-transformed series.",
     )
+    warmup: Annotated[NonNegativeInt | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Burn-in periods dropped from this block only, overriding "
+            "[calibration].warmup_periods. Leave unset to inherit it; set it to 0 to "
+            "switch the burn-in off for this block."
+        ),
+    )
+
+
+class CalibPhaseDecl(HydroModelBase):
+    """One stage of a calibration that runs in several.
+
+    A phase selects, by name, from the parameters, outputs and objective blocks
+    the calibration already declares: nothing is redeclared, so the two stages
+    of a method cannot drift apart in a single file. What a phase carries of
+    its own is its search: a method, a budget, and which parameters it is
+    allowed to move.
+
+    ``freeze_on_success`` means the parameters this phase calibrated are held
+    fixed for the phases that depend on it. It reads "freeze if the phase
+    converged", never "freeze if the result is good": a validity indicator
+    qualifies a result, and a phase that returns a coarse agreement still
+    returns a number. The state of that indicator travels to the dependent
+    phase and into the report, so a value calibrated on top of a doubtful one
+    carries the mention all the way out.
+    """
+
+    name: Annotated[NonEmptyStr, Profile.USER] = Field(
+        description="Phase identifier, unique in the calibration and used in the "
+        "session directory and in the report.",
+    )
+    description: Annotated[str, Profile.USER] = Field(
+        default="",
+        description="What this phase calibrates and against what, in one sentence.",
+    )
+    method: Annotated[CalibrationMethod, Profile.USER] = Field(
+        default="grid",
+        description="Optimization method for this phase only.",
+    )
+    max_iter: Annotated[int, Profile.USER] = Field(
+        default=100,
+        ge=1,
+        description="Maximum number of evaluations for this phase.",
+    )
+    batch_size: Annotated[int, Profile.DEV] = Field(
+        default=1,
+        ge=1,
+        description="Suggestions drawn per ask. A root search returns one point at a "
+        "time during its refinement, whatever this asks for.",
+    )
+    parallel: Annotated[int, Profile.DEV] = Field(
+        default=1,
+        ge=1,
+        description="Trials evaluated concurrently inside one batch.",
+    )
+    parameters: Annotated[list[str], Profile.USER] = Field(
+        min_length=1,
+        description="Names of the calibration parameters this phase may move. Every "
+        "other parameter keeps the value it entered the phase with.",
+    )
+    outputs: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        description="Names of the calibration outputs this phase scores on. Empty "
+        "means every declared output.",
+    )
+    objective_blocks: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        description="Names of the objective blocks this phase evaluates. Empty means "
+        "every declared block.",
+    )
+    variable: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Single-metric variable, when this phase does not use blocks.",
+    )
+    objective: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Single-metric objective, when this phase does not use blocks.",
+    )
+    optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
+        default_factory=dict,
+        description="Extra keyword arguments forwarded to this phase's optimizer.",
+    )
+    overrides: Annotated[dict[str, Any], Profile.USER] = Field(
+        default_factory=dict,
+        description="Configuration values this phase runs with, as dotted paths into "
+        "the project configuration. The two stages of a stream-network calibration "
+        "are one steady and one transient, which is a property of the model and not "
+        "of the search, so a phase has to be able to say it.",
+    )
+    scoring_window: Annotated[CalibScoringWindow | None, Profile.USER] = Field(
+        default=None,
+        description="Dates bounding the samples this phase scores on.",
+    )
+    depends_on: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Name of the phase that must run first. Its frozen parameters "
+        "enter this one as fixed values.",
+    )
+    freeze_on_success: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Hold the parameters this phase calibrated fixed for the phases "
+        "that depend on it. Success means the phase converged, not that its validity "
+        "indicator is good.",
+    )
+
+    @property
+    def is_single_metric(self) -> bool:
+        """Whether this phase scores one variable rather than objective blocks.
+
+        Declaring ``variable`` or ``objective`` picks the single-metric route.
+        The phase then ignores the outputs and the blocks the calibration
+        declares for the other phases, which would otherwise take precedence
+        and score it on a criterion it never asked for.
+        """
+        return self.variable is not None or self.objective is not None
 
 
 class CalibrationConfig(HydroModelBase):
@@ -332,6 +649,36 @@ class CalibrationConfig(HydroModelBase):
         description=(
             "Number of trials evaluated concurrently inside one batch via a "
             "thread pool. parallel=1 keeps the legacy sequential loop."
+        ),
+    )
+    warmup_periods: Annotated[int, Profile.USER] = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Spin-up (burn-in) periods excluded from every objective block. The first "
+            "warmup_periods of each observed/simulated series are dropped before the "
+            "metric, so the window where the state still depends on the initial condition "
+            "does not bias the calibration. Default 0 (no exclusion). Size it by "
+            "increasing it until the objective stops changing (initial-condition "
+            "insensitivity), not a fixed guess."
+        ),
+    )
+    scoring_window: Annotated[CalibScoringWindow | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Dates bounding the samples every metric is computed on. Mutually "
+            "exclusive with warmup_periods, which counts samples instead of dates."
+        ),
+    )
+    phases: Annotated[list[CalibPhaseDecl] | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Stages run one after the other, each calibrating its own parameters and "
+            "freezing them for the next. Declaring this table is what switches the "
+            "runner to staged mode; without it nothing changes for an existing "
+            "configuration. The default is None and not an empty list on purpose: the "
+            "resume lock hashes the configuration with exclude_none, so an absent "
+            "table leaves that hash untouched and checkpoints stay resumable."
         ),
     )
     seed: Annotated[int | None, Profile.USER] = Field(
@@ -424,8 +771,8 @@ class CalibrationConfig(HydroModelBase):
         failure happens at config-load time instead of inside the adapter
         constructor.
         """
-        from hydromodpy.calibration.method_config import validate_method_kwargs
-        from hydromodpy.calibration.optimizer import available_optimizers
+        from hydromodpy.calibration.optim.method_config import validate_method_kwargs
+        from hydromodpy.calibration.optim.optimizer import available_optimizers
 
         available = available_optimizers()
         if self.method not in available:
@@ -447,6 +794,111 @@ class CalibrationConfig(HydroModelBase):
         return PurePosixPath(str(value).replace("\\", "/"))
 
     @model_validator(mode="after")
+    def _check_phases(self) -> CalibrationConfig:
+        """Refuse a phase table that cannot run, before the first solve."""
+        phases = self.phases or []
+        if not phases:
+            return self
+
+        seen: list[str] = []
+        for phase in phases:
+            if phase.name in seen:
+                raise ValueError(f"phase {phase.name!r} is declared twice.")
+            seen.append(phase.name)
+
+        declared_parameters = set(self.parameters)
+        declared_outputs = set(self.outputs)
+        declared_blocks = {block.name for block in self.objective_blocks}
+        frozen_by: dict[str, str] = {}
+
+        for index, phase in enumerate(phases):
+            unknown = sorted(set(phase.parameters) - declared_parameters)
+            if unknown:
+                raise ValueError(
+                    f"phase {phase.name!r} calibrates undeclared parameter(s) {unknown}; "
+                    f"declared: {sorted(declared_parameters)}."
+                )
+            for parameter in phase.parameters:
+                path = self.parameters[parameter].resolve_target()
+                if not path:
+                    raise ValueError(
+                        f"phase {phase.name!r} calibrates {parameter!r}, which declares "
+                        "no path into the configuration, so nothing would be injected."
+                    )
+                if phase.freeze_on_success:
+                    owner = frozen_by.get(path)
+                    if owner is not None:
+                        raise ValueError(
+                            f"phases {owner!r} and {phase.name!r} both freeze {path!r}; "
+                            "the second would overwrite what the first calibrated."
+                        )
+                    frozen_by[path] = phase.name
+
+            unknown_outputs = sorted(set(phase.outputs) - declared_outputs)
+            if unknown_outputs:
+                raise ValueError(
+                    f"phase {phase.name!r} scores on undeclared output(s) {unknown_outputs}."
+                )
+            unknown_blocks = sorted(set(phase.objective_blocks) - declared_blocks)
+            if unknown_blocks:
+                raise ValueError(
+                    f"phase {phase.name!r} uses undeclared objective block(s) {unknown_blocks}."
+                )
+
+            if phase.depends_on is not None:
+                if phase.depends_on not in seen[:index]:
+                    raise ValueError(
+                        f"phase {phase.name!r} depends on {phase.depends_on!r}, which is "
+                        "not declared before it."
+                    )
+            if phase.scoring_window is not None and self.warmup_periods:
+                raise ValueError(
+                    f"phase {phase.name!r} declares a scoring_window while the "
+                    "calibration declares warmup_periods; pick one convention."
+                )
+            for path in phase.overrides:
+                if not path or path.startswith(".") or path.endswith("."):
+                    raise ValueError(
+                        f"phase {phase.name!r} overrides {path!r}, which is not a "
+                        "dotted path into the configuration."
+                    )
+                if path.startswith("calibration."):
+                    raise ValueError(
+                        f"phase {phase.name!r} overrides {path!r}: a phase declares its "
+                        "own search through its own fields, not by rewriting the "
+                        "calibration section under itself."
+                    )
+                owner = frozen_by.get(path)
+                if owner is not None:
+                    raise ValueError(
+                        f"phase {phase.name!r} overrides {path!r}, which phase {owner!r} "
+                        "freezes; the calibrated value would be overwritten and nothing "
+                        "downstream would say which one the model ran with."
+                    )
+            if phase.is_single_metric and (phase.outputs or phase.objective_blocks):
+                raise ValueError(
+                    f"phase {phase.name!r} declares a single-metric objective and also "
+                    "selects outputs or objective blocks; the two are scored by "
+                    "different routes and only one of them would run. Pick one "
+                    "convention."
+                )
+        return self
+
+    @model_validator(mode="after")
+    def _refuse_two_burn_in_conventions(self) -> CalibrationConfig:
+        """A window in dates and a count of samples must not both be declared.
+
+        They say the same thing in two units, and the count means a different
+        span at every output frequency, so honouring both would make the scored
+        span depend on which one the reader noticed.
+        """
+        if self.scoring_window is not None and self.warmup_periods:
+            raise ValueError(
+                "declare either scoring_window (dates) or warmup_periods (samples), not both."
+            )
+        return self
+
+    @model_validator(mode="after")
     def _ensure_implicit_objective_block(self) -> CalibrationConfig:
         """Build an implicit block from (objective, variable) when none is declared."""
         if not self.objective_blocks:
@@ -461,6 +913,41 @@ class CalibrationConfig(HydroModelBase):
                 uses_outputs=[variable],
             )
             self.objective_blocks = [implicit]
+        return self
+
+    @model_validator(mode="after")
+    def _check_network_criterion_is_paired(self) -> CalibrationConfig:
+        """A network output and a distance metric only make sense together.
+
+        Runs after the implicit block is built, so the ``(objective, variable)``
+        route counts as a declaration. An unpaired network output would fall
+        through to the single-metric head route, which reads none of the
+        network fields and still returns a plausible number.
+        """
+        network_outputs = {
+            name for name, output in self.outputs.items() if output.support == "network"
+        }
+        distance_metrics = ("distance_gap", "distance_mean")
+        scored: set[str] = set()
+        for block in self.objective_blocks:
+            if block.metric not in distance_metrics:
+                continue
+            without = sorted(set(block.uses_outputs) - network_outputs)
+            if without:
+                raise ValueError(
+                    f"block {block.name!r} scores {block.metric!r} on {without}, which "
+                    "is not a network output. That metric reads the pair (D_so, D_os) "
+                    "only a network output produces."
+                )
+            scored.update(block.uses_outputs)
+        unpaired = sorted(network_outputs - scored)
+        if unpaired:
+            raise ValueError(
+                f"the network output(s) {unpaired} produce the pair (D_so, D_os), which "
+                "only the metrics 'distance_gap' and 'distance_mean' can read; no block "
+                "declares either on them. Left unscored they are silently ignored and "
+                "the calibration falls back to its single metric."
+            )
         return self
 
     @model_validator(mode="after")
@@ -494,6 +981,9 @@ __all__ = [
     "CalibOutputPoint",
     "CalibOutputBoundary",
     "CalibOutputCell",
+    "CalibOutputLake",
+    "CalibOutputNetwork",
+    "CalibPhaseDecl",
     "CalibObjectiveBlockDecl",
     "SaveRunsMode",
     "ParameterMode",

@@ -40,7 +40,7 @@
       "case_setup": [
         "Launcher family: `data-overview`, so the workflow stops after setup, domain assembly, and data loading.",
         "Primary editable file: `examples/projects/04_data_overview/project.toml`.",
-        "Committed figures are mirrored under `examples/projects/09_capability_gallery/geographic/` so the doc build stays reproducible without a local `results_stable` checkout."
+        "Committed figures are mirrored under `examples/projects/09_capability_gallery/geographic/` so the doc build stays reproducible without a local run tree."
       ],
       "key_parameters": [
         "`[geographic] catch_def`, `x_outlet`, and `y_outlet` decide where the watershed is extracted from.",
@@ -200,7 +200,7 @@
       "case_setup": [
         "Launcher family: `data-overview`, so the workflow stops after geographic setup, data loading, and overview rendering.",
         "Primary editable file: `examples/projects/05_nancon_data_overview/config_overview.toml`.",
-        "The committed identity-card figures are mirrored under `examples/projects/09_capability_gallery/geographic/` so the gallery no longer depends on one local `results_stable` tree."
+        "The committed identity-card figures are mirrored under `examples/projects/09_capability_gallery/geographic/` so the gallery no longer depends on one local run tree."
       ],
       "key_parameters": [
         "`[data] types` drives the identity card more strongly here than the geographic section alone because it determines which observation families appear in the stats, inventory, climate, and map panels.",

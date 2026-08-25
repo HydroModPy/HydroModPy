@@ -258,7 +258,6 @@ def run_simulation_regression_boussinesq(
     # Resolve solver scratch for Boussinesq diagnostic files (.npz, .json).
     model_ws, _, _ = resolve_model_workspace(
         out_path,
-        results_folder_name="results_simulations",
         model_name=f"{process_id}__boussinesq",
     )
 

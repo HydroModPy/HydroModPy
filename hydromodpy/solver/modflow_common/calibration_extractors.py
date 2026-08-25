@@ -10,13 +10,18 @@ helpers are reused across the two backends.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import factor_to_seconds
+from hydromodpy.physics.flow.history_contract import saturated_thickness_from_head_history
+
+logger = get_logger(__name__)
 
 
 def _seconds_per_itmuni(itmuni: int) -> float:
@@ -92,6 +97,16 @@ def _read_itmuni_from_dis(dis_path: Path) -> int:
     return 1
 
 
+def _resolve_cbc_path(output_dir: Path, model_name: str) -> Path:
+    """Return the cell-by-cell budget written by either backend."""
+    cbc_path = output_dir / f"{model_name}.cbc"
+    if not cbc_path.exists():
+        cbc_path = output_dir / f"{model_name}.cbb"
+    if not cbc_path.exists():
+        raise FileNotFoundError(f"CBC file not found for model {model_name!r} in {output_dir}")
+    return cbc_path
+
+
 def extract_discharge_from_cbc(
     output_dir: Path,
     model_name: str,
@@ -99,20 +114,27 @@ def extract_discharge_from_cbc(
 ) -> pd.Series:
     """Sum the DRAIN budget component per timestep and return a m3/s series.
 
-    Raises when no CBC file is found or no DRAIN component is recorded.
+    Raises when no CBC file is found or no DRAIN component is recorded. Raises
+    ``NotImplementedError`` when the run routes drainage through MVR (a DRN-TO-MVR
+    record is present): the in-watershed drainage then leaves via SFR/LAK
+    ext-outflow, so the plain DRAIN record is only the buffer drainage and a
+    discharge objective would silently optimize against the wrong water.
+    Calibrate on ``lake_level`` (or disable route_drainage) in that case.
     """
     import flopy.utils.binaryfile as bf
 
-    cbc_path = output_dir / f"{model_name}.cbc"
-    if not cbc_path.exists():
-        cbc_path = output_dir / f"{model_name}.cbb"
-    if not cbc_path.exists():
-        raise FileNotFoundError(f"CBC file not found for model {model_name!r} in {output_dir}")
-
+    cbc_path = _resolve_cbc_path(output_dir, model_name)
     seconds_per_unit = _resolve_seconds_per_unit(output_dir, model_name)
 
     cbb = bf.CellBudgetFile(str(cbc_path))
     try:
+        record_names = [r.decode().strip().lower() for r in cbb.get_unique_record_names()]
+        if any("to-mvr" in name or "to_mvr" in name for name in record_names):
+            raise NotImplementedError(
+                "discharge calibration is not supported on a run that routes drainage "
+                "through MVR (DRN-TO-MVR present): the plain DRAIN record is only the "
+                "buffer drainage. Calibrate on 'lake_level', or disable route_drainage."
+            )
         drain_key = _find_drain_component(cbb)
 
         times = cbb.get_times()
@@ -149,115 +171,277 @@ def _find_drain_component(cbb: object) -> str:
     return drain_key
 
 
-def drain_budget_array_to_positive_outflow_by_cell(
-    component_field: object,
-    *,
-    n_cells: int | None = None,
-) -> np.ndarray:
-    """Convert one signed DRAIN budget array to positive per-cell outflow.
+@dataclass(frozen=True)
+class ReleasePackage:
+    """One MODFLOW package able to release groundwater to the surface.
 
-    MODFLOW budgets usually store groundwater release to drains as negative
-    fluxes. Some derived arrays are already positive; when no negative finite
-    value exists but positive finite values do, the helper keeps the positive
-    convention. If ``n_cells`` is provided, leading dimensions are summed as
-    layers/stress-period components for the same cell support.
+    ``record_aliases`` are the CBC record names the two backends write for that
+    package. ``cell_mask`` restricts it to the cells carrying the release role,
+    which is what separates a stream CHD from an ocean or a side CHD inside the
+    single CHD package MF6 writes.
+    """
+
+    name: str
+    record_aliases: tuple[str, ...]
+    cell_mask: np.ndarray | None = None
+
+
+def _normalize_record_name(record_name: str) -> str:
+    return " ".join(str(record_name).strip().upper().split())
+
+
+def _resolve_release_record(package: ReleasePackage, record_names: Sequence[str]) -> str:
+    """Return the CBC record of one package, padding included, or refuse by name.
+
+    An active package whose record is absent is a missing observation, not a
+    zero release: read as zero it would turn a seeping reach into dry land.
+
+    The padded name is returned as FloPy stores it because FloPy resolves a
+    record by substring: stripped, ``DRN`` also matches ``DRN-TO-MVR``, and the
+    two would read the same array.
+    """
+    aliases = {_normalize_record_name(alias) for alias in package.record_aliases}
+    for name in record_names:
+        if _normalize_record_name(name) in aliases:
+            return name
+    raise KeyError(
+        f"package {package.name} is active on this run but none of its budget records "
+        f"{sorted(aliases)} is in the CBC, whose records are "
+        f"{[_normalize_record_name(name) for name in record_names]}. "
+        "A missing record is a missing observation, not a zero release."
+    )
+
+
+def _positive_release_by_cell(component_field: object, *, n_cells: int | None) -> np.ndarray:
+    """Positive per-cell release read off one signed budget array.
+
+    MODFLOW signs a budget from the aquifer's point of view, so negative is
+    water leaving it. Water entering the aquifer (a losing reach, an
+    infiltrating boundary) releases nothing and clamps to zero. When
+    ``n_cells`` is given, the leading dimensions are summed as layers onto the
+    cell support.
     """
 
     field = np.asarray(component_field, dtype=float)
-    if field.size == 0:
-        return np.zeros(0, dtype="float64")
-    finite = np.isfinite(field)
-    signed = np.where(finite, field, 0.0)
+    signed = np.where(np.isfinite(field), field, 0.0)
     positive = np.maximum(-signed, 0.0)
-    if (
-        np.any(finite)
-        and not np.any(positive[finite] > 0.0)
-        and np.any(signed[finite] > 0.0)
-        and not np.any(signed[finite] < 0.0)
-    ):
-        positive = np.where(finite, signed, 0.0)
-
     if n_cells is None:
         return positive.reshape(-1).astype("float64", copy=False)
-
-    n_cells_int = int(n_cells)
-    if n_cells_int <= 0:
+    width = int(n_cells)
+    if width <= 0:
         raise ValueError("n_cells must be > 0 when provided.")
-    if positive.size % n_cells_int != 0:
+    if positive.size % width != 0:
         raise ValueError(
-            "DRAIN budget array size must be a multiple of n_cells "
-            f"({positive.size} % {n_cells_int} != 0)."
+            "release budget array size must be a multiple of n_cells "
+            f"({positive.size} % {width} != 0)."
         )
-    return positive.reshape(-1, n_cells_int).sum(axis=0).astype("float64", copy=False)
+    return positive.reshape(-1, width).sum(axis=0).astype("float64", copy=False)
 
 
-def extract_drain_outflow_by_cell_from_cbc(
+#: Budget records that can carry groundwater OUT of the aquifer to the surface.
+#: The guard below reads them off the file, so a package the model object does
+#: not expose still gets caught.
+_SURFACE_RELEASE_RECORDS: frozenset[str] = frozenset(
+    {
+        "DRN",
+        "DRAIN",
+        "DRAINS",
+        "DRN-TO-MVR",
+        "SFR",
+        "STREAM",
+        "STREAMFLOW-ROUTING",
+        "SFR-GWF",
+        "CHD",
+        "CONSTANT HEAD",
+        "LAK",
+        "LAKE",
+        "LAK-GWF",
+        "UZF",
+        "RIV",
+        "RIVER",
+    }
+)
+
+
+#: Package budgets MODFLOW 6 can write to their OWN file beside the model one,
+#: mapped to the record the package writes into the model budget. The two are
+#: independent options, so a sibling file is a hint that a package exists, never
+#: proof that the model budget is silent about it.
+_SIBLING_BUDGETS: dict[str, str] = {
+    ".sfr.cbc": "SFR",
+    ".lak.cbc": "LAK",
+    ".uzf.cbc": "UZF",
+    ".maw.cbc": "MAW",
+}
+
+
+def _refuse_sibling_budgets_the_union_cannot_read(
+    cbc_path: Path,
+    packages: Sequence[ReleasePackage],
+    record_names: Sequence[str],
+) -> None:
+    """Refuse when a package wrote its exchange only to its own file.
+
+    ``budget_filerecord`` and ``save_flows`` are independent MODFLOW 6 options.
+    A package given both writes its per-reach budget to ``<stem>.<pkg>.cbc``
+    AND its per-cell exchange to the model budget, and the SFR and LAK builders
+    here set both. Measured on a MODFLOW 6 run of the production SFR builder:
+    the model budget holds an ``SFR`` record per aquifer cell, and
+    ``<stem>.sfr.cbc`` holds a ``GWF`` record per reach carrying the same flux
+    with the opposite sign. The union reads the model record, so reading the
+    sibling as well would count that water twice.
+
+    So a sibling file alone proves nothing. What the union really cannot see is
+    a package whose record is absent from the model budget, and that is the only
+    case refused here; a record present but unread belongs to
+    :func:`_refuse_records_the_union_misses`, which reads the requirement off
+    the file.
+    """
+    declared = {package.name.upper() for package in packages}
+    present = {_normalize_record_name(name) for name in record_names}
+    stem = Path(cbc_path).with_suffix("")
+    for suffix, name in _SIBLING_BUDGETS.items():
+        sibling = Path(str(stem) + suffix)
+        if not sibling.exists() or name in declared or name in present:
+            continue
+        raise KeyError(
+            f"{sibling.name} sits beside the model budget and the model budget holds no "
+            f"{name} record: the {name} package wrote its exchange to its own file alone, "
+            f"and this union reads {sorted(declared) or 'nothing'}. Water leaving the "
+            f"aquifer through {name} would be reported as dry land, exactly where that "
+            "package drains, which is where a stream-network criterion aims."
+        )
+
+
+def _refuse_records_the_union_misses(
+    packages: Sequence[ReleasePackage],
+    record_names: Sequence[str],
+    *,
+    excluded_records: Mapping[str, str] | None = None,
+) -> None:
+    """Refuse when the budget holds a release record no declared package reads.
+
+    The declaration comes from the model object; the water comes from the file.
+    A run can therefore carry a release record no package in the union reads,
+    and read as dry land exactly where that package drains. Measured on a
+    MODFLOW 6 run with a lake: the model budget holds a ``LAK`` record and
+    ``release_packages_for_model`` declares none, so the union would have
+    counted the aquifer loss to the lake as zero.
+
+    Reading the requirement off the FILE instead of the model catches that, and
+    catches the next package the same way without naming it in advance.
+
+    ``excluded_records`` are the records the model LOOKED AT and ruled out, each
+    with the reason it gave. They are subtracted from the requirement and logged,
+    because a run whose only constant head is a lateral boundary is a normal run
+    and refusing it would be refusing the common case.
+    """
+    declared = {
+        _normalize_record_name(alias) for package in packages for alias in package.record_aliases
+    }
+    ruled_out = {
+        _normalize_record_name(name): reason for name, reason in (excluded_records or {}).items()
+    }
+    present = {_normalize_record_name(name) for name in record_names}
+    for name in sorted(present & set(ruled_out)):
+        logger.info(
+            "release_flux leaves the %s record out of the union: %s.", name, ruled_out[name]
+        )
+    missed = sorted((present & _SURFACE_RELEASE_RECORDS) - declared - set(ruled_out))
+    if not missed:
+        return
+    raise KeyError(
+        f"the budget holds the release record(s) {missed} that no declared package reads "
+        f"and none of which the model ruled out: the union covers {sorted(declared)} and "
+        f"excludes {sorted(ruled_out) or 'nothing'}. Water leaving the aquifer through them "
+        "would be reported as dry land, so the seepage network would be missing exactly "
+        "where that package drains."
+    )
+
+
+def extract_release_flux_by_cell_from_cbc(
     output_dir: Path,
     model_name: str,
     *,
+    packages: Sequence[ReleasePackage],
+    excluded_records: Mapping[str, str] | None = None,
     time_index: pd.DatetimeIndex | None = None,
     n_cells: int | None = None,
 ) -> pd.DataFrame:
-    """Return positive DRAIN outflow by timestep and cell in m3/s.
+    """Return positive per-cell release to the surface, by timestep, in m3/s.
+
+    The release is the union of the declared packages: DRN where the hillslope
+    seeps, SFR where a reach drains the aquifer, CHD where a stream boundary
+    holds the head. They are summed onto the same cell index, so a cell served
+    by two packages carries their total once.
 
     The returned frame has one row per CBC timestep and integer cell columns.
-    For single-layer B0 runs, ``n_cells`` can be omitted because the full DRAIN
-    array is already the cell support. For multi-layer outputs, pass
-    ``n_cells`` so layers are summed onto the cell index.
+    For single-layer runs ``n_cells`` can be omitted; pass it for multi-layer
+    outputs so the layers are summed onto the cell index.
     """
 
     import flopy.utils.binaryfile as bf
 
-    cbc_path = output_dir / f"{model_name}.cbc"
-    if not cbc_path.exists():
-        cbc_path = output_dir / f"{model_name}.cbb"
-    if not cbc_path.exists():
-        raise FileNotFoundError(f"CBC file not found for model {model_name!r} in {output_dir}")
+    if not packages:
+        raise ValueError("extract_release_flux_by_cell_from_cbc needs at least one package.")
 
+    cbc_path = _resolve_cbc_path(output_dir, model_name)
     seconds_per_unit = _resolve_seconds_per_unit(output_dir, model_name)
 
     cbb = bf.CellBudgetFile(str(cbc_path))
     try:
-        drain_key = _find_drain_component(cbb)
+        record_names = [r.decode() for r in cbb.get_unique_record_names()]
+        _refuse_sibling_budgets_the_union_cannot_read(cbc_path, packages, record_names)
+        _refuse_records_the_union_misses(packages, record_names, excluded_records=excluded_records)
+        keyed = [(package, _resolve_release_record(package, record_names)) for package in packages]
         times = cbb.get_times()
         kstpkpers = cbb.get_kstpkper()
+        width = int(n_cells) if n_cells is not None else None
         rows: list[np.ndarray | None] = []
-        detected_n_cells = int(n_cells) if n_cells is not None else None
 
         for time, ksk in zip(times, kstpkpers, strict=False):
-            try:
-                data = cbb.get_data(text=drain_key, kstpkper=ksk, totim=time, full3D=True)
-            except Exception:
-                data = None
-            if not data:
-                rows.append(None)
-                continue
-            vec = drain_budget_array_to_positive_outflow_by_cell(
-                data[0],
-                n_cells=detected_n_cells,
-            )
-            if detected_n_cells is None:
-                detected_n_cells = int(vec.size)
-            elif vec.size != detected_n_cells:
-                raise ValueError(
-                    "DRAIN per-cell vector length changed across timesteps "
-                    f"({vec.size} != {detected_n_cells})."
-                )
-            rows.append(vec / seconds_per_unit)
+            total: np.ndarray | None = None
+            for package, key in keyed:
+                # A package can hold no row at a given timestep; that step is a
+                # real zero for it, unlike a record missing from the whole file.
+                try:
+                    data = cbb.get_data(text=key, kstpkper=ksk, totim=time, full3D=True)
+                except Exception:
+                    data = None
+                if not data:
+                    continue
+                vec = _positive_release_by_cell(data[0], n_cells=width)
+                if width is None:
+                    width = int(vec.size)
+                elif vec.size != width:
+                    raise ValueError(
+                        f"{package.name} per-cell vector length changed across timesteps "
+                        f"({vec.size} != {width})."
+                    )
+                if package.cell_mask is not None:
+                    mask = np.asarray(package.cell_mask, dtype=bool).reshape(-1)
+                    if mask.size != vec.size:
+                        raise ValueError(
+                            f"{package.name} cell mask holds {mask.size} cells where the "
+                            f"budget holds {vec.size}."
+                        )
+                    vec = np.where(mask, vec, 0.0)
+                total = vec if total is None else total + vec
+            rows.append(total)
     finally:
         cbb.close()
 
-    if detected_n_cells is None:
-        raise KeyError("No readable DRAIN data array was found in the CBC file.")
+    if width is None:
+        raise KeyError("No readable release budget array was found in the CBC file.")
 
     filled_rows = [
-        np.zeros(detected_n_cells, dtype="float64") if row is None else row for row in rows
+        np.zeros(width, dtype="float64") if row is None else row / seconds_per_unit for row in rows
     ]
     if time_index is not None and len(time_index) == len(filled_rows):
-        index = time_index
+        index: pd.Index = time_index
     else:
         index = pd.Index(times, name="totim")
-    return pd.DataFrame(filled_rows, index=index, columns=np.arange(detected_n_cells))
+    return pd.DataFrame(filled_rows, index=index, columns=np.arange(width))
 
 
 def extract_head_from_hds(
@@ -303,9 +487,69 @@ def extract_head_from_hds(
     return out
 
 
+def extract_saturated_thickness_by_cell_from_hds(
+    output_dir: Path,
+    model_name: str,
+    *,
+    top: np.ndarray,
+    bottom: np.ndarray,
+    time_index: pd.DatetimeIndex | None = None,
+) -> pd.DataFrame:
+    """Return saturated thickness by timestep and cell, in metres.
+
+    The water table is the head of the uppermost layer, the definition
+    ``results/derive/derived.py`` already applies; a MODFLOW head array is
+    layer-major, so the first ``n_cells`` values of the flattened snapshot are
+    that layer. ``bottom`` is the base of the whole aquifer, ``botm[-1]``, not
+    the bottom of layer 0: what the method calibrates is the transmissivity of
+    the aquifer, not of its top slice.
+
+    MODFLOW writes a large sentinel into dry and no-flow cells; those become
+    ``NaN`` here, as in :func:`extract_head_from_hds`, rather than a full or
+    zero thickness that would read as a real value.
+    """
+
+    import flopy.utils.binaryfile as bf
+
+    hds_path = output_dir / f"{model_name}.hds"
+    if not hds_path.exists():
+        raise FileNotFoundError(f"HDS file not found for model {model_name!r} in {output_dir}")
+
+    top_m = np.asarray(top, dtype=float).reshape(-1)
+    bottom_m = np.asarray(bottom, dtype=float).reshape(-1)
+    n_cells = int(top_m.size)
+    if bottom_m.size != n_cells:
+        raise ValueError(f"top holds {n_cells} cells but bottom holds {bottom_m.size}.")
+
+    hf = bf.HeadFile(str(hds_path))
+    try:
+        times = hf.get_times()
+        heads = np.full((len(times), n_cells), np.nan, dtype="float64")
+        for step, totim in enumerate(times):
+            snapshot = np.asarray(hf.get_data(totim=totim), dtype=float).reshape(-1)
+            if snapshot.size < n_cells:
+                raise ValueError(
+                    f"head snapshot holds {snapshot.size} values, fewer than the "
+                    f"{n_cells} cells declared by top."
+                )
+            heads[step] = snapshot[:n_cells]
+    finally:
+        hf.close()
+
+    heads[np.abs(heads) > 1e6] = np.nan
+    thickness = saturated_thickness_from_head_history(heads, top_m=top_m, bottom_m=bottom_m)
+
+    if time_index is not None and len(time_index) == len(times):
+        index: pd.Index = time_index
+    else:
+        index = pd.Index(times, name="totim")
+    return pd.DataFrame(thickness, index=index, columns=np.arange(n_cells))
+
+
 __all__ = [
-    "drain_budget_array_to_positive_outflow_by_cell",
+    "ReleasePackage",
     "extract_discharge_from_cbc",
-    "extract_drain_outflow_by_cell_from_cbc",
     "extract_head_from_hds",
+    "extract_release_flux_by_cell_from_cbc",
+    "extract_saturated_thickness_by_cell_from_hds",
 ]

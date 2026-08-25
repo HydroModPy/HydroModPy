@@ -1,0 +1,5 @@
+[[simulation.process]]
+solvers = ["modflow6"]
+
+[flow.param.K.field]
+value = "5.0e-4 m/s"

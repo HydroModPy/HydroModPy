@@ -13,9 +13,10 @@ from hydromodpy.analysis.config import AnalysisConfig
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
 from hydromodpy.core.toml_io.paths import resolve_declared_path
-from hydromodpy.data.data_managers_config import DataManagersConfig
+from hydromodpy.data.managers.config_schema import DataManagersConfig
 from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.simulation.spinup_config import SpinupConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
@@ -111,6 +112,12 @@ def _resolve_section_paths(
                     fallback_dirs=fallback_dirs,
                 )
             )
+    # A path declared in a sub-model is invisible to the walk above, so it needs
+    # its own descent. Done here rather than in one loader, because every entry
+    # point that builds this model has to anchor it the same way: the mesh
+    # launcher loads [geographic] through load_standard_section.
+    if "enforce_streams" in model_cls.model_fields:
+        _resolve_enforce_streams_paths(data, base, workspace_data_dir)
 
 
 def load_standard_section(
@@ -177,6 +184,40 @@ def _resolve_catchment_paths(
     payload["catchment"] = catchment_payload
 
 
+def _resolve_enforce_streams_paths(
+    payload: dict[str, Any],
+    base: Path,
+    workspace_data_dir: Path | None,
+) -> None:
+    """Resolve the mapped network declared in ``enforce_streams`` (in-place).
+
+    ``_resolve_section_paths`` walks the Path fields of the model itself, and
+    this one lives in a sub-model, so it needs its own descent. A bare filename
+    falls back to ``<workspace>/data/hydrography/``, the family that holds a
+    mapped network, which is what the field documents.
+
+    A value matching nothing on disk stays anchored on the TOML directory rather
+    than raising here: a configuration must load on a machine holding none of
+    its data, and the burn names the file it could not read when it reads it.
+    """
+    enforce = payload.get("enforce_streams")
+    if not isinstance(enforce, Mapping):
+        return
+    declared = enforce.get("stream_geometry_path")
+    if not isinstance(declared, str | Path) or not str(declared):
+        return
+    fallback_dirs = (
+        None
+        if workspace_data_dir is None
+        else [workspace_data_dir / "hydrography", workspace_data_dir]
+    )
+    resolved = dict(enforce)
+    resolved["stream_geometry_path"] = str(
+        resolve_declared_path(declared, base_dir=base, fallback_dirs=fallback_dirs)
+    )
+    payload["enforce_streams"] = resolved
+
+
 def load_geographic_section(
     section_data: Any,
     base: Path,
@@ -199,11 +240,20 @@ def load_geographic_section(
     )
 
 
-def _load_flow_section(section_data: Any, base: Path) -> FlowConfig:
+def _load_flow_section(
+    section_data: Any,
+    base: Path,
+    *,
+    workspace_data_dir: Path | None = None,
+) -> FlowConfig:
     """Load the flow section using FlowConfig's dedicated parser."""
     if section_data is None:
         section_data = {}
-    return FlowConfig.from_toml_section(section_data, base_dir=base)
+    return FlowConfig.from_toml_section(
+        section_data,
+        base_dir=base,
+        workspace_data_dir=workspace_data_dir,
+    )
 
 
 def _load_data_section(
@@ -279,6 +329,16 @@ def _load_optional_calibration_section(
     if section_data is None:
         return None
     return load_standard_section(section_data, CalibrationConfig, base)
+
+
+def _load_optional_spinup_section(
+    section_data: Any,
+    base: Path,
+) -> SpinupConfig | None:
+    """Load the optional ``[spinup]`` cyclic spin-up section."""
+    if section_data is None:
+        return None
+    return load_standard_section(section_data, SpinupConfig, base)
 
 
 def _load_optional_analysis_section(

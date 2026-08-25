@@ -17,18 +17,27 @@ Mesh- or raster-backed scalar maps of one persisted field.
    * - ``concentration_map``
      - Concentration
      - fields ``concentration``
+   * - ``mesh_map``
+     - Solver mesh
+     - fields ``topography``
    * - ``piezometric_map``
      - Water-table elevation
      - fields ``watertable_elevation``
    * - ``recharge_map``
-     - Recharge map
+     - Recharge
      - fields ``recharge``
    * - ``seepage_map``
      - Seepage areas
      - fields ``seepage_mask``
+   * - ``sfr_reach_network``
+     - SFR reach network
+     - tables ``timeseries``
    * - ``simulated_active_network``
      - Simulated active network
      - fields ``accumulation_flux``
+   * - ``watertable_depth_map``
+     - Water-table depth
+     - fields ``watertable_depth``
 
 Cross-sections
 ~~~~~~~~~~~~~~
@@ -43,8 +52,8 @@ Vertical or transverse cuts through a persisted field.
      - Title
      - Required inputs
    * - ``cross_section``
-     - Head cross-section
-     - fields ``head``
+     - Cross-section
+     - fields ``watertable_elevation``, ``topography``
 
 Time series
 ~~~~~~~~~~~
@@ -76,6 +85,12 @@ Chronicles read from the catalog ``timeseries`` table.
    * - ``seasonal_boxplot``
      - Seasonal box-plot
      - tables ``timeseries``
+   * - ``sfr_longitudinal_profile``
+     - SFR longitudinal profile
+     - tables ``timeseries``
+   * - ``sfr_reach_timeseries``
+     - SFR reach time series
+     - tables ``timeseries``
 
 Budgets and balances
 ~~~~~~~~~~~~~~~~~~~~
@@ -89,6 +104,9 @@ Integrated budget or mass-balance summaries.
    * - Figure name
      - Title
      - Required inputs
+   * - ``flux_timeseries``
+     - Water-balance components
+     - tables ``budgets``
    * - ``water_budget``
      - Water budget
      - tables ``budgets``
@@ -133,6 +151,9 @@ Multi-panel views combining one or several runs, observed data, or calibration t
    * - ``calibration_posterior``
      - Calibration parameter posteriors
      - tables ``calibration_iterations``
+   * - ``conditioning_impact_map``
+     - Conditioning impact on the DEM
+     - (no fixed input)
    * - ``difference_map``
      - Difference map
      - (no fixed input)
@@ -157,6 +178,15 @@ Multi-panel views combining one or several runs, observed data, or calibration t
    * - ``hydrographic_network_reference_missing_only``
      - Reference missing-only view
      - (no fixed input)
+   * - ``lake_abacus_comparison``
+     - Lake abacus comparison
+     - (no fixed input)
+   * - ``lake_stage_sim_obs``
+     - Lake stage (sim vs obs)
+     - tables ``timeseries``
+   * - ``lake_volume_sim_obs``
+     - Lake storage (sim vs obs)
+     - tables ``timeseries``
    * - ``piezo_timeseries_sim_obs``
      - Piezometric head (sim vs obs)
      - tables ``timeseries``

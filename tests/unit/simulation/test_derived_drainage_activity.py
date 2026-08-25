@@ -6,11 +6,12 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.field_routing import (
-    accumulate_downhill_on_mesh,
+    accumulate_on_downhill_graph,
     active_surface_mask,
+    build_downhill_graph,
     drain_budget_to_positive_outflow,
 )
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.simulation.extraction.derivation.derived import (
     DERIVED_VARIABLES,
     compute_derived,
@@ -31,7 +32,7 @@ def _disabled_derived_flags(**enabled: bool) -> dict[str, bool]:
 
 
 def _register_catalog_run(
-    catalog: SimulationCatalog,
+    catalog: Catalog,
     *,
     n_cells: int,
     n_layers: int = 1,
@@ -97,23 +98,23 @@ def test_accumulate_downhill_on_mesh_routes_to_lower_neighbor() -> None:
         dtype="int32",
     )
 
-    accumulated = accumulate_downhill_on_mesh(
-        np.array([2.5, 0.0]),
+    graph = build_downhill_graph(
         np.array([10.0, 5.0]),
         face_node_connectivity,
         vertices=vertices,
     )
+    accumulated = accumulate_on_downhill_graph(graph, np.array([2.5, 0.0]))
 
     np.testing.assert_allclose(accumulated, np.array([2.5, 2.5]))
 
 
 def test_compute_derived_writes_positive_outflow_and_local_accumulation(
-    catalog: SimulationCatalog,
+    catalog: Catalog,
 ) -> None:
     sim_id = _register_catalog_run(catalog, n_cells=3, n_layers=2)
     catalog.write_field(
         sim_id,
-        "drn",
+        "drain",
         0,
         np.array([[-2.0, 1.0, -0.5], [-3.0, -4.0, 2.0]]),
         n_timesteps=1,
@@ -132,7 +133,7 @@ def test_compute_derived_writes_positive_outflow_and_local_accumulation(
 
 
 def test_compute_derived_prefers_surface_excess_for_seepage_mask(
-    catalog: SimulationCatalog,
+    catalog: Catalog,
 ) -> None:
     sim_id = _register_catalog_run(catalog, n_cells=3)
     sz = catalog.open_zarr(sim_id)
@@ -166,7 +167,7 @@ def test_compute_derived_prefers_surface_excess_for_seepage_mask(
 
 
 def test_compute_derived_writes_release_flux_from_drain_and_surface_excess(
-    catalog: SimulationCatalog,
+    catalog: Catalog,
 ) -> None:
     sim_id = _register_catalog_run(catalog, n_cells=3, n_layers=1)
     catalog.write_field(
@@ -195,7 +196,7 @@ def test_compute_derived_writes_release_flux_from_drain_and_surface_excess(
 
 
 def test_compute_derived_routes_release_accumulation_on_unstructured_mesh(
-    catalog: SimulationCatalog,
+    catalog: Catalog,
 ) -> None:
     sim_id = _register_catalog_run(catalog, n_cells=2, mesh_topology="unstructured_2d")
     vertices = np.array(
@@ -258,7 +259,7 @@ def test_compute_derived_routes_release_accumulation_on_unstructured_mesh(
 
 
 def test_compute_derived_routes_accumulation_on_unstructured_mesh(
-    catalog: SimulationCatalog,
+    catalog: Catalog,
 ) -> None:
     sim_id = _register_catalog_run(catalog, n_cells=2, mesh_topology="unstructured_2d")
     vertices = np.array(
@@ -297,7 +298,7 @@ def test_compute_derived_routes_accumulation_on_unstructured_mesh(
         sz.close()
     catalog.write_field(
         sim_id,
-        "drn",
+        "drain",
         0,
         np.array([[-2.5, 0.0]], dtype="float64"),
         n_timesteps=1,

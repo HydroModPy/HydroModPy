@@ -30,7 +30,7 @@ def test_show_rejects_unsupported_input_type(mpl) -> None:
 
 
 def test_show_series_plots_lttb_decimated_values(monkeypatch, mpl) -> None:
-    import hydromodpy.results.timeseries_downsample as downsample
+    import hydromodpy.results.derive.downsample as downsample
 
     series = pd.Series(
         [10.0, 12.0, 8.0, 11.0],
@@ -65,7 +65,7 @@ def test_show_series_plots_lttb_decimated_values(monkeypatch, mpl) -> None:
 
 
 def test_show_series_auto_keeps_small_series_without_lttb(monkeypatch, mpl) -> None:
-    import hydromodpy.results.timeseries_downsample as downsample
+    import hydromodpy.results.derive.downsample as downsample
 
     series = pd.Series(
         [1.0, 2.0, 3.0],

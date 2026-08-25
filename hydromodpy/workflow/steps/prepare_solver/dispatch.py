@@ -1,6 +1,6 @@
 """Concern 3 of PrepareSolverStep: registration + store opening.
 
-Hosts the helpers that open the SimulationCatalog, register the
+Hosts the helpers that open the Catalog, register the
 simulation row, and write the per-sim CRS/time metadata to the Zarr.
 These functions mutate the catalog and the on-disk store, so they are
 kept separate from the pure validation helpers in :mod:`validate`.
@@ -15,30 +15,112 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.steps.prepare_solver.validate import _primary_solver_for_simulation
 
 if TYPE_CHECKING:
+    from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.simulation.planning.plan import SimulationPlan
-    from hydromodpy.workflow.context import WorkflowContext
+    from hydromodpy.solver.modflow_common.binaries import SolverEngine
 
 logger = get_logger(__name__)
 
-# Catalog solver code -> canonical binary name for provenance lookup.
-_SOLVER_BINARY_NAMES: dict[str, str] = {"modflow6": "mf6", "modflow_nwt": "mfnwt"}
 
+def _execution_mode(ctx: WorkflowContext, solver_name: str | None) -> str:
+    """Return the solve dispatch this run uses: 'subprocess' or 'api'.
 
-def _resolve_solver_binary_path(solver_name: str | None) -> str | None:
-    """Resolve the cached solver binary path for provenance, or None.
+    Only MODFLOW 6 offers a second dispatch (``libmf6`` through the BMI
+    wrappers); every other backend runs its executable.
 
-    Failures (unknown solver, binary not yet installed) are swallowed so a
-    provenance lookup never breaks simulation registration.
+    The declared ``mf6_runner`` is the fallback, not the answer: the build
+    forces the in-process runner whenever a lake carries exposed-band
+    (marnage) runoff, so a configuration that says ``subprocess`` can still
+    solve through the shared library. Once the model exists, it - not the
+    configuration - states the dispatch.
     """
-    binary = _SOLVER_BINARY_NAMES.get(str(solver_name or ""))
-    if binary is None:
-        return None
-    try:
-        from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
+    if str(solver_name or "") != "modflow6":
+        return "subprocess"
+    executed = _built_model_runner(ctx, solver_name)
+    if executed is not None:
+        return executed
+    runtime = getattr(getattr(ctx.cfg, "modflow6", None), "runtime", None)
+    return "api" if getattr(runtime, "mf6_runner", "subprocess") == "api" else "subprocess"
 
-        return str(ensure_solver_binary(binary))
-    except Exception:
+
+def _built_model_runner(ctx: WorkflowContext, solver_name: str) -> str | None:
+    """Return the dispatch of the built flow model, or None before it exists.
+
+    ``models_by_run_id`` only fills once the adapter has built the model, so
+    this returns None on the registration pass and the real dispatch on the
+    post-solve pass.
+    """
+    from hydromodpy.solver.modflow_common.flow_adapter_helpers import resolve_modflow_runner
+
+    execution = getattr(ctx, "execution", None)
+    plan = getattr(execution, "simulation_plan", None)
+    models = getattr(execution, "models_by_run_id", None) or {}
+    if plan is None or not models:
         return None
+    for run in getattr(plan, "runs", ()) or ():
+        is_primary_flow = (
+            getattr(run, "process_type", None) == "flow"
+            and getattr(run, "solver", None) == solver_name
+        )
+        if not is_primary_flow:
+            continue
+        model = models.get(getattr(run, "id", None))
+        if model is not None:
+            return resolve_modflow_runner(model)
+    return None
+
+
+def _resolve_solver_engine(ctx: WorkflowContext, solver_name: str | None) -> SolverEngine | None:
+    """Resolve the engine this run executes, or None when it has no binary.
+
+    Recording the mf6 executable for a run solved through ``libmf6`` is a lie:
+    the sha256 and the version then describe a file the solve never opened. The
+    engine follows the dispatch instead, so provenance names what actually ran.
+    """
+    from hydromodpy.solver.modflow_common.binaries import resolve_solver_engine
+
+    workspace = getattr(ctx.setup, "workspace", None)
+    return resolve_solver_engine(
+        str(solver_name or ""),
+        execution_mode=_execution_mode(ctx, solver_name),
+        bin_path=getattr(workspace, "bin_path", None),
+    )
+
+
+def _write_run_environment(ctx: WorkflowContext, sim_id: str, solver_name: str | None) -> None:
+    """Persist the host environment plus the engine identity for one run."""
+    engine = _resolve_solver_engine(ctx, solver_name)
+    ctx.store.write_run_environment(
+        sim_id,
+        project_root=getattr(getattr(ctx.setup, "workspace", None), "project_root", None),
+        solver_name=solver_name,
+        solver_binary_path=None if engine is None else engine.path,
+        solver_engine=None if engine is None else engine.kind,
+        solver_execution_mode=_execution_mode(ctx, solver_name),
+        solver_version_text=None if engine is None else engine.version,
+        rng_seed=getattr(ctx.cfg.simulation, "rng_seed", None),
+    )
+
+
+def refresh_run_environment(ctx: WorkflowContext) -> None:
+    """Rewrite the engine identity of a run once its model has been solved.
+
+    Registration happens before the model exists, so the row it writes can only
+    name the engine the configuration asked for. This second pass reads the
+    dispatch off the built model and overwrites the row (the write is a
+    delete-then-insert, and the host snapshot behind it is memoised), so
+    ``provenance.json`` names the executable or the shared library that really
+    ran, with its own version and digest.
+    """
+    store = getattr(ctx, "store", None)
+    sim_id = getattr(ctx, "sim_id", None)
+    plan = getattr(getattr(ctx, "execution", None), "simulation_plan", None)
+    if store is None or not sim_id or plan is None:
+        return
+    try:
+        _write_run_environment(ctx, str(sim_id), _primary_solver_for_simulation(plan))
+    except Exception:
+        logger.exception("Failed to refresh the run environment for sim %s", str(sim_id)[:8])
 
 
 def _crs_grid_mapping_attrs(crs: object) -> dict[str, object]:
@@ -110,6 +192,18 @@ def _write_zarr_time(ctx: WorkflowContext, sim_id: str) -> None:
     )
 
 
+def _freeze_run_config(ctx: WorkflowContext, sim_id: str) -> None:
+    """Write the resolved configuration into the run directory."""
+    from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
+
+    try:
+        run_dir = ctx.store.run_dir_for(sim_id)
+        run_dir.mkdir(parents=True, exist_ok=True)
+        ctx.cfg.to_toml(run_dir / RUN_CONFIG_FILENAME, profile="expert")
+    except Exception:
+        logger.exception("Failed to freeze the resolved config for sim %s", sim_id[:8])
+
+
 def step_register_simulation(
     ctx: WorkflowContext,
     sim_id: str,
@@ -131,7 +225,7 @@ def step_register_simulation(
         project=project_name,
         solver=primary_solver,
         name=name,
-        on_collision=ctx.cfg.simulation.on_collision,
+        if_exists=ctx.cfg.simulation.if_exists,
         **reg_kwargs,
     )
     final_name = registration.name or name
@@ -143,19 +237,12 @@ def step_register_simulation(
         logger.info("Run '%s' stored [%s]", final_name, short)
     if registration.zarr is not None:
         registration.zarr.close()
+    _freeze_run_config(ctx, sim_id)
     _write_zarr_time(ctx, sim_id)
     _write_zarr_crs(ctx, sim_id)
 
     try:
-        project_root = getattr(getattr(ctx.setup, "workspace", None), "project_root", None)
-        rng_seed = getattr(ctx.cfg.simulation, "rng_seed", None)
-        ctx.store.write_run_environment(
-            sim_id,
-            project_root=project_root,
-            solver_name=primary_solver,
-            solver_binary_path=_resolve_solver_binary_path(primary_solver),
-            rng_seed=rng_seed,
-        )
+        _write_run_environment(ctx, sim_id, primary_solver)
     except Exception:
         logger.exception("Failed to capture run environment for sim %s", short)
     return final_name
@@ -165,8 +252,12 @@ def _register_tracked_input_files(ctx: WorkflowContext) -> None:
     """Walk the config tree and persist every InputFile-marked path."""
     from hydromodpy.core.tracking import collect_input_files
 
+    # Anchor relative paths on the project, not on the shell's working
+    # directory: a bare filename is resolved under <workspace>/data/<family>/
+    # everywhere else, and tracking it from the cwd silently dropped it.
+    project_root = getattr(getattr(ctx.setup, "workspace", None), "project_root", None)
     try:
-        entries = collect_input_files(ctx.cfg)
+        entries = collect_input_files(ctx.cfg, base=project_root)
     except Exception as exc:
         logger.warning("Skipping tracked-file registration: %s", exc)
         return
@@ -175,7 +266,7 @@ def _register_tracked_input_files(ctx: WorkflowContext) -> None:
     if not portable:
         return
     written = ctx.store.register_tracked_files(ctx.sim_id, portable)
-    logger.info(
+    logger.debug(
         "Registered %d tracked input file(s) for simulation %s",
         written,
         ctx.sim_id,
@@ -183,7 +274,7 @@ def _register_tracked_input_files(ctx: WorkflowContext) -> None:
 
 
 def step_open_store(ctx: WorkflowContext) -> None:
-    """Open a ``SimulationCatalog`` and register the current simulation.
+    """Open a ``Catalog`` and register the current simulation.
 
     Helpers are looked up on the :mod:`hydromodpy.workflow.steps.prepare_solver`
     package namespace so unit tests can monkeypatch them via
@@ -197,12 +288,12 @@ def step_open_store(ctx: WorkflowContext) -> None:
 
     from uuid import uuid4
 
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace = ctx.setup.workspace
     if workspace is None:
         raise PipelineError("Workspace is required before opening the simulation catalog.")
-    ctx.store = SimulationCatalog.from_workspace(
+    ctx.store = Catalog.from_workspace(
         workspace,
         persistence=results_cfg.persistence,
     )
@@ -214,33 +305,25 @@ def step_open_store(ctx: WorkflowContext) -> None:
     reg_kwargs = ps_module.collect_registration_kwargs(ctx)
     if ctx.parent_sim_id is not None:
         reg_kwargs["parent_sim_id"] = ctx.parent_sim_id
-    on_collision = getattr(ctx.cfg.simulation, "on_collision", "replace")
     primary_solver = _primary_solver_for_simulation(plan)
     registration = ctx.store.register_simulation(
         ctx.sim_id,
         project=project_name,
         solver=primary_solver,
         name=ctx.setup.run_id,
-        on_collision=on_collision,
+        if_exists=ctx.cfg.simulation.if_exists,
         **reg_kwargs,
     )
     if registration.name and registration.name != ctx.setup.run_id:
         ctx.setup.run_id = registration.name
     if registration.zarr is not None:
         registration.zarr.close()
+    _freeze_run_config(ctx, ctx.sim_id)
     _write_zarr_time(ctx, ctx.sim_id)
     _write_zarr_crs(ctx, ctx.sim_id)
 
     try:
-        project_root = getattr(workspace, "project_root", None)
-        rng_seed = getattr(ctx.cfg.simulation, "rng_seed", None)
-        ctx.store.write_run_environment(
-            ctx.sim_id,
-            project_root=project_root,
-            solver_name=primary_solver,
-            solver_binary_path=_resolve_solver_binary_path(primary_solver),
-            rng_seed=rng_seed,
-        )
+        _write_run_environment(ctx, ctx.sim_id, primary_solver)
     except Exception:
         logger.exception("Failed to capture run environment for sim %s", ctx.sim_id[:8])
 
@@ -259,6 +342,7 @@ def step_open_store(ctx: WorkflowContext) -> None:
 
 
 __all__ = (
+    "refresh_run_environment",
     "step_open_store",
     "step_register_simulation",
 )

@@ -20,12 +20,17 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from hydromodpy.cli._conventions import profile_parser
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
     auto_scan_workspace,
+    profile_arg_from_toml,
+    profile_run,
+    resolve_profile_output,
 )
+from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "run"
 HELP: str = "Run a workflow from a TOML config"
@@ -42,17 +47,23 @@ def _step_choices() -> list[str]:
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[profile_parser()])
     config_arg = parser.add_argument(
         "config",
+        nargs="?",
         type=Path,
-        help="Path to a TOML config",
+        default=None,
+        help="Path to a TOML config (omit when using --resume REF)",
     )
     parser.add_argument(
         "--resume",
         default=None,
-        metavar="RUN_ID",
-        help="Resume a simulation from its last checkpoint.",
+        metavar="REF",
+        help=(
+            "Resume a simulation from its last journalled checkpoint. With a TOML "
+            "config, REF is the run name/id to resume; without a config, REF is a "
+            "catalog reference and the run replays its own runs/<name>/config.toml."
+        ),
     )
     from_arg = parser.add_argument(
         "--from",
@@ -89,6 +100,17 @@ def register(subparsers) -> argparse.ArgumentParser:
         help=(
             "Reject any fresh download when hydromodpy.lock is present; "
             "every artefact must already be in the catalog and match its SHA-256."
+        ),
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "Recompute even when a completed run with an identical resolved config "
+            "already exists. Without it such a run is not recomputed: the command "
+            "stops and names it. The comparison hashes the resolved config, so an "
+            "edit - or a hydromodpy version that resolves the same TOML differently "
+            "- makes it a new run. Simulation workflow only."
         ),
     )
     parser.add_argument(
@@ -132,7 +154,19 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    target = Path(args.config).expanduser().resolve()
+    config = getattr(args, "config", None)
+    if config is None:
+        resume = getattr(args, "resume", None)
+        if resume is None:
+            print(
+                "Provide a TOML config, or --resume REF to resume a catalog run.",
+                file=sys.stderr,
+            )
+            sys.exit(EXIT_CONFIG)
+        _resume_from_ref(str(resume), args=args)
+        return
+
+    target = Path(config).expanduser().resolve()
     if not target.is_file():
         print(f"File not found: {target}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
@@ -154,6 +188,57 @@ def run(args: argparse.Namespace) -> None:
         sys.exit(EXIT_CONFIG)
 
 
+def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
+    """Resume an interrupted run from the config frozen in its own run directory.
+
+    Resolves REF in the catalog discovered from the current directory and
+    replays ``runs/<name>/config.toml`` - the resolved configuration the run
+    was executed with - through the exact same path as
+    ``hmp run config.toml --resume NAME``. The journal is keyed by the run
+    name, so no extra identity plumbing is needed.
+    """
+    from hydromodpy.core.state.paths import catalog_path_for
+    from hydromodpy.results.catalog import (
+        AmbiguousReferenceError,
+        Catalog,
+        SimulationNotFoundError,
+    )
+    from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
+
+    workspace = resolve_project_root(Path.cwd().resolve())
+    if not (catalog_path_for(workspace)).exists():
+        print(
+            f"No catalog at {workspace}; run --resume REF must be invoked from a "
+            "workspace, or pass a TOML config explicitly.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_NOT_FOUND)
+
+    try:
+        with Catalog(workspace, read_only=True) as catalog:
+            sid = catalog.resolve(ref)
+            run_obj = catalog[sid]
+            name = run_obj.name
+            config_path = catalog.run_dir_for(sid) / RUN_CONFIG_FILENAME
+    except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+
+    if not name:
+        print(f"Run {sid[:8]} has no name; cannot resume by reference.", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+    if not config_path.is_file():
+        print(
+            f"Run '{name}' [{sid[:8]}] has no frozen {RUN_CONFIG_FILENAME} in "
+            f"{config_path.parent}; pass the TOML config explicitly to resume it.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_NOT_FOUND)
+
+    args.resume = name
+    _run_toml(config_path, args=args)
+
+
 def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     """Run a workflow from a TOML file.
 
@@ -163,10 +248,13 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     """
     import hydromodpy as hmp
     from hydromodpy.display.banner import print_hydromodpy
+    from hydromodpy.project.dispatch.workflow import dispatch_workflow
     from hydromodpy.workflow.dispatch import (
         WorkflowError,
         resolve_workflow,
     )
+
+    profile_output = resolve_profile_output(getattr(args, "profile", None), config_path)
 
     print_hydromodpy()
     auto_scan_workspace(config_path)
@@ -184,6 +272,9 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         print(f"Invalid TOML: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
     run_path = effective_path or config_path
+
+    if profile_output is None:
+        profile_output = resolve_profile_output(profile_arg_from_toml(raw_toml), config_path)
 
     dry_run = bool(getattr(args, "dry_run", False))
     try:
@@ -207,8 +298,11 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     frozen = bool(getattr(args, "frozen", False))
     no_lock = bool(getattr(args, "no_lock", False))
     parallel = not bool(getattr(args, "no_parallel", False))
+    force = bool(getattr(args, "force", False))
 
     if dry_run:
+        if profile_output is not None:
+            print("[dry-run] --profile ignored (nothing is executed)", file=sys.stderr)
         _print_dry_run(
             workflow,
             run_path,
@@ -237,10 +331,23 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         _cleanup_effective_toml(effective_path, source=config_path)
         sys.exit(EXIT_CONFIG)
 
+    if force and workflow != "simulation":
+        print(
+            f"--force is only supported for the 'simulation' workflow "
+            f"(detected '{workflow}'), which is the only one that skips an "
+            f"identical completed run.",
+            file=sys.stderr,
+        )
+        _cleanup_effective_toml(effective_path, source=config_path)
+        sys.exit(EXIT_CONFIG)
+
     if resume is not None:
         _emit_config_replay_audit(run_path, resume=str(resume))
 
     if frozen:
+        # The pre-check only reports drift. Frozen mode itself travels with
+        # ``frozen=frozen`` into the simulation dispatch, which binds and
+        # releases it around that one run instead of leaving the process frozen.
         try:
             _verify_frozen_inputs_strict(run_path, raw_toml)
         except FrozenVerificationError as exc:
@@ -249,18 +356,25 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
             sys.exit(EXIT_CONFIG)
 
     try:
-        if workflow == "simulation":
-            summary = hmp.run(
-                run_path,
-                resume=resume,
-                from_step=from_step,
-                until_step=until_step,
-                no_display=no_display,
-                frozen=frozen,
-                parallel=parallel,
-            )
-        else:
-            summary = hmp.run(run_path)
+        with profile_run(profile_output, description=f"hmp run {config_path.name} ({workflow})"):
+            if workflow == "simulation":
+                # Dispatch through DISPATCH (not hmp.run) so the CLI keeps the
+                # rich summary dict: the "identical run skipped" message and the
+                # mesh-process stats. hmp.run exposes the same run as a Run
+                # object for the Python API.
+                summary = dispatch_workflow(
+                    "simulation",
+                    run_path,
+                    resume=resume,
+                    from_step=from_step,
+                    until_step=until_step,
+                    no_display=no_display,
+                    frozen=frozen,
+                    parallel=parallel,
+                    force=force,
+                )
+            else:
+                summary = hmp.run(run_path)
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)
         sys.exit(EXIT_SIGINT)
@@ -273,6 +387,16 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         sys.exit(EXIT_NOT_FOUND)
     finally:
         _cleanup_effective_toml(effective_path, source=config_path)
+
+    if isinstance(summary, Mapping) and summary.get("skipped"):
+        sid = str(summary.get("sim_id") or "")
+        label = summary.get("name") or sid[:8]
+        print(
+            f"Config identical to completed run '{label}' [{sid[:8]}]; nothing to do.",
+            file=sys.stderr,
+        )
+        print("Re-run with --force to run it again.", file=sys.stderr)
+        return
 
     if not no_lock:
         _post_run_lockfile_write(run_path, raw_toml)
@@ -294,31 +418,26 @@ class FrozenVerificationError(RuntimeError):
     """Raised when ``--frozen`` finds a lockfile drift before running anything."""
 
 
-def _verify_frozen_inputs_strict(config_path: Path, raw_toml: dict[str, Any]) -> None:
-    """Verify the workspace lockfile before launching a ``--frozen`` run.
+def _verify_frozen_inputs_strict(config_path: Path, raw_toml: dict[str, Any]) -> Path:
+    """Verify the project lockfile before launching a ``--frozen`` run.
 
-    Walks the same workspace-resolution logic as the post-run lockfile
-    writer, opens the data cache, and calls
+    Resolves the same project root as the post-run lockfile writer, opens the
+    data cache, and calls
     :func:`hydromodpy.data.data_freeze.verify_inputs_strict` against the
-    project's ``hydromodpy.lock``. Any mismatch aborts the run.
+    project's ``hydromodpy.lock``. Any mismatch aborts the run. Returns the
+    project root it verified, so a caller can assert it is the address the
+    post-run write uses.
     """
     from hydromodpy.data.data_freeze import (
-        LOCKFILE_NAME,
+        project_lockfile_path,
         verify_inputs_strict,
     )
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
     workspace_payload = raw_toml.get("workspace") if isinstance(raw_toml, dict) else None
-    project_root = config_path.parent
-    if isinstance(workspace_payload, dict):
-        declared = workspace_payload.get("project_root")
-        if declared:
-            candidate = Path(declared).expanduser()
-            if not candidate.is_absolute():
-                candidate = (config_path.parent / candidate).resolve()
-            project_root = candidate
+    project_root = _resolve_project_root(config_path, workspace_payload)
 
-    lockfile_path = project_root / LOCKFILE_NAME
+    lockfile_path = project_lockfile_path(project_root)
     if not lockfile_path.is_file():
         raise FrozenVerificationError(
             f"hydromodpy.lock not found at {lockfile_path}; --frozen requires a prior run."
@@ -342,6 +461,7 @@ def _verify_frozen_inputs_strict(config_path: Path, raw_toml: dict[str, Any]) ->
             f"{len(mismatches)} lockfile mismatch(es); first: "
             f"{first.kind} on {first.path} (variable={first.variable})"
         )
+    return project_root
 
 
 def _emit_config_replay_audit(config_path: Path, *, resume: str) -> None:
@@ -350,20 +470,19 @@ def _emit_config_replay_audit(config_path: Path, *, resume: str) -> None:
     Best-effort: looks for a catalog next to the config and, failing that,
     walks up to find a workspace. Any exception is swallowed.
     """
-    from hydromodpy.cli.helpers import find_catalog_root
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.audit import emit_audit_event
 
     try:
-        workspace = find_catalog_root(config_path.parent)
+        workspace = resolve_project_root(config_path.parent)
     except Exception:
         return
-    catalog_path = workspace / CATALOG_FILENAME
+    catalog_path = catalog_path_for(workspace)
     if not catalog_path.is_file():
         return
     try:
-        with SimulationCatalog(workspace) as catalog:
+        with Catalog(workspace) as catalog:
             emit_audit_event(
                 catalog.connection,
                 event_type="config.replay",
@@ -382,27 +501,20 @@ def _post_run_lockfile_write(config_path: Path, raw_toml: dict[str, Any]) -> Non
     data catalog is present.
     """
     from hydromodpy.config.schema_export import schema_sha256
-    from hydromodpy.data.data_freeze import LOCKFILE_NAME, write_lockfile
+    from hydromodpy.data.data_freeze import project_lockfile_path, write_lockfile
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-    from hydromodpy.results.parquet_schemas import PARQUET_SCHEMA_VERSION
+    from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
     from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 
     workspace_payload = raw_toml.get("workspace") if isinstance(raw_toml, dict) else None
-    project_root = config_path.parent
-    if isinstance(workspace_payload, dict):
-        declared = workspace_payload.get("project_root")
-        if declared:
-            candidate = Path(declared).expanduser()
-            if not candidate.is_absolute():
-                candidate = (config_path.parent / candidate).resolve()
-            project_root = candidate
+    project_root = _resolve_project_root(config_path, workspace_payload)
 
     data_dir = _resolve_workspace_data_dir(workspace_payload, project_root)
     db_path = data_dir / "cache.duckdb"
     if not db_path.is_file():
         return
 
-    dest = project_root / LOCKFILE_NAME
+    dest = project_lockfile_path(project_root)
     solvers = _collect_solver_binaries(raw_toml)
     try:
         with DataCatalogDuckDB(db_path) as catalog:
@@ -419,6 +531,31 @@ def _post_run_lockfile_write(config_path: Path, raw_toml: dict[str, Any]) -> Non
         print(f"  WARNING: hydromodpy.lock write failed: {exc}", file=sys.stderr)
         return
     print(f"  Lockfile written: {dest}", file=sys.stderr)
+
+
+def _resolve_project_root(
+    config_path: Path,
+    workspace_payload: dict[str, Any] | None,
+) -> Path:
+    """Return the project root that owns the lockfile of this config.
+
+    Same precedence as :meth:`HydroModPyConfig.from_toml`: ``HMP_PROJECT_ROOT``
+    first, then the declared ``workspace.project_root``, then the config's own
+    directory. The env var is what the config binds the run to, so reading it
+    here is what keeps the lockfile the run writes and the one ``--frozen``
+    verifies at a single address. Both go through this helper.
+    """
+    env_root = os.environ.get("HMP_PROJECT_ROOT")
+    if env_root:
+        return Path(env_root).expanduser().resolve()
+    if isinstance(workspace_payload, dict):
+        declared = workspace_payload.get("project_root")
+        if declared:
+            candidate = Path(declared).expanduser()
+            if not candidate.is_absolute():
+                candidate = (config_path.parent / candidate).resolve()
+            return candidate
+    return config_path.parent
 
 
 def _resolve_workspace_data_dir(

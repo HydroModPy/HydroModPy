@@ -6,7 +6,7 @@ workspace.
 
 Public API
 ----------
-- :class:`SimulationCatalog`: connection-managed entry point. Methods cover
+- :class:`Catalog`: connection-managed entry point. Methods cover
   registration (``register_simulation``), per-simulation writers
   (``write_parameters``, ``write_timeseries``, ``write_budget``,
   ``write_field``, ``write_mesh`` ...), readers / queries (``query_field``,
@@ -16,26 +16,30 @@ Public API
   ``delete``).
 - :class:`RegistrationResult`: dataclass returned by ``register_simulation``.
 - Errors: :class:`SimulationNotFoundError`, :class:`AmbiguousReferenceError`,
-  :class:`DuplicateSimulationNameError`.
+  :class:`DuplicateSimulationNameError`, :class:`RunNameTooLongError`.
 - :func:`short_id`: Git-style short identifier (first 8 hex chars).
 """
 
 from hydromodpy.results.catalog.discovery import (
     AmbiguousReferenceError,
     SimulationNotFoundError,
+    iter_project_catalog_roots,
     short_id,
 )
-from hydromodpy.results.catalog.facade import SimulationCatalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.registration import (
     DuplicateSimulationNameError,
     RegistrationResult,
 )
+from hydromodpy.results.catalog.storage_paths import RunNameTooLongError
 
 __all__ = [
     "AmbiguousReferenceError",
     "DuplicateSimulationNameError",
     "RegistrationResult",
-    "SimulationCatalog",
+    "Catalog",
+    "RunNameTooLongError",
     "SimulationNotFoundError",
+    "iter_project_catalog_roots",
     "short_id",
 ]

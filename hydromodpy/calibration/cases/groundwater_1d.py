@@ -39,13 +39,13 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.calibration.engine import CalibrationEngine
-from hydromodpy.calibration.optimizer import (
+from hydromodpy.calibration.optim.engine import CalibrationEngine
+from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     ParamSuggestion,
     build_optimizer,
 )
-from hydromodpy.calibration.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.core.metrics import rmse
 from hydromodpy.physics.hydrology.synthetic.forcing import (
     build_hydrological_step_series,

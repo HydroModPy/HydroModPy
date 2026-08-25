@@ -243,6 +243,30 @@ def _bundle_dir_for_case(run_folder: Path, config_path: Path | None) -> Path | N
     return None
 
 
+def _cell_node_id_values(row: Mapping[str, Any]) -> list[str]:
+    """Return one cell's node-id strings, variable arity, empty slots dropped.
+
+    Honors the ``ncvert`` count when present (Voronoi/PEBI bundles) and otherwise
+    scans every ``n<k>`` column so legacy fixed ``n0..n3`` files still load.
+    """
+    ncvert_raw = str(row.get("ncvert", "") or "").strip()
+    if ncvert_raw:
+        count = int(float(ncvert_raw))
+        keys = [f"n{position}" for position in range(count)]
+    else:
+        keys = []
+        position = 0
+        while f"n{position}" in row:
+            keys.append(f"n{position}")
+            position += 1
+    values: list[str] = []
+    for key in keys:
+        raw = str(row.get(key, "") or "").strip()
+        if raw:
+            values.append(raw)
+    return values
+
+
 def _mesh_payload_from_bundle(bundle_dir: Path | None) -> tuple[np.ndarray | None, ...]:
     if bundle_dir is None:
         return None, None, None
@@ -273,10 +297,7 @@ def _mesh_payload_from_bundle(bundle_dir: Path | None) -> tuple[np.ndarray | Non
         reader = csv.DictReader(handle)
         for row in reader:
             face: list[int] = []
-            for key in ("n0", "n1", "n2", "n3"):
-                raw = row.get(key)
-                if raw in (None, ""):
-                    continue
+            for raw in _cell_node_id_values(row):
                 try:
                     face.append(node_index[int(raw)])
                 except Exception:

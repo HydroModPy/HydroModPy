@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -68,17 +69,23 @@ def test_run_with_string_path_resolves(monkeypatch, tmp_path: Path) -> None:
     assert captured["dispatch_path"] == config.resolve()
 
 
-def test_run_with_config_object_uses_project(monkeypatch) -> None:
+def test_run_with_config_object_uses_project(monkeypatch, tmp_path: Path) -> None:
     """A non-path config object opens a ``Project`` and calls ``project.simulate``."""
     captured: dict = {}
+    # The verb result is re-bound through the catalog of the project root; an
+    # empty root has no index, so ``run`` falls back to the verb result itself.
+    verb_result = SimpleNamespace(name="from_object", sim_id="sim-001")
     monkeypatch.setattr(
         "hydromodpy.project.Project",
-        make_capturing_project(captured, result={"name": "from_object"}, verb="simulate"),
+        make_capturing_project(captured, result=verb_result, verb="simulate"),
     )
 
-    fake_cfg = object()
-    result = hmp.run(fake_cfg, name="alpha", headless=True)
-    assert result == {"name": "from_object"}
+    fake_cfg = SimpleNamespace(
+        workflow=SimpleNamespace(mode="simulation"),
+        workspace=SimpleNamespace(project_root=tmp_path),
+    )
+    result = hmp.run(fake_cfg, name="alpha", headless=True, no_lock=True)
+    assert result is verb_result
     assert captured["init_cfg"] is fake_cfg
     assert captured["init_headless"] is True
     assert captured["verb_kwargs"] == {"name": "alpha"}

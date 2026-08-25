@@ -14,6 +14,7 @@ the machine-wide global index).
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 from collections.abc import Callable
 from functools import cached_property
@@ -23,6 +24,7 @@ from typing import TYPE_CHECKING
 from filelock import FileLock
 from pydantic import BaseModel, ConfigDict
 
+from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.core.migrations.errors import (
     MigrationDiscoveryError,
     MigrationExecutionError,
@@ -34,6 +36,27 @@ if TYPE_CHECKING:
 
 DEFAULT_COMPONENT = "catalog"
 DEFAULT_LOCK_TIMEOUT = 30.0
+
+REPAIR_HINTS: dict[str, str] = {
+    "catalog": (
+        "the project index is rebuildable: delete <project>/.hmp/index.duckdb "
+        "and run 'hmp catalog reindex'"
+    ),
+    "index": (
+        "the machine-wide index is rebuildable: delete it and run "
+        "'hmp workspace register <project>' for each workspace"
+    ),
+    "data_cache": (
+        "the download cache is a primary record, not an index: restore the newest "
+        "'.hmp/backups/cache.duckdb.bak-*' snapshot next to it"
+    ),
+}
+"""How to repair a database whose recorded schema no longer matches the code.
+
+Keyed by migration component. Every index in this project is reconstructed
+rather than repaired, so the hint is a command; only the download cache holds
+something no rebuild can produce, so its hint is a restore.
+"""
 
 _FILENAME_RE = re.compile(r"^(?P<version>\d{4})_(?P<slug>[a-z0-9][a-z0-9_]*)\.sql$")
 
@@ -77,6 +100,14 @@ class Migration(BaseModel):
 
 def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def repair_hint_for(component: str) -> str:
+    """Return the one-line repair instruction for ``component``."""
+    return REPAIR_HINTS.get(
+        component,
+        f"delete the {component} database and let the next command recreate it",
+    )
 
 
 def discover_migrations(versions_dir: Path) -> list[Migration]:
@@ -216,7 +247,8 @@ def ensure_schema(
         if recorded != migration.checksum:
             raise SchemaIntegrityError(
                 f"Checksum mismatch for migration {migration.version:04d}_{migration.slug} "
-                f"({component}): stored {recorded!r}, disk {migration.checksum!r}"
+                f"({component}): stored {recorded!r}, disk {migration.checksum!r}. "
+                f"To repair, {repair_hint_for(component)}."
             )
 
 
@@ -236,8 +268,8 @@ def apply_migrations(
     import duckdb
 
     db_path = Path(db_path)
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    lock = FileLock(f"{db_path}.lock", timeout=lock_timeout)
+    os.makedirs(native_io_path(db_path.parent), exist_ok=True)
+    lock = FileLock(native_io_path(f"{db_path}.lock"), timeout=lock_timeout)
     with lock:
         connection = duckdb.connect(str(db_path))
         try:

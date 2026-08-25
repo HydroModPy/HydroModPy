@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any
 
 import pytest
 import tomlkit
@@ -52,6 +53,22 @@ _VOLATILE = re.compile(
 def _normalise(text: str) -> str:
     """Blank out the wall-clock fields so two snapshots can be compared."""
     return _VOLATILE.sub("<ts>", text)
+
+
+def _normalise_section(section: Any) -> dict:
+    """Return a parsed section with its wall-clock members neutralised.
+
+    ``[inputs]`` carries one ``fetched_at`` per entry, so comparing the
+    parsed section verbatim would only pass while both writes happen to land
+    inside the same second.
+    """
+    out: dict = {}
+    for key, value in dict(section).items():
+        if isinstance(value, dict):
+            out[key] = {k: ("<ts>" if k == "fetched_at" else v) for k, v in value.items()}
+        else:
+            out[key] = "<ts>" if key in ("generated_at", "fetched_at") else value
+    return out
 
 
 def _seed_two_inputs(tmp: Path) -> tuple[DataCatalogDuckDB, Path, Path, Path]:
@@ -99,11 +116,24 @@ def test_two_writes_are_byte_identical_after_timestamp_normalisation(
     text_b = b.read_text()
     # The only freedom between two writes is the timestamp fields.
     assert _normalise(text_a) == _normalise(text_b)
-    # And the parsed content sections are exactly equal.
+    # And the parsed content sections are equal once those are neutralised.
     doc_a = tomlkit.parse(text_a)
     doc_b = tomlkit.parse(text_b)
     for section in ("schema", "binaries", "inputs"):
-        assert dict(doc_a[section]) == dict(doc_b[section])
+        assert _normalise_section(doc_a[section]) == _normalise_section(doc_b[section])
+
+
+def test_one_write_stamps_every_entry_with_the_same_instant(tmp_path: Path) -> None:
+    """A snapshot reads the clock once: no entry can straddle a second."""
+    catalog, workspace, _first, _second = _seed_two_inputs(tmp_path)
+    dest = workspace / LOCKFILE_NAME
+    write_lockfile(catalog, dest)
+    catalog.close()
+
+    doc = tomlkit.parse(dest.read_text())
+    stamps = {str(entry["fetched_at"]) for entry in dict(doc["inputs"]).values()}
+    stamps.add(str(doc["hydromodpy"]["generated_at"]))
+    assert len(stamps) == 1
 
 
 def test_input_ordering_is_stable_across_writes(tmp_path: Path) -> None:

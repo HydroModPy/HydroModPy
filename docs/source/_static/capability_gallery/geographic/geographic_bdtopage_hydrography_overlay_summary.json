@@ -43,7 +43,7 @@
     "examples/projects/09_capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png"
   ],
   "source_hashes": {
-    "tools/doc_gallery/manifests/geographic_cases.json": "87a228bb5a5c8c8b087dbeae7693efd258f71bab1739443c6cf211b1f90f7bfe",
+    "tools/doc_gallery/manifests/geographic_cases.json": "3d532bf067bf5461b29113e32e59e8fea7f91b62de236b6daae14f8b99909c48",
     "examples/projects/05_nancon_data_overview/config_hydrography_only.toml": "164573ca07d187ff43bf12bb5b40715fcd62babdd2942e5e92c2dfab01f64657",
     "examples/projects/09_capability_gallery/geographic/README.md": "50e3977c73fbb56834de76bfb9a3e7db805b18a676547c4d695d22f1ce871572",
     "examples/projects/09_capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png": "32f1ad36cb0879224f9288c7110e5a8efe4390a9eb74e7deb16d7a2115175b99"

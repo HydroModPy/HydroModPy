@@ -1,0 +1,448 @@
+Calibrating on the stream network
+=================================
+
+How to calibrate a catchment against the extent of its hydrographic network
+rather than against a gauge, in two stages: the transmissivity-to-recharge
+ratio against the network in steady state, then the storage against the
+discharge in transient.
+
+Read :doc:`../../theory/streams_and_seepage/downslope-distance-calibration`
+first. This page says how to run it; that one says what the number means, and
+which way each of its known biases points.
+
+Before you start
+----------------
+
+Four things have to be true, and the first is the one people skip.
+
+**The mapped network must sit in the talwegs of the routing surface.** The
+criterion measures lengths along the flow paths of the DEM, so if the linework
+does not follow them, it measures a disagreement between two datasets. Burn the
+network into the routing surface first:
+
+.. code-block:: toml
+
+   [geographic.enforce_streams]
+   enabled = true
+   stream_geometry_path = "data/hydrography/streams.gpkg"
+   mode = "constant"
+   depth_m = 30
+
+``stream_geometry_path`` is not optional. Without it the geographic pipeline
+stops on ``geographic.enforce_streams.stream_geometry_path is unset.`` at the
+first step, before anything is calibrated. The path is anchored once, when
+the configuration is loaded: a relative value against the directory of the TOML
+that declares it, a bare filename under ``<workspace>/data/hydrography/`` then
+``<workspace>/data/``. Nothing is probed when the file is read, so the run
+takes the same network whatever directory it was launched from.
+
+A project declaring that path gets the agreement measured whether or not
+``enabled`` is set, which is how you find out that the burning is needed. It
+goes to ``stream_dem_agreement.json`` in the geographic directory, as
+``alpha``: the ratio between the mapped network and its own downslope closure,
+where one means the linework follows the talwegs and below 0.90 the run warns.
+Redo the burning at every change of resolution: the ratio between the width of
+the linework and the cell size changes with it.
+
+**That number is not the one the criterion publishes, and the two cannot
+agree.** The burn is cut into the routing DEM alone; the model top stays on the
+raw DEM, because a top lowered along the mapped network would give a model that
+seeps along it by construction. The criterion measures its distances on that
+top, so the ratio it recomputes on the solver mesh and publishes per trial as
+``alpha_obs_closure`` describes a different surface. On the Nancon the routing
+DEM reaches ``alpha = 0.994`` after a 30 m burn while ``alpha_obs_closure``
+sits at 0.306, below the 0.90 threshold, and every trial says so. Read both:
+the first says the delineation and the flow paths follow the map, the second
+says how much of the criterion's own measurement is a top-versus-map
+disagreement.
+
+**The drain conductance must stay proportional to the conductivity.** Leave
+``[flow.bc.cauchy.drainage] value`` at zero, or at anything not strictly
+positive, so the fallback applies: ``C = K * cell_area / top_thickness`` on both
+MODFLOW backends, ``C = K * cell_area`` on Boussinesq. That proportionality is
+what makes the ratio the calibrated quantity; a fixed conductance breaks the
+invariance from a factor 1.05 onwards.
+
+**The recharge must be frozen during the first stage.** The criterion at one
+per cent is on the ratio, which equals one per cent on the conductivity only
+when the recharge does not move. Every trial publishes ``R_mean_m_s``, the mean
+recharge the criterion actually read back from the built model, and a move
+between two builds raises a warning naming both values. Nothing refuses the run,
+because this check knows a mesh and not a session: keep the recharge out of
+``[calibration.parameters]`` and out of anything the first phase moves, and read
+``R_mean_m_s`` across the trials before reading the calibrated value as a ``K``.
+
+**The union has to cover every package that carries water out of the aquifer.**
+The criterion reads the per-cell release as the union of the packages that can
+feed the surface: drains, streams, release-role constant heads. Whenever the
+stream reaches are modelled rather than drained, most of the seepage leaves
+through the stream package and not through the drain. Measured on the Nancon
+with the main reaches in SFR: the aquifer sent 1.33 of its 2.10 m3/s through
+the stream package while 0.80 stayed on the drain. A union reading the drain
+alone would report 63 per cent of that water as dry land, exactly where the
+package drains, which is exactly where the criterion aims. Both extractors now
+read the requirement off the budget file rather than off the model object, and
+refuse a release record no declared package covers instead of returning a
+partial network.
+
+The visible symptom, if that guard is ever bypassed, is a root that stops
+responding to the parameter: on that same run the search closed on a
+conductivity three decades above its declared bounds, with a validity indicator
+comfortably inside its own. A simulated network holding its cells by
+construction never retracts, and the criterion then balances against a fixed
+skeleton.
+
+Declaring the two stages
+------------------------
+
+.. code-block:: toml
+
+   base_config = "project.toml"
+
+   [workflow]
+   mode = "calibration"
+
+   [calibration]
+   seed = 42
+   save_runs = "best_n"
+   save_best_n = 1
+   persist_iteration_detail = "full"
+
+   [calibration.parameters.K]
+   bounds    = [1e-9, 1e-3]
+   transform = "log"
+   path      = "flow.param.K.field.value"
+   units     = "m/s"
+
+   [calibration.parameters.Sy]
+   bounds    = [1e-3, 3e-1]
+   transform = "log"
+   path      = "flow.param.Sy.field.value"
+
+   [calibration.outputs.seepage_network]
+   support             = "network"
+   stream_geometry_path = "data/hydrography/streams.gpkg"
+   weighting           = "area"
+   tau_specific_ratio  = 1.0e-4
+   roptim_max          = 2.0
+   time                = "last"
+
+   [[calibration.objective_blocks]]
+   name         = "abherve_gap"
+   metric       = "distance_gap"
+   uses_outputs = ["seepage_network"]
+
+   [[calibration.phases]]
+   name              = "steady_k_over_r"
+   description       = "Zero of the signed gap D_so - D_os, by bisection on K."
+   method            = "bisection"
+   max_iter          = 18
+   parameters        = ["K"]
+   objective_blocks  = ["abherve_gap"]
+   freeze_on_success = true
+
+   [calibration.phases.optimizer_kwargs]
+   rel_tol      = 0.01
+   sweep_points = 7
+
+   [calibration.phases.overrides]
+   "flow.flow_regime"                = "steady"
+   "simulation.time.start_datetime"  = "2012-01-01"
+   "simulation.time.end_datetime"    = "2012-12-31"
+   "simulation.time.step_unit"       = "year"
+   "simulation.time.step_value"      = 1
+
+   [[calibration.phases]]
+   name       = "transient_sy"
+   method     = "grid"
+   max_iter   = 9
+   parallel   = 4
+   parameters = ["Sy"]
+   variable   = "discharge"
+   objective  = "nse_log"
+   depends_on = "steady_k_over_r"
+
+   [calibration.phases.scoring_window]
+   start = "2012-01-01"
+   end   = "2015-12-31"
+
+   [calibration.phases.optimizer_kwargs]
+   points_per_dim = 9
+
+   [calibration.phases.overrides]
+   "flow.flow_regime"                = "transient"
+   "simulation.time.start_datetime"  = "2011-01-01"
+   "simulation.time.end_datetime"    = "2015-12-31"
+   "simulation.time.step_unit"       = "month"
+   "simulation.time.step_value"      = 1
+
+Declaring the ``[[calibration.phases]]`` table is what switches the runner to
+staged mode. Without it nothing changes for an existing configuration.
+
+What each choice buys you
+-------------------------
+
+``method = "bisection"``
+   A root search, not a minimiser. The criterion has a zero, not a minimum, and
+   the two are not the same point. It stops on the width of the bracket, never
+   on the size of the residual: the residual is a step function that jumps over
+   zero and may never get small. It searches one parameter, and that parameter
+   has to declare ``transform = "log"``: the width it stops on is a width in
+   that variable, so on any other transform it would read as an absolute one.
+   A two-parameter space and a non-log transform are both refused.
+
+``sweep_points = 7``
+   A coarse logarithmic sweep before the bisection. It checks the monotonicity
+   the paper assumes rather than supposing it, it sees every crossing, and the
+   crossing curves come out of the same solves. Set it to zero for the pure
+   bisection of the paper.
+
+``[calibration.phases.overrides]``
+   The two stages do not run the same model: the first is steady and reads a
+   seepage mask at equilibrium, the second is transient over a span long enough
+   to shape the recessions. The flow regime and the simulated period are
+   properties of the model rather than of the search, so the phase declares
+   them. A phase is refused if it overrides a path another phase freezes, or if
+   it rewrites the calibration section under itself.
+
+``points_per_dim`` on a grid phase
+   What sets the number of points, not ``max_iter``. The grid adapter defaults
+   to five per dimension and ``max_iter`` is only a ceiling, so a phase asking
+   for nine trials without this keyword runs five.
+
+``weighting = "area"``
+   Recommended as soon as the mesh is refined along the streams, which is the
+   usual refinement: an unweighted mean over-samples the river corridor, where
+   distances are smallest. Both weightings are always reported, and their gap
+   measures that effect directly.
+
+``tau_specific_ratio``
+   A cell releasing less than this fraction of its own recharge is not a
+   stream. Zero reproduces the criterion of the paper, which gives no threshold
+   at all.
+
+   **Leave it at its default, and do not read it as a working knob.** It is
+   inert as defined: a cell that releases at all carries the drainage it
+   collects from everything upslope, a hundred to a thousand times its own
+   recharge, so a fraction of that recharge never excludes anything. Measured on
+   the Nancon at the calibrated conductivity, over the 380 cells releasing inside the catchment, not one
+   had a flux below the threshold, and raising the ratio to 100 still kept 28.
+
+   Thresholding the total release instead was tried and is worse: at
+   ``1e-4`` of ``R * A`` the cut lands at 4.9e-4 m3/s, above the many small
+   releases a low conductivity spreads over the catchment and below the few
+   large ones a high conductivity concentrates. The simulated network then
+   GROWS with the conductivity instead of retracting, the residual loses its
+   monotonicity, and the root moves three decades. What the threshold should be
+   a fraction of is an open question; neither answer tried so far is right.
+
+``objective = "nse_log"`` in the second stage
+   The Nash-Sutcliffe efficiency on log-transformed series, which weights the
+   recessions. Do not write ``transform = "log"`` for this: that takes the
+   logarithm of an already-computed cost and is an unrelated operation.
+
+``variable`` and ``objective`` on the second stage only
+   Declaring either one picks the single-metric route for that phase. The
+   phase then inherits neither the outputs nor the objective blocks the
+   calibration declares, which is what keeps the transient stage off the
+   network criterion of the first one. Declaring both conventions on the same
+   phase is refused rather than silently resolved.
+
+``scoring_window`` rather than ``warmup_periods``
+   A window in dates means the same span whatever the output frequency; a count
+   of samples does not. The two are mutually exclusive and declaring both is
+   refused.
+
+Running it
+----------
+
+.. code-block:: console
+
+   $ hmp calibrate calibration.toml
+   $ hmp calibrate calibration.toml --list-phases
+   $ hmp calibrate calibration.toml --phase steady_k_over_r
+
+The first form is the one to use. It runs the phases in declaration order and
+is the only form that produces the two-stage result the page describes.
+
+``--list-phases`` prints the declared phases and exits without running
+anything.
+
+``--phase`` selects a single phase, and it only accepts one that does not
+depend on another. On the configuration above that means ``steady_k_over_r``,
+and nothing else: ``--phase transient_sy`` is refused, because
+``transient_sy`` declares ``depends_on = "steady_k_over_r"`` and a phase whose
+dependency did not run in the same invocation is missing the values that
+dependency freezes. The runner refuses rather than running it against the
+baseline the TOML declares, which would be a different calibration with nothing
+in the result to say so. There is no way to hand a frozen value in from a
+previous invocation: to run the second stage, run both.
+
+Reading the output
+------------------
+
+Every trial writes close to forty diagnostics into ``trials.jsonl`` and into the
+iteration table. They are all prefixed with the name of the output that
+produced them, so the keys below read ``seepage_network.J_signed``,
+``seepage_network.roptim`` and so on in the files. They are written whether or
+not a run is promoted; the configuration above promotes one, the best. The ones
+to look at first:
+
+``J_signed``
+   The signed residual. Its sign says which side of the balance the trial is
+   on, and it is what the search brackets. If it never changes sign over the
+   sweep, the search widens the interval by a decade on each side, up to
+   ``bracket_expand`` times (four by default), then raises and names both ends
+   rather than returning the better of the two. One failed evaluation anywhere
+   in the sweep skips the widening: the surface is the problem, not the
+   interval. A root that only exists outside the declared bounds is returned
+   with a warning naming both, because several decades out is usually a
+   residual that stopped responding to the parameter rather than a surprising
+   value.
+
+``roptim`` and ``roptim_valid``
+   The validity indicator of Equation 4, against the ``roptim_max`` bound (two
+   by default). It **qualifies** the result and does not withhold it: a
+   violation warns and the value comes back, unless you set
+   ``on_roptim_violation = "error"``, which raises instead. And it measures
+   agreement, not correctness, so do not read it as a quality score of the
+   model.
+
+``R_mean_m_s``
+   The denominator of the calibrated ratio. It is what makes the result a
+   ``K/R`` rather than a ``K``, and comparing it across the trials of a session
+   is how you check the first stage really held the recharge still.
+
+``alpha_obs_closure`` and ``frac_reachable_obs_raw``
+   How much of the criterion's own measurement is a top-versus-map
+   disagreement, and how much of the mapped support has a descent that reaches
+   the network at all. ``alpha_obs_closure`` is measured on the model top and
+   not on the burned routing DEM, so a low value is not evidence the burning
+   was skipped: read it beside the ``alpha`` of the geographic step, as the
+   second item of "Before you start" says. They describe the geometry, not the
+   trial, so they are identical across a session: the static geometry is
+   rebuilt at every trial from the same topography and comes out the same.
+
+``frac_unreachable_so`` and ``frac_unreachable_os``
+   The share of each support whose descent ends without meeting its target.
+   The bound holds on ``frac_unreachable_so`` alone: its target is the mapped
+   network with the outlet sealed in, which does not move between trials, so
+   beyond ``max_unreachable_fraction`` (five per cent by default) the trial
+   fails loudly, because averaging over a truncated support is a fiction and
+   the cells dropped are never a random sample: they sit upstream of a pit.
+   ``frac_unreachable_os`` is reported and deliberately unbounded. Its target
+   is the SIMULATED network, which the calibration moves: at a high
+   conductivity the simulated streams retract into the talwegs and mapped cells
+   legitimately have nothing left to descend into. Those cells saturate at
+   ``L_cap``, and the value is the signal the search reads at the high end of
+   its bracket, not a broken surface.
+
+``D_so_median``, ``D_so_p90``, ``D_so_top5_share``
+   The shape of the tail, with ``D_os_median``, ``D_os_p90`` and
+   ``D_os_top5_share`` beside them for the other support. The median is usually
+   zero and a few long branches carry most of the value, so the mean is not a
+   typical gap.
+
+``n_valid``, ``n_excess``, ``n_missing``
+   The three-class counts. The criterion balances the last two against each
+   other, which is what the confusion map draws.
+
+What it looks like on a real catchment
+--------------------------------------
+
+``examples/projects/21_nancon_network_calibration`` runs the configuration
+above on the Nancon at Fougeres, 64.68 km2 in Brittany, and its ``README.md``
+carries the measured numbers. In short: fifteen trials, a seven-point sweep
+across four decades with exactly one sign change, and a root at
+:math:`K = 2.103 \times 10^{-4}` m/s where the criterion balances 550 cells of
+excess against 517 missing. ``roptim`` comes out at 4.58, above its bound, so
+the value is returned qualified. The second stage then pins ``Sy`` on its lower
+bound at an ``nse_log`` of -0.001, which is what a stage that identifies
+:math:`S_y/T` does when it is handed a biased :math:`T`: it saturates instead
+of absorbing.
+
+Two things that example shows and this page cannot: the same catchment
+calibrated under both MODFLOW backends, eleven per cent apart on the root; and
+the same catchment again with the reaches in SFR, which is what puts the
+release union of the previous section under load.
+
+The figures
+-----------
+
+Eight figures are registered for this method: ``downslope_distance_crossing``,
+``bisection_bracket_trace``, ``parameter_cost_profile``,
+``abherve_two_stage_card``, ``seepage_network_reference_overlay``,
+``seepage_network_confusion_map``, ``downslope_distance_map`` and
+``hydrograph_log_nse``.
+
+All eight are declared, never scripted. List them in ``[display].figures`` of
+the project or of the calibration TOML and the promoted run renders them like
+any other figure of the gallery:
+
+.. code-block:: toml
+
+   [display]
+   figures = [
+       "downslope_distance_crossing",
+       "bisection_bracket_trace",
+       "parameter_cost_profile",
+       "seepage_network_reference_overlay",
+       "seepage_network_confusion_map",
+       "downslope_distance_map",
+       "hydrograph_log_nse",
+       "abherve_two_stage_card",
+   ]
+
+The first four read the trials of the session straight off the run. The three
+network maps rebuild the per-cell partition the criterion scored, through the
+same construction it used
+(:mod:`hydromodpy.core.stream_geometry`, reached from
+:func:`hydromodpy.results.derive.stream_network.network_comparison_from_run`),
+so a map cannot disagree with the ``n_valid``, ``n_excess`` and ``n_missing``
+the trial published. They need three things from the run and say which one is
+missing when it is: a per-cell ``release_flux``, a ``reference`` hydrographic
+network, and a delineated watershed. The first comes from
+``[simulation.results.derived] release_flux = true``, the second from
+``[[data.hydrography.sources]]``.
+
+Their knobs go through ``[display.overrides]``, so a reader can move the
+threshold the partition depends on, or read the other direction of the
+distance, without touching code:
+
+.. code-block:: toml
+
+   [display.overrides.seepage_network_confusion_map]
+   tau_specific_ratio = 0.0
+
+   [display.overrides.downslope_distance_map]
+   direction = "to_simulated"
+
+A ninth figure, ``roptim_validity_chart``, compares the calibrated agreement of
+SEVERAL catchments, and a run holds one. It refuses a run-driven render by name
+rather than drawing one point, and it is fed per-site records directly.
+
+``abherve_two_stage_card`` is a grid of panels and draws through ``plot()``,
+not through ``render(sim, ax)``.
+
+What to publish
+---------------
+
+Publish the ratio, not the conductivity. That advice stands, and it is work you
+have to do yourself: the calibration returns the calibrated conductivity raw, in
+``best_parameters`` of the report, and it publishes no ratio at all. There is no
+``t_over_r``, no ``k_over_r`` and no ``k_optim`` anywhere in the output. Divide
+by ``R_mean_m_s``, which every trial publishes, and state the recharge series it
+came from beside the number: the conductivity inherits it entirely, and changing
+reanalysis moved it by +3, +25 and -28 per cent on the three catchments the
+theory page reports.
+
+What the code does publish, and what belongs in the paper beside the value, is
+the diagnostic set above: ``D_so`` and ``D_os``, the cost ``J`` with its signed
+form ``J_signed``, ``Doptim`` and ``roptim`` with ``roptim_valid``. See the
+section on known biases of the theory page before reusing any of them.
+
+And state the density of the mapped network beside the value, because the bias
+scales with it. On the Nancon the map is the permanent network alone, 0.70 km
+per km2 inside the catchment, and the calibrated conductivity came out 3.3
+times the prior the project declares, inside the documented factor of 2.7 to
+7.5 for a thinned network.

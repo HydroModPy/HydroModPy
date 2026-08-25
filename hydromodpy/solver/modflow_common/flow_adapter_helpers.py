@@ -7,7 +7,7 @@ This module contains only MODFLOW-agnostic flow lifecycle logic:
 - run the common pre/process sequence once a concrete flow model exists.
 
 Post-processing (derived variables, result extraction) is handled by
-the ``SimulationCatalog`` pipeline via ``post_run_results()``.
+the ``Catalog`` pipeline via ``post_run_results()``.
 
 Keeping that code here avoids duplicating the same lifecycle in both
 ``modflow_nwt`` and ``modflow6`` adapters.
@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Literal
 
 from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
 from hydromodpy.simulation.planning.plan import (
@@ -130,6 +131,18 @@ def resolve_base_model_name(setup) -> str:
     return "default"
 
 
+def nwt_safe_name(name: str) -> str:
+    """Collapse whitespace to underscores for a MODFLOW-NWT model name.
+
+    MODFLOW-NWT (Fortran) truncates a NAME-file path at the first space, so a
+    ``[simulation] name`` with spaces (e.g. ``"Example 12 launcher fast"``) must
+    be sanitised before it reaches the solver files, or the run diverges on a
+    truncated NAME file. Mirrors MF6's ``mf6_safe_name`` whitespace collapse;
+    MODFLOW-NWT imposes no 16-char identifier limit, so no hashing is needed.
+    """
+    return re.sub(r"\s+", "_", str(name).strip())
+
+
 def build_preprocess_options(state) -> ModflowPreprocessOptions:
     """Build the flow pre-processing options from the runtime setup.
 
@@ -150,6 +163,26 @@ def _requires_mt3dms_link(ctx: RunContext) -> bool:
         and ctx.run.id in planned.depends_on
         for planned in ctx.plan.runs
     )
+
+
+def resolve_modflow_runner(model_modflow: object) -> Literal["subprocess", "api"]:
+    """Return the solve dispatch ('subprocess' or 'api') for a flow model.
+
+    Only the MODFLOW 6 backend exposes a ``mf6_runner`` runtime field. NWT and
+    any other backend have no such field, so they default to 'subprocess' and
+    stay byte-for-byte unchanged. A model that built exposed-band (marnage) runoff
+    coupling specs forces the in-process 'api' runner, because that coupling sets
+    the LAK RUNOFF per timestep through the BMI API.
+
+    This is the single source of truth for the dispatch: provenance reads it
+    back from the built model so it records the engine that actually ran, not
+    the one the configuration asked for.
+    """
+    if getattr(model_modflow, "_exposed_band_runoff_specs", None):
+        return "api"
+    runtime = getattr(getattr(model_modflow, "modflow_config", None), "runtime", None)
+    runner = getattr(runtime, "mf6_runner", "subprocess")
+    return "api" if runner == "api" else "subprocess"
 
 
 def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExecutionResult:
@@ -184,6 +217,7 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
             write_model=True,
             run_model=True,
             link_mt3dms=_requires_mt3dms_link(ctx),
+            runner=resolve_modflow_runner(model_modflow),
         )
     )
     if not success:

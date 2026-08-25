@@ -52,8 +52,8 @@ diagnostics.
    * - Legacy matching streams
      - observed stream raster versus simulated seepage raster, in both
        directions
-     - historically implemented as ``MatchingStreams`` in
-       ``hydromodpy/analysis/postprocess/flow/matching_streams.py``
+     - historically implemented as ``MatchingStreams``; the module was
+       removed and has no replacement in the current tree
      - Closest conceptual match: it created downslope-distance rasters and
        point samples needed to compute the bidirectional criterion.
 
@@ -408,9 +408,32 @@ The current code now adds a safer intermediate CSV,
 - ``distance_method = "planar_cell_centroid_to_network"`` to make clear that
   these are planar mesh diagnostics, not downslope DEM distances.
 
+Diagnostic Or Criterion
+-----------------------
+
+The downslope criterion of :cite:`abherve2023` is now implemented, on the
+receiver graph of the mesh rather than on a raster; see
+:doc:`downslope-distance-calibration`. The two families answer different
+questions and neither replaces the other.
+
+The metrics on this page are **diagnostics of comparison**. They read planar
+distances between cell centroids, they are symmetric, and they say how far
+apart two patterns sit. They are the right tool for inspecting a sweep, for
+comparing two runs, and for a report.
+
+The downslope criterion is a **cost**. It reads lengths along the flow paths,
+it is deliberately asymmetric, and its zero is the balance between an excess of
+simulated stream and a deficit. A planar distance cannot play that role: it
+crosses divides, so a seepage cell on the far side of a ridge counts as close
+when its water leaves into the other valley.
+
+Do not read ``planar_distance_ratio`` as :math:`r_{optim}`. It is a crossing
+proxy on a different distance, useful for looking, not for calibrating.
+
 Related Reading
 ---------------
 
+- :doc:`downslope-distance-calibration`
 - :doc:`nancon-k-sweep-results`
 - :doc:`conceptual-model`
 - :doc:`../hydrology/simulated-active-network`

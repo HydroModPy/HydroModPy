@@ -28,7 +28,7 @@ Example
 
     import hydromodpy as hmp
 
-    project = hmp.Project("hydromodpy.toml")  # cheap: validates config
+    project = hmp.Project("project.toml")  # cheap: validates config
     run = project.simulate(Sy=0.05, K=5e-5, name="baseline")  # builds, then runs
     wt = run.field("watertable_depth", timestep=12)
 
@@ -60,8 +60,10 @@ if TYPE_CHECKING:
         ResolvedSimulationTimeGrid,
         ResolvedSteadySimulationTimeGrid,
     )
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.project.spinup import SpinupResult
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.run import Run
+    from hydromodpy.simulation.spinup_config import SpinupConfig
     from hydromodpy.spatial.domain import Domain
     from hydromodpy.spatial.geographic.catchment_delineation import (
         CatchmentDelineation,
@@ -114,7 +116,7 @@ class Project:
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> project = hmp.Project("hydromodpy.toml")  # doctest: +SKIP
+    >>> project = hmp.Project("project.toml")  # doctest: +SKIP
     >>> run = project.simulate(Sy=0.05)  # doctest: +SKIP
     >>> project.close()  # doctest: +SKIP
     """
@@ -344,8 +346,8 @@ class Project:
         return self._ctx.setup.domain
 
     @property
-    def store(self) -> SimulationCatalog | None:
-        """Open SimulationCatalog for direct queries across all runs. Triggers build."""
+    def store(self) -> Catalog | None:
+        """Open Catalog for direct queries across all runs. Triggers build."""
         self._ensure_model_built()
         return self._catalog.store
 
@@ -457,11 +459,12 @@ class Project:
         max_iter: int | None = None,
         save_runs: str | None = None,
         seed: int | None = None,
+        phase: str | None = None,
         **kwargs,
     ):
         """Run a calibration campaign on this project.
 
-        Two modes are supported:
+        Three modes are supported:
 
         * TOML mode (``config_path`` supplied): delegate to
           ``run_calibration_cli`` with the given TOML path. Extra keyword
@@ -469,6 +472,17 @@ class Project:
         * Python mode (``parameters`` supplied): build a
           :class:`CalibrationConfig` in memory from the declarations and
           run the same loop.
+        * Embedded mode (neither supplied): use the ``[calibration]`` section
+          carried by this project's config, so a fully in-memory
+          ``HydroModPyConfig`` calibrates without re-declaring parameters.
+
+        A configuration declaring ``[[calibration.phases]]`` **routes** to
+        :func:`~hydromodpy.calibration.runners.staged_runner.run_staged_calibration`
+        in TOML mode, and in embedded mode when this project was built from a
+        file. An embedded declaration on a project built in memory is
+        **refused**: each phase forks a fresh configuration from the source
+        file, and there is none. Python mode declares its own parameter space,
+        so the phases of the project config do not apply to it.
 
         Parameters
         ----------
@@ -488,12 +502,14 @@ class Project:
             Policy controlling which trial runs remain persisted.
         seed
             Optional optimizer seed.
+        phase
+            Run only the named phase of a staged calibration.
         kwargs
             Extra options forwarded to the calibration runner.
 
         Returns
         -------
-        CalibrationReport or Any
+        CalibrationReport or StagedCalibrationReport or Any
             Structured calibration report when ``return_report`` is true,
             otherwise the runner-specific result.
 
@@ -501,22 +517,80 @@ class Project:
         ------
         ConfigMissingError
             Raised when neither ``config_path`` nor ``parameters`` is supplied.
+        ConfigError
+            Raised when ``phase`` is given and ``config_path`` cannot be read,
+            because the answer is what the file says.
+        CalibrationError
+            Raised when ``[[calibration.phases]]`` cannot be run as declared,
+            and when ``phase`` names a phase no configuration declares.
         """
-        from hydromodpy.core.exceptions import ConfigMissingError
+        from hydromodpy.core.exceptions import CalibrationError, ConfigMissingError
+        from hydromodpy.project.dispatch.workflow import (
+            calibration_phases_or_raise,
+            declared_calibration_phases,
+            in_memory_staged_refusal,
+            no_such_phase,
+        )
 
         if config_path is not None:
-            from hydromodpy.calibration.cli_runner import run_calibration_cli
+            from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
-            return run_calibration_cli(Path(config_path).expanduser().resolve(), **kwargs)
+            target = Path(config_path).expanduser().resolve()
+            # Routing alone tolerates an unreadable file: the runner that reads
+            # it next reports the failure with its own context. Selecting a
+            # phase by name reaches no runner, so the failure has to surface
+            # here, or the user is sent looking at a phases block that is
+            # present and correct.
+            if phase is not None:
+                declared_phases = calibration_phases_or_raise(target)
+            else:
+                declared_phases = declared_calibration_phases(target)
+            if declared_phases:
+                from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 
-        if not parameters:
-            raise ConfigMissingError(
-                "Project.calibrate() requires either config_path= or "
-                "parameters= (Python-mode declaration)."
-            )
+                return run_staged_calibration(target, phase=phase, **kwargs)
+            if phase is not None:
+                raise CalibrationError(no_such_phase(target.name, phase))
+            return run_calibration_cli(target, **kwargs)
 
         from hydromodpy.calibration.config import CalibrationConfig
-        from hydromodpy.calibration.programmatic_runner import run_calibration_programmatic
+        from hydromodpy.calibration.runners.programmatic_runner import run_calibration_programmatic
+
+        if not parameters:
+            # Fall back to the [calibration] section carried by this project's
+            # config, so a fully in-memory HydroModPyConfig calibrates without
+            # re-declaring parameters= (matches the TOML path).
+            embedded = getattr(getattr(self, "config", None), "calibration", None)
+            if embedded is not None:
+                declared = [decl.name for decl in (getattr(embedded, "phases", None) or [])]
+                source = self._config_path
+                if declared and source is not None:
+                    from hydromodpy.calibration.runners.staged_runner import (
+                        run_staged_calibration,
+                    )
+
+                    return run_staged_calibration(Path(source).resolve(), phase=phase, **kwargs)
+                if declared:
+                    raise CalibrationError(in_memory_staged_refusal(declared))
+                if phase is not None:
+                    raise CalibrationError(no_such_phase("this configuration", phase))
+                return run_calibration_programmatic(
+                    embedded,
+                    project=self,
+                    workspace=kwargs.get("workspace"),
+                    project_label=kwargs.get("project_label", kwargs.get("project", "calibration")),
+                    metric_fn=kwargs.get("metric_fn"),
+                    objective=kwargs.get("objective"),
+                    return_report=kwargs.get("return_report", True),
+                )
+            raise ConfigMissingError(
+                "Project.calibrate() requires either config_path=, parameters= "
+                "(Python-mode declaration), or a [calibration] section in the "
+                "project config."
+            )
+
+        if phase is not None:
+            raise CalibrationError(no_such_phase("this parameters= declaration", phase))
 
         payload: dict[str, object] = {}
         if method is not None:
@@ -559,10 +633,40 @@ class Project:
             return_report=kwargs.get("return_report", True),
         )
 
+    def spinup(
+        self,
+        *,
+        spinup: SpinupConfig | None = None,
+        name_prefix: str = "spinup",
+    ) -> SpinupResult:
+        """Run the cyclic spin-up loop on this project.
+
+        Restarts the representative window each cycle from the previous cycle's
+        state until the aquifer heads and the lake stage converge. Defaults to
+        the ``[spinup]`` section of this project's config; pass ``spinup`` to
+        override it in memory. Feed ``result.restart_from`` to a production
+        run's ``[flow] restart_from``.
+
+        Parameters
+        ----------
+        spinup
+            Spin-up settings override. ``None`` uses ``config.spinup``.
+        name_prefix
+            Prefix for the per-cycle run names recorded in the catalog.
+
+        Returns
+        -------
+        hydromodpy.project.spinup.SpinupResult
+            The loop outcome (converged state, ``restart_from`` handle).
+        """
+        from hydromodpy.project.spinup import run_spinup
+
+        return run_spinup(self, spinup=spinup, name_prefix=name_prefix)
+
     # -- Lifecycle --------------------------------------------------------
 
     def close(self) -> None:
-        """Close the SimulationCatalog and clean up preprocessing files."""
+        """Close the Catalog and clean up preprocessing files."""
         self._catalog.close()
 
     def __enter__(self):

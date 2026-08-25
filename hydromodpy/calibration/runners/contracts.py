@@ -93,30 +93,6 @@ class TrialPipelineProvider(Protocol):
 
 
 @runtime_checkable
-class CalibrationSeriesExtractor(Protocol):
-    """Solver-adapter contract used by calibration extractors.
-
-    The calibration metrics package calls
-    :meth:`extract_calibration_series` on whichever ``SolverAdapter`` is
-    bound to the active flow run. The signature is duck-typed across
-    backends; this Protocol pins it explicitly so static checkers and
-    the metric extractor see the same shape.
-    """
-
-    def extract_calibration_series(
-        self,
-        ctx: Any,
-        store: Any,
-        *,
-        variable: str,
-        station_cells: Mapping[str, Any] | None = None,
-        boundary_id: str | None = None,
-        time_index: Any | None = None,
-    ) -> Any:
-        """Return the simulated time series as ``pd.Series``."""
-
-
-@runtime_checkable
 class TrialPromotionProvider(Protocol):
     """Bundle that promotes a calibration candidate to a persisted run."""
 
@@ -172,7 +148,6 @@ def get_trial_promotion_provider() -> TrialPromotionProvider:
 
 
 __all__ = [
-    "CalibrationSeriesExtractor",
     "TrialPipelineProvider",
     "TrialPipelineRunner",
     "TrialPromotionProvider",

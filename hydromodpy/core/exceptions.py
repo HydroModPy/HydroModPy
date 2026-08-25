@@ -205,6 +205,18 @@ class IncompatibleCapabilitiesError(SolverError):
     code = "HMPY.E407"
 
 
+class ObservableNotAvailableError(SolverError):
+    """Solver adapter cannot produce the requested observable for this run.
+
+    Distinct from :class:`IncompatibleCapabilitiesError`, which is raised at
+    configuration time against a solver's declared capabilities. This one is
+    raised during extraction, about one named observable of one run, and it is
+    what replaces reading an adapter's signature to guess what it supports.
+    """
+
+    code = "HMPY.E408"
+
+
 # -- Pipeline ------------------------------------------------------------------
 
 
@@ -350,6 +362,36 @@ class CatalogError(StorageError):
     code = "HMPY.E801"
 
 
+class ReadOnlyError(CatalogError):
+    """A write was attempted against a read-only catalog."""
+
+    code = "HMPY.E803"
+
+
+class WriteConflictError(CatalogError):
+    """A concurrent writer holds the catalog and a write cannot proceed."""
+
+    code = "HMPY.E804"
+
+
+class CrossProjectsError(CatalogError):
+    """An operation crossed project boundaries that must stay isolated."""
+
+    code = "HMPY.E805"
+
+
+class BackupFailedError(CatalogError):
+    """The pre-migration catalog backup could not be written."""
+
+    code = "HMPY.E806"
+
+
+class MigrationFailedError(CatalogError):
+    """A catalog schema migration failed to apply."""
+
+    code = "HMPY.E807"
+
+
 class ZarrStoreError(StorageError):
     """Zarr store read/write failure."""
 
@@ -420,6 +462,7 @@ __all__ = [
     "SolverInputError",
     "SolverEnvironmentError",
     "IncompatibleCapabilitiesError",
+    "ObservableNotAvailableError",
     # Pipeline
     "PipelineError",
     "StepError",
@@ -443,6 +486,11 @@ __all__ = [
     # Storage
     "StorageError",
     "CatalogError",
+    "ReadOnlyError",
+    "WriteConflictError",
+    "CrossProjectsError",
+    "BackupFailedError",
+    "MigrationFailedError",
     "ZarrStoreError",
     # Results
     "ResultsError",

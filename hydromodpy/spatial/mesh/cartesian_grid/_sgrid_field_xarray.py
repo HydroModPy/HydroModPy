@@ -15,6 +15,9 @@ from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_grid_utils import (
     find_xy_dims,
     interp_2d,
 )
+from hydromodpy.spatial.mesh.cartesian_grid.spatial_interpolation import (
+    interpolate_stack_to_grid,
+)
 
 if TYPE_CHECKING:
     import xarray as xr
@@ -143,9 +146,10 @@ def discretize_from_xarray(
         )
         return {kper: arr_2d.copy() for kper in range(nper)}
 
-    # Time-varying: aggregate per stress period.
+    # Time-varying: aggregate per stress period, then interpolate the whole
+    # slice stack in one pass (shared nearest-neighbor plan across periods).
     time_coords = pd.DatetimeIndex(da.coords["time"].values)
-    results: dict[int, np.ndarray] = {}
+    slices: list[np.ndarray] = []
 
     if period_bounds is not None:
         for kper, (t_start, t_end) in enumerate(period_bounds):
@@ -171,20 +175,7 @@ def discretize_from_xarray(
                     label=f"recharge gridded forcing values for stress period {kper}",
                 )
                 slice_2d = selected.mean(dim="time").values
-            arr_2d = (
-                interp_2d(
-                    slice_2d,
-                    da.coords[x_dim].values,
-                    da.coords[y_dim].values,
-                    x_centers,
-                    y_centers,
-                    nrow,
-                    ncol,
-                    method,
-                )
-                * unit_factor
-            )
-            results[kper] = arr_2d
+            slices.append(np.asarray(slice_2d, dtype=float))
     else:
         # No simulation window: one array per time step.
         for kper in range(min(len(time_coords), 1000)):
@@ -192,22 +183,22 @@ def discretize_from_xarray(
                 da.isel(time=kper).values,
                 label=f"recharge gridded forcing values for stress period {kper}",
             )
-            arr_2d = (
-                interp_2d(
-                    slice_2d,
-                    da.coords[x_dim].values,
-                    da.coords[y_dim].values,
-                    x_centers,
-                    y_centers,
-                    nrow,
-                    ncol,
-                    method,
-                )
-                * unit_factor
-            )
-            results[kper] = arr_2d
+            slices.append(np.asarray(slice_2d, dtype=float))
 
-    return results
+    if not slices:
+        return {}
+
+    interpolated = interpolate_stack_to_grid(
+        np.stack(slices),
+        da.coords[x_dim].values,
+        da.coords[y_dim].values,
+        x_centers,
+        y_centers,
+        nrow,
+        ncol,
+        method,
+    )
+    return {kper: interpolated[kper] * unit_factor for kper in range(len(slices))}
 
 
 def discretize_from_file(

@@ -5,7 +5,7 @@ Scope
 -----
 
 This page documents the calibration methods exposed through
-``hydromodpy.calibration.optimizer`` and selectable from
+``hydromodpy.calibration.optim.optimizer`` and selectable from
 ``[calibration] method``:
 
 - ``grid``

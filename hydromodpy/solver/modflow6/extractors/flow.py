@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import (
     CF_EPOCH,
@@ -14,7 +15,12 @@ from hydromodpy.core.units.time import (
     cf_time_axis_seconds,
     factor_to_seconds,
 )
-from hydromodpy.solver.modflow_common.budget_components import is_scalar_budget_component
+from hydromodpy.solver.modflow6.build import mf6_safe_name
+from hydromodpy.solver.modflow_common.budget_components import (
+    canonical_budget_component,
+    is_scalar_budget_component,
+)
+from hydromodpy.solver.modflow_common.field_slab import slab_steps
 
 logger = get_logger(__name__)
 
@@ -25,6 +31,17 @@ def _seconds_per_time_unit(time_units: str) -> float:
     if token in ("", "UNKNOWN"):
         return 1.0
     return factor_to_seconds(token)
+
+
+def _listing_path(solver_output_dir: Path, model_name: str) -> Path:
+    """Return the model listing file MF6 wrote for ``model_name``.
+
+    MF6 names the listing after the model name it was given, which
+    ``mf6_safe_name`` truncates past 16 characters, while the head and budget
+    files keep the full run name. Deriving the listing from the raw name loses
+    the mass balance on every long ``[simulation] name``.
+    """
+    return Path(solver_output_dir) / f"{mf6_safe_name(model_name)}.lst"
 
 
 def _budget_field(row: Any, names: tuple[str, ...] | None, key: str) -> float:
@@ -90,7 +107,7 @@ def _write_time_coordinate(
 
 
 class Modflow6OutputAdapter:
-    """Read MODFLOW 6 binary outputs and inject them into a SimulationCatalog.
+    """Read MODFLOW 6 binary outputs and inject them into a Catalog.
 
     Expects a solver output directory with ``{model_name}.hds`` and
     ``{model_name}.cbc`` in MODFLOW 6 format.
@@ -134,60 +151,93 @@ class Modflow6OutputAdapter:
         seconds_per_time_unit = _seconds_per_time_unit(time_units)
         _write_time_coordinate(store, sim_id, times, time_units, tdis_path, start_datetime)
 
-        head0 = head_file.get_data(totim=times[0])
-        grid_shape: tuple[int, int] | None = None
-        if head0.ndim == 3:
-            nlay, nrow, ncol = head0.shape
-            n_cells = nrow * ncol
-            grid_shape = (int(nrow), int(ncol))
-        elif head0.ndim == 2:
-            nlay = 1
-            n_cells = int(head0.size)
-            grid_shape = tuple(int(v) for v in head0.shape)
-        else:
-            nlay = 1
-            n_cells = head0.size
+        try:
+            head0 = head_file.get_data(totim=times[0])
+            grid_shape: tuple[int, int] | None = None
+            if head0.ndim == 3:
+                nlay, nrow, ncol = head0.shape
+                n_cells = nrow * ncol
+                grid_shape = (int(nrow), int(ncol))
+            elif head0.ndim == 2:
+                nlay = 1
+                n_cells = int(head0.size)
+                grid_shape = tuple(int(v) for v in head0.shape)
+            else:
+                nlay = 1
+                n_cells = head0.size
 
-        logger.info(
-            "Extracting MODFLOW 6 results: %d timesteps, %d layers, %d cells",
-            n_timesteps,
-            nlay,
-            n_cells,
-        )
-
-        for t, time in enumerate(times):
-            head = head_file.get_data(totim=time)
-            values = head.reshape(nlay, n_cells) if head.ndim == 3 else head.reshape(nlay, n_cells)
-            values = values.astype("float64")
-            values[np.abs(values) > 1e20] = np.nan
-            store.write_field(
-                sim_id,
-                "head",
-                t,
-                values,
-                n_timesteps=n_timesteps if t == 0 else None,
+            logger.debug(
+                "Extracting MODFLOW 6 results: %d timesteps, %d layers, %d cells",
+                n_timesteps,
+                nlay,
+                n_cells,
             )
 
-        if cbc_path.exists():
-            self._extract_budget(
+            # Batched stack writes: per-timestep writes into a sharded Zarr array
+            # cost one whole-shard read-modify-write per timestep.
+            head_slab_steps = slab_steps(nlay, n_cells)
+            with progress.task("Extracting heads", total=n_timesteps) as handle:
+                for t0 in range(0, n_timesteps, head_slab_steps):
+                    t1 = min(t0 + head_slab_steps, n_timesteps)
+                    slab = np.empty((t1 - t0, nlay, n_cells), dtype="float64")
+                    for t in range(t0, t1):
+                        head = head_file.get_data(totim=times[t])
+                        slab[t - t0] = head.reshape(nlay, n_cells)
+                    store.write_field_stack(
+                        sim_id,
+                        "head",
+                        slab,
+                        n_timesteps=n_timesteps,
+                        timestep_offset=t0,
+                    )
+                    handle.update(completed=t1)
+
+            if cbc_path.exists():
+                self._extract_budget(
+                    sim_id,
+                    store,
+                    cbc_path,
+                    times,
+                    kstpkpers,
+                    spatial_fields=budget_spatial_fields,
+                    nlay=nlay,
+                    n_cells=n_cells,
+                    seconds_per_time_unit=seconds_per_time_unit,
+                )
+
+            lst_path = _listing_path(solver_output_dir, model_name)
+            if lst_path.exists():
+                self._extract_mass_balance(
+                    sim_id, store, lst_path, seconds_per_time_unit=seconds_per_time_unit
+                )
+
+            self._extract_lake_series(
                 sim_id,
                 store,
-                cbc_path,
-                times,
-                kstpkpers,
-                spatial_fields=budget_spatial_fields,
-                nlay=nlay,
-                n_cells=n_cells,
+                solver_output_dir,
+                model_name,
+                times=times,
+                tdis_path=tdis_path,
+                time_units=time_units,
                 seconds_per_time_unit=seconds_per_time_unit,
+                start_datetime=start_datetime,
             )
 
-        lst_path = solver_output_dir / f"{model_name}.lst"
-        if lst_path.exists():
-            self._extract_mass_balance(
-                sim_id, store, lst_path, seconds_per_time_unit=seconds_per_time_unit
-            )
+            self._extract_lake_abacus(sim_id, store, solver_output_dir, model_name)
 
-        head_file.close()
+            self._extract_sfr_series(
+                sim_id,
+                store,
+                solver_output_dir,
+                model_name,
+                times=times,
+                tdis_path=tdis_path,
+                time_units=time_units,
+                seconds_per_time_unit=seconds_per_time_unit,
+                start_datetime=start_datetime,
+            )
+        finally:
+            head_file.close()
 
         self._write_surface_elevation(
             sim_id,
@@ -217,80 +267,305 @@ class Modflow6OutputAdapter:
         Fluxes are divided by ``seconds_per_time_unit`` so the stored values are
         m3/s regardless of the TDIS time unit (m3/s = flux / seconds_per_time_unit).
         """
-        import flopy.utils.binaryfile as bf
+        from hydromodpy.solver.modflow6.extractors.cbc_reader import Mf6CellBudgetReader
 
+        cbb = Mf6CellBudgetReader(cbc_path)
         try:
-            cbb = bf.CellBudgetFile(str(cbc_path))
-        except Exception:
-            cbb = bf.CellBudgetFile(str(cbc_path), precision="double")
-        record_names = [r.decode().strip() for r in cbb.get_unique_record_names()]
+            # Intercell face flows and the specific-discharge velocity are not
+            # scalar budget terms; skip them before reading or summing.
+            components = [
+                name for name in cbb.unique_record_names() if is_scalar_budget_component(name)
+            ]
+            component_rank = {name: rank for rank, name in enumerate(components)}
 
-        budget_records: list[dict] = []
-        for t, (time, kstpkper) in enumerate(zip(times, kstpkpers, strict=False)):
-            for component in record_names:
-                # Intercell face flows and the specific-discharge velocity are not
-                # scalar budget terms; skip them before reading or summing.
-                if not is_scalar_budget_component(component):
-                    continue
-                try:
-                    data = cbb.get_data(text=component, kstpkper=kstpkper, totim=time)
-                except Exception as exc:
-                    logger.debug(
-                        "Could not read MF6 budget '%s' at t=%d: %s",
-                        component,
-                        t,
-                        exc,
-                    )
-                    continue
-                if not data:
-                    continue
-                arr = data[0]
-                if hasattr(arr, "dtype") and arr.dtype.names is not None:
-                    arr = self._recarray_to_grid(arr, nlay, n_cells)
-                if hasattr(arr, "shape") and arr.ndim >= 1:
-                    flux_in = float(np.maximum(arr, 0).sum()) / seconds_per_time_unit
-                    flux_out = float(np.minimum(arr, 0).sum()) / seconds_per_time_unit
-                else:
-                    flux_in = 0.0
-                    flux_out = 0.0
-                budget_records.append(
-                    {
-                        "timestep": t,
-                        "zone_id": "0",
-                        "component": component.lower().strip(),
-                        "flux_in": flux_in,
-                        "flux_out": abs(flux_out),
-                        "unit": "m3/s",
-                    }
-                )
-                if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
-                    if arr.size == nlay * n_cells:
-                        field = arr.reshape(nlay, n_cells) / seconds_per_time_unit
-                    elif arr.ndim == 1 and arr.size == n_cells:
-                        field = arr.reshape(1, n_cells) / seconds_per_time_unit
-                    else:
-                        field = None
-                    if field is not None:
-                        try:
-                            store.write_field(
+            n_timesteps = len(times)
+            # One sequential pass over the file-order record index. Per-record
+            # get_data(text, kstpkper, totim) calls rebuild a full boolean mask of
+            # the index each time, which is quadratic over a long chronicle.
+            timestep_by_kstpkper = {
+                (int(kstp) + 1, int(kper) + 1): t for t, (kstp, kper) in enumerate(kstpkpers)
+            }
+            # The cbc file is time-major, so budget spatial fields are streamed in
+            # time slabs shared across the components: the slab is sized so all
+            # components together stay under one field-slab budget rather than
+            # holding every component's full (nper, nlay, ncpl) stack in RAM.
+            budget_slab = max(1, slab_steps(nlay, n_cells) // max(1, len(components)))
+            seen: set[tuple[str, int]] = set()
+            warned_duplicate: set[str] = set()
+            created_fields: set[str] = set()
+            ranked_records: list[tuple[int, int, dict]] = []
+            slab_stacks: dict[str, np.ndarray] = {}
+            window_t0 = 0
+
+            def _flush_window(t0: int) -> None:
+                for comp, stack in slab_stacks.items():
+                    comp_key = canonical_budget_component(comp)
+                    try:
+                        if comp not in created_fields and t0 != 0:
+                            # First write of a variable must start at offset 0;
+                            # prime the full array for a component that only
+                            # appears past the first slab (rare for per-step terms).
+                            primer = np.full((1, *stack.shape[1:]), np.nan, dtype="float64")
+                            store.write_field_stack(
                                 sim_id,
-                                component.lower().strip(),
-                                t,
-                                field,
-                                n_timesteps=len(times),
+                                comp_key,
+                                primer,
+                                n_timesteps=n_timesteps,
+                                timestep_offset=0,
                                 subgroup="budget",
                             )
-                        except Exception:
-                            logger.debug(
-                                "Skipped write_field for MF6 budget '%s' at t=%d",
-                                component,
-                                t,
-                                exc_info=True,
-                            )
+                        store.write_field_stack(
+                            sim_id,
+                            comp_key,
+                            stack,
+                            n_timesteps=n_timesteps,
+                            timestep_offset=t0,
+                            subgroup="budget",
+                        )
+                        created_fields.add(comp)
+                    except Exception:
+                        logger.debug(
+                            "Skipped write_field_stack for MF6 budget '%s'", comp, exc_info=True
+                        )
+                slab_stacks.clear()
 
-        if budget_records:
-            store.write_budgets(sim_id, budget_records)
-        cbb.close()
+            with progress.task("Extracting budget terms", total=len(cbb.records)) as handle:
+                for idx, record in enumerate(cbb.records):
+                    handle.advance()
+                    component = record.text
+                    rank = component_rank.get(component)
+                    if rank is None:
+                        continue
+                    t = timestep_by_kstpkper.get((record.kstp, record.kper))
+                    if t is None:
+                        continue
+                    key = (component, t)
+                    if key in seen:
+                        # Several packages of one type share the record name; keep
+                        # the first record like the historical data[0] read did.
+                        if component not in warned_duplicate:
+                            logger.warning(
+                                "MF6 budget has multiple '%s' package records per timestep; "
+                                "keeping the first (aggregate views may undercount).",
+                                component,
+                            )
+                            warned_duplicate.add(component)
+                        continue
+                    if spatial_fields and t >= window_t0 + budget_slab:
+                        _flush_window(window_t0)
+                        window_t0 = (t // budget_slab) * budget_slab
+                    try:
+                        arr = cbb.read_record(idx)
+                    except Exception as exc:
+                        logger.debug(
+                            "Could not read MF6 budget '%s' at t=%d: %s", component, t, exc
+                        )
+                        continue
+                    seen.add(key)
+                    if hasattr(arr, "dtype") and arr.dtype.names is not None:
+                        arr = self._recarray_to_grid(arr, nlay, n_cells)
+                    if hasattr(arr, "shape") and arr.ndim >= 1:
+                        flux_in = float(np.maximum(arr, 0).sum()) / seconds_per_time_unit
+                        flux_out = float(np.minimum(arr, 0).sum()) / seconds_per_time_unit
+                    else:
+                        flux_in = 0.0
+                        flux_out = 0.0
+                    ranked_records.append(
+                        (
+                            t,
+                            rank,
+                            {
+                                "timestep": t,
+                                "zone_id": "0",
+                                "component": canonical_budget_component(component),
+                                "flux_in": flux_in,
+                                "flux_out": abs(flux_out),
+                                "unit": "m3/s",
+                            },
+                        )
+                    )
+                    if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
+                        if arr.size == nlay * n_cells:
+                            field = np.asarray(arr).reshape(nlay, n_cells)
+                        elif arr.ndim == 1 and arr.size == n_cells:
+                            field = np.asarray(arr).reshape(1, n_cells)
+                        else:
+                            field = None
+                        if field is not None:
+                            stack = slab_stacks.get(component)
+                            if stack is None:
+                                slab_len = min(budget_slab, n_timesteps - window_t0)
+                                stack = np.full((slab_len, *field.shape), np.nan, dtype="float64")
+                                slab_stacks[component] = stack
+                            if stack.shape[1:] == field.shape:
+                                stack[t - window_t0] = field / seconds_per_time_unit
+
+            _flush_window(window_t0)
+
+            # Keep the historical order: time-major, then component declaration order.
+            ranked_records.sort(key=lambda item: (item[0], item[1]))
+            budget_records = [record for _, _, record in ranked_records]
+            if budget_records:
+                store.write_budgets(sim_id, budget_records)
+        finally:
+            cbb.close()
+
+    def _extract_lake_series(
+        self,
+        sim_id: str,
+        store: Any,
+        solver_output_dir: Path,
+        model_name: str,
+        *,
+        times: list,
+        tdis_path: Path,
+        time_units: str,
+        seconds_per_time_unit: float,
+        start_datetime: object | None = None,
+    ) -> None:
+        """Read the LAK obs CSV into per-lake (lake_id, totim) timeseries.
+
+        Per-lake stage / volume / surface-area, the lake-aquifer exchange and the
+        rest of the lake water balance come from the LAK observation CSV described
+        by the build-time ``{model}.lak.meta.json`` sidecar; the spatial per-cell
+        seepage stays in the GWF ``.cbc`` ``LAK`` record handled by
+        ``_extract_budget``. Stage / volume / surface-area keep their native units;
+        rate terms are scaled to m3/s. Without the sidecar the model has no lake
+        and this is a no-op.
+        """
+        from hydromodpy.solver.modflow6.extractors.lake import (
+            build_lake_records,
+            final_lake_stages,
+            read_lake_meta,
+        )
+
+        spec = read_lake_meta(solver_output_dir / f"{model_name}.lak.meta.json")
+        if spec is None:
+            return
+        with progress.status("Building lake timeseries"):
+            obs_path = solver_output_dir / spec.obs_csv
+            calendar_anchor = _read_start_datetime(tdis_path) or start_datetime
+            factor = _seconds_per_time_unit(time_units)
+            calendar_times: np.ndarray | None = None
+            if calendar_anchor is not None:
+                relative = np.asarray(times, dtype=float) * factor
+                axis = cf_time_axis_seconds(relative, calendar_anchor)
+                calendar_times = (
+                    np.asarray(axis)
+                    .astype("int64")
+                    .astype("datetime64[s]")
+                    .astype("datetime64[ms]")
+                )
+            timeseries, budgets = build_lake_records(
+                spec,
+                obs_path,
+                times=times,
+                seconds_per_time_unit=seconds_per_time_unit,
+                calendar_times=calendar_times,
+            )
+            if timeseries:
+                store.write_timeseries_batch(sim_id, timeseries)
+                final_stages = final_lake_stages(timeseries)
+                # Persist each lake's final stage for [flow] restart_from. Written
+                # through open_zarr (guarded by save_zarr, like the write_* verbs)
+                # rather than a dedicated Catalog verb, to keep the facade bounded.
+                if final_stages and getattr(store, "save_zarr", True):
+                    lake_zarr = store.open_zarr(sim_id)
+                    try:
+                        lake_zarr.write_lake_restart_state(final_stages)
+                    finally:
+                        lake_zarr.close()
+            if budgets:
+                store.write_budgets(sim_id, budgets)
+
+    def _extract_lake_abacus(
+        self,
+        sim_id: str,
+        store: Any,
+        solver_output_dir: Path,
+        model_name: str,
+    ) -> None:
+        """Land the bed-reconstruction abacus comparison sidecar into the Zarr.
+
+        Reads ``{model}.lake_abacus.json`` (reference + simulated stage-volume-area
+        per lake) and persists each lake under the per-sim Zarr ``lake_abacus``
+        group for the comparison figure. A no-op when the model has no carved lake.
+        """
+        from hydromodpy.solver.modflow6.extractors.lake import read_lake_abacus
+
+        spec = read_lake_abacus(solver_output_dir / f"{model_name}.lake_abacus.json")
+        if spec is None:
+            return
+        for entry in spec.entries:
+            store.write_lake_abacus(
+                sim_id,
+                entry.lake_id,
+                stage=entry.stage,
+                real_volume=entry.real_volume,
+                real_sarea=entry.real_sarea,
+                sim_volume=entry.sim_volume,
+                sim_sarea=entry.sim_sarea,
+                stage_unit=entry.stage_unit,
+                volume_unit=entry.volume_unit,
+                area_unit=entry.area_unit,
+            )
+
+    def _extract_sfr_series(
+        self,
+        sim_id: str,
+        store: Any,
+        solver_output_dir: Path,
+        model_name: str,
+        *,
+        times: list,
+        tdis_path: Path,
+        time_units: str,
+        seconds_per_time_unit: float,
+        start_datetime: object | None = None,
+    ) -> None:
+        """Read the SFR obs CSV into per-reach (reach_ifno, totim) timeseries.
+
+        Per-reach stage / depth / downstream-flow / reach-aquifer exchange and
+        the external in/outflows come from the SFR observation CSV described by
+        the build-time ``{model}.sfr.meta.json`` sidecar; the spatial per-cell
+        seepage stays in the GWF ``.cbc`` ``SFR`` record handled by
+        ``_extract_budget``. Stage / depth keep meters; rate terms are scaled to
+        m3/s. Without the sidecar the model has no stream network and this is a
+        no-op.
+        """
+        from hydromodpy.solver.modflow6.extractors.sfr import (
+            build_sfr_columns,
+            read_sfr_meta,
+        )
+
+        spec = read_sfr_meta(solver_output_dir / f"{model_name}.sfr.meta.json")
+        if spec is None:
+            return
+        with progress.status("Building SFR timeseries"):
+            obs_path = solver_output_dir / spec.obs_csv
+            calendar_anchor = _read_start_datetime(tdis_path) or start_datetime
+            factor = _seconds_per_time_unit(time_units)
+            calendar_times: np.ndarray | None = None
+            if calendar_anchor is not None:
+                relative = np.asarray(times, dtype=float) * factor
+                axis = cf_time_axis_seconds(relative, calendar_anchor)
+                calendar_times = (
+                    np.asarray(axis)
+                    .astype("int64")
+                    .astype("datetime64[s]")
+                    .astype("datetime64[ms]")
+                )
+            columns, budgets = build_sfr_columns(
+                spec,
+                obs_path,
+                times=times,
+                seconds_per_time_unit=seconds_per_time_unit,
+                calendar_times=calendar_times,
+            )
+            if columns:
+                store.write_timeseries_columns(sim_id, columns)
+            if budgets:
+                store.write_budgets(sim_id, budgets)
 
     @staticmethod
     def _recarray_to_grid(
@@ -410,8 +685,6 @@ class Modflow6OutputAdapter:
                     botm.reshape(nlay, n_cells) if botm.size == nlay * n_cells else None
                 )
                 if botm_per_layer is not None:
-                    z_intf = np.vstack([top.reshape(1, -1), botm_per_layer])
-                    z_flat = np.array([z_intf[:, 0].mean()])
                     z_flat = np.concatenate([top[:1], botm_per_layer[:, 0]])
                 else:
                     z_flat = np.array([float(top.mean()), float(top.mean()) - 10.0])
@@ -446,6 +719,15 @@ class Modflow6OutputAdapter:
                 and int(grid_shape[0]) * int(grid_shape[1]) == int(n_cells)
             ):
                 structured_shape = (int(grid_shape[0]), int(grid_shape[1]))
+            # Pre-conditioning top (written by the builder as a sidecar) lets the
+            # conditioning-impact map show how much the fill/breach moved the top.
+            topography_reference = None
+            ref_files = list(solver_output_dir.glob("*.conditioning_ref.npy"))
+            if ref_files:
+                ref = np.asarray(np.load(ref_files[0]), dtype="float64").ravel()[:n_cells]
+                if ref.size == top.size:
+                    topography_reference = ref
+
             sz = store.open_zarr(sim_id)
             try:
                 sz.write_mesh(
@@ -453,6 +735,8 @@ class Modflow6OutputAdapter:
                     face_node_connectivity=face_node_connectivity,
                     z_interfaces=z_flat,
                     topography=top,
+                    topography_reference=topography_reference,
+                    layer_thickness=_layer_thickness(top, botm_per_layer),
                     grid_type=grid_type,
                     structured_shape=structured_shape,
                 )
@@ -623,3 +907,15 @@ class Modflow6OutputAdapter:
 
         cfg = config or {}
         compute_derived(sim_id, store, cfg)
+
+
+def _layer_thickness(top: np.ndarray, botm_per_layer: np.ndarray | None) -> np.ndarray | None:
+    """Return the ``(n_layers, n_faces)`` thickness from the model top and bottoms.
+
+    ``None`` when the grid file did not expose per-layer bottoms, in which case
+    the mesh keeps only the reference ``z_interfaces`` column.
+    """
+    if botm_per_layer is None:
+        return None
+    interfaces = np.vstack([np.asarray(top, dtype="float64")[None, :], botm_per_layer])
+    return np.diff(interfaces, axis=0) * -1.0

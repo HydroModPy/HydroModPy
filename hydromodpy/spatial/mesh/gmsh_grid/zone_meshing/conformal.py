@@ -16,6 +16,7 @@ from typing import Any
 import numpy as np
 from shapely.geometry.base import BaseGeometry
 
+from hydromodpy.core import progress
 from hydromodpy.spatial.mesh.gmsh_grid._deps import require_gmsh as _require_gmsh
 from hydromodpy.spatial.mesh.gmsh_grid.trace import trace_mesh_stage
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._build_context import (
@@ -163,23 +164,24 @@ def generate_zone_conformal_mesh_from_dataframe(
         interface_sampling=interface_sampling,
     )
 
-    (
-        partition,
-        normalized_constraints,
-        prepared_regional_size_fields,
-        point_tolerance,
-    ) = build_and_split_partition(
-        gdf,
-        zone_key_column=zone_key_column,
-        priority_column=priority_column,
-        domain_geometry=domain_geometry,
-        simplify_tolerance=simplify_tolerance,
-        heal_tolerance=heal_tolerance,
-        min_polygon_area=min_polygon_area,
-        linear_constraints=linear_constraints,
-        river_trace=river_trace,
-        regional_size_fields=regional_size_fields,
-    )
+    with progress.status("Building zone partition"):
+        (
+            partition,
+            normalized_constraints,
+            prepared_regional_size_fields,
+            point_tolerance,
+        ) = build_and_split_partition(
+            gdf,
+            zone_key_column=zone_key_column,
+            priority_column=priority_column,
+            domain_geometry=domain_geometry,
+            simplify_tolerance=simplify_tolerance,
+            heal_tolerance=heal_tolerance,
+            min_polygon_area=min_polygon_area,
+            linear_constraints=linear_constraints,
+            river_trace=river_trace,
+            regional_size_fields=regional_size_fields,
+        )
     prepared_constraints = normalized_constraints
 
     trace_mesh_stage("zone_meshing.gmsh.require")
@@ -197,58 +199,61 @@ def generate_zone_conformal_mesh_from_dataframe(
     )
     constraint_by_name = {str(constraint.name): constraint for constraint in prepared_constraints}
     try:
-        occ = configure_gmsh_session(
-            gmsh=gmsh,
-            model_name=model_name,
-            algorithm=algorithm,
-            global_size_value=global_size_value,
-            min_size=min_size,
-            effective_max_size=effective_max_size,
-        )
-        existing_curve_tags = build_occ_surfaces_and_constraints(
-            gmsh=gmsh,
-            occ=occ,
-            partition=partition,
-            prepared_constraints=prepared_constraints,
-            build_state=build_state,
-            point_tolerance=point_tolerance,
-            global_size_value=global_size_value,
-        )
-        apply_options_and_synchronize(
-            gmsh=gmsh,
-            occ=occ,
-            algorithm=algorithm,
-            global_size_value=global_size_value,
-            min_size=min_size,
-            effective_max_size=effective_max_size,
-        )
-        curve_tag_to_segment = register_physical_groups(
-            gmsh=gmsh,
-            partition=partition,
-            prepared_constraints=prepared_constraints,
-            build_state=build_state,
-            point_tolerance=point_tolerance,
-            existing_curve_tags=existing_curve_tags,
-        )
-        mesh_size_fields_summary, refined_curve_tags = apply_refinement_stage(
-            gmsh=gmsh,
-            build_state=build_state,
-            curve_tag_to_segment=curve_tag_to_segment,
-            prepared_constraints=prepared_constraints,
-            constraint_by_name=constraint_by_name,
-            prepared_regional_size_fields=prepared_regional_size_fields,
-            output_path_obj=output_path_obj,
-            partition=partition,
-            refinement_policy=refinement_policy,
-            refinement_scope_geometry=refinement_scope_geometry,
-            refine_interfaces_value=refine_interfaces_value,
-            interface_size_value=interface_size_value,
-            interface_distance_value=interface_distance_value,
-            interface_sampling=interface_sampling,
-            point_tolerance=point_tolerance,
-            global_size_value=global_size_value,
-        )
-        mesh = generate_and_capture_mesh(gmsh=gmsh, output_path_obj=output_path_obj)
+        with progress.status("Building Gmsh geometry"):
+            occ = configure_gmsh_session(
+                gmsh=gmsh,
+                model_name=model_name,
+                algorithm=algorithm,
+                global_size_value=global_size_value,
+                min_size=min_size,
+                effective_max_size=effective_max_size,
+            )
+            existing_curve_tags = build_occ_surfaces_and_constraints(
+                gmsh=gmsh,
+                occ=occ,
+                partition=partition,
+                prepared_constraints=prepared_constraints,
+                build_state=build_state,
+                point_tolerance=point_tolerance,
+                global_size_value=global_size_value,
+            )
+            apply_options_and_synchronize(
+                gmsh=gmsh,
+                occ=occ,
+                algorithm=algorithm,
+                global_size_value=global_size_value,
+                min_size=min_size,
+                effective_max_size=effective_max_size,
+            )
+            curve_tag_to_segment = register_physical_groups(
+                gmsh=gmsh,
+                partition=partition,
+                prepared_constraints=prepared_constraints,
+                build_state=build_state,
+                point_tolerance=point_tolerance,
+                existing_curve_tags=existing_curve_tags,
+            )
+        with progress.status("Applying mesh refinement"):
+            mesh_size_fields_summary, refined_curve_tags = apply_refinement_stage(
+                gmsh=gmsh,
+                build_state=build_state,
+                curve_tag_to_segment=curve_tag_to_segment,
+                prepared_constraints=prepared_constraints,
+                constraint_by_name=constraint_by_name,
+                prepared_regional_size_fields=prepared_regional_size_fields,
+                output_path_obj=output_path_obj,
+                partition=partition,
+                refinement_policy=refinement_policy,
+                refinement_scope_geometry=refinement_scope_geometry,
+                refine_interfaces_value=refine_interfaces_value,
+                interface_size_value=interface_size_value,
+                interface_distance_value=interface_distance_value,
+                interface_sampling=interface_sampling,
+                point_tolerance=point_tolerance,
+                global_size_value=global_size_value,
+            )
+        with progress.status("Generating mesh"):
+            mesh = generate_and_capture_mesh(gmsh=gmsh, output_path_obj=output_path_obj)
     finally:
         trace_mesh_stage("zone_meshing.gmsh.finalize")
         gmsh.finalize()

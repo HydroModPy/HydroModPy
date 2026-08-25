@@ -16,15 +16,17 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.adapters import (
     TimeSeriesValidationError,
+    convert_abacus_to_parquet,
     convert_asc_to_geotiff,
     convert_timeseries_csv_to_parquet,
     convert_vector_to_geoparquet,
     read_locations_csv,
 )
-from hydromodpy.data.adapters.csv_to_parquet import iter_chronicle_files
+from hydromodpy.data.adapters.csv_to_parquet import Station, iter_chronicle_files
 from hydromodpy.data.common.io_helpers import is_scaffold_example, parse_chronicle_filename
 from hydromodpy.data.scaffold import VARIABLES, VariableSpec
 from hydromodpy.data.schemas import StationCollectionSchema, validate_warn_only
@@ -135,7 +137,7 @@ def _scan_timeseries_variable(
         return
 
     loc_csv = custom_dir / f"{spec.file_prefix}_custom_LOC.csv"
-    locations_by_id: dict[str, dict] = {}
+    locations_by_id: dict[str, Station] = {}
     if loc_csv.exists():
         loc_artifact = read_locations_csv(loc_csv)
         if loc_artifact.errors:
@@ -177,12 +179,12 @@ def _scan_timeseries_variable(
 
         parsed = parse_chronicle_filename(src.name)
         station_id = parsed["id"] if parsed else src.stem
-        station = locations_by_id.get(station_id, {})
-        crs = str(station.get("crs") or "")
-        unit = str(station.get("unit") or spec.unit)
+        loc = locations_by_id.get(station_id)
+        crs = str(loc["crs"] if loc else "")
+        unit = str(loc["unit"] if loc else spec.unit)
         bbox = None
-        if "x" in station and "y" in station:
-            x, y = float(station["x"]), float(station["y"])
+        if loc is not None:
+            x, y = loc["x"], loc["y"]
             bbox = (x, y, x, y)
 
         entry_id = catalog.register(
@@ -230,12 +232,23 @@ def _iter_files(custom_dir: Path, prefix: str, suffixes: frozenset[str]) -> list
             continue
         if is_scaffold_example(p):
             continue
+        # Provenance sidecar (sidecars.py: foo.parquet -> foo.parquet.json),
+        # not a data file.
+        if p.suffix.lower() == ".json" and p.with_suffix("").is_file():
+            continue
         out.append(p)
     return out
 
 
 _RASTER_SUFFIXES = frozenset({".asc", ".tif", ".tiff"})
 _VECTOR_SUFFIXES = frozenset({".shp", ".geojson", ".json", ".gpkg", ".parquet"})
+_TABLE_SUFFIXES = frozenset({".csv", ".parquet"})
+
+
+def _lake_id_from_stem(stem: str, prefix: str) -> str:
+    """Derive a lake_id from a ``<prefix>_custom_<lake_id>`` file stem."""
+    token = f"{prefix}_custom_"
+    return stem[len(token) :] if stem.startswith(token) else stem
 
 
 def _scan_raster_variable(
@@ -340,10 +353,64 @@ def _scan_vector_variable(
             report.updated.append(artifact)
 
 
+def _scan_table_variable(
+    workspace: Path,
+    spec: VariableSpec,
+    catalog,
+    report: ScanReport,
+    *,
+    blobs_dir: Path,
+    now: datetime,
+) -> None:
+    custom_dir = _custom_dir(workspace, spec)
+    for src in _iter_files(custom_dir, spec.file_prefix, _TABLE_SUFFIXES):
+        stored_mtime = _last_indexed_mtime(catalog, spec.name, src)
+        if _is_fresh(src, stored_mtime):
+            report.skipped.append(src)
+            continue
+
+        lake_id = _lake_id_from_stem(src.stem, spec.file_prefix)
+        dest = blobs_dir / spec.name / "custom" / f"{src.stem}.parquet"
+        try:
+            convert_abacus_to_parquet(src, dest, lake_id=lake_id)
+        except Exception as exc:
+            report.errors.append((src, f"{type(exc).__name__}: {exc}"))
+            continue
+
+        entry_id = catalog.register(
+            variable=spec.name,
+            source="custom",
+            station_id=lake_id,
+            file_path=str(src),
+            unit=spec.unit,
+            is_custom=True,
+            fetch_metadata={
+                "pivot_path": str(dest),
+                "pivot_format": spec.pivot,
+                "indexed_at": now.isoformat(),
+            },
+        )
+        artifact = Artifact(
+            variable=spec.name,
+            provider="custom",
+            station_id=lake_id,
+            source_path=src,
+            pivot_path=dest,
+            format=spec.pivot,
+            size_bytes=dest.stat().st_size if dest.exists() else 0,
+            indexed_at=now,
+        )
+        if stored_mtime is None or entry_id == -1:
+            report.added.append(artifact)
+        else:
+            report.updated.append(artifact)
+
+
 _SCANNERS = {
     "timeseries": _scan_timeseries_variable,
     "raster": _scan_raster_variable,
     "vector": _scan_vector_variable,
+    "table": _scan_table_variable,
 }
 
 
@@ -448,4 +515,15 @@ def check_custom(
             for src in _iter_files(custom_dir, spec.file_prefix, suffixes):
                 if not src.exists():
                     issues.append((src, "file disappeared during check"))
+        elif spec.kind == "table":
+            for src in _iter_files(custom_dir, spec.file_prefix, _TABLE_SUFFIXES):
+                lake_id = _lake_id_from_stem(src.stem, spec.file_prefix)
+                try:
+                    convert_abacus_to_parquet(src, custom_dir / "_check.tmp", lake_id=lake_id)
+                except DataContractViolation as exc:
+                    issues.append((src, str(exc)))
+                finally:
+                    tmp = custom_dir / "_check.tmp"
+                    if tmp.exists():
+                        tmp.unlink(missing_ok=True)
     return issues

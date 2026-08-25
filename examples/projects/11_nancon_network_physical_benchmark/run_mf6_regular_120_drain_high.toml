@@ -11,7 +11,7 @@ root = "outputs/nancon_network_physical_benchmark/workspaces/mf6_regular_120_dra
 name = "nancon_network_physical_benchmark__mf6_regular_120_drain_high"
 run_id = "nancon_network_physical_benchmark__mf6_regular_120_drain_high"
 description = "MODFLOW 6 regular 120x120 Nancon benchmark with high top drainage conductance."
-on_collision = "replace"
+if_exists = "replace"
 
 [flow.bc.cauchy.drainage]
 value = 1.0e-3

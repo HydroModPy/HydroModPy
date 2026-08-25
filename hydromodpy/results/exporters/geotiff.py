@@ -15,12 +15,13 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
+from hydromodpy.results.derive.virtual_fields import derive_field_slice
 from hydromodpy.results.zarr_store import SimulationZarr
 
 logger = get_logger(__name__)
 
 _COG_TILE = 512
-_COG_OVERVIEW_FACTORS = (2, 4, 8, 16, 32)
+_COG_ZSTD_LEVEL = 5
 
 
 def export_geotiff(
@@ -80,8 +81,9 @@ def export_geotiff(
     ... )
     """
     import rasterio
-    from rasterio.enums import Resampling
+    import rasterio.shutil
     from rasterio.features import rasterize
+    from rasterio.io import MemoryFile
     from rasterio.transform import from_bounds
     from shapely.geometry import Polygon
 
@@ -101,13 +103,17 @@ def export_geotiff(
         vertices = mesh["vertices"][:]
         connectivity = mesh["face_node_connectivity"][:]
 
+        # Rebuilt on the fly when the field was never persisted.
         arr = _resolve_zarr_path(grp, descriptor.zarr_path)
-        if arr is None:
-            raise KeyError(
-                f"Variable '{variable}' (zarr_path={descriptor.zarr_path!r}) "
-                f"not found for sim={sim_id}"
-            )
-        data = arr[timestep]
+        if arr is not None:
+            data = arr[timestep]
+        else:
+            data = derive_field_slice(sz, str(sim_id), variable, timestep)
+            if data is None:
+                raise KeyError(
+                    f"Variable '{variable}' (zarr_path={descriptor.zarr_path!r}) "
+                    f"not found for sim={sim_id}"
+                )
     finally:
         sz.close()
     if data.ndim == 2:
@@ -145,36 +151,38 @@ def export_geotiff(
         dtype="float64",
     )
 
-    with rasterio.open(
-        str(output_path),
-        "w",
-        driver="GTiff",
-        height=height,
-        width=width,
-        count=1,
-        dtype="float64",
-        crs=crs,
-        transform=transform,
-        nodata=nodata,
-        tiled=True,
-        blockxsize=_COG_TILE,
-        blockysize=_COG_TILE,
-        compress="zstd",
-        zstd_level=5,
-        predictor=2,
-    ) as dst:
-        dst.write(raster, 1)
-        dst.update_tags(
-            HMP_SIM_ID=str(sim_id),
-            HMP_VARIABLE=str(variable),
-            HMP_TIMESTAMP=datetime.now(UTC).isoformat(),
+    # Write a plain tiled GTiff in memory, then let the GDAL COG driver
+    # (>=3.1) produce the final file in one CreateCopy pass. The COG driver
+    # lays out tiles, overviews and IFDs in the spec-required order; building
+    # overviews after a plain GTiff write (the previous approach) does NOT
+    # yield a valid COG and would fail `rio cogeo validate`.
+    with MemoryFile() as memfile:
+        with memfile.open(
+            driver="GTiff",
+            height=height,
+            width=width,
+            count=1,
+            dtype="float64",
+            crs=crs,
+            transform=transform,
+            nodata=nodata,
+        ) as tmp:
+            tmp.write(raster, 1)
+            tmp.update_tags(
+                HMP_SIM_ID=str(sim_id),
+                HMP_VARIABLE=str(variable),
+                HMP_TIMESTAMP=datetime.now(UTC).isoformat(),
+            )
+        rasterio.shutil.copy(
+            memfile.name,
+            str(output_path),
+            driver="COG",
+            compress="ZSTD",
+            level=_COG_ZSTD_LEVEL,
+            predictor="YES",
+            blocksize=_COG_TILE,
+            overview_resampling="AVERAGE",
         )
-        # Skip overviews when the raster is smaller than the first factor;
-        # rasterio raises on factors that downsample below 1 pixel.
-        feasible_factors = tuple(f for f in _COG_OVERVIEW_FACTORS if min(width, height) // f >= 1)
-        if feasible_factors:
-            dst.build_overviews(list(feasible_factors), Resampling.average)
-            dst.update_tags(ns="rio_overview", resampling="average")
 
     logger.info("Exported COG GeoTIFF: %s (%dx%d)", output_path, width, height)
     return output_path

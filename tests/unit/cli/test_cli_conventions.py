@@ -55,6 +55,9 @@ READ_FORMAT_COMMANDS = (
     ("catalog", "query"),
 )
 
+# Workflow execution verbs that must offer --profile (pyinstrument).
+PROFILE_COMMANDS = ("run", "calibrate")
+
 
 def _parse(argv: list[str]) -> argparse.Namespace:
     return _build_parser().parse_args(argv)
@@ -139,6 +142,13 @@ def test_add_sim_ref_adds_positional() -> None:
     assert parser.parse_args(["ab12cd34"]).sim_ref == "ab12cd34"
 
 
+def test_profile_parser_grammar() -> None:
+    parser = argparse.ArgumentParser(add_help=False, parents=[_conventions.profile_parser()])
+    assert parser.parse_args([]).profile is None
+    assert parser.parse_args(["--profile"]).profile == ""
+    assert parser.parse_args(["--profile", "out.html"]).profile == "out.html"
+
+
 # --- Per-command grammar (Phase 3 sweep) -----------------------------------
 
 
@@ -160,6 +170,12 @@ def test_destructive_commands_offer_yes(group: str, action: str) -> None:
 def test_read_commands_offer_format(group: str, action: str) -> None:
     opts = _option_strings(_leaf_parser(group, action))
     assert "--format" in opts, f"{group} {action} must offer --format"
+
+
+@pytest.mark.parametrize("verb", PROFILE_COMMANDS)
+def test_workflow_verbs_offer_profile(verb: str) -> None:
+    args = _parse([verb, "config.toml", "--profile"])
+    assert args.profile == ""
 
 
 def test_dev_doctor_removed() -> None:

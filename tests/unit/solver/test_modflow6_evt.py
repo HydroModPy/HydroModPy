@@ -5,6 +5,7 @@ import pytest
 
 from hydromodpy.solver.modflow6.builders import (
     build_evt_stress_period_data,
+    evt_list_spd_to_array_payload,
     extract_evt_payload_2d,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
@@ -92,3 +93,33 @@ def test_modflow6_builds_evt_stress_period_data_from_routed_payload() -> None:
         pytest.approx(1.0e-6),
         pytest.approx(1.0),
     ]
+
+
+def test_evt_list_spd_to_array_payload_matches_list_rates() -> None:
+    """The array payload reproduces the list rates exactly when every record is layer 0."""
+    top = np.array([50.0, 51.0, 52.0, 53.0], dtype=float)
+    evt_spd = {
+        0: [[0, 1, 51.0, 2.0e-6, 1.0], [0, 3, 53.0, 4.0e-6, 1.0]],
+        2: [[0, 1, 51.0, 5.0e-6, 1.0]],
+    }
+
+    payload = evt_list_spd_to_array_payload(evt_spd, top_flat=top, ncpl=4)
+
+    assert payload is not None
+    rate_by_period, surface, depth = payload
+    assert depth == pytest.approx(1.0)
+    assert np.array_equal(surface, top)
+    assert set(rate_by_period) == {0, 2}
+    for kper, records in evt_spd.items():
+        expected = np.zeros(4, dtype=float)
+        for record in records:
+            expected[int(record[1])] = float(record[3])
+        assert np.array_equal(rate_by_period[kper], expected)
+
+
+def test_evt_list_spd_to_array_payload_falls_back_on_lower_layer() -> None:
+    """A record on a non-top layer forces the caller to keep the list package."""
+    top = np.array([50.0, 51.0], dtype=float)
+    evt_spd = {0: [[1, 0, 50.0, 2.0e-6, 1.0]]}
+
+    assert evt_list_spd_to_array_payload(evt_spd, top_flat=top, ncpl=2) is None

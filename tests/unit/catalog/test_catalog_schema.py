@@ -26,7 +26,7 @@ def test_open_is_single_door_with_objects_and_frame(tmp_path: Path) -> None:
     with hmp.open(tmp_path, create=True) as cat:
         sim_id = _seed(cat)
         group = cat.find(solver="modflow6")
-        assert isinstance(group, hmp.SimulationGroup)
+        assert isinstance(group, hmp.RunSet)
         assert group.sim_ids == [sim_id]
         assert len(cat.frame) == 1
         assert cat[sim_id].project == "naizin"

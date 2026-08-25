@@ -140,6 +140,15 @@ Sections
       Optional display and export toggles loaded from the [display] section.
 
    .. grid-item-card::
+      :link: export
+      :link-type: doc
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
+
+      **[export]**
+      ^^^
+      Automated export configuration loaded from the top-level [export] section. Controls which formats (CSV time series, GeoTIFF, NetCDF, VTU, shapefile), which variables and timesteps are written after a run, and whether a portable '.hmp' archive is produced.
+
+   .. grid-item-card::
       :link: persistence
       :link-type: doc
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
@@ -147,6 +156,15 @@ Sections
       **[persistence]**
       ^^^
       Storage backend toggles loaded from [persistence]. Drives the DuckDB catalog, Zarr field arrays, Parquet tables, and the `hydromodpy.lock` reproducibility manifest.
+
+   .. grid-item-card::
+      :link: observation
+      :link-type: doc
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
+
+      **[observation]**
+      ^^^
+      Observation points declared in [observation] and sampled while the run still holds its fields. Each [[observation.points]] entry names a location (x, y, and layer or depth); its series land in the run timeseries table, so no post-hoc interrogation is needed for a point known in advance.
 
    .. grid-item-card::
       :link: analysis
@@ -194,6 +212,15 @@ Sections
       Optional calibration settings loaded from the [calibration] section.  When present, triggers the calibration workflow.
 
    .. grid-item-card::
+      :link: spinup
+      :link-type: doc
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
+
+      **[spinup]**
+      ^^^
+      Optional cyclic spin-up settings loaded from the [spinup] section. Drives 'hmp spinup': repeat a forcing window, restart each cycle from the previous state, until the heads and the lake stage converge.
+
+   .. grid-item-card::
       :link: testbed
       :link-type: doc
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
@@ -239,12 +266,15 @@ Sections
    modflownwt
    modflow6
    display
+   export
    persistence
+   observation
    analysis
    overview
    mesh_catchment
    mesh_input
    calibration
+   spinup
    testbed
    site_selection
    hydrometry

@@ -1,4 +1,4 @@
-"""Catchment-aggregated timeseries from spatial fields in the SimulationCatalog."""
+"""Catchment-aggregated timeseries from spatial fields in the Catalog."""
 
 from __future__ import annotations
 
@@ -7,11 +7,15 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.time.period_aggregation import period_mean_on_index
 
 logger = get_logger(__name__)
 
 _CATCHMENT_STATION = "_catchment"
+
+_SLAB_TARGET_BYTES = 64 * 1024 * 1024
 
 VARIABLE_UNITS: dict[str, str] = {
     "discharge": "m3/s",
@@ -28,11 +32,13 @@ VARIABLE_UNITS: dict[str, str] = {
 # ``hydromodpy.core.metrics`` / ``Run`` methods, so the
 # catalog stays focused on observation-comparable point series.
 _AGGREGATION_SPEC: list[tuple[str, str, str]] = [
-    # Outlet discharge (m3/s) - sum of |drain flux| over the catchment,
-    # consumed by hydrograph, watershed_id_card, calibration.
-    ("drains|drn|drain", "discharge", "abs_sum"),
+    # Direct drain outflow (m3/s) - sum of |drain flux| over the catchment.
+    # The MVR-routed share lives in the separate DRN-TO-MVR budget record and
+    # is therefore excluded: it re-enters the model through SFR and surfaces
+    # in the routed ext_outflow series instead.
+    ("drain", "discharge", "abs_sum"),
     # Well pumping total (m3/s).
-    ("wells|wel", "well_pumping", "sum"),
+    ("well", "well_pumping", "sum"),
 ]
 
 
@@ -44,11 +50,20 @@ def aggregate_catchment_timeseries(
 ) -> None:
     """Read spatial fields from the store and write catchment-aggregated timeseries.
 
+    The ``discharge`` series is the surface water leaving the catchment. When
+    the run carries SFR / LAK extracted series, the discharge IS the routed
+    outflow (``ext_outflow`` at terminal reaches and lake outlets), which already
+    carries the in-watershed drainage (routed through DRN-TO-MVR) and the runoff
+    injected into the network; the residual plain-DRN record is buffer drainage
+    from neighbouring basins and is excluded. Without a stream network the series
+    falls back to the lumped accounting: sum of |DRN| plus the watershed runoff
+    forcing read from Zarr ``forcing/``.
+
     Parameters
     ----------
     sim_id : str
         Simulation UUID.
-    store : SimulationCatalog
+    store : Catalog
         Store containing spatial fields from extract + derive phases.
     time_index : pd.DatetimeIndex, optional
         Datetime labels for each timestep. When None, integer indices are used.
@@ -69,10 +84,17 @@ def aggregate_catchment_timeseries(
                 store, sim_id, grp, store_var, n_timesteps, active_mask, reducer
             )
             if values is None:
+                # budget.spatial_fields is off by default: the per-cell field is
+                # not persisted, but the lumped per-component budget still is.
+                values = _aggregate_from_lumped_budget(
+                    store, sim_id, store_var, reducer, n_timesteps
+                )
+            if values is None:
                 continue
             pending.append((output_var, values))
 
-        if not pending:
+        routed = _routed_outflow_by_timestep(store, sim_id, n_timesteps)
+        if not pending and routed is None:
             return
 
         if time_index is not None and len(time_index) == n_timesteps:
@@ -84,19 +106,125 @@ def aggregate_catchment_timeseries(
                 logger.warning("Skipping catchment timeseries for sim %s: %s", sim_id, exc)
                 return
 
-        written = 0
-        for output_var, values in pending:
-            ts = pd.Series(values, index=ts_index, name=output_var, dtype="float64")
-            if output_var == "discharge":
-                ts = _add_runoff_to_discharge_series(ts, sim_id, store, grp)
+        series_by_var: dict[str, pd.Series] = {
+            output_var: pd.Series(values, index=ts_index, name=output_var, dtype="float64")
+            for output_var, values in pending
+        }
+        if routed is not None:
+            # The routed SFR/LAK ext_outflow already carries the in-watershed
+            # drainage (moved into the DRN-TO-MVR record by route_drainage, whose
+            # plain-DRN residual is ~0). The remaining plain-DRN outflow is the
+            # buffer (neighbouring-basin) drainage, which must NOT feed this
+            # catchment, so it is dropped instead of added.
+            series_by_var["discharge"] = pd.Series(
+                routed, index=ts_index, name="discharge", dtype="float64"
+            )
+            _warn_routed_without_runoff(store, sim_id, grp)
+            logger.debug("Catchment discharge for sim %s uses routed SFR/LAK outflow", sim_id)
+        elif "discharge" in series_by_var:
+            series_by_var["discharge"] = _add_runoff_to_discharge_series(
+                series_by_var["discharge"], sim_id, store, grp
+            )
+
+        # One batched write, not one write_timeseries per variable: the latter
+        # re-reads and rewrites the whole timeseries.parquet each call (O(K^2)).
+        records: list[dict[str, Any]] = []
+        for output_var, ts in series_by_var.items():
             unit = VARIABLE_UNITS.get(output_var, "")
-            store.write_timeseries(sim_id, _CATCHMENT_STATION, output_var, ts, unit=unit)
-            written += 1
+            index = pd.DatetimeIndex(ts.index)
+            index = index.tz_localize("UTC") if index.tz is None else index.tz_convert("UTC")
+            for step, (when, value) in enumerate(
+                zip(index.to_pydatetime(), ts.to_numpy(dtype="float64"), strict=False)
+            ):
+                records.append(
+                    {
+                        "sim_id": str(sim_id),
+                        "station_id": _CATCHMENT_STATION,
+                        "variable": output_var,
+                        "component": None,
+                        "timestep": step,
+                        "time": when,
+                        "value": float(value),
+                        "unit": unit,
+                        "qflag": "simulated",
+                    }
+                )
+        if records:
+            store.write_timeseries_batch(sim_id, records)
+        written = len(series_by_var)
     finally:
         sz.close()
 
     if written:
-        logger.info("Wrote %d catchment-aggregated timeseries for sim %s", written, sim_id)
+        logger.debug("Wrote %d catchment-aggregated timeseries for sim %s", written, sim_id)
+
+
+_ROUTED_RUNOFF_WARNING_EMITTED: set[str] = set()
+
+
+def _warn_routed_without_runoff(store: Any, sim_id: str, grp: Any) -> None:
+    """Warn once if runoff forcing exists but was not routed into SFR/LAK.
+
+    The routed discharge assumes the runoff was injected into the network; if a
+    run carries runoff forcing in Zarr but no runoff was wired to any SFR/lake
+    station, the routed discharge silently omits it.
+    """
+    if sim_id in _ROUTED_RUNOFF_WARNING_EMITTED:
+        return
+    forcing = grp.get("forcing")
+    if forcing is None or "runoff" not in forcing:
+        return
+    try:
+        row = store.connection.execute(
+            "SELECT 1 FROM timeseries WHERE sim_id = ? AND variable = 'runoff' "
+            "AND (station_id LIKE 'sfr:%' OR station_id LIKE 'lake:%') LIMIT 1",
+            [str(sim_id)],
+        ).fetchone()
+    except Exception:
+        return
+    if row is None:
+        logger.warning(
+            "catchment discharge: runoff forcing is present for sim %s but no runoff was "
+            "routed into SFR/LAK; the routed discharge excludes the runoff component.",
+            sim_id,
+        )
+        _ROUTED_RUNOFF_WARNING_EMITTED.add(sim_id)
+
+
+def _routed_outflow_by_timestep(
+    store: Any,
+    sim_id: str,
+    n_timesteps: int,
+) -> np.ndarray | None:
+    """Sum of ext_outflow over SFR reaches and lake outlets, per timestep.
+
+    ``ext_outflow`` is the surface water leaving the model at a terminal reach or
+    a lake outlet (stations ``sfr:*`` / ``lake:*``, extracted from the MF6 obs
+    CSVs in m3/s). Both extractors store it with the same positive-outflow
+    convention. Returns None when no such series exists (no SFR / LAK run).
+    """
+    try:
+        rows = store.connection.execute(
+            "SELECT timestep, SUM(value) FROM timeseries "
+            "WHERE sim_id = ? AND variable = 'ext_outflow' "
+            "  AND (station_id LIKE 'sfr:%' OR station_id LIKE 'lake:%') "
+            "GROUP BY timestep",
+            [str(sim_id)],
+        ).fetchall()
+    except Exception:
+        logger.debug("No readable timeseries table for sim %s", sim_id, exc_info=True)
+        return None
+    if not rows:
+        return None
+    # NaN, not zero, for timesteps with no ext_outflow row: a genuine zero
+    # outflow still arrives as a row (total=0.0), so only true gaps stay missing
+    # and are excluded from metrics instead of biasing them toward zero flow.
+    values = np.full(n_timesteps, np.nan, dtype="float64")
+    for timestep, total in rows:
+        t = int(timestep)
+        if 0 <= t < n_timesteps and total is not None:
+            values[t] = float(total)
+    return values
 
 
 def _add_runoff_to_discharge_series(
@@ -155,15 +283,16 @@ def _add_runoff_to_discharge_series(
         return discharge
 
     runoff_mm_per_d = pd.concat(series_list, axis=1).mean(axis=1)
-    target_index = discharge.index
-    runoff_index = runoff_mm_per_d.index
-    if runoff_index.tz is None and target_index.tz is not None:
-        runoff_mm_per_d = runoff_mm_per_d.tz_localize(target_index.tz)
-    elif runoff_index.tz is not None and target_index.tz is None:
-        runoff_mm_per_d = runoff_mm_per_d.tz_localize(None)
-    elif runoff_index.tz is not None and target_index.tz is not None:
-        runoff_mm_per_d = runoff_mm_per_d.tz_convert(target_index.tz)
-    aligned = runoff_mm_per_d.reindex(target_index, method="nearest")
+    target_index = pd.DatetimeIndex(discharge.index)
+    # AVERAGE the daily forcing over each stress period, never sample it.
+    # ``reindex(method="nearest")`` handed a whole period the value of the one
+    # day closest to its stamp: on a yearly steady step the Nancon received the
+    # 1.36 mm of 1 January instead of the 0.33 mm the year averaged, and the
+    # reported discharge came out 67 per cent above what its own water balance
+    # allowed. ``period_mean_on_index`` is the one place that rule is written,
+    # and the calibration metric calls it directly, so what a run is scored on
+    # is what it reports.
+    aligned = period_mean_on_index(runoff_mm_per_d, target_index)
     runoff_m3_per_s = aligned * 1e-3 * catch_area_m2 / 86400.0
     return discharge.add(runoff_m3_per_s, fill_value=0.0)
 
@@ -173,7 +302,7 @@ _RUNOFF_WARNING_EMITTED: set[str] = set()
 
 def _read_catchment_area_m2(store: Any, sim_id: str) -> float:
     """Return the catchment area in m² from ``geographic_metadata``."""
-    conn = getattr(store, "connection", None) or store._db
+    conn = store.connection
     row = conn.execute(
         "SELECT value FROM geographic_metadata WHERE sim_id = ? AND key = 'catch_area'",
         [str(sim_id)],
@@ -216,22 +345,89 @@ def _aggregate_variable(
         return None
 
     arr = target_grp[resolved_key]
+    if arr.shape[0] < n_timesteps:
+        return None
 
-    values = []
-    for t in range(n_timesteps):
-        try:
-            field = np.asarray(arr[t], dtype="float64")
-        except (IndexError, KeyError):
-            return None
-        scalar = _reduce(field, active_mask, reducer)
-        values.append(scalar)
+    # Slab reads: one Zarr selection per block instead of one per timestep.
+    bytes_per_step = max(int(np.prod(arr.shape[1:])) * 8, 1)
+    block = max(1, min(n_timesteps, _SLAB_TARGET_BYTES // bytes_per_step))
+
+    values: list[float] = []
+    for t0 in range(0, n_timesteps, block):
+        t1 = min(t0 + block, n_timesteps)
+        fields = np.asarray(arr[t0:t1], dtype="float64")
+        for field in fields:
+            values.append(_reduce(field, active_mask, reducer))
 
     return values
 
 
+def _aggregate_from_lumped_budget(
+    store: Any,
+    sim_id: str,
+    store_var: str,
+    reducer: str,
+    n_timesteps: int,
+) -> list[float] | None:
+    """Catchment scalar from the lumped per-component budget table.
+
+    Fallback for when ``budget.spatial_fields`` is off (the default): the spatial
+    per-cell field is absent, but the lumped in/out fluxes (m3/s) still land in the
+    ``budgets`` table. For a single-sign outflow term the spatial ``abs_sum`` (drain)
+    equals ``flux_out``; a signed term's spatial ``sum`` (well) equals
+    ``flux_in - flux_out``. Returns None for other reducers or when no component
+    row matches.
+    """
+    if reducer not in ("abs_sum", "sum"):
+        return None
+    conn = store.connection
+    for candidate in (s.strip() for s in store_var.split("|")):
+        try:
+            rows = conn.execute(
+                "SELECT timestep, SUM(flux_in), SUM(flux_out) FROM budgets "
+                "WHERE sim_id = ? AND component = ? GROUP BY timestep",
+                [str(sim_id), candidate],
+            ).fetchall()
+        except Exception as exc:
+            # The lumped budget is the only source left once the per-cell
+            # budget stopped being persisted: an unreadable table silently
+            # empties discharge, so it must fail loudly.
+            raise ExtractError(
+                f"Cannot read the lumped budget of component '{candidate}' for sim "
+                f"{sim_id}: the catchment '{store_var}' series cannot be built ({exc})."
+            ) from exc
+        if not rows:
+            continue
+        # NaN, not zero, for timesteps with no budget row: a gap must stay
+        # missing instead of biasing the metrics toward a null flux.
+        values = [float("nan")] * n_timesteps
+        for timestep, flux_in, flux_out in rows:
+            t = int(timestep)
+            if not (0 <= t < n_timesteps):
+                continue
+            fout = float(flux_out or 0.0)
+            fin = float(flux_in or 0.0)
+            values[t] = fout if reducer == "abs_sum" else fin - fout
+        return values
+    return None
+
+
 def _resolve_time_index(store: Any, sim_id: str, n_timesteps: int) -> pd.DatetimeIndex:
-    """Build a DatetimeIndex from simulation metadata or synthetic."""
-    conn = getattr(store, "connection", None) or store._db
+    """Return the catchment series time axis, sharing the solver's clock.
+
+    The aggregation reduces the Zarr field arrays, so it reuses their CF
+    ``/time`` axis: the exact stress-period timestamps the solver wrote. This
+    keeps the derived catchment series on the same clock as the native solver
+    series (head, stage, budgets) instead of re-deriving a
+    ``date_range(..., periods=n)`` that drifts (n-1 intervals over the window).
+    Falls back to the catalog ``period_start/period_end`` only when the axis is
+    unavailable.
+    """
+    times = _read_solver_time_axis(store, sim_id)
+    if times is not None and len(times) == n_timesteps:
+        return pd.DatetimeIndex(times)
+
+    conn = store.connection
     row = conn.execute(
         "SELECT period_start, period_end, time_unit FROM simulations WHERE sim_id = ?",
         [str(sim_id)],
@@ -242,6 +438,18 @@ def _resolve_time_index(store: Any, sim_id: str, n_timesteps: int) -> pd.Datetim
         f"Simulation {sim_id} is missing period_start/period_end; "
         "cannot write catchment timeseries with synthetic timestamps."
     )
+
+
+def _read_solver_time_axis(store: Any, sim_id: str) -> np.ndarray | None:
+    """Read the persisted CF ``/time`` axis via the injected store (duck-typed)."""
+    opener = getattr(store, "open_zarr", None)
+    if not callable(opener):
+        return None
+    try:
+        with opener(sim_id) as store_zarr:
+            return store_zarr.read_time()
+    except Exception:
+        return None
 
 
 def _detect_n_timesteps(grp) -> int:

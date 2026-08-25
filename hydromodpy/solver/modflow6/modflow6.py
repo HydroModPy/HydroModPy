@@ -10,15 +10,15 @@ architectural limit.
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
 import numpy as np
 
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.solver.base.protocols import DomainLike
+from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext
 from hydromodpy.solver.modflow6.build import (
     apply_preprocess_options,
-    log_xt3d_resolution,
     mf6_safe_name,
     resolve_flow_regime,
     resolve_ims_complexity_for,
@@ -26,10 +26,10 @@ from hydromodpy.solver.modflow6.build import (
     run_pre_processing,
     select_active_dem,
     write_solver_grid_template,
-    xt3d_is_enabled,
     xt3d_mode,
     xt3d_requested,
 )
+from hydromodpy.solver.modflow6.builders import log_xt3d_resolution, xt3d_is_enabled
 from hydromodpy.solver.modflow6.modflow6_config import (
     Modflow6Config,
     _coerce_modflow6_config,
@@ -169,7 +169,25 @@ class Modflow6:
 
     # run --------------------------------------------------------------
 
-    def processing(self, options: ModflowRunOptions | None = None):
+    def processing(
+        self,
+        options: ModflowRunOptions | None = None,
+        *,
+        api_callback: Callable[[Mf6ApiContext], None] | None = None,
+        api_lib_path: str | os.PathLike[str] | None = None,
+    ):
+        """Write and run the simulation, then return the success flag.
+
+        When ``options.runner == "api"`` the solve is driven through libmf6
+        instead of the mf6 executable. ``api_callback`` is an optional per-step
+        developer hook and ``api_lib_path`` an optional explicit shared-library
+        path; both are forwarded to the API runner and ignored in subprocess
+        mode. They are passed in code only, never via TOML.
+        """
+        if api_callback is not None:
+            self._mf6_api_callback = api_callback
+        if api_lib_path is not None:
+            self._mf6_api_lib_path = api_lib_path
         return run_processing(self, options)
 
     # post_processing --------------------------------------------------

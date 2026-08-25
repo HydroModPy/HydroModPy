@@ -7,11 +7,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DOC_SOURCE = ROOT / "docs" / "source"
-CLI_REFERENCE = DOC_SOURCE / "user_guide" / "cli-reference.rst"
+CLI_REFERENCE = DOC_SOURCE / "cli" / "index.rst"
 API_REFERENCE = DOC_SOURCE / "api" / "index.rst"
 USER_GUIDE_INDEX = DOC_SOURCE / "user_guide" / "index.rst"
 
-COMMAND_PATTERN = re.compile(r"``hmp ([a-z0-9-]+)``")
+COMMAND_PATTERN = re.compile(r"``hmp ([a-z0-9-]+)[^`]*``")
 
 IGNORED_AUTHORED_PARTS = {
     "_static",
@@ -47,8 +47,15 @@ def registered_cli_commands() -> set[str]:
 
 
 def documented_cli_commands(path: Path = CLI_REFERENCE) -> set[str]:
-    text = path.read_text(encoding="utf-8")
-    return set(COMMAND_PATTERN.findall(text))
+    """Collect ``hmp <verb>`` literals across the CLI reference section.
+
+    The reference is a section, not a single page: the index lists the
+    families and each family page documents its own verbs.
+    """
+    documented: set[str] = set()
+    for page in sorted(path.parent.rglob("*.rst")):
+        documented.update(COMMAND_PATTERN.findall(page.read_text(encoding="utf-8")))
+    return documented
 
 
 def _is_ignored_doc(path: Path) -> bool:

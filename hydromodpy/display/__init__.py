@@ -13,8 +13,8 @@ Public API:
 
 from __future__ import annotations
 
-from hydromodpy.display.catalog import get, list_figures, names, register
 from hydromodpy.display.figure import BaseFigure, Figure, FigureSpec
+from hydromodpy.display.figure_registry import get, list_figures, names, register
 
 __all__ = [
     "BaseFigure",

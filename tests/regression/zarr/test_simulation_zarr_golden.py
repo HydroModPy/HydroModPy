@@ -1,31 +1,47 @@
 """Content-level golden snapshot for :class:`SimulationZarr`.
 
-The snapshot hashes the sorted ``(member_name, bytes)`` of every entry of
-the packed ``.zarr.zip`` after stripping volatile JSON keys (``history``,
-``created_at``, ``date_modified``). This way the SHA-256 is independent of
-the local clock and of zip-header timestamps but still pins:
+The snapshot hashes the sorted ``(relative_path, bytes)`` of every file of
+the ``fields.zarr`` directory store after stripping volatile JSON keys
+(``history``, ``created_at``, ``date_modified``). This way the SHA-256 is
+independent of the local clock and of filesystem metadata but still pins:
 
 * the on-disk hierarchy (mesh, time, head field, ACDD root attrs),
 * the array bytes for mesh / time / head,
 * the static ACDD attributes derived from inputs.
 
-The constant ``EXPECTED_DIGEST`` was captured against
-``hydromodpy/results/zarr_store/simulation_zarr.py`` **before** the
-schema/writer/reader/finalizer split. The refactor must preserve it.
+The constant ``EXPECTED_DIGEST`` was re-captured when the store stopped
+being packed to a zip: the snapshot now covers ``fields.zarr`` as it lives
+on disk, which is exactly what a reader opens. Any drift of the hierarchy,
+of the chunk layout or of the static attributes has to be intentional.
+
+Everything entering the digest is byte-identical on Linux and on Windows:
+
+* member names are ``as_posix()`` relatives, so no path separator and no
+  drive letter reaches the hash, and they are sorted by code point, so the
+  order carries no locale;
+* the member set is frozen in ``STORE_MEMBERS`` and holds Zarr nodes and
+  chunks only, never a runtime artefact whose lifetime is platform-specific
+  (a POSIX file lock outlives its release, its Windows twin does not);
+* payloads are read and hashed as bytes, so no newline translation applies,
+  and the JSON ones are re-serialised canonically, which drops key order and
+  insignificant whitespace;
+* chunk payloads are little-endian arrays compressed by the codec pinned in
+  the node metadata, and nothing samples mtime, size, mode or owner.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.zarr_finalizer import lock_path_for_store
 
 _FROZEN_NOW = datetime(2026, 5, 16, 12, 0, 0, tzinfo=UTC)
 
@@ -33,7 +49,30 @@ _FROZEN_NOW = datetime(2026, 5, 16, 12, 0, 0, tzinfo=UTC)
 # before computing the snapshot SHA-256.
 _VOLATILE_KEYS = frozenset({"history", "created_at", "date_modified"})
 
-EXPECTED_DIGEST = "381c50fbf9cb0eb76aa1aa162f02d148b40e18173d46752b0589cc7588fd1150"
+EXPECTED_DIGEST = "698fdddbb832b2d5a03a2ed321e2aeff53b0e2e7b226b0da442cf4a780afd9bc"
+
+STORE_MEMBERS: tuple[str, ...] = (
+    "forcing/zarr.json",
+    "head/c/0/0/0",
+    "head/zarr.json",
+    "mesh/face_node_connectivity/c/0/0",
+    "mesh/face_node_connectivity/zarr.json",
+    "mesh/topography/c/0",
+    "mesh/topography/zarr.json",
+    "mesh/topology/zarr.json",
+    "mesh/vertices/c/0/0",
+    "mesh/vertices/zarr.json",
+    "mesh/z_interfaces/c/0",
+    "mesh/z_interfaces/zarr.json",
+    "mesh/zarr.json",
+    "meta/zarr.json",
+    "particles/zarr.json",
+    "state/zarr.json",
+    "time/c/0",
+    "time/zarr.json",
+    "zarr.json",
+)
+"""Every file the digest walks, in the order it hashes them."""
 
 
 class _FrozenDatetime(datetime):
@@ -71,22 +110,29 @@ def _strip_volatile(payload: bytes) -> bytes:
     return json.dumps(_scrub(obj), sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
-def _content_digest(zip_path: Path) -> str:
-    """SHA-256 over sorted ``(name, scrubbed_bytes)`` pairs of the zip."""
+def _store_members(store_path: Path) -> list[tuple[str, Path]]:
+    """Return the sorted ``(posix relative name, path)`` of every store file."""
+    return sorted(
+        (path.relative_to(store_path).as_posix(), path)
+        for path in store_path.rglob("*")
+        if path.is_file()
+    )
+
+
+def _content_digest(store_path: Path) -> str:
+    """SHA-256 over sorted ``(relative_path, scrubbed_bytes)`` pairs of the store."""
     hasher = hashlib.sha256()
-    with zipfile.ZipFile(str(zip_path), "r") as zf:
-        for name in sorted(zf.namelist()):
-            payload = zf.read(name)
-            scrubbed = _strip_volatile(payload)
-            hasher.update(name.encode("utf-8"))
-            hasher.update(b"\x00")
-            hasher.update(scrubbed)
-            hasher.update(b"\xff")
+    for name, path in _store_members(store_path):
+        scrubbed = _strip_volatile(path.read_bytes())
+        hasher.update(name.encode("utf-8"))
+        hasher.update(b"\x00")
+        hasher.update(scrubbed)
+        hasher.update(b"\xff")
     return hasher.hexdigest()
 
 
 def _build_synthetic_store(path: Path) -> Path:
-    """Create a tiny store (10 cells x 2 layers) and pack it."""
+    """Create a tiny store (10 cells x 2 layers) and return its directory."""
     sz = SimulationZarr.create(
         path,
         n_cells=10,
@@ -113,9 +159,9 @@ def _build_synthetic_store(path: Path) -> Path:
 
     sz.write_time(
         values=np.array([0, 86400, 172800], dtype="int64"),
-        epoch="2020-01-01T00:00:00",
+        epoch="1970-01-01T00:00:00",
         calendar="proleptic_gregorian",
-        units="seconds since 2020-01-01T00:00:00",
+        units="seconds since 1970-01-01T00:00:00",
     )
 
     head = np.full((2, 10), 5.5, dtype="float64")
@@ -157,17 +203,16 @@ def _build_synthetic_store(path: Path) -> Path:
     )
 
     sz.consolidate_metadata()
-    zip_path = sz.pack_to_zip()
     sz.close()
-    return zip_path
+    return path
 
 
-def test_simulation_zarr_pack_is_byte_stable(
+def test_simulation_zarr_store_is_byte_stable(
     tmp_path: Path,
     freeze_clock: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The packed zip content must match the pre-refactor SHA-256."""
+    """The directory-store content must match the golden SHA-256."""
     # Pin the hydromodpy version label that bleeds into root attrs so the
     # digest is independent of the installed package version.
     monkeypatch.setattr(
@@ -179,12 +224,45 @@ def test_simulation_zarr_pack_is_byte_stable(
         "test-version",
     )
 
-    zip_path = _build_synthetic_store(tmp_path / "golden.zarr")
-    digest = _content_digest(zip_path)
+    store_path = _build_synthetic_store(tmp_path / FIELDS_STORE_NAME)
+    digest = _content_digest(store_path)
 
     assert digest == EXPECTED_DIGEST, (
-        "SimulationZarr packed content drifted from the golden snapshot.\n"
+        "SimulationZarr store content drifted from the golden snapshot.\n"
         f"  expected: {EXPECTED_DIGEST}\n"
         f"  actual:   {digest}\n"
         "If the change is intentional, recompute the snapshot."
     )
+
+
+def test_store_holds_only_zarr_hierarchy_members(tmp_path: Path) -> None:
+    """The store carries the Zarr hierarchy and nothing else.
+
+    A stray member shifts the digest without changing any simulation result,
+    and the store stops being what a reader opens: ``zarr`` warns that the
+    entry is not a component of the hierarchy.
+    """
+    store_path = _build_synthetic_store(tmp_path / FIELDS_STORE_NAME)
+
+    assert tuple(name for name, _ in _store_members(store_path)) == STORE_MEMBERS
+
+
+def test_the_write_lock_is_never_a_store_member(tmp_path: Path) -> None:
+    """The write lock is addressed outside the store, on every platform.
+
+    POSIX keeps a lock file on disk after release while Windows unlinks it,
+    so a lock inside the store makes its content platform-dependent. Reading
+    the members while the lock is held catches the defect on both.
+    """
+    store_path = tmp_path / FIELDS_STORE_NAME
+    store = SimulationZarr.create(store_path, n_cells=4, n_layers=1)
+    try:
+        idle = _store_members(store_path)
+        with store._guard_write():
+            held = _store_members(store_path)
+            lock_is_outside = lock_path_for_store(store_path).is_file()
+    finally:
+        store.close()
+
+    assert held == idle
+    assert lock_is_outside

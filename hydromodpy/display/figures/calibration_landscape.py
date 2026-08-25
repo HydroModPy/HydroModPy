@@ -4,31 +4,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._trial_diagnostics import trial_table
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure as MplFigure
 
     from hydromodpy.results.run import Run
-
-
-_META_COLUMNS = frozenset(
-    {
-        "iter",
-        "iteration",
-        "i",
-        "session_id",
-        "sim_id",
-        "params_hash",
-        "status",
-        "from_cache",
-        "duration_s",
-        "metrics",
-        "parameters",
-    }
-)
 
 
 @register
@@ -71,7 +55,7 @@ class CalibrationLandscapeFigure(BaseFigure):
         sim: Run,
         *,
         parameters: list[str] | None = None,
-        objective: str = "objective",
+        objective: str | None = None,
         session_id: str | None = None,
         cmap: str = "viridis",
         figsize: tuple[float, float] | None = None,
@@ -80,24 +64,22 @@ class CalibrationLandscapeFigure(BaseFigure):
         **_,
     ) -> MplFigure:
         import matplotlib.pyplot as plt
-        import pandas as pd
 
-        iters = getattr(sim, "calibration_iterations", None)
-        if iters is None:
-            raise ValueError("calibration_landscape: simulation has no calibration_iterations")
-        df = pd.DataFrame(iters)
-        if session_id is not None and "session_id" in df.columns:
-            df = df[df["session_id"].astype(str) == str(session_id)]
-        if len(df) == 0:
-            raise ValueError("calibration_landscape: no iteration rows available")
+        table = trial_table(sim, session_id=session_id)
+        names = list(parameters) if parameters is not None else list(table.parameters)
+        if len(names) < 2:
+            raise ValueError(
+                "calibration_landscape: need at least two parameter columns; the session "
+                f"sampled {', '.join(names) or '<none>'}"
+            )
+        sampled = dict(table.parameter_values(name) for name in names)
+        objective_name, obj = (
+            table.objective_values(objective)
+            if objective is not None or table.has_objective()
+            else (None, None)
+        )
 
-        if parameters is None:
-            parameters = [c for c in df.columns if c not in _META_COLUMNS and c != objective]
-        if len(parameters) < 2:
-            raise ValueError("calibration_landscape: need at least two parameter columns")
-        obj = df[objective].to_numpy(dtype=float) if objective in df.columns else None
-
-        n = len(parameters)
+        n = len(names)
         if n == 2:
             fig, ax = plt.subplots(
                 figsize=figsize or self.spec.default_figsize,
@@ -105,19 +87,19 @@ class CalibrationLandscapeFigure(BaseFigure):
                 constrained_layout=True,
             )
             sc = ax.scatter(
-                df[parameters[0]].to_numpy(dtype=float),
-                df[parameters[1]].to_numpy(dtype=float),
+                sampled[names[0]],
+                sampled[names[1]],
                 c=obj,
                 cmap=cmap,
                 s=22,
                 edgecolors="white",
                 linewidths=0.3,
             )
-            ax.set_xlabel(parameters[0])
-            ax.set_ylabel(parameters[1])
+            ax.set_xlabel(names[0])
+            ax.set_ylabel(names[1])
             ax.grid(True, ls=":", lw=0.4)
             if obj is not None:
-                fig.colorbar(sc, ax=ax, label=objective)
+                fig.colorbar(sc, ax=ax, label=objective_name)
             fig.suptitle(f"Objective landscape - {sim.name or sim.sim_id}")
             if save_path is not None:
                 from pathlib import Path
@@ -136,14 +118,14 @@ class CalibrationLandscapeFigure(BaseFigure):
         for i in range(n - 1):
             for j in range(n - 1):
                 ax = axes[i, j]
-                pj = parameters[j]
-                pi = parameters[i + 1]
+                pj = names[j]
+                pi = names[i + 1]
                 if j > i:
                     ax.set_axis_off()
                     continue
                 sc = ax.scatter(
-                    df[pj].to_numpy(dtype=float),
-                    df[pi].to_numpy(dtype=float),
+                    sampled[pj],
+                    sampled[pi],
                     c=obj,
                     cmap=cmap,
                     s=10,
@@ -154,7 +136,7 @@ class CalibrationLandscapeFigure(BaseFigure):
                     ax.set_ylabel(pi)
                 ax.grid(True, ls=":", lw=0.3)
         if sc is not None and obj is not None:
-            fig.colorbar(sc, ax=axes[:, -1], label=objective)
+            fig.colorbar(sc, ax=axes[:, -1], label=objective_name)
         fig.suptitle(f"Objective landscape - {sim.name or sim.sim_id}")
         if save_path is not None:
             from pathlib import Path

@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.simulation.extraction.derivation.observation_ingest import (
     ingest_observations,
 )
@@ -59,7 +59,7 @@ def _point_record(station_id: str, variable: str, n_points: int = 5) -> _StubPoi
     )
 
 
-def _query(catalog: SimulationCatalog, sim_id: str) -> pd.DataFrame:
+def _query(catalog: Catalog, sim_id: str) -> pd.DataFrame:
     return catalog.connection.execute(
         "SELECT station_id, variable, time AS datetime, value, unit, qflag "
         "FROM timeseries WHERE sim_id = ? ORDER BY station_id, variable, timestep",

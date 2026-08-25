@@ -62,7 +62,7 @@ Case Setup
 
 - Launcher family: `data-overview`, so the workflow stops after geographic setup, data loading, and overview rendering.
 - Primary editable file: `examples/projects/05_nancon_data_overview/config_overview.toml`.
-- The committed identity-card figures are mirrored under `examples/projects/09_capability_gallery/geographic/` so the gallery no longer depends on one local `results_stable` tree.
+- The committed identity-card figures are mirrored under `examples/projects/09_capability_gallery/geographic/` so the gallery no longer depends on one local run tree.
 
 What It Shows
 -------------

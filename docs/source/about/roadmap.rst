@@ -26,7 +26,7 @@ Themes in progress
      - Phase 4
    * - Storage evolution
      - First explicit DuckDB / Zarr schema migrations under
-       ``hydromodpy/results/migrations/``, with round-trip tests and
+       ``hydromodpy/results/catalog/migrations/``, with round-trip tests and
        package-version pinning.
      - Prospective
    * - Application map

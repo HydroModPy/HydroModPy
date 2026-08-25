@@ -26,22 +26,40 @@ class _FakeStore:
         self.fields.append((name, t, np.asarray(values)))
 
 
-def _fake_cbc(record_data: dict):
-    """record_data maps record name -> {kstpkper: [array]} or array (all steps)."""
+def _fake_cbc(record_data: dict, kstpkpers: list[tuple[int, int]]):
+    """record_data maps record name -> {kstpkper: array} or array (all steps)."""
+    from hydromodpy.solver.modflow6.extractors.cbc_reader import CbcRecord
+
+    flat: list[tuple[int, int, str, np.ndarray]] = []
+    for name, entry in record_data.items():
+        for kstpkper in kstpkpers:
+            payload = entry[kstpkper] if isinstance(entry, dict) else entry
+            flat.append((kstpkper[0] + 1, kstpkper[1] + 1, name, payload))
 
     class _FakeCBC:
         def __init__(self, path, *args, **kwargs):
             del path, args, kwargs
+            self.records = tuple(
+                CbcRecord(
+                    kstp=kstp,
+                    kper=kper,
+                    text=text,
+                    imeth=1,
+                    ndim1=2,
+                    ndim2=1,
+                    ndim3=-1,
+                    nlist=0,
+                    aux_names=(),
+                    data_pos=0,
+                )
+                for kstp, kper, text, _ in flat
+            )
 
-        def get_unique_record_names(self):
-            return [name.encode() for name in record_data]
+        def unique_record_names(self):
+            return list(record_data)
 
-        def get_data(self, *, text, kstpkper, totim):
-            del totim
-            entry = record_data[text.strip()]
-            if isinstance(entry, dict):
-                return [entry[kstpkper]]
-            return [entry]
+        def read_record(self, idx: int):
+            return flat[idx][3]
 
         def close(self) -> None:
             pass
@@ -51,7 +69,9 @@ def _fake_cbc(record_data: dict):
 
 def _extract(monkeypatch, tmp_path, record_data, *, times, kstpkpers, nlay=1, n_cells=2):
     monkeypatch.setattr(
-        "flopy.utils.binaryfile.CellBudgetFile", _fake_cbc(record_data), raising=True
+        "hydromodpy.solver.modflow6.extractors.cbc_reader.Mf6CellBudgetReader",
+        _fake_cbc(record_data, kstpkpers),
+        raising=True,
     )
     store = _FakeStore()
     Modflow6OutputAdapter()._extract_budget(
@@ -102,9 +122,9 @@ def test_extract_budget_drops_flow_ja_face_and_spdis(tmp_path, monkeypatch) -> N
     }
     store = _extract(monkeypatch, tmp_path, records, times=[1.0], kstpkpers=[(0, 0)])
     by = {r["component"]: r for r in store.budgets}
-    assert set(by) == {"drn", "rcha"}
-    assert by["rcha"]["flux_in"] == pytest.approx(5.0)
-    assert by["drn"]["flux_out"] == pytest.approx(5.0)
+    assert set(by) == {"drain", "recharge"}
+    assert by["recharge"]["flux_in"] == pytest.approx(5.0)
+    assert by["drain"]["flux_out"] == pytest.approx(5.0)
 
 
 def test_extract_budget_keeps_balanced_stress_term(tmp_path, monkeypatch) -> None:
@@ -115,7 +135,7 @@ def test_extract_budget_keeps_balanced_stress_term(tmp_path, monkeypatch) -> Non
     store = _extract(monkeypatch, tmp_path, records, times=[1.0], kstpkpers=[(0, 0)])
     assert len(store.budgets) == 1
     row = store.budgets[0]
-    assert row["component"] == "wel"
+    assert row["component"] == "well"
     assert row["flux_in"] == pytest.approx(10.0)
     assert row["flux_out"] == pytest.approx(10.0)
 
@@ -155,6 +175,6 @@ def test_extract_budget_multilayer_and_multistep_excludes_face_flow(tmp_path, mo
         n_cells=2,
     )
     by_step = {r["timestep"]: r for r in store.budgets}
-    assert {r["component"] for r in store.budgets} == {"drn"}
+    assert {r["component"] for r in store.budgets} == {"drain"}
     assert by_step[0]["flux_out"] == pytest.approx(3.0)
     assert by_step[1]["flux_out"] == pytest.approx(7.0)

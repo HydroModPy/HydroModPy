@@ -116,16 +116,17 @@ Long-lived branches:
    * - Branch
      - Role
    * - ``main``
-     - Current v2 line and future stable default branch. During the v2
-       transition it may carry ``2.0.0aN`` pre-releases.
+     - Current v2 line and future stable default branch. It carries version
+       ``2.0.0a1``, which is not tagged or released yet.
    * - ``dev``
-     - Active integration branch for the next release line.
-   * - ``archive-v1``
-     - Frozen v1.0.0 source and documentation line. It is kept for users who
-       still need v1, but it is not actively maintained.
+     - Active integration branch for the next v2 pre-release.
+   * - ``v1.0``
+     - Published v1 line, frozen at the ``v1.0.0`` tag. It is kept for users
+       who still need v1, it does not receive the v2 work, and it is not
+       actively maintained.
    * - ``maint/1.x``
      - Optional maintenance branch for ``1.*`` releases if active v1
-       maintenance resumes. Do not use this name for an archive-only branch.
+       maintenance resumes. Do not use this name for a frozen branch.
 
 Short-lived branches:
 
@@ -147,21 +148,21 @@ Short-lived branches:
    * - ``hotfix/1.0.1``
      - Temporary branch for a single urgent patch release.
 
-Do not name long-lived branches ``v1`` or ``v2``. Use ``archive-v1`` for
-the frozen v1 branch, ``maint/1.x`` only for active maintenance, and tags
-such as ``v1.0.0`` or ``v2.0.0a1`` for exact releases.
+The frozen v1 line lives on ``v1.0`` only. Do not open other long-lived v1
+or v2 branches, use ``maint/1.x`` only for active maintenance, and identify
+exact released code through tags such as ``v1.0.0`` or ``v2.0.0a1``.
 
-Example: archiving v1 while preparing v2
-----------------------------------------
+Current layout: frozen v1 alongside the v2 pre-release
+------------------------------------------------------
 
-When ``main`` is created from the current v2 development line, keep the v1
-source explicit but frozen:
+The v1 line is published and frozen on its own branch. The current line is
+the v2 pre-release:
 
 .. code-block:: text
 
-   main        current v2 line, first published as v2.0.0a1
+   main        current v2 line, version 2.0.0a1, not released yet
    dev         active integration for the next v2 pre-release
-   archive-v1  frozen v1.0.0 source and docs with an upgrade warning
+   v1.0        frozen v1.0.0 source and docs with an upgrade warning
    release/2.0 temporary v2 stabilization branch
 
 Use ``maint/1.x`` only if the project decides to actively maintain v1
@@ -171,7 +172,7 @@ Typical tags during the v2 transition:
 
 .. code-block:: text
 
-   v1.0.0       final v1 release kept on archive-v1
+   v1.0.0       final v1 release kept on the v1.0 branch
    v2.0.0a1     first public v2 alpha from main
    v2.0.0b1     v2 beta
    v2.0.0rc1    v2 release candidate
@@ -180,14 +181,14 @@ Typical tags during the v2 transition:
 Archive branch warning
 ----------------------
 
-The ``archive-v1`` documentation must show a visible warning on the home
-page, install page, and contributor page:
+The ``v1.0`` documentation must show a visible warning on the home page,
+install page, and contributor page:
 
 - v1 is frozen and no longer updated.
 - Existing v1 users can keep using tagged releases such as ``v1.0.0``.
 - New work should move to ``main`` and the v2 documentation.
 - The warning should link to
-  ``https://hydromodpy-docs.readthedocs.io/en/main/``.
+  ``https://docs.hydromodpy.fr/main/``.
 
 Tagging discipline
 ------------------
@@ -229,7 +230,7 @@ Release flow
 
    - normal work from ``dev``
    - current v2 release work from ``main`` or ``release/2.0``
-   - frozen v1 documentation from ``archive-v1`` only for legacy warnings
+   - frozen v1 documentation from ``v1.0`` only for legacy warnings
    - active v1 maintenance from ``maint/1.x`` only if maintenance resumes
    - stabilization from ``release/X.Y``
 
@@ -280,7 +281,7 @@ applying the minimal patch, and releasing ``vX.Y.(Z+1)``. Hotfixes do not
 carry new features.
 
 For a maintained older major line, branch from the relevant maintenance
-branch. Do not use ``archive-v1`` for hotfix work unless it has first been
+branch. Do not use ``v1.0`` for hotfix work unless it has first been
 promoted back to an active maintenance branch.
 
 .. code-block:: text
@@ -308,6 +309,6 @@ See also
 
 - :doc:`changelog` for shipped releases.
 - :doc:`../contribute` for contributor setup and pull request workflow.
-- ``VERSIONING.md`` at the repository root for the short maintainer checklist.
-- ``SECURITY.md`` at the repository root for supported security versions when
-  that file exists.
+- ``CONTRIBUTING.md`` at the repository root for the contributor quick start;
+  this page is the single source of truth for versions, tags, and branches.
+- ``SECURITY.md`` at the repository root for supported security versions.

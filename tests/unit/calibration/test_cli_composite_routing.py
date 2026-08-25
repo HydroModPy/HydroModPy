@@ -20,7 +20,7 @@ import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.metrics import build_metric_extractor
-from hydromodpy.calibration.objective import build_objective_from_config
+from hydromodpy.calibration.optim.objective import build_objective_from_config
 
 
 def _empty_ctx():
@@ -64,7 +64,9 @@ class TestCliWiring:
             outputs=cfg.outputs or None,
             objective_blocks=cfg.objective_blocks or None,
         )
-        with pytest.raises(RuntimeError, match="Output 'head_A' extraction failed"):
+        # The composite path is engaged: it fails on the missing flow run, not
+        # on the single-metric branch, which would complain about observations.
+        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
             metric_fn(ctx)
 
     def test_composite_evaluates_when_simulated_provided(self):
@@ -90,7 +92,7 @@ class TestCliWiring:
         result = obj.evaluate({"head_A": [12.0, 22.0, 32.0]})
         assert result.total == pytest.approx(2.0)
 
-    def test_cli_args_keep_legacy_when_no_blocks(self):
+    def test_cli_args_keep_single_metric_when_no_blocks(self):
         cfg = CalibrationConfig.model_validate(
             {"method": "grid", "variable": "head", "objective": "rmse"}
         )

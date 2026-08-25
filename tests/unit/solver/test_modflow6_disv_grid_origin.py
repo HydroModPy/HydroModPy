@@ -140,6 +140,7 @@ def test_modflow6_prt_end_to_end_produces_tracks(tmp_path: Path) -> None:
         solver_mesh=mesh,
         nlay=1,
         ncpl=2,
+        nper=1,
         sy=np.array([[0.25, 0.25]]),
         model_name="flow",
         exe=exe,

@@ -178,7 +178,6 @@ _DOC_OPTIONAL_IMPORTS = [
     "sklearn",
     "cma",
     "optuna",
-    "streamlit",
     "ultraplot",
     "vedo",
     "whitebox_workflows",
@@ -408,9 +407,10 @@ favicons = [
 ]
 
 # sphinx-sitemap and sphinxext-opengraph: shared base URL for the public docs.
-# The site is published at the org root via GitHub Pages (multi-version under
-# /<version>/). Per-version canonical URLs land in the version-switcher pass.
-html_baseurl = "https://hydromodpy.github.io/"
+# The site is served at https://docs.hydromodpy.fr/ with one folder per version,
+# so the base URL carries the version being built and the canonical links, the
+# sitemap entries and the OpenGraph image all resolve to a real page.
+html_baseurl = f"https://docs.hydromodpy.fr/{_current_version}/"
 sitemap_url_scheme = "{link}"
 ogp_site_url = html_baseurl
 ogp_site_name = "HydroModPy"
@@ -465,7 +465,7 @@ nitpick_ignore_regex = [
         r"LoadedDataContext|MeshCatchmentConfig|Modflow6Config|ModflowConfig|"
         r"ModflowPreprocessOptions|MplFigure|Objective|OverviewConfig|PersistenceConfig|"
         r"ResolvedSimulationTimeGrid|ResolvedSteadySimulationTimeGrid|RiverMeshTrace|Run|RunResult|"
-        r"ScalarObjective|SetupContext|SimulationCatalog|SimulationZarr|SolverConfig|Stack|"
+        r"ScalarObjective|SetupContext|Catalog|SimulationZarr|SolverConfig|Stack|"
         r"StoragePathResolver|Surface|SyntheticGeographicConfig|TransportConfig|"
         r"WhiteboxWorkflowsBackend|WorkspaceConfig)",
     ),
@@ -532,7 +532,7 @@ html_theme_options = {
     "navbar_center": ["navbar-nav"],
     "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
     "switcher": {
-        "json_url": "https://hydromodpy.github.io/switcher.json",
+        "json_url": "https://docs.hydromodpy.fr/switcher.json",
         "version_match": _current_version,
     },
     "check_switcher": False,

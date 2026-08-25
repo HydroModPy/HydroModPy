@@ -14,6 +14,12 @@ GLOBAL_ZONE = "__global__"
 OUTLET_STATION = "__outlet__"
 """Sentinel station id for the catchment outlet."""
 
+TRASH_RETENTION_DAYS = 30
+"""Days a trashed run stays restorable before ``gc --apply`` may hard-purge it."""
+
+STALE_HEARTBEAT_MINUTES = 10
+"""Minutes without a heartbeat before a ``running`` sim is treated as stale."""
+
 # v2 catalog table names (DuckDB). Kept in sync with
 # ``catalog/migrations/0001_initial.sql``.
 TABLE_NAMES: tuple[str, ...] = (
@@ -36,35 +42,38 @@ TABLE_NAMES: tuple[str, ...] = (
     "runs_environment",
     "provenance",
     "observations",
-    "observation_points",
     "audit_log",
     "deletions",
     "tracked_files",
     "geographic_features",
     "geographic_metadata",
-    "parquet_files",
     "tags",
+    "sim_notes",
+    "export_log",
+    "purge_journal",
     "calibration_sessions",
     "calibration_iterations",
     "workflow_steps",
 )
 
 # Per-simulation DuckDB tables (used by lifecycle deletion and hmp_package).
+# ``purge_journal`` is deliberately excluded: it is the two-phase hard-purge
+# journal cleared by the purge process itself, not part of the normal cascade.
 PER_SIM_TABLE_NAMES: tuple[str, ...] = (
     "parameters",
     "metrics",
-    "observation_points",
     "provenance",
     "geographic_features",
     "geographic_metadata",
     "runs_environment",
     "tags",
+    "sim_notes",
+    "export_log",
     "tracked_files",
-    "parquet_files",
 )
 
 # Per-simulation Parquet view aliases. Files live at
-# ``simulations/<basename>.parquet/<view>.parquet`` in the workspace.
+# ``runs/<run>/tables.parquet/<view>.parquet`` in the project.
 # Includes ``metrics`` and ``provenance``: in v2 these are no longer orphan
 # Parquet files but proper DuckDB-backed views.
 PARQUET_VIEW_NAMES: tuple[str, ...] = (
@@ -73,6 +82,7 @@ PARQUET_VIEW_NAMES: tuple[str, ...] = (
     "mass_balance",
     "metrics",
     "provenance",
+    "observation_points",
 )
 
 
@@ -88,6 +98,18 @@ VALID_SOLVER_CODES: frozenset[str] = frozenset(
         "mt3dms",
     }
 )
+
+# Short aliases users may type on the CLI mapped to canonical solver codes.
+SOLVER_ALIASES: dict[str, str] = {
+    "mf6": "modflow6",
+    "nwt": "modflow_nwt",
+}
+
+
+def canonical_solver_code(name: str) -> str:
+    """Return the canonical solver code for a user-typed name or alias."""
+    key = str(name).strip().lower()
+    return SOLVER_ALIASES.get(key, key)
 
 
 def solver_category(solver_name: str) -> str | None:
@@ -131,8 +153,12 @@ __all__ = [
     "OUTLET_STATION",
     "PARQUET_VIEW_NAMES",
     "PER_SIM_TABLE_NAMES",
+    "SOLVER_ALIASES",
+    "STALE_HEARTBEAT_MINUTES",
     "TABLE_NAMES",
+    "TRASH_RETENTION_DAYS",
     "VALID_SOLVER_CODES",
+    "canonical_solver_code",
     "solver_category",
     "validate_solver_code",
 ]

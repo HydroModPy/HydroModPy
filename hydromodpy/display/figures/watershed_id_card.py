@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure_registry import register
 from hydromodpy.display.geo import GeoFigureMixin
 from hydromodpy.display.map_axes import (
     overlay_watershed_contour,
@@ -22,8 +22,8 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure as MplFigure
 
-    from hydromodpy.results.contracts import RasterField
     from hydromodpy.results.run import Run
+    from hydromodpy.results.run.contracts import RasterField
 
 
 # Raster keys written by ``persist_geographic_to_store``. The historical

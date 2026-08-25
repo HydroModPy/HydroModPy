@@ -12,7 +12,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.data.store import DataStore
+from hydromodpy.data.loading.store import DataStore
 from hydromodpy.data.variables.intermittency.config import (
     IntermittencyConfig,
     IntermittencySourceConfig,

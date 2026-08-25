@@ -3,7 +3,7 @@
 ``test_gr4j_flow_extractor.py`` already covers discharge and the ``extra``
 mapping. This file targets the remaining dark lines: the ``storage`` write
 branch (line 65) and the binary-path ``extract`` no-op (line 33). Both run
-the real extractor against a real SimulationCatalog and assert the stored
+the real extractor against a real Catalog and assert the stored
 series round-trips intact and non-negative.
 """
 

@@ -38,13 +38,10 @@ def test_core_hydromodpy_config_export_is_removed() -> None:
         _ = legacy_core.HydroModPyConfig
 
 
-def test_core_config_hydromodpy_config_export_is_removed() -> None:
-    import hydromodpy.core.config as legacy_config_pkg
-
-    legacy_config_pkg.__dict__.pop("HydroModPyConfig", None)
-    assert "HydroModPyConfig" not in legacy_config_pkg.__all__
-    with pytest.raises(AttributeError):
-        _ = legacy_config_pkg.HydroModPyConfig
+def test_core_config_namespace_is_removed() -> None:
+    sys.modules.pop("hydromodpy.core.config", None)
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("hydromodpy.core.config")
 
 
 def test_legacy_hydromodpy_config_module_is_removed() -> None:

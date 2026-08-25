@@ -1,7 +1,7 @@
 """Guard the single-source tolerance policy.
 
 ``tests/TOLERANCES.md`` is the one source of truth for numerical tolerances.
-``tests/_helpers/tolerances.py::tol`` loads the 22 single-scalar rows from that
+``tests/_helpers/tolerances.py::tol`` loads the 34 single-scalar rows from that
 table. This test prevents two kinds of drift:
 
 1. A ``tol("...")`` call that points at a typo / dangling key (it would resolve
@@ -9,7 +9,7 @@ table. This test prevents two kinds of drift:
 2. An INLINE row whose value is hard-coded at its assertion site again, so the
    row could diverge from the table without anyone noticing.
 
-The 22 loadable rows split into three enforcement classes (W5 classification):
+The 34 loadable rows split into three enforcement classes (W5 classification):
 
 * INLINE  - the value is asserted at a validation/regression call site; the
             literal was replaced by ``tol(<slug>)``. Every INLINE row MUST be
@@ -47,7 +47,7 @@ _SCAN_EXCLUDE: frozenset[str] = frozenset(
 )
 
 # --------------------------------------------------------------------------- #
-# W5 classification of the 22 loadable TOLERANCES.md rows.
+# W5 classification of the 34 loadable TOLERANCES.md rows.
 # --------------------------------------------------------------------------- #
 
 # INLINE: literal replaced by tol(); must be referenced by >= 1 tol() call.
@@ -63,6 +63,20 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "signature_stats_post_v0_5__atol",
         "mf6_prt_uniform_velocity_streamline__max_relative_position_error_x_x_exp_x_exp_x0",
         "mf6_gwt_first_order_decay_0d__max_relative_concentration_error_vs_c0_exp_k_t",
+        # SFR standalone budget closure + SFR->LAK MVR reciprocity, asserted in
+        # tests/integration/solver/test_sfr_standalone.py and test_sfr_lak_mvr.py.
+        "sfr_standalone_budget_closure_mf6__gwf_listing_percent_discrepancy",
+        "sfr_lak_mvr_reciprocity_mf6__terminal_reach_to_mvr_vs_lake_from_mvr",
+        # V-valley support bench and the D4/D8 length ratio, asserted in
+        # tests/unit/core/test_v_valley_support_bench.py and
+        # tests/unit/core/test_topographic_distance.py.
+        "v_valley_support_bench_case_a__root_relative_gap_between_raw_and_closed_observed_network",
+        "v_valley_support_bench_case_b__root_drift_under_a_rasterisation_hole",
+        "downslope_operator_d4_vs_d8__length_ratio_on_a_pure_diagonal_descent",
+        # Golden comparison against whitebox D-infinity, asserted in
+        # tests/unit/core/test_downslope_whitebox_golden.py.
+        "downslope_operator_vs_whitebox_d_infinity__spearman_rank_correlation_on_a_real_dem",
+        "downslope_operator_vs_whitebox_d_infinity__median_relative_gap",
     }
 )
 
@@ -74,6 +88,13 @@ CASE_TOML_ROWS: frozenset[str] = frozenset(
         # Dupuit fixed-head head RMSE, per-solver tolerances*.toml head_profile.rmse.
         "dupuit_fixed_head_1d_nwt__head_rmse",
         "dupuit_fixed_head_1d_mf6__head_rmse",
+        # Dupuit seepage limit, tolerances.toml blocks [seepage_limit], [invariance]
+        # and [control]; asserted in
+        # tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py.
+        "dupuit_seepage_limit_1d_mf6__seepage_limit_position_error",
+        "dupuit_seepage_limit_1d_mf6__head_profile_max_abs_error_vs_the_closed_form",
+        "dupuit_seepage_limit_1d_k_r_invariance__water_table_max_abs_difference_across_the_k_r_sweep",
+        "dupuit_seepage_limit_1d_k_only_control__total_drain_outflow_relative_drift",
         # Linearized transient cross-row spread, *_modflow6_irregular_tri.toml
         # space_time.row_spread (values match the doc exactly: 0.006/0.006/0.012/
         # 0.005/0.0007).
@@ -153,10 +174,10 @@ def _resolve(slug: str) -> str:
 
 @pytest.mark.fast
 def test_classification_partitions_all_loadable_rows() -> None:
-    """INLINE, CASE_TOML and UNUSED partition exactly the 23 loadable rows."""
+    """INLINE, CASE_TOML and UNUSED partition exactly the 34 loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 23, sorted(loadable)
+    assert len(loadable) == 34, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"
@@ -181,7 +202,7 @@ def test_every_tol_call_resolves_to_one_real_row() -> None:
 
 @pytest.mark.fast
 def test_referenced_rows_are_subset_of_loadable_keys() -> None:
-    """Every row reached through tol() is one of the 22 loadable keys."""
+    """Every row reached through tol() is one of the 34 loadable keys."""
     referenced = {_resolve(slug) for slug in _collect_tol_arguments()}
     assert referenced <= set(TOLERANCES), sorted(referenced - set(TOLERANCES))
 
@@ -219,3 +240,15 @@ def test_dupuit_fixed_head_doc_agrees_with_case_toml() -> None:
     assert "rmse = 0.02" in mf6_toml, "dupuit MF6 case-TOML rmse changed; revisit row 12"
     # Enforced NWT head_profile.rmse agrees with the documented 0.05 m.
     assert "rmse = 0.05" in nwt_toml, "dupuit NWT case-TOML rmse changed; revisit row 11"
+
+
+def test_documented_tolerance_count_matches_the_table() -> None:
+    """The header count must equal the number of numbered rows, so it never drifts."""
+    import re
+
+    text = (_TESTS_ROOT / "TOLERANCES.md").read_text(encoding="utf-8")
+    header = re.search(r"records the (\d+) tolerances", text)
+    assert header is not None, "TOLERANCES.md header count line is missing"
+    documented = int(header.group(1))
+    rows = len(re.findall(r"^\| [0-9]", text, flags=re.MULTILINE))
+    assert documented == rows, f"header says {documented} tolerances but the table has {rows} rows"

@@ -9,6 +9,7 @@ import pytest
 
 from tools.doc_gallery import update_gallery
 from tools.doc_gallery.gallery_manifest import GalleryCaseSpec, GalleryImageAsset
+from tools.doc_gallery.update_gallery import _filesystem_path
 
 
 def test_reset_generated_dirs_retries_transient_permission_error(
@@ -20,10 +21,10 @@ def test_reset_generated_dirs_retries_transient_permission_error(
     docs_root = tmp_path / "source"
     gallery_dir = docs_root / "capability_gallery"
     static_dir = docs_root / "_static" / "capability_gallery"
-    gallery_dir.mkdir(parents=True)
-    static_dir.mkdir(parents=True)
-    (gallery_dir / "stale.rst").write_text("stale", encoding="utf-8")
-    (static_dir / "stale.png").write_text("stale", encoding="utf-8")
+    _filesystem_path(gallery_dir).mkdir(parents=True)
+    _filesystem_path(static_dir).mkdir(parents=True)
+    _filesystem_path(gallery_dir / "stale.rst").write_text("stale", encoding="utf-8")
+    _filesystem_path(static_dir / "stale.png").write_text("stale", encoding="utf-8")
 
     calls = {"count": 0}
     sleeps: list[float] = []
@@ -42,10 +43,10 @@ def test_reset_generated_dirs_retries_transient_permission_error(
 
     update_gallery._reset_generated_dirs(docs_root)
 
-    assert gallery_dir.exists()
-    assert static_dir.exists()
-    assert list(gallery_dir.iterdir()) == []
-    assert list(static_dir.iterdir()) == []
+    assert _filesystem_path(gallery_dir).exists()
+    assert _filesystem_path(static_dir).exists()
+    assert list(_filesystem_path(gallery_dir).iterdir()) == []
+    assert list(_filesystem_path(static_dir).iterdir()) == []
     assert calls["count"] == 1
     assert sleeps == [update_gallery._remove_tree_with_retry.__kwdefaults__["base_delay_s"]]
 
@@ -107,8 +108,8 @@ def test_merge_case_summaries_by_category_keeps_committed_omitted_categories(
 ) -> None:
     baseline_root = tmp_path / "baseline"
     validation_dir = baseline_root / "_static" / "capability_gallery" / "validation"
-    validation_dir.mkdir(parents=True)
-    (validation_dir / "validation_alpha_summary.json").write_text(
+    _filesystem_path(validation_dir).mkdir(parents=True)
+    _filesystem_path(validation_dir / "validation_alpha_summary.json").write_text(
         (
             "{\n"
             '  "slug": "validation_alpha",\n'
@@ -174,10 +175,10 @@ def test_reset_generated_dirs_retries_when_onerror_hits_locked_file(
     docs_root = tmp_path / "source"
     gallery_dir = docs_root / "capability_gallery"
     static_dir = docs_root / "_static" / "capability_gallery"
-    gallery_dir.mkdir(parents=True)
-    static_dir.mkdir(parents=True)
+    _filesystem_path(gallery_dir).mkdir(parents=True)
+    _filesystem_path(static_dir).mkdir(parents=True)
     locked_file = gallery_dir / "stale.rst"
-    locked_file.write_text("stale", encoding="utf-8")
+    _filesystem_path(locked_file).write_text("stale", encoding="utf-8")
 
     calls = {"count": 0}
     sleeps: list[float] = []
@@ -217,9 +218,9 @@ def test_reset_generated_dirs_retries_when_onerror_hits_locked_file(
 
     update_gallery._reset_generated_dirs(docs_root)
 
-    assert gallery_dir.exists()
-    assert static_dir.exists()
-    assert list(gallery_dir.iterdir()) == []
-    assert list(static_dir.iterdir()) == []
+    assert _filesystem_path(gallery_dir).exists()
+    assert _filesystem_path(static_dir).exists()
+    assert list(_filesystem_path(gallery_dir).iterdir()) == []
+    assert list(_filesystem_path(static_dir).iterdir()) == []
     assert calls["count"] == 1
     assert sleeps == [update_gallery._remove_tree_with_retry.__kwdefaults__["base_delay_s"]]

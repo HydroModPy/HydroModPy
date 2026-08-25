@@ -90,7 +90,7 @@ Useful code and documentation anchors for the future expansion are:
 - :doc:`groundwater-flow-problem-definition`
 - :doc:`../hydrology/hydrological-forcing-chain`
 - :doc:`../solvers/index`
-- ``hydromodpy/project.py``
+- ``hydromodpy/project/facade.py``
 - ``hydromodpy/physics/flow/flow.py``
 - ``validation_cases/README.md``
 

@@ -15,8 +15,8 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.cell_types import CellType
-from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
 
 def _signed_polygon_area_xy(vertices_xy: np.ndarray) -> float:
@@ -110,14 +110,22 @@ def to_flopy_disv_args(
     vertices = [[int(i), float(verts[i, 0]), float(verts[i, 1])] for i in range(nvert)]
 
     conn = hydro_mesh.flat_connectivity
-    ncpl = conn.shape[0]
+    ncpl = len(conn)  # rectangular array or ragged tuple; both len == n_cells
+    # An explicit per-cell center (e.g. the Voronoi generator, exact for CVFD
+    # orthogonality) overrides the vertex-mean centroid when supplied.
+    centers = hydro_mesh.cell_data.get("disv_cell_center")
+    if centers is not None:
+        centers = np.asarray(centers, dtype=float).reshape(ncpl, 2)
     # cell2d: list of (icell, xc, yc, ncvert, iv1, iv2, ...)
     cell2d: list[list] = []
     for ic in range(ncpl):
-        nodes = _orient_nodes_for_disv(conn[ic], verts)
-        cell_verts = verts[nodes]
-        xc = float(cell_verts[:, 0].mean())
-        yc = float(cell_verts[:, 1].mean())
+        nodes = _orient_nodes_for_disv(np.asarray(conn[ic], dtype=int), verts)
+        if centers is not None:
+            xc, yc = float(centers[ic, 0]), float(centers[ic, 1])
+        else:
+            cell_verts = verts[nodes]
+            xc = float(cell_verts[:, 0].mean())
+            yc = float(cell_verts[:, 1].mean())
         row: list = [int(ic), xc, yc, int(len(nodes))]
         row.extend(int(n) for n in nodes)
         cell2d.append(row)

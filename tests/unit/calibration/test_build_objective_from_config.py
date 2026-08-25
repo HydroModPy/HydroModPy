@@ -1,4 +1,4 @@
-"""Tests for :func:`hydromodpy.calibration.objective.build_objective_from_config`.
+"""Tests for :func:`hydromodpy.calibration.optim.objective.build_objective_from_config`.
 
 Covers Phase 3 of the calibration integration:
 
@@ -23,7 +23,7 @@ from hydromodpy.calibration.config import (
     CalibOutputDecl,
     CalibrationConfig,
 )
-from hydromodpy.calibration.objective import (
+from hydromodpy.calibration.optim.objective import (
     CompositeObjective,
     ConfigBlockObjective,
     ObjectiveValue,

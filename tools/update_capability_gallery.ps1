@@ -2,12 +2,7 @@
 param(
     [string]$PythonExe = "",
     [string]$CondaEnv = "",
-    [switch]$IncludeValidationReports,
     [switch]$IncludeXt3dDiagnostics,
-    [ValidateSet("modflownwt", "modflow6", "modflow6_irregular_tri", "boussinesq")]
-    [string[]]$ValidationSolvers = @(),
-    [ValidateSet("steady", "transient", "both")]
-    [string]$ValidationRegime = "both",
     [string[]]$Only = @(),
     [string[]]$Category = @(),
     [string]$BuildDir = "build/html",
@@ -46,7 +41,7 @@ function Test-CondaEnvExists {
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = (Resolve-Path (Join-Path $scriptDir "..")).Path
-$docsRoot = Join-Path $repoRoot "docs\readthedocs"
+$docsRoot = Join-Path $repoRoot "docs"
 if ([System.IO.Path]::IsPathRooted($BuildDir)) {
     $resolvedBuildDir = $BuildDir
 }
@@ -62,11 +57,10 @@ else {
 }
 
 $needsXt3dDiagnostics = $IncludeXt3dDiagnostics -or $Only.Contains("modflow6_irregular_tri_xt3d_method_choice")
-$needsScientificPython = $IncludeValidationReports -or $needsXt3dDiagnostics
 if (
     [string]::IsNullOrWhiteSpace($PythonExe) -and
     [string]::IsNullOrWhiteSpace($CondaEnv) -and
-    $needsScientificPython -and
+    $needsXt3dDiagnostics -and
     (Test-CondaEnvExists -Name "hydromodpy-kpg")
 ) {
     $CondaEnv = "hydromodpy-kpg"
@@ -120,26 +114,6 @@ Write-Host "Repository root: $repoRoot"
 Write-Host "Python command: $($script:PythonCommand -join ' ')"
 Write-Host "Docs HTML build dir: $resolvedBuildDir"
 
-if ($IncludeValidationReports) {
-    $validationArgs = @(
-        "-m", "validation_cases.update_reports",
-        "--no-show",
-        "--regime", $ValidationRegime
-    )
-    if ($ValidationSolvers.Count -gt 0) {
-        $validationArgs += "--solvers"
-        $validationArgs += $ValidationSolvers
-    }
-    Invoke-PythonStep `
-        -Title "Refresh validation batch reports" `
-        -WorkingDirectory $repoRoot `
-        -Arguments $validationArgs
-}
-else {
-    Write-Host ""
-    Write-Host "==> Skipping validation batch reports (use -IncludeValidationReports to refresh them)." -ForegroundColor Yellow
-}
-
 if ($needsXt3dDiagnostics) {
     Invoke-PythonStep `
         -Title "Refresh XT3D irregular-triangle diagnostics report" `
@@ -182,7 +156,7 @@ if (-not $SkipSphinxBuild) {
     Invoke-PythonStep `
         -Title "Build Sphinx HTML" `
         -WorkingDirectory $docsRoot `
-        -Arguments @("-m", "sphinx", "-E", "-a", "-W", "-b", "html", "source", $BuildDir)
+        -Arguments @("-m", "sphinx", "-E", "-a", "-W", "-j", "auto", "-b", "html", "source", $BuildDir)
 }
 
 Write-Host ""

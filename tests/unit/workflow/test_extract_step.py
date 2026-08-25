@@ -17,7 +17,7 @@ def test_extract_step_extracts_solver_outputs(monkeypatch, tmp_path: Path) -> No
         solver="fake",
     )
     plan = SimulationPlan(name="run", description="run", runs=(run,))
-    results = ResultsConfig(export={"csv_timeseries": False})
+    results = ResultsConfig()
     output_dir = tmp_path / "solver"
     output_dir.mkdir()
     calls: list[tuple[str, str, Path]] = []

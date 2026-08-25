@@ -6,6 +6,7 @@ import shutil
 from pathlib import Path
 from types import SimpleNamespace
 
+from hydromodpy.core.state.paths import scratch_dir_for
 from hydromodpy.core.state.run_state import WorkflowContext
 from hydromodpy.workflow.steps.mesh import step_mesh_input
 
@@ -33,7 +34,7 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
         def __init__(self, config) -> None:
             self.config = config
             self.project_root = Path(config.project_root).resolve()
-            self.solver_scratch_folder = self.project_root / ".solver_scratch"
+            self.solver_scratch_folder = scratch_dir_for(self.project_root)
 
     class _DummyRunGeographic:
         def __init__(self, config, workspace) -> None:
@@ -70,8 +71,8 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
         return SimpleNamespace(
             summary={
                 "constraints_mode": "rivers_only",
-                "output_mesh": "workspace/results_stable/mesh/mesh_catchment.msh",
-                "output_summary_json": "workspace/results_stable/mesh/mesh_catchment_summary.json",
+                "output_mesh": "workspace/mesh/mesh_catchment.msh",
+                "output_summary_json": "workspace/mesh/mesh_catchment_summary.json",
             },
             mesh_planar=mesh_sentinel,
         )
@@ -92,7 +93,7 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
     )
     monkeypatch.setattr("hydromodpy.workflow.steps.data.ensure_flow", _noop_ensure)
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
         _fake_mesh_workflow,
     )
     monkeypatch.setattr(
@@ -109,7 +110,7 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
         data=SimpleNamespace(types=()),
         flow=SimpleNamespace(active_bc=(), param={}),
         simulation=SimpleNamespace(
-            run_id="mesh_run",
+            name="mesh_run",
             results=SimpleNamespace(
                 persistence=SimpleNamespace(save_catalog=False),
                 keep_solver_files=False,
@@ -118,7 +119,7 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
     )
     mesh_section_data = parse_mesh_catchment_config_data({"constraints_mode": "rivers_only"})
 
-    from hydromodpy.workflow.context import WorkflowContext
+    from hydromodpy.core.state.run_state import WorkflowContext
 
     ctx = WorkflowContext(cfg=cfg, config_path=Path("config.toml"), raw_toml={})
     ctx.setup.time_grid = SimpleNamespace(window=SimpleNamespace())
@@ -138,10 +139,7 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
         assert captured_mesh["domain_geographic"] is ctx.setup.domain_geographic
         assert ctx.setup.mesh_planar is mesh_sentinel
         assert ctx.setup.mesh_summary is not None
-        assert (
-            ctx.setup.mesh_summary["output_mesh"]
-            == "workspace/results_stable/mesh/mesh_catchment.msh"
-        )
+        assert ctx.setup.mesh_summary["output_mesh"] == "workspace/mesh/mesh_catchment.msh"
     finally:
         shutil.rmtree(workspace_root, ignore_errors=True)
 
@@ -163,7 +161,7 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
         def __init__(self, config) -> None:
             self.config = config
             self.project_root = Path(config.project_root).resolve()
-            self.solver_scratch_folder = self.project_root / ".solver_scratch"
+            self.solver_scratch_folder = scratch_dir_for(self.project_root)
 
     class _DummyRunGeographic:
         def __init__(self, config, workspace) -> None:
@@ -208,7 +206,7 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
     )
     monkeypatch.setattr("hydromodpy.workflow.steps.data.ensure_flow", _noop_ensure)
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
         lambda **kw: (_ for _ in ()).throw(AssertionError("embedded mesh workflow should not run")),
     )
     monkeypatch.setattr("hydromodpy.workflow.steps.mesh.load_planar_mesh", _fake_load_planar_mesh)
@@ -222,7 +220,7 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
         data=SimpleNamespace(types=()),
         flow=SimpleNamespace(active_bc=(), param={}),
         simulation=SimpleNamespace(
-            run_id="mesh_input_run",
+            name="mesh_input_run",
             results=SimpleNamespace(
                 persistence=SimpleNamespace(save_catalog=False),
                 keep_solver_files=False,
@@ -231,7 +229,7 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
     )
     external_mesh_input = {"mesh_path": str(external_mesh_path)}
 
-    from hydromodpy.workflow.context import WorkflowContext
+    from hydromodpy.core.state.run_state import WorkflowContext
 
     ctx = WorkflowContext(cfg=cfg, config_path=Path("config.toml"), raw_toml={})
     ctx.setup.time_grid = SimpleNamespace(window=SimpleNamespace())

@@ -159,7 +159,10 @@ def test_domain_builds_flat_substratum():
     )
 
 
-def test_domain_flat_substratum_must_be_below_topography_everywhere():
+def test_domain_flat_substratum_clamps_cells_at_or_below_the_substratum():
+    # Terrain dips to/below the flat substratum on some cells (outcrop or NODATA).
+    # Those cells get no aquifer (bottom clamped below the local top); cells with
+    # terrain above the substratum keep the flat bottom. No error is raised.
     dem = np.array([[5.0, 6.0], [7.0, 8.0]], dtype=float)
     cfg = DomainConfig.model_validate(
         {
@@ -169,13 +172,26 @@ def test_domain_flat_substratum_must_be_below_topography_everywhere():
             }
         }
     )
+    domain = Domain(config=cfg, surface_topo=Surface(name="surface_topo", values=dem))
+    # Only cell 8 sits above 6 + min_gap(1) -> flat 6; the others clamp to top - 1.
+    np.testing.assert_allclose(
+        domain.substratum.as_array(),
+        np.array([[4.0, 5.0], [6.0, 6.0]], dtype=float),
+    )
+    assert bool((domain.substratum.as_array() < dem).all())
 
+
+def test_domain_flat_substratum_above_all_terrain_raises():
+    dem = np.array([[5.0, 6.0], [7.0, 8.0]], dtype=float)
+    cfg = DomainConfig.model_validate(
+        {"depth_model": {"kind": "flat_substratum", "substratum_elevation": 100.0}}
+    )
     try:
         Domain(config=cfg, surface_topo=Surface(name="surface_topo", values=dem))
     except ValueError as exc:
-        assert "strictly below" in str(exc)
+        assert "no aquifer would remain" in str(exc)
     else:
-        raise AssertionError("Expected ValueError when substratum is not below topography")
+        raise AssertionError("Expected ValueError when substratum is above all terrain")
 
 
 def test_surface_shifted_down_by():
@@ -206,9 +222,28 @@ def test_surface_flat_like_validates_position():
     try:
         top.flat_like(11.0)
     except ValueError as exc:
-        assert "strictly below" in str(exc)
+        assert "no aquifer would remain" in str(exc)
     else:
         raise AssertionError("Expected ValueError when flat substratum is not below topography")
+
+
+def test_surface_flat_like_clamps_nodata_and_outcrop_cells():
+    # A watershed-masked / out-of-DEM cell carries a NODATA sentinel (-9999). The
+    # flat substratum must stay flat on the real cells and clamp below the local
+    # top on the sentinel cell instead of tripping the strict-ordering guard.
+    support = RasterSupport(crs="EPSG:2154", dx=50.0, dy=60.0, nrows=1, ncols=3)
+    top = Surface(
+        name="surface_topo",
+        values=np.array([[83.0, -9999.0, 56.0]], dtype=float),
+        support=support,
+    )
+    substratum = top.flat_like(20.0, min_gap=1.0)
+    np.testing.assert_allclose(
+        substratum.as_array(),
+        np.array([[20.0, -10000.0, 20.0]], dtype=float),
+    )
+    # The clamped cell stays strictly below its own top (no inversion).
+    assert bool((substratum.as_array() < top.as_array()).all())
 
 
 def test_domain_uses_surface_support_as_default_georeferencing():

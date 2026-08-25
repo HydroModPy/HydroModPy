@@ -3,8 +3,9 @@
 Walks the chain a new user would follow:
 1. ``hmp workspace init`` to scaffold a workspace.
 2. Inspect ``workspace.toml`` and the scaffolded layout.
-3. ``hmp data fetch`` for a variable that does not require network (the
-   sub-verb writes a deterministic placeholder + sidecar).
+3. Get a DEM into the workspace: the unimplemented ``hmp data get`` stays
+   gated, then ``hmp data check`` + ``hmp data add`` ingest a local file
+   dropped in ``data/dem/`` under the naming convention.
 4. Seed a minimal simulation via the public Python API so the catalog
    carries a real Zarr field. This stands in for a full solver run on the
    ``simulation_regression`` fixture, which is exercised by the regression
@@ -19,7 +20,7 @@ what an end user actually triggers.
 
 from __future__ import annotations
 
-import json
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -29,6 +30,10 @@ from uuid import uuid4
 import numpy as np
 import pandas as pd
 import pytest
+
+from hydromodpy.core.state.paths import CATALOG_FILENAME, catalog_path_for
+
+_FIXTURE_DEM = Path(__file__).resolve().parents[1] / "data" / "sfr_cheze" / "dem_valley.tif"
 
 
 def _run_hmp(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -81,7 +86,7 @@ def _seed_minimal_simulation(workspace: Path, *, project: str, sim_id: str) -> t
         )
         catalog.write_metric(sim_id, station_id="P01", metric_name="nse", value=0.91)
         catalog.finalize(sim_id, status="completed", duration_s=0.1)
-        return catalog.zarr_path_for(sim_id), catalog.parquet_dir_for(sim_id)
+        return catalog.fields_path_for(sim_id), catalog.tables_dir_for(sim_id)
 
 
 @pytest.mark.e2e
@@ -125,7 +130,9 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     for variable in ("dem", "piezometry", "hydrometry"):
         assert (workspace / "data" / variable).is_dir(), f"data/{variable} missing"
 
-    # ----- Step 4: hmp data get writes a flat file + sidecar (no network) ---
+    # ----- Step 4a: the upstream fetch is gated, and says what to do instead --
+    # HydroModPy has no provider download; ``hmp data get`` must fail loudly
+    # rather than write a placeholder that looks like checksummed real data.
     fetch = _run_hmp(
         "data",
         "get",
@@ -134,18 +141,29 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
         "--workspace",
         str(workspace),
     )
-    assert fetch.returncode == 0, (
-        f"`hmp data get dem` failed.\nstdout:\n{fetch.stdout}\nstderr:\n{fetch.stderr}"
+    assert fetch.returncode != 0, "`hmp data get` must stay gated while unimplemented"
+    assert "hmp data add" in fetch.stderr, (
+        f"the gate must point at the supported path.\nstderr:\n{fetch.stderr}"
     )
+
+    # ----- Step 4b: the supported path - drop zone + hmp data add -----------
     dem_dir = workspace / "data" / "dem"
-    assert dem_dir.is_dir(), "hmp data get must write into data/<variable>/"
-    raw_files = list(dem_dir.glob("dem_*.tif"))
-    assert raw_files, "no fetched DEM placeholder under data/dem/"
-    sidecar = raw_files[0].with_suffix(raw_files[0].suffix + ".json")
-    assert sidecar.is_file(), "sidecar JSON missing next to fetched file"
-    sidecar_payload = json.loads(sidecar.read_text(encoding="utf-8"))
-    assert "sha256" in sidecar_payload
-    assert sidecar_payload.get("bbox") == [-1.17, 48.4, -1.0, 48.5]
+    assert dem_dir.is_dir(), "hmp workspace init must scaffold data/<variable>/"
+    dem_file = dem_dir / "dem_custom_valley.tif"
+    shutil.copyfile(_FIXTURE_DEM, dem_file)
+
+    check = _run_hmp("data", "check", "--variable", "dem", "--workspace", str(workspace))
+    assert check.returncode == 0, f"`hmp data check` failed.\nstderr:\n{check.stderr}"
+    assert "OK" in check.stdout
+
+    added = _run_hmp("data", "add", str(dem_file), "--type", "dem", "--workspace", str(workspace))
+    assert added.returncode == 0, f"`hmp data add` failed.\nstderr:\n{added.stderr}"
+    blob = workspace / "data" / "blobs" / "dem" / "custom" / dem_file.name
+    assert blob.is_file(), "hmp data add must pivot the raster into data/blobs/"
+
+    listed = _run_hmp("data", "ls", "--workspace", str(workspace))
+    assert listed.returncode == 0, f"`hmp data ls` failed.\nstderr:\n{listed.stderr}"
+    assert dem_file.name in listed.stdout
 
     # ----- Step 5: seed a minimal simulation via the Python API -------------
     # We do not invoke the solver here. A real ``hmp run`` on
@@ -159,8 +177,8 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     zarr_path, parquet_dir = _seed_minimal_simulation(workspace, project="foo", sim_id=sim_id)
 
     # ----- Step 6: catalog + artefacts on disk are visible ------------------
-    catalog_db = workspace / "catalog.duckdb"
-    assert catalog_db.is_file(), "catalog.duckdb must be created in the workspace"
+    catalog_db = catalog_path_for(workspace)
+    assert catalog_db.is_file(), f"{CATALOG_FILENAME} must be created in the project"
     assert zarr_path.exists(), f"Zarr store missing at {zarr_path}"
     assert parquet_dir.exists(), f"Parquet directory missing at {parquet_dir}"
 
@@ -291,8 +309,8 @@ def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path)
             f"data or extra binaries). Stderr tail:\n{completed.stderr[-2000:]}"
         )
 
-    catalog_db = out_path / "catalog.duckdb"
-    assert catalog_db.is_file(), "catalog.duckdb missing after hmp run"
+    catalog_db = catalog_path_for(out_path)
+    assert catalog_db.is_file(), f"{CATALOG_FILENAME} missing after hmp run"
 
     import hydromodpy as hmp
 
@@ -300,7 +318,7 @@ def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path)
         sims = catalog.list_simulations()
         assert not sims.empty, "no simulation row recorded after hmp run"
         sim_id = str(sims.iloc[0]["sim_id"])
-        zarr_path = catalog.zarr_path_for(sim_id)
-        parquet_dir = catalog.parquet_dir_for(sim_id)
+        zarr_path = catalog.fields_path_for(sim_id)
+        parquet_dir = catalog.tables_dir_for(sim_id)
     assert zarr_path.exists(), "Zarr artefact missing"
     assert parquet_dir.exists(), "Parquet directory missing"

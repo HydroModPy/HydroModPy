@@ -104,3 +104,21 @@ def test_mf6_output_name_preserves_short_windows_paths(monkeypatch) -> None:
     monkeypatch.setattr(build_module.os, "name", "nt")
 
     assert mf6_output_name(model) == "demo"
+
+
+def test_mf6_safe_name_replaces_whitespace() -> None:
+    """MF6 rejects a space in a model name; whitespace runs collapse to '_'."""
+    assert mf6_safe_name("lake e2e") == "lake_e2e"
+    assert mf6_safe_name("  spaced  name ") == "spaced_name"
+    assert mf6_safe_name("tab\tsep") == "tab_sep"
+
+
+def test_mf6_safe_name_keeps_short_clean_names() -> None:
+    assert mf6_safe_name("demo") == "demo"
+
+
+def test_mf6_safe_name_hashes_long_names_within_limit() -> None:
+    """A long name is hashed to stay within the identifier limit, still space-free."""
+    safe = mf6_safe_name("a very long model name that exceeds the limit")
+    assert len(safe) <= 16
+    assert " " not in safe

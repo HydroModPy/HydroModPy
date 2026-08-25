@@ -1,7 +1,7 @@
 """Pipeline resume driven by the workflow_steps journal.
 
 Replaces the legacy pickle-based checkpoint tests. Each scenario exercises
-a small synthetic pipeline against a real :class:`SimulationCatalog`, then
+a small synthetic pipeline against a real :class:`Catalog`, then
 asserts the journal rows and the absence of pickle artefacts.
 """
 
@@ -12,10 +12,10 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import StepError
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.workflow.internals.state import PipelineState
-from hydromodpy.workflow.journal import WorkflowJournal
 from hydromodpy.workflow.runner import Pipeline
+from hydromodpy.workflow.tracking.journal import WorkflowJournal
 
 
 class _AddOne:
@@ -58,8 +58,8 @@ class _RecoveredCrash:
         )
 
 
-def _journal_for(workspace: Path) -> tuple[WorkflowJournal, SimulationCatalog]:
-    catalog = SimulationCatalog(workspace)
+def _journal_for(workspace: Path) -> tuple[WorkflowJournal, Catalog]:
+    catalog = Catalog(workspace)
     return WorkflowJournal(catalog), catalog
 
 
@@ -123,3 +123,29 @@ def test_no_pickle_files_produced(tmp_path: Path) -> None:
     if pickle_dir.exists():
         for entry in pickle_dir.iterdir():
             assert entry.suffix not in (".pkl", ".pkl.zst")
+
+
+def test_model_phase_ready_rerun_survives_config_change(tmp_path: Path) -> None:
+    """A plain re-run with an edited config must not abort as a stale resume.
+
+    Regression: the model-phase-ready optimisation sets ``resume_from > 0`` (it
+    only skips the in-process model phase). That used to trip
+    ``manifest.verify_state`` against the prior same-name run's checkpoint and
+    raise ``ResumeError`` whenever the config changed (e.g. edit Sy, re-run
+    ``hmp run``). ``model_phase_ready=True`` marks it as a fresh run instead.
+    """
+    from hydromodpy.core.exceptions import ResumeError
+
+    steps = [_AddOne(), _AddOne(), _Double()]
+    Pipeline(steps, workspace=tmp_path).run(
+        PipelineState(run_id="r", data={"counter": 0, "raw_toml": {"flow": {"sy": 0.001}}})
+    )
+
+    changed = PipelineState(run_id="r", data={"counter": 0, "raw_toml": {"flow": {"sy": 0.0001}}})
+    final = Pipeline(steps, workspace=tmp_path).run(changed, resume_from=2, model_phase_ready=True)
+    assert final.data["counter"] == 4
+
+    # A genuine resume still verifies the checkpoint and rejects the change.
+    stale = PipelineState(run_id="r", data={"counter": 0, "raw_toml": {"flow": {"sy": 0.5}}})
+    with pytest.raises(ResumeError):
+        Pipeline(steps, workspace=tmp_path).run(stale, resume_from=2, model_phase_ready=False)

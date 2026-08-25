@@ -11,8 +11,8 @@ import pytest
 
 optuna = pytest.importorskip("optuna")
 
-from hydromodpy.calibration.optimizer import EvaluationResult, build_optimizer
-from hydromodpy.calibration.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.optim.optimizer import EvaluationResult, build_optimizer
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 
 
 def _space_2d():

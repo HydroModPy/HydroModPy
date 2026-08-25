@@ -28,6 +28,5 @@ Example
 See Also
 --------
 
-- :func:`hydromodpy.compare` -- comparison workflow driven by a TOML config.
 - :func:`hydromodpy.open` -- open a workspace to resolve simulation ids.
 - :mod:`hydromodpy.analysis.comparison` -- comparison package.

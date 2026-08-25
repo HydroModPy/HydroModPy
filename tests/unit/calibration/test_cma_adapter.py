@@ -29,12 +29,12 @@ import pytest
 
 pytest.importorskip("cma")
 
-from hydromodpy.calibration.optimizer import (  # noqa: E402
+from hydromodpy.calibration.optim.optimizer import (  # noqa: E402
     FAILED_EVAL_COST,
     EvaluationResult,
     build_optimizer,
 )
-from hydromodpy.calibration.parameters import CalibParameter, ParameterSpace  # noqa: E402
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers

@@ -101,7 +101,7 @@ def compact_run_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def read_catalog_run_metadata(store: Any, sim_id: str | None) -> dict[str, Any]:
-    """Read run metadata from the SimulationCatalog when available."""
+    """Read run metadata from the Catalog when available."""
     if store is None or sim_id in (None, ""):
         return {}
     try:
@@ -260,83 +260,193 @@ def read_simulation_run_metadata(
     return payload
 
 
+def _normalize_catalog_path(raw_path: object, anchor: Path) -> str:
+    """Resolve a stored ``config_source`` against the catalog it came from.
+
+    The index records the path relative to the project when the config
+    lives inside it, so the comparison must resolve it against that same
+    project instead of the current working directory.
+    """
+    try:
+        return str((anchor / Path(str(raw_path)).expanduser()).resolve()).casefold()
+    except Exception:
+        return str(raw_path or "").strip().replace("\\", "/").casefold()
+
+
+def _workspace_root_for_config(config_path: Path) -> Path | None:
+    """Return the workspace root a child config writes its index into."""
+    workspace_root = _resolve_workspace_root_from_config(config_path)
+    if workspace_root is not None:
+        return workspace_root
+    project_root = _resolve_project_root_from_config(config_path)
+    if project_root is None:
+        return None
+    from hydromodpy.core.workspace.resolve import locate_workspace_root
+
+    return locate_workspace_root(project_root) or project_root
+
+
+def _catalog_roots_for_config(config_path: Path) -> list[Path]:
+    """Roots that may hold the child run's index, most likely first.
+
+    A config can declare a workspace root that only carries the shared data
+    folder while the run's index sits under the project root, so both are tried
+    before discovery gives up.
+    """
+    roots: list[Path] = []
+    for root in (
+        _workspace_root_for_config(config_path),
+        _resolve_project_root_from_config(config_path),
+    ):
+        if root is not None and root not in roots:
+            roots.append(root)
+    return roots
+
+
+def _select_sim_id(
+    catalog: Any,
+    *,
+    config_path: Path,
+    preferred_sim_id: str | None,
+    preferred_name: str | None,
+) -> str | None:
+    """Pick the simulation a comparison child produced in ``catalog``."""
+    sims = catalog.list_simulations()
+    if sims.empty:
+        return None
+    completed_sims = sims
+    if "status" in sims.columns:
+        completed_sims = sims.loc[sims["status"].astype(str).str.lower() == "completed"]
+        if completed_sims.empty:
+            completed_sims = sims
+    if preferred_sim_id not in (None, "") and "sim_id" in sims.columns:
+        matches = sims.loc[sims["sim_id"].astype(str) == str(preferred_sim_id)]
+        if not matches.empty:
+            return str(matches.iloc[-1]["sim_id"])
+    if preferred_name not in (None, "") and "name" in sims.columns:
+        names = completed_sims["name"].fillna("").astype(str)
+        matches = completed_sims.loc[names == str(preferred_name)]
+        if not matches.empty:
+            return str(matches.iloc[-1]["sim_id"])
+    if "config_source" in sims.columns:
+        config_key = str(config_path).casefold()
+        anchor = Path(catalog.workspace_path)
+        config_sources = (
+            completed_sims["config_source"]
+            .fillna("")
+            .map(lambda raw: _normalize_catalog_path(raw, anchor))
+        )
+        matches = completed_sims.loc[config_sources == config_key]
+        if not matches.empty:
+            return str(matches.iloc[-1]["sim_id"])
+    return str(completed_sims.iloc[-1]["sim_id"])
+
+
 def discover_result_store(
     config_path: Path | None,
     *,
     preferred_sim_id: str | None = None,
     preferred_name: str | None = None,
 ) -> tuple[Any, str | None]:
-    """Open a SimulationCatalog from the project root inferred from a config path.
+    """Open a read-only Catalog for the run a child config produced.
 
-    Returns ``(catalog, sim_id)`` on success, ``(None, None)`` when the
-    catalog is unavailable.  The caller is responsible for closing the
-    catalog via ``catalog.close()`` when finished.
+    The declared workspace root is tried first, then the project root, because a
+    workspace root may carry only the shared data folder.
+
+    Inspecting is reading: this handle refuses writes. Use
+    :func:`open_result_store_for_write` to publish metrics back into a child
+    run. Returns ``(catalog, sim_id)`` on success, ``(None, None)`` when the
+    catalog is unavailable. The caller closes the catalog via
+    ``catalog.close()`` when finished.
     """
     if config_path is None:
         return None, None
     config_path_resolved = Path(config_path).expanduser().resolve()
+    roots = _catalog_roots_for_config(config_path_resolved)
+    if not roots:
+        return None, None
 
-    def _normalize_catalog_path(raw_path: object) -> str:
+    from hydromodpy.results.catalog import Catalog
+
+    for root in roots:
         try:
-            return str(Path(str(raw_path)).expanduser().resolve()).casefold()
+            # Discovery only reads; a writable open would create an empty index
+            # in whatever directory the child config happens to point at.
+            catalog = Catalog(root, read_only=True)
         except Exception:
-            return str(raw_path or "").strip().replace("\\", "/").casefold()
+            logger.debug("Could not open Catalog from %s", root, exc_info=True)
+            continue
+        try:
+            sim_id = _select_sim_id(
+                catalog,
+                config_path=config_path_resolved,
+                preferred_sim_id=preferred_sim_id,
+                preferred_name=preferred_name,
+            )
+        except Exception:
+            logger.debug("Could not read simulations from %s", root, exc_info=True)
+            catalog.close()
+            continue
+        if sim_id is not None:
+            return catalog, sim_id
+        catalog.close()
+    return None, None
 
-    workspace_root = _resolve_workspace_root_from_config(config_path_resolved)
-    project_root = _resolve_project_root_from_config(config_path_resolved)
+
+def open_result_store_for_write(
+    config_path: Path | None,
+    *,
+    preferred_sim_id: str | None = None,
+    preferred_name: str | None = None,
+) -> tuple[Any, str | None]:
+    """Open a writable Catalog for a child run that already has an index.
+
+    Producing metrics is writing, so the caller needs a write handle. The
+    index must already exist: a comparison never conjures an empty one in
+    whatever directory a child config happens to point at. Returns
+    ``(catalog, sim_id)``, or ``(None, None)`` when no index or no matching
+    simulation is there. The caller closes the catalog when finished.
+    """
+    if config_path is None:
+        return None, None
+    config_path_resolved = Path(config_path).expanduser().resolve()
+    workspace_root = _workspace_root_for_config(config_path_resolved)
     if workspace_root is None:
-        if project_root is None:
-            return None, None
-        from hydromodpy.core.workspace.resolve import locate_workspace_root
+        return None, None
 
-        workspace_root = locate_workspace_root(project_root) or project_root
+    from hydromodpy.core.state.paths import catalog_path_for
+
+    if not catalog_path_for(workspace_root).is_file():
+        logger.debug("No catalog index under %s to write comparison metrics", workspace_root)
+        return None, None
 
     try:
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
-        catalog = SimulationCatalog(workspace_root)
-        sims = catalog.list_simulations()
-        if sims.empty:
+        catalog = Catalog(workspace_root)
+        sim_id = _select_sim_id(
+            catalog,
+            config_path=config_path_resolved,
+            preferred_sim_id=preferred_sim_id,
+            preferred_name=preferred_name,
+        )
+        if sim_id is None:
             catalog.close()
-            # workspace.root is the shared data folder; try project_root for the simulation catalog
-            if project_root is not None and project_root != workspace_root:
-                catalog = SimulationCatalog(project_root)
-                sims = catalog.list_simulations()
-                if sims.empty:
-                    catalog.close()
-                    return None, None
-            else:
-                return None, None
-        completed_sims = sims
-        if "status" in sims.columns:
-            completed_sims = sims.loc[sims["status"].astype(str).str.lower() == "completed"]
-            if completed_sims.empty:
-                completed_sims = sims
-        if preferred_sim_id not in (None, "") and "sim_id" in sims.columns:
-            matches = sims.loc[sims["sim_id"].astype(str) == str(preferred_sim_id)]
-            if not matches.empty:
-                return catalog, str(matches.iloc[-1]["sim_id"])
-        if preferred_name not in (None, "") and "name" in sims.columns:
-            names = completed_sims["name"].fillna("").astype(str)
-            matches = completed_sims.loc[names == str(preferred_name)]
-            if not matches.empty:
-                return catalog, str(matches.iloc[-1]["sim_id"])
-        if "config_source" in sims.columns:
-            config_key = str(config_path_resolved).casefold()
-            config_sources = completed_sims["config_source"].fillna("").map(_normalize_catalog_path)
-            matches = completed_sims.loc[config_sources == config_key]
-            if not matches.empty:
-                return catalog, str(matches.iloc[-1]["sim_id"])
-        sim_id = str(completed_sims.iloc[-1]["sim_id"])
+            return None, None
         return catalog, sim_id
     except Exception:
-        logger.debug("Could not open SimulationCatalog from %s", workspace_root, exc_info=True)
+        logger.warning(
+            "Could not open the catalog at %s for writing: comparison metrics are not persisted.",
+            workspace_root,
+            exc_info=True,
+        )
         return None, None
 
 
 __all__ = (
     "compact_run_metrics",
     "discover_result_store",
+    "open_result_store_for_write",
     "read_catalog_run_metadata",
     "read_json_file",
     "read_simulation_run_metrics",

@@ -2,8 +2,9 @@
 
 Covers Phase 3 of the calibration integration:
 
-- Without ``outputs`` the legacy single-metric extractor is returned and
-  no composite objective is built.
+- Without ``outputs`` the single-metric extractor is returned and no
+  composite objective is built. This is the standard TOML route, taken
+  whenever no ``objective_blocks`` are declared.
 - With ``outputs`` and ``objective_blocks`` the extractor routes through
   :func:`build_objective_from_config` and exposes per-block costs as
   components.
@@ -15,6 +16,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -33,13 +35,10 @@ from hydromodpy.calibration.metrics.solver_extract import (
     _coerce_length_to_m,
 )
 from hydromodpy.calibration.metrics.solver_extract import (
-    extract_boundary as _extract_boundary,
+    extract_outputs as _extract_outputs,
 )
 from hydromodpy.calibration.metrics.solver_extract import (
-    extract_cell as _extract_cell,
-)
-from hydromodpy.calibration.metrics.solver_extract import (
-    extract_point as _extract_point,
+    observable_request_for_output as _request_for_output,
 )
 from hydromodpy.calibration.metrics.solver_extract import (
     resolve_station_cells as _resolve_station_cells,
@@ -47,6 +46,7 @@ from hydromodpy.calibration.metrics.solver_extract import (
 from hydromodpy.calibration.metrics.solver_extract import (
     slice_time as _slice_time,
 )
+from hydromodpy.core.contracts.observables import ObservableResult
 
 
 def _empty_ctx():
@@ -59,11 +59,11 @@ def _empty_ctx():
 
 
 # ---------------------------------------------------------------------------
-# Legacy fallback path
+# Single-metric path (no objective_blocks declared)
 # ---------------------------------------------------------------------------
 
 
-class TestLegacyFallback:
+class TestSingleMetricPath:
     def test_falls_back_when_no_outputs(self):
         ctx = _empty_ctx()
         metric_fn = build_metric_extractor(
@@ -116,7 +116,9 @@ class TestCompositeRouting:
             outputs=outputs,
             objective_blocks=blocks,
         )
-        with pytest.raises(RuntimeError, match="Output 'head_A' extraction failed"):
+        # Extraction is one batch now, so a context with no flow run fails once
+        # for the batch rather than once per output.
+        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
             metric_fn(ctx)
 
     def test_composite_total_matches_block_when_simulated_provided(self):
@@ -128,7 +130,7 @@ class TestCompositeRouting:
         ctx = _empty_ctx()
         # Patch the cell extractor for this single test by running the
         # composite directly against a known sim mapping.
-        from hydromodpy.calibration.objective import build_objective_from_config
+        from hydromodpy.calibration.optim.objective import build_objective_from_config
 
         cfg_subset = SimpleNamespace(outputs=dict(outputs), objective_blocks=list(blocks))
         obj = build_objective_from_config(cfg_subset)
@@ -164,25 +166,56 @@ class TestHelpers:
         with pytest.raises(ValueError, match="No overlapping finite"):
             _score(obs, sim, "rmse")
 
-    def test_extract_point_raises_when_no_flow_run(self):
-        ctx = _empty_ctx()
+    def test_extract_outputs_raises_when_no_flow_run(self):
         out = validate_calib_output({"variable": "head", "support": "point", "x": 1.0, "y": 2.0})
         with pytest.raises(NotImplementedError, match="No flow solver adapter"):
-            _extract_point(ctx, out)
+            _extract_outputs(_empty_ctx(), {"head_A": out})
 
-    def test_extract_boundary_raises_when_no_flow_run(self):
-        ctx = _empty_ctx()
+    def test_boundary_output_becomes_a_keyed_request(self):
         out = validate_calib_output(
             {"variable": "discharge", "support": "boundary", "boundary_id": "outlet"}
         )
-        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
-            _extract_boundary(ctx, out)
+        request = _request_for_output("q", out, _empty_ctx())
+        assert (request.id, request.name, request.support) == ("q", "discharge", "boundary")
+        assert request.key == "outlet"
 
-    def test_extract_boundary_requires_adapter_boundary_filter(self, monkeypatch):
+    def test_lake_output_carries_its_quantity_and_lake(self):
+        out = validate_calib_output(
+            {"variable": "volume", "support": "lake", "lake_id": "lac0", "time": "last"}
+        )
+        request = _request_for_output("lake", out, _empty_ctx())
+        assert (request.name, request.support, request.key) == ("volume", "lake", "lac0")
+        assert request.times == "last"
+
+    def test_cell_output_carries_its_cell(self):
+        out = validate_calib_output(
+            {"variable": "head", "support": "cell", "layer": 2, "row": 0, "col": 1}
+        )
+        request = _request_for_output("h", out, _empty_ctx())
+        assert (request.support, request.cell) == ("cell", (2, 0, 1))
+
+    def test_cell_output_without_row_col_is_refused(self):
+        # A flat cell_id passes the schema but no solver exposes that selector.
+        out = validate_calib_output({"variable": "head", "support": "cell", "cell_id": 7})
+        with pytest.raises(NotImplementedError, match="needs row and col"):
+            _request_for_output("h", out, _empty_ctx())
+
+    def test_extract_outputs_batches_every_declaration_in_one_call(self, monkeypatch):
+        seen = {}
+
         class _Adapter:
-            def extract_calibration_series(self, ctx, store, *, variable, time_index=None):
-                del ctx, store, variable, time_index
-                return pd.Series([1.0])
+            def extract_observables(self, ctx, store, requests, *, time_index=None):
+                del ctx, store, time_index
+                seen["n_calls"] = seen.get("n_calls", 0) + 1
+                seen["ids"] = [request.id for request in requests]
+                return {
+                    request.id: ObservableResult(
+                        request_id=request.id,
+                        values=np.array([1.0, 2.0, 3.0]),
+                        units="m",
+                    )
+                    for request in requests
+                }
 
         run_ctx = SimpleNamespace(run=SimpleNamespace(solver="fake_solver"))
         monkeypatch.setattr(
@@ -190,16 +223,39 @@ class TestHelpers:
             "resolve_flow_adapter",
             lambda ctx: (_Adapter(), run_ctx),
         )
-        out = validate_calib_output(
-            {"variable": "discharge", "support": "boundary", "boundary_id": "outlet"}
-        )
-        with pytest.raises(NotImplementedError, match="cannot filter calibration boundary_id"):
-            _extract_boundary(_empty_ctx(), out)
+        outputs = {
+            "lake": validate_calib_output(
+                {"variable": "stage", "support": "lake", "lake_id": "lac0", "time": "last"}
+            ),
+            "cell": validate_calib_output(
+                {"variable": "head", "support": "cell", "row": 0, "col": 1}
+            ),
+        }
 
-    def test_extract_cell_raises_when_no_flow_run(self):
-        out = validate_calib_output({"variable": "head", "support": "cell", "row": 0, "col": 1})
-        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
-            _extract_cell(_empty_ctx(), out)
+        simulated, diagnostics = _extract_outputs(_empty_ctx(), outputs)
+
+        # Two outputs, one adapter call: that is what the batch buys.
+        assert seen["n_calls"] == 1
+        assert seen["ids"] == ["lake", "cell"]
+        assert simulated["lake"] == [3.0]
+        assert simulated["cell"] == [1.0, 2.0, 3.0]
+        # Only a network output produces diagnostics beside its values.
+        assert diagnostics == {}
+
+    def test_extract_outputs_names_the_output_whose_declaration_is_wrong(self, monkeypatch):
+        class _Adapter:
+            def extract_observables(self, ctx, store, requests, *, time_index=None):
+                raise AssertionError("must not be reached")
+
+        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="fake_solver"))
+        monkeypatch.setattr(
+            _solver_extract_module,
+            "resolve_flow_adapter",
+            lambda ctx: (_Adapter(), run_ctx),
+        )
+        out = validate_calib_output({"variable": "head", "support": "cell", "cell_id": 7})
+        with pytest.raises(RuntimeError, match="Output 'h' extraction failed"):
+            _extract_outputs(_empty_ctx(), {"h": out})
 
     def test_station_cells_uses_structural_metadata_without_mesh(self):
         rec = SimpleNamespace(station_id="P1", cell_ij=(3, 4, 2))

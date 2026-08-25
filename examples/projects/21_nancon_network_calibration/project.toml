@@ -1,0 +1,246 @@
+# ======================================================================
+# HydroModPy - Nancon, calibration par le reseau hydrographique
+# ----------------------------------------------------------------------
+# Configuration de base partagee. Les deux TOML de calibration du dossier
+# en heritent par `base_config` et ne redefinissent que ce qui change.
+#
+# Ce projet met en oeuvre la methode d'Abherve et al. (HESS 2023, WRR
+# 2025) en deux etages :
+#   1. K/R par recherche du zero de l'ecart signe des distances au reseau,
+#      en permanent, sans aucune donnee de debit ;
+#   2. Sy sur l'hydrogramme observe, en transitoire, K etant gele.
+#
+# Les donnees sont celles du bassin du Nancon (station J001401001,
+# 67 km2, Ille-et-Vilaine), mises en forme sous `examples/data/`.
+# ======================================================================
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+
+# ----------------------------------------------------------------------
+# Geographic - delimitation et surface de routage
+# ----------------------------------------------------------------------
+
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+
+# `breach` entaille le MNT le long des chemins d'ecoulement au lieu de
+# combler les depressions. Le critere mesure des longueurs le long de ces
+# chemins, donc preserver le reseau prime sur lisser la surface.
+dem_correc_type = "breach"
+reuse_existing_outputs = true
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "DEM_nancon_50m.tif"
+
+# Station hydrometrique du Nancon a Fougeres (J001401001), en EPSG:2154.
+x_outlet = 389285.91
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10%"
+
+
+# ----------------------------------------------------------------------
+# Enforcement du reseau observe dans la surface de routage
+# ----------------------------------------------------------------------
+# CONDITION DE VALIDITE DU CRITERE, pas une option de confort. Le critere
+# mesure des distances le long des chemins de descente du MNT ; si le
+# lineaire cartographie ne suit pas ces chemins, le nombre produit mesure
+# un desaccord entre deux jeux de donnees et non de l'hydrogeologie.
+#
+# Chaque run publie `alpha_obs_closure`, le rapport entre le lineaire
+# observe et sa propre fermeture aval. 1 signifie que le trace suit les
+# talwegs. Sous 0,90 le run avertit.
+
+[geographic.enforce_streams]
+enabled = true
+stream_geometry_path = "nancon_stream_network.gpkg"
+mode = "constant"
+depth_m = 30.0
+
+
+# ----------------------------------------------------------------------
+# Domain
+# ----------------------------------------------------------------------
+
+[domain]
+zone_ids = ["geology"]
+supports = {}
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = 30.0
+
+
+# ----------------------------------------------------------------------
+# Data
+# ----------------------------------------------------------------------
+
+[data]
+project_crs = "EPSG:2154"
+types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff"]
+
+[[data.dem.sources]]
+source = "custom"
+path = "DEM_nancon_50m.tif"
+
+[[data.geology.sources]]
+source = "brgm_1m"
+
+# Le meme lineaire que celui burne dans la surface de routage, charge ici
+# pour les figures et le catalog.
+[[data.hydrography.sources]]
+source = "custom"
+path = "nancon_stream_network.gpkg"
+
+# Debit observe journalier a la station du Nancon, 1982-2022.
+[data.hydrometry]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+
+[[data.hydrometry.sources]]
+source = "custom"
+path = "hydrometry"
+extent = "watershed"
+station_ids = ["NANCON"]
+
+# Recharge journaliere, moyenne surfacique sur les mailles SIM2 du
+# bassin, extraite de la reanalyse REA.
+[data.recharge]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+
+[[data.recharge.sources]]
+source = "custom"
+path = "recharge"
+station_ids = ["NANCON_REA"]
+
+# Ruissellement de surface, meme source. Ajoute au baseflow DRN simule
+# avant comparaison au debit observe.
+[data.runoff]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+
+[[data.runoff.sources]]
+source = "custom"
+path = "runoff"
+station_ids = ["NANCON_REA"]
+
+
+# ----------------------------------------------------------------------
+# Flow
+# ----------------------------------------------------------------------
+
+[flow]
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+flow_regime = "steady"
+
+[flow.ic]
+type = "top"
+description = "Nappe initialisee a la surface topographique."
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 6.4e-5
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+# CONDITION DE VALIDITE DU CRITERE. `value = 0.0` selectionne le repli
+# proportionnel C = K * A / e. C'est cette proportionnalite qui fait du
+# rapport K/R la quantite calibree ; une conductance fixee casse
+# l'invariance des le facteur 1,05. Le runner refuse une calibration de
+# reseau si cette valeur n'est pas nulle.
+[flow.bc.cauchy.drainage]
+id = "drainage"
+kind = "cauchy"
+application_domain = "top"
+description = "Drainage de Cauchy sur la face superieure de l'aquifere."
+value = 0.0
+
+[flow.sinks_sources.recharge]
+values = 0.0
+
+
+# ----------------------------------------------------------------------
+# Simulation
+# ----------------------------------------------------------------------
+
+[simulation]
+name = "nancon_base"
+description = "Nancon - config de base pour la calibration par le reseau."
+if_exists = "replace"
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2000-12-31"
+step_value = "1 year"
+coverage_policy = "warn"
+
+# MODFLOW-NWT plutot que MODFLOW 6 : son maillage est celui du bassin
+# delimite, alors que la grille structuree de MF6 couvre la boite
+# englobante. Le critere construit son graphe de descente sur le toit du
+# maillage et definit le bassin comme les mailles qui atteignent
+# l'exutoire ; sur une grille de boite ce graphe part de mailles qui
+# n'appartiennent pas au bassin et se fragmente.
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow_nwt"]
+
+
+# Le suintement par maille est ce que le critere lit, et ce dont les
+# cartes de comparaison ont besoin. Sans lui les figures de reseau ne
+# peuvent pas etre redessinees apres coup.
+[simulation.results.derived]
+release_flux = true
+
+
+# ----------------------------------------------------------------------
+# Display
+# ----------------------------------------------------------------------
+
+[display]
+enabled = true
+preset = "default"
+show = false
+save = true
+output_dir = "figures"
+cmap = "viridis"
+
+figures = [
+    "watershed_id_card",
+    "piezometric_map",
+    "seepage_map",
+    "simulated_active_network",
+    "water_budget",
+    # Les huit figures de la methode. Elles sont declarees ici et le run promu
+    # par la calibration les ecrit : aucune n'a besoin d'un script.
+    "downslope_distance_crossing",
+    "bisection_bracket_trace",
+    "parameter_cost_profile",
+    "seepage_network_reference_overlay",
+    "seepage_network_confusion_map",
+    "downslope_distance_map",
+    "hydrograph_log_nse",
+    "abherve_two_stage_card",
+]

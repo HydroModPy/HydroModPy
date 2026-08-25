@@ -15,6 +15,7 @@ import flopy.utils.postprocessing as pp
 import numpy as np
 import rasterio
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 
 from ._resolvers import ensure_modflow_name_file
@@ -155,6 +156,17 @@ def attach_starting_locations(
 
     with rasterio.open(zone_partic) as src:
         mask_dem = src.read(1)
+    # The injection mask is indexed with MODFLOW row/column indices, so it must
+    # sit on the solver grid. A mask on the raw DEM grid (planar resampling on)
+    # would both sample the wrong cells and over-allocate the starting-locations
+    # array, leaving unlabelled rows MODPATH 6 rejects with an end-of-file read.
+    if mask_dem.shape != (nrow, ncol):
+        raise ConfigError(
+            f"MODPATH injection raster {zone_partic} has shape {mask_dem.shape} but the "
+            f"MODFLOW grid is ({nrow}, {ncol}). Provide "
+            "transport.modpath.parameters.zone_partic as a raster aligned on the solver "
+            "grid, or drop the planar resampling in [modflownwt.sgrid.planar]."
+        )
 
     head_file = mp.head_file
     hds_1c = fpu.HeadFile(head_file)

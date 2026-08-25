@@ -11,7 +11,7 @@ root = "outputs/nancon_network_physical_benchmark/workspaces/bouss_same_mesh_no_
 name = "nancon_network_physical_benchmark__bouss_same_mesh_no_drain"
 run_id = "nancon_network_physical_benchmark__bouss_same_mesh_no_drain"
 description = "Boussinesq Nancon benchmark on the same mesh, with zero drainage conductance."
-on_collision = "replace"
+if_exists = "replace"
 
 [[simulation.process]]
 solvers = ["boussinesq"]

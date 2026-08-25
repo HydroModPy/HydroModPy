@@ -6,7 +6,7 @@ from typing import Protocol
 
 import numpy as np
 
-from hydromodpy.solver.modflow6.diagnostics import RuntimeSupportOverviewModel
+from hydromodpy.solver.modflow6.support.diagnostics import RuntimeSupportOverviewModel
 from hydromodpy.solver.modflow_common.options import ModflowPostprocessOptions
 
 NODATA = -9999

@@ -11,6 +11,7 @@ import pandas as pd
 import pytest
 
 import hydromodpy
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 
 # Structured-shape resolution needs the solver registry provider, which the
 # deferred bootstrap installs only on first real use. Force it here so every
@@ -31,6 +32,11 @@ class _FakeCatalog:
         if sim_id != SIM_ID:
             raise KeyError(sim_id)
         return SimpleNamespace(root=self._root, close=lambda: None)
+
+    def fields_path_for(self, sim_id: str) -> Path:
+        if sim_id != SIM_ID:
+            raise KeyError(sim_id)
+        return self.zarr_path
 
     @property
     def connection(self) -> object:
@@ -345,7 +351,7 @@ def _write_fake_run_folder(
 ) -> _FakeCatalog:
     run_folder.mkdir(parents=True, exist_ok=True)
     store = _FakeCatalog(
-        run_folder / "simulation.zarr",
+        run_folder / FIELDS_STORE_NAME,
         {
             "watertable_elevation": np.asarray(
                 [
@@ -393,7 +399,7 @@ def _write_fake_run_folder(
 def _write_direct_outlet_run_folder(run_folder: Path, *, outlet_value: float) -> _FakeCatalog:
     run_folder.mkdir(parents=True, exist_ok=True)
     return _FakeCatalog(
-        run_folder / "simulation.zarr",
+        run_folder / FIELDS_STORE_NAME,
         {
             "outlet_discharge_east_side_m3_s": np.asarray(
                 [[outlet_value], [outlet_value + 0.25]],
@@ -482,7 +488,7 @@ def _write_boussinesq_run_folder(
         encoding="utf-8",
     )
     np.savez(run_folder / "_boussinesq_state_history.npz", **state)
-    return _FakeCatalog(run_folder / "simulation.zarr", {"boussinesq_state": state})
+    return _FakeCatalog(run_folder / FIELDS_STORE_NAME, {"boussinesq_state": state})
 
 
 def _expected_outlet_flux(value_m_per_day: float) -> float:

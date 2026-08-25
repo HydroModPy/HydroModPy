@@ -12,6 +12,9 @@ mf_verbose = false
 [modflow6.process_specific]
 vka = 1.0
 
+[modflow6.sgrid]
+grid_dual = "triangle"
+
 [modflow6.sgrid.vertical]
 nlay = 1
 

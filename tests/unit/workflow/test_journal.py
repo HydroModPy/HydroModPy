@@ -8,19 +8,19 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import JournalError
-from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.workflow.journal import WorkflowJournal, WorkflowStepRow
+from hydromodpy.results.catalog import Catalog
+from hydromodpy.workflow.tracking.journal import WorkflowJournal, WorkflowStepRow
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
-def catalog(tmp_path: Path) -> SimulationCatalog:
+def catalog(tmp_path: Path) -> Catalog:
     with simulation_catalog(tmp_path) as cat:
         yield cat
 
 
 @pytest.fixture
-def journal(catalog: SimulationCatalog) -> WorkflowJournal:
+def journal(catalog: Catalog) -> WorkflowJournal:
     return WorkflowJournal(catalog)
 
 
@@ -184,3 +184,25 @@ def test_row_dataclass_is_frozen() -> None:
     )
     with pytest.raises(Exception):
         row.status = "completed"  # type: ignore[misc]
+
+
+def test_repeated_full_step_cycles_never_corrupt_the_unique_index(
+    journal: WorkflowJournal,
+) -> None:
+    # Re-running the same simulation name replays the same (run_id, step_order)
+    # keys run after run. Deleting and re-inserting that UNIQUE key inside one
+    # transaction corrupts DuckDB's ART index after a few cycles (FATAL
+    # "Failed to append to UNIQUE_workflow_steps"); the journal must therefore
+    # commit the delete before the insert. Ten full cycles stay healthy.
+    for cycle in range(10):
+        for order in range(6):
+            step_id = journal.start_step(
+                run_id="chronicle",
+                step_order=order,
+                step_name=f"step{order}",
+                inputs_hash=f"h{cycle}",
+            )
+            journal.finish_step(step_id=step_id, status="completed")
+    rows = journal.list_steps("chronicle")
+    assert len(rows) == 6
+    assert all(row.status == "completed" for row in rows)

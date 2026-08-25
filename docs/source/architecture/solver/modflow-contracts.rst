@@ -11,12 +11,16 @@ instantiating MODFLOW-NWT packages. Two contracts are covered:
 1. Discretization contract
 --------------------------
 
-Source: ``hydromodpy/solver/modflow_nwt/nwt/discretization.py``.
+Source: ``hydromodpy/solver/modflow_grid/discretization_temporal.py`` and
+``hydromodpy/solver/modflow_grid/discretization_spatial.py``, shared by
+both MODFLOW backends.
 
 Two typed dataclasses carry the contract:
 
 - ``TemporalDiscretizationResult``
-- ``SpatialDiscretizationResult``
+  (``discretization_temporal.py``)
+- ``SolverGridContext`` (``grid_context.py``), built by
+  ``build_spatial_discretization``
 
 1.1 Temporal contract
 ~~~~~~~~~~~~~~~~~~~~~
@@ -62,7 +66,7 @@ Conversion to FloPy kwargs goes through
 1.2 Spatial contract
 ~~~~~~~~~~~~~~~~~~~~
 
-Fields of ``SpatialDiscretizationResult``:
+Fields of ``SolverGridContext``:
 
 .. list-table::
    :header-rows: 1
@@ -70,34 +74,34 @@ Fields of ``SpatialDiscretizationResult``:
    * - Field
      - Type
      - Role
-   * - ``sgrid``
-     - grid object
-     - Output of ``StructuredGridBuilder``
-   * - ``dem``
-     - 2D float ``np.ndarray``
+   * - ``grid``
+     - ``GridReference``
+     - Cell count, bounds, CRS, nodata, optional structured shape
+   * - ``solver_mesh``
+     - ``SolverMesh``
+     - Prismatic mesh: ``planar_mesh``, ``top``, ``botm``,
+       ``inactive_mask``
+   * - ``top_surface``
+     - ``Surface``
      - Validated topographic support
-   * - ``nlay``
-     - ``int``
-     - Number of layers
-   * - ``nrow``
-     - ``int``
-     - Number of rows
-   * - ``ncol``
-     - ``int``
-     - Number of columns
-   * - ``zbot``
-     - 3D float ``np.ndarray``, shape ``(nlay, nrow, ncol)``
-     - Bottom elevations
-   * - ``bottom_layer``
-     - 2D float ``np.ndarray``
-     - ``zbot[-1]``, bottom of the lowest layer
+   * - ``bottom_surface``
+     - ``Surface``
+     - Validated substratum support
+   * - ``template_raster_path``
+     - ``str | None``
+     - Raster template used for structured exports
+
+Derived properties: ``top_elevation`` (flat ``(n_cells,)``),
+``bottom_layer`` (``botm[-1]``, flat), ``nlay``, ``n_cells``.
 
 Required invariants:
 
-- ``zbot.shape == (nlay, nrow, ncol)``
-- ``bottom_layer.shape == (nrow, ncol)``
+- ``solver_mesh.botm`` has shape ``(nlay, n_cells)``; ``top`` and
+  ``inactive_mask`` are flat ``(n_cells,)`` arrays.
+- The grid is mesh-native: ``structured_shape`` is set only when the
+  planar mesh is a Cartesian grid, and is ``None`` for DISV meshes.
 - The domain provides ``surface_topo`` and ``substratum`` of type
-  ``Surface``, consistent with the DEM shape.
+  ``Surface``.
 
 1.3 Upstream inputs
 ~~~~~~~~~~~~~~~~~~~

@@ -22,13 +22,13 @@ if TYPE_CHECKING:
 
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
     from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
-    from hydromodpy.results.catalog.facade import SimulationCatalog
+    from hydromodpy.results.catalog.facade import Catalog
 
 
 _CACHE_DB_FILENAME = "cache.duckdb"
 
 
-def resolve_cache_db_path(catalog: SimulationCatalog) -> Path | None:
+def resolve_cache_db_path(catalog: Catalog) -> Path | None:
     """Return the path of the workspace cache DB next to ``catalog``.
 
     The canonical layout is ``<workspace>/data/cache.duckdb`` next to the
@@ -51,7 +51,7 @@ def resolve_cache_db_path(catalog: SimulationCatalog) -> Path | None:
     return None
 
 
-def run_input_entries(catalog: SimulationCatalog, sim_id: str) -> pd.DataFrame:
+def run_input_entries(catalog: Catalog, sim_id: str) -> pd.DataFrame:
     """Return cache entries consumed by ``sim_id`` via the SHA-256 bridge.
 
     Empty result when the workspace cache DB cannot be located or when

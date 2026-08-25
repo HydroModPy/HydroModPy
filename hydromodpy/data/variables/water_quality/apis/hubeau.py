@@ -15,9 +15,9 @@ from datetime import datetime
 
 import pandas as pd
 
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import get_json
-from hydromodpy.data.common.progress import iter_progress, log_step
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 
@@ -76,16 +76,16 @@ def fetch(
             logger.info("Hub'Eau WQ: no station with coordinates for nearest selection.")
             return []
 
-    log_step(f"Hub'Eau WQ ({site_type}): {len(station_ids)} stations")
+    logger.debug(f"Hub'Eau WQ ({site_type}): {len(station_ids)} stations")
     records: list[PointRecord] = []
 
-    for sid in iter_progress(station_ids, desc="Stations"):
+    for sid in progress.track(station_ids, "Fetching water quality stations"):
         location = _fetch_station_location(sid, is_river=is_river)
         raw_df = _download_analyses(
             sid, date_start=date_start, date_end=date_end, is_river=is_river
         )
         if raw_df.empty:
-            logger.info("  %s: no data", sid)
+            logger.debug("  %s: no data", sid)
             continue
 
         if location is None:
@@ -123,9 +123,9 @@ def fetch(
             )
 
         n_params = len(set(df["parameter"]))
-        logger.info("  %s: %d analyses, %d parameters", sid, len(df), n_params)
+        logger.debug("  %s: %d analyses, %d parameters", sid, len(df), n_params)
 
-    log_step(f"Hub'Eau WQ: {len(records)} total records")
+    logger.debug(f"Hub'Eau WQ: {len(records)} total records")
     return records
 
 

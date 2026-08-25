@@ -9,7 +9,7 @@ root = "../../"
 [simulation]
 name = "10km2_natural_mesh_transient_pulse_shared_case"
 description = "Reduced transient recharge-pulse case on a precomputed 10 km2 natural triangular mesh."
-on_collision = "replace"
+if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2020-01-01 00:00:00"

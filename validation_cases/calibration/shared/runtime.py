@@ -14,6 +14,8 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.state.paths import internal_dir, runs_dir_for, share_dir_for
+from hydromodpy.solver.modflow_common.budget_components import canonical_budget_component
 from validation_cases.calibration.shared.definitions import (
     CalibrationMethodProfile,
     ObservationNoiseSpec,
@@ -23,6 +25,14 @@ from validation_cases.calibration.shared.definitions import (
     build_payload,
 )
 from validation_cases.shared.runtime import _dump_toml, resolve_validation_results_dir
+
+# Budget components that carry the outlet discharge, most specific first.
+# Both extraction paths speak the canonical vocabulary of
+# ``hydromodpy.solver.modflow_common.budget_components``: the catalog stores
+# canonical names, and raw solver record names are canonicalised before the
+# lookup, so a Run and its solver output directory always resolve the same
+# component.
+OUTLET_BUDGET_COMPONENTS: tuple[str, ...] = ("drain", "constant_head")
 
 
 def _write_toml(path: Path, payload: dict[str, Any]) -> None:
@@ -134,14 +144,6 @@ def _prune_benchmark_artifacts(
         raise ValueError(f"Unsupported calibration benchmark artifact_retention '{retention}'.")
 
     removed: list[str] = []
-    for top_level_path in (
-        benchmark_root / "simulations",
-        benchmark_root / "exports",
-        benchmark_root / "catalog.duckdb",
-        benchmark_root / "catalog.duckdb.wal",
-    ):
-        _remove_artifact_path(top_level_path, removed=removed)
-
     data_root = benchmark_root / "data"
     for data_artifact in (
         data_root / "cache.duckdb",
@@ -153,11 +155,15 @@ def _prune_benchmark_artifacts(
 
     for project_name in ("project", "project_truth"):
         project_root = benchmark_root / project_name
+        # Everything a run produces lives inside the project: runs/ holds the
+        # run directories, share/ the published exports, .hmp/ the rebuildable
+        # index plus the solver scratch and the trash.
         for project_artifact in (
-            project_root / "results_simulations",
+            runs_dir_for(project_root),
+            share_dir_for(project_root),
+            internal_dir(project_root),
             project_root / "results_stable",
             project_root / "hydromodpy_debug.log",
-            project_root / ".solver_scratch",
         ):
             _remove_artifact_path(project_artifact, removed=removed)
         calibration_roots = project_root / "calibrations"
@@ -558,10 +564,7 @@ def extract_outputs(
         values: np.ndarray | None = None
         try:
             if variable == "outlet_discharge" or support == "boundary":
-                values = _extract_outlet_discharge_from_run(
-                    run,
-                    boundary_id=str(getattr(decl, "boundary_id", "") or ""),
-                )
+                values = _extract_outlet_discharge_from_run(run)
             elif variable in {"watertable_elevation", "head"} and support == "point":
                 values = _extract_head_at_point_from_run(
                     run,
@@ -592,25 +595,13 @@ def _quantity_magnitude(value: Any) -> float | None:
         return None
 
 
-def _extract_outlet_discharge_from_run(run: Any, *, boundary_id: str) -> np.ndarray | None:
+def _extract_outlet_discharge_from_run(run: Any) -> np.ndarray | None:
     """Sum boundary flux per timestep from ``run.budget()``."""
     bud = run.budget()
     if bud is None or bud.empty:
         return None
-    preferred: tuple[str, ...] = ("drn", "drain", "drains", "chd")
-    lowered = {str(c).strip().lower() for c in bud["component"].unique() if c is not None}
-    bid = (boundary_id or "").strip().lower()
-    resolved: str | None = None
-    if "drain" in bid or "drn" in bid:
-        for key in ("drn", "drain", "drains"):
-            if key in lowered:
-                resolved = key
-                break
-    if resolved is None:
-        for key in preferred:
-            if key in lowered:
-                resolved = key
-                break
+    available = {str(c).strip().lower() for c in bud["component"].unique() if c is not None}
+    resolved = next((key for key in OUTLET_BUDGET_COMPONENTS if key in available), None)
     if resolved is None:
         return None
     subset = bud[bud["component"].astype(str).str.strip().str.lower() == resolved]
@@ -710,7 +701,7 @@ def _build_twin_metric_fn(
     ``output_dirs_by_run_id`` and assemble the composite via
     :class:`ConfigBlockObjective`.
     """
-    from hydromodpy.calibration.objective import ConfigBlockObjective
+    from hydromodpy.calibration.optim.objective import ConfigBlockObjective
 
     block_objectives: list[ConfigBlockObjective] = []
     raw_weights: list[float] = []
@@ -850,15 +841,18 @@ def _extract_outlet_discharge_from_dir(
         return None
     cbb = bf.CellBudgetFile(str(cbc_path))
     try:
-        record_names = [r.decode().strip().lower() for r in cbb.get_unique_record_names()]
-        record_name: str | None = None
-        for key in ("drn", "drain", "drains", "chd"):
-            for rec in record_names:
-                if key in rec:
-                    record_name = rec
-                    break
-            if record_name is not None:
-                break
+        record_by_component: dict[str, str] = {}
+        for raw in cbb.get_unique_record_names():
+            record = raw.decode().strip()
+            record_by_component.setdefault(canonical_budget_component(record), record)
+        record_name = next(
+            (
+                record_by_component[key]
+                for key in OUTLET_BUDGET_COMPONENTS
+                if key in record_by_component
+            ),
+            None,
+        )
         if record_name is None:
             return None
         times = cbb.get_times()
@@ -953,7 +947,7 @@ def _resolve_cell_top_from_dir(
 
     Mirrors :func:`hydromodpy.solver.modflow6.extractors.flow._write_surface_elevation`:
     the GRB grid metadata exposes ``top1d`` (DISV) or ``top`` (DIS) which
-    feed :func:`hydromodpy.results.derived.watertable_elevation`. Returning
+    feed :func:`hydromodpy.results.derive.derived.watertable_elevation`. Returning
     a finite value here lets the trial-time HDS reader apply the same
     ``min(head, top)`` clip the catalog applies.
     """
@@ -1491,12 +1485,12 @@ def synthesize_truth_observations_via_project_api(
     """Run the truth candidate via :class:`hydromodpy.Project` and extract observables.
 
     Materializes the truth K via
-    :func:`hydromodpy.calibration.materialize.materialize_candidate`,
+    :func:`hydromodpy.calibration.runners.materialize.materialize_candidate`,
     runs :class:`hydromodpy.Project` on the resulting overlay, and pulls
     each observable through :func:`extract_outputs`.
     """
-    from hydromodpy.calibration.materialize import materialize_candidate
-    from hydromodpy.calibration.parameters import ParameterSpace
+    from hydromodpy.calibration.optim.parameters import ParameterSpace
+    from hydromodpy.calibration.runners.materialize import materialize_candidate
     from hydromodpy.project import Project as _Project
 
     if definition.parameter_targets is None:
@@ -1534,7 +1528,7 @@ def synthesize_truth_observations_via_project_api(
         workspace_root=benchmark_root / "project_truth",
         extra_sections={
             "display": {"enabled": False, "show": False, "save": False},
-            "simulation": {"run_id": "twin_truth"},
+            "simulation": {"name": "twin_truth"},
         },
     )
 
@@ -1702,7 +1696,7 @@ def run_twin_benchmark_case(
             objective_blocks=tuple(definition.objective_block_specs),
         )
 
-        from hydromodpy.calibration.cli_runner import run_calibration_cli
+        from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
         session_prepare_t0 = time.perf_counter()
         report = run_calibration_cli(
@@ -1714,9 +1708,9 @@ def run_twin_benchmark_case(
         )
         session_prepare_time_seconds = float(time.perf_counter() - session_prepare_t0)
 
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
-        with SimulationCatalog(benchmark_root / "project") as catalog:
+        with Catalog(benchmark_root / "project") as catalog:
             iterations_df = catalog.calibration_iterations(report.session_id)
         candidate_timing_values = _candidate_timing_values_from_iterations(iterations_df)
 

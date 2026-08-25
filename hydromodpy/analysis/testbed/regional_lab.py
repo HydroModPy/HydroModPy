@@ -22,6 +22,7 @@ from hydromodpy.analysis.testbed.regional_lab_types import (
     RegionalLabExecution,
     RegionalLabPlannedCase,
 )
+from hydromodpy.core import progress
 
 
 class RegionalLabProfileLauncher:
@@ -74,49 +75,52 @@ class RegionalLabProfileLauncher:
         )
 
         if cfg.execute:
-            for case in planned_cases:
-                if case.case_id in previous_ok_case_ids:
-                    executions.append(
-                        RegionalLabExecution(
-                            case=case,
-                            status="skipped_existing_ok",
-                            duration_seconds=0.0,
-                            reused_from_report=True,
-                            child_artifacts=_regional_case_child_artifacts(case),
+            with progress.task("Running regional lab cases", total=len(planned_cases)) as bar:
+                for case in planned_cases:
+                    if case.case_id in previous_ok_case_ids:
+                        executions.append(
+                            RegionalLabExecution(
+                                case=case,
+                                status="skipped_existing_ok",
+                                duration_seconds=0.0,
+                                reused_from_report=True,
+                                child_artifacts=_regional_case_child_artifacts(case),
+                            )
                         )
-                    )
-                else:
-                    started_at = time.perf_counter()
-                    status = _run_child_case(case=case)
-                    executions.append(
-                        RegionalLabExecution(
-                            case=case,
-                            status=status,
-                            duration_seconds=round(float(time.perf_counter() - started_at), 6),
-                            reused_from_report=False,
-                            child_artifacts=_regional_case_child_artifacts(case),
+                    else:
+                        started_at = time.perf_counter()
+                        with progress.suppressed():
+                            status = _run_child_case(case=case)
+                        executions.append(
+                            RegionalLabExecution(
+                                case=case,
+                                status=status,
+                                duration_seconds=round(float(time.perf_counter() - started_at), 6),
+                                reused_from_report=False,
+                                child_artifacts=_regional_case_child_artifacts(case),
+                            )
                         )
-                    )
-                synthesis_paths = write_summary_artifacts(
-                    cfg=cfg,
-                    selected_sites=selected_sites,
-                    planned_cases=planned_cases,
-                    skipped_cases=skipped_cases,
-                    executions=executions,
-                )
-                write_json_payload(
-                    report_path,
-                    build_report_payload(
+                    synthesis_paths = write_summary_artifacts(
                         cfg=cfg,
                         selected_sites=selected_sites,
                         planned_cases=planned_cases,
                         skipped_cases=skipped_cases,
                         executions=executions,
-                        synthesis_paths=synthesis_paths,
-                    ),
-                )
-                if executions[-1].status == "failed" and not cfg.continue_on_error:
-                    break
+                    )
+                    write_json_payload(
+                        report_path,
+                        build_report_payload(
+                            cfg=cfg,
+                            selected_sites=selected_sites,
+                            planned_cases=planned_cases,
+                            skipped_cases=skipped_cases,
+                            executions=executions,
+                            synthesis_paths=synthesis_paths,
+                        ),
+                    )
+                    bar.advance()
+                    if executions[-1].status == "failed" and not cfg.continue_on_error:
+                        break
 
         return {
             "lab_id": cfg.lab_id,

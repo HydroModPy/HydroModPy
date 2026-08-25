@@ -7,7 +7,7 @@ import geopandas as gpd
 import numpy as np
 from shapely.geometry import LineString
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
@@ -50,7 +50,7 @@ def _register_completed_run(
     config_path = workspace_root.parent / f"run_{uuid.uuid4().hex[:8]}.toml"
     _write_simulation_config(config_path, workspace_root)
 
-    catalog = SimulationCatalog(workspace_root)
+    catalog = Catalog(workspace_root)
     sim_id = str(uuid.uuid4())
     reg = catalog.register_simulation(
         sim_id,
@@ -98,6 +98,9 @@ def _register_completed_run(
             face_node_connectivity,
             np.array([10.0, 9.0, 8.0], dtype="float64"),
         )
+        # The frame the mesh coordinates live in, same as the network features
+        # below: network metrics overlay the two and refuse to guess.
+        catalog.write_geographic_metadata(sim_id, {"crs_proj": "EPSG:2154"})
         sz = catalog.open_zarr(sim_id)
         try:
             sz.root["mesh"].create_array(
@@ -154,7 +157,7 @@ def _register_completed_active_network_run(workspace_root: Path) -> tuple[Path, 
     config_path = workspace_root.parent / f"run_{uuid.uuid4().hex[:8]}.toml"
     _write_simulation_config(config_path, workspace_root)
 
-    catalog = SimulationCatalog(workspace_root)
+    catalog = Catalog(workspace_root)
     sim_id = str(uuid.uuid4())
     reg = catalog.register_simulation(
         sim_id,
@@ -194,6 +197,9 @@ def _register_completed_active_network_run(workspace_root: Path) -> tuple[Path, 
         face_node_connectivity,
         np.array([10.0, 9.0, 8.0], dtype="float64"),
     )
+    # The frame the mesh coordinates live in, same as the network features below:
+    # network metrics overlay the two and refuse to guess.
+    catalog.write_geographic_metadata(sim_id, {"crs_proj": "EPSG:2154"})
     sz = catalog.open_zarr(sim_id)
     try:
         sz.root["mesh"].create_array(

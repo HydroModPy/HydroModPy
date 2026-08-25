@@ -133,7 +133,7 @@ solver-grid shape when it is known, instead of forcing a DEM reshape.
 Lazy result views already built on top of those fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``hydromodpy/results/views.py`` already exposes catchment-scale summaries:
+``hydromodpy/results/derive/views.py`` already exposes catchment-scale summaries:
 
 - ``run.drainage_density()``: fraction of active catchment cells with positive
   ``accumulation_flux``; useful as one occupancy metric of the active stream
@@ -157,7 +157,7 @@ Lazy result views already built on top of those fields
   between the simulated active cells and the observed ``reference`` vector
   network.
 
-``hydromodpy/results/views.py`` now exposes the lazy distance view that
+``hydromodpy/results/derive/views.py`` now exposes the lazy distance view that
 combines the active mask, mesh geometry, and the persisted ``reference``
 network:
 
@@ -188,7 +188,7 @@ Comparison workflow support already present
 
 The comparison stack already knows a lot about those simulated flux outputs:
 
-- ``hydromodpy/analysis/comparison/runtime.py`` supports observables based on
+- ``hydromodpy/analysis/comparison/runtime/`` supports observables based on
   ``accumulation_flux`` and ``outflow_drain``.
 - ``hydromodpy/analysis/comparison/visuals.py`` already produces maps and
   other figures for those fields.

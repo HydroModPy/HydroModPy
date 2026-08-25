@@ -21,10 +21,10 @@ import duckdb
 import pandas as pd
 from upath import UPath
 
-from hydromodpy.core.io.db_retry import connect_with_retry
+from hydromodpy.core.io.db_retry import HMP_DUCKDB_BLOCK_SIZE, connect_with_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.registry import cache_lifecycle, cache_queries, cache_store
-from hydromodpy.data.registry._backend import CacheBackend, DuckDBCacheBackend
+from hydromodpy.data.registry.backend import CacheBackend, DuckDBCacheBackend
 from hydromodpy.data.registry.cache_queries import CatalogEntry as _CatalogEntry
 from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
 from hydromodpy.data.registry.migrations import ensure_schema as _ensure_cache_schema
@@ -49,7 +49,7 @@ class DataCatalogDuckDB:
             db_path = Path(str(db_path))
             db_path.parent.mkdir(parents=True, exist_ok=True)
             self._db_path = db_path
-            self._conn = connect_with_retry(str(db_path))
+            self._conn = connect_with_retry(str(db_path), block_size=HMP_DUCKDB_BLOCK_SIZE)
 
         _ensure_cache_schema(self._conn)
         self._backend: CacheBackend = DuckDBCacheBackend.from_connection(
@@ -87,15 +87,9 @@ class DataCatalogDuckDB:
     def _resolve_entry_path(self, file_path: Path | str, *, variable: str | None = None) -> Path:
         return cache_store.resolve_entry_path(self, file_path, variable=variable)
 
-    def _workspace_lockfile_path(self) -> Path | None:
-        return cache_store.workspace_lockfile_path(self)
-
     @staticmethod
     def _frozen_enabled() -> bool:
         return cache_store.frozen_enabled()
-
-    def _locked_artifacts(self):
-        return cache_store.locked_artifacts(self)
 
     def _match_locked_artifact(
         self,

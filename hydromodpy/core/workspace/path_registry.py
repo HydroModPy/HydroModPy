@@ -6,10 +6,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-#: Preprocessing intermediates go under .solver_scratch/_preprocessing/.
+from hydromodpy.core.state.paths import (
+    INTERNAL_DIRNAME,
+    REPORTS_DIRNAME,
+    scratch_dir_for,
+    share_dir_for,
+)
+
+#: Preprocessing intermediates go under .hmp/scratch/_preprocessing/.
 #: These files are needed on disk by whitebox/rasterio during the pipeline,
 #: then ingested into the project store and cleaned up.
-PREPROCESSING_DIR = ".solver_scratch/_preprocessing"
+PREPROCESSING_DIR = f"{INTERNAL_DIRNAME}/scratch/_preprocessing"
 
 if TYPE_CHECKING:
     from hydromodpy.core.workspace.config import WorkspaceConfig
@@ -23,7 +30,7 @@ class WorkspacePathRegistry:
     root: Path
     catalog_path: Path
     data_dir: Path
-    simulations_dir: Path
+    runs_dir: Path
     output_root: Path | None = None
 
     @classmethod
@@ -34,7 +41,7 @@ class WorkspacePathRegistry:
             root=Path(config.root),
             catalog_path=Path(config.catalog_path),
             data_dir=Path(config.data_dir),
-            simulations_dir=Path(config.simulations_dir),
+            runs_dir=Path(config.runs_dir),
             output_root=Path(config.output_root) if config.output_root else None,
         )
 
@@ -53,15 +60,24 @@ class WorkspacePathRegistry:
 
     @property
     def solver_scratch_folder(self) -> Path:
-        return self._effective_output_root / ".solver_scratch"
+        return scratch_dir_for(self._effective_output_root)
 
     def solver_scratch_run_folder(self, sim_id: str) -> Path:
         """Return the scratch folder for a specific solver run."""
         return self.solver_scratch_folder / sim_id
 
     @property
+    def share_folder(self) -> Path:
+        return share_dir_for(self._effective_output_root)
+
+    @property
+    def reports_folder(self) -> Path:
+        return self.share_folder / REPORTS_DIRNAME
+
+    @property
     def figures_folder(self) -> Path:
-        return self._effective_output_root / "figures"
+        """Figures that belong to the project, not to one run."""
+        return self.share_folder / "figures"
 
     @property
     def data_path(self) -> Path:

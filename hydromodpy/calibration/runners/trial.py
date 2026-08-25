@@ -30,20 +30,26 @@ from __future__ import annotations
 
 import copy as _copy
 import math
+import threading
 import time
 from collections.abc import Iterable, Mapping, Sequence
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel
 
+from hydromodpy.calibration.optim.parameters import set_by_path
 from hydromodpy.calibration.runners.contracts import (
     TrialStep,
     get_trial_pipeline_provider,
     get_trial_promotion_provider,
 )
+from hydromodpy.calibration.runners.sandbox import TrialSandbox
+from hydromodpy.core import progress
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.execution import ExecutionRegistry
 
@@ -52,6 +58,13 @@ if TYPE_CHECKING:
 
 
 logger = get_logger(__name__)
+
+# Structural binding (geology -> domain, lake-geometry parquet reads, flow
+# rebuild) runs per trial but operates on the prep state shared by reference
+# across concurrent trials (domain, loaded_data) and uses GDAL/geopandas reads
+# that are not thread-safe. Serializing only this phase keeps it correct while
+# the expensive mf6 solves still run in parallel.
+_STRUCTURAL_BIND_LOCK = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +144,12 @@ class TrialContext:
     spatial_support_registry: Any = None
     mesh_runtime_sections: Mapping[str, object] = field(default_factory=dict)
 
-    def fork(self, values: Mapping[str, float]) -> TrialContext:
+    def fork(
+        self,
+        values: Mapping[str, float],
+        *,
+        flow_runtime_overrides: Mapping[str, Any] | None = None,
+    ) -> TrialContext:
         """Return a new trial context isolated for one evaluation.
 
         - ``cfg`` is deep-copied and the calibration ``values`` are
@@ -141,9 +159,12 @@ class TrialContext:
         - ``setup`` is shallow-copied into a fresh dataclass; the big
           prepared objects (``geographic``, ``mesh_planar``, ``domain``,
           ``workspace``, ``time_grid``, ...) stay shared by reference,
-          but ``flow`` / ``transport`` / ``flow_runtime_overrides`` are
-          reset so that the trial rebuilds them from the modified
-          ``cfg.flow`` on demand.
+          but ``flow`` / ``transport`` are reset so the trial rebuilds them
+          from the modified ``cfg.flow`` on demand.
+        - ``flow_runtime_overrides`` (optional) seeds the forked setup. A
+          :class:`TrialSandbox` passes a per-trial ``model_name_override`` here
+          so each concurrent solver run writes to its own model folder under
+          the shared scratch and never collides.
         - ``loaded_data`` is shared by reference (forcings are
           read-only after loading).
         - ``execution`` is freshly instantiated with
@@ -155,7 +176,7 @@ class TrialContext:
 
         new_cfg = self.base_cfg.model_copy(deep=True)
         if self.parameter_space is not None:
-            from hydromodpy.calibration.parameters import apply_parameter_to_config
+            from hydromodpy.calibration.optim.parameters import apply_parameter_to_config
 
             for param in self.parameter_space:
                 if param.name not in values or param.effective_path is None:
@@ -165,12 +186,14 @@ class TrialContext:
             for pname, pvalue in values.items():
                 path = self.override_paths.get(pname)
                 if path:
-                    _set_by_path(new_cfg, path, pvalue)
+                    set_by_path(new_cfg, path, pvalue)
 
         new_setup = _copy.copy(self.ctx.setup)
         new_setup.flow = None
         new_setup.transport = None
-        new_setup.flow_runtime_overrides = None
+        new_setup.flow_runtime_overrides = (
+            dict(flow_runtime_overrides) if flow_runtime_overrides else None
+        )
 
         new_ctx = WorkflowContext(
             cfg=new_cfg,
@@ -224,6 +247,7 @@ def prepare_trials(
     override_paths: Mapping[str, str] | Iterable[str],
     steps: Sequence[TrialStep] | None = None,
     parameter_space: Any = None,
+    config_overrides: Mapping[str, Any] | None = None,
 ) -> TrialContext:
     """Load TOML, run steps ``[0..earliest)`` once, return a fork-able context.
 
@@ -240,10 +264,23 @@ def prepare_trials(
         Pipeline steps to compose over. Defaults to the workflow
         provider's ``standard_steps()``.
     parameter_space
-        Optional :class:`~hydromodpy.calibration.parameters.ParameterSpace`.
+        Optional :class:`~hydromodpy.calibration.optim.parameters.ParameterSpace`.
         When supplied, :meth:`TrialContext.fork` injects values through the
         calibration helper (``mode="replace"``/``"scale"``). Otherwise, it
         falls back to the raw dotted-path writer.
+    config_overrides
+        Dotted paths written into the configuration BEFORE the prefix runs.
+        This is how a phase says what model it calibrates: a flow regime or a
+        time step written after the prefix is prepared changes the baseline the
+        forks copy, but not the time grid the prefix already built, so the
+        phase silently runs the discretisation of the one before it. A path
+        that names no field, at any segment, raises
+        :class:`~hydromodpy.core.exceptions.ConfigValidationError`.
+
+        This is not ``override_paths``, which names what VARIES per trial and
+        therefore decides how much of the pipeline re-runs. An entry there
+        cuts the prepared prefix; an entry here changes what the prefix is
+        prepared from.
     """
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
@@ -253,6 +290,14 @@ def prepare_trials(
     # from_toml handles base_config inheritance + resolves relative paths
     # against the TOML directory (e.g. data.dem.source_path -> absolute).
     cfg = get_root_config_provider().from_toml(cfg_path)
+
+    for dotted, value in (config_overrides or {}).items():
+        try:
+            set_by_path(cfg, str(dotted), value)
+        except ValueError as exc:
+            raise ConfigValidationError(
+                f"config override {dotted!r} cannot be written into the configuration: {exc}"
+            ) from exc
 
     if isinstance(override_paths, Mapping):
         path_map: dict[str, str] = {str(k): str(v) for k, v in override_paths.items()}
@@ -289,6 +334,7 @@ def prepare_trials(
             "cfg": cfg,
             "config_path": cfg_path,
             "raw_toml": raw_toml,
+            "skip_display": True,
             "requested_spatial_support_ids": requested_support_ids,
             "requested_domain_supports": requested_domain_supports,
             "spatial_support_registry": spatial_support_registry,
@@ -296,6 +342,7 @@ def prepare_trials(
         },
     )
     if prep_slice:
+        # The pipeline phases render the prep checklist themselves.
         state = provider.make_pipeline(prep_slice).run(state)
 
     ctx = state.get("ctx")
@@ -352,6 +399,7 @@ def run_trial_light(
     objective: str = "nse",
     variable: str = "head",
     metric_fn: TrialMetricFn | None = None,
+    trial_id: int | None = None,
 ) -> TrialResult:
     """Execute one lightweight trial and return its :class:`TrialResult`.
 
@@ -378,71 +426,93 @@ def run_trial_light(
         ``(ctx, objective, variable) -> (primary, metrics)``. When
         ``None`` the default stub fails the trial with a non-finite
         objective. The full extractor is wired in by the calibration CLI.
+    trial_id
+        Unique trial id. When set, the trial runs under a private
+        :class:`TrialSandbox` identity (its own ``model_name_override`` folder)
+        so concurrent trials never share solver input/output files, and the
+        trial's solver output is cleaned up afterwards.
     """
     provider = get_trial_pipeline_provider()
+    base_setup = getattr(getattr(trial_ctx, "ctx", None), "setup", None)
+    base_model_name = str(getattr(base_setup, "run_id", "") or "trial") or "trial"
+    _scratch = getattr(getattr(base_setup, "workspace", None), "solver_scratch_folder", None)
+    sandbox = (
+        TrialSandbox(base_model_name, trial_id, solver_scratch_folder=_scratch)
+        if trial_id is not None
+        else None
+    )
+    flow_overrides = sandbox.flow_overrides if sandbox is not None else None
 
     t0 = time.monotonic()
-    try:
-        forked = trial_ctx.fork(values)
-    except Exception as exc:  # pragma: no cover - value injection bug
-        return TrialResult(
-            values=dict(values),
-            metrics={},
-            primary_metric=float("nan"),
-            status="failed",
-            duration_s=time.monotonic() - t0,
-            error=f"fork: {type(exc).__name__}: {exc}",
+    with progress.suppressed(), sandbox or nullcontext():
+        try:
+            with _STRUCTURAL_BIND_LOCK:
+                forked = trial_ctx.fork(values, flow_runtime_overrides=flow_overrides)
+                if sandbox is not None:
+                    sandbox.track(forked.ctx.execution)
+        except Exception as exc:  # pragma: no cover - value injection bug
+            return TrialResult(
+                values=dict(values),
+                metrics={},
+                primary_metric=float("nan"),
+                status="failed",
+                duration_s=time.monotonic() - t0,
+                error=f"fork: {type(exc).__name__}: {exc}",
+            )
+
+        # Trials only run [earliest..8]. Derive/export/display are reserved
+        # for promotion (steps 09-11). ``skip_display`` says so to results
+        # reconciliation: a trial draws nothing, so no figure gets to turn a
+        # derived flag on and force the per-cell budget no step would drop.
+        downstream_slice = forked.downstream_steps[forked.earliest : 9]
+        state = provider.make_state(
+            "calibration-trial",
+            {
+                "cfg": forked.ctx.cfg,
+                "config_path": forked.cfg_path,
+                "raw_toml": dict(forked.raw_toml),
+                "ctx": forked.ctx,
+                "skip_display": True,
+                **dict(forked.mesh_runtime_sections),
+            },
         )
 
-    # Trials only run [earliest..8]. Derive/export/display are reserved
-    # for promotion (steps 09-11).
-    downstream_slice = forked.downstream_steps[forked.earliest : 9]
-    state = provider.make_state(
-        "calibration-trial",
-        {
-            "cfg": forked.ctx.cfg,
-            "config_path": forked.cfg_path,
-            "raw_toml": dict(forked.raw_toml),
-            "ctx": forked.ctx,
-            **dict(forked.mesh_runtime_sections),
-        },
-    )
+        try:
+            if downstream_slice:
+                state = provider.make_pipeline(downstream_slice).run(state)
+        except Exception as exc:
+            logger.debug("Trial %s pipeline crashed", trial_id, exc_info=True)
+            return TrialResult(
+                values=dict(values),
+                metrics={},
+                primary_metric=float("nan"),
+                status="crashed",
+                duration_s=time.monotonic() - t0,
+                error=f"{type(exc).__name__}: {exc}",
+            )
 
-    try:
-        if downstream_slice:
-            state = provider.make_pipeline(downstream_slice).run(state)
-    except Exception as exc:
-        return TrialResult(
-            values=dict(values),
-            metrics={},
-            primary_metric=float("nan"),
-            status="crashed",
-            duration_s=time.monotonic() - t0,
-            error=f"{type(exc).__name__}: {exc}",
-        )
+        extractor = metric_fn if metric_fn is not None else _default_metric_extractor
+        try:
+            primary, metrics = extractor(forked.ctx, objective=objective, variable=variable)
+        except Exception as exc:
+            return TrialResult(
+                values=dict(values),
+                metrics={},
+                primary_metric=float("nan"),
+                status="failed",
+                duration_s=time.monotonic() - t0,
+                error=f"metric_fn: {type(exc).__name__}: {exc}",
+            )
 
-    extractor = metric_fn if metric_fn is not None else _default_metric_extractor
-    try:
-        primary, metrics = extractor(forked.ctx, objective=objective, variable=variable)
-    except Exception as exc:
-        return TrialResult(
-            values=dict(values),
-            metrics={},
-            primary_metric=float("nan"),
-            status="failed",
-            duration_s=time.monotonic() - t0,
-            error=f"metric_fn: {type(exc).__name__}: {exc}",
-        )
-
-    if not math.isfinite(float(primary)):
-        return TrialResult(
-            values=dict(values),
-            metrics=dict(metrics),
-            primary_metric=float("nan"),
-            status="failed",
-            duration_s=time.monotonic() - t0,
-            error="metric_fn returned a non-finite objective",
-        )
+        if not math.isfinite(float(primary)):
+            return TrialResult(
+                values=dict(values),
+                metrics=dict(metrics),
+                primary_metric=float("nan"),
+                status="failed",
+                duration_s=time.monotonic() - t0,
+                error="metric_fn returned a non-finite objective",
+            )
 
     return TrialResult(
         values=dict(values),
@@ -589,9 +659,9 @@ def _attach_tags_to_simulation(ctx: WorkflowContext, sim_id: str, tags: Sequence
     workspace = getattr(getattr(ctx, "setup", None), "workspace", None)
     if workspace is None:
         return
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
-    with SimulationCatalog.from_workspace(workspace) as catalog:
+    with Catalog.from_workspace(workspace) as catalog:
         writer = getattr(catalog, "write_tags", None)
         if callable(writer):
             writer(sim_id, list(tags))
@@ -619,28 +689,6 @@ def _step_index_by_name(steps: Sequence[TrialStep], name: str) -> int | None:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _set_by_path(cfg: Any, path: str, value: Any) -> None:
-    """Set ``value`` on the leaf at dotted ``path`` under ``cfg``.
-
-    Traversal handles Pydantic attributes (``getattr``/``setattr``) and
-    mapping entries (``"cfg.flow.param.K"`` where ``param`` is a dict
-    keyed by parameter name) transparently.
-    """
-    parts = path.split(".")
-    target: Any = cfg
-    for part in parts[:-1]:
-        if isinstance(target, Mapping):
-            target = target[part]
-        else:
-            target = getattr(target, part)
-    leaf_key = parts[-1]
-    if isinstance(target, Mapping):
-        target[leaf_key] = value
-    else:
-        setattr(target, leaf_key, value)
-
 
 __all__ = (
     "TrialContext",

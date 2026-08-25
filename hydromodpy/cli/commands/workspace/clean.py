@@ -18,7 +18,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument("--results", action="store_true")
     parser.add_argument("--data-cache", action="store_true", dest="data_cache")
     parser.add_argument("--runtime", action="store_true")
-    parser.add_argument("--exports", action="store_true")
+    parser.add_argument("--share", action="store_true")
     parser.add_argument("--scratch", action="store_true")
     parser.add_argument("--figures", action="store_true")
     parser.add_argument("--dry-run", action="store_true", dest="dry_run")
@@ -28,10 +28,10 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.workspace import clean_workspace
+    from hydromodpy.cli._workers.workspace import CLEAN_GROUPS, clean_workspace
 
     groups = {"all"} if args.all_groups else set()
-    for name in ("results", "data_cache", "runtime", "exports", "scratch", "figures"):
+    for name in CLEAN_GROUPS:
         if getattr(args, name, False):
             groups.add(name)
     dry_run = bool(args.dry_run) or not args.yes

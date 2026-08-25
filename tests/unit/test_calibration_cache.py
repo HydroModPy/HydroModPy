@@ -1,8 +1,8 @@
-"""Unit tests for hydromodpy.calibration.cache (params_hash + cache)."""
+"""Unit tests for hydromodpy.calibration.optim.cache (params_hash + cache)."""
 
 from __future__ import annotations
 
-from hydromodpy.calibration.cache import (
+from hydromodpy.calibration.optim.cache import (
     CachedEvaluation,
     ParamsHashCache,
     canonical_json,

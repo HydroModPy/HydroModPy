@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 
 @dataclass(slots=True)
@@ -24,6 +24,7 @@ class ModflowRunOptions:
     run_model: bool = False
     link_mt3dms: bool = False
     verbose: bool = True
+    runner: Literal["subprocess", "api"] = "subprocess"
 
 
 @dataclass(slots=True)

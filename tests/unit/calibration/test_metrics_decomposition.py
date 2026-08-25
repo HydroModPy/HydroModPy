@@ -38,8 +38,10 @@ def test_series_module_exposes_observed_series_and_helpers() -> None:
 def test_network_module_exposes_network_cost() -> None:
     from hydromodpy.calibration.metrics import network
 
-    sim = np.array([0.0, 1.0, 0.0, 1.0])
-    ref = np.array([0.0, 1.0, 0.0, 1.0])
+    # Not a 0/1 vector: network_cost refuses a binary mask where a
+    # per-cell outflow is required, which is the trap this guards.
+    sim = np.array([0.0, 1.0, 0.0, 0.5])
+    ref = np.array([0.0, 1.0, 0.0, 0.5])
     centroids = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]])
     cell_area = np.ones(4)
     cost = network.network_cost(
@@ -62,8 +64,8 @@ def test_solver_extract_module_exposes_extractors() -> None:
     from hydromodpy.calibration.metrics import solver_extract
 
     assert callable(solver_extract.resolve_flow_adapter)
-    assert callable(solver_extract.extract_point)
-    assert callable(solver_extract.extract_boundary)
-    assert callable(solver_extract.extract_cell)
+    assert callable(solver_extract.extract_outputs)
+    assert callable(solver_extract.observable_request_for_output)
+    assert callable(solver_extract.observable_series)
     assert callable(solver_extract.resolve_station_cells)
     assert callable(solver_extract.find_cell_at_point)
