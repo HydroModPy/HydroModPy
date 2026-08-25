@@ -51,10 +51,13 @@ seeps along it by construction. The criterion measures its distances on that
 top, so the ratio it recomputes on the solver mesh and publishes per trial as
 ``alpha_obs_closure`` describes a different surface. On the Nancon the routing
 DEM reaches ``alpha = 0.994`` after a 30 m burn while ``alpha_obs_closure``
-sits at 0.306, below the 0.90 threshold, and every trial says so. Read both:
-the first says the delineation and the flow paths follow the map, the second
+sits at 0.306, and ``alpha_obs_closure_catchment`` at 0.693. Read the three:
+the first says the delineation and the flow paths follow the map, the third
 says how much of the criterion's own measurement is a top-versus-map
-disagreement.
+disagreement, and the gap between the second and the third is the mapped
+linework the criterion carries outside the basin. **A trial is judged on the
+third.** The criterion never descends the burned surface, so a low value there
+is never a reason to burn deeper.
 
 **The drain conductance must stay proportional to the conductivity.** Leave
 ``[flow.bc.cauchy.drainage] value`` at zero, or at anything not strictly
@@ -322,6 +325,18 @@ to look at first:
    second item of "Before you start" says. They describe the geometry, not the
    trial, so they are identical across a session: the static geometry is
    rebuilt at every trial from the same topography and comes out the same.
+
+``alpha_obs_closure_catchment`` and ``frac_obs_outside_catchment``
+   The same ratio on the support the criterion actually scores, and the share
+   of the mapped cells that sit outside the delineated catchment. Outside the
+   catchment the mesh is a buffer: nothing there is required to descend into
+   the network, so a linework wider than the catchment inflates the closure of
+   ``alpha_obs_closure`` without adding to its numerator. On the Nancon 55 per
+   cent of the mapped cells are out, and the two ratios read 0.306 and 0.693.
+   **Read the catchment one to judge the agreement**, and the whole-mesh one
+   only to see how much linework the criterion carries beyond the basin. A run
+   whose ``reference`` network is already clipped, which is what the data
+   pipeline persists, has the two agree.
 
 ``frac_unreachable_so`` and ``frac_unreachable_os``
    The share of each support whose descent ends without meeting its target.
