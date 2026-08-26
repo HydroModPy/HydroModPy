@@ -14,6 +14,7 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.legend_placement import place_legend
 from hydromodpy.display.transect import build_transect, layer_interfaces
 
 if TYPE_CHECKING:
@@ -123,7 +124,7 @@ class CrossSection(BaseFigure):
         ax.set_ylabel("Elevation (m)")
         ax.set_xlim(float(distance[transect.inside].min()), float(distance[transect.inside].max()))
         ax.grid(True, ls=":", lw=0.4, alpha=0.6)
-        ax.legend(fontsize=8, framealpha=0.9, loc="best")
+        place_legend(ax, fontsize=8, framealpha=0.9)
         ax.set_title(f"{self.spec.title} - {sim.name or sim.sim_id}\n{_line_label(transect)}")
         return ax
 

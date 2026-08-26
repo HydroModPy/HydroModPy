@@ -1,0 +1,62 @@
+# ======================================================================
+# Nancon - bande de decharge du drain, D = 2.0 m
+# ----------------------------------------------------------------------
+# Un solve permanent au point calibre, identique au diagnostic sauf la
+# bande. Ce que la bande fait, en deux edits simultanes :
+#
+#   cote        = toit - D/2
+#   conductance = C0 * epaisseur_couche_1 / D
+#
+# Les deux se combattent. Baisser la cote de D/2 retarde la decharge ;
+# multiplier la conductance par b/D l'accelere. Avec b = 30 m, D = 0,25
+# donne un facteur 120 sur la conductance pour 12,5 cm de cote gagnee, ce
+# qui n'est PAS le meme ordre de grandeur. Le balayage sert a mesurer
+# lequel gagne, et a quel D ils s'equilibrent.
+#
+# ATTENTION : D = 0 n'est pas la limite de la bande, c'est sa
+# desactivation. La limite D -> 0 de la conductance est infinie, alors
+# que D = 0 garde la conductance du repli, C0 = K*A/b. Le balayage est
+# donc discontinu en zero, par construction.
+#
+#   hmp run examples/projects/21_nancon_network_calibration/band_d200.toml
+# ======================================================================
+
+base_config = "project.toml"
+
+[simulation]
+name = "band_d200"
+description = "Nancon - bande de decharge D = 2.0 m, permanent au point calibre."
+if_exists = "replace"
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2000-12-31"
+step_unit = "year"
+step_value = 1
+
+[flow]
+flow_regime = "steady"
+
+[flow.param.K.field]
+value = 2.0535e-4
+
+[flow.param.Sy.field]
+value = 5.0e-3
+
+[solver]
+drain_band_depth_m = 2.0
+
+[simulation.results.derived]
+release_flux = true
+accumulation_flux = true
+watertable_elevation = true
+watertable_depth = true
+seepage_areas = true
+
+[simulation.results.budget]
+spatial_fields = true
+
+# Pas de galerie ici : le balayage se lit sur les nombres, et dix-huit
+# figures par point coutent plus cher que les solves.
+[display]
+enabled = false

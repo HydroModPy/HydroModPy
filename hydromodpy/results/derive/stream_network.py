@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.core.stream_geometry import (
     CriterionSupports,
     NetworkGeometry,
@@ -134,10 +135,13 @@ def unavailable_reason_for_comparison(sim: Run) -> str | None:
 def network_comparison_from_run(
     sim: Run,
     *,
-    tau_specific_ratio: float = 1.0e-4,
+    tau_specific_ratio: float = STREAM_CRITERION_DEFAULTS.tau_specific_ratio,
     diagonal_neighbors: bool = False,
     timestep: int = -1,
     observed_position_accuracy_m: float | None = None,
+    alpha_warning_threshold: float = STREAM_CRITERION_DEFAULTS.alpha_warning_threshold,
+    clipping_warning_share: float = STREAM_CRITERION_DEFAULTS.clipping_warning_share,
+    clipping_warning_gap: float = STREAM_CRITERION_DEFAULTS.clipping_warning_gap,
 ) -> NetworkComparison:
     """Rebuild the stream comparison of one run.
 
@@ -203,6 +207,9 @@ def network_comparison_from_run(
         delineated_catchment=_delineated_catchment(sim, polygons, mesh.crs),
         diagonal_neighbors=bool(diagonal_neighbors),
         observed_position_accuracy_m=observed_position_accuracy_m,
+        alpha_warning_threshold=float(alpha_warning_threshold),
+        clipping_warning_share=float(clipping_warning_share),
+        clipping_warning_gap=float(clipping_warning_gap),
     )
 
     release = np.asarray(sim.field("release_flux", timestep=timestep), dtype=float).reshape(-1)

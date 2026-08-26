@@ -5,7 +5,13 @@ from __future__ import annotations
 import numpy as np
 
 
-def hk_fallback_drain_conductance(*, hk: float, cell_area: float, top_thickness: float) -> float:
+def hk_fallback_drain_conductance(
+    *,
+    hk: float,
+    cell_area: float,
+    top_thickness: float,
+    floor_m2_s: float,
+) -> float:
     """High DRN conductance for a free seepage face when none is configured.
 
     A DRN cell removes water when the head rises above the drain elevation (here
@@ -15,12 +21,16 @@ def hk_fallback_drain_conductance(*, hk: float, cell_area: float, top_thickness:
 
         C = K * cell_area / top_layer_thickness   (m/s * m2 / m = m2/s).
 
-    The 1e-12 floor exists only for degenerate (zero-thickness or zero-K) cells.
+    ``floor_m2_s`` (``solver.drain_conductance_floor_m2_s``) exists only for
+    degenerate cells: a zero-thickness cell would divide by zero, a zero-K cell
+    would emit a zero conductance MODFLOW reads as no drain at all. A degenerate
+    thickness falls back to one metre for the same reason, and the floor then
+    catches whatever the product gives.
     """
     length = float(top_thickness)
     if not np.isfinite(length) or length <= 0.0:
         length = 1.0
-    return max(float(hk) * float(cell_area) / length, 1e-12)
+    return max(float(hk) * float(cell_area) / length, float(floor_m2_s))
 
 
 def drain_discharge_band(

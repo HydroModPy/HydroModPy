@@ -760,3 +760,140 @@ def test_the_three_figures_are_registered_under_their_own_name() -> None:
         figure = get_figure(name)
         assert isinstance(figure, figure_cls)
         assert figure.spec.name == name
+
+
+class TestTheHeavyRebuildIsShared:
+    """Six figures of one gallery ask for the same comparison. It is built once.
+
+    On the Nancon at 25 m the rebuild floods 345 260 cells and runs two full
+    distance passes. Doing that once per figure is the reason a gallery took
+    longer to draw than the solve took to run.
+    """
+
+    def test_two_calls_on_one_run_return_the_same_object(self) -> None:
+        from hydromodpy.display.figures._memo import RunMemo
+
+        memo = RunMemo()
+        calls: list[int] = []
+
+        class _Run:
+            pass
+
+        run = _Run()
+
+        def build():
+            calls.append(1)
+            return object()
+
+        first = memo.get_or_build(run, ("a",), build)
+        second = memo.get_or_build(run, ("a",), build)
+
+        assert first is second
+        assert len(calls) == 1
+
+    def test_a_different_knob_is_a_different_entry(self) -> None:
+        from hydromodpy.display.figures._memo import RunMemo
+
+        memo = RunMemo()
+
+        class _Run:
+            pass
+
+        run = _Run()
+        first = memo.get_or_build(run, ("a",), object)
+        second = memo.get_or_build(run, ("b",), object)
+
+        assert first is not second
+
+    def test_two_runs_never_share_an_entry_even_named_alike(self) -> None:
+        # The failure this guards: keying on a run's id instead of the run.
+        # Two runs a caller named the same would answer with each other's mesh,
+        # and the figure would be silently wrong rather than slow.
+        from hydromodpy.display.figures._memo import RunMemo
+
+        memo = RunMemo()
+
+        class _Run:
+            sim_id = "same-name"
+
+        first = memo.get_or_build(_Run(), ("a",), object)
+        second = memo.get_or_build(_Run(), ("a",), object)
+
+        assert first is not second
+
+    def test_a_run_that_cannot_be_weakly_referenced_is_simply_not_cached(self) -> None:
+        # A speed difference, never an answer difference.
+        from types import SimpleNamespace
+
+        from hydromodpy.display.figures._memo import RunMemo
+
+        memo = RunMemo()
+        run = SimpleNamespace(sim_id="stub")
+        sentinel = object()
+
+        assert memo.get_or_build(run, ("a",), lambda: sentinel) is sentinel
+        assert memo.get_or_build(run, ("a",), lambda: sentinel) is sentinel
+
+
+class TestTheLegendDoesNotSearchOnADenseMap:
+    """``loc="best"`` scores every candidate corner against every artist.
+
+    Measured on the Nancon at 25 m, one legend entry over a 243 552-polygon
+    collection took 99.3 s to place against 1.1 s pinned. It was the single
+    largest cost of the gallery, larger than the solve.
+    """
+
+    def _axes(self, n_paths: int):
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import numpy as np
+        from matplotlib.collections import PolyCollection
+        from matplotlib.figure import Figure
+
+        ax = Figure().subplots()
+        squares = [
+            np.array([[i, 0.0], [i + 1.0, 0.0], [i + 1.0, 1.0], [i, 1.0]]) for i in range(n_paths)
+        ]
+        ax.add_collection(PolyCollection(squares))
+        ax.plot([0, 1], [0, 1], label="something")
+        return ax
+
+    def test_a_collection_counts_for_its_paths_and_not_for_one(self) -> None:
+        from hydromodpy.display.legend_placement import axes_element_count
+
+        assert axes_element_count(self._axes(500)) >= 500
+
+    def test_a_light_axes_still_gets_the_placed_legend(self) -> None:
+        from hydromodpy.display.legend_placement import LEGEND_PLACEMENT, place_legend
+
+        ax = self._axes(10)
+        assert len(ax.collections[0].get_paths()) < LEGEND_PLACEMENT.best_placement_limit
+        legend = place_legend(ax)
+        assert legend is not None
+        assert legend._loc == 0  # matplotlib's code for "best"
+
+    def test_a_dense_axes_gets_a_pinned_legend(self) -> None:
+        from hydromodpy.display.legend_placement import LEGEND_PLACEMENT, place_legend
+
+        ax = self._axes(LEGEND_PLACEMENT.best_placement_limit + 1)
+        legend = place_legend(ax)
+        assert legend is not None
+        assert legend._loc != 0
+
+    def test_an_axes_with_nothing_to_show_gets_no_legend(self) -> None:
+        import matplotlib
+        from matplotlib.figure import Figure
+
+        from hydromodpy.display.legend_placement import place_legend
+
+        matplotlib.use("Agg")
+        assert place_legend(Figure().subplots()) is None
+
+    def test_an_explicit_location_is_never_overridden(self) -> None:
+        from hydromodpy.display.legend_placement import LEGEND_PLACEMENT, place_legend
+
+        ax = self._axes(LEGEND_PLACEMENT.best_placement_limit + 1)
+        legend = place_legend(ax, loc="lower left")
+        assert legend is not None
+        assert legend._loc == 3  # matplotlib's code for "lower left"

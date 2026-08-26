@@ -16,6 +16,7 @@ from hydromodpy.spatial.geographic.core.stream_enforcement import (
     check_catchment_area_drift,
     streams_from_config,
 )
+from hydromodpy.spatial.geographic.geographic_config import StreamEnforcementConfig
 
 _N = 20
 _RES = 10.0
@@ -47,11 +48,24 @@ def _burn(tmp_path, **kwargs):
     raw = str(tmp_path / "raw.tif")
     out = str(tmp_path / "routing.tif")
     _write_dem(raw)
+    # The primitive takes every knob explicitly and defaults none of them: the
+    # config-driven entry point is the only place a default lives. These are
+    # the values StreamEnforcementConfig carries.
+    settings = StreamEnforcementConfig()
+    call = {
+        "mode": settings.mode,
+        "depth_m": settings.depth_m,
+        "adaptive_percentile": settings.adaptive_percentile,
+        "relief_report_percentile": settings.relief_report_percentile,
+        "all_touched": settings.rasterize_all_touched,
+        "nodata_fallback": settings.dem_nodata_fallback,
+    }
+    call.update(kwargs)
     report = burn_streams_into_routing_dem(
         dem_in_path=raw,
         dem_out_path=out,
-        stream_lines=kwargs.pop("stream_lines", [_STREAM]),
-        **kwargs,
+        stream_lines=call.pop("stream_lines", [_STREAM]),
+        **call,
     )
     with rasterio.open(out) as src:
         return report, src.read(1), src.crs
@@ -74,11 +88,17 @@ def test_raw_dem_is_never_modified(tmp_path) -> None:
     raw = str(tmp_path / "raw.tif")
     _write_dem(raw)
 
+    settings = StreamEnforcementConfig()
     burn_streams_into_routing_dem(
         dem_in_path=raw,
         dem_out_path=str(tmp_path / "routing.tif"),
         stream_lines=[_STREAM],
+        mode=settings.mode,
         depth_m=30.0,
+        adaptive_percentile=settings.adaptive_percentile,
+        relief_report_percentile=settings.relief_report_percentile,
+        all_touched=settings.rasterize_all_touched,
+        nodata_fallback=settings.dem_nodata_fallback,
     )
 
     with rasterio.open(raw) as src:

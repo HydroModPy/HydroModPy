@@ -534,6 +534,7 @@ def apply_preprocess_options(
     model.preprocess_options = options
     model.sink_fill = bool(options.sink_fill)
     model.drain_band_depth_m = float(options.drain_band_depth_m)
+    model.drain_conductance_floor_m2_s = float(options.drain_conductance_floor_m2_s)
     model.recharge = getattr(options, "recharge", None)
     model.first_clim = getattr(options, "first_clim", None)
     model.time_grid = getattr(options, "time_grid", None)

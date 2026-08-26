@@ -55,11 +55,23 @@ def _make_zarr(
         overwrite=True,
     )
     if cell_area is not None:
-        mesh.create_array(
-            "cell_area",
-            data=np.asarray(cell_area, dtype="float64"),
-            overwrite=True,
+        # The geometry, not an area array: nothing in the package has ever
+        # written mesh/cell_area, so a fixture that wrote one made the
+        # derivation look alive while it skipped on every real run. One row of
+        # unit-height rectangles whose width is the area gives back `cell_area`
+        # exactly, for any area vector.
+        widths = np.asarray(cell_area, dtype="float64")
+        x = np.concatenate([[0.0], np.cumsum(widths)])
+        n_x = x.size
+        vertices = np.array(
+            [[float(xi), 0.0, 0.0] for xi in x] + [[float(xi), 1.0, 0.0] for xi in x],
+            dtype="float64",
         )
+        connectivity = np.array(
+            [[i, i + 1, n_x + i + 1, n_x + i] for i in range(n_cells)], dtype="int32"
+        )
+        mesh.create_array("vertices", data=vertices, overwrite=True)
+        mesh.create_array("face_node_connectivity", data=connectivity, overwrite=True)
 
     # head
     if head_values is None:
@@ -399,3 +411,27 @@ def test_registry_accessible_via_public_api():
     from hydromodpy.workflow.internals import derived as derived_pkg
 
     assert "watertable_elevation" in derived_pkg.registry.list()
+
+
+def test_fluxes_from_budget_needs_the_mesh_geometry_and_says_so(tmp_path):
+    # No vertices, no connectivity: the areas cannot be rebuilt and the
+    # derivation has to skip with a sentence rather than divide by nothing.
+    sz = _make_zarr(tmp_path, drn=np.array([[100.0, 0.0, -50.0, 20.0], [10.0, 20.0, 30.0, 40.0]]))
+    results = registry.apply(sz, names=["fluxes_from_budget"])
+
+    assert results[0].status == "skipped"
+    assert "cell area" in str(results[0].reason).lower()
+
+
+def test_the_areas_come_from_the_geometry_and_not_from_a_stored_array(tmp_path):
+    # Uneven cells, so an implementation reading a constant or a mean is caught.
+    sz = _make_zarr(
+        tmp_path,
+        cell_area=[10.0, 20.0, 40.0, 80.0],
+        drn=np.array([[100.0, 100.0, 100.0, 100.0], [10.0, 20.0, 30.0, 40.0]]),
+    )
+    results = registry.apply(sz, names=["fluxes_from_budget"])
+
+    assert [r.status for r in results] == ["computed"]
+    flux = np.asarray(sz.root["derived"]["fluxes_from_budget"][:])
+    np.testing.assert_array_almost_equal(flux[0], [10.0, 5.0, 2.5, 1.25])

@@ -101,6 +101,7 @@ def _mf6_model(*, band_depth_m: float) -> SimpleNamespace:
         sink_fill=False,
         sink=None,
         drain_band_depth_m=band_depth_m,
+        drain_conductance_floor_m2_s=1e-12,
     )
 
 
@@ -117,6 +118,7 @@ def _nwt_adapter(mesh: SolverMesh, *, band_depth_m: float) -> SimpleNamespace:
         sink_fill=False,
         sink=None,
         drain_band_depth_m=band_depth_m,
+        drain_conductance_floor_m2_s=1e-12,
     )
 
 

@@ -14,6 +14,7 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.legend_placement import place_legend
 from hydromodpy.display.map_axes import (
     RELATIVE_MAP_COLORBAR_LABEL_SIZE,
     RELATIVE_MAP_COLORBAR_TICK_SIZE,
@@ -80,7 +81,7 @@ class MeshMap(BaseFigure):
         )
         handles, _labels = ax.get_legend_handles_labels()
         if handles:
-            ax.legend(loc="best", fontsize=8, framealpha=0.9)
+            place_legend(ax, fontsize=8, framealpha=0.9)
         return ax
 
 

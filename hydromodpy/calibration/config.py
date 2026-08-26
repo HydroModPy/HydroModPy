@@ -51,6 +51,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr, NonNegativeInt, PositiveFloat
+from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.core.units import Length
 
 SaveRunsMode = Literal["none", "best_n", "all"]
@@ -319,7 +320,7 @@ class CalibOutputNetwork(HydroModelBase):
         "does not reuse the one the hydrography data family loaded.",
     )
     tau_specific_ratio: Annotated[float, Profile.USER] = Field(
-        default=1.0e-4,
+        default=STREAM_CRITERION_DEFAULTS.tau_specific_ratio,
         ge=0.0,
         description="A cell releasing less than this fraction of its own recharge is "
         "not a seepage face. Zero reproduces the purely geometric criterion of the "
@@ -365,6 +366,36 @@ class CalibOutputNetwork(HydroModelBase):
         "and D_so would be a fiction. The reciprocal share, 'frac_unreachable_os', is "
         "reported and deliberately left unbounded: its target is the simulated network, "
         "which the search itself retracts.",
+    )
+    alpha_warning_threshold: Annotated[float, Profile.EXPERT] = Field(
+        default=STREAM_CRITERION_DEFAULTS.alpha_warning_threshold,
+        gt=0.0,
+        le=1.0,
+        description="Below this value of 'alpha_obs_closure_catchment' the run warns "
+        "that its distances carry a top-versus-map disagreement on top of the "
+        "hydrogeology. alpha is the share of the downstream closure of the mapped "
+        "network the network itself covers, measured on the MODEL TOP and on the "
+        "catchment. It changes nothing that is computed: the criterion is scored the "
+        "same way above and below it.",
+    )
+    clipping_warning_share: Annotated[float, Profile.EXPERT] = Field(
+        default=STREAM_CRITERION_DEFAULTS.clipping_warning_share,
+        ge=0.0,
+        le=1.0,
+        description="Share of the mapped stream cells lying outside the delineated "
+        "catchment above which the whole-mesh alpha is reported as unreadable. Those "
+        "reaches trace through the buffer, where no cell is required to descend into "
+        "the network, so they inflate the closure without adding to the numerator. "
+        "Reported together with clipping_warning_gap, never alone.",
+    )
+    clipping_warning_gap: Annotated[float, Profile.EXPERT] = Field(
+        default=STREAM_CRITERION_DEFAULTS.clipping_warning_gap,
+        ge=0.0,
+        le=1.0,
+        description="Minimum absolute gap between the whole-mesh and the catchment "
+        "alpha for the clipping report to fire. A linework spilling out of the "
+        "catchment over ground that routes the same way leaves the two ratios equal, "
+        "and reporting it there would be noise on every ordinary project.",
     )
     time: Annotated[OutputTime, Profile.USER] = Field(
         default="last",

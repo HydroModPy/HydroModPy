@@ -83,6 +83,7 @@ def build_drainage_spd(
             hk=float(hk[0, i, j]),
             cell_area=float(adapter.cell_area),
             top_thickness=float(top_thickness[i, j]),
+            floor_m2_s=float(adapter.drain_conductance_floor_m2_s),
         )
 
     band_depth = float(adapter.drain_band_depth_m)

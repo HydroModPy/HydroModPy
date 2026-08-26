@@ -73,6 +73,7 @@ def _mf6_model(*, sink_fill: bool, sink: np.ndarray | None) -> SimpleNamespace:
         sink_fill=sink_fill,
         sink=sink,
         drain_band_depth_m=0.0,
+        drain_conductance_floor_m2_s=1e-12,
     )
 
 
@@ -89,6 +90,7 @@ def _nwt_adapter(mesh: SolverMesh, *, sink_fill: bool, sink: np.ndarray | None) 
         sink_fill=sink_fill,
         sink=None if sink is None else mesh.reshape_to_grid(np.asarray(sink, dtype=bool)),
         drain_band_depth_m=0.0,
+        drain_conductance_floor_m2_s=1e-12,
     )
 
 

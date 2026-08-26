@@ -23,16 +23,20 @@ from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 def test_hk_fallback_conductance_formula_and_guards() -> None:
     # hk 1e-4 m/s, area 100 m2, thickness 5 m -> 2.0e-3 m2/s (not 1.0e-2 m3/s).
     assert hk_fallback_drain_conductance(
-        hk=1e-4, cell_area=100.0, top_thickness=5.0
+        hk=1e-4, cell_area=100.0, top_thickness=5.0, floor_m2_s=1e-12
     ) == pytest.approx(2.0e-3)
     # Doubling the thickness halves the conductance.
     assert hk_fallback_drain_conductance(
-        hk=1e-4, cell_area=100.0, top_thickness=10.0
+        hk=1e-4, cell_area=100.0, top_thickness=10.0, floor_m2_s=1e-12
     ) == pytest.approx(1.0e-3)
     # Degenerate guards stay finite and >= 1e-12.
-    zero_k = hk_fallback_drain_conductance(hk=0.0, cell_area=100.0, top_thickness=5.0)
+    zero_k = hk_fallback_drain_conductance(
+        hk=0.0, cell_area=100.0, top_thickness=5.0, floor_m2_s=1e-12
+    )
     assert zero_k == pytest.approx(1e-12)
-    zero_thick = hk_fallback_drain_conductance(hk=1e-4, cell_area=100.0, top_thickness=0.0)
+    zero_thick = hk_fallback_drain_conductance(
+        hk=1e-4, cell_area=100.0, top_thickness=0.0, floor_m2_s=1e-12
+    )
     assert np.isfinite(zero_thick) and zero_thick >= 1e-12
 
 
@@ -56,6 +60,7 @@ def _drn_model() -> SimpleNamespace:
         sink_fill=False,
         sink=None,
         drain_band_depth_m=0.0,
+        drain_conductance_floor_m2_s=1e-12,
     )
 
 
@@ -152,6 +157,6 @@ def test_nwt_drn_fallback_uses_same_shared_helper() -> None:
         stream_support_mask=np.zeros(6, dtype=bool),
     )[0][0][3]
     nwt_value = well_drainage.hk_fallback_drain_conductance(
-        hk=1e-4, cell_area=100.0, top_thickness=5.0
+        hk=1e-4, cell_area=100.0, top_thickness=5.0, floor_m2_s=1e-12
     )
     assert mf6_value == pytest.approx(nwt_value) == pytest.approx(2.0e-3)

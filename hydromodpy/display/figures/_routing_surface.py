@@ -44,6 +44,7 @@ from hydromodpy.core.field_routing import (
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.topographic_distance import shared_node_adjacency
+from hydromodpy.display.figures._memo import RunMemo
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
@@ -190,13 +191,28 @@ def unavailable_reason_for_routing(sim: Run) -> str | None:
     return None
 
 
+_SURFACE_MEMO = RunMemo()
+
+
 def routing_surface_from_run(sim: Run, *, diagonal_neighbors: bool = False) -> RoutingSurface:
     """Build the routing surface of one run from its own mesh.
 
     ``diagonal_neighbors`` picks the neighbour graph, the same knob the stream
     criterion carries: shared edges by default, shared nodes to recover the
     diagonal descents of a structured grid.
+
+    The result is memoised on the run object and the neighbour knob. Four
+    figures of one gallery ask for the same surface and each rebuild walks the
+    whole mesh: on the Nancon at 25 m that is 345 260 cells traversed four
+    times for one identical answer.
     """
+    return _SURFACE_MEMO.get_or_build(
+        sim, bool(diagonal_neighbors), lambda: _build_routing_surface(sim, diagonal_neighbors)
+    )
+
+
+def _build_routing_surface(sim: Run, diagonal_neighbors: bool) -> RoutingSurface:
+    """The rebuild itself, one mesh traversal, called once per (run, knob)."""
     reason = unavailable_reason_for_routing(sim)
     if reason is not None:
         raise ValueError(f"routing surface unavailable for {sim.sim_id}: {reason}")
@@ -219,7 +235,7 @@ def routing_surface_from_run(sim: Run, *, diagonal_neighbors: bool = False) -> R
     )
     active = active_surface_mask(topography)
     catchment = _catchment_cells(sim, centroids, active, mesh.crs)
-    return RoutingSurface(
+    surface = RoutingSurface(
         topography=topography,
         centroids=centroids,
         adjacency=adjacency,
@@ -231,6 +247,7 @@ def routing_surface_from_run(sim: Run, *, diagonal_neighbors: bool = False) -> R
         outlet=_lowest_cell(topography, active if catchment is None else catchment),
         diagonal_neighbors=bool(diagonal_neighbors),
     )
+    return surface
 
 
 def _lowest_cell(topography: np.ndarray, within: np.ndarray) -> int:

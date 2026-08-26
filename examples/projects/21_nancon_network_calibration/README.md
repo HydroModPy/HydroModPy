@@ -47,7 +47,7 @@ valeur où les deux réseaux ont la même extension, et c'est elle qu'on cherche
 
 | Fichier sous `examples/data/` | Contenu | Origine |
 |---|---|---|
-| `dem/DEM_nancon_50m.tif` | MNT de routage, 283 × 305 mailles à 50 m | découpé et rééchantillonné depuis `DEM_ille_vilaine_5m.tif` |
+| `dem/DEM_nancon_25m.tif` | MNT de routage et toit du modèle, 566 × 610 mailles à 25 m | découpé dans la BD ALTI 25 m (EPSG:2154) sur la boîte de délimitation |
 | `hydrography/nancon_stream_network.gpkg` | 945 tronçons, 181,7 km, dont 45,6 km dans le bassin | BD TOPO régionale, `NATURE = "Écoulement naturel"`, `FICTIF = "Non"`, `POS_SOL = 0`, `PERSISTANC = "Permanent"` |
 | `recharge/recharge_custom_NANCON_REA_19900101_20201231_D.csv` | recharge journalière, 242 mm/an | réanalyse REA, moyenne surfacique sur les mailles SIM2 du bassin |
 | `runoff/runoff_custom_NANCON_REA_19900101_20201231_D.csv` | ruissellement journalier, 80 mm/an | même source |

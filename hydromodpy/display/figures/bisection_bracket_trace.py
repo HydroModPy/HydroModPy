@@ -25,6 +25,7 @@ from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._trial_diagnostics import trial_table
+from hydromodpy.display.legend_placement import place_legend
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -155,7 +156,7 @@ class BisectionBracketTraceFigure(BaseFigure):
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
         ax.grid(True, ls=":", lw=0.4)
         ax.set_title(f"Bisection bracket trace - {sim.name or sim.sim_id}")
-        ax.legend(loc="best", fontsize=8.5, framealpha=0.9)
+        place_legend(ax, fontsize=8.5, framealpha=0.9)
         return ax
 
 
