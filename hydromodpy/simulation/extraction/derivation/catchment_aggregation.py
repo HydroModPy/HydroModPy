@@ -76,7 +76,7 @@ def aggregate_catchment_timeseries(
         if n_timesteps == 0:
             raise RuntimeError(f"No timesteps found for sim {sim_id}; cannot aggregate catchment")
 
-        active_mask = _build_active_mask(grp)
+        active_mask = _build_catchment_mask(store, sim_id, grp, _build_active_mask(grp))
 
         pending: list[tuple[str, list[float]]] = []
         for store_var, output_var, reducer in _AGGREGATION_SPEC:
@@ -471,6 +471,88 @@ def _build_active_mask(grp) -> np.ndarray | None:
     if "topography" in mesh:
         top = np.asarray(mesh["topography"][:], dtype="float64").ravel()
         return np.isfinite(top) & (top > -9000)
+    return None
+
+
+def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | None):
+    """Cells of the DELINEATED CATCHMENT, or the active domain when there is none.
+
+    These series are written under the ``_catchment`` station, so the support
+    has to be the catchment. It is not the same surface as the model domain:
+    MODFLOW-NWT meshes the delineated basin, so the two coincide, while
+    MODFLOW 6 meshes the buffered box. Measured on the Nancon at 25 m, 152.2
+    km2 of domain against 64.6 km2 of catchment, and 2.119 m3/s of drain
+    outflow against 0.888 m3/s inside the basin: summed over the domain, a
+    series compared to a gauge carries 2.4 times the water that gauge sees.
+
+    A run that carries no watershed keeps the active domain and says so with
+    both areas, because a synthetic domain legitimately has no catchment and
+    refusing would abort it.
+    """
+    mesh = grp.get("mesh")
+    if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
+        return active
+    try:
+        watershed = store.read_geographic_feature(sim_id, "watershed")
+    except Exception:
+        watershed = None
+    if watershed is None or watershed.empty:
+        logger.warning(
+            "Catchment timeseries for sim %s: no delineated watershed in the store, so "
+            "the '_catchment' series are summed over the whole active domain. On a "
+            "buffered grid that takes in the neighbouring basins.",
+            sim_id,
+        )
+        return active
+
+    from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons, vector_cell_mask
+
+    polygons = cell_polygons(
+        np.asarray(mesh["vertices"][:], dtype="float64"),
+        np.asarray(mesh["face_node_connectivity"][:]),
+    )
+    crs = _mesh_crs(grp)
+    mask = np.asarray(
+        vector_cell_mask(
+            polygons,
+            list(watershed.geometry),
+            mesh_crs=crs,
+            geometry_crs=watershed.crs,
+            rule="centroid",
+        ),
+        dtype=bool,
+    )
+    if active is not None and mask.size == active.size:
+        mask = mask & active
+    if not mask.any():
+        logger.warning(
+            "Catchment timeseries for sim %s: the delineated watershed covers no cell "
+            "centre, so the '_catchment' series fall back to the active domain. Check "
+            "that the watershed and the mesh share a CRS.",
+            sim_id,
+        )
+        return active
+    if active is not None and mask.size == active.size and int(mask.sum()) < int(active.sum()):
+        logger.info(
+            "Catchment timeseries for sim %s: summed over %d of %d active cells, the "
+            "%.1f%% of the domain the catchment covers.",
+            sim_id,
+            int(mask.sum()),
+            int(active.sum()),
+            100.0 * mask.sum() / max(1, active.sum()),
+        )
+    return mask
+
+
+def _mesh_crs(grp) -> str | None:
+    """CRS the mesh was written in, read from the store rather than assumed."""
+    for holder in (grp.get("mesh"), grp):
+        try:
+            value = holder.attrs.get("crs") or holder.attrs.get("crs_wkt")
+        except (AttributeError, TypeError):
+            continue
+        if value:
+            return str(value)
     return None
 
 

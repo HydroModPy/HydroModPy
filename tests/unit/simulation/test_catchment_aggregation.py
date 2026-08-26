@@ -676,3 +676,96 @@ class TestAggregateFromLumpedBudget:
 
         ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge")
         np.testing.assert_allclose(ts.values, [10.0, 8.0, 4.0])
+
+
+class TestTheCatchmentSeriesUseTheCatchment:
+    """The station is named ``_catchment``. The support has to be one.
+
+    A model domain is not a catchment: MODFLOW-NWT meshes the delineated basin
+    so the two coincide, MODFLOW 6 meshes the buffered box so they do not.
+    Measured on the Nancon at 25 m, 152.2 km2 of domain against 64.6 km2 of
+    catchment, 2.119 m3/s of drain outflow against 0.888 m3/s inside the basin.
+    Summed over the domain, a series compared to a gauge is 2.4 times the water
+    that gauge sees.
+    """
+
+    def _grp(self, n_cells: int):
+        """A one-row mesh of unit squares, written the way a run writes it."""
+        import zarr
+
+        root = zarr.group()
+        mesh = root.require_group("mesh")
+        x = np.arange(n_cells + 1, dtype="float64")
+        vertices = np.array(
+            [[float(v), 0.0, 0.0] for v in x] + [[float(v), 1.0, 0.0] for v in x],
+            dtype="float64",
+        )
+        n_x = x.size
+        connectivity = np.array(
+            [[i, i + 1, n_x + i + 1, n_x + i] for i in range(n_cells)], dtype="int32"
+        )
+        mesh.create_array("vertices", data=vertices)
+        mesh.create_array("face_node_connectivity", data=connectivity)
+        mesh.create_array("topography", data=np.full(n_cells, 10.0, dtype="float64"))
+        mesh.attrs["crs"] = "EPSG:2154"
+        return root
+
+    def _store_with_watershed(self, geometry):
+        class _Store:
+            def read_geographic_feature(self, sim_id, name):
+                import geopandas as gpd
+
+                del sim_id, name
+                return gpd.GeoDataFrame(geometry=[geometry], crs="EPSG:2154")
+
+        return _Store()
+
+    def test_only_the_cells_inside_the_watershed_are_kept(self):
+        from shapely.geometry import box
+
+        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+            _build_catchment_mask,
+        )
+
+        grp = self._grp(6)
+        active = np.ones(6, dtype=bool)
+        # A box covering the centres of the first two cells only (x in 0..2).
+        mask = _build_catchment_mask(
+            self._store_with_watershed(box(-0.1, -0.1, 2.0, 1.1)), "sim", grp, active
+        )
+
+        assert mask.tolist() == [True, True, False, False, False, False]
+
+    def test_a_run_without_a_watershed_keeps_the_domain_and_warns(self, caplog):
+        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+            _build_catchment_mask,
+        )
+
+        class _Store:
+            def read_geographic_feature(self, sim_id, name):
+                raise KeyError(name)
+
+        grp = self._grp(4)
+        active = np.ones(4, dtype=bool)
+        with caplog.at_level("WARNING"):
+            mask = _build_catchment_mask(_Store(), "sim", grp, active)
+
+        assert mask is active
+        assert "neighbouring basins" in " ".join(r.getMessage() for r in caplog.records)
+
+    def test_a_watershed_that_lands_nowhere_falls_back_and_says_so(self, caplog):
+        from shapely.geometry import box
+
+        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+            _build_catchment_mask,
+        )
+
+        grp = self._grp(4)
+        active = np.ones(4, dtype=bool)
+        with caplog.at_level("WARNING"):
+            mask = _build_catchment_mask(
+                self._store_with_watershed(box(1e6, 1e6, 1e6 + 10, 1e6 + 10)), "sim", grp, active
+            )
+
+        assert mask is active
+        assert "no cell" in " ".join(r.getMessage() for r in caplog.records)
