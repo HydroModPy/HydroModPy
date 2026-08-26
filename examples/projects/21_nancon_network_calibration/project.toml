@@ -37,7 +37,7 @@ reuse_existing_outputs = true
 
 [geographic.catchment]
 catch_def = "from_outlet_coord"
-dem_init_path = "DEM_nancon_50m.tif"
+dem_init_path = "DEM_nancon_25m.tif"
 
 # Station hydrometrique du Nancon a Fougeres (J001401001), en EPSG:2154.
 x_outlet = 389285.91
@@ -88,7 +88,7 @@ types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff"]
 
 [[data.dem.sources]]
 source = "custom"
-path = "DEM_nancon_50m.tif"
+path = "DEM_nancon_25m.tif"
 
 [[data.geology.sources]]
 source = "brgm_1m"
@@ -196,16 +196,21 @@ end_datetime = "2000-12-31"
 step_value = "1 year"
 coverage_policy = "warn"
 
-# MODFLOW-NWT plutot que MODFLOW 6 : son maillage est celui du bassin
-# delimite, alors que la grille structuree de MF6 couvre la boite
-# englobante. Le critere construit son graphe de descente sur le toit du
-# maillage et definit le bassin comme les mailles qui atteignent
-# l'exutoire ; sur une grille de boite ce graphe part de mailles qui
-# n'appartiennent pas au bassin et se fragmente.
+# MODFLOW 6. Le choix de MODFLOW-NWT tenait a une objection qui n'existe
+# plus : le critere definissait le bassin en descendant le toit du
+# maillage, ce qui sur une grille de boite partait de mailles hors bassin
+# et se fragmentait. Il lit desormais le bassin delimite par l'etape
+# geographique, et la descente sur le toit n'est plus qu'un repli qui
+# avertit. Ce qui reste vrai est le cout : la grille couvre la boite,
+# 566 x 610 mailles a 25 m contre les 26 907 du bassin.
+#
+# Ce que MF6 ouvre et que NWT n'a pas : `[modflow6.sgrid] condition_top`,
+# la bande de decharge native DDRN, et la rectification SFR sur le
+# maillage.
 [[simulation.process]]
 id = "flow_main"
 type = "flow"
-solvers = ["modflow_nwt"]
+solvers = ["modflow6"]
 
 
 # Le suintement par maille est ce que le critere lit, et ce dont les
