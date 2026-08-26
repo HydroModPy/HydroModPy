@@ -760,3 +760,76 @@ def test_the_three_figures_are_registered_under_their_own_name() -> None:
         figure = get_figure(name)
         assert isinstance(figure, figure_cls)
         assert figure.spec.name == name
+
+
+class TestTheHeavyRebuildIsShared:
+    """Six figures of one gallery ask for the same comparison. It is built once.
+
+    On the Nancon at 25 m the rebuild floods 345 260 cells and runs two full
+    distance passes. Doing that once per figure is the reason a gallery took
+    longer to draw than the solve took to run.
+    """
+
+    def test_two_calls_on_one_run_return_the_same_object(self) -> None:
+        from hydromodpy.display.figures._memo import RunMemo
+
+        memo = RunMemo()
+        calls: list[int] = []
+
+        class _Run:
+            pass
+
+        run = _Run()
+
+        def build():
+            calls.append(1)
+            return object()
+
+        first = memo.get_or_build(run, ("a",), build)
+        second = memo.get_or_build(run, ("a",), build)
+
+        assert first is second
+        assert len(calls) == 1
+
+    def test_a_different_knob_is_a_different_entry(self) -> None:
+        from hydromodpy.display.figures._memo import RunMemo
+
+        memo = RunMemo()
+
+        class _Run:
+            pass
+
+        run = _Run()
+        first = memo.get_or_build(run, ("a",), object)
+        second = memo.get_or_build(run, ("b",), object)
+
+        assert first is not second
+
+    def test_two_runs_never_share_an_entry_even_named_alike(self) -> None:
+        # The failure this guards: keying on a run's id instead of the run.
+        # Two runs a caller named the same would answer with each other's mesh,
+        # and the figure would be silently wrong rather than slow.
+        from hydromodpy.display.figures._memo import RunMemo
+
+        memo = RunMemo()
+
+        class _Run:
+            sim_id = "same-name"
+
+        first = memo.get_or_build(_Run(), ("a",), object)
+        second = memo.get_or_build(_Run(), ("a",), object)
+
+        assert first is not second
+
+    def test_a_run_that_cannot_be_weakly_referenced_is_simply_not_cached(self) -> None:
+        # A speed difference, never an answer difference.
+        from types import SimpleNamespace
+
+        from hydromodpy.display.figures._memo import RunMemo
+
+        memo = RunMemo()
+        run = SimpleNamespace(sim_id="stub")
+        sentinel = object()
+
+        assert memo.get_or_build(run, ("a",), lambda: sentinel) is sentinel
+        assert memo.get_or_build(run, ("a",), lambda: sentinel) is sentinel

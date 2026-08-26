@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 
 from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
+from hydromodpy.display.figures._memo import RunMemo
 from hydromodpy.results.derive.stream_network import (
     AGREEMENT_EXCESS,
     AGREEMENT_MISSING,
@@ -124,6 +125,9 @@ here would turn it into a silently degraded figure.
 _WATERSHED_FEATURE = "watershed"
 
 
+_COMPARISON_MEMO = RunMemo()
+
+
 def comparison_from_run(
     sim: Run,
     *,
@@ -136,14 +140,23 @@ def comparison_from_run(
     A knob left as None keeps the default of the criterion rather than
     repeating it here: a threshold declared twice is a map that drifts from the
     numbers it illustrates.
+
+    The result is memoised on the run object and the knobs. Four figures of one
+    gallery ask for the same comparison, and each rebuild runs a priority flood
+    plus two distance passes over the whole mesh: on the Nancon at 25 m that is
+    345 260 cells flooded four times for one identical answer.
     """
     named = {
         "tau_specific_ratio": tau_specific_ratio,
         "diagonal_neighbors": diagonal_neighbors,
         "timestep": timestep,
     }
-    return network_comparison_from_run(
-        sim, **{key: value for key, value in named.items() if value is not None}
+    return _COMPARISON_MEMO.get_or_build(
+        sim,
+        (tau_specific_ratio, diagonal_neighbors, timestep),
+        lambda: network_comparison_from_run(
+            sim, **{key: value for key, value in named.items() if value is not None}
+        ),
     )
 
 
