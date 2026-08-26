@@ -115,12 +115,30 @@ def _topography(sim_zarr: SimulationZarr, n_cells: int) -> np.ndarray | None:
 
 
 def _cell_area(sim_zarr: SimulationZarr, n_cells: int) -> np.ndarray | None:
+    """Per-cell area, computed from the mesh geometry the run persisted.
+
+    A run stores its vertices and its face-node connectivity, never an area
+    array: asking for ``mesh/cell_area`` made ``fluxes_from_budget`` skip on
+    every backend, since nothing has ever written it. The polygons are the
+    same ones every other reader rebuilds, so the areas agree cell for cell
+    with what the solver was given.
+    """
+    from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
+
     mesh = sim_zarr.root.get("mesh")
-    if mesh is None:
+    if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
         return None
-    if "cell_area" in mesh:
-        return np.asarray(mesh["cell_area"][:], dtype="float64").ravel()[:n_cells]
-    return None
+    polygons = cell_polygons(
+        np.asarray(mesh["vertices"][:], dtype="float64"),
+        np.asarray(mesh["face_node_connectivity"][:]),
+    )
+    areas = np.array(
+        [0.0 if polygon is None else float(polygon.area) for polygon in polygons],
+        dtype="float64",
+    )
+    if areas.size < n_cells or not np.any(areas > 0.0):
+        return None
+    return areas[:n_cells]
 
 
 def _head_shape(sim_zarr: SimulationZarr) -> tuple[int, int, int]:
@@ -290,7 +308,7 @@ def _run_fluxes_from_budget(sim_zarr: SimulationZarr) -> DerivedResult:
         return DerivedResult(
             name="fluxes_from_budget",
             status="skipped",
-            reason="mesh/cell_area unavailable",
+            reason="cell area unavailable: the run persisted no mesh geometry to derive it from",
         )
     # Pick the first scalar-like budget component available (the pure
     # helper operates component-by-component). Most simulations record a
