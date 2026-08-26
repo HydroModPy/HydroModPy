@@ -22,6 +22,7 @@ from hydromodpy.display.colormaps import get_cmap
 from hydromodpy.display.figure import FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._scalar_face_map import ScalarFaceMap
+from hydromodpy.display.legend_placement import place_legend
 from hydromodpy.display.map_axes import style_relative_km_axes
 from hydromodpy.display.overlays import apply_overlays
 from hydromodpy.display.ugrid import last_timestep, render_face_field
@@ -140,7 +141,7 @@ class AccumulationMap(ScalarFaceMap):
                 )
             )
         if handles:
-            ax.legend(handles=handles, loc="best", fontsize=9, framealpha=0.9)
+            place_legend(ax, handles=handles, fontsize=9, framealpha=0.9)
         return ax
 
 

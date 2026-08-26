@@ -833,3 +833,67 @@ class TestTheHeavyRebuildIsShared:
 
         assert memo.get_or_build(run, ("a",), lambda: sentinel) is sentinel
         assert memo.get_or_build(run, ("a",), lambda: sentinel) is sentinel
+
+
+class TestTheLegendDoesNotSearchOnADenseMap:
+    """``loc="best"`` scores every candidate corner against every artist.
+
+    Measured on the Nancon at 25 m, one legend entry over a 243 552-polygon
+    collection took 99.3 s to place against 1.1 s pinned. It was the single
+    largest cost of the gallery, larger than the solve.
+    """
+
+    def _axes(self, n_paths: int):
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import numpy as np
+        from matplotlib.collections import PolyCollection
+        from matplotlib.figure import Figure
+
+        ax = Figure().subplots()
+        squares = [
+            np.array([[i, 0.0], [i + 1.0, 0.0], [i + 1.0, 1.0], [i, 1.0]]) for i in range(n_paths)
+        ]
+        ax.add_collection(PolyCollection(squares))
+        ax.plot([0, 1], [0, 1], label="something")
+        return ax
+
+    def test_a_collection_counts_for_its_paths_and_not_for_one(self) -> None:
+        from hydromodpy.display.legend_placement import axes_element_count
+
+        assert axes_element_count(self._axes(500)) >= 500
+
+    def test_a_light_axes_still_gets_the_placed_legend(self) -> None:
+        from hydromodpy.display.legend_placement import LEGEND_PLACEMENT, place_legend
+
+        ax = self._axes(10)
+        assert len(ax.collections[0].get_paths()) < LEGEND_PLACEMENT.best_placement_limit
+        legend = place_legend(ax)
+        assert legend is not None
+        assert legend._loc == 0  # matplotlib's code for "best"
+
+    def test_a_dense_axes_gets_a_pinned_legend(self) -> None:
+        from hydromodpy.display.legend_placement import LEGEND_PLACEMENT, place_legend
+
+        ax = self._axes(LEGEND_PLACEMENT.best_placement_limit + 1)
+        legend = place_legend(ax)
+        assert legend is not None
+        assert legend._loc != 0
+
+    def test_an_axes_with_nothing_to_show_gets_no_legend(self) -> None:
+        import matplotlib
+        from matplotlib.figure import Figure
+
+        from hydromodpy.display.legend_placement import place_legend
+
+        matplotlib.use("Agg")
+        assert place_legend(Figure().subplots()) is None
+
+    def test_an_explicit_location_is_never_overridden(self) -> None:
+        from hydromodpy.display.legend_placement import LEGEND_PLACEMENT, place_legend
+
+        ax = self._axes(LEGEND_PLACEMENT.best_placement_limit + 1)
+        legend = place_legend(ax, loc="lower left")
+        assert legend is not None
+        assert legend._loc == 3  # matplotlib's code for "lower left"

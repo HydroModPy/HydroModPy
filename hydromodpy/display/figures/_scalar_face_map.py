@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, ClassVar
 import numpy as np
 
 from hydromodpy.display.figure import BaseFigure
+from hydromodpy.display.legend_placement import place_legend
 from hydromodpy.display.map_axes import style_relative_km_axes
 from hydromodpy.display.overlays import apply_overlays
 from hydromodpy.display.ugrid import last_timestep, render_face_field
@@ -106,7 +107,7 @@ class ScalarFaceMap(BaseFigure):
         ax.set_title(self.title(sim, timestep=step))
         handles, _labels = ax.get_legend_handles_labels()
         if handles:
-            ax.legend(loc="best", fontsize=8, framealpha=0.9)
+            place_legend(ax, fontsize=8, framealpha=0.9)
         return ax
 
 

@@ -14,8 +14,8 @@ import numpy as np
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.display.overview.summary import OverviewSummary
-
+from hydromodpy.display.legend_placement import place_legend
+from hydromodpy.display.overview.summary import OverviewSummary
 
 _FONT_SCALE = 1.25
 
@@ -399,7 +399,7 @@ def render_timeseries_multi(
     ax.tick_params(labelsize=_font(7))
     legend_entries = plotted + (len(hlines) if hlines else 0)
     if 0 < legend_entries <= 12:
-        ax.legend(fontsize=_font(6), loc="best", ncol=min(3, legend_entries))
+        place_legend(ax, fontsize=_font(6), ncol=min(3, legend_entries))
     if plotted == 0:
         ax.text(
             0.5,
@@ -477,7 +477,7 @@ def render_intermittency(
     ax.grid(True, ls=":", lw=0.4, alpha=0.6)
     ax.tick_params(axis="x", labelsize=_font(7))
     if 0 < plotted <= 10:
-        ax.legend(fontsize=_font(6), loc="best", ncol=min(3, plotted))
+        place_legend(ax, fontsize=_font(6), ncol=min(3, plotted))
     if plotted == 0:
         ax.text(
             0.5,
@@ -553,7 +553,7 @@ def render_water_quality(
     ax.grid(True, ls=":", lw=0.4, alpha=0.6)
     ax.tick_params(labelsize=_font(7))
     if 0 < plotted <= 10:
-        ax.legend(fontsize=_font(6), loc="best", ncol=min(2, plotted))
+        place_legend(ax, fontsize=_font(6), ncol=min(2, plotted))
     if plotted == 0:
         ax.text(
             0.5,
@@ -608,7 +608,7 @@ def render_climatic_summary(
     ax.grid(True, ls=":", lw=0.4, axis="y", alpha=0.6)
     ax.tick_params(labelsize=_font(7))
     if plotted > 0:
-        ax.legend(fontsize=_font(7), loc="best")
+        place_legend(ax, fontsize=_font(7))
     else:
         ax.text(
             0.5,

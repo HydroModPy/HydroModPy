@@ -41,6 +41,7 @@ from hydromodpy.display.figures._stream_comparison import (
     class_label,
 )
 from hydromodpy.display.figures._trial_diagnostics import TrialTable, trial_table
+from hydromodpy.display.legend_placement import place_legend
 from hydromodpy.results.calibration_trials import calibration_trials
 
 if TYPE_CHECKING:
@@ -279,7 +280,7 @@ class AbherveTwoStageCard(BaseFigure):
             else "mean recharge not declared: the ratio is not a conductivity"
         )
         _say(ax, "\n".join(lines), xy=(0.5, 0.06), va="bottom")
-        ax.legend(loc="best", fontsize=8, framealpha=0.9)
+        place_legend(ax, fontsize=8, framealpha=0.9)
 
     def _draw_storage(
         self,
@@ -339,7 +340,7 @@ class AbherveTwoStageCard(BaseFigure):
             lines.append(f"{fit.n_failed} of {fit.values.size} trials failed")
         _clear_bottom(ax)
         _say(ax, "\n".join(lines), xy=(0.5, 0.04), va="bottom")
-        ax.legend(loc="best", fontsize=8, framealpha=0.9)
+        place_legend(ax, fontsize=8, framealpha=0.9)
 
     def _draw_validity(
         self,

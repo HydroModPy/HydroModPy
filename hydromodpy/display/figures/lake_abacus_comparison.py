@@ -17,6 +17,7 @@ import numpy as np
 from hydromodpy.core.metrics import nse, rmse
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.legend_placement import place_legend
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -101,7 +102,7 @@ def plot_lake_abacus_comparison(
     ax_v.set_xlabel(f"Stage [{stage_unit}]")
     ax_v.set_ylabel(f"Volume [{volume_unit}]")
     ax_v.set_title(title or f"Lake abacus - {lake_id}")
-    ax_v.legend(fontsize=9, loc="best")
+    place_legend(ax_v, fontsize=9)
     ax_v.grid(alpha=0.3)
     if metrics:
         text = (
@@ -136,7 +137,7 @@ def plot_lake_abacus_comparison(
     ax_a.set_xlabel(f"Stage [{stage_unit}]")
     ax_a.set_ylabel(f"Wetted area [{area_unit}]")
     ax_a.set_title("Stage - area")
-    ax_a.legend(fontsize=9, loc="best")
+    place_legend(ax_a, fontsize=9)
     ax_a.grid(alpha=0.3)
 
     fig.tight_layout()

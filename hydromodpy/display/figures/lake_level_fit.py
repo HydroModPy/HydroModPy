@@ -14,6 +14,7 @@ from pathlib import Path
 import pandas as pd
 
 from hydromodpy.core.metrics import bias, correlation, mae, nse, rmse
+from hydromodpy.display.legend_placement import place_legend
 from hydromodpy.results.derive.time_alignment import (
     align_observed_simulated,
     normalize_datetime_series,
@@ -86,7 +87,7 @@ def plot_lake_level_fit(
     ax_ts.set_ylabel(f"Lake level [{unit}]")
     ax_ts.set_title(title or f"Lake level fit - {lake_id}")
     ax_ts.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
-    ax_ts.legend(fontsize=9, loc="best")
+    place_legend(ax_ts, fontsize=9)
     ax_ts.grid(alpha=0.3)
     if metrics:
         text = (
