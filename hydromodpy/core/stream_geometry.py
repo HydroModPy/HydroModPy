@@ -26,6 +26,7 @@ from hydromodpy.core.field_routing import (
     cell_adjacency_from_face_connectivity,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.core.stream_network import (
     SimulatedNetwork,
     downstream_closure,
@@ -168,6 +169,9 @@ def build_network_geometry(
     delineated_catchment: np.ndarray | None = None,
     diagonal_neighbors: bool = False,
     observed_position_accuracy_m: float | None = None,
+    alpha_warning_threshold: float = STREAM_CRITERION_DEFAULTS.alpha_warning_threshold,
+    clipping_warning_share: float = STREAM_CRITERION_DEFAULTS.clipping_warning_share,
+    clipping_warning_gap: float = STREAM_CRITERION_DEFAULTS.clipping_warning_gap,
 ) -> NetworkGeometry:
     """Assemble the static geometry of the criterion from mesh primitives.
 
@@ -179,6 +183,15 @@ def build_network_geometry(
     Voronoi dual that is the generator seed, not the polygon centroid the
     vertices give back, and routing on one while measuring the drop on the
     other builds the slope out of two different segments.
+
+    The three thresholds decide only what is LOGGED, never what is computed:
+    ``alpha_warning_threshold`` is the agreement below which the distances are
+    said to carry a top-versus-map disagreement, and the two ``clipping_``
+    values are the share of mapped cells outside the catchment and the gap
+    between the two ratios above which that clipping is worth reporting. Their
+    defaults come from :data:`STREAM_CRITERION_DEFAULTS`, the one Pydantic
+    object the calibration output and the redrawn figures also read, so a
+    threshold is never written twice.
     """
     surface = np.asarray(topography, dtype=float).reshape(-1)
     inactive = (
@@ -333,7 +346,11 @@ def build_network_geometry(
     # Only when the clipping MOVES the number. A linework spilling out of the
     # catchment over ground that routes the same way leaves the two ratios
     # equal, and a warning there would be noise on every ordinary project.
-    if np.isfinite(gap) and outside > 0.10 and gap > 0.05:
+    if (
+        np.isfinite(gap)
+        and outside > float(clipping_warning_share)
+        and gap > float(clipping_warning_gap)
+    ):
         logger.warning(
             "%.0f%% of the mapped stream cells sit outside the delineated catchment, and "
             "that alone moves the ratio by %.3f: alpha_obs_closure = %.3f on the mesh "
@@ -346,16 +363,17 @@ def build_network_geometry(
             alpha,
             alpha_catchment,
         )
-    if np.isfinite(alpha_catchment) and alpha_catchment < 0.90:
+    if np.isfinite(alpha_catchment) and alpha_catchment < float(alpha_warning_threshold):
         logger.warning(
             "The mapped stream network agrees poorly with the MODEL TOP: "
-            "alpha_obs_closure_catchment = %.3f. Below 0.90 a large share of the D8 trace "
+            "alpha_obs_closure_catchment = %.3f, below %.2f. A large share of the D8 trace "
             "leaving the mapped cells falls outside the network, so the distances carry a "
             "top-versus-map disagreement on top of the hydrogeology. This is NOT evidence "
             "the routing DEM was left unburned: the criterion descends the raw top by "
             "design, never the burned surface, so read this beside the alpha the geographic "
             "step reports and expect the two to differ.",
             alpha_catchment,
+            float(alpha_warning_threshold),
         )
 
     areas = np.asarray(cell_area_m2, dtype=float).reshape(-1)

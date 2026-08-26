@@ -30,10 +30,6 @@ from hydromodpy.spatial.geographic.core.stream_enforcement import streams_from_c
 
 logger = get_logger(__name__)
 
-# Below this agreement the mapped network and the DEM disagree enough that any
-# length measured along the computed flow paths reports that disagreement.
-_ALPHA_WARNING_THRESHOLD = 0.90
-
 
 @dataclass(frozen=True)
 class NetworkDemAgreement:
@@ -134,7 +130,7 @@ def report_network_dem_agreement(
         agreement.alpha,
         "on" if burned else "off",
     )
-    if agreement.alpha < _ALPHA_WARNING_THRESHOLD:
+    if agreement.alpha < float(enforce.alpha_warning_threshold):
         logger.warning(
             "Stream/DEM agreement is low (alpha %.3f): following D8 from the mapped "
             "network leaves it almost at once, so any length measured along those "

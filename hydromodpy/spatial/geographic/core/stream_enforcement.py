@@ -61,9 +61,12 @@ def burn_streams_into_routing_dem(
     dem_in_path: str | Path,
     dem_out_path: str | Path,
     stream_lines: list,
-    mode: str = "constant",
-    depth_m: float = 30.0,
-    adaptive_percentile: float = 95.0,
+    mode: str,
+    depth_m: float,
+    adaptive_percentile: float,
+    relief_report_percentile: float,
+    all_touched: bool,
+    nodata_fallback: float,
 ) -> StreamEnforcementReport:
     """Write a routing DEM with the mapped stream network cut into it.
 
@@ -83,6 +86,14 @@ def burn_streams_into_routing_dem(
         Trench depth in metres, used by ``mode="constant"``.
     adaptive_percentile:
         Percentile of the local relief used by ``mode="adaptive"``.
+    relief_report_percentile:
+        Percentile of the local relief the report carries and the depth is judged
+        against, whatever the mode.
+    all_touched:
+        Burn every cell a reach crosses rather than only those whose centre falls
+        under the line.
+    nodata_fallback:
+        Nodata value assumed when the DEM header declares none.
 
     A single depth is applied over the whole network, never a per-cell one: a
     depth that varies along a reach rewrites its own downstream gradient, which
@@ -97,7 +108,7 @@ def burn_streams_into_routing_dem(
         dem = src.read(1).astype("float32")
         transform = src.transform
         profile = src.profile
-        nodata = float(src.nodata) if src.nodata is not None else -9999.0
+        nodata = float(src.nodata) if src.nodata is not None else float(nodata_fallback)
 
     valid = dem != nodata
     lines = [g for g in stream_lines if g is not None and not g.is_empty]
@@ -110,7 +121,7 @@ def burn_streams_into_routing_dem(
             out_shape=dem.shape,
             transform=transform,
             fill=0,
-            all_touched=True,  # a one-cell-wide trace must capture every cell it crosses
+            all_touched=bool(all_touched),
             dtype="uint8",
         ).astype(bool)
         & valid
@@ -122,7 +133,8 @@ def burn_streams_into_routing_dem(
         )
 
     relief = _local_relief_along_streams(dem, stream_mask, valid)
-    relief_p95 = float(np.percentile(relief, 95.0)) if relief.size else 0.0
+    report_percentile = float(relief_report_percentile)
+    relief_p95 = float(np.percentile(relief, report_percentile)) if relief.size else 0.0
     relief_max = float(relief.max()) if relief.size else 0.0
 
     if mode == "adaptive":
@@ -156,9 +168,10 @@ def burn_streams_into_routing_dem(
     )
     if depth < relief_p95:
         logger.warning(
-            "Stream burn: %.1f m is shallower than the 95th percentile of the local relief "
+            "Stream burn: %.1f m is shallower than the %.0fth percentile of the local relief "
             "along the network (%.1f m), so the trench will not hold the flow everywhere.",
             depth,
+            report_percentile,
             relief_p95,
         )
     logger.info(
@@ -231,6 +244,9 @@ def burned_dem_from_config(config: object, setup: object) -> str:
         mode=str(enforce.mode),
         depth_m=float(enforce.depth_m),
         adaptive_percentile=float(enforce.adaptive_percentile),
+        relief_report_percentile=float(enforce.relief_report_percentile),
+        all_touched=bool(enforce.rasterize_all_touched),
+        nodata_fallback=float(enforce.dem_nodata_fallback),
     )
     return out_path
 

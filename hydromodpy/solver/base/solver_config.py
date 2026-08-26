@@ -122,6 +122,19 @@ class SolverConfig(HydroModelBase):
         ),
         examples=[False, True],
     )
+    drain_conductance_floor_m2_s: Annotated[float, Profile.EXPERT] = Field(
+        default=1e-12,
+        gt=0.0,
+        description=(
+            "m2/s. Floor applied to every DRN conductance, whether declared or "
+            "derived from hk. It exists for degenerate cells only, a zero-thickness "
+            "or zero-conductivity cell whose formula would divide by zero or emit a "
+            "zero-conductance drain MODFLOW reads as absent. It is not a physical "
+            "choice and moving it does not tune anything: a real conductance on a "
+            "real cell is many orders of magnitude above it. Raise it only to make "
+            "a degenerate mesh audible."
+        ),
+    )
     drain_band_depth_m: Annotated[float, Profile.USER] = Field(
         default=0.0,
         description=(

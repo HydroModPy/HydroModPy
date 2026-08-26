@@ -129,6 +129,9 @@ def geometry_from_run(run_ctx: Any, output: CalibOutputNetwork) -> NetworkGeomet
         delineated_catchment=delineated_catchment_mask(run_ctx, planar_mesh, connectivity),
         diagonal_neighbors=bool(output.diagonal_neighbors),
         observed_position_accuracy_m=_accuracy_in_m(output),
+        alpha_warning_threshold=float(output.alpha_warning_threshold),
+        clipping_warning_share=float(output.clipping_warning_share),
+        clipping_warning_gap=float(output.clipping_warning_gap),
     )
 
 

@@ -131,6 +131,9 @@ def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) ->
             box=bool(getattr(model.preprocess_options, "box", True)),
             sink_fill=bool(getattr(model.preprocess_options, "sink_fill", False)),
             drain_band_depth_m=float(getattr(model.preprocess_options, "drain_band_depth_m", 0.0)),
+            drain_conductance_floor_m2_s=float(
+                getattr(model.preprocess_options, "drain_conductance_floor_m2_s", 1e-12)
+            ),
             check_grid=bool(getattr(model.preprocess_options, "check_grid", True)),
             time_grid=single_period_mean_forcing_time_grid(getattr(model, "time_grid", None)),
         ),

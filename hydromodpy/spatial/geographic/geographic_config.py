@@ -407,6 +407,50 @@ class StreamEnforcementConfig(HydroModelBase):
             "depth when mode='adaptive'."
         ),
     )
+    relief_report_percentile: Annotated[float, Profile.EXPERT] = Field(
+        default=95.0,
+        ge=50.0,
+        le=100.0,
+        description=(
+            "Percentile of the local relief along the network reported in the burn "
+            "report and compared to the depth actually used, whatever the mode. It "
+            "is the drop a constant trench must clear to keep the flow on the mapped "
+            "network, so a depth below it warns. Independent of "
+            "adaptive_percentile, which SETS the depth; this one only JUDGES it."
+        ),
+    )
+    rasterize_all_touched: Annotated[bool, Profile.EXPERT] = Field(
+        default=True,
+        description=(
+            "Rasterize the network with the all-touched rule, so every cell a reach "
+            "crosses is burned and not only those whose centre falls under the line. "
+            "A one-cell-wide trace that skips a cell leaves a step the flow escapes "
+            "through, which is what the trench exists to prevent. False uses the "
+            "centre rule and is only there to reproduce a raster written that way."
+        ),
+    )
+    dem_nodata_fallback: Annotated[float, Profile.EXPERT] = Field(
+        default=-9999.0,
+        description=(
+            "Nodata value assumed when the DEM to burn declares none in its header. "
+            "It decides which cells are excluded from the burn and from the relief "
+            "measurement, so a raster using another sentinel must say so here."
+        ),
+    )
+    alpha_warning_threshold: Annotated[float, Profile.EXPERT] = Field(
+        default=0.90,
+        gt=0.0,
+        le=1.0,
+        description=(
+            "Below this agreement between the mapped network and the D8 paths of the "
+            "routing DEM, a warning fires. alpha is the share of the downstream "
+            "closure of the network that the network itself covers: 1.00 means the "
+            "computed paths never leave the map, 0.50 is the signature of a "
+            "systematic one-pixel shift. Below the threshold, any length measured "
+            "along those paths reports a DEM-versus-map disagreement rather than "
+            "hydrogeology."
+        ),
+    )
     max_catchment_area_drift: Annotated[float, Profile.USER] = Field(
         default=0.05,
         ge=0.0,

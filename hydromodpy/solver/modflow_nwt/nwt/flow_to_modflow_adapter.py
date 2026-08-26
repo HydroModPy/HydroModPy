@@ -125,6 +125,7 @@ class FlowToModflowAdapter:
         sink_fill: bool,
         sink: np.ndarray | None = None,
         drain_band_depth_m: float = 0.0,
+        drain_conductance_floor_m2_s: float = 1e-12,
         flow_runtime_overrides: Mapping[str, object] | None = None,
     ):
         """Store adaptation context and normalize primitive arrays/scalars."""
@@ -157,6 +158,7 @@ class FlowToModflowAdapter:
         self.sink_fill = bool(sink_fill)
         self.sink = None if sink is None else _sink_mask_on_grid(solver_mesh, sink)
         self.drain_band_depth_m = float(drain_band_depth_m)
+        self.drain_conductance_floor_m2_s = float(drain_conductance_floor_m2_s)
         self.inactive_mask = solver_mesh.reshape_to_grid(solver_mesh.inactive_mask[0])
         self.flow_runtime_overrides = (
             None if flow_runtime_overrides is None else dict(flow_runtime_overrides)

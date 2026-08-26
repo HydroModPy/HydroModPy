@@ -1047,6 +1047,42 @@
           "type": "number",
           "x-hmp-profile": "user"
         },
+        "alpha_warning_threshold": {
+          "default": 0.9,
+          "description": "Below this value of 'alpha_obs_closure_catchment' the run warns that its distances carry a top-versus-map disagreement on top of the hydrogeology. alpha is the share of the downstream closure of the mapped network the network itself covers, measured on the MODEL TOP and on the catchment. It changes nothing that is computed: the criterion is scored the same way above and below it.",
+          "examples": [
+            0.9
+          ],
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "Alpha Warning Threshold",
+          "type": "number",
+          "x-hmp-profile": "expert"
+        },
+        "clipping_warning_share": {
+          "default": 0.1,
+          "description": "Share of the mapped stream cells lying outside the delineated catchment above which the whole-mesh alpha is reported as unreadable. Those reaches trace through the buffer, where no cell is required to descend into the network, so they inflate the closure without adding to the numerator. Reported together with clipping_warning_gap, never alone.",
+          "examples": [
+            0.1
+          ],
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Clipping Warning Share",
+          "type": "number",
+          "x-hmp-profile": "expert"
+        },
+        "clipping_warning_gap": {
+          "default": 0.05,
+          "description": "Minimum absolute gap between the whole-mesh and the catchment alpha for the clipping report to fire. A linework spilling out of the catchment over ground that routes the same way leaves the two ratios equal, and reporting it there would be noise on every ordinary project.",
+          "examples": [
+            0.05
+          ],
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Clipping Warning Gap",
+          "type": "number",
+          "x-hmp-profile": "expert"
+        },
         "time": {
           "anyOf": [
             {
@@ -19342,6 +19378,17 @@
           "type": "boolean",
           "x-hmp-profile": "user"
         },
+        "drain_conductance_floor_m2_s": {
+          "default": 1e-12,
+          "description": "m2/s. Floor applied to every DRN conductance, whether declared or derived from hk. It exists for degenerate cells only, a zero-thickness or zero-conductivity cell whose formula would divide by zero or emit a zero-conductance drain MODFLOW reads as absent. It is not a physical choice and moving it does not tune anything: a real conductance on a real cell is many orders of magnitude above it. Raise it only to make a degenerate mesh audible.",
+          "examples": [
+            1e-12
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Drain Conductance Floor M2 S",
+          "type": "number",
+          "x-hmp-profile": "expert"
+        },
         "drain_band_depth_m": {
           "default": 0.0,
           "description": "Metres. Depth D of the sub-cell discharge band every drain cell gets instead of a single elevation: the drain sits at top - D/2 and its conductance is multiplied by top_layer_thickness / D. The multiplier is the thickness and not the cell area because the conductance it scales is already Kv*A/b, so scaling by b/D gives Kv*A/D, which is CDRN exactly; scaling by A/D would give an m3/s where a conductance is m2/s, too high by A/b. The cell therefore starts discharging before the head reaches its mean elevation, and discharges harder the higher the head climbs into the band. This answers the one question the USGS documents about a model top, that the land inside a cell is not flat: UZF1 exposes the same depth as SURFDEP, 'the average undulation depth within a finite-difference cell', and MODFLOW 6 carries it into DRN as DDRN, with HDRN = land surface - DDRN/2 and CDRN = Kv*A/DDRN. MODFLOW 6 solves its DDRN band with a smooth (linear then cubic) curve; the option here is the piecewise equivalent of the same idea, applied identically by both MODFLOW backends, so a later switch to the native smooth form is a documented refinement and not a surprise. It does NOT move the topography: no elevation is raised, no DEM is rewritten, and every other package sees the surface it would have seen. The seepage criterion is the one reader that cannot: a banded cell discharges at top - D/2 and never climbs back to top, so the mask follows the band and the run persists D in its store for every figure drawn afterwards. It classifies no cell: every drain cell gets the same band, so nothing has to be sorted into artefact and real. Pick D the way Feinstein et al. 2020 (Groundwater 58:524-534, doi:10.1111/gwat.12931) do, from the standard deviation of the fine land-surface elevations inside a cell; they obtain 0.61 m. Mutually exclusive with solver.sink_fill, which answers the same question by removing drains instead. Default 0.0: one elevation per drain, unchanged from every earlier run.",
@@ -19898,6 +19945,50 @@
           "title": "Adaptive Percentile",
           "type": "number",
           "x-hmp-profile": "user"
+        },
+        "relief_report_percentile": {
+          "default": 95.0,
+          "description": "Percentile of the local relief along the network reported in the burn report and compared to the depth actually used, whatever the mode. It is the drop a constant trench must clear to keep the flow on the mapped network, so a depth below it warns. Independent of adaptive_percentile, which SETS the depth; this one only JUDGES it.",
+          "examples": [
+            95.0
+          ],
+          "maximum": 100.0,
+          "minimum": 50.0,
+          "title": "Relief Report Percentile",
+          "type": "number",
+          "x-hmp-profile": "expert"
+        },
+        "rasterize_all_touched": {
+          "default": true,
+          "description": "Rasterize the network with the all-touched rule, so every cell a reach crosses is burned and not only those whose centre falls under the line. A one-cell-wide trace that skips a cell leaves a step the flow escapes through, which is what the trench exists to prevent. False uses the centre rule and is only there to reproduce a raster written that way.",
+          "examples": [
+            true
+          ],
+          "title": "Rasterize All Touched",
+          "type": "boolean",
+          "x-hmp-profile": "expert"
+        },
+        "dem_nodata_fallback": {
+          "default": -9999.0,
+          "description": "Nodata value assumed when the DEM to burn declares none in its header. It decides which cells are excluded from the burn and from the relief measurement, so a raster using another sentinel must say so here.",
+          "examples": [
+            -9999.0
+          ],
+          "title": "Dem Nodata Fallback",
+          "type": "number",
+          "x-hmp-profile": "expert"
+        },
+        "alpha_warning_threshold": {
+          "default": 0.9,
+          "description": "Below this agreement between the mapped network and the D8 paths of the routing DEM, a warning fires. alpha is the share of the downstream closure of the network that the network itself covers: 1.00 means the computed paths never leave the map, 0.50 is the signature of a systematic one-pixel shift. Below the threshold, any length measured along those paths reports a DEM-versus-map disagreement rather than hydrogeology.",
+          "examples": [
+            0.9
+          ],
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "Alpha Warning Threshold",
+          "type": "number",
+          "x-hmp-profile": "expert"
         },
         "max_catchment_area_drift": {
           "default": 0.05,
