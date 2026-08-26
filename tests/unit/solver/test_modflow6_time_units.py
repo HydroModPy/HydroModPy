@@ -231,7 +231,7 @@ def test_mf6_calibration_discharge_reads_time_unit_from_tdis(tmp_path, monkeypat
     (tmp_path / "flow_gwf.tdis").write_text(
         "BEGIN OPTIONS\n  TIME_UNITS DAYS\nEND OPTIONS\n", encoding="utf-8"
     )
-    series = cal.extract_discharge_from_cbc(tmp_path, "flow")
+    series = cal.extract_discharge_from_cbc(tmp_path, "flow", catchment_mask=np.ones(3, dtype=bool))
     assert float(series.iloc[0]) == pytest.approx(1.0)
 
 
@@ -242,7 +242,7 @@ def test_mf6_calibration_tdis_takes_precedence_over_dis(tmp_path, monkeypatch) -
         "BEGIN OPTIONS\n  TIME_UNITS DAYS\nEND OPTIONS\n", encoding="utf-8"
     )
     (tmp_path / "flow.dis").write_text("1 1 1\n1 1\n", encoding="utf-8")
-    series = cal.extract_discharge_from_cbc(tmp_path, "flow")
+    series = cal.extract_discharge_from_cbc(tmp_path, "flow", catchment_mask=np.ones(3, dtype=bool))
     assert float(series.iloc[0]) == pytest.approx(1.0)
 
 
@@ -273,7 +273,9 @@ def test_nwt_calibration_discharge_still_uses_dis_itmuni(tmp_path, monkeypatch) 
             pass
 
     monkeypatch.setattr("flopy.utils.binaryfile.CellBudgetFile", _FakeCBC, raising=True)
-    series = cal.extract_discharge_from_cbc(tmp_path, "model")
+    series = cal.extract_discharge_from_cbc(
+        tmp_path, "model", catchment_mask=np.ones(3, dtype=bool)
+    )
     assert float(series.iloc[0]) == pytest.approx(1.0)
 
 
@@ -361,3 +363,49 @@ def test_mf6_transient_recharge_reads_back_m3_per_s(tmp_path) -> None:
 
     # Storage exchanges water during the transient period (m3/s, non-zero).
     assert any(abs(r["storage_in"]) + abs(r["storage_out"]) > 0.0 for r in store.mass)
+
+
+class TestTheDischargeSeriesIsTheCatchmentAndNotTheDomain:
+    """A gauge closes a catchment. A buffered model domain is not one.
+
+    Measured on the Nancon at 25 m on MODFLOW 6: 152.2 km2 of domain against
+    64.6 km2 of catchment, 2.119 m3/s of drain outflow against 0.888 m3/s
+    inside the basin. Scored unmasked, every discharge metric would be computed
+    on 2.4 times the water the gauge sees, and it would look healthy.
+    """
+
+    def test_only_the_masked_cells_are_summed(self, tmp_path, monkeypatch) -> None:
+        _write_drain_cbc_fixtures(tmp_path, monkeypatch)
+        (tmp_path / "flow_gwf.tdis").write_text(
+            "BEGIN OPTIONS\n  TIME_UNITS DAYS\nEND OPTIONS\n", encoding="utf-8"
+        )
+        # The fixture puts all the outflow on cell 0. Masking it out leaves zero.
+        whole = cal.extract_discharge_from_cbc(
+            tmp_path, "flow", catchment_mask=np.ones(3, dtype=bool)
+        )
+        without = cal.extract_discharge_from_cbc(
+            tmp_path, "flow", catchment_mask=np.array([False, True, True])
+        )
+
+        assert float(whole.iloc[0]) == pytest.approx(1.0)
+        assert float(without.iloc[0]) == pytest.approx(0.0)
+
+    def test_a_mask_of_the_wrong_size_is_refused_by_name(self, tmp_path, monkeypatch) -> None:
+        _write_drain_cbc_fixtures(tmp_path, monkeypatch)
+        (tmp_path / "flow_gwf.tdis").write_text(
+            "BEGIN OPTIONS\n  TIME_UNITS DAYS\nEND OPTIONS\n", encoding="utf-8"
+        )
+        with pytest.raises(ValueError, match="not built for the same mesh"):
+            cal.extract_discharge_from_cbc(tmp_path, "flow", catchment_mask=np.ones(7, dtype=bool))
+
+    def test_an_empty_mask_is_refused_before_the_file_is_opened(self, tmp_path) -> None:
+        with pytest.raises(ValueError, match="holds no cell"):
+            cal.extract_discharge_from_cbc(tmp_path, "flow", catchment_mask=np.zeros(3, dtype=bool))
+
+    def test_a_run_without_a_delineated_catchment_is_refused_by_name(self) -> None:
+
+        from hydromodpy.solver.modflow_common.catchment_support import catchment_cell_mask
+
+        model = SimpleNamespace(geographic=SimpleNamespace(watershed_shp=None), solver_mesh=None)
+        with pytest.raises(ValueError, match="which water the gauge closes on"):
+            catchment_cell_mask(model)
