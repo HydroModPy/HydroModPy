@@ -111,8 +111,17 @@ def extract_discharge_from_cbc(
     output_dir: Path,
     model_name: str,
     time_index: pd.DatetimeIndex | None = None,
+    *,
+    catchment_mask: np.ndarray,
 ) -> pd.Series:
-    """Sum the DRAIN budget component per timestep and return a m3/s series.
+    """Sum the DRAIN budget of the CATCHMENT per timestep, as a m3/s series.
+
+    ``catchment_mask`` is required, not optional. A gauge closes a catchment,
+    and a model domain is not one: on a buffered grid the same sum takes in the
+    neighbouring basins. Measured on the Nancon at 25 m, the domain carries
+    2.119 m3/s of drain outflow against 0.888 m3/s inside the basin, so an
+    unmasked series would be 2.4 times the water the gauge sees and every
+    discharge metric computed on it would be meaningless while looking healthy.
 
     Raises when no CBC file is found or no DRAIN component is recorded. Raises
     ``NotImplementedError`` when the run routes drainage through MVR (a DRN-TO-MVR
@@ -123,6 +132,9 @@ def extract_discharge_from_cbc(
     """
     import flopy.utils.binaryfile as bf
 
+    mask = np.asarray(catchment_mask, dtype=bool).reshape(-1)
+    if not mask.any():
+        raise ValueError("the catchment mask of a discharge observable holds no cell.")
     cbc_path = _resolve_cbc_path(output_dir, model_name)
     seconds_per_unit = _resolve_seconds_per_unit(output_dir, model_name)
 
@@ -149,7 +161,16 @@ def extract_discharge_from_cbc(
             if not data:
                 continue
             arr = np.asarray(data[0], dtype=float)
-            values[t] = float(np.abs(np.minimum(arr, 0.0)).sum())
+            outflow = np.abs(np.minimum(arr, 0.0))
+            # ``full3D`` gives a per-layer grid; the mask is one value per cell
+            # of the plan, so it applies to the flattened trailing axes.
+            flat = outflow.reshape(outflow.shape[0], -1) if outflow.ndim > 1 else outflow[None, :]
+            if flat.shape[1] != mask.size:
+                raise ValueError(
+                    f"the drain budget holds {flat.shape[1]} cells per layer and the "
+                    f"catchment mask {mask.size}; they were not built for the same mesh."
+                )
+            values[t] = float(flat[:, mask].sum())
     finally:
         cbb.close()
 

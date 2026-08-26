@@ -32,6 +32,7 @@ from hydromodpy.solver.modflow_common.calibration_extractors import (
     extract_release_flux_by_cell_from_cbc,
     extract_saturated_thickness_by_cell_from_hds,
 )
+from hydromodpy.solver.modflow_common.catchment_support import catchment_cell_mask
 
 StationCellMapper = Callable[[Mapping[str, tuple[int, int, int]]], dict[str, tuple[int, int, int]]]
 
@@ -204,7 +205,12 @@ def extract_common_modflow_observables(
     unserved = [r for r in requests if id(r) not in handled]
 
     if discharge_requests:
-        series = extract_discharge_from_cbc(output_dir, model_name, time_index)
+        series = extract_discharge_from_cbc(
+            output_dir,
+            model_name,
+            time_index,
+            catchment_mask=catchment_cell_mask(model),
+        )
         for request in discharge_requests:
             served[request.id] = series_observable(request, series, units=_DISCHARGE_UNITS)
 
