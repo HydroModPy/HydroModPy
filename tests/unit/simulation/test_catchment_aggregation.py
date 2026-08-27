@@ -707,7 +707,13 @@ class TestTheCatchmentSeriesUseTheCatchment:
         mesh.create_array("vertices", data=vertices)
         mesh.create_array("face_node_connectivity", data=connectivity)
         mesh.create_array("topography", data=np.full(n_cells, 10.0, dtype="float64"))
-        mesh.attrs["crs"] = "EPSG:2154"
+        # The frame goes where a run actually writes it: the CF grid-mapping
+        # scalar at the root, carrying crs_wkt. A fixture that put it on the
+        # mesh group instead stayed green while every real run failed to place
+        # the watershed, which is exactly what happened.
+        crs = root.create_array("crs", shape=(), dtype="int32")
+        crs.attrs["grid_mapping_name"] = "lambert_conformal_conic"
+        crs.attrs["crs_wkt"] = "EPSG:2154"
         return root
 
     def _store_with_watershed(self, geometry):
@@ -752,6 +758,26 @@ class TestTheCatchmentSeriesUseTheCatchment:
 
         assert mask is active
         assert "neighbouring basins" in " ".join(r.getMessage() for r in caplog.records)
+
+    def test_a_store_without_a_declared_frame_falls_back_and_says_so(self, caplog):
+        # The frame is never guessed: placed on the wrong one, the watershed
+        # lands somewhere else entirely and the series still look plausible.
+        from shapely.geometry import box
+
+        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+            _build_catchment_mask,
+        )
+
+        grp = self._grp(4)
+        del grp["crs"]
+        active = np.ones(4, dtype=bool)
+        with caplog.at_level("WARNING"):
+            mask = _build_catchment_mask(
+                self._store_with_watershed(box(-0.1, -0.1, 2.0, 1.1)), "sim", grp, active
+            )
+
+        assert mask is active
+        assert "declares no CRS" in " ".join(r.getMessage() for r in caplog.records)
 
     def test_a_watershed_that_lands_nowhere_falls_back_and_says_so(self, caplog):
         from shapely.geometry import box
