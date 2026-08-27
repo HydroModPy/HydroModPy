@@ -512,6 +512,16 @@ def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | Non
         np.asarray(mesh["face_node_connectivity"][:]),
     )
     crs = _mesh_crs(grp)
+    if crs is None:
+        # Never guessed: an overlay run on the wrong frame lands the catchment
+        # somewhere else entirely and the series would look plausible.
+        logger.warning(
+            "Catchment timeseries for sim %s: the store declares no CRS, so the "
+            "delineated watershed cannot be placed on the mesh and the '_catchment' "
+            "series stay on the whole active domain.",
+            sim_id,
+        )
+        return active
     mask = np.asarray(
         vector_cell_mask(
             polygons,
@@ -545,15 +555,22 @@ def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | Non
 
 
 def _mesh_crs(grp) -> str | None:
-    """CRS the mesh was written in, read from the store rather than assumed."""
-    for holder in (grp.get("mesh"), grp):
-        try:
-            value = holder.attrs.get("crs") or holder.attrs.get("crs_wkt")
-        except (AttributeError, TypeError):
-            continue
-        if value:
-            return str(value)
-    return None
+    """CRS the mesh was written in, read from the CF grid-mapping variable.
+
+    A run stores its frame once, as the ``crs`` scalar variable carrying
+    ``crs_wkt``, which is where every other reader looks. The mesh group holds
+    bare coordinates and no frame of its own, so reading it would always come
+    back empty and the catchment overlay would compare two different frames.
+    """
+    try:
+        node = grp["crs"]
+    except (KeyError, TypeError):
+        return None
+    try:
+        value = node.attrs.get("crs_wkt")
+    except (AttributeError, TypeError):
+        return None
+    return str(value) if value else None
 
 
 def _reduce(field: np.ndarray, mask: np.ndarray | None, reducer: str) -> float:
