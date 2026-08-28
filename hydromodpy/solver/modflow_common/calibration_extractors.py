@@ -150,34 +150,27 @@ def extract_discharge_from_cbc(
         drain_key = _find_drain_component(cbb)
 
         times = cbb.get_times()
-        kstpkpers = cbb.get_kstpkper()
         n_timesteps = len(times)
         values = np.zeros(n_timesteps, dtype=float)
-        # ONE sequential pass over the file-order record index, and no `full3D`.
-        # A per-record `get_data(text=, kstpkper=, totim=)` rebuilds a boolean
-        # mask of the whole index on every call, which is quadratic over a long
-        # chronicle; the budget extractor of the MODFLOW 6 backend already reads
-        # this way for that reason. `full3D` compounds it by expanding a list
+        # Read by POSITION, and without `full3D`. Passing `text=` and
+        # `kstpkper=` to `get_data` rebuilds a boolean mask over the whole
+        # record index on every call, which is quadratic over a long chronicle;
+        # `get_indices` builds that index ONCE and `get_record` then seeks
+        # straight to a record. `full3D` compounds the cost by expanding a list
         # package into a full (nlay, ncpl) grid per step, when the drain rows
         # only ever cover the cells that carry a drain.
-        timestep_of = {
-            (int(kstp) + 1, int(kper) + 1): t for t, (kstp, kper) in enumerate(kstpkpers)
-        }
-        target = drain_key.strip().lower()
-        seen: set[int] = set()
-        for idx, record in enumerate(cbb.records):
-            text = record.text.decode() if isinstance(record.text, bytes) else str(record.text)
-            if text.strip().lower() != target:
-                continue
-            t = timestep_of.get((int(record.kstp), int(record.kper)))
-            if t is None or t in seen:
-                continue
-            try:
-                arr = cbb.read_record(idx)
-            except Exception:
-                continue
-            seen.add(t)
-            values[t] = _drain_outflow_on_mask(arr, mask)
+        # `get_indices` hands back a numpy array, not a sequence: `or ()` on it
+        # raises "truth value of an array is ambiguous".
+        raw_indices = cbb.get_indices(text=drain_key)
+        indices = () if raw_indices is None else tuple(np.asarray(raw_indices).reshape(-1).tolist())
+        if len(indices) != n_timesteps:
+            raise ValueError(
+                f"the budget file holds {len(indices)} '{drain_key}' record(s) for "
+                f"{n_timesteps} timestep(s). The series is built by position, so an "
+                "uneven count would silently shift the hydrograph in time."
+            )
+        for t, idx in enumerate(indices):
+            values[t] = _drain_outflow_on_mask(cbb.get_record(int(idx)), mask)
     finally:
         cbb.close()
 
