@@ -13386,6 +13386,23 @@
     ]
   },
   {
+    "path": "solver.drain_bed_thickness_m",
+    "name": "drain_bed_thickness_m",
+    "type": "float",
+    "profile": "expert",
+    "stability": "stable",
+    "section": "solver",
+    "anchor": "solver-drain-bed-thickness-m",
+    "page": "solver.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L125",
+    "description": "Metres. Thickness of the drain BED in the fallback conductance C = K * cell_area / bed_thickness, used when no drainage conductance is declared. A drain bed is the clogging layer at the bottom of a watercourse, decimetres to a metre; it is ",
+    "examples": [
+      "1.0",
+      "0.5",
+      "0.1"
+    ]
+  },
+  {
     "path": "solver.drain_conductance_floor_m2_s",
     "name": "drain_conductance_floor_m2_s",
     "type": "float",
@@ -13394,7 +13411,7 @@
     "section": "solver",
     "anchor": "solver-drain-conductance-floor-m2-s",
     "page": "solver.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L125",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L147",
     "description": "m2/s. Floor applied to every DRN conductance, whether declared or derived from hk. It exists for degenerate cells only, a zero-thickness or zero-conductivity cell whose formula would divide by zero or emit a zero-conductance drain MODFLOW r"
   },
   {
@@ -13406,7 +13423,7 @@
     "section": "solver",
     "anchor": "solver-drain-band-depth-m",
     "page": "solver.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L138",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L160",
     "description": "Metres. Depth D of the sub-cell discharge band every drain cell gets instead of a single elevation: the drain sits at top - D/2 and its conductance is multiplied by top_layer_thickness / D. The multiplier is the thickness and not the cell a",
     "examples": [
       "0.0",

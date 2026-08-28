@@ -395,13 +395,13 @@ def build_drain_stress_period_data(
     sink_flat = _sink_mask_flat(model, n_cells=int(model.ncpl)) if model.sink_fill else None
     band_depth = float(model.drain_band_depth_m)
     conductance_floor = float(model.drain_conductance_floor_m2_s)
+    bed_thickness = float(model.drain_bed_thickness_m)
     drn_spd: dict[int, list[list[float]]] = {}
     top_flat = solver_mesh.top
     dem_mask_flat = np.asarray(model.dem_mask, dtype=bool).reshape(-1)
     ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
     stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
     cell_areas = solver_mesh.cell_areas()
-    top_thickness = solver_mesh.layer_thicknesses()[0]
     previous_cond: float | None = None
     for kper in range(int(model.nper)):
         configured_cond_value = float(drainage_cond_series[kper])
@@ -420,13 +420,13 @@ def build_drain_stress_period_data(
                 cond_value = hk_fallback_drain_conductance(
                     hk=float(model.hk[0, cid]),
                     cell_area=float(cell_areas[cid]),
-                    top_thickness=float(top_thickness[cid]),
+                    bed_thickness=bed_thickness,
                     floor_m2_s=conductance_floor,
                 )
             elevation, cond_value = drain_discharge_band(
                 top=float(top_flat[cid]),
                 conductance=cond_value,
-                top_thickness=float(top_thickness[cid]),
+                bed_thickness=bed_thickness,
                 band_depth=band_depth,
             )
             period_cells.append([0, cid, elevation, cond_value])

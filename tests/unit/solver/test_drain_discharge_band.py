@@ -3,11 +3,10 @@
 A single drain elevation states the land inside a cell is flat. The band is the
 one remedy the USGS documents for that (UZF1 ``SURFDEP``, MODFLOW 6 ``DDRN``):
 the drain drops to ``top - D/2`` and its conductance is multiplied by
-``top_layer_thickness / D``. The thickness, not the cell area: the conductance
-being scaled is already ``Kv*A/b``, so ``b/D`` turns it into ``Kv*A/D``, which
-is ``CDRN``. The mesh below therefore gives every column a DIFFERENT thickness,
-and none of them equal to the cell area, so a build reading the wrong operand
-cannot pass. Nothing is classified and nothing is moved.
+``bed_thickness / D``. The DRAIN BED thickness, not the cell area and not the
+layer: the conductance being scaled is already ``Kv*A/M``, so ``M/D`` turns it
+into ``Kv*A/D``, which is ``CDRN``. The mesh below still gives every column a
+different LAYER thickness, on purpose: the rows must not depend on it.
 
 Every expected number here is written out by hand from a mesh whose top, cell
 area and conductance are fixed by construction, never read back from the code
@@ -53,14 +52,13 @@ BAND_M = 0.5
 # The mesh top, by construction: a plane dropping one metre per column.
 TOP_BY_CELL: dict[int, float] = {0: 100.0, 1: 99.0, 2: 98.0, 3: 100.0, 4: 99.0, 5: 98.0}
 
-# The top layer thickness, by construction: 4, 5, 6 m per column. Deliberately
-# not the cell area (100 m2) and deliberately not constant, so `C * A / D` and
-# `C * b / D` cannot agree on any cell.
-THICKNESS_BY_CELL: dict[int, float] = {0: 4.0, 1: 5.0, 2: 6.0, 3: 4.0, 4: 5.0, 5: 6.0}
+# The DRAIN BED thickness, a declared scalar. The mesh below still varies its
+# LAYER thickness per column (4, 5, 6 m), which the drain rows must ignore.
+BED_M = 2.0
 
 # Hand-written answers for BAND_M = 0.5 m on that mesh.
-#   elevation   = top - D/2          = top - 0.25
-#   conductance = C * thickness / D  = 0.04 * b / 0.5
+#   elevation   = top - D/2   = top - 0.25
+#   conductance = C * M / D   = 0.04 * 2.0 / 0.5 = 0.16 partout
 BANDED_ELEVATION_BY_CELL: dict[int, float] = {
     0: 99.75,
     1: 98.75,
@@ -69,14 +67,7 @@ BANDED_ELEVATION_BY_CELL: dict[int, float] = {
     4: 98.75,
     5: 97.75,
 }
-BANDED_COND_BY_CELL: dict[int, float] = {
-    0: 0.32,
-    1: 0.40,
-    2: 0.48,
-    3: 0.32,
-    4: 0.40,
-    5: 0.48,
-}
+BANDED_COND_M2_S = 0.16
 
 
 def _mesh() -> SolverMesh:
@@ -101,6 +92,7 @@ def _mf6_model(*, band_depth_m: float) -> SimpleNamespace:
         sink_fill=False,
         sink=None,
         drain_band_depth_m=band_depth_m,
+        drain_bed_thickness_m=BED_M,
         drain_conductance_floor_m2_s=1e-12,
     )
 
@@ -118,6 +110,7 @@ def _nwt_adapter(mesh: SolverMesh, *, band_depth_m: float) -> SimpleNamespace:
         sink_fill=False,
         sink=None,
         drain_band_depth_m=band_depth_m,
+        drain_bed_thickness_m=BED_M,
         drain_conductance_floor_m2_s=1e-12,
     )
 
@@ -171,13 +164,16 @@ class TestZeroIsTodaysBehaviour:
             assert conductance == DRAIN_COND_M2_S
 
     def test_the_hk_fallback_is_untouched_at_zero(self) -> None:
-        # hk 1e-4 m/s, area 100 m2, thickness 4 m, cell 0: 1e-4*100/4 = 2.5e-3 m2/s.
+        # hk 1e-4 m/s, area 100 m2, bed 2 m: 1e-4*100/2 = 5e-3 m2/s, and the
+        # LAYER thickness (4, 5, 6 m per column) must not enter it.
         rows = _mf6_rows(band_depth_m=0.0, conductance=0.0)
-        assert rows[0] == (100.0, pytest.approx(2.5e-3))
+        assert rows[0] == (100.0, pytest.approx(5e-3))
+        assert rows[1] == (99.0, pytest.approx(5e-3))
+        assert rows[2] == (98.0, pytest.approx(5e-3))
 
     def test_the_helper_returns_its_inputs_at_zero(self) -> None:
         assert drain_discharge_band(
-            top=100.0, conductance=0.04, top_thickness=4.0, band_depth=0.0
+            top=100.0, conductance=0.04, bed_thickness=BED_M, band_depth=0.0
         ) == (100.0, 0.04)
 
 
@@ -185,46 +181,46 @@ class TestTheHandWrittenBand:
     """top - D/2 and C * thickness / D, on both backends."""
 
     def test_the_helper_alone(self) -> None:
-        # 100.0 - 0.5/2 = 99.75 ; 0.04 * 4.0 / 0.5 = 0.32
+        # 100.0 - 0.5/2 = 99.75 ; 0.04 * 2.0 / 0.5 = 0.16
         elevation, conductance = drain_discharge_band(
-            top=100.0, conductance=0.04, top_thickness=4.0, band_depth=0.5
+            top=100.0, conductance=0.04, bed_thickness=BED_M, band_depth=0.5
         )
         assert elevation == pytest.approx(99.75)
-        assert conductance == pytest.approx(0.32)
+        assert conductance == pytest.approx(0.16)
 
     def test_mf6_lowers_the_drain_by_half_the_band(self) -> None:
         rows = _mf6_rows(band_depth_m=BAND_M)
         for cell, (elevation, _) in rows.items():
             assert elevation == pytest.approx(BANDED_ELEVATION_BY_CELL[cell])
 
-    def test_mf6_scales_the_conductance_by_thickness_over_depth(self) -> None:
+    def test_mf6_scales_the_conductance_by_bed_over_depth(self) -> None:
         rows = _mf6_rows(band_depth_m=BAND_M)
-        for cell, (_, conductance) in rows.items():
-            assert conductance == pytest.approx(BANDED_COND_BY_CELL[cell])
+        for _cell, (_, conductance) in rows.items():
+            assert conductance == pytest.approx(BANDED_COND_M2_S)
 
     def test_nwt_lowers_the_drain_by_half_the_band(self) -> None:
         rows = _nwt_rows(band_depth_m=BAND_M)
         for cell, (elevation, _) in rows.items():
             assert elevation == pytest.approx(BANDED_ELEVATION_BY_CELL[cell])
 
-    def test_nwt_scales_the_conductance_by_thickness_over_depth(self) -> None:
+    def test_nwt_scales_the_conductance_by_bed_over_depth(self) -> None:
         rows = _nwt_rows(band_depth_m=BAND_M)
-        for cell, (_, conductance) in rows.items():
-            assert conductance == pytest.approx(BANDED_COND_BY_CELL[cell])
+        for _cell, (_, conductance) in rows.items():
+            assert conductance == pytest.approx(BANDED_COND_M2_S)
 
     def test_the_hk_fallback_conductance_is_banded_too(self) -> None:
-        # Cell 0: fallback 1e-4*100/4 = 2.5e-3 m2/s, banded 2.5e-3*4/0.5 = 2e-2 m2/s.
-        # The thickness cancels: the banded fallback is Kv*A/D exactly, which is
-        # CDRN, and it is the same on every column despite b varying.
+        # Cell 0: fallback 1e-4*100/2 = 5e-3 m2/s, banded 5e-3*2/0.5 = 2e-2 m2/s.
+        # The bed thickness cancels: the banded fallback is Kv*A/D exactly.
         mf6 = _mf6_rows(band_depth_m=BAND_M, conductance=0.0)
         nwt = _nwt_rows(band_depth_m=BAND_M, conductance=0.0)
         assert mf6[0] == (pytest.approx(99.75), pytest.approx(2e-2))
         assert nwt[0] == (pytest.approx(99.75), pytest.approx(2e-2))
 
     def test_a_deeper_band_discharges_lower_and_harder_per_metre(self) -> None:
-        # D = 2 m: elevation 99.0, conductance 0.04 * 4 / 2 = 0.08 m2/s.
+        # D = 2 m = BED_M: elevation 99.0, conductance 0.04 * 2 / 2 = 0.04,
+        # la valeur declaree inchangee.
         rows = _mf6_rows(band_depth_m=2.0)
-        assert rows[0] == (pytest.approx(99.0), pytest.approx(0.08))
+        assert rows[0] == (pytest.approx(99.0), pytest.approx(0.04))
 
     def test_it_does_not_move_the_topography(self) -> None:
         mesh = _mesh()
@@ -337,11 +333,15 @@ class TestTheDepthReachesTheDrainRows:
     -> each backend's ``apply_preprocess_options`` -> the DRN rows.
     """
 
-    TOML = '[solver]\ndrain_band_depth_m = 0.5\n\n[solver.backend]\nbackend = "modflow6"\n'
+    # The bed thickness is declared too: it scales the conductance just as
+    # much as the band does, so a run that carried the depth but dropped the
+    # bed would still be silently wrong.
+    TOML = '[solver]\ndrain_band_depth_m = 0.5\ndrain_bed_thickness_m = 2.0\n\n[solver.backend]\nbackend = "modflow6"\n'
 
     def _options(self) -> ModflowPreprocessOptions:
         cfg = SolverConfig.model_validate(tomllib.loads(self.TOML)["solver"])
         assert cfg.drain_band_depth_m == BAND_M
+        assert cfg.drain_bed_thickness_m == BED_M
         state = SimpleNamespace(setup=SimpleNamespace(), cfg=SimpleNamespace(solver=cfg))
         return build_preprocess_options(state)
 
@@ -364,7 +364,7 @@ class TestTheDepthReachesTheDrainRows:
             stream_support_mask=np.zeros(N_CELLS, dtype=bool),
         )
         rows = {int(row[1]): (float(row[2]), float(row[3])) for row in spd[0]}
-        assert rows[0] == (pytest.approx(99.75), pytest.approx(BANDED_COND_BY_CELL[0]))
+        assert rows[0] == (pytest.approx(99.75), pytest.approx(BANDED_COND_M2_S))
 
     def test_it_reaches_the_nwt_drain_rows(self) -> None:
         solver = SimpleNamespace(
@@ -382,7 +382,7 @@ class TestTheDepthReachesTheDrainRows:
             hk=np.full((1, NROW, NCOL), 1e-4),
         )
         assert float(spd[0][0][3]) == pytest.approx(99.75)
-        assert float(spd[0][0][4]) == pytest.approx(BANDED_COND_BY_CELL[0])
+        assert float(spd[0][0][4]) == pytest.approx(BANDED_COND_M2_S)
 
     def test_the_steady_initial_condition_model_inherits_the_depth(self) -> None:
         # The auxiliary steady model must build the same drains as the transient

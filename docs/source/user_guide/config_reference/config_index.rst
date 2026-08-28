@@ -6632,18 +6632,24 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `solver <solver.html#solver-sink-fill>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L100>`__
+   * - ``solver.drain_bed_thickness_m``
+     - ``float``
+     - expert
+     - -
+     - `solver <solver.html#solver-drain-bed-thickness-m>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L125>`__
    * - ``solver.drain_conductance_floor_m2_s``
      - ``float``
      - expert
      - -
      - `solver <solver.html#solver-drain-conductance-floor-m2-s>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L125>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L147>`__
    * - ``solver.drain_band_depth_m``
      - ``float``
      - user
      - -
      - `solver <solver.html#solver-drain-band-depth-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L138>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L160>`__
    * - ``modflownwt.runtime``
      - ``ModflowRuntimeConfig``
      - expert

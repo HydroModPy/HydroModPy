@@ -52,6 +52,9 @@ def run_nwt_steady_state_initialization(model: object) -> np.ndarray:
             box=bool(getattr(model.preprocess_options, "box", True)),
             sink_fill=bool(getattr(model.preprocess_options, "sink_fill", False)),
             drain_band_depth_m=float(getattr(model.preprocess_options, "drain_band_depth_m", 0.0)),
+            drain_bed_thickness_m=float(
+                getattr(model.preprocess_options, "drain_bed_thickness_m", 1.0)
+            ),
             drain_conductance_floor_m2_s=float(
                 getattr(model.preprocess_options, "drain_conductance_floor_m2_s", 1e-12)
             ),
