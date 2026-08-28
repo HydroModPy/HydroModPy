@@ -69,6 +69,11 @@ class _FakeHeadFile:
 
 
 def _fake_cbc_factory(records: dict[str, np.ndarray]):
+    # This stand-in imitates hydromodpy's OWN cbc reader, which does expose
+    # `records` / `read_record`. The drain fixture further down imitates
+    # flopy's CellBudgetFile instead, which exposes `get_indices` /
+    # `get_record`: the two readers have different APIs and a stand-in that
+    # blurs them is how an invented method reaches production.
     from hydromodpy.solver.modflow6.extractors.cbc_reader import CbcRecord
 
     flat = list(records.items())
@@ -208,26 +213,11 @@ def _write_drain_cbc_fixtures(tmp_path: Path, monkeypatch) -> None:
     quadratic per-record lookup come back unnoticed, and that lookup is exactly
     what this path exists to avoid on a chronicle of a thousand steps.
     """
-    from hydromodpy.solver.modflow6.extractors.cbc_reader import CbcRecord
 
     class _FakeCBC:
         def __init__(self, path) -> None:
             del path
             # kstp / kper are 1-based on a record, 0-based from get_kstpkper().
-            self.records = (
-                CbcRecord(
-                    kstp=1,
-                    kper=1,
-                    text="DRN",
-                    imeth=1,
-                    ndim1=3,
-                    ndim2=1,
-                    ndim3=-1,
-                    nlist=0,
-                    aux_names=(),
-                    data_pos=0,
-                ),
-            )
 
         def get_unique_record_names(self):
             return [b"DRN"]
@@ -238,8 +228,14 @@ def _write_drain_cbc_fixtures(tmp_path: Path, monkeypatch) -> None:
         def get_kstpkper(self):
             return [(0, 0)]
 
-        def read_record(self, idx: int):
-            assert idx == 0
+        def get_indices(self, text=None):
+            del text
+            # An ARRAY, like flopy: a tuple here would hide that `or ()` on the
+            # result raises "truth value of an array is ambiguous".
+            return np.array([0], dtype=np.int64)
+
+        def get_record(self, idx, full3D=False):
+            assert idx == 0 and not full3D
             return np.array([[-86400.0, 0.0, 0.0]], dtype=float)
 
         def close(self) -> None:
@@ -276,25 +272,9 @@ def test_nwt_calibration_discharge_still_uses_dis_itmuni(tmp_path, monkeypatch) 
     (tmp_path / "model.cbc").write_text("", encoding="utf-8")
     (tmp_path / "model.dis").write_text("1 1 1\n1 4\n", encoding="utf-8")
 
-    from hydromodpy.solver.modflow6.extractors.cbc_reader import CbcRecord
-
     class _FakeCBC:
         def __init__(self, path) -> None:
             del path
-            self.records = (
-                CbcRecord(
-                    kstp=1,
-                    kper=1,
-                    text="DRN",
-                    imeth=1,
-                    ndim1=3,
-                    ndim2=1,
-                    ndim3=-1,
-                    nlist=0,
-                    aux_names=(),
-                    data_pos=0,
-                ),
-            )
 
         def get_unique_record_names(self):
             return [b"DRN"]
@@ -305,8 +285,14 @@ def test_nwt_calibration_discharge_still_uses_dis_itmuni(tmp_path, monkeypatch) 
         def get_kstpkper(self):
             return [(0, 0)]
 
-        def read_record(self, idx: int):
-            assert idx == 0
+        def get_indices(self, text=None):
+            del text
+            # An ARRAY, like flopy: a tuple here would hide that `or ()` on the
+            # result raises "truth value of an array is ambiguous".
+            return np.array([0], dtype=np.int64)
+
+        def get_record(self, idx, full3D=False):
+            assert idx == 0 and not full3D
             return np.array([[-86400.0, 0.0, 0.0]], dtype=float)
 
         def close(self) -> None:
