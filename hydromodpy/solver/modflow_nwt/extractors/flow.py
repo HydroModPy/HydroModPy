@@ -19,6 +19,7 @@ from hydromodpy.solver.modflow_common.budget_components import (
     canonical_budget_component,
     is_scalar_budget_component,
 )
+from hydromodpy.solver.modflow_common.calibration_extractors import open_cell_budget
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
 
 logger = get_logger(__name__)
@@ -232,9 +233,8 @@ class ModflowNwtOutputAdapter:
         (n_steps, nlay, n_cells) array per direction that no field of the
         registry names and that every walk of ``budget/`` picks up.
         """
-        import flopy.utils.binaryfile as bf
 
-        cbb = bf.CellBudgetFile(str(cbc_path))
+        cbb = open_cell_budget(cbc_path)
         record_names = [
             name
             for name in (record.decode().strip() for record in cbb.get_unique_record_names())

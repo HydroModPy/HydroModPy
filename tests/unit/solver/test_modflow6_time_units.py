@@ -51,7 +51,7 @@ class _FakeStore:
 
 
 class _FakeHeadFile:
-    def __init__(self, path) -> None:
+    def __init__(self, path, precision: str = "double") -> None:
         del path
 
     def get_times(self):
@@ -186,7 +186,7 @@ def test_mf6_mass_balance_extracts_storage_components(tmp_path, monkeypatch) -> 
     inc = np.array([(174240.0, 174240.0, 0.01, 864.0, 86400.0, 0.0, 43200.0)], dtype=dtype)
 
     class _FakeListBudget:
-        def __init__(self, path) -> None:
+        def __init__(self, path, precision: str = "double") -> None:
             del path
 
         def get_budget(self):
@@ -215,7 +215,7 @@ def _write_drain_cbc_fixtures(tmp_path: Path, monkeypatch) -> None:
     """
 
     class _FakeCBC:
-        def __init__(self, path) -> None:
+        def __init__(self, path, precision: str = "double") -> None:
             del path
             # kstp / kper are 1-based on a record, 0-based from get_kstpkper().
 
@@ -273,7 +273,7 @@ def test_nwt_calibration_discharge_still_uses_dis_itmuni(tmp_path, monkeypatch) 
     (tmp_path / "model.dis").write_text("1 1 1\n1 4\n", encoding="utf-8")
 
     class _FakeCBC:
-        def __init__(self, path) -> None:
+        def __init__(self, path, precision: str = "double") -> None:
             del path
 
         def get_unique_record_names(self):

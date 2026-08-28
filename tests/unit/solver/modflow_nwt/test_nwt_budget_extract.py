@@ -50,7 +50,7 @@ def _fake_cbc(records: dict[str, np.ndarray]):
     """Return a CellBudgetFile stand-in serving ``records`` at every step."""
 
     class _FakeCellBudgetFile:
-        def __init__(self, path: str) -> None:
+        def __init__(self, path: str, precision: str = "double") -> None:
             del path
             self.closed = False
 

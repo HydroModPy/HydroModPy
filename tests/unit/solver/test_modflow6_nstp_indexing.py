@@ -28,7 +28,7 @@ class _MultiStepHeadFile:
 
     n_steps = 4
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, precision: str = "double"):
         self.path = path
 
     def get_times(self):
@@ -56,7 +56,7 @@ def _patch_flow_readers(monkeypatch, head_cls, budget_cls) -> None:
 
 def test_mf6_flow_postprocess_indexes_drn_by_real_timestep_nstp_gt_1(monkeypatch, tmp_path) -> None:
     class _DrnByStep:
-        def __init__(self, path: str):
+        def __init__(self, path: str, precision: str = "double"):
             self.path = path
 
         def get_data(self, *, kstpkper, text, totim=None):
@@ -82,7 +82,7 @@ def test_mf6_flow_postprocess_indexes_drn_by_real_timestep_nstp_gt_1(monkeypatch
 
 def test_mf6_flow_postprocess_chd_outlet_indexed_by_timestep(monkeypatch, tmp_path) -> None:
     class _ChdByStep:
-        def __init__(self, path: str):
+        def __init__(self, path: str, precision: str = "double"):
             self.path = path
 
         def get_data(self, *, kstpkper, text, totim=None):
@@ -113,7 +113,7 @@ def test_mf6_flow_postprocess_chd_outlet_indexed_by_timestep(monkeypatch, tmp_pa
 
 def test_mf6_flow_postprocess_warns_on_budget_count_mismatch(monkeypatch, tmp_path) -> None:
     class _HeadThreeTimesTwoSteps:
-        def __init__(self, path: str):
+        def __init__(self, path: str, precision: str = "double"):
             self.path = path
 
         def get_times(self):
@@ -127,7 +127,7 @@ def test_mf6_flow_postprocess_warns_on_budget_count_mismatch(monkeypatch, tmp_pa
             return np.array([[[9.0, 8.5], [8.0, 7.5]]], dtype=float)
 
     class _NoDrn:
-        def __init__(self, path: str):
+        def __init__(self, path: str, precision: str = "double"):
             self.path = path
 
         def get_data(self, *, kstpkper, text, totim=None):
@@ -154,7 +154,7 @@ def test_mf6_flow_postprocess_warns_on_budget_count_mismatch(monkeypatch, tmp_pa
 
 
 class _TwoSliceUcn:
-    def __init__(self, path: str, data: np.ndarray):
+    def __init__(self, path: str, data: np.ndarray, precision: str = "double"):
         self.path = path
         self._data = data
 

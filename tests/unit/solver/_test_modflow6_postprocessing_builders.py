@@ -44,7 +44,7 @@ class _ClosableReader:
 
 
 class _DummyHeadFile(_ClosableReader):
-    def __init__(self, path: str):
+    def __init__(self, path: str, precision: str = "double"):
         self.path = path
 
     def get_times(self) -> list[float]:
@@ -59,7 +59,7 @@ class _DummyHeadFile(_ClosableReader):
 
 
 class _DummyHeadFileUnstructured(_ClosableReader):
-    def __init__(self, path: str):
+    def __init__(self, path: str, precision: str = "double"):
         self.path = path
 
     def get_times(self) -> list[float]:
@@ -74,7 +74,7 @@ class _DummyHeadFileUnstructured(_ClosableReader):
 
 
 class _DummyUcnFileUnstructured(_ClosableReader):
-    def __init__(self, path: str):
+    def __init__(self, path: str, precision: str = "double"):
         self.path = path
 
     def get_times(self) -> list[float]:
@@ -86,7 +86,7 @@ class _DummyUcnFileUnstructured(_ClosableReader):
 
 
 class _DummyBudgetFile(_ClosableReader):
-    def __init__(self, path: str):
+    def __init__(self, path: str, precision: str = "double"):
         self.path = path
 
     def get_data(self, *, kstpkper, text: str, totim=None):
@@ -95,7 +95,7 @@ class _DummyBudgetFile(_ClosableReader):
 
 
 class _DummyBudgetFileWithDrn(_ClosableReader):
-    def __init__(self, path: str):
+    def __init__(self, path: str, precision: str = "double"):
         self.path = path
 
     def get_data(self, *, kstpkper, text: str, totim=None):
@@ -105,7 +105,7 @@ class _DummyBudgetFileWithDrn(_ClosableReader):
 
 
 class _DummyBudgetFileWithDrnAndChd(_ClosableReader):
-    def __init__(self, path: str):
+    def __init__(self, path: str, precision: str = "double"):
         self.path = path
 
     def get_data(self, *, kstpkper, text: str, totim=None):
@@ -129,7 +129,7 @@ class _DummyBudgetFileWithDrnAndChd(_ClosableReader):
 
 
 class _DummyBudgetFileUnexpectedValueError(_ClosableReader):
-    def __init__(self, path: str):
+    def __init__(self, path: str, precision: str = "double"):
         self.path = path
 
     def get_data(self, *, kstpkper, text: str, totim=None):

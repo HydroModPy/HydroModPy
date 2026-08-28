@@ -54,3 +54,78 @@ def test_the_extractor_calls_only_methods_the_real_class_has() -> None:
     unknown = sorted(name for name in called if not hasattr(bf.CellBudgetFile, name))
 
     assert not unknown, f"the extractor calls {unknown} on a CellBudgetFile that has none"
+
+
+class TestTheBudgetOpensAtEitherPrecision:
+    """MODFLOW 6 writes DOUBLE, MODFLOW-NWT writes SINGLE, and FloPy guesses.
+
+    Its guess reads a header and seeks past the record. On an MF6 budget the
+    single-precision guess computes a nonsense offset and ``file.seek`` raises
+    ``OSError(EINVAL)``, which FloPy's own fallback does not catch, so the guess
+    never gets to try the other width. The call worked for years on NWT and
+    broke the moment a calibration moved to MF6: seven trials crashed after
+    their solve with ``OSError: [Errno 22] Invalid argument``.
+    """
+
+    def test_double_is_tried_before_single(self) -> None:
+        # Order matters: MF6 is the default backend, and a single-precision NWT
+        # file fails the double attempt on its header rather than on a seek.
+        import inspect
+
+        from hydromodpy.solver.modflow_common import calibration_extractors as cal
+
+        source = inspect.getsource(cal.open_cell_budget)
+        assert 'for precision in ("double", "single")' in source
+
+    def test_an_oserror_on_one_width_does_not_escape(self, monkeypatch) -> None:
+        from hydromodpy.solver.modflow_common import calibration_extractors as cal
+
+        opened: list[str] = []
+
+        class _Budget:
+            pass
+
+        def _fake(path, precision):
+            del path
+            opened.append(precision)
+            if precision == "double":
+                raise OSError(22, "Invalid argument")
+            return _Budget()
+
+        monkeypatch.setattr("flopy.utils.binaryfile.CellBudgetFile", _fake, raising=True)
+        result = cal.open_cell_budget("whatever.cbc")
+
+        assert isinstance(result, _Budget)
+        assert opened == ["double", "single"]
+
+    def test_a_file_no_width_can_read_is_refused_naming_both(self, monkeypatch) -> None:
+        from hydromodpy.solver.modflow_common import calibration_extractors as cal
+
+        def _fake(path, precision):
+            del path
+            raise OSError(22, f"Invalid argument at {precision}")
+
+        monkeypatch.setattr("flopy.utils.binaryfile.CellBudgetFile", _fake, raising=True)
+        with pytest.raises(ValueError, match="either precision"):
+            cal.open_cell_budget("broken.cbc")
+
+    def test_nothing_opens_a_budget_without_going_through_the_helper(self) -> None:
+        """The regression to catch: a bare CellBudgetFile call coming back."""
+        import pathlib
+        import re
+
+        root = pathlib.Path(cal_root := "hydromodpy/solver")
+        offenders = []
+        for path in root.rglob("*.py"):
+            text = path.read_text(encoding="utf-8")
+            for line in text.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("#") or "precision=" in line:
+                    continue
+                if re.search(r"CellBudgetFile\s*\(", line):
+                    offenders.append(f"{path.relative_to(cal_root)}: {stripped}")
+
+        assert not offenders, (
+            "these open a budget file without a precision and will raise OSError on a "
+            f"MODFLOW 6 file: {offenders}"
+        )

@@ -17,6 +17,7 @@ import rasterio
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.solver.modflow_common.calibration_extractors import open_cell_budget
 
 from ._resolvers import ensure_modflow_name_file
 
@@ -104,7 +105,7 @@ def compute_seepage_zone(
     ncol = mf.ncol
     ibound = bas.ibound.array
 
-    cbb = fpu.CellBudgetFile(bud_file)
+    cbb = open_cell_budget(bud_file)  # NWT ecrit en simple, MF6 en double
     rec_drn = cbb.get_data(kstpkper=(0, 0), text="DRAINS")
     rec_rch = cbb.get_data(kstpkper=(0, 0), text="RECHARGE")
 
