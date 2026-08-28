@@ -705,7 +705,7 @@ def run_pre_processing(  # noqa: PLR0915
             )
     model.ims = flopy.mf6.ModflowIms(
         model.sim,
-        print_option="SUMMARY" if runtime.mf_verbose else "NONE",
+        print_option=str(runtime.ims_print_option),
         complexity=resolve_ims_complexity_for(model, solver_mesh),
         outer_dvclose=float(runtime.mf6_outer_dvclose),
         inner_dvclose=float(runtime.mf6_inner_dvclose),
@@ -943,8 +943,8 @@ def run_pre_processing(  # noqa: PLR0915
         rewet_record=rewet_record,
         xt3doptions=xt3doptions,
         wetdry=wetdry,
-        save_specific_discharge=True,
-        save_saturation=True,
+        save_specific_discharge=bool(model.modflow_config.runtime.save_specific_discharge),
+        save_saturation=bool(model.modflow_config.runtime.save_saturation),
     )
     steady_state_spd, transient_spd = sto_period_settings(
         [bool(model.steady[i]) for i in range(int(model.nper))]
@@ -958,19 +958,25 @@ def run_pre_processing(  # noqa: PLR0915
         transient=transient_spd or None,
     )
 
-    model.rch_spd = recharge_to_spd(model)
+    # LOCAL, never an attribute of the model. On the shared calibration path
+    # `externalize_recharge_spd` hands FloPy filenames without the arrays, so
+    # the only thing keeping the stack alive afterwards was `model.rch_spd`,
+    # which nothing in the package ever read. Measured on the Nancon at 25 m:
+    # 1826 periods x 243 552 cells x 8 bytes = 3.31 GB retained per model, for
+    # the whole solve, times the number of concurrent trials.
+    rch_spd = recharge_to_spd(model)
     if model._lake_cell_ids:
-        model.rch_spd = mask_recharge_on_lake_cells(
-            model.rch_spd, lake_cell_ids=model._lake_cell_ids
-        )
-    model.rch_spd = collapse_identical_periods(model.rch_spd)
+        rch_spd = mask_recharge_on_lake_cells(rch_spd, lake_cell_ids=model._lake_cell_ids)
+    rch_spd = collapse_identical_periods(rch_spd)
+    recharge_payload = externalize_recharge_spd(
+        rch_spd,
+        basename=model.model_name_mf6,
+        shared_dir=_shared_recharge_dir(model),
+    )
+    del rch_spd
     model.rch = flopy.mf6.ModflowGwfrcha(
         model.gwf,
-        recharge=externalize_recharge_spd(
-            model.rch_spd,
-            basename=model.model_name_mf6,
-            shared_dir=_shared_recharge_dir(model),
-        ),
+        recharge=recharge_payload,
         auxiliary=["CONCENTRATION"],
         aux=empty_recharge_aux(model),
         pname="RCHA",
@@ -1257,7 +1263,10 @@ def run_pre_processing(  # noqa: PLR0915
         head_filerecord=f"{model.model_output_name}.hds",
         budget_filerecord=f"{model.model_output_name}.cbc",
         saverecord=[("HEAD", "LAST"), ("BUDGET", "LAST")],
-        printrecord=[("HEAD", "LAST")],
+        # Off by default: it re-formats the whole head field as text at every
+        # step. Measured on the Nancon at 25 m, 2.96 GB of listing for 1826
+        # steps, carrying numbers the binary head file already holds.
+        printrecord=[("HEAD", "LAST")] if model.modflow_config.runtime.print_head else None,
     )
     model._runtime_dirty_packages = ()
     model._calibration_runtime_reuse_signature = reuse_signature

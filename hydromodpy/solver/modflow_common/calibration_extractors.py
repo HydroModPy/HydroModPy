@@ -153,24 +153,31 @@ def extract_discharge_from_cbc(
         kstpkpers = cbb.get_kstpkper()
         n_timesteps = len(times)
         values = np.zeros(n_timesteps, dtype=float)
-        for t, (time, ksk) in enumerate(zip(times, kstpkpers, strict=False)):
+        # ONE sequential pass over the file-order record index, and no `full3D`.
+        # A per-record `get_data(text=, kstpkper=, totim=)` rebuilds a boolean
+        # mask of the whole index on every call, which is quadratic over a long
+        # chronicle; the budget extractor of the MODFLOW 6 backend already reads
+        # this way for that reason. `full3D` compounds it by expanding a list
+        # package into a full (nlay, ncpl) grid per step, when the drain rows
+        # only ever cover the cells that carry a drain.
+        timestep_of = {
+            (int(kstp) + 1, int(kper) + 1): t for t, (kstp, kper) in enumerate(kstpkpers)
+        }
+        target = drain_key.strip().lower()
+        seen: set[int] = set()
+        for idx, record in enumerate(cbb.records):
+            text = record.text.decode() if isinstance(record.text, bytes) else str(record.text)
+            if text.strip().lower() != target:
+                continue
+            t = timestep_of.get((int(record.kstp), int(record.kper)))
+            if t is None or t in seen:
+                continue
             try:
-                data = cbb.get_data(text=drain_key, kstpkper=ksk, totim=time, full3D=True)
+                arr = cbb.read_record(idx)
             except Exception:
                 continue
-            if not data:
-                continue
-            arr = np.asarray(data[0], dtype=float)
-            outflow = np.abs(np.minimum(arr, 0.0))
-            # ``full3D`` gives a per-layer grid; the mask is one value per cell
-            # of the plan, so it applies to the flattened trailing axes.
-            flat = outflow.reshape(outflow.shape[0], -1) if outflow.ndim > 1 else outflow[None, :]
-            if flat.shape[1] != mask.size:
-                raise ValueError(
-                    f"the drain budget holds {flat.shape[1]} cells per layer and the "
-                    f"catchment mask {mask.size}; they were not built for the same mesh."
-                )
-            values[t] = float(flat[:, mask].sum())
+            seen.add(t)
+            values[t] = _drain_outflow_on_mask(arr, mask)
     finally:
         cbb.close()
 
@@ -179,6 +186,34 @@ def extract_discharge_from_cbc(
     if time_index is not None and len(time_index) == n_timesteps:
         return pd.Series(values, index=time_index, name="discharge")
     return pd.Series(values, name="discharge")
+
+
+def _drain_outflow_on_mask(arr: object, mask: np.ndarray) -> float:
+    """Sum the outflow the drain rows carry inside ``mask``, in model units.
+
+    A list package comes back as a record array of ``(node, node2, q)``, which
+    is what the drain writes: only the cells that carry a drain appear, so the
+    rows are mapped onto the plan by ``(node - 1) % ncpl``. MODFLOW numbers its
+    nodes layer-major, so that modulo is the cell of the plan whatever the
+    layer. A dense array is summed directly on the mask.
+    """
+    ncpl = int(mask.size)
+    names = getattr(getattr(arr, "dtype", None), "names", None)
+    if names is not None and "q" in names:
+        node_field = "node" if "node" in names else names[0]
+        nodes = np.asarray(arr[node_field], dtype=np.int64) - 1
+        flux = np.asarray(arr["q"], dtype=float)
+        inside = mask[np.mod(nodes, ncpl)]
+        return float(np.abs(np.minimum(flux[inside], 0.0)).sum())
+
+    dense = np.abs(np.minimum(np.asarray(arr, dtype=float), 0.0))
+    flat = dense.reshape(dense.shape[0], -1) if dense.ndim > 1 else dense[None, :]
+    if flat.shape[1] != ncpl:
+        raise ValueError(
+            f"the drain budget holds {flat.shape[1]} cells per layer and the catchment "
+            f"mask {ncpl}; they were not built for the same mesh."
+        )
+    return float(flat[:, mask].sum())
 
 
 def _find_drain_component(cbb: object) -> str:

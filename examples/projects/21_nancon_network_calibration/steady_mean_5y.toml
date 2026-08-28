@@ -1,0 +1,49 @@
+# ======================================================================
+# Nancon - PERMANENT au forcage moyen 2000-2004
+# ----------------------------------------------------------------------
+# L'etat dont le transitoire repart. Une seule periode de contrainte
+# couvrant les cinq annees, donc la recharge appliquee est la moyenne
+# arithmetique des 1 827 jours, 0,75438 mm/j.
+#
+#   hmp run examples/projects/21_nancon_network_calibration/steady_mean_5y.toml
+#
+# A QUOI IL SERT, ET CE QU'IL NE CORRIGE PAS. Le transitoire ouvre DEJA
+# sur un permanent : `flow.first_period_steady` vaut true par defaut et
+# la recharge de cette periode est la moyenne de la chronique, pas le
+# jour 1. Ce fichier ne change donc pas la physique du depart, il la
+# rend inspectable, nommee et reutilisable comme `restart_from`.
+# ======================================================================
+
+base_config = "project.toml"
+
+
+[simulation]
+name = "nancon_steady_mean_5y"
+description = "Nancon - permanent au forcage moyen 2000-2004, etat de depart du transitoire."
+if_exists = "replace"
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2004-12-31"
+step_unit = "year"
+step_value = 5
+
+[flow]
+flow_regime = "steady"
+
+[flow.param.K.field]
+value = 2.0535e-4
+
+# Sans effet en permanent, l'equation n'a pas de terme de stockage. Pose
+# ici pour que le fichier porte le meme jeu de parametres que la suite.
+[flow.param.Sy.field]
+value = 5.0e-3
+
+[simulation.results.derived]
+release_flux = true
+watertable_elevation = true
+watertable_depth = true
+seepage_areas = true
+
+[display]
+enabled = false
