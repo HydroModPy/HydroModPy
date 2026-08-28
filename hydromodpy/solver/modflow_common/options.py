@@ -13,6 +13,7 @@ class ModflowPreprocessOptions:
     box: bool = True
     sink_fill: bool = False
     drain_band_depth_m: float = 0.0
+    drain_bed_thickness_m: float = 1.0
     drain_conductance_floor_m2_s: float = 1e-12
     check_grid: bool = True
     time_grid: Any = None

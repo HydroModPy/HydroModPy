@@ -157,6 +157,7 @@ def build_preprocess_options(state) -> ModflowPreprocessOptions:
         time_grid=time_grid,
         sink_fill=bool(state.cfg.solver.sink_fill),
         drain_band_depth_m=float(state.cfg.solver.drain_band_depth_m),
+        drain_bed_thickness_m=float(state.cfg.solver.drain_bed_thickness_m),
         drain_conductance_floor_m2_s=float(state.cfg.solver.drain_conductance_floor_m2_s),
     )
 

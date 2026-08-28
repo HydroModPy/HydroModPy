@@ -119,6 +119,27 @@ Fields
 
 
 .. container:: hmp-field hmp-field-level-expert
+   :name: solver-drain-bed-thickness-m
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="solver.drain_bed_thickness_m">
+        <code class="hmp-field-name">drain_bed_thickness_m</code>
+      </div>
+
+   :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L125>`__
+
+      Metres. Thickness of the drain BED in the fallback conductance C = K * cell_area / bed_thickness, used when no drainage conductance is declared. A drain bed is the clogging layer at the bottom of a watercourse, decimetres to a metre; it is NOT the aquifer, and the layer thickness this used to borrow (30 m on the Nancon) has no physical relation to it. The value matters because it sets how much head the drain itself imposes to pass the recharge: dh = R * bed_thickness / K, independent of the cell size. On the Nancon at R = 439 mm/yr, 30 m gives 4.17 m of head at K = 1e-7 m/s and makes the drain the limiting resistance over two decades of a [1e-7, 1e-3] search; 1 m gives 13.9 cm and 0.1 m gives 1.4 cm. In this method the drain is a seepage face, so it must never limit: K and the recharge decide where water surfaces, not the boundary condition. Proportionality to K is preserved either way, so the K/R invariance the network criterion rests on is untouched.
+
+   .. admonition:: Examples
+      :class: hmp-field-examples
+
+      * ``1.0``
+      * ``0.5``
+      * ``0.1``
+
+
+.. container:: hmp-field hmp-field-level-expert
    :name: solver-drain-conductance-floor-m2-s
 
    .. raw:: html
@@ -127,7 +148,7 @@ Fields
         <code class="hmp-field-name">drain_conductance_floor_m2_s</code>
       </div>
 
-   :bdg-primary:`float` :bdg-secondary:`default = 1e-12` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L125>`__
+   :bdg-primary:`float` :bdg-secondary:`default = 1e-12` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L147>`__
 
       m2/s. Floor applied to every DRN conductance, whether declared or derived from hk. It exists for degenerate cells only, a zero-thickness or zero-conductivity cell whose formula would divide by zero or emit a zero-conductance drain MODFLOW reads as absent. It is not a physical choice and moving it does not tune anything: a real conductance on a real cell is many orders of magnitude above it. Raise it only to make a degenerate mesh audible.
 
@@ -141,7 +162,7 @@ Fields
         <code class="hmp-field-name">drain_band_depth_m</code>
       </div>
 
-   :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L138>`__
+   :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L160>`__
 
       Metres. Depth D of the sub-cell discharge band every drain cell gets instead of a single elevation: the drain sits at top - D/2 and its conductance is multiplied by top_layer_thickness / D. The multiplier is the thickness and not the cell area because the conductance it scales is already Kv*A/b, so scaling by b/D gives Kv*A/D, which is CDRN exactly; scaling by A/D would give an m3/s where a conductance is m2/s, too high by A/b. The cell therefore starts discharging before the head reaches its mean elevation, and discharges harder the higher the head climbs into the band. This answers the one question the USGS documents about a model top, that the land inside a cell is not flat: UZF1 exposes the same depth as SURFDEP, 'the average undulation depth within a finite-difference cell', and MODFLOW 6 carries it into DRN as DDRN, with HDRN = land surface - DDRN/2 and CDRN = Kv*A/DDRN. MODFLOW 6 solves its DDRN band with a smooth (linear then cubic) curve; the option here is the piecewise equivalent of the same idea, applied identically by both MODFLOW backends, so a later switch to the native smooth form is a documented refinement and not a surprise. It does NOT move the topography: no elevation is raised, no DEM is rewritten, and every other package sees the surface it would have seen. The seepage criterion is the one reader that cannot: a banded cell discharges at top - D/2 and never climbs back to top, so the mask follows the band and the run persists D in its store for every figure drawn afterwards. It classifies no cell: every drain cell gets the same band, so nothing has to be sorted into artefact and real. Pick D the way Feinstein et al. 2020 (Groundwater 58:524-534, doi:10.1111/gwat.12931) do, from the standard deviation of the fine land-surface elevations inside a cell; they obtain 0.61 m. Mutually exclusive with solver.sink_fill, which answers the same question by removing drains instead. Default 0.0: one elevation per drain, unchanged from every earlier run.
 

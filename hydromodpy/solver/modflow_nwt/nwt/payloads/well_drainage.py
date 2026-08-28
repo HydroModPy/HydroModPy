@@ -76,17 +76,16 @@ def build_drainage_spd(
         units=getattr(drainage_boundary, "units", "m2/s"),
     )
 
-    top_thickness = adapter.solver_mesh.reshape_to_grid(adapter.solver_mesh.layer_thicknesses()[0])
-
     def _fallback(i: int, j: int) -> float:
         return hk_fallback_drain_conductance(
             hk=float(hk[0, i, j]),
             cell_area=float(adapter.cell_area),
-            top_thickness=float(top_thickness[i, j]),
+            bed_thickness=bed_thickness,
             floor_m2_s=float(adapter.drain_conductance_floor_m2_s),
         )
 
     band_depth = float(adapter.drain_band_depth_m)
+    bed_thickness = float(adapter.drain_bed_thickness_m)
     count = 0
     for i in range(adapter.nrow):
         for j in range(adapter.ncol):
@@ -106,7 +105,7 @@ def build_drainage_spd(
             drn_data[count, 3], drn_data[count, 4] = drain_discharge_band(
                 top=float(adapter.dem[i, j]),
                 conductance=conductance,
-                top_thickness=float(top_thickness[i, j]),
+                bed_thickness=bed_thickness,
                 band_depth=band_depth,
             )
             count += 1

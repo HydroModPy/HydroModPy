@@ -21,23 +21,33 @@ from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
 
 def test_hk_fallback_conductance_formula_and_guards() -> None:
-    # hk 1e-4 m/s, area 100 m2, thickness 5 m -> 2.0e-3 m2/s (not 1.0e-2 m3/s).
+    # hk 1e-4 m/s, area 100 m2, BED 5 m -> 2.0e-3 m2/s (not 1.0e-2 m3/s).
     assert hk_fallback_drain_conductance(
-        hk=1e-4, cell_area=100.0, top_thickness=5.0, floor_m2_s=1e-12
+        hk=1e-4, cell_area=100.0, bed_thickness=5.0, floor_m2_s=1e-12
     ) == pytest.approx(2.0e-3)
-    # Doubling the thickness halves the conductance.
+    # Doubling the bed thickness halves the conductance.
     assert hk_fallback_drain_conductance(
-        hk=1e-4, cell_area=100.0, top_thickness=10.0, floor_m2_s=1e-12
+        hk=1e-4, cell_area=100.0, bed_thickness=10.0, floor_m2_s=1e-12
     ) == pytest.approx(1.0e-3)
-    # Degenerate guards stay finite and >= 1e-12.
+    # A zero-K cell would emit a conductance MODFLOW reads as no drain at all.
     zero_k = hk_fallback_drain_conductance(
-        hk=0.0, cell_area=100.0, top_thickness=5.0, floor_m2_s=1e-12
+        hk=0.0, cell_area=100.0, bed_thickness=5.0, floor_m2_s=1e-12
     )
     assert zero_k == pytest.approx(1e-12)
-    zero_thick = hk_fallback_drain_conductance(
-        hk=1e-4, cell_area=100.0, top_thickness=0.0, floor_m2_s=1e-12
-    )
-    assert np.isfinite(zero_thick) and zero_thick >= 1e-12
+
+
+def test_the_fallback_no_longer_guards_a_zero_thickness() -> None:
+    """The bed thickness is a DECLARED, validated quantity, never mesh geometry.
+
+    It used to be the layer thickness read off the mesh, which could be zero on
+    a degenerate cell, hence a silent fallback to one metre. `gt=0.0` on
+    `solver.drain_bed_thickness_m` now refuses zero at load, so the guard has no
+    caller left and a zero here is a programming error, not a mesh accident.
+    """
+    from hydromodpy.solver.base.solver_config import SolverConfig
+
+    with pytest.raises(Exception, match="drain_bed_thickness_m"):
+        SolverConfig.model_validate({"drain_bed_thickness_m": 0.0})
 
 
 def _drn_mesh(thickness: float) -> SolverMesh:
@@ -51,7 +61,7 @@ def _drn_mesh(thickness: float) -> SolverMesh:
     )
 
 
-def _drn_model() -> SimpleNamespace:
+def _drn_model(bed_thickness: float = 1.0) -> SimpleNamespace:
     return SimpleNamespace(
         dem_mask=np.zeros(6, dtype=bool),
         nper=1,
@@ -60,6 +70,7 @@ def _drn_model() -> SimpleNamespace:
         sink_fill=False,
         sink=None,
         drain_band_depth_m=0.0,
+        drain_bed_thickness_m=bed_thickness,
         drain_conductance_floor_m2_s=1e-12,
     )
 
@@ -74,19 +85,45 @@ def test_mf6_drn_fallback_conductance_is_m2_per_s() -> None:
     )
     assert len(spd[0]) == 6
     cond = spd[0][0][3]
-    assert cond == pytest.approx(2.0e-3)
-    assert cond != pytest.approx(1.0e-2)
-
-
-def test_mf6_drn_fallback_scales_inverse_with_top_thickness() -> None:
-    spd = build_drain_stress_period_data(
-        _drn_model(),
-        solver_mesh=_drn_mesh(10.0),
+    # bed 1 m : 1e-4 * 100 / 1 = 1e-2 m2/s. What this guards is the UNIT: the
+    # value must stay a conductance in m2/s and never the m3/s a bare K * A
+    # would give, which on this mesh would be 1e-4 * 100 = 1e-2 too... so the
+    # discriminating check is the bed scaling, done just below.
+    assert cond == pytest.approx(1.0e-2)
+    doubled = build_drain_stress_period_data(
+        _drn_model(bed_thickness=2.0),
+        solver_mesh=_drn_mesh(5.0),
         drainage_cond_series=np.array([0.0]),
         ocean_support_mask=np.zeros(6, dtype=bool),
         stream_support_mask=np.zeros(6, dtype=bool),
-    )
-    assert spd[0][0][3] == pytest.approx(1.0e-3)
+    )[0][0][3]
+    assert doubled == pytest.approx(5.0e-3)
+
+
+def test_mf6_drn_fallback_ignores_the_layer_thickness() -> None:
+    """The property that REPLACES the old one, and it is the point of the change.
+
+    The fallback used to divide by the LAYER thickness, so a thicker aquifer
+    gave a less conductive drain. Head imposed by the drain to pass the recharge
+    is ``dh = R * thickness / K``: at 30 m on the Nancon that made the drain the
+    limiting resistance below K = 8.3e-6 m/s, inside the bracket a network
+    calibration searches. A drain that is meant to be a seepage face must not
+    depend on how deep the aquifer happens to be.
+    """
+    rows = {}
+    for layer_thickness in (5.0, 10.0, 40.0):
+        spd = build_drain_stress_period_data(
+            _drn_model(),
+            solver_mesh=_drn_mesh(layer_thickness),
+            drainage_cond_series=np.array([0.0]),
+            ocean_support_mask=np.zeros(6, dtype=bool),
+            stream_support_mask=np.zeros(6, dtype=bool),
+        )
+        rows[layer_thickness] = spd[0][0][3]
+
+    # bed 1 m by default: 1e-4 * 100 / 1 = 1e-2 m2/s, whatever the layer.
+    for value in rows.values():
+        assert value == pytest.approx(1.0e-2)
 
 
 def test_mf6_drn_configured_conductance_bypasses_fallback() -> None:
@@ -157,6 +194,6 @@ def test_nwt_drn_fallback_uses_same_shared_helper() -> None:
         stream_support_mask=np.zeros(6, dtype=bool),
     )[0][0][3]
     nwt_value = well_drainage.hk_fallback_drain_conductance(
-        hk=1e-4, cell_area=100.0, top_thickness=5.0, floor_m2_s=1e-12
+        hk=1e-4, cell_area=100.0, bed_thickness=1.0, floor_m2_s=1e-12
     )
-    assert mf6_value == pytest.approx(nwt_value) == pytest.approx(2.0e-3)
+    assert mf6_value == pytest.approx(nwt_value) == pytest.approx(1.0e-2)

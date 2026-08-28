@@ -122,6 +122,28 @@ class SolverConfig(HydroModelBase):
         ),
         examples=[False, True],
     )
+    drain_bed_thickness_m: Annotated[float, Profile.EXPERT] = Field(
+        default=1.0,
+        gt=0.0,
+        description=(
+            "Metres. Thickness of the drain BED in the fallback conductance "
+            "C = K * cell_area / bed_thickness, used when no drainage conductance "
+            "is declared. A drain bed is the clogging layer at the bottom of a "
+            "watercourse, decimetres to a metre; it is NOT the aquifer, and the "
+            "layer thickness this used to borrow (30 m on the Nancon) has no "
+            "physical relation to it. The value matters because it sets how much "
+            "head the drain itself imposes to pass the recharge: dh = R * "
+            "bed_thickness / K, independent of the cell size. On the Nancon at "
+            "R = 439 mm/yr, 30 m gives 4.17 m of head at K = 1e-7 m/s and makes "
+            "the drain the limiting resistance over two decades of a "
+            "[1e-7, 1e-3] search; 1 m gives 13.9 cm and 0.1 m gives 1.4 cm. In "
+            "this method the drain is a seepage face, so it must never limit: K "
+            "and the recharge decide where water surfaces, not the boundary "
+            "condition. Proportionality to K is preserved either way, so the K/R "
+            "invariance the network criterion rests on is untouched."
+        ),
+        examples=[1.0, 0.5, 0.1],
+    )
     drain_conductance_floor_m2_s: Annotated[float, Profile.EXPERT] = Field(
         default=1e-12,
         gt=0.0,

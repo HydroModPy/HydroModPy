@@ -19423,6 +19423,19 @@
           "type": "boolean",
           "x-hmp-profile": "user"
         },
+        "drain_bed_thickness_m": {
+          "default": 1.0,
+          "description": "Metres. Thickness of the drain BED in the fallback conductance C = K * cell_area / bed_thickness, used when no drainage conductance is declared. A drain bed is the clogging layer at the bottom of a watercourse, decimetres to a metre; it is NOT the aquifer, and the layer thickness this used to borrow (30 m on the Nancon) has no physical relation to it. The value matters because it sets how much head the drain itself imposes to pass the recharge: dh = R * bed_thickness / K, independent of the cell size. On the Nancon at R = 439 mm/yr, 30 m gives 4.17 m of head at K = 1e-7 m/s and makes the drain the limiting resistance over two decades of a [1e-7, 1e-3] search; 1 m gives 13.9 cm and 0.1 m gives 1.4 cm. In this method the drain is a seepage face, so it must never limit: K and the recharge decide where water surfaces, not the boundary condition. Proportionality to K is preserved either way, so the K/R invariance the network criterion rests on is untouched.",
+          "examples": [
+            1.0,
+            0.5,
+            0.1
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Drain Bed Thickness M",
+          "type": "number",
+          "x-hmp-profile": "expert"
+        },
         "drain_conductance_floor_m2_s": {
           "default": 1e-12,
           "description": "m2/s. Floor applied to every DRN conductance, whether declared or derived from hk. It exists for degenerate cells only, a zero-thickness or zero-conductivity cell whose formula would divide by zero or emit a zero-conductance drain MODFLOW reads as absent. It is not a physical choice and moving it does not tune anything: a real conductance on a real cell is many orders of magnitude above it. Raise it only to make a degenerate mesh audible.",
