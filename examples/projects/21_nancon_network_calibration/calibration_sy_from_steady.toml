@@ -1,0 +1,171 @@
+# ======================================================================
+# Nancon - calibration de Sy, transitoire repartant du permanent
+# ----------------------------------------------------------------------
+# K est gele a la racine de l'etage 1. Seul Sy bouge, sur une grille log
+# large, et chaque essai repart du MEME etat permanent au forcage moyen
+# 2000-2004. C'est licite : l'equation permanente n'a pas de terme de
+# stockage, donc cet etat ne contient pas Sy et n'avantage aucun point.
+#
+#   hmp calibrate examples/projects/21_nancon_network_calibration/calibration_sy_from_steady.toml
+#
+# ----------------------------------------------------------------------
+# LA FOURCHETTE, ET POURQUOI ELLE N'EST PAS CELLE QUI ETAIT DEMANDEE
+# ----------------------------------------------------------------------
+# Demande : 1e-2 a 1e-6. Deux raisons de ne pas la prendre telle quelle.
+#
+# 1. Le code la REFUSE. `PHYSICAL_BOUNDS["sy"]` vaut [1e-4, 0.5] et la
+#    validation sonde les deux bornes avant le premier solve. 1e-6 est
+#    rejete. La borne basse ici est donc le plancher autorise, 1e-4.
+#
+# 2. La recession observee dit que la reponse est PLUS HAUT, pas plus
+#    bas. Sur 120 recessions de plus de dix jours entre 1990 et 2020, le
+#    temps caracteristique median vaut 28,1 jours (p25 20,8 ; p75 40,3).
+#    Avec T = K*b = 6,16e-3 m2/s et la demi-distance entre cours d'eau
+#    L = A/(2*L_reseau) = 709 m, la recession linearisee tau = Sy*L^2/(4T)
+#    donne Sy ~ 0,12 pour 28 jours. Le 5e-3 actuel est vingt-cinq fois
+#    trop petit, et la sonde de reprise le confirme autrement : au premier
+#    jour de janvier 2000 la nappe monte de 1,07 m median, ce que
+#    (R_j1 - R_moy)/Sy = 1,17 m predit exactement. Un aquifere qui monte
+#    d'un metre en un jour de pluie n'a aucune inertie.
+#
+# La fourchette retenue couvre donc tout le haut de la demande, descend
+# jusqu'au plancher autorise, et monte jusqu'a la limite physique du
+# rendement specifique. Les huit points, places par linspace sur log10 :
+#
+#   1,00e-4  3,33e-4  1,11e-3  3,68e-3  1,22e-2  4,06e-2  1,35e-1  4,50e-1
+#
+# COUT. Un transitoire journalier de cinq ans coute 7 343 s de solveur
+# sur ce maillage, mesure. Huit points a trois essais concurrents font
+# environ cinq heures et demie. Les essais sont isoles par construction,
+# chacun dans son `<scratch>/<nom>_trialNNNNNN/`.
+# ======================================================================
+
+base_config = "project.toml"
+
+[workflow]
+mode = "calibration"
+
+
+[simulation]
+name = "nancon_sy_from_steady"
+description = "Nancon - Sy sur grille log large, transitoire repartant du permanent."
+
+
+# ----------------------------------------------------------------------
+# Flow : K gele, reprise sur le permanent
+# ----------------------------------------------------------------------
+
+[flow]
+flow_regime = "transient"
+# Les charges du permanent au forcage moyen 2000-2004. Chemin ABSOLU :
+# il part tel quel a zarr.open, sans ancrage sur la racine du projet.
+restart_from = "C:/Users/basti/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/projects/21_nancon_network_calibration/runs/nancon_steady_mean_5y.v3/fields.zarr"
+# Sans cela chaque essai rajouterait sa propre periode permanente devant
+# et ecraserait l'etat repris avant le premier pas transitoire.
+first_period_steady = false
+
+# Racine de l'etage 1. K est gele en n'etant PAS declare dans
+# [calibration.parameters] : l'espace de recherche est construit a partir
+# de ce seul dictionnaire, donc ni depends_on ni freeze_on_success ne
+# sont necessaires ici.
+[flow.param.K.field]
+value = 2.0535e-4
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2004-12-31"
+step_unit = "day"
+step_value = 1
+
+
+# ----------------------------------------------------------------------
+# Le parametre
+# ----------------------------------------------------------------------
+
+[calibration.parameters.Sy]
+bounds = [1e-3, 0.45]
+transform = "log"
+path = "flow.param.Sy.field.value"
+units = "-"
+
+
+# ----------------------------------------------------------------------
+# La phase
+# ----------------------------------------------------------------------
+
+[[calibration.phases]]
+name = "transient_sy"
+description = "NSE des logarithmes du debit journalier 2001-2004, K gele."
+method = "grid"
+max_iter = 4
+# LES DEUX CLES SONT NECESSAIRES, et `parallel` seul ne sert a rien. La
+# boucle fait `take = min(batch_size, restant)`, demande ce nombre de
+# points a l'optimiseur, puis evalue CE LOT avec `parallel` workers. A
+# batch_size = 1, chaque lot ne contient qu'un essai et les workers n'ont
+# rien a se partager : mesure ici, un seul mf6.exe tournait et les huit
+# points auraient pris seize heures et demie au lieu de cinq.
+# Une grille est le cas ideal : ses points sont independants, donc le lot
+# peut valoir la grille entiere.
+batch_size = 4
+parallel = 4
+parameters = ["Sy"]
+# Declarer `variable` et `objective` choisit la route mono-metrique : la
+# phase n'herite d'aucune sortie reseau et n'est pas scoree sur le
+# critere d'Abherve, seulement sur le debit.
+variable = "discharge"
+# NSE des logarithmes : Sy pilote la vidange du stock, donc il se lit sur
+# les basses eaux. Le NSE brut y est presque insensible.
+objective = "nse_log"
+
+[calibration.phases.optimizer_kwargs]
+points_per_dim = 4
+
+[calibration.phases.scoring_window]
+# L'annee 2000 est simulee mais pas scoree. Elle ne sert plus de mise en
+# regime au sens ou l'entendait la version precedente, puisque l'etat de
+# depart est desormais un permanent ; elle absorbe ce qui reste d'ecart
+# entre cet etat moyen et l'annee humide qui ouvre la chronique.
+start = "2001-01-01"
+end = "2004-12-31"
+
+
+# ----------------------------------------------------------------------
+# Session
+# ----------------------------------------------------------------------
+
+[calibration]
+seed = 42
+save_runs = "best_n"
+save_best_n = 1
+persist_iteration_detail = "full"
+use_cache = true
+
+# Aucun champ derive : l'objectif lit le debit dans le budget CBC, pas
+# dans un champ persiste. Les laisser actifs ferait calculer puis jeter le
+# budget par maille a chaque essai, 5,3 Go sur ce maillage, mesure sur le
+# run de production.
+[simulation.results.derived]
+release_flux = false
+accumulation_flux = false
+watertable_elevation = false
+watertable_depth = false
+seepage_areas = false
+
+[simulation.results.budget]
+spatial_fields = false
+
+# Mesure, une variable a la fois, sur une sonde de 31 pas identique par
+# ailleurs : couper ces deux calculs fait passer le pas de 4,64 a 3,04 s,
+# soit 34,5 % du solve. Ce n'est PAS de l'ecriture economisee, c'est le
+# calcul par maille de la vitesse de Darcy (20,7 %) et de la saturation
+# (10,9 %) que MODFLOW refait a chaque pas. Aucun des deux n'est lu ici :
+# l'objectif ne lit que l'enregistrement DRN du budget.
+# `print_head` est coupe pour le disque, pas pour le temps : mesure a
+# -0,4 %, dans le bruit, mais il produit 2,96 Go de listing par essai.
+[modflow6.runtime]
+print_head = false
+save_specific_discharge = false
+save_saturation = false
+
+[display]
+enabled = false

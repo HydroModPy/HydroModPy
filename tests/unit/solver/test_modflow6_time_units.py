@@ -201,9 +201,33 @@ def test_mf6_mass_balance_extracts_storage_components(tmp_path, monkeypatch) -> 
 
 
 def _write_drain_cbc_fixtures(tmp_path: Path, monkeypatch) -> None:
+    """A budget file read the way the real one is: by POSITION in the index.
+
+    The extractor walks ``records`` once and calls ``read_record(idx)``. A
+    stand-in offering only ``get_data(text=, kstpkper=, full3D=)`` would let the
+    quadratic per-record lookup come back unnoticed, and that lookup is exactly
+    what this path exists to avoid on a chronicle of a thousand steps.
+    """
+    from hydromodpy.solver.modflow6.extractors.cbc_reader import CbcRecord
+
     class _FakeCBC:
         def __init__(self, path) -> None:
             del path
+            # kstp / kper are 1-based on a record, 0-based from get_kstpkper().
+            self.records = (
+                CbcRecord(
+                    kstp=1,
+                    kper=1,
+                    text="DRN",
+                    imeth=1,
+                    ndim1=3,
+                    ndim2=1,
+                    ndim3=-1,
+                    nlist=0,
+                    aux_names=(),
+                    data_pos=0,
+                ),
+            )
 
         def get_unique_record_names(self):
             return [b"DRN"]
@@ -214,9 +238,9 @@ def _write_drain_cbc_fixtures(tmp_path: Path, monkeypatch) -> None:
         def get_kstpkper(self):
             return [(0, 0)]
 
-        def get_data(self, *, text, kstpkper, totim, full3D):
-            del text, kstpkper, totim, full3D
-            return [np.array([[-86400.0, 0.0, 0.0]], dtype=float)]
+        def read_record(self, idx: int):
+            assert idx == 0
+            return np.array([[-86400.0, 0.0, 0.0]], dtype=float)
 
         def close(self) -> None:
             pass
@@ -252,9 +276,25 @@ def test_nwt_calibration_discharge_still_uses_dis_itmuni(tmp_path, monkeypatch) 
     (tmp_path / "model.cbc").write_text("", encoding="utf-8")
     (tmp_path / "model.dis").write_text("1 1 1\n1 4\n", encoding="utf-8")
 
+    from hydromodpy.solver.modflow6.extractors.cbc_reader import CbcRecord
+
     class _FakeCBC:
         def __init__(self, path) -> None:
             del path
+            self.records = (
+                CbcRecord(
+                    kstp=1,
+                    kper=1,
+                    text="DRN",
+                    imeth=1,
+                    ndim1=3,
+                    ndim2=1,
+                    ndim3=-1,
+                    nlist=0,
+                    aux_names=(),
+                    data_pos=0,
+                ),
+            )
 
         def get_unique_record_names(self):
             return [b"DRN"]
@@ -265,9 +305,9 @@ def test_nwt_calibration_discharge_still_uses_dis_itmuni(tmp_path, monkeypatch) 
         def get_kstpkper(self):
             return [(0, 0)]
 
-        def get_data(self, *, text, kstpkper, totim, full3D):
-            del text, kstpkper, totim, full3D
-            return [np.array([[-86400.0, 0.0, 0.0]], dtype=float)]
+        def read_record(self, idx: int):
+            assert idx == 0
+            return np.array([[-86400.0, 0.0, 0.0]], dtype=float)
 
         def close(self) -> None:
             pass

@@ -21,6 +21,54 @@ class Modflow6RuntimeConfig(HydroModelBase):
         default="mf6",
         description="MODFLOW 6 executable name or absolute path.",
     )
+    ims_print_option: Annotated[Literal["NONE", "SUMMARY", "ALL"], Profile.EXPERT] = Field(
+        default="NONE",
+        description=(
+            "IMS PRINT_OPTION. 'SUMMARY' adds one line per time step to the "
+            "listing with the outer and inner iteration counts, which is the "
+            "only way to tell an expensive iteration from too many of them. "
+            "Deliberately NOT tied to mf_verbose: that switch also sets "
+            "print_input and print_flows on the whole model, and on a run with "
+            "one drain per cell those print every boundary flux at every step. "
+            "'NONE' by default; 'SUMMARY' costs a line per step."
+        ),
+    )
+    print_head: Annotated[bool, Profile.EXPERT] = Field(
+        default=False,
+        description=(
+            "Re-print the whole head field, formatted as text, into the model "
+            "listing at every output step. Nothing in the package reads it, and "
+            "the binary head file already carries the same numbers. It costs "
+            "DISK, not time: measured on the Nancon at 25 m, 243 552 cells over "
+            "1826 daily steps wrote a 2.96 GB listing, but a one-variable-at-a-"
+            "time probe put its effect on the solve at -0.4 per cent, inside the "
+            "noise. Default false to stop producing the file, not to go faster. "
+            "The listing keeps its budget summaries and its convergence reports "
+            "either way, and Mf6ListBudget reads those."
+        ),
+    )
+    save_specific_discharge: Annotated[bool, Profile.EXPERT] = Field(
+        default=True,
+        description=(
+            "Compute and write the cell-by-cell Darcy velocity (DATA-SPDIS). "
+            "Required by particle tracking and by any velocity figure. The cost "
+            "is the COMPUTATION, not the write: MODFLOW interpolates a velocity "
+            "vector per cell at every step. Measured on the Nancon at 25 m by "
+            "changing this switch alone, 4.64 -> 3.68 s per step, 20.7 per cent "
+            "of the solve. A calibration that only scores a discharge series "
+            "should turn it off."
+        ),
+    )
+    save_saturation: Annotated[bool, Profile.EXPERT] = Field(
+        default=True,
+        description=(
+            "Compute and write the cell saturation (DATA-SAT). Measured on the "
+            "Nancon at 25 m by changing this switch alone, 4.64 -> 4.13 s per "
+            "step, 10.9 per cent of the solve. Same reasoning as "
+            "save_specific_discharge: the cost is the per-cell computation, and "
+            "the two together are worth 34.5 per cent."
+        ),
+    )
     mf6_runner: Annotated[Literal["subprocess", "api"], Profile.EXPERT] = Field(
         default="subprocess",
         description=(
