@@ -71,7 +71,7 @@ def test_watertable_depth_handles_nodata_elevation() -> None:
 
 
 class _SentinelHeadFile:
-    def __init__(self, path: str):
+    def __init__(self, path: str, precision: str = "double"):
         self.path = path
 
     def get_times(self):

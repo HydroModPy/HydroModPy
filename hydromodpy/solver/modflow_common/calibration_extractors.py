@@ -130,7 +130,6 @@ def extract_discharge_from_cbc(
     discharge objective would silently optimize against the wrong water.
     Calibrate on ``lake_level`` (or disable route_drainage) in that case.
     """
-    import flopy.utils.binaryfile as bf
 
     mask = np.asarray(catchment_mask, dtype=bool).reshape(-1)
     if not mask.any():
@@ -138,7 +137,7 @@ def extract_discharge_from_cbc(
     cbc_path = _resolve_cbc_path(output_dir, model_name)
     seconds_per_unit = _resolve_seconds_per_unit(output_dir, model_name)
 
-    cbb = bf.CellBudgetFile(str(cbc_path))
+    cbb = open_cell_budget(cbc_path)
     try:
         record_names = [r.decode().strip().lower() for r in cbb.get_unique_record_names()]
         if any("to-mvr" in name or "to_mvr" in name for name in record_names):
@@ -207,6 +206,35 @@ def _drain_outflow_on_mask(arr: object, mask: np.ndarray) -> float:
             f"mask {ncpl}; they were not built for the same mesh."
         )
     return float(flat[:, mask].sum())
+
+
+def open_cell_budget(cbc_path: object) -> object:
+    """Open a MODFLOW budget file, trying both precisions in the right order.
+
+    FloPy guesses the precision by reading a header and seeking past the
+    record. On a MODFLOW 6 budget, which is written in DOUBLE precision, the
+    single-precision guess computes a nonsense offset and ``file.seek`` raises
+    ``OSError(EINVAL)``, which FloPy's own fallback does not catch: the guess
+    never gets to fail cleanly and try the other width. MODFLOW-NWT writes
+    single precision, so the same call worked for years and only broke when
+    this project moved a calibration from NWT to MF6.
+
+    Double is tried first because MODFLOW 6 is the default backend here, and a
+    single-precision NWT file simply fails the double attempt on its header
+    rather than on a seek. When neither width opens the file, the failure names
+    both attempts instead of surfacing an errno from deep inside FloPy.
+    """
+    import flopy.utils.binaryfile as bf
+
+    errors: list[str] = []
+    for precision in ("double", "single"):
+        try:
+            return bf.CellBudgetFile(str(cbc_path), precision=precision)
+        except Exception as exc:  # noqa: BLE001 - the width that fails is data, not a bug
+            errors.append(f"{precision}: {type(exc).__name__}: {exc}")
+    raise ValueError(
+        f"the budget file {cbc_path} could not be read at either precision. " + "; ".join(errors)
+    )
 
 
 def _find_drain_component(cbb: object) -> str:
@@ -429,15 +457,13 @@ def extract_release_flux_by_cell_from_cbc(
     outputs so the layers are summed onto the cell index.
     """
 
-    import flopy.utils.binaryfile as bf
-
     if not packages:
         raise ValueError("extract_release_flux_by_cell_from_cbc needs at least one package.")
 
     cbc_path = _resolve_cbc_path(output_dir, model_name)
     seconds_per_unit = _resolve_seconds_per_unit(output_dir, model_name)
 
-    cbb = bf.CellBudgetFile(str(cbc_path))
+    cbb = open_cell_budget(cbc_path)
     try:
         record_names = [r.decode() for r in cbb.get_unique_record_names()]
         _refuse_sibling_budgets_the_union_cannot_read(cbc_path, packages, record_names)

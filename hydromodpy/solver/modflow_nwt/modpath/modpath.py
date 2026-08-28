@@ -17,11 +17,11 @@ from collections.abc import Mapping
 from contextlib import redirect_stdout
 
 import flopy
-import flopy.utils.binaryfile as fpu
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
 from hydromodpy.solver.modflow_common import ensure_solver_binary
+from hydromodpy.solver.modflow_common.calibration_extractors import open_cell_budget
 
 from ._filt_processing import filter_pathlines
 from ._post_processing import write_shapefiles
@@ -208,7 +208,7 @@ class Modpath:
 
         bud_file = os.path.join(self.full_path, f"{self.model_name}.cbc")
         head_file = os.path.join(self.full_path, f"{self.model_name}.hds")
-        cbb = fpu.CellBudgetFile(bud_file)
+        cbb = open_cell_budget(bud_file)  # NWT ecrit en simple, MF6 en double
         cbb.get_data(kstpkper=(0, 0), text="DRAINS")
         cbb.get_data(kstpkper=(0, 0), text="RECHARGE")
         _ = head_file

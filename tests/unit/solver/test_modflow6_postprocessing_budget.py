@@ -18,7 +18,7 @@ from ._test_modflow6_postprocessing_builders import (
 
 
 class _DummyBudgetFileWithDrnAndChd:
-    def __init__(self, path: str):
+    def __init__(self, path: str, precision: str = "double"):
         self.path = path
 
     def get_data(self, *, kstpkper, text: str, totim=None):
@@ -42,7 +42,7 @@ class _DummyBudgetFileWithDrnAndChd:
 
 
 class _DummyBudgetFileUnexpectedValueError:
-    def __init__(self, path: str):
+    def __init__(self, path: str, precision: str = "double"):
         self.path = path
 
     def get_data(self, *, kstpkper, text: str, totim=None):
@@ -164,7 +164,7 @@ def test_modflow6_post_processing_routes_accumulation_flux_via_masstransfer(
             masstransfer_calls[-1]["trace_cumulated_called"] = True
 
     class _FakeRasterReader:
-        def __init__(self, path: str):
+        def __init__(self, path: str, precision: str = "double"):
             self.path = path
 
         def __enter__(self):
