@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from hydromodpy.core.exceptions import DataSourceError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.io_helpers import (
     parse_chronicle_filename,
@@ -93,6 +94,17 @@ def load_custom_points(
 
     if station_ids:
         requested = set(station_ids)
+        available = {loc.id for loc in locations}
+        missing = sorted(requested - available)
+        if missing:
+            # A silent drop leaves an empty observed series, and a calibration
+            # scored against nothing still reports a number.
+            known = sorted(available)
+            shown = ", ".join(known[:10]) + (", ..." if len(known) > 10 else "")
+            raise DataSourceError(
+                f"{variable_name}: station_ids declares {missing}, absent from "
+                f"{loc_file.name}. Known ids: {shown or '(none)'}."
+            )
         locations = [loc for loc in locations if loc.id in requested]
 
     logger.debug("Custom: %d stations from %s", len(locations), loc_file.name)
