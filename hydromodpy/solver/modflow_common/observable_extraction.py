@@ -34,6 +34,7 @@ from hydromodpy.solver.modflow_common.calibration_extractors import (
 )
 from hydromodpy.solver.modflow_common.catchment_support import catchment_cell_mask
 
+RoutedDischargeReader = Callable[[Path, str, "pd.DatetimeIndex | None"], "pd.Series | None"]
 StationCellMapper = Callable[[Mapping[str, tuple[int, int, int]]], dict[str, tuple[int, int, int]]]
 
 _DISCHARGE_UNITS = "m3 s-1"
@@ -181,6 +182,7 @@ def extract_common_modflow_observables(
     *,
     time_index: pd.DatetimeIndex | None = None,
     station_cell_mapper: StationCellMapper | None = None,
+    routed_discharge_reader: RoutedDischargeReader | None = None,
 ) -> tuple[dict[str, ObservableResult], list[ObservableRequest]]:
     """Serve the shared MODFLOW observables; return the ones left unserved.
 
@@ -205,14 +207,28 @@ def extract_common_modflow_observables(
     unserved = [r for r in requests if id(r) not in handled]
 
     if discharge_requests:
-        series = extract_discharge_from_cbc(
-            output_dir,
-            model_name,
-            time_index,
-            catchment_mask=catchment_cell_mask(model),
-        )
+        # A routed network owns the discharge observable. With route_drainage the
+        # in-catchment drainage has been moved into DRN-TO-MVR, so the plain DRAIN
+        # record left in the budget is the buffer drainage of the neighbouring
+        # basins and summing it would score the wrong water. The reader is injected
+        # by the backend: SFR is MODFLOW 6 only, and `modflow_common` must not
+        # import a backend.
+        series = None
+        routed = False
+        if routed_discharge_reader is not None:
+            series = routed_discharge_reader(output_dir, model_name, time_index)
+            routed = series is not None
+        if series is None:
+            series = extract_discharge_from_cbc(
+                output_dir,
+                model_name,
+                time_index,
+                catchment_mask=catchment_cell_mask(model),
+            )
         for request in discharge_requests:
-            served[request.id] = series_observable(request, series, units=_DISCHARGE_UNITS)
+            served[request.id] = series_observable(
+                request, series, units=_DISCHARGE_UNITS, includes_runoff=routed
+            )
 
     if head_requests:
         station_cells = {r.id: r.cell for r in head_requests}

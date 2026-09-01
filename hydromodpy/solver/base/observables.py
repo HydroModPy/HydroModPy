@@ -24,6 +24,7 @@ def series_observable(
     series: pd.Series,
     *,
     units: str,
+    includes_runoff: bool = False,
 ) -> ObservableResult:
     """Wrap a full series as one observable, sliced to the requested timesteps.
 
@@ -38,6 +39,7 @@ def series_observable(
         values=values[keep],
         units=units,
         times=times,
+        includes_runoff=includes_runoff,
     )
 
 

@@ -44,6 +44,7 @@ __all__ = [
     "SfrObsSpec",
     "build_sfr_columns",
     "read_sfr_meta",
+    "routed_outflow_series",
     "sfr_station_id",
 ]
 
@@ -245,3 +246,61 @@ def build_sfr_columns(
             )
 
     return columns, budgets
+
+
+def routed_outflow_series(
+    output_dir: Path,
+    model_name: str,
+    *,
+    times: Sequence[float],
+    seconds_per_time_unit: float,
+) -> np.ndarray | None:
+    """Surface water leaving the model through the SFR network, per timestep [m3/s].
+
+    Summed over every reach's ``ext-outflow``, sign-corrected the same way
+    :func:`build_sfr_columns` does, so the calibration scores the quantity the
+    store persists rather than a second convention.
+
+    This is the observable a routed network exposes. The plain DRAIN record
+    cannot stand in for it: with ``route_drainage`` the in-catchment drainage
+    has been moved into DRN-TO-MVR, so what is left in DRAIN is the buffer
+    drainage of the neighbouring basins.
+
+    Returns ``None`` when the run carries no SFR observations, which is how the
+    caller knows to fall back to the drain sum.
+    """
+    spec = read_sfr_meta(output_dir / f"{model_name}.sfr.meta.json")
+    if spec is None:
+        return None
+    obs_path = output_dir / f"{model_name}.sfr.obs.csv"
+    if not obs_path.is_file():
+        return None
+    header, rows = read_obs_csv(obs_path)
+    if not rows:
+        return None
+    col_index = {name: pos for pos, name in enumerate(header)}
+    n_steps = min(len(rows), len(times))
+    if n_steps == 0:
+        return None
+    matrix = rows_matrix(rows, n_steps)
+    spt = float(seconds_per_time_unit) if seconds_per_time_unit else 1.0
+
+    total = np.zeros(n_steps, dtype="float64")
+    seen = 0
+    for entry in spec.entries:
+        if entry.quantity != "ext_outflow":
+            continue
+        pos = col_index.get(entry.obsname.upper())
+        if pos is None or pos >= matrix.shape[1]:
+            continue
+        column = np.nan_to_num(matrix[:, pos], nan=0.0)
+        total += -column / spt  # ext-outflow is reported NEGATIVE by MF6
+        seen += 1
+    if seen == 0:
+        return None
+    logger.info(
+        "Discharge observable: routed SFR ext-outflow summed over %d reach(es); the "
+        "plain DRAIN record is buffer drainage and is not added.",
+        seen,
+    )
+    return total
