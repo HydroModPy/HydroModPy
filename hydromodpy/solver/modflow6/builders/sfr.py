@@ -534,9 +534,19 @@ def build_sfr_package_args(
         "print_flows": False,
         "budget_filerecord": f"{stem}.sfr.cbc",
     }
-    if network.downstream_increasing:
+    if network.downstream_increasing and not definition.get("route_drainage"):
         # Downstream-increasing numbering guarantees a single sweep resolves the
         # routing order, so MF6 can skip the extra Picard passes.
+        #
+        # Only when nothing MOVES water into the reaches. `route_drainage` sends
+        # the hillslope DRN through MVR, and that exchange is part of the
+        # nonlinear coupling, not of the routing order a single sweep settles:
+        # one Picard pass updates the mover inflow once per OUTER iteration, so
+        # it creeps instead of converging. Measured on the Nancon at 25 m in
+        # steady state, `1_GWF-SFR-(244)-qfrommvr` fell about 1 per cent per
+        # outer iteration and still read 4.04e-4 at iteration 500 against a
+        # 1e-4 criterion, while the head had settled at 1.5e-7. The daily
+        # transient then failed at stress period 3 even with 1500 iterations.
         args["maximum_picard_iterations"] = 1
     if diversion_rows:
         args["diversions"] = diversion_rows
