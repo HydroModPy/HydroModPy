@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core import progress
+from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import (
     CF_EPOCH,
@@ -203,6 +204,9 @@ class Modflow6OutputAdapter:
                     nlay=nlay,
                     n_cells=n_cells,
                     seconds_per_time_unit=seconds_per_time_unit,
+                    catchment_mask=self._catchment_cell_mask(
+                        sim_id, store, solver_output_dir, n_cells=n_cells
+                    ),
                 )
 
             lst_path = _listing_path(solver_output_dir, model_name)
@@ -261,6 +265,7 @@ class Modflow6OutputAdapter:
         nlay: int = 1,
         n_cells: int = 0,
         seconds_per_time_unit: float = 1.0,
+        catchment_mask: np.ndarray | None = None,
     ) -> None:
         """Extract cell budget data from MF6 .cbc file.
 
@@ -270,6 +275,11 @@ class Modflow6OutputAdapter:
         from hydromodpy.solver.modflow6.extractors.cbc_reader import Mf6CellBudgetReader
 
         cbb = Mf6CellBudgetReader(cbc_path)
+        catchment_cells = np.flatnonzero(catchment_mask) if catchment_mask is not None else None
+        if catchment_cells is not None and catchment_cells.size == 0:
+            # A row of zeros under a name that claims to be the catchment reads
+            # as a dry basin instead of as a missing mask.
+            catchment_cells = None
         try:
             # Intercell face flows and the specific-discharge velocity are not
             # scalar budget terms; skip them before reading or summing.
@@ -364,12 +374,15 @@ class Modflow6OutputAdapter:
                     seen.add(key)
                     if hasattr(arr, "dtype") and arr.dtype.names is not None:
                         arr = self._recarray_to_grid(arr, nlay, n_cells)
+                    field = None
                     if hasattr(arr, "shape") and arr.ndim >= 1:
                         flux_in = float(np.maximum(arr, 0).sum()) / seconds_per_time_unit
                         flux_out = float(np.minimum(arr, 0).sum()) / seconds_per_time_unit
+                        field = self._as_cell_grid(arr, nlay, n_cells)
                     else:
                         flux_in = 0.0
                         flux_out = 0.0
+                    canonical = canonical_budget_component(component)
                     ranked_records.append(
                         (
                             t,
@@ -377,20 +390,38 @@ class Modflow6OutputAdapter:
                             {
                                 "timestep": t,
                                 "zone_id": "0",
-                                "component": canonical_budget_component(component),
+                                "component": canonical,
                                 "flux_in": flux_in,
                                 "flux_out": abs(flux_out),
                                 "unit": "m3/s",
                             },
                         )
                     )
-                    if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
-                        if arr.size == nlay * n_cells:
-                            field = np.asarray(arr).reshape(nlay, n_cells)
-                        elif arr.ndim == 1 and arr.size == n_cells:
-                            field = np.asarray(arr).reshape(1, n_cells)
-                        else:
-                            field = None
+                    if catchment_cells is not None and field is not None:
+                        # The row above spans the model domain. On a buffered
+                        # box that is not what a gauge at the outlet sees, and
+                        # the per-cell field is dropped right after unless
+                        # spatial_fields is on. Summing the basin here, where
+                        # the array is already in memory, is what lets a run
+                        # carry a catchment-supported budget for free.
+                        in_basin = field[:, catchment_cells]
+                        ranked_records.append(
+                            (
+                                t,
+                                rank,
+                                {
+                                    "timestep": t,
+                                    "zone_id": CATCHMENT_BUDGET_ZONE,
+                                    "component": canonical,
+                                    "flux_in": float(np.maximum(in_basin, 0).sum())
+                                    / seconds_per_time_unit,
+                                    "flux_out": abs(float(np.minimum(in_basin, 0).sum()))
+                                    / seconds_per_time_unit,
+                                    "unit": "m3/s",
+                                },
+                            )
+                        )
+                    if spatial_fields:
                         if field is not None:
                             stack = slab_stacks.get(component)
                             if stack is None:
@@ -648,6 +679,80 @@ class Modflow6OutputAdapter:
                 store.write_mass_balances(sim_id, records)
         except Exception:
             logger.warning("Could not parse MF6 listing file %s", lst_path)
+
+    @staticmethod
+    def _as_cell_grid(arr: Any, nlay: int, n_cells: int) -> np.ndarray | None:
+        """Reshape one budget record to ``(nlay, n_cells)``, None when it does not fit."""
+        if arr.size == nlay * n_cells:
+            return np.asarray(arr).reshape(nlay, n_cells)
+        if arr.ndim == 1 and arr.size == n_cells:
+            return np.asarray(arr).reshape(1, n_cells)
+        return None
+
+    def _catchment_cell_mask(
+        self,
+        sim_id: str,
+        store: Any,
+        solver_output_dir: Path,
+        *,
+        n_cells: int,
+    ) -> np.ndarray | None:
+        """Cells of the delineated catchment, None when it cannot be placed.
+
+        Read from the GRB rather than from the persisted mesh: the mesh reaches
+        Zarr only in ``_write_surface_elevation``, which runs after the budget.
+        Both come from the same file, so the two masks agree cell for cell.
+        A run without a watershed, without a CRS or on a synthetic domain keeps
+        the domain-wide row alone, exactly as before.
+        """
+        try:
+            from hydromodpy.spatial.mesh.ops.vector_cell_mask import (
+                cell_polygons,
+                vector_cell_mask,
+            )
+
+            watershed = store.read_geographic_feature(sim_id, "watershed")
+            if watershed is None or watershed.empty:
+                return None
+            crs = store.open_zarr(sim_id).root["crs"].attrs.get("crs_wkt")
+            if not crs:
+                # Never guessed: the wrong frame lands the catchment somewhere
+                # else entirely and the budget row would look plausible.
+                return None
+            grb_files = list(solver_output_dir.glob("*.dis.grb")) + list(
+                solver_output_dir.glob("*.disv.grb")
+            )
+            if not grb_files:
+                return None
+            from flopy.mf6.utils import MfGrdFile
+
+            geometry = self._mesh_geometry_from_grid(MfGrdFile(str(grb_files[0])), n_cells=n_cells)
+            if geometry is None:
+                return None
+            vertices, connectivity = geometry
+            mask = np.asarray(
+                vector_cell_mask(
+                    cell_polygons(vertices, connectivity),
+                    list(watershed.geometry),
+                    mesh_crs=str(crs),
+                    geometry_crs=watershed.crs,
+                    rule="centroid",
+                ),
+                dtype=bool,
+            ).ravel()
+        except Exception as exc:
+            logger.debug("No catchment budget zone for sim %s: %s", sim_id, exc)
+            return None
+        if mask.size != n_cells or not mask.any():
+            return None
+        logger.info(
+            "Budget zone '%s' for sim %s: %d of %d cells.",
+            CATCHMENT_BUDGET_ZONE,
+            sim_id,
+            int(mask.sum()),
+            n_cells,
+        )
+        return mask
 
     def _write_surface_elevation(
         self,

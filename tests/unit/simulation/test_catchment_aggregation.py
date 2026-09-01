@@ -9,12 +9,14 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.exceptions import ExtractError
+from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE
 from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
     _CATCHMENT_STATION,
     _add_runoff_to_discharge_series,
     _aggregate_from_lumped_budget,
     _aggregate_variable,
     _build_active_mask,
+    _catchment_fraction,
     _detect_n_timesteps,
     _read_catchment_area_m2,
     _reduce,
@@ -795,3 +797,100 @@ class TestTheCatchmentSeriesUseTheCatchment:
 
         assert mask is active
         assert "no cell" in " ".join(r.getMessage() for r in caplog.records)
+
+
+class TestLumpedBudgetPrefersTheCatchmentZone:
+    """A ``zone_id = 'catchment'`` row is the only lumped row a gauge matches.
+
+    Every other zone spans the model domain. On a buffered MODFLOW 6 grid that
+    takes in the neighbouring basins, so the ``_catchment`` series would carry
+    more water than the outlet ever sees.
+    """
+
+    def _register(self, catalog, n_ts: int = 2) -> str:
+        sid = str(uuid4())
+        reg = catalog.register_simulation(
+            sid,
+            project="test",
+            solver="modflow6",
+            n_cells=4,
+            n_layers=1,
+            n_timesteps=n_ts,
+            period_start="2020-01-01",
+            period_end="2020-01-02",
+        )
+        if reg.zarr is not None:
+            reg.zarr.close()
+        return sid
+
+    def _write(self, catalog, sid, zone, values, component="drain"):
+        for timestep, flux_out in values.items():
+            catalog.write_budget(
+                sid,
+                timestep=timestep,
+                zone_id=zone,
+                component=component,
+                flux_in=0.0,
+                flux_out=flux_out,
+            )
+
+    def test_the_catchment_row_wins_over_the_domain_row(self, catalog):
+        sid = self._register(catalog)
+        self._write(catalog, sid, "0", {0: 2.119, 1: 2.0})
+        self._write(catalog, sid, CATCHMENT_BUDGET_ZONE, {0: 0.888, 1: 0.8})
+
+        values = _aggregate_from_lumped_budget(catalog, sid, "drain", "abs_sum", 2)
+
+        # Neither the domain row nor the sum of the two: only the basin.
+        assert values == pytest.approx([0.888, 0.8])
+
+    def test_the_two_rows_are_never_summed(self, catalog):
+        # The historical query had no zone filter. It was harmless only while
+        # every component carried a single zone; a second row would have
+        # doubled the discharge without a word.
+        sid = self._register(catalog, n_ts=1)
+        self._write(catalog, sid, "0", {0: 2.0})
+        self._write(catalog, sid, CATCHMENT_BUDGET_ZONE, {0: 0.5})
+
+        values = _aggregate_from_lumped_budget(catalog, sid, "drain", "abs_sum", 1)
+
+        assert values == pytest.approx([0.5])
+        assert values[0] != pytest.approx(2.5)
+
+    def test_domain_only_is_used_but_warned_about_and_never_rescaled(self, catalog, caplog):
+        sid = self._register(catalog, n_ts=1)
+        self._write(catalog, sid, "0", {0: 2.119})
+
+        with caplog.at_level("WARNING"):
+            values = _aggregate_from_lumped_budget(
+                catalog, sid, "drain", "abs_sum", 1, catchment_fraction=0.42
+            )
+
+        # The value is reported as it stands: rescaling a domain total by an
+        # area ratio would invent a number nothing measured.
+        assert values == pytest.approx([2.119])
+        message = " ".join(r.getMessage() for r in caplog.records)
+        assert "NOT rescaled" in message
+        assert "42%" in message
+
+    def test_a_domain_that_is_the_catchment_says_nothing(self, catalog, caplog):
+        # MODFLOW-NWT meshes the delineated basin, so its domain row already has
+        # the catchment for support. Warning there would cry wolf.
+        sid = self._register(catalog, n_ts=1)
+        self._write(catalog, sid, "0", {0: 0.888})
+
+        with caplog.at_level("WARNING"):
+            values = _aggregate_from_lumped_budget(
+                catalog, sid, "drain", "abs_sum", 1, catchment_fraction=1.0
+            )
+
+        assert values == pytest.approx([0.888])
+        assert caplog.records == []
+
+    def test_catchment_fraction_reports_the_covered_share(self):
+        domain = np.array([True, True, True, True])
+        catchment = np.array([True, False, True, False])
+
+        assert _catchment_fraction(catchment, domain) == pytest.approx(0.5)
+        assert _catchment_fraction(None, domain) is None
+        assert _catchment_fraction(catchment, np.zeros(4, dtype=bool)) is None

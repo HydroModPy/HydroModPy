@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.exceptions import ExtractError
+from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.period_aggregation import period_mean_on_index
 
@@ -76,7 +77,8 @@ def aggregate_catchment_timeseries(
         if n_timesteps == 0:
             raise RuntimeError(f"No timesteps found for sim {sim_id}; cannot aggregate catchment")
 
-        active_mask = _build_catchment_mask(store, sim_id, grp, _build_active_mask(grp))
+        domain_mask = _build_active_mask(grp)
+        active_mask = _build_catchment_mask(store, sim_id, grp, domain_mask)
 
         pending: list[tuple[str, list[float]]] = []
         for store_var, output_var, reducer in _AGGREGATION_SPEC:
@@ -87,7 +89,12 @@ def aggregate_catchment_timeseries(
                 # budget.spatial_fields is off by default: the per-cell field is
                 # not persisted, but the lumped per-component budget still is.
                 values = _aggregate_from_lumped_budget(
-                    store, sim_id, store_var, reducer, n_timesteps
+                    store,
+                    sim_id,
+                    store_var,
+                    reducer,
+                    n_timesteps,
+                    catchment_fraction=_catchment_fraction(active_mask, domain_mask),
                 )
             if values is None:
                 continue
@@ -362,12 +369,82 @@ def _aggregate_variable(
     return values
 
 
+def _lumped_budget_rows(
+    conn: Any,
+    sim_id: str,
+    component: str,
+    zone: str | None,
+) -> list[tuple[Any, Any, Any]]:
+    """One component's lumped budget, restricted to one zone when asked."""
+    sql = (
+        "SELECT timestep, SUM(flux_in), SUM(flux_out) FROM budgets "
+        "WHERE sim_id = ? AND component = ?"
+    )
+    params: list[Any] = [str(sim_id), component]
+    if zone is not None:
+        sql += " AND zone_id = ?"
+        params.append(zone)
+    return list(conn.execute(sql + " GROUP BY timestep", params).fetchall())
+
+
+def _catchment_fraction(
+    catchment: np.ndarray | None,
+    domain: np.ndarray | None,
+) -> float | None:
+    """Share of the active domain the delineated catchment covers."""
+    if catchment is None or domain is None or catchment.size != domain.size:
+        return None
+    n_domain = int(domain.sum())
+    if n_domain == 0:
+        return None
+    return float(int(catchment.sum())) / float(n_domain)
+
+
+_DOMAIN_BUDGET_WARNING_EMITTED: set[tuple[str, str]] = set()
+
+
+def _warn_lumped_budget_is_domain_wide(
+    sim_id: str,
+    component: str,
+    catchment_fraction: float | None,
+) -> None:
+    """Say once that a '_catchment' series is carrying a domain-wide budget.
+
+    Silent when the catchment covers the whole active domain: a MODFLOW-NWT run
+    meshes the delineated basin, so its domain row already has the catchment for
+    support and there is nothing to warn about. Silent too when the share is
+    unknown, because ``_build_catchment_mask`` has already said why it could not
+    place the watershed.
+    """
+    if catchment_fraction is None or catchment_fraction >= 1.0:
+        return
+    key = (str(sim_id), component)
+    if key in _DOMAIN_BUDGET_WARNING_EMITTED:
+        return
+    _DOMAIN_BUDGET_WARNING_EMITTED.add(key)
+    logger.warning(
+        "Catchment timeseries for sim %s: the '%s' budget carries no zone_id='%s' "
+        "row and no per-cell field, so the '%s' series is the whole model domain, "
+        "of which the catchment covers %.0f%% of the active cells. The value is "
+        "NOT rescaled: it is a domain total, not what a gauge at the outlet sees. "
+        "Set [simulation.results.budget] spatial_fields = true to get the "
+        "catchment support back.",
+        sim_id,
+        component,
+        CATCHMENT_BUDGET_ZONE,
+        _CATCHMENT_STATION,
+        100.0 * catchment_fraction,
+    )
+
+
 def _aggregate_from_lumped_budget(
     store: Any,
     sim_id: str,
     store_var: str,
     reducer: str,
     n_timesteps: int,
+    *,
+    catchment_fraction: float | None = None,
 ) -> list[float] | None:
     """Catchment scalar from the lumped per-component budget table.
 
@@ -377,27 +454,39 @@ def _aggregate_from_lumped_budget(
     equals ``flux_out``; a signed term's spatial ``sum`` (well) equals
     ``flux_in - flux_out``. Returns None for other reducers or when no component
     row matches.
+
+    A ``zone_id = 'catchment'`` row is the only lumped row whose support is the
+    catchment, so it wins. Any other zone spans the model domain, which on a
+    buffered grid takes in the neighbouring basins; such a row is still used,
+    because a run carrying nothing else must report something, but it is warned
+    about once and never rescaled.
     """
     if reducer not in ("abs_sum", "sum"):
         return None
     conn = store.connection
     for candidate in (s.strip() for s in store_var.split("|")):
         try:
-            rows = conn.execute(
-                "SELECT timestep, SUM(flux_in), SUM(flux_out) FROM budgets "
-                "WHERE sim_id = ? AND component = ? GROUP BY timestep",
-                [str(sim_id), candidate],
-            ).fetchall()
-        except Exception as exc:
-            # The lumped budget is the only source left once the per-cell
-            # budget stopped being persisted: an unreadable table silently
-            # empties discharge, so it must fail loudly.
-            raise ExtractError(
-                f"Cannot read the lumped budget of component '{candidate}' for sim "
-                f"{sim_id}: the catchment '{store_var}' series cannot be built ({exc})."
-            ) from exc
+            rows = _lumped_budget_rows(conn, sim_id, candidate, CATCHMENT_BUDGET_ZONE)
+        except Exception:
+            # A store predating the zone column must degrade to the domain-wide
+            # read below, not die on the probe.
+            rows = []
+        on_catchment = bool(rows)
+        if not rows:
+            try:
+                rows = _lumped_budget_rows(conn, sim_id, candidate, None)
+            except Exception as exc:
+                # The lumped budget is the only source left once the per-cell
+                # budget stopped being persisted: an unreadable table silently
+                # empties discharge, so it must fail loudly.
+                raise ExtractError(
+                    f"Cannot read the lumped budget of component '{candidate}' for sim "
+                    f"{sim_id}: the catchment '{store_var}' series cannot be built ({exc})."
+                ) from exc
         if not rows:
             continue
+        if not on_catchment:
+            _warn_lumped_budget_is_domain_wide(sim_id, candidate, catchment_fraction)
         # NaN, not zero, for timesteps with no budget row: a gap must stay
         # missing instead of biasing the metrics toward a null flux.
         values = [float("nan")] * n_timesteps

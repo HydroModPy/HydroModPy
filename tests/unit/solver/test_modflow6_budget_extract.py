@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 import pytest
 
+from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE
 from hydromodpy.solver.modflow6.extractors.cbc_reader import CbcRecord
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 
@@ -164,3 +165,65 @@ def test_unknown_kstpkper_is_ignored(monkeypatch: pytest.MonkeyPatch) -> None:
     store = _run_extract(fake, monkeypatch)
     assert store.budgets is None
     assert store.stacks == {}
+
+
+class TestCatchmentBudgetZone:
+    """The second budget row whose support is the basin, not the buffered box.
+
+    MODFLOW 6 meshes a box wider than the catchment, so the ``zone_id = "0"``
+    row takes in the neighbouring basins. The per-cell array is in memory while
+    the budget is read and dropped right after unless ``spatial_fields`` is on,
+    so this is the one place the basin can be summed for free.
+    """
+
+    def _rcha_cbb(self) -> _FakeCbb:
+        payload = np.array([[[1.0, -2.0, 3.0, -4.0]]])
+        return _FakeCbb([(1, 1, _NAMES[1], payload)])
+
+    def _extract(self, cbb, monkeypatch, mask):
+        from hydromodpy.solver.modflow6.extractors import cbc_reader
+
+        monkeypatch.setattr(cbc_reader, "Mf6CellBudgetReader", lambda *a, **k: cbb)
+        store = _FakeStore()
+        Modflow6OutputAdapter()._extract_budget(
+            "sim",
+            store,
+            Path("unused.cbc"),
+            times=[1.0],
+            kstpkpers=[(0, 0)],
+            spatial_fields=False,
+            nlay=1,
+            n_cells=4,
+            seconds_per_time_unit=_SPT,
+            catchment_mask=mask,
+        )
+        return store
+
+    def test_mask_adds_a_catchment_row_summed_on_the_basin_only(self, monkeypatch):
+        mask = np.array([True, False, True, False])
+
+        store = self._extract(self._rcha_cbb(), monkeypatch, mask)
+
+        by_zone = {row["zone_id"]: row for row in store.budgets}
+        assert set(by_zone) == {"0", CATCHMENT_BUDGET_ZONE}
+        # Domain keeps every cell: +1 +3 in, -2 -4 out.
+        assert by_zone["0"]["flux_in"] == pytest.approx(4.0 / _SPT)
+        assert by_zone["0"]["flux_out"] == pytest.approx(6.0 / _SPT)
+        # The basin holds cells 0 and 2, so it sees no outflow at all.
+        assert by_zone[CATCHMENT_BUDGET_ZONE]["flux_in"] == pytest.approx(4.0 / _SPT)
+        assert by_zone[CATCHMENT_BUDGET_ZONE]["flux_out"] == pytest.approx(0.0)
+        assert by_zone[CATCHMENT_BUDGET_ZONE]["component"] == by_zone["0"]["component"]
+        assert by_zone[CATCHMENT_BUDGET_ZONE]["unit"] == "m3/s"
+
+    def test_without_a_mask_only_the_domain_row_is_written(self, monkeypatch):
+        store = self._extract(self._rcha_cbb(), monkeypatch, None)
+
+        assert [row["zone_id"] for row in store.budgets] == ["0"]
+
+    def test_an_empty_basin_is_not_written_as_zero(self, monkeypatch):
+        # An all-false mask would write a row of zeros under a name that claims
+        # to be the catchment, which is worse than carrying no row at all.
+        store = self._extract(self._rcha_cbb(), monkeypatch, np.zeros(4, dtype=bool))
+
+        rows = [row for row in store.budgets if row["zone_id"] == CATCHMENT_BUDGET_ZONE]
+        assert rows == [] or rows[0]["flux_in"] != 0.0 or rows[0]["flux_out"] != 0.0
