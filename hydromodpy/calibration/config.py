@@ -565,7 +565,15 @@ class CalibPhaseDecl(HydroModelBase):
     )
     method: Annotated[CalibrationMethod, Profile.USER] = Field(
         default="grid",
-        description="Optimization method for this phase only.",
+        description=(
+            "Optimization method for this phase only. "
+            "Built-ins: 'grid' (regular sweep, sized by "
+            "optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of "
+            "a signed criterion on one parameter, the stream-network stage), 'optuna' "
+            "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', "
+            "'da_mh_gp'. An unknown name is refused when the optimizer is built, "
+            "with the list installed here."
+        ),
     )
     max_iter: Annotated[int, Profile.USER] = Field(
         default=100,
@@ -660,8 +668,15 @@ class CalibrationConfig(HydroModelBase):
     method: Annotated[CalibrationMethod, Profile.USER] = Field(
         default="grid",
         description=(
-            "Optimization method. Optuna is installed by default; install the "
-            "calibration extra for cma_es and Optuna's cmaes sampler."
+            "Optimization method. "
+            "Built-ins: 'grid' (regular sweep, sized by "
+            "optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of "
+            "a signed criterion on one parameter, the stream-network stage), 'optuna' "
+            "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', "
+            "'da_mh_gp'. An unknown name is refused when the optimizer is built, "
+            "with the list installed here."
+            "Optuna is installed by default; install the calibration extra for "
+            "cma_es and Optuna's cmaes sampler."
         ),
     )
     max_iter: Annotated[int, Profile.USER] = Field(

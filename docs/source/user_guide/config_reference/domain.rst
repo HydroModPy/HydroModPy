@@ -332,16 +332,16 @@ Fields
 
       .. tab-item:: constant_thickness
 
-         TOML: ``[domain.depth_model.constant_thickness]`` -- model ``ConstantThicknessDepthModel`` (set ``kind = "constant_thickness"``).
+         TOML: ``[domain.depth_model]`` with ``kind = "constant_thickness"`` -- model ``ConstantThicknessDepthModel``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: domain-depth-model-constant-thickness-thickness
+               :name: domain-depth-model-thickness
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="domain.depth_model.constant_thickness.thickness">
+                  <div class="hmp-field-header" data-toml-path="domain.depth_model.thickness">
                     <code class="hmp-field-name">thickness</code>
                   </div>
 
@@ -353,16 +353,16 @@ Fields
 
       .. tab-item:: flat_substratum
 
-         TOML: ``[domain.depth_model.flat_substratum]`` -- model ``FlatSubstratumDepthModel`` (set ``kind = "flat_substratum"``).
+         TOML: ``[domain.depth_model]`` with ``kind = "flat_substratum"`` -- model ``FlatSubstratumDepthModel``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: domain-depth-model-flat-substratum-substratum-elevation
+               :name: domain-depth-model-substratum-elevation
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="domain.depth_model.flat_substratum.substratum_elevation">
+                  <div class="hmp-field-header" data-toml-path="domain.depth_model.substratum_elevation">
                     <code class="hmp-field-name">substratum_elevation</code>
                   </div>
 

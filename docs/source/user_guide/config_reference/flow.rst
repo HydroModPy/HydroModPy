@@ -299,16 +299,16 @@ Fields
 
             .. tab-item:: homogeneous
 
-               TOML: ``[flow.param.<id>.field.homogeneous]`` -- model ``FieldHomogeneousSection`` (set ``kind = "homogeneous"``).
+               TOML: ``[flow.param.<id>.field]`` with ``kind = "homogeneous"`` -- model ``FieldHomogeneousSection``.
 
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-param-id-field-homogeneous-id
+                     :name: flow-param-id-field-id
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.homogeneous.id">
+                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.id">
                           <code class="hmp-field-name">id</code>
                         </div>
 
@@ -318,11 +318,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-param-id-field-homogeneous-unit
+                     :name: flow-param-id-field-unit
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.homogeneous.unit">
+                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.unit">
                           <code class="hmp-field-name">unit</code>
                         </div>
 
@@ -332,11 +332,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-param-id-field-homogeneous-value
+                     :name: flow-param-id-field-value
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.homogeneous.value">
+                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.value">
                           <code class="hmp-field-name">value</code>
                         </div>
 
@@ -348,16 +348,16 @@ Fields
 
             .. tab-item:: heterogeneous
 
-               TOML: ``[flow.param.<id>.field.heterogeneous]`` -- model ``FieldHeterogeneousSection`` (set ``kind = "heterogeneous"``).
+               TOML: ``[flow.param.<id>.field]`` with ``kind = "heterogeneous"`` -- model ``FieldHeterogeneousSection``.
 
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-param-id-field-heterogeneous-id
+                     :name: flow-param-id-field-id
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.heterogeneous.id">
+                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.id">
                           <code class="hmp-field-name">id</code>
                         </div>
 
@@ -367,11 +367,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-param-id-field-heterogeneous-unit
+                     :name: flow-param-id-field-unit
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.heterogeneous.unit">
+                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.unit">
                           <code class="hmp-field-name">unit</code>
                         </div>
 
@@ -381,11 +381,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-param-id-field-heterogeneous-values-source
+                     :name: flow-param-id-field-values-source
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.heterogeneous.values_source">
+                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.values_source">
                           <code class="hmp-field-name">values_source</code>
                         </div>
 
@@ -395,14 +395,14 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-param-id-field-heterogeneous-values
+                     :name: flow-param-id-field-values
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.heterogeneous.values">
+                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.values">
                           <code class="hmp-field-name">values</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">[flow.param.&lt;id&gt;.field.heterogeneous.values.&lt;id&gt;]</code>
+                          <code class="hmp-field-toml">[flow.param.&lt;id&gt;.field.values.&lt;id&gt;]</code>
                         </div>
 
                      :bdg-primary:`dict[str, float | str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L108>`__
@@ -411,11 +411,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: flow-param-id-field-heterogeneous-values-csv-file
+                     :name: flow-param-id-field-values-csv-file
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.heterogeneous.values_csv_file">
+                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.values_csv_file">
                           <code class="hmp-field-name">values_csv_file</code>
                         </div>
 
@@ -425,11 +425,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: flow-param-id-field-heterogeneous-csv-key-column
+                     :name: flow-param-id-field-csv-key-column
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.heterogeneous.csv_key_column">
+                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.csv_key_column">
                           <code class="hmp-field-name">csv_key_column</code>
                         </div>
 
@@ -439,11 +439,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: flow-param-id-field-heterogeneous-csv-value-column
+                     :name: flow-param-id-field-csv-value-column
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.heterogeneous.csv_value_column">
+                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.csv_value_column">
                           <code class="hmp-field-name">csv_value_column</code>
                         </div>
 
@@ -453,11 +453,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-param-id-field-heterogeneous-field-spatial-id
+                     :name: flow-param-id-field-field-spatial-id
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.heterogeneous.field_spatial_id">
+                        <div class="hmp-field-header" data-toml-path="flow.param.&lt;id&gt;.field.field_spatial_id">
                           <code class="hmp-field-name">field_spatial_id</code>
                         </div>
 
@@ -619,16 +619,16 @@ Fields
 
             .. tab-item:: top
 
-               TOML: ``[flow.ic.h.top]`` -- model ``FlowICTop`` (set ``type = "top"``).
+               TOML: ``[flow.ic.h]`` with ``type = "top"`` -- model ``FlowICTop``.
 
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: flow-ic-h-top-id
+                     :name: flow-ic-h-id
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.top.id">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.id">
                           <code class="hmp-field-name">id</code>
                         </div>
 
@@ -638,11 +638,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-ic-h-top-value
+                     :name: flow-ic-h-value
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.top.value">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.value">
                           <code class="hmp-field-name">value</code>
                         </div>
 
@@ -652,11 +652,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-ic-h-top-description
+                     :name: flow-ic-h-description
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.top.description">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.description">
                           <code class="hmp-field-name">description</code>
                         </div>
 
@@ -666,11 +666,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: flow-ic-h-top-units
+                     :name: flow-ic-h-units
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.top.units">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.units">
                           <code class="hmp-field-name">units</code>
                         </div>
 
@@ -682,16 +682,16 @@ Fields
 
             .. tab-item:: top_offset
 
-               TOML: ``[flow.ic.h.top_offset]`` -- model ``FlowICTopOffset`` (set ``type = "top_offset"``).
+               TOML: ``[flow.ic.h]`` with ``type = "top_offset"`` -- model ``FlowICTopOffset``.
 
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: flow-ic-h-top-offset-id
+                     :name: flow-ic-h-id
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.top_offset.id">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.id">
                           <code class="hmp-field-name">id</code>
                         </div>
 
@@ -701,11 +701,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-ic-h-top-offset-value
+                     :name: flow-ic-h-value
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.top_offset.value">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.value">
                           <code class="hmp-field-name">value</code>
                         </div>
 
@@ -715,11 +715,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-ic-h-top-offset-description
+                     :name: flow-ic-h-description
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.top_offset.description">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.description">
                           <code class="hmp-field-name">description</code>
                         </div>
 
@@ -729,11 +729,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-ic-h-top-offset-units
+                     :name: flow-ic-h-units
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.top_offset.units">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.units">
                           <code class="hmp-field-name">units</code>
                         </div>
 
@@ -745,16 +745,16 @@ Fields
 
             .. tab-item:: bottom
 
-               TOML: ``[flow.ic.h.bottom]`` -- model ``FlowICBottom`` (set ``type = "bottom"``).
+               TOML: ``[flow.ic.h]`` with ``type = "bottom"`` -- model ``FlowICBottom``.
 
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: flow-ic-h-bottom-id
+                     :name: flow-ic-h-id
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.bottom.id">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.id">
                           <code class="hmp-field-name">id</code>
                         </div>
 
@@ -764,11 +764,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-ic-h-bottom-value
+                     :name: flow-ic-h-value
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.bottom.value">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.value">
                           <code class="hmp-field-name">value</code>
                         </div>
 
@@ -778,11 +778,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-ic-h-bottom-description
+                     :name: flow-ic-h-description
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.bottom.description">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.description">
                           <code class="hmp-field-name">description</code>
                         </div>
 
@@ -792,11 +792,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: flow-ic-h-bottom-units
+                     :name: flow-ic-h-units
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.bottom.units">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.units">
                           <code class="hmp-field-name">units</code>
                         </div>
 
@@ -808,16 +808,16 @@ Fields
 
             .. tab-item:: custom
 
-               TOML: ``[flow.ic.h.custom]`` -- model ``FlowICCustom`` (set ``type = "custom"``).
+               TOML: ``[flow.ic.h]`` with ``type = "custom"`` -- model ``FlowICCustom``.
 
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: flow-ic-h-custom-id
+                     :name: flow-ic-h-id
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.custom.id">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.id">
                           <code class="hmp-field-name">id</code>
                         </div>
 
@@ -827,11 +827,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-ic-h-custom-value
+                     :name: flow-ic-h-value
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.custom.value">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.value">
                           <code class="hmp-field-name">value</code>
                         </div>
 
@@ -841,11 +841,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-ic-h-custom-description
+                     :name: flow-ic-h-description
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.custom.description">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.description">
                           <code class="hmp-field-name">description</code>
                         </div>
 
@@ -855,11 +855,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-ic-h-custom-units
+                     :name: flow-ic-h-units
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.custom.units">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.units">
                           <code class="hmp-field-name">units</code>
                         </div>
 
@@ -871,16 +871,16 @@ Fields
 
             .. tab-item:: steady_state
 
-               TOML: ``[flow.ic.h.steady_state]`` -- model ``FlowICSteadyState`` (set ``type = "steady_state"``).
+               TOML: ``[flow.ic.h]`` with ``type = "steady_state"`` -- model ``FlowICSteadyState``.
 
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: flow-ic-h-steady-state-id
+                     :name: flow-ic-h-id
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.steady_state.id">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.id">
                           <code class="hmp-field-name">id</code>
                         </div>
 
@@ -890,11 +890,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-ic-h-steady-state-value
+                     :name: flow-ic-h-value
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.steady_state.value">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.value">
                           <code class="hmp-field-name">value</code>
                         </div>
 
@@ -904,11 +904,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-ic-h-steady-state-description
+                     :name: flow-ic-h-description
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.steady_state.description">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.description">
                           <code class="hmp-field-name">description</code>
                         </div>
 
@@ -918,11 +918,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: flow-ic-h-steady-state-units
+                     :name: flow-ic-h-units
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.steady_state.units">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.units">
                           <code class="hmp-field-name">units</code>
                         </div>
 
@@ -932,11 +932,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-ic-h-steady-state-source
+                     :name: flow-ic-h-source
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.steady_state.source">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.source">
                           <code class="hmp-field-name">source</code>
                         </div>
 
@@ -946,11 +946,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-ic-h-steady-state-recharge-statistic
+                     :name: flow-ic-h-recharge-statistic
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.steady_state.recharge_statistic">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.recharge_statistic">
                           <code class="hmp-field-name">recharge_statistic</code>
                         </div>
 
@@ -960,11 +960,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: flow-ic-h-steady-state-boundary-condition-policy
+                     :name: flow-ic-h-boundary-condition-policy
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="flow.ic.h.steady_state.boundary_condition_policy">
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.boundary_condition_policy">
                           <code class="hmp-field-name">boundary_condition_policy</code>
                         </div>
 
@@ -1016,16 +1016,16 @@ Fields
 
       .. tab-item:: dirichlet
 
-         TOML: ``[flow.bc.dirichlet.<id>]`` -- model ``DirichletBC`` (set ``kind = "dirichlet"``).
+         TOML: ``[flow.bc.<id>]`` with ``kind = "dirichlet"`` -- model ``DirichletBC``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: flow-bc-dirichlet-id-id
+               :name: flow-bc-id-id
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.id">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.id">
                     <code class="hmp-field-name">id</code>
                   </div>
 
@@ -1035,11 +1035,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: flow-bc-dirichlet-id-value
+               :name: flow-bc-id-value
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.value">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.value">
                     <code class="hmp-field-name">value</code>
                   </div>
 
@@ -1049,11 +1049,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: flow-bc-dirichlet-id-description
+               :name: flow-bc-id-description
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.description">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.description">
                     <code class="hmp-field-name">description</code>
                   </div>
 
@@ -1063,11 +1063,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-dev
-               :name: flow-bc-dirichlet-id-units
+               :name: flow-bc-id-units
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.units">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.units">
                     <code class="hmp-field-name">units</code>
                   </div>
 
@@ -1077,11 +1077,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-dev
-               :name: flow-bc-dirichlet-id-data-value
+               :name: flow-bc-id-data-value
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.data_value">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.data_value">
                     <code class="hmp-field-name">data_value</code>
                   </div>
 
@@ -1091,14 +1091,14 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-dev
-               :name: flow-bc-dirichlet-id-forcing
+               :name: flow-bc-id-forcing
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.forcing">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.forcing">
                     <code class="hmp-field-name">forcing</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">[flow.bc.dirichlet.&lt;id&gt;.forcing]</code>
+                    <code class="hmp-field-toml">[flow.bc.&lt;id&gt;.forcing]</code>
                   </div>
 
                :bdg-primary:`mode = "constant" | "csv"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L443>`__
@@ -1111,16 +1111,16 @@ Fields
 
                   .. tab-item:: constant
 
-                     TOML: ``[flow.bc.dirichlet.<id>.forcing.constant]`` -- model ``FlowBoundaryForcingConstantConfig`` (set ``mode = "constant"``).
+                     TOML: ``[flow.bc.<id>.forcing]`` with ``mode = "constant"`` -- model ``FlowBoundaryForcingConstantConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-bc-dirichlet-id-forcing-constant-value
+                           :name: flow-bc-id-forcing-value
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.forcing.constant.value">
+                              <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.forcing.value">
                                 <code class="hmp-field-name">value</code>
                               </div>
 
@@ -1130,11 +1130,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-bc-dirichlet-id-forcing-constant-units
+                           :name: flow-bc-id-forcing-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.forcing.constant.units">
+                              <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.forcing.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -1146,16 +1146,16 @@ Fields
 
                   .. tab-item:: csv
 
-                     TOML: ``[flow.bc.dirichlet.<id>.forcing.csv]`` -- model ``FlowBoundaryForcingCsvConfig`` (set ``mode = "csv"``).
+                     TOML: ``[flow.bc.<id>.forcing]`` with ``mode = "csv"`` -- model ``FlowBoundaryForcingCsvConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-bc-dirichlet-id-forcing-csv-path-file
+                           :name: flow-bc-id-forcing-path-file
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.forcing.csv.path_file">
+                              <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.forcing.path_file">
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
@@ -1165,11 +1165,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-bc-dirichlet-id-forcing-csv-sep
+                           :name: flow-bc-id-forcing-sep
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.forcing.csv.sep">
+                              <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.forcing.sep">
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
@@ -1179,11 +1179,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-bc-dirichlet-id-forcing-csv-date-column
+                           :name: flow-bc-id-forcing-date-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.forcing.csv.date_column">
+                              <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.forcing.date_column">
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
@@ -1193,11 +1193,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-bc-dirichlet-id-forcing-csv-date-format
+                           :name: flow-bc-id-forcing-date-format
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.forcing.csv.date_format">
+                              <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.forcing.date_format">
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
@@ -1207,11 +1207,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-bc-dirichlet-id-forcing-csv-value-column
+                           :name: flow-bc-id-forcing-value-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.forcing.csv.value_column">
+                              <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.forcing.value_column">
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
@@ -1221,11 +1221,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-bc-dirichlet-id-forcing-csv-fill-method
+                           :name: flow-bc-id-forcing-fill-method
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.forcing.csv.fill_method">
+                              <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.forcing.fill_method">
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
@@ -1235,11 +1235,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-bc-dirichlet-id-forcing-csv-aggregate
+                           :name: flow-bc-id-forcing-aggregate
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.forcing.csv.aggregate">
+                              <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.forcing.aggregate">
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
@@ -1249,11 +1249,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-bc-dirichlet-id-forcing-csv-units
+                           :name: flow-bc-id-forcing-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.forcing.csv.units">
+                              <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.forcing.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -1265,11 +1265,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: flow-bc-dirichlet-id-application-domain
+               :name: flow-bc-id-application-domain
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.application_domain">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.application_domain">
                     <code class="hmp-field-name">application_domain</code>
                   </div>
 
@@ -1279,11 +1279,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: flow-bc-dirichlet-id-support-label
+               :name: flow-bc-id-support-label
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.dirichlet.&lt;id&gt;.support_label">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.support_label">
                     <code class="hmp-field-name">support_label</code>
                   </div>
 
@@ -1295,16 +1295,16 @@ Fields
 
       .. tab-item:: cauchy
 
-         TOML: ``[flow.bc.cauchy.<id>]`` -- model ``CauchyBC`` (set ``kind = "cauchy"``).
+         TOML: ``[flow.bc.<id>]`` with ``kind = "cauchy"`` -- model ``CauchyBC``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: flow-bc-cauchy-id-id
+               :name: flow-bc-id-id
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.cauchy.&lt;id&gt;.id">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.id">
                     <code class="hmp-field-name">id</code>
                   </div>
 
@@ -1314,11 +1314,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: flow-bc-cauchy-id-value
+               :name: flow-bc-id-value
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.cauchy.&lt;id&gt;.value">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.value">
                     <code class="hmp-field-name">value</code>
                   </div>
 
@@ -1328,11 +1328,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: flow-bc-cauchy-id-description
+               :name: flow-bc-id-description
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.cauchy.&lt;id&gt;.description">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.description">
                     <code class="hmp-field-name">description</code>
                   </div>
 
@@ -1342,11 +1342,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-dev
-               :name: flow-bc-cauchy-id-units
+               :name: flow-bc-id-units
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.cauchy.&lt;id&gt;.units">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.units">
                     <code class="hmp-field-name">units</code>
                   </div>
 
@@ -1356,11 +1356,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-dev
-               :name: flow-bc-cauchy-id-data-value
+               :name: flow-bc-id-data-value
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.cauchy.&lt;id&gt;.data_value">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.data_value">
                     <code class="hmp-field-name">data_value</code>
                   </div>
 
@@ -1370,11 +1370,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: flow-bc-cauchy-id-application-domain
+               :name: flow-bc-id-application-domain
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.cauchy.&lt;id&gt;.application_domain">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.application_domain">
                     <code class="hmp-field-name">application_domain</code>
                   </div>
 
@@ -1384,11 +1384,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: flow-bc-cauchy-id-support-label
+               :name: flow-bc-id-support-label
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.cauchy.&lt;id&gt;.support_label">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.support_label">
                     <code class="hmp-field-name">support_label</code>
                   </div>
 
@@ -1400,16 +1400,16 @@ Fields
 
       .. tab-item:: robin
 
-         TOML: ``[flow.bc.robin.<id>]`` -- model ``RobinBC`` (set ``kind = "robin"``).
+         TOML: ``[flow.bc.<id>]`` with ``kind = "robin"`` -- model ``RobinBC``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: flow-bc-robin-id-id
+               :name: flow-bc-id-id
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.robin.&lt;id&gt;.id">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.id">
                     <code class="hmp-field-name">id</code>
                   </div>
 
@@ -1419,11 +1419,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: flow-bc-robin-id-value
+               :name: flow-bc-id-value
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.robin.&lt;id&gt;.value">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.value">
                     <code class="hmp-field-name">value</code>
                   </div>
 
@@ -1433,11 +1433,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: flow-bc-robin-id-description
+               :name: flow-bc-id-description
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.robin.&lt;id&gt;.description">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.description">
                     <code class="hmp-field-name">description</code>
                   </div>
 
@@ -1447,11 +1447,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-dev
-               :name: flow-bc-robin-id-units
+               :name: flow-bc-id-units
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.robin.&lt;id&gt;.units">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.units">
                     <code class="hmp-field-name">units</code>
                   </div>
 
@@ -1461,11 +1461,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-dev
-               :name: flow-bc-robin-id-data-value
+               :name: flow-bc-id-data-value
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.robin.&lt;id&gt;.data_value">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.data_value">
                     <code class="hmp-field-name">data_value</code>
                   </div>
 
@@ -1475,11 +1475,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: flow-bc-robin-id-application-domain
+               :name: flow-bc-id-application-domain
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.robin.&lt;id&gt;.application_domain">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.application_domain">
                     <code class="hmp-field-name">application_domain</code>
                   </div>
 
@@ -1489,11 +1489,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: flow-bc-robin-id-support-label
+               :name: flow-bc-id-support-label
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="flow.bc.robin.&lt;id&gt;.support_label">
+                  <div class="hmp-field-header" data-toml-path="flow.bc.&lt;id&gt;.support_label">
                     <code class="hmp-field-name">support_label</code>
                   </div>
 
@@ -1567,16 +1567,16 @@ Fields
 
                   .. tab-item:: cell
 
-                     TOML: ``[flow.sinks_sources.wells.<id>.location.cell]`` -- model ``FlowWellLocationCell`` (set ``kind = "cell"``).
+                     TOML: ``[flow.sinks_sources.wells.<id>.location]`` with ``kind = "cell"`` -- model ``FlowWellLocationCell``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-wells-id-location-cell-cell
+                           :name: flow-sinks-sources-wells-id-location-cell
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.location.cell.cell">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.location.cell">
                                 <code class="hmp-field-name">cell</code>
                               </div>
 
@@ -1588,16 +1588,16 @@ Fields
 
                   .. tab-item:: absolute_xy
 
-                     TOML: ``[flow.sinks_sources.wells.<id>.location.absolute_xy]`` -- model ``FlowWellLocationAbsoluteXY`` (set ``kind = "absolute_xy"``).
+                     TOML: ``[flow.sinks_sources.wells.<id>.location]`` with ``kind = "absolute_xy"`` -- model ``FlowWellLocationAbsoluteXY``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-wells-id-location-absolute-xy-layer
+                           :name: flow-sinks-sources-wells-id-location-layer
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.location.absolute_xy.layer">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.location.layer">
                                 <code class="hmp-field-name">layer</code>
                               </div>
 
@@ -1607,11 +1607,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-wells-id-location-absolute-xy-x
+                           :name: flow-sinks-sources-wells-id-location-x
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.location.absolute_xy.x">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.location.x">
                                 <code class="hmp-field-name">x</code>
                               </div>
 
@@ -1621,11 +1621,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-wells-id-location-absolute-xy-y
+                           :name: flow-sinks-sources-wells-id-location-y
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.location.absolute_xy.y">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.location.y">
                                 <code class="hmp-field-name">y</code>
                               </div>
 
@@ -1637,16 +1637,16 @@ Fields
 
                   .. tab-item:: relative_xy
 
-                     TOML: ``[flow.sinks_sources.wells.<id>.location.relative_xy]`` -- model ``FlowWellLocationRelativeXY`` (set ``kind = "relative_xy"``).
+                     TOML: ``[flow.sinks_sources.wells.<id>.location]`` with ``kind = "relative_xy"`` -- model ``FlowWellLocationRelativeXY``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-wells-id-location-relative-xy-layer
+                           :name: flow-sinks-sources-wells-id-location-layer
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.location.relative_xy.layer">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.location.layer">
                                 <code class="hmp-field-name">layer</code>
                               </div>
 
@@ -1656,11 +1656,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-wells-id-location-relative-xy-x-rel
+                           :name: flow-sinks-sources-wells-id-location-x-rel
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.location.relative_xy.x_rel">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.location.x_rel">
                                 <code class="hmp-field-name">x_rel</code>
                               </div>
 
@@ -1670,11 +1670,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-wells-id-location-relative-xy-y-rel
+                           :name: flow-sinks-sources-wells-id-location-y-rel
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.location.relative_xy.y_rel">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.location.y_rel">
                                 <code class="hmp-field-name">y_rel</code>
                               </div>
 
@@ -1720,16 +1720,16 @@ Fields
 
                   .. tab-item:: constant
 
-                     TOML: ``[flow.sinks_sources.wells.<id>.forcing.constant]`` -- model ``FlowWellForcingConstantConfig`` (set ``kind = "constant"``).
+                     TOML: ``[flow.sinks_sources.wells.<id>.forcing]`` with ``kind = "constant"`` -- model ``FlowWellForcingConstantConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-wells-id-forcing-constant-value
+                           :name: flow-sinks-sources-wells-id-forcing-value
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.constant.value">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.value">
                                 <code class="hmp-field-name">value</code>
                               </div>
 
@@ -1739,11 +1739,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-wells-id-forcing-constant-units
+                           :name: flow-sinks-sources-wells-id-forcing-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.constant.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -1755,16 +1755,16 @@ Fields
 
                   .. tab-item:: csv
 
-                     TOML: ``[flow.sinks_sources.wells.<id>.forcing.csv]`` -- model ``FlowWellForcingCsvConfig`` (set ``kind = "csv"``).
+                     TOML: ``[flow.sinks_sources.wells.<id>.forcing]`` with ``kind = "csv"`` -- model ``FlowWellForcingCsvConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-wells-id-forcing-csv-path-file
+                           :name: flow-sinks-sources-wells-id-forcing-path-file
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.csv.path_file">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.path_file">
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
@@ -1774,11 +1774,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-wells-id-forcing-csv-sep
+                           :name: flow-sinks-sources-wells-id-forcing-sep
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.csv.sep">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.sep">
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
@@ -1788,11 +1788,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-wells-id-forcing-csv-date-column
+                           :name: flow-sinks-sources-wells-id-forcing-date-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.csv.date_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.date_column">
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
@@ -1802,11 +1802,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-wells-id-forcing-csv-date-format
+                           :name: flow-sinks-sources-wells-id-forcing-date-format
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.csv.date_format">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.date_format">
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
@@ -1816,11 +1816,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-wells-id-forcing-csv-value-column
+                           :name: flow-sinks-sources-wells-id-forcing-value-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.csv.value_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.value_column">
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
@@ -1830,11 +1830,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-wells-id-forcing-csv-fill-method
+                           :name: flow-sinks-sources-wells-id-forcing-fill-method
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.csv.fill_method">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.fill_method">
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
@@ -1844,11 +1844,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-wells-id-forcing-csv-aggregate
+                           :name: flow-sinks-sources-wells-id-forcing-aggregate
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.csv.aggregate">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.aggregate">
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
@@ -1858,11 +1858,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-wells-id-forcing-csv-units
+                           :name: flow-sinks-sources-wells-id-forcing-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.csv.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -1874,19 +1874,19 @@ Fields
 
                   .. tab-item:: piecewise
 
-                     TOML: ``[flow.sinks_sources.wells.<id>.forcing.piecewise]`` -- model ``FlowWellForcingPiecewiseConfig`` (set ``kind = "piecewise"``).
+                     TOML: ``[flow.sinks_sources.wells.<id>.forcing]`` with ``kind = "piecewise"`` -- model ``FlowWellForcingPiecewiseConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-wells-id-forcing-piecewise-segments
+                           :name: flow-sinks-sources-wells-id-forcing-segments
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.piecewise.segments">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.segments">
                                 <code class="hmp-field-name">segments</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[[flow.sinks_sources.wells.&lt;id&gt;.forcing.piecewise.segments]]</code>
+                                <code class="hmp-field-toml">[[flow.sinks_sources.wells.&lt;id&gt;.forcing.segments]]</code>
                               </div>
 
                            :bdg-primary:`list[FlowWellForcingSegment]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L133>`__
@@ -1897,11 +1897,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-wells-id-forcing-piecewise-units
+                           :name: flow-sinks-sources-wells-id-forcing-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.piecewise.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -1913,19 +1913,19 @@ Fields
 
                   .. tab-item:: seasonal
 
-                     TOML: ``[flow.sinks_sources.wells.<id>.forcing.seasonal]`` -- model ``FlowWellForcingSeasonalConfig`` (set ``kind = "seasonal"``).
+                     TOML: ``[flow.sinks_sources.wells.<id>.forcing]`` with ``kind = "seasonal"`` -- model ``FlowWellForcingSeasonalConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-wells-id-forcing-seasonal-by-month
+                           :name: flow-sinks-sources-wells-id-forcing-by-month
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.seasonal.by_month">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.by_month">
                                 <code class="hmp-field-name">by_month</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.wells.&lt;id&gt;.forcing.seasonal.by_month.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.wells.&lt;id&gt;.forcing.by_month.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[int, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L173>`__
@@ -1934,14 +1934,14 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-wells-id-forcing-seasonal-by-season
+                           :name: flow-sinks-sources-wells-id-forcing-by-season
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.seasonal.by_season">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.by_season">
                                 <code class="hmp-field-name">by_season</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.wells.&lt;id&gt;.forcing.seasonal.by_season.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.wells.&lt;id&gt;.forcing.by_season.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[str, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L177>`__
@@ -1950,11 +1950,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-wells-id-forcing-seasonal-units
+                           :name: flow-sinks-sources-wells-id-forcing-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.seasonal.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -2242,16 +2242,16 @@ Fields
 
                   .. tab-item:: WEIR
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.outlets.WEIR]`` -- model ``FlowLakeOutletWeir`` (set ``couttype = "WEIR"``).
+                     TOML: ``[[flow.sinks_sources.lakes.<id>.outlets]]`` with ``couttype = "WEIR"`` -- model ``FlowLakeOutletWeir``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-outlets-weir-invert
+                           :name: flow-sinks-sources-lakes-id-outlets-invert
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.WEIR.invert">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.invert">
                                 <code class="hmp-field-name">invert</code>
                               </div>
 
@@ -2261,11 +2261,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-outlets-weir-width
+                           :name: flow-sinks-sources-lakes-id-outlets-width
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.WEIR.width">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.width">
                                 <code class="hmp-field-name">width</code>
                               </div>
 
@@ -2275,11 +2275,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-outlets-weir-lakeout
+                           :name: flow-sinks-sources-lakes-id-outlets-lakeout
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.WEIR.lakeout">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.lakeout">
                                 <code class="hmp-field-name">lakeout</code>
                               </div>
 
@@ -2289,14 +2289,14 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-outlets-weir-mover
+                           :name: flow-sinks-sources-lakes-id-outlets-mover
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.WEIR.mover">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.mover">
                                 <code class="hmp-field-name">mover</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.outlets.WEIR.mover]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.outlets.mover]</code>
                               </div>
 
                            :bdg-primary:`FlowLakeOutletMover | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L142>`__
@@ -2309,16 +2309,16 @@ Fields
 
                   .. tab-item:: MANNING
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.outlets.MANNING]`` -- model ``FlowLakeOutletManning`` (set ``couttype = "MANNING"``).
+                     TOML: ``[[flow.sinks_sources.lakes.<id>.outlets]]`` with ``couttype = "MANNING"`` -- model ``FlowLakeOutletManning``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-outlets-manning-invert
+                           :name: flow-sinks-sources-lakes-id-outlets-invert
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.MANNING.invert">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.invert">
                                 <code class="hmp-field-name">invert</code>
                               </div>
 
@@ -2328,11 +2328,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-outlets-manning-width
+                           :name: flow-sinks-sources-lakes-id-outlets-width
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.MANNING.width">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.width">
                                 <code class="hmp-field-name">width</code>
                               </div>
 
@@ -2342,11 +2342,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-outlets-manning-rough
+                           :name: flow-sinks-sources-lakes-id-outlets-rough
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.MANNING.rough">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.rough">
                                 <code class="hmp-field-name">rough</code>
                               </div>
 
@@ -2356,11 +2356,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-outlets-manning-slope
+                           :name: flow-sinks-sources-lakes-id-outlets-slope
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.MANNING.slope">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.slope">
                                 <code class="hmp-field-name">slope</code>
                               </div>
 
@@ -2370,11 +2370,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-outlets-manning-lakeout
+                           :name: flow-sinks-sources-lakes-id-outlets-lakeout
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.MANNING.lakeout">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.lakeout">
                                 <code class="hmp-field-name">lakeout</code>
                               </div>
 
@@ -2384,14 +2384,14 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-outlets-manning-mover
+                           :name: flow-sinks-sources-lakes-id-outlets-mover
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.MANNING.mover">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.mover">
                                 <code class="hmp-field-name">mover</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.outlets.MANNING.mover]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.outlets.mover]</code>
                               </div>
 
                            :bdg-primary:`FlowLakeOutletMover | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L176>`__
@@ -2404,16 +2404,16 @@ Fields
 
                   .. tab-item:: SPECIFIED
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.outlets.SPECIFIED]`` -- model ``FlowLakeOutletSpecified`` (set ``couttype = "SPECIFIED"``).
+                     TOML: ``[[flow.sinks_sources.lakes.<id>.outlets]]`` with ``couttype = "SPECIFIED"`` -- model ``FlowLakeOutletSpecified``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-outlets-specified-rate
+                           :name: flow-sinks-sources-lakes-id-outlets-rate
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.SPECIFIED.rate">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.rate">
                                 <code class="hmp-field-name">rate</code>
                               </div>
 
@@ -2423,14 +2423,14 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-outlets-specified-forcing
+                           :name: flow-sinks-sources-lakes-id-outlets-forcing
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.SPECIFIED.forcing">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.forcing">
                                 <code class="hmp-field-name">forcing</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.outlets.SPECIFIED.forcing]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.outlets.forcing]</code>
                               </div>
 
                            :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L201>`__
@@ -2443,11 +2443,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-outlets-specified-lakeout
+                           :name: flow-sinks-sources-lakes-id-outlets-lakeout
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.SPECIFIED.lakeout">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.lakeout">
                                 <code class="hmp-field-name">lakeout</code>
                               </div>
 
@@ -2457,14 +2457,14 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-outlets-specified-mover
+                           :name: flow-sinks-sources-lakes-id-outlets-mover
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.SPECIFIED.mover">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.mover">
                                 <code class="hmp-field-name">mover</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.outlets.SPECIFIED.mover]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.outlets.mover]</code>
                               </div>
 
                            :bdg-primary:`FlowLakeOutletMover | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L213>`__
@@ -2688,16 +2688,16 @@ Fields
 
                   .. tab-item:: constant
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.rainfall.constant]`` -- model ``FlowWellForcingConstantConfig`` (set ``kind = "constant"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.rainfall]`` with ``kind = "constant"`` -- model ``FlowWellForcingConstantConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-rainfall-constant-value
+                           :name: flow-sinks-sources-lakes-id-rainfall-value
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.constant.value">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.value">
                                 <code class="hmp-field-name">value</code>
                               </div>
 
@@ -2707,11 +2707,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-rainfall-constant-units
+                           :name: flow-sinks-sources-lakes-id-rainfall-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.constant.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -2723,16 +2723,16 @@ Fields
 
                   .. tab-item:: csv
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.rainfall.csv]`` -- model ``FlowWellForcingCsvConfig`` (set ``kind = "csv"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.rainfall]`` with ``kind = "csv"`` -- model ``FlowWellForcingCsvConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-rainfall-csv-path-file
+                           :name: flow-sinks-sources-lakes-id-rainfall-path-file
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.csv.path_file">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.path_file">
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
@@ -2742,11 +2742,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-rainfall-csv-sep
+                           :name: flow-sinks-sources-lakes-id-rainfall-sep
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.csv.sep">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.sep">
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
@@ -2756,11 +2756,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-rainfall-csv-date-column
+                           :name: flow-sinks-sources-lakes-id-rainfall-date-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.csv.date_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.date_column">
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
@@ -2770,11 +2770,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-rainfall-csv-date-format
+                           :name: flow-sinks-sources-lakes-id-rainfall-date-format
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.csv.date_format">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.date_format">
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
@@ -2784,11 +2784,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-rainfall-csv-value-column
+                           :name: flow-sinks-sources-lakes-id-rainfall-value-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.csv.value_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.value_column">
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
@@ -2798,11 +2798,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-rainfall-csv-fill-method
+                           :name: flow-sinks-sources-lakes-id-rainfall-fill-method
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.csv.fill_method">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.fill_method">
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
@@ -2812,11 +2812,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-rainfall-csv-aggregate
+                           :name: flow-sinks-sources-lakes-id-rainfall-aggregate
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.csv.aggregate">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.aggregate">
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
@@ -2826,11 +2826,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-rainfall-csv-units
+                           :name: flow-sinks-sources-lakes-id-rainfall-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.csv.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -2842,19 +2842,19 @@ Fields
 
                   .. tab-item:: piecewise
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.rainfall.piecewise]`` -- model ``FlowWellForcingPiecewiseConfig`` (set ``kind = "piecewise"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.rainfall]`` with ``kind = "piecewise"`` -- model ``FlowWellForcingPiecewiseConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-rainfall-piecewise-segments
+                           :name: flow-sinks-sources-lakes-id-rainfall-segments
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.piecewise.segments">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.segments">
                                 <code class="hmp-field-name">segments</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.rainfall.piecewise.segments]]</code>
+                                <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.rainfall.segments]]</code>
                               </div>
 
                            :bdg-primary:`list[FlowWellForcingSegment]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L133>`__
@@ -2865,11 +2865,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-rainfall-piecewise-units
+                           :name: flow-sinks-sources-lakes-id-rainfall-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.piecewise.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -2881,19 +2881,19 @@ Fields
 
                   .. tab-item:: seasonal
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.rainfall.seasonal]`` -- model ``FlowWellForcingSeasonalConfig`` (set ``kind = "seasonal"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.rainfall]`` with ``kind = "seasonal"`` -- model ``FlowWellForcingSeasonalConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-rainfall-seasonal-by-month
+                           :name: flow-sinks-sources-lakes-id-rainfall-by-month
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.seasonal.by_month">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.by_month">
                                 <code class="hmp-field-name">by_month</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.rainfall.seasonal.by_month.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.rainfall.by_month.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[int, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L173>`__
@@ -2902,14 +2902,14 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-rainfall-seasonal-by-season
+                           :name: flow-sinks-sources-lakes-id-rainfall-by-season
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.seasonal.by_season">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.by_season">
                                 <code class="hmp-field-name">by_season</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.rainfall.seasonal.by_season.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.rainfall.by_season.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[str, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L177>`__
@@ -2918,11 +2918,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-rainfall-seasonal-units
+                           :name: flow-sinks-sources-lakes-id-rainfall-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.seasonal.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -2954,16 +2954,16 @@ Fields
 
                   .. tab-item:: constant
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.evaporation.constant]`` -- model ``FlowWellForcingConstantConfig`` (set ``kind = "constant"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.evaporation]`` with ``kind = "constant"`` -- model ``FlowWellForcingConstantConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-evaporation-constant-value
+                           :name: flow-sinks-sources-lakes-id-evaporation-value
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.constant.value">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.value">
                                 <code class="hmp-field-name">value</code>
                               </div>
 
@@ -2973,11 +2973,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-evaporation-constant-units
+                           :name: flow-sinks-sources-lakes-id-evaporation-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.constant.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -2989,16 +2989,16 @@ Fields
 
                   .. tab-item:: csv
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.evaporation.csv]`` -- model ``FlowWellForcingCsvConfig`` (set ``kind = "csv"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.evaporation]`` with ``kind = "csv"`` -- model ``FlowWellForcingCsvConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-evaporation-csv-path-file
+                           :name: flow-sinks-sources-lakes-id-evaporation-path-file
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.csv.path_file">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.path_file">
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
@@ -3008,11 +3008,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-evaporation-csv-sep
+                           :name: flow-sinks-sources-lakes-id-evaporation-sep
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.csv.sep">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.sep">
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
@@ -3022,11 +3022,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-evaporation-csv-date-column
+                           :name: flow-sinks-sources-lakes-id-evaporation-date-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.csv.date_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.date_column">
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
@@ -3036,11 +3036,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-evaporation-csv-date-format
+                           :name: flow-sinks-sources-lakes-id-evaporation-date-format
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.csv.date_format">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.date_format">
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
@@ -3050,11 +3050,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-evaporation-csv-value-column
+                           :name: flow-sinks-sources-lakes-id-evaporation-value-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.csv.value_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.value_column">
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
@@ -3064,11 +3064,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-evaporation-csv-fill-method
+                           :name: flow-sinks-sources-lakes-id-evaporation-fill-method
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.csv.fill_method">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.fill_method">
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
@@ -3078,11 +3078,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-evaporation-csv-aggregate
+                           :name: flow-sinks-sources-lakes-id-evaporation-aggregate
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.csv.aggregate">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.aggregate">
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
@@ -3092,11 +3092,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-evaporation-csv-units
+                           :name: flow-sinks-sources-lakes-id-evaporation-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.csv.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -3108,19 +3108,19 @@ Fields
 
                   .. tab-item:: piecewise
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.evaporation.piecewise]`` -- model ``FlowWellForcingPiecewiseConfig`` (set ``kind = "piecewise"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.evaporation]`` with ``kind = "piecewise"`` -- model ``FlowWellForcingPiecewiseConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-evaporation-piecewise-segments
+                           :name: flow-sinks-sources-lakes-id-evaporation-segments
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.piecewise.segments">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.segments">
                                 <code class="hmp-field-name">segments</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.evaporation.piecewise.segments]]</code>
+                                <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.evaporation.segments]]</code>
                               </div>
 
                            :bdg-primary:`list[FlowWellForcingSegment]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L133>`__
@@ -3131,11 +3131,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-evaporation-piecewise-units
+                           :name: flow-sinks-sources-lakes-id-evaporation-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.piecewise.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -3147,19 +3147,19 @@ Fields
 
                   .. tab-item:: seasonal
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.evaporation.seasonal]`` -- model ``FlowWellForcingSeasonalConfig`` (set ``kind = "seasonal"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.evaporation]`` with ``kind = "seasonal"`` -- model ``FlowWellForcingSeasonalConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-evaporation-seasonal-by-month
+                           :name: flow-sinks-sources-lakes-id-evaporation-by-month
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.seasonal.by_month">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.by_month">
                                 <code class="hmp-field-name">by_month</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.evaporation.seasonal.by_month.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.evaporation.by_month.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[int, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L173>`__
@@ -3168,14 +3168,14 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-evaporation-seasonal-by-season
+                           :name: flow-sinks-sources-lakes-id-evaporation-by-season
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.seasonal.by_season">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.by_season">
                                 <code class="hmp-field-name">by_season</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.evaporation.seasonal.by_season.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.evaporation.by_season.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[str, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L177>`__
@@ -3184,11 +3184,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-evaporation-seasonal-units
+                           :name: flow-sinks-sources-lakes-id-evaporation-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.seasonal.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -3220,16 +3220,16 @@ Fields
 
                   .. tab-item:: constant
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.runoff.constant]`` -- model ``FlowWellForcingConstantConfig`` (set ``kind = "constant"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.runoff]`` with ``kind = "constant"`` -- model ``FlowWellForcingConstantConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-runoff-constant-value
+                           :name: flow-sinks-sources-lakes-id-runoff-value
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.constant.value">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.value">
                                 <code class="hmp-field-name">value</code>
                               </div>
 
@@ -3239,11 +3239,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-runoff-constant-units
+                           :name: flow-sinks-sources-lakes-id-runoff-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.constant.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -3255,16 +3255,16 @@ Fields
 
                   .. tab-item:: csv
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.runoff.csv]`` -- model ``FlowWellForcingCsvConfig`` (set ``kind = "csv"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.runoff]`` with ``kind = "csv"`` -- model ``FlowWellForcingCsvConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-runoff-csv-path-file
+                           :name: flow-sinks-sources-lakes-id-runoff-path-file
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.csv.path_file">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.path_file">
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
@@ -3274,11 +3274,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-runoff-csv-sep
+                           :name: flow-sinks-sources-lakes-id-runoff-sep
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.csv.sep">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.sep">
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
@@ -3288,11 +3288,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-runoff-csv-date-column
+                           :name: flow-sinks-sources-lakes-id-runoff-date-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.csv.date_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.date_column">
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
@@ -3302,11 +3302,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-runoff-csv-date-format
+                           :name: flow-sinks-sources-lakes-id-runoff-date-format
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.csv.date_format">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.date_format">
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
@@ -3316,11 +3316,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-runoff-csv-value-column
+                           :name: flow-sinks-sources-lakes-id-runoff-value-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.csv.value_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.value_column">
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
@@ -3330,11 +3330,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-runoff-csv-fill-method
+                           :name: flow-sinks-sources-lakes-id-runoff-fill-method
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.csv.fill_method">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.fill_method">
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
@@ -3344,11 +3344,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-runoff-csv-aggregate
+                           :name: flow-sinks-sources-lakes-id-runoff-aggregate
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.csv.aggregate">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.aggregate">
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
@@ -3358,11 +3358,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-runoff-csv-units
+                           :name: flow-sinks-sources-lakes-id-runoff-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.csv.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -3374,19 +3374,19 @@ Fields
 
                   .. tab-item:: piecewise
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.runoff.piecewise]`` -- model ``FlowWellForcingPiecewiseConfig`` (set ``kind = "piecewise"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.runoff]`` with ``kind = "piecewise"`` -- model ``FlowWellForcingPiecewiseConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-runoff-piecewise-segments
+                           :name: flow-sinks-sources-lakes-id-runoff-segments
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.piecewise.segments">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.segments">
                                 <code class="hmp-field-name">segments</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.runoff.piecewise.segments]]</code>
+                                <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.runoff.segments]]</code>
                               </div>
 
                            :bdg-primary:`list[FlowWellForcingSegment]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L133>`__
@@ -3397,11 +3397,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-runoff-piecewise-units
+                           :name: flow-sinks-sources-lakes-id-runoff-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.piecewise.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -3413,19 +3413,19 @@ Fields
 
                   .. tab-item:: seasonal
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.runoff.seasonal]`` -- model ``FlowWellForcingSeasonalConfig`` (set ``kind = "seasonal"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.runoff]`` with ``kind = "seasonal"`` -- model ``FlowWellForcingSeasonalConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-runoff-seasonal-by-month
+                           :name: flow-sinks-sources-lakes-id-runoff-by-month
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.seasonal.by_month">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.by_month">
                                 <code class="hmp-field-name">by_month</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.runoff.seasonal.by_month.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.runoff.by_month.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[int, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L173>`__
@@ -3434,14 +3434,14 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-runoff-seasonal-by-season
+                           :name: flow-sinks-sources-lakes-id-runoff-by-season
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.seasonal.by_season">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.by_season">
                                 <code class="hmp-field-name">by_season</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.runoff.seasonal.by_season.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.runoff.by_season.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[str, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L177>`__
@@ -3450,11 +3450,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-runoff-seasonal-units
+                           :name: flow-sinks-sources-lakes-id-runoff-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.seasonal.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -3486,16 +3486,16 @@ Fields
 
                   .. tab-item:: constant
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.inflow.constant]`` -- model ``FlowWellForcingConstantConfig`` (set ``kind = "constant"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.inflow]`` with ``kind = "constant"`` -- model ``FlowWellForcingConstantConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-inflow-constant-value
+                           :name: flow-sinks-sources-lakes-id-inflow-value
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.constant.value">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.value">
                                 <code class="hmp-field-name">value</code>
                               </div>
 
@@ -3505,11 +3505,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-inflow-constant-units
+                           :name: flow-sinks-sources-lakes-id-inflow-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.constant.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -3521,16 +3521,16 @@ Fields
 
                   .. tab-item:: csv
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.inflow.csv]`` -- model ``FlowWellForcingCsvConfig`` (set ``kind = "csv"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.inflow]`` with ``kind = "csv"`` -- model ``FlowWellForcingCsvConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-inflow-csv-path-file
+                           :name: flow-sinks-sources-lakes-id-inflow-path-file
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.csv.path_file">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.path_file">
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
@@ -3540,11 +3540,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-inflow-csv-sep
+                           :name: flow-sinks-sources-lakes-id-inflow-sep
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.csv.sep">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.sep">
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
@@ -3554,11 +3554,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-inflow-csv-date-column
+                           :name: flow-sinks-sources-lakes-id-inflow-date-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.csv.date_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.date_column">
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
@@ -3568,11 +3568,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-inflow-csv-date-format
+                           :name: flow-sinks-sources-lakes-id-inflow-date-format
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.csv.date_format">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.date_format">
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
@@ -3582,11 +3582,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-inflow-csv-value-column
+                           :name: flow-sinks-sources-lakes-id-inflow-value-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.csv.value_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.value_column">
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
@@ -3596,11 +3596,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-inflow-csv-fill-method
+                           :name: flow-sinks-sources-lakes-id-inflow-fill-method
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.csv.fill_method">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.fill_method">
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
@@ -3610,11 +3610,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-inflow-csv-aggregate
+                           :name: flow-sinks-sources-lakes-id-inflow-aggregate
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.csv.aggregate">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.aggregate">
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
@@ -3624,11 +3624,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-inflow-csv-units
+                           :name: flow-sinks-sources-lakes-id-inflow-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.csv.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -3640,19 +3640,19 @@ Fields
 
                   .. tab-item:: piecewise
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.inflow.piecewise]`` -- model ``FlowWellForcingPiecewiseConfig`` (set ``kind = "piecewise"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.inflow]`` with ``kind = "piecewise"`` -- model ``FlowWellForcingPiecewiseConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-inflow-piecewise-segments
+                           :name: flow-sinks-sources-lakes-id-inflow-segments
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.piecewise.segments">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.segments">
                                 <code class="hmp-field-name">segments</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.inflow.piecewise.segments]]</code>
+                                <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.inflow.segments]]</code>
                               </div>
 
                            :bdg-primary:`list[FlowWellForcingSegment]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L133>`__
@@ -3663,11 +3663,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-inflow-piecewise-units
+                           :name: flow-sinks-sources-lakes-id-inflow-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.piecewise.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -3679,19 +3679,19 @@ Fields
 
                   .. tab-item:: seasonal
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.inflow.seasonal]`` -- model ``FlowWellForcingSeasonalConfig`` (set ``kind = "seasonal"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.inflow]`` with ``kind = "seasonal"`` -- model ``FlowWellForcingSeasonalConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-inflow-seasonal-by-month
+                           :name: flow-sinks-sources-lakes-id-inflow-by-month
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.seasonal.by_month">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.by_month">
                                 <code class="hmp-field-name">by_month</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.inflow.seasonal.by_month.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.inflow.by_month.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[int, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L173>`__
@@ -3700,14 +3700,14 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-inflow-seasonal-by-season
+                           :name: flow-sinks-sources-lakes-id-inflow-by-season
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.seasonal.by_season">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.by_season">
                                 <code class="hmp-field-name">by_season</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.inflow.seasonal.by_season.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.inflow.by_season.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[str, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L177>`__
@@ -3716,11 +3716,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-inflow-seasonal-units
+                           :name: flow-sinks-sources-lakes-id-inflow-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.seasonal.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -3752,16 +3752,16 @@ Fields
 
                   .. tab-item:: constant
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.withdrawal.constant]`` -- model ``FlowWellForcingConstantConfig`` (set ``kind = "constant"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.withdrawal]`` with ``kind = "constant"`` -- model ``FlowWellForcingConstantConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-withdrawal-constant-value
+                           :name: flow-sinks-sources-lakes-id-withdrawal-value
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.constant.value">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.value">
                                 <code class="hmp-field-name">value</code>
                               </div>
 
@@ -3771,11 +3771,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-withdrawal-constant-units
+                           :name: flow-sinks-sources-lakes-id-withdrawal-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.constant.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -3787,16 +3787,16 @@ Fields
 
                   .. tab-item:: csv
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.withdrawal.csv]`` -- model ``FlowWellForcingCsvConfig`` (set ``kind = "csv"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.withdrawal]`` with ``kind = "csv"`` -- model ``FlowWellForcingCsvConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-withdrawal-csv-path-file
+                           :name: flow-sinks-sources-lakes-id-withdrawal-path-file
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.csv.path_file">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.path_file">
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
@@ -3806,11 +3806,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-withdrawal-csv-sep
+                           :name: flow-sinks-sources-lakes-id-withdrawal-sep
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.csv.sep">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.sep">
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
@@ -3820,11 +3820,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-withdrawal-csv-date-column
+                           :name: flow-sinks-sources-lakes-id-withdrawal-date-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.csv.date_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.date_column">
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
@@ -3834,11 +3834,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-withdrawal-csv-date-format
+                           :name: flow-sinks-sources-lakes-id-withdrawal-date-format
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.csv.date_format">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.date_format">
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
@@ -3848,11 +3848,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-withdrawal-csv-value-column
+                           :name: flow-sinks-sources-lakes-id-withdrawal-value-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.csv.value_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.value_column">
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
@@ -3862,11 +3862,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-withdrawal-csv-fill-method
+                           :name: flow-sinks-sources-lakes-id-withdrawal-fill-method
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.csv.fill_method">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.fill_method">
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
@@ -3876,11 +3876,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-withdrawal-csv-aggregate
+                           :name: flow-sinks-sources-lakes-id-withdrawal-aggregate
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.csv.aggregate">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.aggregate">
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
@@ -3890,11 +3890,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-withdrawal-csv-units
+                           :name: flow-sinks-sources-lakes-id-withdrawal-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.csv.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -3906,19 +3906,19 @@ Fields
 
                   .. tab-item:: piecewise
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.withdrawal.piecewise]`` -- model ``FlowWellForcingPiecewiseConfig`` (set ``kind = "piecewise"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.withdrawal]`` with ``kind = "piecewise"`` -- model ``FlowWellForcingPiecewiseConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-withdrawal-piecewise-segments
+                           :name: flow-sinks-sources-lakes-id-withdrawal-segments
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.piecewise.segments">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.segments">
                                 <code class="hmp-field-name">segments</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.piecewise.segments]]</code>
+                                <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.segments]]</code>
                               </div>
 
                            :bdg-primary:`list[FlowWellForcingSegment]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L133>`__
@@ -3929,11 +3929,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-withdrawal-piecewise-units
+                           :name: flow-sinks-sources-lakes-id-withdrawal-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.piecewise.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -3945,19 +3945,19 @@ Fields
 
                   .. tab-item:: seasonal
 
-                     TOML: ``[flow.sinks_sources.lakes.<id>.withdrawal.seasonal]`` -- model ``FlowWellForcingSeasonalConfig`` (set ``kind = "seasonal"``).
+                     TOML: ``[flow.sinks_sources.lakes.<id>.withdrawal]`` with ``kind = "seasonal"`` -- model ``FlowWellForcingSeasonalConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-withdrawal-seasonal-by-month
+                           :name: flow-sinks-sources-lakes-id-withdrawal-by-month
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.seasonal.by_month">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.by_month">
                                 <code class="hmp-field-name">by_month</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.seasonal.by_month.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.by_month.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[int, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L173>`__
@@ -3966,14 +3966,14 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-lakes-id-withdrawal-seasonal-by-season
+                           :name: flow-sinks-sources-lakes-id-withdrawal-by-season
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.seasonal.by_season">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.by_season">
                                 <code class="hmp-field-name">by_season</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.seasonal.by_season.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.by_season.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[str, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L177>`__
@@ -3982,11 +3982,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-lakes-id-withdrawal-seasonal-units
+                           :name: flow-sinks-sources-lakes-id-withdrawal-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.seasonal.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -4181,16 +4181,16 @@ Fields
 
                   .. tab-item:: constant
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.width.constant]`` -- model ``FlowReachWidthConstant`` (set ``kind = "constant"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.width]`` with ``kind = "constant"`` -- model ``FlowReachWidthConstant``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-width-constant-value
+                           :name: flow-sinks-sources-sfr-id-width-value
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.width.constant.value">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.width.value">
                                 <code class="hmp-field-name">value</code>
                               </div>
 
@@ -4202,19 +4202,19 @@ Fields
 
                   .. tab-item:: by_order
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.width.by_order]`` -- model ``FlowReachWidthByOrder`` (set ``kind = "by_order"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.width]`` with ``kind = "by_order"`` -- model ``FlowReachWidthByOrder``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-width-by-order-widths
+                           :name: flow-sinks-sources-sfr-id-width-widths
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.width.by_order.widths">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.width.widths">
                                 <code class="hmp-field-name">widths</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.width.by_order.widths.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.width.widths.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[int, Any]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L65>`__
@@ -4225,16 +4225,16 @@ Fields
 
                   .. tab-item:: power_law
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.width.power_law]`` -- model ``FlowReachWidthPowerLaw`` (set ``kind = "power_law"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.width]`` with ``kind = "power_law"`` -- model ``FlowReachWidthPowerLaw``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-width-power-law-coef
+                           :name: flow-sinks-sources-sfr-id-width-coef
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.width.power_law.coef">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.width.coef">
                                 <code class="hmp-field-name">coef</code>
                               </div>
 
@@ -4244,11 +4244,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-width-power-law-exp
+                           :name: flow-sinks-sources-sfr-id-width-exp
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.width.power_law.exp">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.width.exp">
                                 <code class="hmp-field-name">exp</code>
                               </div>
 
@@ -4322,16 +4322,16 @@ Fields
 
                   .. tab-item:: constant
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.headwater_inflow.constant]`` -- model ``FlowWellForcingConstantConfig`` (set ``kind = "constant"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.headwater_inflow]`` with ``kind = "constant"`` -- model ``FlowWellForcingConstantConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-headwater-inflow-constant-value
+                           :name: flow-sinks-sources-sfr-id-headwater-inflow-value
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.constant.value">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.value">
                                 <code class="hmp-field-name">value</code>
                               </div>
 
@@ -4341,11 +4341,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-headwater-inflow-constant-units
+                           :name: flow-sinks-sources-sfr-id-headwater-inflow-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.constant.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -4357,16 +4357,16 @@ Fields
 
                   .. tab-item:: csv
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.headwater_inflow.csv]`` -- model ``FlowWellForcingCsvConfig`` (set ``kind = "csv"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.headwater_inflow]`` with ``kind = "csv"`` -- model ``FlowWellForcingCsvConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-headwater-inflow-csv-path-file
+                           :name: flow-sinks-sources-sfr-id-headwater-inflow-path-file
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.csv.path_file">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.path_file">
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
@@ -4376,11 +4376,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-headwater-inflow-csv-sep
+                           :name: flow-sinks-sources-sfr-id-headwater-inflow-sep
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.csv.sep">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.sep">
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
@@ -4390,11 +4390,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-headwater-inflow-csv-date-column
+                           :name: flow-sinks-sources-sfr-id-headwater-inflow-date-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.csv.date_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.date_column">
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
@@ -4404,11 +4404,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-headwater-inflow-csv-date-format
+                           :name: flow-sinks-sources-sfr-id-headwater-inflow-date-format
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.csv.date_format">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.date_format">
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
@@ -4418,11 +4418,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-headwater-inflow-csv-value-column
+                           :name: flow-sinks-sources-sfr-id-headwater-inflow-value-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.csv.value_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.value_column">
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
@@ -4432,11 +4432,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-headwater-inflow-csv-fill-method
+                           :name: flow-sinks-sources-sfr-id-headwater-inflow-fill-method
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.csv.fill_method">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.fill_method">
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
@@ -4446,11 +4446,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-headwater-inflow-csv-aggregate
+                           :name: flow-sinks-sources-sfr-id-headwater-inflow-aggregate
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.csv.aggregate">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.aggregate">
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
@@ -4460,11 +4460,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-headwater-inflow-csv-units
+                           :name: flow-sinks-sources-sfr-id-headwater-inflow-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.csv.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -4476,19 +4476,19 @@ Fields
 
                   .. tab-item:: piecewise
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.headwater_inflow.piecewise]`` -- model ``FlowWellForcingPiecewiseConfig`` (set ``kind = "piecewise"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.headwater_inflow]`` with ``kind = "piecewise"`` -- model ``FlowWellForcingPiecewiseConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-headwater-inflow-piecewise-segments
+                           :name: flow-sinks-sources-sfr-id-headwater-inflow-segments
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.piecewise.segments">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.segments">
                                 <code class="hmp-field-name">segments</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[[flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.piecewise.segments]]</code>
+                                <code class="hmp-field-toml">[[flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.segments]]</code>
                               </div>
 
                            :bdg-primary:`list[FlowWellForcingSegment]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L133>`__
@@ -4499,11 +4499,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-headwater-inflow-piecewise-units
+                           :name: flow-sinks-sources-sfr-id-headwater-inflow-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.piecewise.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -4515,19 +4515,19 @@ Fields
 
                   .. tab-item:: seasonal
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.headwater_inflow.seasonal]`` -- model ``FlowWellForcingSeasonalConfig`` (set ``kind = "seasonal"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.headwater_inflow]`` with ``kind = "seasonal"`` -- model ``FlowWellForcingSeasonalConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-headwater-inflow-seasonal-by-month
+                           :name: flow-sinks-sources-sfr-id-headwater-inflow-by-month
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.seasonal.by_month">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.by_month">
                                 <code class="hmp-field-name">by_month</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.seasonal.by_month.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.by_month.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[int, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L173>`__
@@ -4536,14 +4536,14 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-headwater-inflow-seasonal-by-season
+                           :name: flow-sinks-sources-sfr-id-headwater-inflow-by-season
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.seasonal.by_season">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.by_season">
                                 <code class="hmp-field-name">by_season</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.seasonal.by_season.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.by_season.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[str, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L177>`__
@@ -4552,11 +4552,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-headwater-inflow-seasonal-units
+                           :name: flow-sinks-sources-sfr-id-headwater-inflow-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.seasonal.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -4588,16 +4588,16 @@ Fields
 
                   .. tab-item:: constant
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.runoff.constant]`` -- model ``FlowWellForcingConstantConfig`` (set ``kind = "constant"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.runoff]`` with ``kind = "constant"`` -- model ``FlowWellForcingConstantConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-runoff-constant-value
+                           :name: flow-sinks-sources-sfr-id-runoff-value
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.constant.value">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.value">
                                 <code class="hmp-field-name">value</code>
                               </div>
 
@@ -4607,11 +4607,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-runoff-constant-units
+                           :name: flow-sinks-sources-sfr-id-runoff-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.constant.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -4623,16 +4623,16 @@ Fields
 
                   .. tab-item:: csv
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.runoff.csv]`` -- model ``FlowWellForcingCsvConfig`` (set ``kind = "csv"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.runoff]`` with ``kind = "csv"`` -- model ``FlowWellForcingCsvConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-runoff-csv-path-file
+                           :name: flow-sinks-sources-sfr-id-runoff-path-file
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.csv.path_file">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.path_file">
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
@@ -4642,11 +4642,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-runoff-csv-sep
+                           :name: flow-sinks-sources-sfr-id-runoff-sep
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.csv.sep">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.sep">
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
@@ -4656,11 +4656,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-runoff-csv-date-column
+                           :name: flow-sinks-sources-sfr-id-runoff-date-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.csv.date_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.date_column">
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
@@ -4670,11 +4670,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-runoff-csv-date-format
+                           :name: flow-sinks-sources-sfr-id-runoff-date-format
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.csv.date_format">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.date_format">
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
@@ -4684,11 +4684,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-runoff-csv-value-column
+                           :name: flow-sinks-sources-sfr-id-runoff-value-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.csv.value_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.value_column">
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
@@ -4698,11 +4698,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-runoff-csv-fill-method
+                           :name: flow-sinks-sources-sfr-id-runoff-fill-method
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.csv.fill_method">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.fill_method">
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
@@ -4712,11 +4712,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-runoff-csv-aggregate
+                           :name: flow-sinks-sources-sfr-id-runoff-aggregate
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.csv.aggregate">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.aggregate">
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
@@ -4726,11 +4726,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-runoff-csv-units
+                           :name: flow-sinks-sources-sfr-id-runoff-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.csv.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -4742,19 +4742,19 @@ Fields
 
                   .. tab-item:: piecewise
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.runoff.piecewise]`` -- model ``FlowWellForcingPiecewiseConfig`` (set ``kind = "piecewise"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.runoff]`` with ``kind = "piecewise"`` -- model ``FlowWellForcingPiecewiseConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-runoff-piecewise-segments
+                           :name: flow-sinks-sources-sfr-id-runoff-segments
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.piecewise.segments">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.segments">
                                 <code class="hmp-field-name">segments</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[[flow.sinks_sources.sfr.&lt;id&gt;.runoff.piecewise.segments]]</code>
+                                <code class="hmp-field-toml">[[flow.sinks_sources.sfr.&lt;id&gt;.runoff.segments]]</code>
                               </div>
 
                            :bdg-primary:`list[FlowWellForcingSegment]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L133>`__
@@ -4765,11 +4765,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-runoff-piecewise-units
+                           :name: flow-sinks-sources-sfr-id-runoff-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.piecewise.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -4781,19 +4781,19 @@ Fields
 
                   .. tab-item:: seasonal
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.runoff.seasonal]`` -- model ``FlowWellForcingSeasonalConfig`` (set ``kind = "seasonal"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.runoff]`` with ``kind = "seasonal"`` -- model ``FlowWellForcingSeasonalConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-runoff-seasonal-by-month
+                           :name: flow-sinks-sources-sfr-id-runoff-by-month
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.seasonal.by_month">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.by_month">
                                 <code class="hmp-field-name">by_month</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.runoff.seasonal.by_month.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.runoff.by_month.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[int, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L173>`__
@@ -4802,14 +4802,14 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-runoff-seasonal-by-season
+                           :name: flow-sinks-sources-sfr-id-runoff-by-season
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.seasonal.by_season">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.by_season">
                                 <code class="hmp-field-name">by_season</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.runoff.seasonal.by_season.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.runoff.by_season.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[str, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L177>`__
@@ -4818,11 +4818,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-runoff-seasonal-units
+                           :name: flow-sinks-sources-sfr-id-runoff-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.seasonal.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.runoff.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -4854,16 +4854,16 @@ Fields
 
                   .. tab-item:: constant
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.rainfall.constant]`` -- model ``FlowWellForcingConstantConfig`` (set ``kind = "constant"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.rainfall]`` with ``kind = "constant"`` -- model ``FlowWellForcingConstantConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-rainfall-constant-value
+                           :name: flow-sinks-sources-sfr-id-rainfall-value
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.constant.value">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.value">
                                 <code class="hmp-field-name">value</code>
                               </div>
 
@@ -4873,11 +4873,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-rainfall-constant-units
+                           :name: flow-sinks-sources-sfr-id-rainfall-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.constant.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -4889,16 +4889,16 @@ Fields
 
                   .. tab-item:: csv
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.rainfall.csv]`` -- model ``FlowWellForcingCsvConfig`` (set ``kind = "csv"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.rainfall]`` with ``kind = "csv"`` -- model ``FlowWellForcingCsvConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-rainfall-csv-path-file
+                           :name: flow-sinks-sources-sfr-id-rainfall-path-file
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.csv.path_file">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.path_file">
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
@@ -4908,11 +4908,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-rainfall-csv-sep
+                           :name: flow-sinks-sources-sfr-id-rainfall-sep
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.csv.sep">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.sep">
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
@@ -4922,11 +4922,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-rainfall-csv-date-column
+                           :name: flow-sinks-sources-sfr-id-rainfall-date-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.csv.date_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.date_column">
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
@@ -4936,11 +4936,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-rainfall-csv-date-format
+                           :name: flow-sinks-sources-sfr-id-rainfall-date-format
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.csv.date_format">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.date_format">
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
@@ -4950,11 +4950,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-rainfall-csv-value-column
+                           :name: flow-sinks-sources-sfr-id-rainfall-value-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.csv.value_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.value_column">
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
@@ -4964,11 +4964,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-rainfall-csv-fill-method
+                           :name: flow-sinks-sources-sfr-id-rainfall-fill-method
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.csv.fill_method">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.fill_method">
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
@@ -4978,11 +4978,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-rainfall-csv-aggregate
+                           :name: flow-sinks-sources-sfr-id-rainfall-aggregate
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.csv.aggregate">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.aggregate">
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
@@ -4992,11 +4992,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-rainfall-csv-units
+                           :name: flow-sinks-sources-sfr-id-rainfall-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.csv.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -5008,19 +5008,19 @@ Fields
 
                   .. tab-item:: piecewise
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.rainfall.piecewise]`` -- model ``FlowWellForcingPiecewiseConfig`` (set ``kind = "piecewise"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.rainfall]`` with ``kind = "piecewise"`` -- model ``FlowWellForcingPiecewiseConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-rainfall-piecewise-segments
+                           :name: flow-sinks-sources-sfr-id-rainfall-segments
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.piecewise.segments">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.segments">
                                 <code class="hmp-field-name">segments</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[[flow.sinks_sources.sfr.&lt;id&gt;.rainfall.piecewise.segments]]</code>
+                                <code class="hmp-field-toml">[[flow.sinks_sources.sfr.&lt;id&gt;.rainfall.segments]]</code>
                               </div>
 
                            :bdg-primary:`list[FlowWellForcingSegment]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L133>`__
@@ -5031,11 +5031,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-rainfall-piecewise-units
+                           :name: flow-sinks-sources-sfr-id-rainfall-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.piecewise.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -5047,19 +5047,19 @@ Fields
 
                   .. tab-item:: seasonal
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.rainfall.seasonal]`` -- model ``FlowWellForcingSeasonalConfig`` (set ``kind = "seasonal"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.rainfall]`` with ``kind = "seasonal"`` -- model ``FlowWellForcingSeasonalConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-rainfall-seasonal-by-month
+                           :name: flow-sinks-sources-sfr-id-rainfall-by-month
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.seasonal.by_month">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.by_month">
                                 <code class="hmp-field-name">by_month</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.rainfall.seasonal.by_month.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.rainfall.by_month.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[int, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L173>`__
@@ -5068,14 +5068,14 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-rainfall-seasonal-by-season
+                           :name: flow-sinks-sources-sfr-id-rainfall-by-season
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.seasonal.by_season">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.by_season">
                                 <code class="hmp-field-name">by_season</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.rainfall.seasonal.by_season.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.rainfall.by_season.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[str, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L177>`__
@@ -5084,11 +5084,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-rainfall-seasonal-units
+                           :name: flow-sinks-sources-sfr-id-rainfall-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.seasonal.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.rainfall.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -5120,16 +5120,16 @@ Fields
 
                   .. tab-item:: constant
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.evaporation.constant]`` -- model ``FlowWellForcingConstantConfig`` (set ``kind = "constant"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.evaporation]`` with ``kind = "constant"`` -- model ``FlowWellForcingConstantConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-evaporation-constant-value
+                           :name: flow-sinks-sources-sfr-id-evaporation-value
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.constant.value">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.value">
                                 <code class="hmp-field-name">value</code>
                               </div>
 
@@ -5139,11 +5139,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-evaporation-constant-units
+                           :name: flow-sinks-sources-sfr-id-evaporation-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.constant.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -5155,16 +5155,16 @@ Fields
 
                   .. tab-item:: csv
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.evaporation.csv]`` -- model ``FlowWellForcingCsvConfig`` (set ``kind = "csv"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.evaporation]`` with ``kind = "csv"`` -- model ``FlowWellForcingCsvConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-evaporation-csv-path-file
+                           :name: flow-sinks-sources-sfr-id-evaporation-path-file
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.csv.path_file">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.path_file">
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
@@ -5174,11 +5174,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-evaporation-csv-sep
+                           :name: flow-sinks-sources-sfr-id-evaporation-sep
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.csv.sep">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.sep">
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
@@ -5188,11 +5188,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-evaporation-csv-date-column
+                           :name: flow-sinks-sources-sfr-id-evaporation-date-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.csv.date_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.date_column">
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
@@ -5202,11 +5202,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-evaporation-csv-date-format
+                           :name: flow-sinks-sources-sfr-id-evaporation-date-format
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.csv.date_format">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.date_format">
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
@@ -5216,11 +5216,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-evaporation-csv-value-column
+                           :name: flow-sinks-sources-sfr-id-evaporation-value-column
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.csv.value_column">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.value_column">
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
@@ -5230,11 +5230,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-evaporation-csv-fill-method
+                           :name: flow-sinks-sources-sfr-id-evaporation-fill-method
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.csv.fill_method">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.fill_method">
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
@@ -5244,11 +5244,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-evaporation-csv-aggregate
+                           :name: flow-sinks-sources-sfr-id-evaporation-aggregate
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.csv.aggregate">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.aggregate">
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
@@ -5258,11 +5258,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-evaporation-csv-units
+                           :name: flow-sinks-sources-sfr-id-evaporation-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.csv.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -5274,19 +5274,19 @@ Fields
 
                   .. tab-item:: piecewise
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.evaporation.piecewise]`` -- model ``FlowWellForcingPiecewiseConfig`` (set ``kind = "piecewise"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.evaporation]`` with ``kind = "piecewise"`` -- model ``FlowWellForcingPiecewiseConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-evaporation-piecewise-segments
+                           :name: flow-sinks-sources-sfr-id-evaporation-segments
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.piecewise.segments">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.segments">
                                 <code class="hmp-field-name">segments</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[[flow.sinks_sources.sfr.&lt;id&gt;.evaporation.piecewise.segments]]</code>
+                                <code class="hmp-field-toml">[[flow.sinks_sources.sfr.&lt;id&gt;.evaporation.segments]]</code>
                               </div>
 
                            :bdg-primary:`list[FlowWellForcingSegment]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L133>`__
@@ -5297,11 +5297,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-evaporation-piecewise-units
+                           :name: flow-sinks-sources-sfr-id-evaporation-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.piecewise.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 
@@ -5313,19 +5313,19 @@ Fields
 
                   .. tab-item:: seasonal
 
-                     TOML: ``[flow.sinks_sources.sfr.<id>.evaporation.seasonal]`` -- model ``FlowWellForcingSeasonalConfig`` (set ``kind = "seasonal"``).
+                     TOML: ``[flow.sinks_sources.sfr.<id>.evaporation]`` with ``kind = "seasonal"`` -- model ``FlowWellForcingSeasonalConfig``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-evaporation-seasonal-by-month
+                           :name: flow-sinks-sources-sfr-id-evaporation-by-month
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.seasonal.by_month">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.by_month">
                                 <code class="hmp-field-name">by_month</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.evaporation.seasonal.by_month.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.evaporation.by_month.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[int, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L173>`__
@@ -5334,14 +5334,14 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-user
-                           :name: flow-sinks-sources-sfr-id-evaporation-seasonal-by-season
+                           :name: flow-sinks-sources-sfr-id-evaporation-by-season
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.seasonal.by_season">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.by_season">
                                 <code class="hmp-field-name">by_season</code>
                                 <span class="hmp-field-arrow">in TOML:</span>
-                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.evaporation.seasonal.by_season.&lt;id&gt;]</code>
+                                <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.evaporation.by_season.&lt;id&gt;]</code>
                               </div>
 
                            :bdg-primary:`dict[str, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L177>`__
@@ -5350,11 +5350,11 @@ Fields
 
 
                         .. container:: hmp-field hmp-field-level-dev
-                           :name: flow-sinks-sources-sfr-id-evaporation-seasonal-units
+                           :name: flow-sinks-sources-sfr-id-evaporation-units
 
                            .. raw:: html
 
-                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.seasonal.units">
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.evaporation.units">
                                 <code class="hmp-field-name">units</code>
                               </div>
 

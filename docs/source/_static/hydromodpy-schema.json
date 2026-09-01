@@ -1434,7 +1434,7 @@
         },
         "method": {
           "default": "grid",
-          "description": "Optimization method for this phase only.",
+          "description": "Optimization method for this phase only. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.",
           "examples": [
             "grid"
           ],
@@ -1632,7 +1632,7 @@
       "properties": {
         "method": {
           "default": "grid",
-          "description": "Optimization method. Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.",
+          "description": "Optimization method. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.",
           "examples": [
             "grid"
           ],

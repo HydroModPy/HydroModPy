@@ -512,6 +512,22 @@ def _toml_usage(field: FieldInfo, full_path: str, field_name: str) -> str:
     return f"{field_name} = ..."
 
 
+def _union_table_header(field: FieldInfo, full_path: str) -> str:
+    """TOML table a discriminated-union member is written under.
+
+    The tag is a key inside the table, never a segment of the path: a union
+    under a list is an array of tables, one under a mapping is keyed by the id
+    the user picks. Same rule as :func:`_toml_usage`, which the container it
+    lives in already follows.
+    """
+    annotation_str = _format_annotation(field).lower()
+    if "list[" in annotation_str or "tuple[" in annotation_str:
+        return f"[[{full_path}]]"
+    if "dict[" in annotation_str:
+        return f"[{full_path}.<id>]"
+    return f"[{full_path}]"
+
+
 def _render_field_block(
     field_name: str,
     field: FieldInfo,
@@ -615,12 +631,7 @@ def _render_field_block(
                 disc_name, disc_tags = discriminator
                 tag = disc_tags[inner_model]
                 hidden_field = disc_name
-                inline_discriminator = full_path.split(".")[-1] == disc_name
-                nested_path = (
-                    _toml_path(full_path, dynamic_key)
-                    if inline_discriminator
-                    else _toml_path(full_path, tag, dynamic_key)
-                )
+                nested_path = _toml_path(full_path, dynamic_key)
                 child_namespace = anchor_namespace
             else:
                 tag = None
@@ -639,14 +650,9 @@ def _render_field_block(
                 lines.append(f"{item_indent}.. tab-item:: {tag}")
                 lines.append("")
                 tab_body = item_indent + "   "
-                toml_hint = (
-                    f'``[{nested_path}]`` with ``{disc_name} = "{tag}"``'
-                    if full_path.split(".")[-1] == disc_name
-                    else f"``[{nested_path}]``"
-                )
                 lines.append(
-                    f"{tab_body}TOML: {toml_hint} -- model "
-                    f'``{inner_model.__name__}`` (set ``{disc_name} = "{tag}"``).'
+                    f"{tab_body}TOML: ``{_union_table_header(field, full_path)}`` with "
+                    f'``{disc_name} = "{tag}"`` -- model ``{inner_model.__name__}``.'
                 )
                 lines.append("")
                 lines.append(f"{tab_body}.. rst-class:: hmp-config-fields hmp-config-fields-nested")
@@ -1126,15 +1132,7 @@ def _walk_field_paths(
             for inner in inner_models:
                 if id(inner) in seen:
                     continue
-                if discriminator is not None:
-                    disc_name, disc_tags = discriminator
-                    nested_path = (
-                        _toml_path(full_path, dynamic_key)
-                        if full_path.split(".")[-1] == disc_name
-                        else _toml_path(full_path, disc_tags[inner], dynamic_key)
-                    )
-                else:
-                    nested_path = _toml_path(full_path, dynamic_key)
+                nested_path = _toml_path(full_path, dynamic_key)
                 out.extend(
                     _walk_field_paths(
                         inner,
@@ -1143,7 +1141,18 @@ def _walk_field_paths(
                         seen=seen | {id(inner)},
                     )
                 )
-    return out
+    if depth:
+        return out
+    # Union members share one table, so a key both of them declare (the
+    # discriminator first of all) reaches this list once per member.
+    seen_paths: set[str] = set()
+    unique: list[tuple[str, str, str, str | None, str | None]] = []
+    for row in out:
+        if row[0] in seen_paths:
+            continue
+        seen_paths.add(row[0])
+        unique.append(row)
+    return unique
 
 
 def _render_couche5(top_fields: dict[str, FieldInfo]) -> str:
@@ -1309,19 +1318,29 @@ def export_search_index(top_fields: dict[str, FieldInfo], output_path: Path | No
 
 
 def _field_info_for_path(model: type[BaseModel], dotted: str) -> FieldInfo | None:
-    """Drill into ``model`` along ``dotted`` (skipping unknown segments)."""
+    """Drill into ``model`` along ``dotted`` (skipping unknown segments).
+
+    A union segment is searched in every member. The discriminator tag is not
+    part of the TOML path, so one table is shared by all of them and two
+    members can own two halves of it.
+    """
     if not dotted:
         return None
-    current_model: type[BaseModel] | None = model
+    candidates: list[type[BaseModel]] = [model]
     info: FieldInfo | None = None
     for segment in dotted.split("."):
-        if current_model is None:
-            return None
-        info = current_model.model_fields.get(segment)
+        info = None
+        next_candidates: list[type[BaseModel]] = []
+        for candidate in candidates:
+            found = candidate.model_fields.get(segment)
+            if found is None:
+                continue
+            if info is None:
+                info = found
+            next_candidates.extend(_get_inner_basemodels(found.annotation))
         if info is None:
             return None
-        inner = _get_inner_basemodels(info.annotation)
-        current_model = inner[0] if inner else None
+        candidates = next_candidates
     return info
 
 

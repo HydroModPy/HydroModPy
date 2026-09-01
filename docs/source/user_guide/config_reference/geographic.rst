@@ -70,16 +70,16 @@ Fields
 
       .. tab-item:: dem
 
-         TOML: ``[geographic.catchment.dem]`` -- model ``DemCatchDef`` (set ``catch_def = "dem"``).
+         TOML: ``[geographic.catchment]`` with ``catch_def = "dem"`` -- model ``DemCatchDef``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: geographic-catchment-dem-dem-init-path
+               :name: geographic-catchment-dem-init-path
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="geographic.catchment.dem.dem_init_path">
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.dem_init_path">
                     <code class="hmp-field-name">dem_init_path</code>
                   </div>
 
@@ -91,16 +91,16 @@ Fields
 
       .. tab-item:: txt
 
-         TOML: ``[geographic.catchment.txt]`` -- model ``TxtCatchDef`` (set ``catch_def = "txt"``).
+         TOML: ``[geographic.catchment]`` with ``catch_def = "txt"`` -- model ``TxtCatchDef``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: geographic-catchment-txt-dem-init-path
+               :name: geographic-catchment-dem-init-path
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="geographic.catchment.txt.dem_init_path">
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.dem_init_path">
                     <code class="hmp-field-name">dem_init_path</code>
                   </div>
 
@@ -110,11 +110,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: geographic-catchment-txt-cell-size
+               :name: geographic-catchment-cell-size
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="geographic.catchment.txt.cell_size">
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.cell_size">
                     <code class="hmp-field-name">cell_size</code>
                   </div>
 
@@ -126,16 +126,16 @@ Fields
 
       .. tab-item:: from_outlet_coord
 
-         TOML: ``[geographic.catchment.from_outlet_coord]`` -- model ``OutletCatchDef`` (set ``catch_def = "from_outlet_coord"``).
+         TOML: ``[geographic.catchment]`` with ``catch_def = "from_outlet_coord"`` -- model ``OutletCatchDef``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: geographic-catchment-from-outlet-coord-dem-init-path
+               :name: geographic-catchment-dem-init-path
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="geographic.catchment.from_outlet_coord.dem_init_path">
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.dem_init_path">
                     <code class="hmp-field-name">dem_init_path</code>
                   </div>
 
@@ -145,11 +145,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: geographic-catchment-from-outlet-coord-x-outlet
+               :name: geographic-catchment-x-outlet
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="geographic.catchment.from_outlet_coord.x_outlet">
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.x_outlet">
                     <code class="hmp-field-name">x_outlet</code>
                   </div>
 
@@ -159,11 +159,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: geographic-catchment-from-outlet-coord-y-outlet
+               :name: geographic-catchment-y-outlet
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="geographic.catchment.from_outlet_coord.y_outlet">
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.y_outlet">
                     <code class="hmp-field-name">y_outlet</code>
                   </div>
 
@@ -173,11 +173,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: geographic-catchment-from-outlet-coord-snap-dist
+               :name: geographic-catchment-snap-dist
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="geographic.catchment.from_outlet_coord.snap_dist">
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.snap_dist">
                     <code class="hmp-field-name">snap_dist</code>
                   </div>
 
@@ -187,11 +187,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: geographic-catchment-from-outlet-coord-buff-area
+               :name: geographic-catchment-buff-area
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="geographic.catchment.from_outlet_coord.buff_area">
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.buff_area">
                     <code class="hmp-field-name">buff_area</code>
                   </div>
 
@@ -203,16 +203,16 @@ Fields
 
       .. tab-item:: from_polyg_shp
 
-         TOML: ``[geographic.catchment.from_polyg_shp]`` -- model ``PolygonCatchDef`` (set ``catch_def = "from_polyg_shp"``).
+         TOML: ``[geographic.catchment]`` with ``catch_def = "from_polyg_shp"`` -- model ``PolygonCatchDef``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: geographic-catchment-from-polyg-shp-dem-init-path
+               :name: geographic-catchment-dem-init-path
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="geographic.catchment.from_polyg_shp.dem_init_path">
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.dem_init_path">
                     <code class="hmp-field-name">dem_init_path</code>
                   </div>
 
@@ -222,11 +222,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: geographic-catchment-from-polyg-shp-polyg-shp-path
+               :name: geographic-catchment-polyg-shp-path
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="geographic.catchment.from_polyg_shp.polyg_shp_path">
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.polyg_shp_path">
                     <code class="hmp-field-name">polyg_shp_path</code>
                   </div>
 
@@ -236,11 +236,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: geographic-catchment-from-polyg-shp-buff-area
+               :name: geographic-catchment-buff-area
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="geographic.catchment.from_polyg_shp.buff_area">
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.buff_area">
                     <code class="hmp-field-name">buff_area</code>
                   </div>
 
@@ -512,16 +512,16 @@ Fields
 
             .. tab-item:: flat
 
-               TOML: ``[geographic.synthetic.topography.flat]`` -- model ``FlatTopography`` (set ``kind = "flat"``).
+               TOML: ``[geographic.synthetic.topography]`` with ``kind = "flat"`` -- model ``FlatTopography``.
 
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: geographic-synthetic-topography-flat-base-elevation
+                     :name: geographic-synthetic-topography-base-elevation
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.flat.base_elevation">
+                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.base_elevation">
                           <code class="hmp-field-name">base_elevation</code>
                         </div>
 
@@ -533,16 +533,16 @@ Fields
 
             .. tab-item:: linear
 
-               TOML: ``[geographic.synthetic.topography.linear]`` -- model ``LinearTopography`` (set ``kind = "linear"``).
+               TOML: ``[geographic.synthetic.topography]`` with ``kind = "linear"`` -- model ``LinearTopography``.
 
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: geographic-synthetic-topography-linear-base-elevation
+                     :name: geographic-synthetic-topography-base-elevation
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.linear.base_elevation">
+                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.base_elevation">
                           <code class="hmp-field-name">base_elevation</code>
                         </div>
 
@@ -552,11 +552,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: geographic-synthetic-topography-linear-right-to-left-amplitude
+                     :name: geographic-synthetic-topography-right-to-left-amplitude
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.linear.right_to_left_amplitude">
+                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.right_to_left_amplitude">
                           <code class="hmp-field-name">right_to_left_amplitude</code>
                         </div>
 
@@ -568,16 +568,16 @@ Fields
 
             .. tab-item:: radial_island
 
-               TOML: ``[geographic.synthetic.topography.radial_island]`` -- model ``RadialIslandTopography`` (set ``kind = "radial_island"``).
+               TOML: ``[geographic.synthetic.topography]`` with ``kind = "radial_island"`` -- model ``RadialIslandTopography``.
 
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: geographic-synthetic-topography-radial-island-base-elevation
+                     :name: geographic-synthetic-topography-base-elevation
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.radial_island.base_elevation">
+                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.base_elevation">
                           <code class="hmp-field-name">base_elevation</code>
                         </div>
 
@@ -587,11 +587,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: geographic-synthetic-topography-radial-island-island-radius
+                     :name: geographic-synthetic-topography-island-radius
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.radial_island.island_radius">
+                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.island_radius">
                           <code class="hmp-field-name">island_radius</code>
                         </div>
 
@@ -601,11 +601,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: geographic-synthetic-topography-radial-island-crest-elevation
+                     :name: geographic-synthetic-topography-crest-elevation
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.radial_island.crest_elevation">
+                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.crest_elevation">
                           <code class="hmp-field-name">crest_elevation</code>
                         </div>
 
@@ -615,11 +615,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: geographic-synthetic-topography-radial-island-center-x
+                     :name: geographic-synthetic-topography-center-x
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.radial_island.center_x">
+                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.center_x">
                           <code class="hmp-field-name">center_x</code>
                         </div>
 
@@ -629,11 +629,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: geographic-synthetic-topography-radial-island-center-y
+                     :name: geographic-synthetic-topography-center-y
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.radial_island.center_y">
+                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.center_y">
                           <code class="hmp-field-name">center_y</code>
                         </div>
 

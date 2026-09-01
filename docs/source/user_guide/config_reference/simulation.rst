@@ -307,16 +307,16 @@ Fields
 
       .. tab-item:: flow
 
-         TOML: ``[simulation.process.flow]`` -- model ``FlowProcessConfig`` (set ``type = "flow"``).
+         TOML: ``[[simulation.process]]`` with ``type = "flow"`` -- model ``FlowProcessConfig``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-flow-id
+               :name: simulation-process-id
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="simulation.process.flow.id">
+                  <div class="hmp-field-header" data-toml-path="simulation.process.id">
                     <code class="hmp-field-name">id</code>
                   </div>
 
@@ -328,11 +328,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-flow-solvers
+               :name: simulation-process-solvers
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="simulation.process.flow.solvers">
+                  <div class="hmp-field-header" data-toml-path="simulation.process.solvers">
                     <code class="hmp-field-name">solvers</code>
                   </div>
 
@@ -344,16 +344,16 @@ Fields
 
       .. tab-item:: transport
 
-         TOML: ``[simulation.process.transport]`` -- model ``TransportProcessConfig`` (set ``type = "transport"``).
+         TOML: ``[[simulation.process]]`` with ``type = "transport"`` -- model ``TransportProcessConfig``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-transport-id
+               :name: simulation-process-id
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="simulation.process.transport.id">
+                  <div class="hmp-field-header" data-toml-path="simulation.process.id">
                     <code class="hmp-field-name">id</code>
                   </div>
 
@@ -365,11 +365,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-transport-solvers
+               :name: simulation-process-solvers
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="simulation.process.transport.solvers">
+                  <div class="hmp-field-header" data-toml-path="simulation.process.solvers">
                     <code class="hmp-field-name">solvers</code>
                   </div>
 
@@ -381,16 +381,16 @@ Fields
 
       .. tab-item:: mesh
 
-         TOML: ``[simulation.process.mesh]`` -- model ``MeshProcessConfig`` (set ``type = "mesh"``).
+         TOML: ``[[simulation.process]]`` with ``type = "mesh"`` -- model ``MeshProcessConfig``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-mesh-id
+               :name: simulation-process-id
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="simulation.process.mesh.id">
+                  <div class="hmp-field-header" data-toml-path="simulation.process.id">
                     <code class="hmp-field-name">id</code>
                   </div>
 
@@ -402,11 +402,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-mesh-backend
+               :name: simulation-process-backend
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="simulation.process.mesh.backend">
+                  <div class="hmp-field-header" data-toml-path="simulation.process.backend">
                     <code class="hmp-field-name">backend</code>
                   </div>
 
@@ -416,11 +416,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-mesh-solvers
+               :name: simulation-process-solvers
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="simulation.process.mesh.solvers">
+                  <div class="hmp-field-header" data-toml-path="simulation.process.solvers">
                     <code class="hmp-field-name">solvers</code>
                   </div>
 
