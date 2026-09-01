@@ -72,6 +72,8 @@ def _active_sfr_definitions(model) -> dict[str, dict[str, Any]]:
                 "streambed_k_unit",
                 "streambed_thickness",
                 "min_slope",
+                "bed_incision",
+                "max_bed_sag",
                 "width",
                 "connected_to_aquifer",
                 "route_drainage",
@@ -362,15 +364,13 @@ def _number_and_freeze(
                 "mis-route."
             )
 
-    # Monotone-downhill clamp across the final order so no streambed top steps up
-    # along a connection (sub-reach interpolation can otherwise overlap at a
-    # confluence of reaches with different gradients).
+    # The streambed profile is NOT settled here. A lower-only sweep at this stage
+    # incises the bed below the land surface and compounds downstream (measured
+    # -29.80 m near the Nancon outlet), and the builder then ran a lift-only sweep
+    # that undid it. `_sfr_bed.solve_reach_bed_profile` now owns the whole profile:
+    # cell floor, optional ceiling under the cell top, and the monotone order, all
+    # solved together against the mesh the reaches actually sit on.
     rtp = {node: float(nodes[node]["rtp"]) for node in order}
-    for node in order:
-        for down in downstream_of[node]:
-            drop = min_slope * 0.5 * (float(nodes[node]["rlen"]) + float(nodes[down]["rlen"]))
-            if rtp[down] >= rtp[node]:
-                rtp[down] = rtp[node] - drop
 
     records: list[SfrReachRecord] = []
     for node in order:

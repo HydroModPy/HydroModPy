@@ -123,16 +123,16 @@ Fields
 
             .. tab-item:: custom
 
-               TOML: ``[data.dem.sources.custom]`` -- model ``CustomDemSource`` (set ``source = "custom"``).
+               TOML: ``[[data.dem.sources]]`` with ``source = "custom"`` -- model ``CustomDemSource``.
 
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-dem-sources-custom-mask-path
+                     :name: data-dem-sources-mask-path
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.dem.sources.custom.mask_path">
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.mask_path">
                           <code class="hmp-field-name">mask_path</code>
                         </div>
 
@@ -142,11 +142,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-dem-sources-custom-extent
+                     :name: data-dem-sources-extent
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.dem.sources.custom.extent">
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.extent">
                           <code class="hmp-field-name">extent</code>
                         </div>
 
@@ -156,11 +156,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: data-dem-sources-custom-force-refresh
+                     :name: data-dem-sources-force-refresh
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.dem.sources.custom.force_refresh">
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.force_refresh">
                           <code class="hmp-field-name">force_refresh</code>
                         </div>
 
@@ -170,11 +170,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-dem-sources-custom-path
+                     :name: data-dem-sources-path
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.dem.sources.custom.path">
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.path">
                           <code class="hmp-field-name">path</code>
                         </div>
 
@@ -186,16 +186,16 @@ Fields
 
             .. tab-item:: ign_geoplateforme_dem
 
-               TOML: ``[data.dem.sources.ign_geoplateforme_dem]`` -- model ``IgnGeoplateformeDemSource`` (set ``source = "ign_geoplateforme_dem"``).
+               TOML: ``[[data.dem.sources]]`` with ``source = "ign_geoplateforme_dem"`` -- model ``IgnGeoplateformeDemSource``.
 
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-dem-sources-ign-geoplateforme-dem-mask-path
+                     :name: data-dem-sources-mask-path
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.mask_path">
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.mask_path">
                           <code class="hmp-field-name">mask_path</code>
                         </div>
 
@@ -205,11 +205,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-dem-sources-ign-geoplateforme-dem-extent
+                     :name: data-dem-sources-extent
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.extent">
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.extent">
                           <code class="hmp-field-name">extent</code>
                         </div>
 
@@ -219,11 +219,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: data-dem-sources-ign-geoplateforme-dem-force-refresh
+                     :name: data-dem-sources-force-refresh
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.force_refresh">
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.force_refresh">
                           <code class="hmp-field-name">force_refresh</code>
                         </div>
 
@@ -233,11 +233,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-dem-sources-ign-geoplateforme-dem-departments
+                     :name: data-dem-sources-departments
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.departments">
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.departments">
                           <code class="hmp-field-name">departments</code>
                         </div>
 
@@ -247,11 +247,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-dem-sources-ign-geoplateforme-dem-country
+                     :name: data-dem-sources-country
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.country">
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.country">
                           <code class="hmp-field-name">country</code>
                         </div>
 
@@ -261,11 +261,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-dem-sources-ign-geoplateforme-dem-regions
+                     :name: data-dem-sources-regions
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.regions">
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.regions">
                           <code class="hmp-field-name">regions</code>
                         </div>
 
@@ -275,11 +275,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-dem-sources-ign-geoplateforme-dem-dataset
+                     :name: data-dem-sources-dataset
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.dataset">
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.dataset">
                           <code class="hmp-field-name">dataset</code>
                         </div>
 
@@ -289,11 +289,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-dem-sources-ign-geoplateforme-dem-resolution-m
+                     :name: data-dem-sources-resolution-m
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.resolution_m">
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.resolution_m">
                           <code class="hmp-field-name">resolution_m</code>
                         </div>
 
@@ -303,11 +303,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-dem-sources-ign-geoplateforme-dem-file-format
+                     :name: data-dem-sources-file-format
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.file_format">
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.file_format">
                           <code class="hmp-field-name">file_format</code>
                         </div>
 
@@ -317,11 +317,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-dem-sources-ign-geoplateforme-dem-crs
+                     :name: data-dem-sources-crs
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.crs">
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.crs">
                           <code class="hmp-field-name">crs</code>
                         </div>
 
@@ -376,16 +376,16 @@ Fields
 
             .. tab-item:: custom
 
-               TOML: ``[data.geology.sources.custom]`` -- model ``CustomGeologySource`` (set ``source = "custom"``).
+               TOML: ``[[data.geology.sources]]`` with ``source = "custom"`` -- model ``CustomGeologySource``.
 
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-geology-sources-custom-mask-path
+                     :name: data-geology-sources-mask-path
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.mask_path">
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.mask_path">
                           <code class="hmp-field-name">mask_path</code>
                         </div>
 
@@ -395,11 +395,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-geology-sources-custom-extent
+                     :name: data-geology-sources-extent
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.extent">
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.extent">
                           <code class="hmp-field-name">extent</code>
                         </div>
 
@@ -409,11 +409,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: data-geology-sources-custom-force-refresh
+                     :name: data-geology-sources-force-refresh
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.force_refresh">
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.force_refresh">
                           <code class="hmp-field-name">force_refresh</code>
                         </div>
 
@@ -423,11 +423,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-geology-sources-custom-path
+                     :name: data-geology-sources-path
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.path">
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.path">
                           <code class="hmp-field-name">path</code>
                         </div>
 
@@ -437,11 +437,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-geology-sources-custom-code-field
+                     :name: data-geology-sources-code-field
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.code_field">
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.code_field">
                           <code class="hmp-field-name">code_field</code>
                         </div>
 
@@ -451,11 +451,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-geology-sources-custom-values-table-path
+                     :name: data-geology-sources-values-table-path
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.values_table_path">
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.values_table_path">
                           <code class="hmp-field-name">values_table_path</code>
                         </div>
 
@@ -465,11 +465,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: data-geology-sources-custom-col-x
+                     :name: data-geology-sources-col-x
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.col_x">
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.col_x">
                           <code class="hmp-field-name">col_x</code>
                         </div>
 
@@ -479,11 +479,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: data-geology-sources-custom-col-y
+                     :name: data-geology-sources-col-y
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.col_y">
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.col_y">
                           <code class="hmp-field-name">col_y</code>
                         </div>
 
@@ -493,11 +493,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: data-geology-sources-custom-col-code
+                     :name: data-geology-sources-col-code
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.col_code">
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.col_code">
                           <code class="hmp-field-name">col_code</code>
                         </div>
 
@@ -507,11 +507,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: data-geology-sources-custom-default-crs
+                     :name: data-geology-sources-default-crs
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.default_crs">
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.default_crs">
                           <code class="hmp-field-name">default_crs</code>
                         </div>
 
@@ -523,16 +523,16 @@ Fields
 
             .. tab-item:: brgm_1m
 
-               TOML: ``[data.geology.sources.brgm_1m]`` -- model ``BrgmGeology1mSource`` (set ``source = "brgm_1m"``).
+               TOML: ``[[data.geology.sources]]`` with ``source = "brgm_1m"`` -- model ``BrgmGeology1mSource``.
 
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-geology-sources-brgm-1m-mask-path
+                     :name: data-geology-sources-mask-path
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.geology.sources.brgm_1m.mask_path">
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.mask_path">
                           <code class="hmp-field-name">mask_path</code>
                         </div>
 
@@ -542,11 +542,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-geology-sources-brgm-1m-extent
+                     :name: data-geology-sources-extent
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.geology.sources.brgm_1m.extent">
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.extent">
                           <code class="hmp-field-name">extent</code>
                         </div>
 
@@ -556,11 +556,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: data-geology-sources-brgm-1m-force-refresh
+                     :name: data-geology-sources-force-refresh
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.geology.sources.brgm_1m.force_refresh">
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.force_refresh">
                           <code class="hmp-field-name">force_refresh</code>
                         </div>
 
@@ -572,16 +572,16 @@ Fields
 
             .. tab-item:: brgm_50k
 
-               TOML: ``[data.geology.sources.brgm_50k]`` -- model ``BrgmGeology50kSource`` (set ``source = "brgm_50k"``).
+               TOML: ``[[data.geology.sources]]`` with ``source = "brgm_50k"`` -- model ``BrgmGeology50kSource``.
 
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-geology-sources-brgm-50k-mask-path
+                     :name: data-geology-sources-mask-path
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.geology.sources.brgm_50k.mask_path">
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.mask_path">
                           <code class="hmp-field-name">mask_path</code>
                         </div>
 
@@ -591,11 +591,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-geology-sources-brgm-50k-extent
+                     :name: data-geology-sources-extent
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.geology.sources.brgm_50k.extent">
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.extent">
                           <code class="hmp-field-name">extent</code>
                         </div>
 
@@ -605,11 +605,11 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: data-geology-sources-brgm-50k-force-refresh
+                     :name: data-geology-sources-force-refresh
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="data.geology.sources.brgm_50k.force_refresh">
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.force_refresh">
                           <code class="hmp-field-name">force_refresh</code>
                         </div>
 

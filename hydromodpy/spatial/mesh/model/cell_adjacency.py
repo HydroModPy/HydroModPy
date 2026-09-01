@@ -62,3 +62,32 @@ def build_planar_cell_adjacency(
                 adjacency[cell_id].add(owner)
                 adjacency[owner].add(cell_id)
     return adjacency
+
+
+def mesh_edge_cells(planar_mesh: Any, n_cells: int) -> frozenset[int]:
+    """Cells owning at least one polygon edge no other cell shares.
+
+    The outer rim of the meshed area. Not the same thing as "touches an inactive
+    cell": a domain whose every cell is active still has a rim, and any drainage
+    algorithm that seeds only on inactive neighbours finds no base level at all
+    there. Degree alone cannot answer it either, because a rim cell of a Voronoi
+    mesh can carry more neighbours than an interior quad.
+    """
+    flat_connectivity = getattr(planar_mesh, "flat_connectivity", None)
+    if flat_connectivity is None:
+        return frozenset()
+
+    edge_owners: dict[tuple[int, int], list[int]] = {}
+    for cell_id, node_ids in enumerate(flat_connectivity):
+        if cell_id >= n_cells:
+            break
+        nodes = np.asarray(node_ids, dtype=int).reshape(-1)
+        arity = int(nodes.size)
+        if arity < 3:
+            continue
+        for node_index in range(arity):
+            node_a = int(nodes[node_index])
+            node_b = int(nodes[(node_index + 1) % arity])
+            edge = (node_a, node_b) if node_a < node_b else (node_b, node_a)
+            edge_owners.setdefault(edge, []).append(cell_id)
+    return frozenset(owners[0] for owners in edge_owners.values() if len(set(owners)) == 1)

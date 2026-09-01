@@ -109,7 +109,11 @@ def build_metric_extractor(
                     raise NotImplementedError(
                         f"Solver {run_ctx.run.solver!r} returned no discharge calibration series"
                     )
-                simulated = add_runoff_to_discharge(simulated, trial_ctx)
+                # A routed SFR network already carries the runoff: it was injected
+                # into the reaches, so adding the forcing again would count it
+                # twice. Only a drain-budget discharge is baseflow alone.
+                if not results[_CATCHMENT].includes_runoff:
+                    simulated = add_runoff_to_discharge(simulated, trial_ctx)
                 components: dict[str, float] = {}
                 costs: list[float] = []
                 for obs_rec in observed:

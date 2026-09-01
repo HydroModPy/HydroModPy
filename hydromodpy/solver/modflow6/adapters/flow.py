@@ -8,6 +8,7 @@ shared flow execution lifecycle lives in
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -105,6 +106,7 @@ class Modflow6FlowAdapter:
             requests,
             time_index=time_index,
             station_cell_mapper=lambda cells: _collapse_to_disv_cells(cells, model),
+            routed_discharge_reader=_routed_discharge_series,
         )
         for request in unserved:
             if request.support != "lake" or request.name not in _LAKE_STATE_UNITS:
@@ -188,3 +190,37 @@ class Modflow6FlowAdapter:
                 preprocess_options=preprocess_options,
             )
         return run_flow_model(ctx, model_modflow, preprocess_options)
+
+
+def _routed_discharge_series(
+    output_dir: Path,
+    model_name: str,
+    time_index: pd.DatetimeIndex | None,
+) -> pd.Series | None:
+    """Discharge of a routed SFR network, or None when the run has no network.
+
+    Injected into the shared observable extractor so ``modflow_common`` keeps no
+    dependency on this backend: SFR exists only here.
+    """
+    import flopy
+
+    from hydromodpy.solver.modflow6.extractors.sfr import routed_outflow_series
+    from hydromodpy.solver.modflow_common.calibration_extractors import (
+        _resolve_seconds_per_unit,
+    )
+
+    head_path = output_dir / f"{model_name}.hds"
+    if not head_path.is_file():
+        return None
+    times = flopy.utils.HeadFile(str(head_path)).get_times()
+    values = routed_outflow_series(
+        output_dir,
+        model_name,
+        times=times,
+        seconds_per_time_unit=_resolve_seconds_per_unit(output_dir, model_name),
+    )
+    if values is None:
+        return None
+    if time_index is not None and len(time_index) >= len(values):
+        return pd.Series(values, index=pd.DatetimeIndex(time_index[: len(values)]))
+    return pd.Series(values)

@@ -565,7 +565,15 @@ class CalibPhaseDecl(HydroModelBase):
     )
     method: Annotated[CalibrationMethod, Profile.USER] = Field(
         default="grid",
-        description="Optimization method for this phase only.",
+        description=(
+            "Optimization method for this phase only. "
+            "Built-ins: 'grid' (regular sweep, sized by "
+            "optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of "
+            "a signed criterion on one parameter, the stream-network stage), 'optuna' "
+            "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', "
+            "'da_mh_gp'. An unknown name is refused when the optimizer is built, "
+            "with the list installed here."
+        ),
     )
     max_iter: Annotated[int, Profile.USER] = Field(
         default=100,
@@ -660,8 +668,15 @@ class CalibrationConfig(HydroModelBase):
     method: Annotated[CalibrationMethod, Profile.USER] = Field(
         default="grid",
         description=(
-            "Optimization method. Optuna is installed by default; install the "
-            "calibration extra for cma_es and Optuna's cmaes sampler."
+            "Optimization method. "
+            "Built-ins: 'grid' (regular sweep, sized by "
+            "optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of "
+            "a signed criterion on one parameter, the stream-network stage), 'optuna' "
+            "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', "
+            "'da_mh_gp'. An unknown name is refused when the optimizer is built, "
+            "with the list installed here."
+            "Optuna is installed by default; install the calibration extra for "
+            "cma_es and Optuna's cmaes sampler."
         ),
     )
     max_iter: Annotated[int, Profile.USER] = Field(
@@ -913,6 +928,31 @@ class CalibrationConfig(HydroModelBase):
                     "different routes and only one of them would run. Pick one "
                     "convention."
                 )
+        return self
+
+    @model_validator(mode="after")
+    def _refuse_a_staged_phase_that_never_says_what_it_scores(self) -> CalibrationConfig:
+        """Every phase of a staged calibration must name its own scoring route.
+
+        An empty selection reads "every declared block", which is what a lone
+        phase wants and what a staged calibration must never do: the second
+        stage would then be scored on the criterion the first one was built for.
+        On the Nancon that calibrates Sy against the stream-network gap instead
+        of the discharge hydrograph, and the run still reports a number.
+        """
+        phases = self.phases or ()
+        if len(phases) < 2:
+            return self
+        for phase in phases:
+            if phase.objective_blocks or phase.is_single_metric:
+                continue
+            raise ValueError(
+                f"phase {phase.name!r} names neither objective_blocks nor a "
+                f"variable/objective pair, so it would be scored on every block the "
+                f"calibration declares, including the ones the other phases were "
+                f"built for. Name the blocks this phase evaluates, or give it its own "
+                f"variable and objective."
+            )
         return self
 
     @model_validator(mode="after")

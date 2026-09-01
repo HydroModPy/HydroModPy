@@ -57,28 +57,28 @@ Fields
 
       .. tab-item:: modflow6
 
-         TOML: ``[solver.backend]`` with ``backend = "modflow6"`` -- model ``Modflow6Backend`` (set ``backend = "modflow6"``).
+         TOML: ``[solver.backend]`` with ``backend = "modflow6"`` -- model ``Modflow6Backend``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
 
       .. tab-item:: modflow_nwt
 
-         TOML: ``[solver.backend]`` with ``backend = "modflow_nwt"`` -- model ``ModflowNwtBackend`` (set ``backend = "modflow_nwt"``).
+         TOML: ``[solver.backend]`` with ``backend = "modflow_nwt"`` -- model ``ModflowNwtBackend``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
 
       .. tab-item:: boussinesq
 
-         TOML: ``[solver.backend]`` with ``backend = "boussinesq"`` -- model ``BoussinesqBackend`` (set ``backend = "boussinesq"``).
+         TOML: ``[solver.backend]`` with ``backend = "boussinesq"`` -- model ``BoussinesqBackend``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
 
       .. tab-item:: custom
 
-         TOML: ``[solver.backend]`` with ``backend = "custom"`` -- model ``CustomBackend`` (set ``backend = "custom"``).
+         TOML: ``[solver.backend]`` with ``backend = "custom"`` -- model ``CustomBackend``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 

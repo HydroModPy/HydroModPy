@@ -554,7 +554,7 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [calibration]
-      # Optimization method. Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.
+      # Optimization method. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.
       method = "grid"
       # Maximum number of calibration iterations.
       max_iter = 100

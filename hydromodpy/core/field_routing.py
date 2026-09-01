@@ -17,6 +17,14 @@ logger = get_logger(__name__)
 # before writing, so the store only ever holds "drain".
 DRAIN_BUDGET_KEYS = ("drain",)
 
+# Budget zone whose support is the delineated catchment rather than the model
+# domain. MODFLOW-NWT meshes the basin, so the two coincide; MODFLOW 6 meshes a
+# buffered box, so a domain-wide row carries the neighbouring basins too. A row
+# under this zone is the only lumped row a gauge at the outlet can be compared
+# to. Written by the solver extractors, read by
+# ``simulation.extraction.derivation.catchment_aggregation``.
+CATCHMENT_BUDGET_ZONE = "catchment"
+
 
 def find_drain_budget_key(mapping: Any) -> str | None:
     """Return the first stored drain-budget key found in a mapping/group."""
@@ -411,6 +419,7 @@ def accumulate_on_downhill_graph(graph: DownhillGraph, local_values: Any) -> np.
 
 
 __all__ = [
+    "CATCHMENT_BUDGET_ZONE",
     "DRAIN_BAND_DEPTH_ATTR",
     "DRAIN_BUDGET_KEYS",
     "DownhillGraph",

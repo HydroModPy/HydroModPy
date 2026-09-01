@@ -854,16 +854,16 @@ Fields
 
       .. tab-item:: bbox
 
-         TOML: ``[mesh_catchment.domain.bbox]`` -- model ``ZoneMeshingDomainBBox`` (set ``kind = "bbox"``).
+         TOML: ``[mesh_catchment.domain]`` with ``kind = "bbox"`` -- model ``ZoneMeshingDomainBBox``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: mesh-catchment-domain-bbox-bbox
+               :name: mesh-catchment-domain-bbox
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.bbox.bbox">
+                  <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.bbox">
                     <code class="hmp-field-name">bbox</code>
                   </div>
 
@@ -873,16 +873,16 @@ Fields
 
       .. tab-item:: polygon
 
-         TOML: ``[mesh_catchment.domain.polygon]`` -- model ``ZoneMeshingDomainPolygon`` (set ``kind = "polygon"``).
+         TOML: ``[mesh_catchment.domain]`` with ``kind = "polygon"`` -- model ``ZoneMeshingDomainPolygon``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: mesh-catchment-domain-polygon-coordinates
+               :name: mesh-catchment-domain-coordinates
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.polygon.coordinates">
+                  <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.coordinates">
                     <code class="hmp-field-name">coordinates</code>
                   </div>
 
@@ -892,16 +892,16 @@ Fields
 
       .. tab-item:: vector
 
-         TOML: ``[mesh_catchment.domain.vector]`` -- model ``ZoneMeshingDomainVector`` (set ``kind = "vector"``).
+         TOML: ``[mesh_catchment.domain]`` with ``kind = "vector"`` -- model ``ZoneMeshingDomainVector``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: mesh-catchment-domain-vector-path
+               :name: mesh-catchment-domain-path
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.vector.path">
+                  <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.path">
                     <code class="hmp-field-name">path</code>
                   </div>
 
@@ -909,11 +909,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: mesh-catchment-domain-vector-id-field
+               :name: mesh-catchment-domain-id-field
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.vector.id_field">
+                  <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.id_field">
                     <code class="hmp-field-name">id_field</code>
                   </div>
 
@@ -923,11 +923,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: mesh-catchment-domain-vector-selected-id
+               :name: mesh-catchment-domain-selected-id
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.vector.selected_id">
+                  <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.selected_id">
                     <code class="hmp-field-name">selected_id</code>
                   </div>
 
@@ -939,21 +939,21 @@ Fields
 
       .. tab-item:: geographic_box_buffer
 
-         TOML: ``[mesh_catchment.domain.geographic_box_buffer]`` -- model ``ZoneMeshingDomainGeographicBoxBuffer`` (set ``kind = "geographic_box_buffer"``).
+         TOML: ``[mesh_catchment.domain]`` with ``kind = "geographic_box_buffer"`` -- model ``ZoneMeshingDomainGeographicBoxBuffer``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
 
       .. tab-item:: geographic_watershed
 
-         TOML: ``[mesh_catchment.domain.geographic_watershed]`` -- model ``ZoneMeshingDomainGeographicWatershed`` (set ``kind = "geographic_watershed"``).
+         TOML: ``[mesh_catchment.domain]`` with ``kind = "geographic_watershed"`` -- model ``ZoneMeshingDomainGeographicWatershed``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
 
       .. tab-item:: geographic_watershed_box
 
-         TOML: ``[mesh_catchment.domain.geographic_watershed_box]`` -- model ``ZoneMeshingDomainGeographicWatershedBox`` (set ``kind = "geographic_watershed_box"``).
+         TOML: ``[mesh_catchment.domain]`` with ``kind = "geographic_watershed_box"`` -- model ``ZoneMeshingDomainGeographicWatershedBox``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 

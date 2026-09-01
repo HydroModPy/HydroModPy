@@ -35,6 +35,7 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.hydraulic_conductivity import parse_to_m_per_s
+from hydromodpy.solver.modflow6.builders._sfr_bed import solve_reach_bed_profile
 from hydromodpy.solver.modflow6.builders._sfr_drainage import (
     _LAK_PACKAGE_NAME,
     _SFR_PACKAGE_NAME,
@@ -76,10 +77,6 @@ _UNCONNECTED_CELLID = (-1, -1)
 
 # Segments shorter than this [m] are GridIntersect corner grazes, not reaches.
 _MIN_SEGMENT_LENGTH = 1e-6
-
-# Minimum clearance [m] the streambed bottom (rtp - rbth) keeps above the cell bottom
-# (MF6 rejects an SFR reach whose bed sinks below its aquifer cell).
-_RTP_ABOVE_BOTTOM_M = 0.1
 
 
 @dataclasses.dataclass(frozen=True)
@@ -223,6 +220,22 @@ def resolve_sfr_networks(
             network_id=network_id, reaches=tuple(records), definition=definition
         )
     return networks
+
+
+def sfr_networks_needing_conditioned_top(model) -> tuple[str, ...]:
+    """Ids of the active SFR networks that REQUIRE a conditioned mesh top.
+
+    Only ``rectify_on_mesh`` requires it: it traces the steepest descent of the
+    mesh top, so an unconditioned top leaves the projection pits and the traced
+    channel leaves the thalweg. ``route_drainage`` merely benefits from it; a
+    cell whose descent dead-ends simply stays a plain DRN, which
+    ``_sfr_drainage`` documents and handles, so it must not gate the build.
+    """
+    return tuple(
+        network_id
+        for network_id, definition in _active_sfr_definitions(model).items()
+        if definition.get("rectify_on_mesh")
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -462,30 +475,26 @@ def build_sfr_package_args(
     )
 
     botm = None if solver_mesh is None else np.asarray(solver_mesh.botm, dtype=float)
+    mesh_top = None if solver_mesh is None else np.asarray(solver_mesh.top, dtype=float).reshape(-1)
 
-    # Floor every reach's streambed top so its bed (rtp - rbth) stays above the cell
-    # bottom, THEN restore the monotone-downhill order the network freeze set. The
-    # floor comes from each cell's own botm, so a lake-enforced routing DEM can floor
-    # a downstream reach UP past its upstream neighbour and re-break monotonicity; a
-    # per-record clamp cannot see that. Re-sweep from the outlet up and lift each
-    # upstream reach to sit above its (already floored) downstream one. Lifting never
-    # re-sinks a bed below its cell, so the floor and the monotone order both hold.
+    # One authority for the streambed profile: a floor on each cell bottom, an
+    # optional ceiling under each cell TOP, and the monotone-downhill order, all
+    # solved together. Two one-sided clamps used to fight here, one lowering the
+    # downstream reach and one lifting the upstream one; see _sfr_bed.py.
     min_slope = float(definition.get("min_slope") or 1e-4)
-    by_ifno = {record.ifno: record for record in reaches}
-    rtp_by_ifno: dict[int, float] = {}
-    for record in reaches:
-        rtp_val = float(record.rtp)
-        if record.cellid is not None and botm is not None:
-            cell_bottom = float(botm[int(record.cellid[0]), int(record.cellid[1])])
-            rtp_val = max(rtp_val, cell_bottom + float(rbth) + _RTP_ABOVE_BOTTOM_M)
-        rtp_by_ifno[record.ifno] = rtp_val
-    for record in reversed(reaches):
-        down_rtp = rtp_by_ifno[record.ifno]
-        for up in record.upstream:
-            drop = min_slope * 0.5 * (float(by_ifno[up].rlen) + float(record.rlen))
-            floor = down_rtp + drop
-            if rtp_by_ifno[up] < floor:
-                rtp_by_ifno[up] = floor
+    bed_incision = definition.get("bed_incision")
+    rtp_by_ifno = solve_reach_bed_profile(
+        reaches,
+        top=mesh_top,
+        botm=botm,
+        rbth=rbth,
+        min_slope=min_slope,
+        bed_incision=None if bed_incision is None else _length_m(bed_incision),
+        max_bed_sag=_length_m(
+            definition.get("max_bed_sag") if definition.get("max_bed_sag") is not None else 5.0
+        ),
+        location=location,
+    )
 
     packagedata: list[list[Any]] = []
     connectiondata: list[list[Any]] = []
@@ -534,9 +543,19 @@ def build_sfr_package_args(
         "print_flows": False,
         "budget_filerecord": f"{stem}.sfr.cbc",
     }
-    if network.downstream_increasing:
+    if network.downstream_increasing and not definition.get("route_drainage"):
         # Downstream-increasing numbering guarantees a single sweep resolves the
         # routing order, so MF6 can skip the extra Picard passes.
+        #
+        # Only when nothing MOVES water into the reaches. `route_drainage` sends
+        # the hillslope DRN through MVR, and that exchange is part of the
+        # nonlinear coupling, not of the routing order a single sweep settles:
+        # one Picard pass updates the mover inflow once per OUTER iteration, so
+        # it creeps instead of converging. Measured on the Nancon at 25 m in
+        # steady state, `1_GWF-SFR-(244)-qfrommvr` fell about 1 per cent per
+        # outer iteration and still read 4.04e-4 at iteration 500 against a
+        # 1e-4 criterion, while the head had settled at 1.5e-7. The daily
+        # transient then failed at stress period 3 even with 1500 iterations.
         args["maximum_picard_iterations"] = 1
     if diversion_rows:
         args["diversions"] = diversion_rows
@@ -627,6 +646,7 @@ __all__ = [
     "resolve_reach_line_cells",
     "resolve_sfr_networks",
     "sfr_drain_cells_to_drop",
+    "sfr_networks_needing_conditioned_top",
     "sfr_routes_drainage",
     "watershed_drainage_cell_mask",
 ]

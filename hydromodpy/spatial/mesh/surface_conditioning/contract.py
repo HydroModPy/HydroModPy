@@ -37,6 +37,17 @@ class SurfaceConditioningInput:
     control_cells: Mapping[int, float] = field(default_factory=dict)
     """cell -> fixed base level (lake bed, thalweg): pinned, never raised."""
 
+    rim_cells: frozenset[int] = frozenset()
+    """Cells on the OUTER RIM of the meshed area, base levels like the idomain edge.
+
+    A cell that touches an inactive neighbour is a base level by itself, but a
+    domain whose every cell is active has none: on a buffered MODFLOW 6 box the
+    rim cells simply have fewer neighbours, they have no inactive one. Seeding on
+    inactive neighbours alone then yields ZERO seeds, the flood never starts and
+    every active cell is reported unreached while nothing is raised. Measured on
+    the Nancon at 25 m: 243552 active cells, 0 inactive, 243552 unreached.
+    """
+
 
 @dataclass(frozen=True)
 class SurfaceConditioningResult:

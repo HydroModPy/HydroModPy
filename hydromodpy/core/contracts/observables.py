@@ -105,6 +105,16 @@ class ObservableResult:
     units: str
     times: pd.DatetimeIndex | None = None
 
+    includes_runoff: bool = False
+    """True when the surface runoff is ALREADY inside these values.
+
+    A discharge read from a drain budget is baseflow only, so a consumer adds
+    the runoff forcing to compare it with a gauge. A discharge read from a
+    routed stream network is not: the runoff was injected into the reaches and
+    is already in the outflow, so adding it again double-counts it. The
+    producer knows which one it built; the consumer cannot tell from the values.
+    """
+
 
 def require_unique_request_ids(requests: Sequence[ObservableRequest]) -> None:
     """Refuse a batch holding two requests with the same id.

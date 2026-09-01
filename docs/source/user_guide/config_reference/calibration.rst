@@ -9,7 +9,7 @@ TOML section: ``[calibration]``
 
 Pydantic model: ``CalibrationConfig`` defined in ``hydromodpy.calibration.config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L648>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L656>`__
 
 Top-level ``[calibration]`` section.
 
@@ -44,9 +44,9 @@ Fields
         <code class="hmp-field-name">method</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "grid"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L660>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "grid"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L668>`__
 
-      Optimization method. Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.
+      Optimization method. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.
 
 
 .. container:: hmp-field hmp-field-level-user
@@ -58,7 +58,7 @@ Fields
         <code class="hmp-field-name">max_iter</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 100` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L667>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 100` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L682>`__
 
       Maximum number of calibration iterations.
 
@@ -72,7 +72,7 @@ Fields
         <code class="hmp-field-name">batch_size</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L672>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L687>`__
 
       Number of suggestions drawn per ask (for parallel optimizers).
 
@@ -86,7 +86,7 @@ Fields
         <code class="hmp-field-name">parallel</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L677>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L692>`__
 
       Number of trials evaluated concurrently inside one batch via a thread pool. parallel=1 keeps the legacy sequential loop.
 
@@ -100,7 +100,7 @@ Fields
         <code class="hmp-field-name">warmup_periods</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L685>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L700>`__
 
       Spin-up (burn-in) periods excluded from every objective block. The first warmup_periods of each observed/simulated series are dropped before the metric, so the window where the state still depends on the initial condition does not bias the calibration. Default 0 (no exclusion). Size it by increasing it until the objective stops changing (initial-condition insensitivity), not a fixed guess.
 
@@ -116,7 +116,7 @@ Fields
         <code class="hmp-field-toml">[calibration.scoring_window]</code>
       </div>
 
-   :bdg-primary:`CalibScoringWindow | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L697>`__
+   :bdg-primary:`CalibScoringWindow | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L712>`__
 
       Dates bounding the samples every metric is computed on. Mutually exclusive with warmup_periods, which counts samples instead of dates.
 
@@ -167,7 +167,7 @@ Fields
         <code class="hmp-field-toml">[[calibration.phases]]</code>
       </div>
 
-   :bdg-primary:`list[CalibPhaseDecl] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L704>`__
+   :bdg-primary:`list[CalibPhaseDecl] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L719>`__
 
       Stages run one after the other, each calibrating its own parameters and freezing them for the next. Declaring this table is what switches the runner to staged mode; without it nothing changes for an existing configuration. The default is None and not an empty list on purpose: the resume lock hashes the configuration with exclude_none, so an absent table leaves that hash untouched and checkpoints stay resumable.
 
@@ -216,7 +216,7 @@ Fields
 
          :bdg-primary:`str` :bdg-secondary:`default = "grid"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L566>`__
 
-            Optimization method for this phase only.
+            Optimization method for this phase only. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -228,7 +228,7 @@ Fields
               <code class="hmp-field-name">max_iter</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 100` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L570>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 100` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L578>`__
 
             Maximum number of evaluations for this phase.
 
@@ -242,7 +242,7 @@ Fields
               <code class="hmp-field-name">batch_size</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L575>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L583>`__
 
             Suggestions drawn per ask. A root search returns one point at a time during its refinement, whatever this asks for.
 
@@ -256,7 +256,7 @@ Fields
               <code class="hmp-field-name">parallel</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L581>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L589>`__
 
             Trials evaluated concurrently inside one batch.
 
@@ -270,7 +270,7 @@ Fields
               <code class="hmp-field-name">parameters</code>
             </div>
 
-         :bdg-primary:`list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L586>`__
+         :bdg-primary:`list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L594>`__
 
             Names of the calibration parameters this phase may move. Every other parameter keeps the value it entered the phase with.
 
@@ -284,7 +284,7 @@ Fields
               <code class="hmp-field-name">outputs</code>
             </div>
 
-         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L591>`__
+         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L599>`__
 
             Names of the calibration outputs this phase scores on. Empty means every declared output.
 
@@ -298,7 +298,7 @@ Fields
               <code class="hmp-field-name">objective_blocks</code>
             </div>
 
-         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L596>`__
+         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L604>`__
 
             Names of the objective blocks this phase evaluates. Empty means every declared block.
 
@@ -312,7 +312,7 @@ Fields
               <code class="hmp-field-name">variable</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L601>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L609>`__
 
             Single-metric variable, when this phase does not use blocks.
 
@@ -326,7 +326,7 @@ Fields
               <code class="hmp-field-name">objective</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L605>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L613>`__
 
             Single-metric objective, when this phase does not use blocks.
 
@@ -342,7 +342,7 @@ Fields
               <code class="hmp-field-toml">[calibration.phases.optimizer_kwargs.&lt;id&gt;]</code>
             </div>
 
-         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L609>`__
+         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L617>`__
 
             Extra keyword arguments forwarded to this phase's optimizer.
 
@@ -358,7 +358,7 @@ Fields
               <code class="hmp-field-toml">[calibration.phases.overrides.&lt;id&gt;]</code>
             </div>
 
-         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L613>`__
+         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L621>`__
 
             Configuration values this phase runs with, as dotted paths into the project configuration. The two stages of a stream-network calibration are one steady and one transient, which is a property of the model and not of the search, so a phase has to be able to say it.
 
@@ -374,7 +374,7 @@ Fields
               <code class="hmp-field-toml">[calibration.phases.scoring_window]</code>
             </div>
 
-         :bdg-primary:`CalibScoringWindow | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L620>`__
+         :bdg-primary:`CalibScoringWindow | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L628>`__
 
             Dates bounding the samples this phase scores on.
 
@@ -423,7 +423,7 @@ Fields
               <code class="hmp-field-name">depends_on</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L624>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L632>`__
 
             Name of the phase that must run first. Its frozen parameters enter this one as fixed values.
 
@@ -437,7 +437,7 @@ Fields
               <code class="hmp-field-name">freeze_on_success</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L629>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L637>`__
 
             Hold the parameters this phase calibrated fixed for the phases that depend on it. Success means the phase converged, not that its validity indicator is good.
 
@@ -453,7 +453,7 @@ Fields
         <code class="hmp-field-name">seed</code>
       </div>
 
-   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L715>`__
+   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L730>`__
 
       Random seed for reproducibility.
 
@@ -467,7 +467,7 @@ Fields
         <code class="hmp-field-name">save_runs</code>
       </div>
 
-   :bdg-primary:`Literal['none', 'best_n', 'all']` :bdg-secondary:`default = "none"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L719>`__
+   :bdg-primary:`Literal['none', 'best_n', 'all']` :bdg-secondary:`default = "none"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L734>`__
 
       How much to persist per iteration:
       - 'none': 1 DuckDB row per iteration, no Zarr.
@@ -484,7 +484,7 @@ Fields
         <code class="hmp-field-name">save_best_n</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 10` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L728>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 10` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L743>`__
 
       Number of top iterations to promote when save_runs='best_n'.
 
@@ -498,7 +498,7 @@ Fields
         <code class="hmp-field-name">use_cache</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L733>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L748>`__
 
       Enable params_hash content-addressable cache.
 
@@ -512,7 +512,7 @@ Fields
         <code class="hmp-field-name">lightweight_extraction</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L737>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L752>`__
 
       Skip Parquet/Zarr writes for lumped models (GR4J, ...) and read simulated series from the per-trial RAM cache instead. Only the promoted runs go through the catalog write path.
 
@@ -526,7 +526,7 @@ Fields
         <code class="hmp-field-name">objective</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "nse"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L743>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "nse"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L758>`__
 
       Metric key used by the default ScalarObjective.
 
@@ -540,7 +540,7 @@ Fields
         <code class="hmp-field-name">variable</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "head"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L747>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "head"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L762>`__
 
       Observed variable (for ObservationSet).
 
@@ -556,7 +556,7 @@ Fields
         <code class="hmp-field-toml">[calibration.optimizer_kwargs.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L751>`__
+   :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L766>`__
 
       Extra keyword arguments forwarded to the optimizer adapter.
 
@@ -572,7 +572,7 @@ Fields
         <code class="hmp-field-toml">[calibration.parameters.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`dict[str, CalibParameterDecl]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L755>`__
+   :bdg-primary:`dict[str, CalibParameterDecl]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L770>`__
 
       Per-parameter declarations (bounds, transform, prior, path).
 
@@ -693,7 +693,7 @@ Fields
         <code class="hmp-field-toml">[calibration.outputs.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`support = "point" | "boundary" | "cell" | "lake" | "network"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L759>`__
+   :bdg-primary:`support = "point" | "boundary" | "cell" | "lake" | "network"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L774>`__
 
       Named observables extracted from each candidate run.
 
@@ -703,16 +703,16 @@ Fields
 
       .. tab-item:: point
 
-         TOML: ``[calibration.outputs.point.<id>]`` -- model ``CalibOutputPoint`` (set ``support = "point"``).
+         TOML: ``[calibration.outputs.<id>]`` with ``support = "point"`` -- model ``CalibOutputPoint``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-point-id-variable
+               :name: calibration-outputs-id-variable
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.point.&lt;id&gt;.variable">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.variable">
                     <code class="hmp-field-name">variable</code>
                   </div>
 
@@ -722,14 +722,14 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-point-id-geometry
+               :name: calibration-outputs-id-geometry
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.point.&lt;id&gt;.geometry">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.geometry">
                     <code class="hmp-field-name">geometry</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">[calibration.outputs.point.&lt;id&gt;.geometry.&lt;id&gt;]</code>
+                    <code class="hmp-field-toml">[calibration.outputs.&lt;id&gt;.geometry.&lt;id&gt;]</code>
                   </div>
 
                :bdg-primary:`dict[str, Any] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L131>`__
@@ -738,11 +738,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-point-id-x
+               :name: calibration-outputs-id-x
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.point.&lt;id&gt;.x">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.x">
                     <code class="hmp-field-name">x</code>
                   </div>
 
@@ -752,11 +752,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-point-id-y
+               :name: calibration-outputs-id-y
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.point.&lt;id&gt;.y">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.y">
                     <code class="hmp-field-name">y</code>
                   </div>
 
@@ -766,11 +766,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-point-id-time
+               :name: calibration-outputs-id-time
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.point.&lt;id&gt;.time">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.time">
                     <code class="hmp-field-name">time</code>
                   </div>
 
@@ -780,11 +780,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-point-id-reducer
+               :name: calibration-outputs-id-reducer
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.point.&lt;id&gt;.reducer">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.reducer">
                     <code class="hmp-field-name">reducer</code>
                   </div>
 
@@ -794,11 +794,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-point-id-observed-values
+               :name: calibration-outputs-id-observed-values
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.point.&lt;id&gt;.observed_values">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.observed_values">
                     <code class="hmp-field-name">observed_values</code>
                   </div>
 
@@ -810,16 +810,16 @@ Fields
 
       .. tab-item:: boundary
 
-         TOML: ``[calibration.outputs.boundary.<id>]`` -- model ``CalibOutputBoundary`` (set ``support = "boundary"``).
+         TOML: ``[calibration.outputs.<id>]`` with ``support = "boundary"`` -- model ``CalibOutputBoundary``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-boundary-id-variable
+               :name: calibration-outputs-id-variable
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.boundary.&lt;id&gt;.variable">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.variable">
                     <code class="hmp-field-name">variable</code>
                   </div>
 
@@ -829,11 +829,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-boundary-id-boundary-id
+               :name: calibration-outputs-id-boundary-id
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.boundary.&lt;id&gt;.boundary_id">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.boundary_id">
                     <code class="hmp-field-name">boundary_id</code>
                   </div>
 
@@ -843,11 +843,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-boundary-id-time
+               :name: calibration-outputs-id-time
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.boundary.&lt;id&gt;.time">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.time">
                     <code class="hmp-field-name">time</code>
                   </div>
 
@@ -857,11 +857,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-boundary-id-reducer
+               :name: calibration-outputs-id-reducer
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.boundary.&lt;id&gt;.reducer">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.reducer">
                     <code class="hmp-field-name">reducer</code>
                   </div>
 
@@ -871,11 +871,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-boundary-id-observed-values
+               :name: calibration-outputs-id-observed-values
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.boundary.&lt;id&gt;.observed_values">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.observed_values">
                     <code class="hmp-field-name">observed_values</code>
                   </div>
 
@@ -887,16 +887,16 @@ Fields
 
       .. tab-item:: cell
 
-         TOML: ``[calibration.outputs.cell.<id>]`` -- model ``CalibOutputCell`` (set ``support = "cell"``).
+         TOML: ``[calibration.outputs.<id>]`` with ``support = "cell"`` -- model ``CalibOutputCell``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-cell-id-variable
+               :name: calibration-outputs-id-variable
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.cell.&lt;id&gt;.variable">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.variable">
                     <code class="hmp-field-name">variable</code>
                   </div>
 
@@ -906,11 +906,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-cell-id-cell-id
+               :name: calibration-outputs-id-cell-id
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.cell.&lt;id&gt;.cell_id">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.cell_id">
                     <code class="hmp-field-name">cell_id</code>
                   </div>
 
@@ -920,11 +920,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-cell-id-row
+               :name: calibration-outputs-id-row
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.cell.&lt;id&gt;.row">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.row">
                     <code class="hmp-field-name">row</code>
                   </div>
 
@@ -934,11 +934,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-cell-id-col
+               :name: calibration-outputs-id-col
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.cell.&lt;id&gt;.col">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.col">
                     <code class="hmp-field-name">col</code>
                   </div>
 
@@ -948,11 +948,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-cell-id-layer
+               :name: calibration-outputs-id-layer
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.cell.&lt;id&gt;.layer">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.layer">
                     <code class="hmp-field-name">layer</code>
                   </div>
 
@@ -962,11 +962,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-cell-id-time
+               :name: calibration-outputs-id-time
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.cell.&lt;id&gt;.time">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.time">
                     <code class="hmp-field-name">time</code>
                   </div>
 
@@ -976,11 +976,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-cell-id-reducer
+               :name: calibration-outputs-id-reducer
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.cell.&lt;id&gt;.reducer">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.reducer">
                     <code class="hmp-field-name">reducer</code>
                   </div>
 
@@ -990,11 +990,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-cell-id-observed-values
+               :name: calibration-outputs-id-observed-values
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.cell.&lt;id&gt;.observed_values">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.observed_values">
                     <code class="hmp-field-name">observed_values</code>
                   </div>
 
@@ -1006,16 +1006,16 @@ Fields
 
       .. tab-item:: lake
 
-         TOML: ``[calibration.outputs.lake.<id>]`` -- model ``CalibOutputLake`` (set ``support = "lake"``).
+         TOML: ``[calibration.outputs.<id>]`` with ``support = "lake"`` -- model ``CalibOutputLake``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-lake-id-variable
+               :name: calibration-outputs-id-variable
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.lake.&lt;id&gt;.variable">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.variable">
                     <code class="hmp-field-name">variable</code>
                   </div>
 
@@ -1025,11 +1025,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-lake-id-lake-id
+               :name: calibration-outputs-id-lake-id
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.lake.&lt;id&gt;.lake_id">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.lake_id">
                     <code class="hmp-field-name">lake_id</code>
                   </div>
 
@@ -1039,11 +1039,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-lake-id-time
+               :name: calibration-outputs-id-time
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.lake.&lt;id&gt;.time">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.time">
                     <code class="hmp-field-name">time</code>
                   </div>
 
@@ -1053,11 +1053,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-lake-id-reducer
+               :name: calibration-outputs-id-reducer
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.lake.&lt;id&gt;.reducer">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.reducer">
                     <code class="hmp-field-name">reducer</code>
                   </div>
 
@@ -1067,11 +1067,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-lake-id-observed-values
+               :name: calibration-outputs-id-observed-values
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.lake.&lt;id&gt;.observed_values">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.observed_values">
                     <code class="hmp-field-name">observed_values</code>
                   </div>
 
@@ -1083,16 +1083,16 @@ Fields
 
       .. tab-item:: network
 
-         TOML: ``[calibration.outputs.network.<id>]`` -- model ``CalibOutputNetwork`` (set ``support = "network"``).
+         TOML: ``[calibration.outputs.<id>]`` with ``support = "network"`` -- model ``CalibOutputNetwork``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-network-id-variable
+               :name: calibration-outputs-id-variable
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.network.&lt;id&gt;.variable">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.variable">
                     <code class="hmp-field-name">variable</code>
                   </div>
 
@@ -1102,11 +1102,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-network-id-stream-geometry-path
+               :name: calibration-outputs-id-stream-geometry-path
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.network.&lt;id&gt;.stream_geometry_path">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.stream_geometry_path">
                     <code class="hmp-field-name">stream_geometry_path</code>
                   </div>
 
@@ -1116,11 +1116,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-network-id-tau-specific-ratio
+               :name: calibration-outputs-id-tau-specific-ratio
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.network.&lt;id&gt;.tau_specific_ratio">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.tau_specific_ratio">
                     <code class="hmp-field-name">tau_specific_ratio</code>
                   </div>
 
@@ -1130,11 +1130,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-network-id-weighting
+               :name: calibration-outputs-id-weighting
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.network.&lt;id&gt;.weighting">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.weighting">
                     <code class="hmp-field-name">weighting</code>
                   </div>
 
@@ -1144,11 +1144,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-network-id-diagonal-neighbors
+               :name: calibration-outputs-id-diagonal-neighbors
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.network.&lt;id&gt;.diagonal_neighbors">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.diagonal_neighbors">
                     <code class="hmp-field-name">diagonal_neighbors</code>
                   </div>
 
@@ -1158,11 +1158,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-network-id-observed-position-accuracy
+               :name: calibration-outputs-id-observed-position-accuracy
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.network.&lt;id&gt;.observed_position_accuracy">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.observed_position_accuracy">
                     <code class="hmp-field-name">observed_position_accuracy</code>
                   </div>
 
@@ -1172,11 +1172,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-network-id-roptim-max
+               :name: calibration-outputs-id-roptim-max
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.network.&lt;id&gt;.roptim_max">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.roptim_max">
                     <code class="hmp-field-name">roptim_max</code>
                   </div>
 
@@ -1186,11 +1186,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-network-id-on-roptim-violation
+               :name: calibration-outputs-id-on-roptim-violation
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.network.&lt;id&gt;.on_roptim_violation">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.on_roptim_violation">
                     <code class="hmp-field-name">on_roptim_violation</code>
                   </div>
 
@@ -1200,11 +1200,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-network-id-max-unreachable-fraction
+               :name: calibration-outputs-id-max-unreachable-fraction
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.network.&lt;id&gt;.max_unreachable_fraction">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.max_unreachable_fraction">
                     <code class="hmp-field-name">max_unreachable_fraction</code>
                   </div>
 
@@ -1214,11 +1214,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-expert
-               :name: calibration-outputs-network-id-alpha-warning-threshold
+               :name: calibration-outputs-id-alpha-warning-threshold
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.network.&lt;id&gt;.alpha_warning_threshold">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.alpha_warning_threshold">
                     <code class="hmp-field-name">alpha_warning_threshold</code>
                   </div>
 
@@ -1228,11 +1228,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-expert
-               :name: calibration-outputs-network-id-clipping-warning-share
+               :name: calibration-outputs-id-clipping-warning-share
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.network.&lt;id&gt;.clipping_warning_share">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.clipping_warning_share">
                     <code class="hmp-field-name">clipping_warning_share</code>
                   </div>
 
@@ -1242,11 +1242,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-expert
-               :name: calibration-outputs-network-id-clipping-warning-gap
+               :name: calibration-outputs-id-clipping-warning-gap
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.network.&lt;id&gt;.clipping_warning_gap">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.clipping_warning_gap">
                     <code class="hmp-field-name">clipping_warning_gap</code>
                   </div>
 
@@ -1256,11 +1256,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-network-id-time
+               :name: calibration-outputs-id-time
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.network.&lt;id&gt;.time">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.time">
                     <code class="hmp-field-name">time</code>
                   </div>
 
@@ -1270,11 +1270,11 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: calibration-outputs-network-id-observed-values
+               :name: calibration-outputs-id-observed-values
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="calibration.outputs.network.&lt;id&gt;.observed_values">
+                  <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.observed_values">
                     <code class="hmp-field-name">observed_values</code>
                   </div>
 
@@ -1296,7 +1296,7 @@ Fields
         <code class="hmp-field-toml">[[calibration.objective_blocks]]</code>
       </div>
 
-   :bdg-primary:`list[CalibObjectiveBlockDecl]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L763>`__
+   :bdg-primary:`list[CalibObjectiveBlockDecl]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L778>`__
 
       Weighted blocks making up a composite objective. When empty, a single implicit block is built from 'objective' and 'variable'.
 
@@ -1415,7 +1415,7 @@ Fields
         <code class="hmp-field-name">persist_iteration_detail</code>
       </div>
 
-   :bdg-primary:`Literal['none', 'summary', 'full']` :bdg-secondary:`default = "summary"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L768>`__
+   :bdg-primary:`Literal['none', 'summary', 'full']` :bdg-secondary:`default = "summary"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L783>`__
 
       'none' skips component metrics; 'summary' keeps block totals; 'full' also stores per-block raw and normalized costs.
 
@@ -1429,7 +1429,7 @@ Fields
         <code class="hmp-field-name">persist_model_distribution</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L773>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L788>`__
 
       Persist the candidate distribution alongside the session.
 
@@ -1443,7 +1443,7 @@ Fields
         <code class="hmp-field-name">rerun_best_with_outputs</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L777>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L792>`__
 
       Replay the best candidate with full outputs after the loop.
 
@@ -1457,7 +1457,7 @@ Fields
         <code class="hmp-field-name">materialize_candidates</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L781>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L796>`__
 
       Write a standalone override TOML for each candidate under 'candidates_root' so runs can be replayed later.
 
@@ -1471,7 +1471,7 @@ Fields
         <code class="hmp-field-name">candidates_root</code>
       </div>
 
-   :bdg-primary:`PurePosixPath | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L786>`__
+   :bdg-primary:`PurePosixPath | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L801>`__
 
       Directory for per-candidate overlay TOMLs. Required when materialize_candidates is True.
 
@@ -1487,7 +1487,7 @@ Fields
         <code class="hmp-field-toml">[calibration.persistence]</code>
       </div>
 
-   :bdg-primary:`PersistenceConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L791>`__
+   :bdg-primary:`PersistenceConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L806>`__
 
       Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for calibration outputs.
 

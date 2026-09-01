@@ -506,6 +506,42 @@ def _placeholder(field_info: FieldInfo) -> str:
     return '""'
 
 
+def _unwrap_optional(annotation: Any) -> Any:
+    """Return the single non-None member of an optional annotation."""
+    if not _is_union_origin(get_origin(annotation)):
+        return annotation
+    members = [arg for arg in get_args(annotation) if arg is not type(None)]
+    return members[0] if len(members) == 1 else annotation
+
+
+def _model_members(annotation: Any) -> list[type[BaseModel]]:
+    """Return the BaseModel members of an annotation, union or not."""
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return [annotation]
+    members = [a for a in get_args(annotation) if isinstance(a, type) and issubclass(a, BaseModel)]
+    if members:
+        return members
+    for arg in get_args(annotation):
+        members.extend(
+            sub for sub in get_args(arg) if isinstance(sub, type) and issubclass(sub, BaseModel)
+        )
+    return members
+
+
+def _resolve_mapping_basemodel_types(field_info: FieldInfo) -> list[type[BaseModel]]:
+    """Return the model variants a ``dict[str, Model]`` field holds.
+
+    Empty for a free-form mapping such as ``dict[str, Any]``, which has no
+    shape to show.
+    """
+    annotation = _unwrap_optional(field_info.annotation)
+    origin = get_origin(annotation)
+    if origin is not dict and not (isinstance(origin, type) and issubclass(origin, _abc_Mapping)):
+        return []
+    args = get_args(annotation)
+    return _model_members(args[1]) if len(args) == 2 else []
+
+
 def _resolve_list_basemodel_type(field_info: FieldInfo) -> type[BaseModel] | None:
     """If field is ``list[SomeBaseModel]``, return the item class, else None.
 
@@ -513,10 +549,10 @@ def _resolve_list_basemodel_type(field_info: FieldInfo) -> type[BaseModel] | Non
     returning a representative concrete BaseModel from the union (preferring
     the default_factory's runtime type when one item is set).
     """
-    origin = get_origin(field_info.annotation)
-    if origin is not list:
+    annotation = _unwrap_optional(field_info.annotation)
+    if get_origin(annotation) is not list:
         return None
-    args = get_args(field_info.annotation)
+    args = get_args(annotation)
     if not args:
         return None
     item = args[0]
@@ -719,6 +755,50 @@ def _root_scalars(
     return lines
 
 
+def _variant_tag(model_cls: type[BaseModel]) -> str | None:
+    """Return the ``key = "value"`` line a union member pins itself with."""
+    for name, info in model_cls.model_fields.items():
+        if get_origin(info.annotation) is not typing.Literal:
+            continue
+        args = get_args(info.annotation)
+        if len(args) == 1:
+            return f'{name} = "{args[0]}"'
+    return None
+
+
+def _mapping_entry_skeleton(
+    sub_section: str,
+    field_info: FieldInfo,
+    threshold: int,
+) -> list[str]:
+    """Render one commented example entry for a mapping of models.
+
+    A template carries no entry for a mapping the reader keys itself, so a bare
+    pointer line leaves the shape invisible. Show the table to write and the
+    fields of one variant instead. Variants share that one table and pick their
+    shape with a key inside it, so the others are listed, not repeated.
+    """
+    variants = _resolve_mapping_basemodel_types(field_info)
+    if not variants:
+        return []
+    lines = ["", f"# Example entry, one [{sub_section}] table per entry."]
+    tags = [tag for tag in (_variant_tag(variant) for variant in variants) if tag]
+    if len(tags) > 1:
+        lines.append(f"# Shown with {tags[0]}. Other variants: {', '.join(tags[1:])}.")
+    lines.append(f"# [{sub_section}]")
+    for name, info, _level in iter_fields_by_profile(variants[0], threshold):
+        if _toml_excluded(info):
+            continue
+        _render_field_comment(lines, info)
+        default = _default_value(info)
+        if default is not _UNDEFINED and default is not None:
+            lines.append(f"# {name} = {_fmt(default)}")
+        else:
+            lines.append(f"# {name} = {_placeholder(info)}")
+    lines.append("")
+    return lines
+
+
 def _section(
     section_name: str,
     model_cls: type[BaseModel],
@@ -809,6 +889,7 @@ def _section(
         lines.append("")
         lines.append(_line(f"[{section_name}]"))
         deferred_mappings: list[tuple[str, dict[str, Any]]] = []
+        deferred_skeletons: list[tuple[str, FieldInfo]] = []
 
         for name, field_info, level in scalar_fields:
             if (
@@ -838,6 +919,8 @@ def _section(
                 # ``[section.name.<id>]`` sub-tables -> invalid TOML).
                 if isinstance(default, dict) and default:
                     deferred_mappings.append((name, default))
+                elif _resolve_mapping_basemodel_types(field_info):
+                    deferred_skeletons.append((name, field_info))
                 else:
                     lines.append(f"# {name}: entries go under [{section_name}.{name}.<id>]")
             elif default is not _UNDEFINED and default is not None:
@@ -862,6 +945,11 @@ def _section(
                     mapping_value,
                     _commented=_commented,
                 )
+            )
+
+        for name, skeleton_field in deferred_skeletons:
+            lines.extend(
+                _mapping_entry_skeleton(f"{section_name}.{name}.<id>", skeleton_field, threshold)
             )
 
     elif not has_content:
@@ -948,17 +1036,24 @@ def _section(
         elif has_instance_value:
             continue
         else:
-            # Template mode: show an example entry with defaults
-            lines.append(_line(f"[[{sub_section}]]"))
+            # Template mode: show an example entry with defaults. A table the
+            # model does not declare by itself stays commented out: writing it
+            # is what turns the feature on, so a template must not do it for
+            # the reader.
+            optional = _default_value(field_info) is None and field_info.default_factory is None
+            emit = (lambda text: f"# {text}") if optional else _line
+            if optional:
+                lines.append(f"# Example entry, one [[{sub_section}]] block per entry.")
+            lines.append(emit(f"[[{sub_section}]]"))
             for fname, finfo, _flevel in iter_fields_by_profile(item_cls, threshold):
                 if _toml_excluded(finfo):
                     continue
                 _render_field_comment(lines, finfo)
                 default = _default_value(finfo)
                 if default is not _UNDEFINED and default is not None:
-                    lines.append(_line(f"{fname} = {_fmt(default)}"))
+                    lines.append(emit(f"{fname} = {_fmt(default)}"))
                 else:
-                    lines.append(_line(f"{fname} = {_placeholder(finfo)}"))
+                    lines.append(emit(f"{fname} = {_placeholder(finfo)}"))
                 lines.append("")
 
     return lines

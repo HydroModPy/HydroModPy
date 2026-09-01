@@ -17,6 +17,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
+from hydromodpy.core.exceptions import ConfigError
 
 NAME: str = "config"
 HELP: str = "Generate a TOML template, validate a config, or export the JSON Schema"
@@ -225,6 +226,11 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
         # base_config is already resolved above; a ValueError here is the
         # validation error that from_toml wraps (its message carries the
         # file:line:key detail), not a base_config chain failure.
+        print(f"Config invalid: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+    except ConfigError as exc:
+        # A typed config refusal is an invalid config, not a crashed check: it
+        # already carries the TOML path and the key to change.
         print(f"Config invalid: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
     except Exception as exc:

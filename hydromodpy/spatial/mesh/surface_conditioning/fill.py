@@ -59,13 +59,17 @@ def condition_surface_top(
     heap: list[tuple[float, int, int]] = []
     order = 0
     # Seeds = the base level: active cells touching the inactive domain (the
-    # outlet/boundary ring) plus the control cells. Their filled elevation is
-    # their own base level; they are never raised.
+    # outlet/boundary ring), the OUTER RIM of the meshed area, and the control
+    # cells. Their filled elevation is their own base level; they are never
+    # raised. The rim matters on its own: a fully active domain has no inactive
+    # neighbour anywhere, so without it the heap starts empty and the flood is a
+    # silent no-op.
+    rim = frozenset(int(c) for c in (inp.rim_cells or ()))
     for cell in range(n_cells):
         if not active[cell]:
             continue
         touches_boundary = any((not active[nb]) for nb in adjacency[cell])
-        if touches_boundary or cell in control:
+        if touches_boundary or cell in rim or cell in control:
             visited[cell] = True
             heapq.heappush(heap, (float(filled[cell]), order, cell))
             order += 1
