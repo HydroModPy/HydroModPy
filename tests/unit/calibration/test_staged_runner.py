@@ -79,6 +79,7 @@ name = "transient_sy"
 method = "grid"
 max_iter = 30
 parameters = ["Sy"]
+objective_blocks = ["h_block"]
 depends_on = "steady_k"
 """
 
@@ -88,6 +89,7 @@ name = "steady_k"
 method = "bisection"
 max_iter = 12
 parameters = ["K"]
+objective_blocks = ["q_block"]
 freeze_on_success = false
 
 [[calibration.phases]]
@@ -95,6 +97,7 @@ name = "transient_sy"
 method = "grid"
 max_iter = 30
 parameters = ["Sy", "K"]
+objective_blocks = ["h_block"]
 depends_on = "steady_k"
 """
 
@@ -108,11 +111,13 @@ name = "steady_k"
 method = "bisection"
 max_iter = 12
 parameters = ["K"]
+objective_blocks = ["q_block"]
 
 [[calibration.phases]]
 name = "transient_sy"
 method = "grid"
 max_iter = 30
+objective_blocks = ["h_block"]
 parameters = ["Sy"]
 """
 
@@ -125,11 +130,13 @@ name = "steady_k"
 method = "bisection"
 max_iter = 12
 parameters = ["K"]
+objective_blocks = ["q_block"]
 
 [[calibration.phases]]
 name = "transient_sy"
 method = "grid"
 max_iter = 30
+objective_blocks = ["h_block"]
 parameters = ["Sy"]
 optimizer_kwargs = { rel_tol = 0.01 }
 """
@@ -269,16 +276,16 @@ def test_a_phase_config_is_an_ordinary_mono_phase_calibration(tmp_path, runner) 
     assert all(call.cfg.phases is None for call in runner.calls)
 
 
-def test_a_phase_scores_on_what_it_selects_and_a_silent_phase_on_everything(
-    tmp_path, runner
-) -> None:
+def test_each_phase_scores_only_on_the_blocks_it_names(tmp_path, runner) -> None:
+    # A staged table has to say this per phase: a phase that named nothing used
+    # to inherit every declared block, so the transient stage was scored on the
+    # steady stage's criterion too. The schema now refuses that silence.
     run_staged_calibration(_write(tmp_path))
 
     steady, transient = (call.cfg for call in runner.calls)
     assert list(steady.outputs) == ["q"]
     assert [block.name for block in steady.objective_blocks] == ["q_block"]
-    assert sorted(transient.outputs) == ["h", "q"]
-    assert [block.name for block in transient.objective_blocks] == ["q_block", "h_block"]
+    assert [block.name for block in transient.objective_blocks] == ["h_block"]
 
 
 # -- freezing ----------------------------------------------------------------

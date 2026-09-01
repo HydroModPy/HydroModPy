@@ -15,6 +15,8 @@ STEADY = {
     "name": "steady_k_over_r",
     "method": "bisection",
     "parameters": ["K"],
+    "variable": "discharge",
+    "objective": "rmse",
     "freeze_on_success": True,
     "overrides": {"flow.flow_regime": "steady"},
 }

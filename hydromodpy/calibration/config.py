@@ -916,6 +916,31 @@ class CalibrationConfig(HydroModelBase):
         return self
 
     @model_validator(mode="after")
+    def _refuse_a_staged_phase_that_never_says_what_it_scores(self) -> CalibrationConfig:
+        """Every phase of a staged calibration must name its own scoring route.
+
+        An empty selection reads "every declared block", which is what a lone
+        phase wants and what a staged calibration must never do: the second
+        stage would then be scored on the criterion the first one was built for.
+        On the Nancon that calibrates Sy against the stream-network gap instead
+        of the discharge hydrograph, and the run still reports a number.
+        """
+        phases = self.phases or ()
+        if len(phases) < 2:
+            return self
+        for phase in phases:
+            if phase.objective_blocks or phase.is_single_metric:
+                continue
+            raise ValueError(
+                f"phase {phase.name!r} names neither objective_blocks nor a "
+                f"variable/objective pair, so it would be scored on every block the "
+                f"calibration declares, including the ones the other phases were "
+                f"built for. Name the blocks this phase evaluates, or give it its own "
+                f"variable and objective."
+            )
+        return self
+
+    @model_validator(mode="after")
     def _refuse_two_burn_in_conventions(self) -> CalibrationConfig:
         """A window in dates and a count of samples must not both be declared.
 

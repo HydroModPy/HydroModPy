@@ -60,7 +60,7 @@ class TestDefault:
 
 class TestAccepted:
     def test_two_phases_in_order(self) -> None:
-        cfg = _config([STEADY, TRANSIENT])
+        cfg = _config([{**STEADY, "objective_blocks": ["b"]}, {**TRANSIENT, "variable": "head"}])
         assert [phase.name for phase in cfg.phases] == ["steady_k_over_r", "transient_sy"]
         assert cfg.phases[0].method == "bisection"
         assert cfg.phases[1].depends_on == "steady_k_over_r"
@@ -76,6 +76,18 @@ class TestAccepted:
 
 
 class TestRefused:
+    def test_a_staged_phase_that_names_no_criterion(self) -> None:
+        # Silence reads "every declared block", which is what a lone phase wants
+        # and what a staged table must never do: the second stage would carry
+        # the criterion the first one was built for, and still report a number.
+        with pytest.raises(ValueError, match="names neither objective_blocks"):
+            _config([{**STEADY, "objective_blocks": ["b"]}, TRANSIENT])
+
+    def test_a_lone_phase_may_stay_silent(self) -> None:
+        cfg = _config([STEADY])
+
+        assert cfg.phases[0].objective_blocks == []
+
     def test_a_duplicate_phase_name(self) -> None:
         with pytest.raises(ValueError, match="declared twice"):
             _config([STEADY, {**STEADY}])
