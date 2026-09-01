@@ -227,6 +227,32 @@ class FlowReachNetworkConfig(HydroModelBase):
         gt=0.0,
         description="Floor for the reach gradient rgrd [-] after monotone-downhill conditioning.",
     )
+    bed_incision: Annotated[Length | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Depth [L] of the streambed top rtp below the top of the reach's OWN aquifer "
+            "cell. None (default) keeps the delineated elevation with a floor on the cell "
+            "bottom and no ceiling, which is what every run before this field did. When "
+            "set, each reach is solved inside [cell_top - bed_incision - max_bed_sag, "
+            "cell_top - bed_incision], monotone downstream, and the build refuses when "
+            "that band is empty. Set it whenever the routing DEM is burned "
+            "([geographic.enforce_streams]), because rtp is read from that burned DEM "
+            "while the aquifer top is the raw one, so the burn depth silently becomes the "
+            "bed incision. Pick it against the water table, not against the channel: "
+            "MODFLOW 6 switches a reach between connected and disconnected at rtp minus "
+            "streambed_thickness (gwf-sfr.f90:3973-3985), so a bed sitting near the "
+            "seasonal water-table depth toggles at every outer iteration."
+        ),
+    )
+    max_bed_sag: Annotated[Length, Profile.EXPERT] = Field(
+        default="5 m",
+        description=(
+            "Only read when bed_incision is set. How far [L] below cell_top - bed_incision "
+            "the monotone-downstream solve may sink a reach before the build refuses. It "
+            "bounds the cumulative descent that a traced channel climbing over a rise "
+            "forces on everything downstream of it."
+        ),
+    )
 
     width: Annotated[FlowReachWidthConfig, Profile.USER] = Field(
         default_factory=lambda: FlowReachWidthConstant(value="1 m"),

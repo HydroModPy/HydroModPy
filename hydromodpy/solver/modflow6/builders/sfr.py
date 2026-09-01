@@ -35,6 +35,7 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.hydraulic_conductivity import parse_to_m_per_s
+from hydromodpy.solver.modflow6.builders._sfr_bed import solve_reach_bed_profile
 from hydromodpy.solver.modflow6.builders._sfr_drainage import (
     _LAK_PACKAGE_NAME,
     _SFR_PACKAGE_NAME,
@@ -76,10 +77,6 @@ _UNCONNECTED_CELLID = (-1, -1)
 
 # Segments shorter than this [m] are GridIntersect corner grazes, not reaches.
 _MIN_SEGMENT_LENGTH = 1e-6
-
-# Minimum clearance [m] the streambed bottom (rtp - rbth) keeps above the cell bottom
-# (MF6 rejects an SFR reach whose bed sinks below its aquifer cell).
-_RTP_ABOVE_BOTTOM_M = 0.1
 
 
 @dataclasses.dataclass(frozen=True)
@@ -462,30 +459,26 @@ def build_sfr_package_args(
     )
 
     botm = None if solver_mesh is None else np.asarray(solver_mesh.botm, dtype=float)
+    mesh_top = None if solver_mesh is None else np.asarray(solver_mesh.top, dtype=float).reshape(-1)
 
-    # Floor every reach's streambed top so its bed (rtp - rbth) stays above the cell
-    # bottom, THEN restore the monotone-downhill order the network freeze set. The
-    # floor comes from each cell's own botm, so a lake-enforced routing DEM can floor
-    # a downstream reach UP past its upstream neighbour and re-break monotonicity; a
-    # per-record clamp cannot see that. Re-sweep from the outlet up and lift each
-    # upstream reach to sit above its (already floored) downstream one. Lifting never
-    # re-sinks a bed below its cell, so the floor and the monotone order both hold.
+    # One authority for the streambed profile: a floor on each cell bottom, an
+    # optional ceiling under each cell TOP, and the monotone-downhill order, all
+    # solved together. Two one-sided clamps used to fight here, one lowering the
+    # downstream reach and one lifting the upstream one; see _sfr_bed.py.
     min_slope = float(definition.get("min_slope") or 1e-4)
-    by_ifno = {record.ifno: record for record in reaches}
-    rtp_by_ifno: dict[int, float] = {}
-    for record in reaches:
-        rtp_val = float(record.rtp)
-        if record.cellid is not None and botm is not None:
-            cell_bottom = float(botm[int(record.cellid[0]), int(record.cellid[1])])
-            rtp_val = max(rtp_val, cell_bottom + float(rbth) + _RTP_ABOVE_BOTTOM_M)
-        rtp_by_ifno[record.ifno] = rtp_val
-    for record in reversed(reaches):
-        down_rtp = rtp_by_ifno[record.ifno]
-        for up in record.upstream:
-            drop = min_slope * 0.5 * (float(by_ifno[up].rlen) + float(record.rlen))
-            floor = down_rtp + drop
-            if rtp_by_ifno[up] < floor:
-                rtp_by_ifno[up] = floor
+    bed_incision = definition.get("bed_incision")
+    rtp_by_ifno = solve_reach_bed_profile(
+        reaches,
+        top=mesh_top,
+        botm=botm,
+        rbth=rbth,
+        min_slope=min_slope,
+        bed_incision=None if bed_incision is None else _length_m(bed_incision),
+        max_bed_sag=_length_m(
+            definition.get("max_bed_sag") if definition.get("max_bed_sag") is not None else 5.0
+        ),
+        location=location,
+    )
 
     packagedata: list[list[Any]] = []
     connectiondata: list[list[Any]] = []
