@@ -15,7 +15,10 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
+from hydromodpy.spatial.mesh.model.cell_adjacency import (
+    build_planar_cell_adjacency,
+    mesh_edge_cells,
+)
 from hydromodpy.spatial.mesh.surface_conditioning import (
     SurfaceConditioningInput,
     breach_channel_corridor,
@@ -101,6 +104,7 @@ def condition_solver_mesh_top(
             adjacency=adjacency,
             floor=botm0,
             control_cells=control_cells,
+            rim_cells=mesh_edge_cells(planar_mesh, n_cells),
         ),
         epsilon=epsilon,
     )

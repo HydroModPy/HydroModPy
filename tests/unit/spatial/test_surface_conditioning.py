@@ -167,3 +167,54 @@ def test_breach_floor_blocks_overcarving():
         epsilon=0.1,
     )
     assert carved[2] == pytest.approx(8.5)  # floor wins over need (7.9)
+
+
+# A domain whose every cell is active: the MODFLOW 6 buffered box. No cell has an
+# inactive neighbour, so the outlet ring is empty and only the mesh rim can seed
+# the flood. Line A-B-C-D, C is a pit; A and D are the two rim ends.
+_ADJ_FULL = [{1}, {0, 2}, {1, 3}, {2}]
+_ACTIVE_FULL = np.array([True, True, True, True])
+
+
+def _full_input(top, **kw):
+    return SurfaceConditioningInput(
+        top=np.asarray(top, float), active=_ACTIVE_FULL, adjacency=_ADJ_FULL, **kw
+    )
+
+
+def test_fully_active_domain_conditions_from_the_mesh_rim():
+    # Without a rim the flood cannot start at all: this is the silent no-op that
+    # made `condition_top = true` do nothing on the Nancon 25 m box.
+    bare = condition_surface_top(_full_input([0.0, 5.0, 2.0, 8.0]), epsilon=1e-3)
+    assert bare.info["unreached_active"] == 4
+    assert bare.info["cells_raised"] == 0
+
+    res = condition_surface_top(
+        _full_input([0.0, 5.0, 2.0, 8.0], rim_cells=frozenset({0, 3})), epsilon=1e-3
+    )
+    assert res.info["unreached_active"] == 0
+    # C drains through D (8.0) or B (5.0); the flood takes the lower spill, B.
+    assert res.top[2] == pytest.approx(5.001, abs=1e-6)
+    assert res.raised[2]
+    # A rim cell is a base level: it is never raised.
+    assert not res.raised[0]
+    assert not res.raised[3]
+
+
+def test_mesh_edge_cells_excludes_the_interior():
+    from hydromodpy.spatial.mesh.model.cell_adjacency import mesh_edge_cells
+
+    class _PlanarMesh:
+        def __init__(self, connectivity):
+            self.flat_connectivity = connectivity
+
+    # 3x3 quads over a 4x4 node lattice: only the centre cell (index 4) has all
+    # four of its edges shared with a neighbour.
+    connectivity = [
+        [i * 4 + j, i * 4 + j + 1, (i + 1) * 4 + j + 1, (i + 1) * 4 + j]
+        for i in range(3)
+        for j in range(3)
+    ]
+    rim = mesh_edge_cells(_PlanarMesh(connectivity), 9)
+    assert rim == frozenset({0, 1, 2, 3, 5, 6, 7, 8})
+    assert 4 not in rim
