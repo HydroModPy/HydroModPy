@@ -11,10 +11,12 @@ file only marshals types.
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.spatial.mesh.model.cell_adjacency import (
     build_planar_cell_adjacency,
     mesh_edge_cells,
@@ -109,7 +111,42 @@ def condition_solver_mesh_top(
         epsilon=epsilon,
     )
     info = dict(result.info)
+    # The count the fill was measured against, so a caller can tell a handful of
+    # isolated pits from a flood that never started.
+    info["active_cells"] = float(int(active.sum()))
     if breach_info:
         info.update({f"breach_{k}": v for k, v in breach_info.items()})
     new_mesh = dataclasses.replace(solver_mesh, top=result.top)
     return new_mesh, info
+
+
+def assert_conditioned_top_drains(
+    info: Mapping[str, float],
+    *,
+    consumers: Sequence[str],
+) -> None:
+    """Refuse a conditioned top that conditioned nothing while something needs it.
+
+    Not every unreached cell is a fault: a residual pit is crossed by stepping to
+    the lowest unvisited rim, which ``rectify_on_mesh`` documents and handles. The
+    fault is the fill reaching NO active cell at all, which means it found no base
+    level to drain to and raised nothing, so ``condition_top = true`` was a no-op
+    and the flag lied about the surface every consumer then traces.
+    """
+    if not consumers:
+        return
+    unreached = int(info.get("unreached_active", 0))
+    active = int(info.get("active_cells", 0))
+    if unreached <= 0 or active <= 0 or unreached < active:
+        return
+    raise SolverInputError(
+        f"[modflow6.sgrid] condition_top = true conditioned nothing: the priority "
+        f"flood reached none of the {active} active cells, so it found no base "
+        f"level to drain to and raised no cell, but {', '.join(consumers)} needs a "
+        f"conditioned top to trace a descending path. Check the mesh boundary: a "
+        f"domain active edge to edge has no inactive ring, and the outer rim is "
+        f"then the only base level there is.",
+        unreached_active=unreached,
+        active_cells=active,
+        consumers=tuple(consumers),
+    )

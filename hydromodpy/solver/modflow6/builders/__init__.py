@@ -106,6 +106,7 @@ from hydromodpy.solver.modflow6.builders.sfr import (
     resolve_reach_line_cells,
     resolve_sfr_networks,
     sfr_drain_cells_to_drop,
+    sfr_networks_needing_conditioned_top,
     sfr_routes_drainage,
     watershed_drainage_cell_mask,
 )
@@ -218,6 +219,7 @@ __all__ = [
     "series_like_to_scalar",
     "series_payload_value",
     "sfr_drain_cells_to_drop",
+    "sfr_networks_needing_conditioned_top",
     "sfr_routes_drainage",
     "side_boundary_cell_ids",
     "sto_period_settings",

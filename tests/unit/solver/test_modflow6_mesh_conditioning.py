@@ -7,7 +7,11 @@ from dataclasses import dataclass
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow6.support.mesh_conditioning import condition_solver_mesh_top
+from hydromodpy.core.exceptions import SolverInputError
+from hydromodpy.solver.modflow6.support.mesh_conditioning import (
+    assert_conditioned_top_drains,
+    condition_solver_mesh_top,
+)
 from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
 
 
@@ -149,3 +153,64 @@ def test_isolated_basin_reports_unreached():
     _, info = condition_solver_mesh_top(mesh, support)
     assert info["unreached_active"] == 2
     assert info["cells_raised"] == 0
+
+
+class TestAssertConditionedTopDrains:
+    """The guard on a conditioning that conditioned nothing.
+
+    Measured on the Nancon at 25 m: the buffered MODFLOW 6 box is active edge to
+    edge, so before the rim was seeded the flood found no base level, reported
+    243552 of 243552 active cells unreached and raised none, and
+    ``condition_top = true`` was a silent no-op under a network that requires it.
+    """
+
+    _CONSUMERS = ("[flow.sinks_sources.sfr.nancon] rectify_on_mesh",)
+
+    def test_a_flood_that_reached_nothing_is_refused(self):
+        info = {"unreached_active": 243552.0, "active_cells": 243552.0, "cells_raised": 0.0}
+
+        with pytest.raises(SolverInputError, match="conditioned nothing"):
+            assert_conditioned_top_drains(info, consumers=self._CONSUMERS)
+
+    def test_the_message_names_the_flag_and_the_consumer(self):
+        info = {"unreached_active": 8.0, "active_cells": 8.0}
+
+        with pytest.raises(SolverInputError) as excinfo:
+            assert_conditioned_top_drains(info, consumers=self._CONSUMERS)
+
+        message = str(excinfo.value)
+        assert "[modflow6.sgrid] condition_top" in message
+        assert "rectify_on_mesh" in message
+        assert excinfo.value.context["active_cells"] == 8
+
+    def test_residual_pits_are_not_a_fault(self):
+        # rectify_on_mesh crosses a residual pit by stepping to the lowest
+        # unvisited rim, so a handful of unreached cells is its normal regime.
+        info = {"unreached_active": 12.0, "active_cells": 243552.0}
+
+        assert assert_conditioned_top_drains(info, consumers=self._CONSUMERS) is None
+
+    def test_nothing_requires_the_conditioned_top(self):
+        # route_drainage alone must never gate the build: a cell whose descent
+        # dead-ends simply stays a plain DRN.
+        info = {"unreached_active": 243552.0, "active_cells": 243552.0}
+
+        assert assert_conditioned_top_drains(info, consumers=()) is None
+
+    def test_a_fully_drained_mesh_passes(self):
+        info = {"unreached_active": 0.0, "active_cells": 243552.0}
+
+        assert assert_conditioned_top_drains(info, consumers=self._CONSUMERS) is None
+
+    def test_the_conditioning_reports_the_count_it_was_measured_against(self):
+        top = np.array([5.0, 1.0, 3.0, 4.0])
+        mesh = _StubMesh(
+            top=np.array([top]),
+            inactive_mask=np.array([[False, False, False, True]]),
+        )
+
+        _, info = condition_solver_mesh_top(mesh, _chain_support(3))
+
+        # Without this count a caller cannot tell a few isolated pits from a
+        # flood that never started.
+        assert info["active_cells"] == 3

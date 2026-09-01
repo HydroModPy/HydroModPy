@@ -53,6 +53,7 @@ from hydromodpy.solver.modflow6.builders import (
     resolve_spillway_seed_cells,
     resolve_xt3d_npf_options,
     sfr_drain_cells_to_drop,
+    sfr_networks_needing_conditioned_top,
     sto_period_settings,
     watershed_drainage_cell_mask,
     xt3d_activation_mode,
@@ -60,7 +61,10 @@ from hydromodpy.solver.modflow6.builders import (
 )
 from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
 from hydromodpy.solver.modflow6.support.flopy_structure_warmup import warm_flopy_structure
-from hydromodpy.solver.modflow6.support.mesh_conditioning import condition_solver_mesh_top
+from hydromodpy.solver.modflow6.support.mesh_conditioning import (
+    assert_conditioned_top_drains,
+    condition_solver_mesh_top,
+)
 from hydromodpy.solver.modflow6.support.property_mapping import (
     fill_missing_flow_properties_from_mesh_support,
     resolve_flow_property_arrays,
@@ -802,6 +806,16 @@ def run_pre_processing(  # noqa: PLR0915
             )
         except OSError:
             logger.debug("Could not write conditioning reference sidecar", exc_info=True)
+        # A flood that reached nothing is not a warning: the flag then claims a
+        # surface it never produced, and whatever traces the descent afterwards
+        # reads the raw projection pits without knowing.
+        assert_conditioned_top_drains(
+            cond_info,
+            consumers=tuple(
+                f"[flow.sinks_sources.sfr.{network_id}] rectify_on_mesh"
+                for network_id in sfr_networks_needing_conditioned_top(model)
+            ),
+        )
         if cond_info["unreached_active"]:
             logger.warning(
                 "Mesh top conditioning could not drain %d active cells (no mesh face "

@@ -222,6 +222,22 @@ def resolve_sfr_networks(
     return networks
 
 
+def sfr_networks_needing_conditioned_top(model) -> tuple[str, ...]:
+    """Ids of the active SFR networks that REQUIRE a conditioned mesh top.
+
+    Only ``rectify_on_mesh`` requires it: it traces the steepest descent of the
+    mesh top, so an unconditioned top leaves the projection pits and the traced
+    channel leaves the thalweg. ``route_drainage`` merely benefits from it; a
+    cell whose descent dead-ends simply stays a plain DRN, which
+    ``_sfr_drainage`` documents and handles, so it must not gate the build.
+    """
+    return tuple(
+        network_id
+        for network_id, definition in _active_sfr_definitions(model).items()
+        if definition.get("rectify_on_mesh")
+    )
+
+
 # --------------------------------------------------------------------------- #
 # MVR records (SFR -> LAK coupling seam; data, not an import edge).
 # --------------------------------------------------------------------------- #
@@ -630,6 +646,7 @@ __all__ = [
     "resolve_reach_line_cells",
     "resolve_sfr_networks",
     "sfr_drain_cells_to_drop",
+    "sfr_networks_needing_conditioned_top",
     "sfr_routes_drainage",
     "watershed_drainage_cell_mask",
 ]
