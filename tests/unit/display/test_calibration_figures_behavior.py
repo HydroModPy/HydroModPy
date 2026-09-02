@@ -73,6 +73,60 @@ def test_calibration_convergence_falls_back_to_iteration_table(mpl) -> None:
         mpl.close(fig)
 
 
+def test_calibration_convergence_reads_the_cost_column_of_a_real_trial_table(mpl) -> None:
+    # What a calibration actually records: one row per trial, carrying the
+    # session and simulation ids alongside the cost. Casting the whole frame
+    # to float raised on the UUIDs and the figure was lost on every run.
+    import uuid
+
+    run = SimpleNamespace(
+        sim_id="sim-a",
+        name="grid_iter_0002",
+        calibration_iterations=pd.DataFrame(
+            {
+                "iteration": [1, 2, 3],
+                "sim_id": [str(uuid.uuid4()) for _ in range(3)],
+                "status": ["completed"] * 3,
+                "objective_value": [2.0, 0.5, 1.5],
+            }
+        ),
+        timeseries=lambda *_args, **_kwargs: (_ for _ in ()).throw(KeyError("missing")),
+    )
+    fig, ax = mpl.subplots()
+
+    CalibrationConvergenceFigure().render(run, ax)
+
+    try:
+        assert ax.lines[0].get_ydata().tolist() == [2.0, 0.5, 1.5]
+        assert ax.lines[1].get_ydata().tolist() == [2.0, 0.5, 0.5]
+        assert ax.get_ylabel() == "objective_value"
+        assert ax.lines[0].get_xdata().tolist() == [1.0, 2.0, 3.0]
+    finally:
+        mpl.close(fig)
+
+
+def test_calibration_convergence_keeps_the_best_across_a_failed_trial(mpl) -> None:
+    # A trial that failed publishes no cost. Carrying its NaN forward would
+    # flatten the best-so-far curve from that trial on.
+    run = SimpleNamespace(
+        sim_id="sim-a",
+        name=None,
+        calibration_iterations=pd.DataFrame(
+            {"iteration": [1, 2, 3], "objective_value": [2.0, float("nan"), 1.5]}
+        ),
+        timeseries=lambda *_args, **_kwargs: (_ for _ in ()).throw(KeyError("missing")),
+    )
+    fig, ax = mpl.subplots()
+
+    CalibrationConvergenceFigure().render(run, ax)
+
+    try:
+        best = ax.lines[1].get_ydata().tolist()
+        assert best == [2.0, 2.0, 1.5]
+    finally:
+        mpl.close(fig)
+
+
 def test_calibration_convergence_rejects_missing_iteration_data(mpl) -> None:
     run = SimpleNamespace(
         sim_id="sim-a",

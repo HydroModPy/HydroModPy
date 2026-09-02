@@ -109,7 +109,7 @@ class TrialTable:
             if name not in self.frame.columns:
                 raise ValueError(
                     f"the session recorded no objective {name!r}; it recorded "
-                    f"{', '.join(sorted(self.frame.columns))}."
+                    f"{', '.join(sorted(map(str, self.frame.columns)))}."
                 )
             return name
         for candidate in _OBJECTIVE_COLUMNS:
@@ -117,7 +117,7 @@ class TrialTable:
                 return candidate
         raise ValueError(
             f"no trial recorded an objective under {' or '.join(_OBJECTIVE_COLUMNS)}; "
-            f"the session recorded {', '.join(sorted(self.frame.columns))}."
+            f"the session recorded {', '.join(sorted(map(str, self.frame.columns)))}."
         )
 
     def diagnostic(self, name: str, *, output: str | None = None) -> np.ndarray:
@@ -139,7 +139,7 @@ class TrialTable:
             if column not in self.frame.columns:
                 raise ValueError(
                     f"output {output!r} published no {name!r} diagnostic; the session "
-                    f"recorded {', '.join(sorted(self.frame.columns))}."
+                    f"recorded {', '.join(sorted(map(str, self.frame.columns)))}."
                 )
             return column
         if name in self.frame.columns:
@@ -148,7 +148,7 @@ class TrialTable:
         if not matches:
             raise ValueError(
                 f"no trial published a {name!r} diagnostic; the session recorded "
-                f"{', '.join(sorted(self.frame.columns))}."
+                f"{', '.join(sorted(map(str, self.frame.columns)))}."
             )
         if len(matches) > 1:
             raise ValueError(
