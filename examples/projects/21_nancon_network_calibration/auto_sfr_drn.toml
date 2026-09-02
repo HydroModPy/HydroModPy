@@ -1,0 +1,493 @@
+# ======================================================================
+# Nancon - SFR + DRN, calibration automatique K puis Sy, figures completes
+# ----------------------------------------------------------------------
+#   hmp calibrate examples/projects/21_nancon_network_calibration/auto_sfr_drn.toml
+#
+# Fichier AUTONOME : aucun `base_config`, aucun script Python.
+#
+# Le montage : les cours d'eau au-dela de 1 km2 draine deviennent des
+# biefs SFR, les tetes de bassin restent au drain de Cauchy, et le
+# drainage de versant est route dans les biefs par le MVR.
+#
+# ----------------------------------------------------------------------
+# POURQUOI L'ETAGE 1 ETEINT LES BIEFS
+# ----------------------------------------------------------------------
+# Le critere de reseau d'Abherve calibre le rapport K/R, et cette
+# invariance tient parce que la conductance du drain vaut C = K * A / e,
+# donc proportionnelle a K. En SFR la conductance du lit vaut
+# C = rhk * rlen * rwid / rbth : aucune valeur de `streambed_k` n'est
+# proportionnelle a K, donc le montage SFR CASSE l'invariance dont
+# l'etage 1 depend. Calibrer K par le critere avec les biefs allumes
+# produirait un nombre, pas une mesure.
+#
+# La reponse retenue est de calibrer K la ou l'invariance tient, puis de
+# le geler : l'etage 1 tourne en drain pur permanent, les biefs eteints
+# par son propre `overrides`, exactement comme `auto_drn_full.toml`.
+# L'etage 2 rallume les biefs et ne cale plus que Sy sur l'hydrogramme
+# route. C'est ce que les runs de reference faisaient a la main, avec
+# K = 2,0908e-4 herite de la calibration DRN.
+#
+# LIMITE A CONNAITRE : le K ainsi obtenu est celui de l'aquifere vu par
+# un drain de versant. Il n'absorbe pas la resistance du lit SFR, qui est
+# posee et non calibree. Les deux ne sont pas separables sur un seul
+# hydrogramme, et ce fichier ne pretend pas les separer.
+#
+# COUT MESURE : la cadence du montage SFR est de 8,4 a 9,8 s/jour contre
+# 2,3 s/jour pour le drain au point calibre, soit environ 3,7 fois plus
+# lent. L'etage 2 tourne donc sur deux ans. Compter cinq a six heures.
+# ======================================================================
+
+[workflow]
+mode = "calibration"
+
+[workspace]
+project_root = "."
+
+
+# ----------------------------------------------------------------------
+# Geographic - delimitation et surface de routage
+# ----------------------------------------------------------------------
+
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+reuse_existing_outputs = true
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "DEM_nancon_25m.tif"
+x_outlet = 389285.91
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10%"
+
+# Le burn de 30 m est celui de la reference DRN, donc la delineation est
+# la meme et les deux montages restent comparables. Il redevient possible
+# en SFR parce que `bed_incision` coupe le lien entre la profondeur du
+# burn et la cote du lit : le `rtp` est lu sur le MNT CORRIGE, donc sans
+# ce garde-fou le burn devenait l'incision du lit et posait les lits au
+# mur de l'aquifere.
+[geographic.enforce_streams]
+enabled = true
+stream_geometry_path = "nancon_stream_network.gpkg"
+mode = "constant"
+depth_m = 30.0
+
+# Reseau derive du MNT, qui porte la topologie des biefs.
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 1.0
+compute_stream_links = true
+compute_strahler_order = true
+
+
+# ----------------------------------------------------------------------
+# Domain
+# ----------------------------------------------------------------------
+
+[domain]
+zone_ids = ["geology"]
+supports = {}
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = 30.0
+
+
+# ----------------------------------------------------------------------
+# Data
+# ----------------------------------------------------------------------
+
+[data]
+project_crs = "EPSG:2154"
+types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff"]
+
+[[data.dem.sources]]
+source = "custom"
+path = "DEM_nancon_25m.tif"
+
+[[data.geology.sources]]
+source = "brgm_1m"
+
+[[data.hydrography.sources]]
+source = "custom"
+path = "nancon_stream_network.gpkg"
+
+[data.hydrometry]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+
+[[data.hydrometry.sources]]
+source = "custom"
+path = "hydrometry"
+extent = "watershed"
+station_ids = ["NANCON"]
+
+[data.recharge]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+
+[[data.recharge.sources]]
+source = "custom"
+path = "recharge"
+station_ids = ["NANCON_REA"]
+
+[data.runoff]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+
+[[data.runoff.sources]]
+source = "custom"
+path = "runoff"
+station_ids = ["NANCON_REA"]
+
+
+# ----------------------------------------------------------------------
+# Flow - biefs SFR sur le reseau, drain de Cauchy sur les versants
+# ----------------------------------------------------------------------
+
+[flow]
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage", "sfr"]
+flow_regime = "steady"
+
+[flow.ic]
+type = "top"
+description = "Nappe initialisee a la surface topographique."
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 6.4e-5
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+# `value = 0.0` selectionne le repli proportionnel C = K * A / e. C'est
+# ce qui rend l'etage 1 valide quand les biefs sont eteints.
+[flow.bc.cauchy.drainage]
+id = "drainage"
+kind = "cauchy"
+application_domain = "top"
+description = "Drainage de Cauchy sur la face superieure de l'aquifere."
+value = 0.0
+
+[flow.sinks_sources.recharge]
+values = 0.0
+
+[flow.sinks_sources.sfr.nancon]
+# 1 km2 draine sur 64,6 km2 : le reseau principal en SFR, les tetes de
+# bassin restent au drain de Cauchy.
+stream_threshold_km2 = 1.0
+
+# Conductance de lit posee pour EGALER celle que la maille avait en
+# drain, seule facon de comparer les deux montages a resistance egale :
+#   drain  C = K * A / e_lit = 2.0908e-4 * 625 / 1.0 = 0.1307 m2/s
+#   sfr    C = rhk * rlen * rwid / rbth = rhk * 25 * 2 / 1.0 = 50 * rhk
+# d'ou rhk = 2.61e-3 m/s.
+streambed_k = 2.61e-3
+streambed_k_unit = "m/s"
+
+# 1 m et non 0,1 m. MODFLOW 6 bascule un bief entre connecte et
+# deconnecte a `rtp - rbth`, pas a `rtp` : avec rbth = 0,1 m la bascule
+# se jouait sur dix centimetres et le permanent oscillait en cycle
+# binaire. A 1 m le seuil descend a 1,5 m sous le sol avec l'incision.
+streambed_thickness = "1 m"
+
+manning = 0.035
+min_slope = 1e-4
+connected_to_aquifer = true
+
+# Le lit est ancre 0,5 m sous le toit de SA PROPRE maille.
+bed_incision = "0.5 m"
+max_bed_sag = "5 m"
+
+# OBLIGATOIRE ici. La serie de debit bascule sur la branche routee des
+# qu'un `ext_outflow` SFR existe, et cette branche ecarte le residu DRN
+# au lieu de l'ajouter. Sans routage ce residu serait TOUT le drainage de
+# versant, et il serait jete.
+route_drainage = true
+
+# Laisse a false. `rectify_on_mesh` exigerait `[modflow6.sgrid]
+# condition_top = true`, qui RELEVE le toit du modele. Les activer
+# comparerait deux topographies au lieu de deux conditions limites.
+rectify_on_mesh = false
+
+[flow.sinks_sources.sfr.nancon.width]
+kind = "constant"
+value = "2 m"
+
+
+# ----------------------------------------------------------------------
+# Simulation
+# ----------------------------------------------------------------------
+
+[simulation]
+name = "nancon_auto_sfr"
+description = "Nancon - SFR + DRN, K par le reseau en drain pur puis Sy route."
+if_exists = "replace"
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2000-12-31"
+step_value = "1 year"
+coverage_policy = "warn"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+[simulation.results.derived]
+release_flux = true
+watertable_elevation = true
+watertable_depth = true
+seepage_areas = true
+accumulation_flux = true
+
+
+# ----------------------------------------------------------------------
+# MODFLOW 6
+# ----------------------------------------------------------------------
+
+[modflow6.runtime]
+print_head = false
+save_specific_discharge = false
+save_saturation = false
+
+# Le couplage MVR drain -> bief demande des iterations : mesure en
+# permanent, `qfrommvr` decroissait d'environ 1 % par iteration externe.
+mf6_outer_maximum = 1500
+ims_print_option = "SUMMARY"
+
+# Critere de charge a 5 mm au lieu de 0,1 mm. Un bief SFR bascule entre
+# connecte et deconnecte quand la nappe traverse `rtp - rbth`, et ce
+# basculement ne s'amortit pas : une seule maille alternait entre deux
+# valeurs a l'identique sur 1430 iterations. Le drain de Cauchy n'a pas
+# cette non-linearite et converge, lui, a 1e-4 ; l'ecart de critere est
+# donc imputable au montage SFR et non au pas de temps. Sur un aquifere
+# de 30 m, 5 mm reste 0,02 % de l'epaisseur, et le bilan de masse garde
+# le dernier mot.
+mf6_outer_dvclose = 5e-3
+
+
+# ----------------------------------------------------------------------
+# Calibration
+# ----------------------------------------------------------------------
+
+[calibration]
+seed = 42
+save_runs = "best_n"
+save_best_n = 1
+persist_iteration_detail = "full"
+use_cache = true
+rerun_best_with_outputs = true
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+transform = "log"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+# Fourchette resserree, et plus haute que celle du montage DRN. Le solve
+# SFR coute environ 3,7 fois celui du drain au meme Sy, et le cout croit
+# quand Sy descend : mesure, 13,5 s/jour a Sy = 1e-3 contre 2,4 s/jour a
+# Sy = 0,45 en drain. [0,02 ; 0,30] encadre l'optimum DRN (0,0587) et le
+# Sy que la recession observee designe (0,12), sans payer la region raide.
+[calibration.parameters.Sy]
+bounds = [0.02, 0.30]
+transform = "log"
+path = "flow.param.Sy.field.value"
+units = "-"
+
+[calibration.outputs.seepage_network]
+support = "network"
+stream_geometry_path = "nancon_stream_network.gpkg"
+weighting = "area"
+tau_specific_ratio = 1.0e-4
+roptim_max = 2.0
+time = "last"
+observed_position_accuracy = "50 m"
+
+[[calibration.objective_blocks]]
+name = "abherve_gap"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+
+
+# --- Etage 1 : K par dichotomie, EN DRAIN PUR, biefs eteints ---
+# Cet etage VIDE les reseaux SFR au lieu de retirer "sfr" de `active_bc`,
+# et les deux ne sont pas equivalents. L'etape `resolve` du pipeline
+# re-valide la configuration APRES avoir applique les overrides, et le
+# validateur racine refuse un reseau declare hors `active_bc` ("the
+# streams would be silently ignored"). Retirer la condition limite en
+# laissant le reseau declare fait donc echouer l'etage en trois secondes.
+# Vider `flow.sinks_sources.sfr` passe la re-validation et suffit : le
+# builder court-circuite sur un mapping vide et ne construit aucun paquet.
+# `active_bc` est retire en plus, pour que l'intention soit lisible.
+#
+# La conductance du drain redevient alors proportionnelle a K et le
+# critere de reseau retrouve l'invariance K/R sur laquelle il repose.
+
+[[calibration.phases]]
+name = "steady_k"
+description = "Zero de l'ecart signe D_so - D_os en drain pur, biefs eteints."
+method = "bisection"
+max_iter = 20
+parameters = ["K"]
+objective_blocks = ["abherve_gap"]
+freeze_on_success = true
+
+[calibration.phases.optimizer_kwargs]
+rel_tol = 0.01
+sweep_points = 7
+
+[calibration.phases.overrides]
+"flow.sinks_sources.sfr" = {}
+"flow.active_bc" = ["drainage"]
+"flow.flow_regime" = "steady"
+"simulation.time.start_datetime" = "2000-01-01"
+"simulation.time.end_datetime" = "2000-12-31"
+"simulation.time.step_unit" = "year"
+"simulation.time.step_value" = 1
+
+
+# --- Etage 2 : Sy sur l'hydrogramme route, biefs rallumes, K gele ---
+# Deux ans et non cinq : le montage SFR coute environ 3,7 fois le drain
+# au meme Sy, donc cinq ans demanderaient une nuit par essai. La fenetre
+# de score 2001 reste entiere et hors annee d'amorce. Les quatre essais
+# tournent concurremment, le temps mural de l'etage vaut donc celui du
+# plus lent.
+
+[[calibration.phases]]
+name = "transient_sy"
+description = "NSE des logarithmes du debit journalier 2001, reseau route."
+method = "grid"
+max_iter = 4
+batch_size = 4
+parallel = 4
+parameters = ["Sy"]
+variable = "discharge"
+objective = "nse_log"
+depends_on = "steady_k"
+
+[calibration.phases.optimizer_kwargs]
+points_per_dim = 4
+
+[calibration.phases.scoring_window]
+start = "2001-01-01"
+end = "2001-12-31"
+
+[calibration.phases.overrides]
+"flow.active_bc" = ["drainage", "sfr"]
+"flow.flow_regime" = "transient"
+"simulation.time.start_datetime" = "2000-01-01"
+"simulation.time.end_datetime" = "2001-12-31"
+"simulation.time.step_unit" = "day"
+"simulation.time.step_value" = 1
+
+
+# ----------------------------------------------------------------------
+# Figures
+# ----------------------------------------------------------------------
+# Meme liste que le montage DRN, plus les trois figures propres au
+# reseau SFR. Une figure dont le run ne remplit pas les prerequis est
+# ignoree avec sa raison.
+
+[display]
+enabled = true
+preset = "default"
+show = false
+save = true
+output_dir = "figures"
+cmap = "viridis"
+on_error = "warn"
+
+# Ce que `hydrograph_log_nse` ne peut pas deviner. La fenetre de score est
+# une notion de CALIBRATION : la figure lit un run, et un run ne sait pas
+# sur quelle fenetre il a ete note. Sans elle la figure trace la serie
+# entiere, sans zone grisee. Le SCORE lui-meme n'est volontairement pas
+# pose ici : `nse_log =` existe, mais ce serait figer un resultat dans un
+# fichier d'entree, faux des la prochaine calibration.
+[display.overrides.hydrograph_log_nse]
+scoring_window = ["2001-01-01", "2001-12-31"]
+
+
+# Sept figures du registre sont volontairement ABSENTES de cette liste,
+# parce qu'aucune valeur de TOML ne peut les rendre possibles, mesure faite :
+#   residuals, scatter_one_to_one  le simule vit sous la station `_catchment`
+#                                  et l'observe sous `NANCON` ; elles exigent
+#                                  les deux sous LE MEME nom de station.
+#   ensemble_band                  attend un RunSet, donc plusieurs runs.
+#   roptim_validity_chart          compare plusieurs sites, un run en tient un.
+#   calibration_landscape,         demandent deux parametres dans UNE session ;
+#   calibration_objective_surface, chaque etage n'en echantillonne qu'un, c'est
+#   calibration_pairplot           le principe meme de l'etagement.
+#   conditioning_impact_map        exige [modflow6.sgrid] condition_top = true,
+#                                  qui RELEVE le toit et changerait le modele.
+
+figures = [
+    # -- Identite du bassin et maillage --
+    "watershed_id_card",
+    "mesh_map",
+    "boundary_package_map",
+    "depression_map",
+    "flow_direction_map",
+
+    # -- Debit simule contre observe --
+    "hydrograph_sim_obs",
+    "hydrograph_log_nse",
+    "hydrograph",
+    "duration_curve",
+    "recession",
+    "seasonal_boxplot",
+
+    # -- Bilan --
+    "water_budget",
+    "flux_timeseries",
+
+    # -- Le reseau SFR lui-meme --
+    "sfr_reach_network",
+    "sfr_longitudinal_profile",
+    "sfr_reach_timeseries",
+
+    # -- Cartes de nappe et de suintement --
+    "piezometric_map",
+    "watertable_depth_map",
+    "seepage_map",
+    "recharge_map",
+    "cross_section",
+    "accumulation_map",
+
+    # -- Reseau simule contre reseau cartographie --
+    "simulated_active_network",
+    "simulated_active_network_reference_overlay",
+    "seepage_network_reference_overlay",
+    "seepage_network_confusion_map",
+    "downslope_distance_map",
+    "hydrographic_network_reference",
+    "hydrographic_network_generated",
+    "hydrographic_network_comparison",
+
+    # -- Diagnostic de la calibration elle-meme --
+    "abherve_two_stage_card",
+    "bisection_bracket_trace",
+    "downslope_distance_crossing",
+    "parameter_cost_profile",
+    "calibration_convergence",
+    "calibration_trace",
+    "calibration_posterior",
+]

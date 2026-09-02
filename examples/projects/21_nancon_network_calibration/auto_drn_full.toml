@@ -1,0 +1,449 @@
+# ======================================================================
+# Nancon - DRN PLEIN, calibration automatique K puis Sy, figures completes
+# ----------------------------------------------------------------------
+#   hmp calibrate examples/projects/21_nancon_network_calibration/auto_drn_full.toml
+#
+# Fichier AUTONOME : aucun `base_config`, aucun script Python. Tout ce que
+# le run demande est ici, des donnees jusqu'aux figures.
+#
+# Le montage est le drain de Cauchy sur chaque maille, celui de la
+# reference `grid_iter_0003.v2` (NSE 0,607 / NSE_log 0,670 / KGE 0,745).
+#
+# DEUX ETAGES, enchaines tout seuls :
+#   1. K   par le critere de reseau d'Abherve, en permanent, par
+#      dichotomie sur le zero de l'ecart signe D_so - D_os. Aucune donnee
+#      de debit n'entre dans cet etage.
+#   2. Sy  sur le NSE des logarithmes du debit journalier, K gele a la
+#      racine trouvee a l'etage 1.
+#
+# Le meilleur essai est ensuite REJOUE avec toutes ses sorties, et les
+# figures listees sous [display] sont ecrites dans
+# <projet>/runs/<run promu>/figures/.
+#
+# COUT MESURE sur cette machine : etage 1 environ 55 s par essai, une
+# vingtaine d'essais au plus. Etage 2 sur trois ans journaliers, entre 2,4
+# et 10 s par jour simule selon Sy. Les six essais tournent CONCURREMMENT
+# (`parallel = 6`), donc le temps mural de l'etage vaut celui du plus lent,
+# mesure a environ trois heures, et non leur somme.
+# ======================================================================
+
+[workflow]
+mode = "calibration"
+
+[workspace]
+project_root = "."
+
+
+# ----------------------------------------------------------------------
+# Geographic - delimitation et surface de routage
+# ----------------------------------------------------------------------
+
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+
+# `breach` entaille le MNT le long des chemins d'ecoulement au lieu de
+# combler les depressions. Le critere mesure des longueurs le long de ces
+# chemins, donc preserver le reseau prime sur lisser la surface.
+dem_correc_type = "breach"
+reuse_existing_outputs = true
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "DEM_nancon_25m.tif"
+
+# Station hydrometrique du Nancon a Fougeres (J001401001), en EPSG:2154.
+x_outlet = 389285.91
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10%"
+
+# CONDITION DE VALIDITE DU CRITERE, pas une option de confort. Le critere
+# mesure des distances le long des chemins de descente du MNT ; si le
+# lineaire cartographie ne suit pas ces chemins, le nombre produit mesure
+# un desaccord entre deux jeux de donnees et non de l'hydrogeologie.
+[geographic.enforce_streams]
+enabled = true
+stream_geometry_path = "nancon_stream_network.gpkg"
+mode = "constant"
+depth_m = 30.0
+
+# Reseau derive du MNT. Il ne change pas le modele : il donne aux figures
+# le trace "genere" a comparer au lineaire cartographie.
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 1.0
+compute_stream_links = true
+compute_strahler_order = true
+
+
+# ----------------------------------------------------------------------
+# Domain
+# ----------------------------------------------------------------------
+
+[domain]
+zone_ids = ["geology"]
+supports = {}
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = 30.0
+
+
+# ----------------------------------------------------------------------
+# Data
+# ----------------------------------------------------------------------
+
+[data]
+project_crs = "EPSG:2154"
+types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff"]
+
+[[data.dem.sources]]
+source = "custom"
+path = "DEM_nancon_25m.tif"
+
+[[data.geology.sources]]
+source = "brgm_1m"
+
+[[data.hydrography.sources]]
+source = "custom"
+path = "nancon_stream_network.gpkg"
+
+# Debit observe journalier a la station du Nancon. C'est la serie contre
+# laquelle l'etage 2 est score et que la figure hydrograph_sim_obs trace.
+[data.hydrometry]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+
+[[data.hydrometry.sources]]
+source = "custom"
+path = "hydrometry"
+extent = "watershed"
+station_ids = ["NANCON"]
+
+[data.recharge]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+
+[[data.recharge.sources]]
+source = "custom"
+path = "recharge"
+station_ids = ["NANCON_REA"]
+
+# Ruissellement de surface, ajoute au baseflow DRN simule avant
+# comparaison au debit observe.
+[data.runoff]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+
+[[data.runoff.sources]]
+source = "custom"
+path = "runoff"
+station_ids = ["NANCON_REA"]
+
+
+# ----------------------------------------------------------------------
+# Flow - drain de Cauchy sur chaque maille
+# ----------------------------------------------------------------------
+
+[flow]
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+flow_regime = "steady"
+
+[flow.ic]
+type = "top"
+description = "Nappe initialisee a la surface topographique."
+
+# Valeurs de depart. La calibration les remplace : K a l'etage 1, Sy a
+# l'etage 2. Ss n'est pas calibre, il pese 0,21 % du stockage sur ce
+# modele parce que Ss * 30 m = 3e-4 contre Sy voisin de 0,06.
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 6.4e-5
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+# CONDITION DE VALIDITE DU CRITERE. `value = 0.0` selectionne le repli
+# proportionnel C = K * A / e. C'est cette proportionnalite qui fait du
+# rapport K/R la quantite calibree ; une conductance fixee casse
+# l'invariance des le facteur 1,05.
+[flow.bc.cauchy.drainage]
+id = "drainage"
+kind = "cauchy"
+application_domain = "top"
+description = "Drainage de Cauchy sur la face superieure de l'aquifere."
+value = 0.0
+
+[flow.sinks_sources.recharge]
+values = 0.0
+
+
+# ----------------------------------------------------------------------
+# Simulation
+# ----------------------------------------------------------------------
+
+[simulation]
+name = "nancon_auto_drn"
+description = "Nancon - DRN plein, K par le reseau puis Sy par l'hydrogramme."
+if_exists = "replace"
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2000-12-31"
+step_value = "1 year"
+coverage_policy = "warn"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+# Les champs derives sont ce qui debloque les cartes. Ils sont calcules
+# APRES le solve, a partir de la charge et du budget deja lus, donc ils
+# ne rallongent pas le solve lui-meme.
+#   release_flux         -> downslope_distance_map, seepage_network_*
+#   watertable_elevation -> piezometric_map, cross_section
+#   watertable_depth     -> watertable_depth_map
+#   seepage_areas        -> seepage_map
+#   accumulation_flux    -> accumulation_map, simulated_active_network
+[simulation.results.derived]
+release_flux = true
+watertable_elevation = true
+watertable_depth = true
+seepage_areas = true
+accumulation_flux = true
+
+
+# ----------------------------------------------------------------------
+# MODFLOW 6
+# ----------------------------------------------------------------------
+# Les deux calculs PAR MAILLE coupes ici ne sont lus par aucune figure de
+# ce montage et coutaient 34,5 % du solve a la mesure. `print_head` est
+# coupe pour le disque : il produit environ 3 Go de listing par essai.
+[modflow6.runtime]
+print_head = false
+save_specific_discharge = false
+save_saturation = false
+
+
+# ----------------------------------------------------------------------
+# Calibration
+# ----------------------------------------------------------------------
+
+[calibration]
+seed = 42
+save_runs = "best_n"
+save_best_n = 1
+persist_iteration_detail = "full"
+use_cache = true
+
+# C'est cette ligne qui fait du meilleur essai un run complet : il est
+# rejoue avec toutes ses sorties, donc avec les champs derives, donc avec
+# les figures.
+rerun_best_with_outputs = true
+
+
+# --- Parametres ---
+# K en log : le critere porte sur le rapport K/R et l'ecart signe change
+# de signe une seule fois sur plusieurs decades. La dichotomie REFUSE un
+# parametre qui n'est pas en transform = "log".
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+transform = "log"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+# Sy sur la fourchette que la recession observee designe : 120 recessions
+# de plus de dix jours donnent un temps caracteristique median de 28,1
+# jours, d'ou Sy voisin de 0,12 par tau = Sy*L^2/(4T), et l'optimum
+# precedent valait 0,0587. Les deux tiennent largement dans [5e-3, 0,35].
+#
+# La borne basse n'est PAS le plancher physique, et c'est deliberé : le
+# cout du solve explose quand Sy tend vers zero. Mesure sur ce bassin,
+# 13,5 s par jour simule a Sy = 1e-3 contre 2,4 s a Sy = 0,45, soit un
+# facteur 5,6. Descendre plus bas achete une region que la recession
+# observee exclut deja, au prix de multiplier la nuit de calcul.
+[calibration.parameters.Sy]
+bounds = [5e-3, 0.35]
+transform = "log"
+path = "flow.param.Sy.field.value"
+units = "-"
+
+
+# --- Sortie reseau et bloc objectif de l'etage 1 ---
+
+[calibration.outputs.seepage_network]
+support = "network"
+stream_geometry_path = "nancon_stream_network.gpkg"
+weighting = "area"
+tau_specific_ratio = 1.0e-4
+roptim_max = 2.0
+time = "last"
+# La precision de position du lineaire ne s'ameliore pas parce que le
+# maillage s'affine. Sans ce plancher, L_ref suivrait la maille.
+observed_position_accuracy = "50 m"
+
+[[calibration.objective_blocks]]
+name = "abherve_gap"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+
+
+# --- Etage 1 : K par dichotomie sur le critere de reseau ---
+
+[[calibration.phases]]
+name = "steady_k"
+description = "Zero de l'ecart signe D_so - D_os, par dichotomie sur K."
+method = "bisection"
+max_iter = 20
+parameters = ["K"]
+objective_blocks = ["abherve_gap"]
+freeze_on_success = true
+
+[calibration.phases.optimizer_kwargs]
+rel_tol = 0.01
+sweep_points = 7
+
+[calibration.phases.overrides]
+"flow.flow_regime" = "steady"
+"simulation.time.start_datetime" = "2000-01-01"
+"simulation.time.end_datetime" = "2000-12-31"
+"simulation.time.step_unit" = "year"
+"simulation.time.step_value" = 1
+
+
+# --- Etage 2 : Sy sur l'hydrogramme journalier, K gele ---
+# `batch_size` est OBLIGATOIRE avec `parallel` : la boucle demande
+# min(batch_size, restant) points puis evalue CE LOT avec les workers, donc
+# a batch_size = 1 les workers n'ont rien a se partager.
+
+[[calibration.phases]]
+name = "transient_sy"
+description = "NSE des logarithmes du debit journalier 2001-2002, K gele."
+method = "grid"
+max_iter = 6
+batch_size = 6
+parallel = 6
+parameters = ["Sy"]
+variable = "discharge"
+objective = "nse_log"
+depends_on = "steady_k"
+
+[calibration.phases.optimizer_kwargs]
+points_per_dim = 6
+
+# 2000 est l'annee d'amorce, elle n'est pas scoree.
+[calibration.phases.scoring_window]
+start = "2001-01-01"
+end = "2002-12-31"
+
+[calibration.phases.overrides]
+"flow.flow_regime" = "transient"
+"simulation.time.start_datetime" = "2000-01-01"
+"simulation.time.end_datetime" = "2002-12-31"
+"simulation.time.step_unit" = "day"
+"simulation.time.step_value" = 1
+
+
+# ----------------------------------------------------------------------
+# Figures
+# ----------------------------------------------------------------------
+# Toutes les figures que ce montage peut produire sont listees. Une figure
+# dont le run ne remplit pas les prerequis est ignoree avec sa raison, donc
+# la liste peut etre genereuse sans rien casser. `hmp viz list` donne les
+# noms acceptes et leurs prerequis.
+
+[display]
+enabled = true
+preset = "default"
+show = false
+save = true
+output_dir = "figures"
+cmap = "viridis"
+on_error = "warn"
+
+# Ce que `hydrograph_log_nse` ne peut pas deviner. La fenetre de score est
+# une notion de CALIBRATION : la figure lit un run, et un run ne sait pas
+# sur quelle fenetre il a ete note. Sans elle la figure trace la serie
+# entiere, sans zone grisee. Le SCORE lui-meme n'est volontairement pas
+# pose ici : `nse_log =` existe, mais ce serait figer un resultat dans un
+# fichier d'entree, faux des la prochaine calibration.
+[display.overrides.hydrograph_log_nse]
+scoring_window = ["2001-01-01", "2002-12-31"]
+
+
+# Sept figures du registre sont volontairement ABSENTES de cette liste,
+# parce qu'aucune valeur de TOML ne peut les rendre possibles, mesure faite :
+#   residuals, scatter_one_to_one  le simule vit sous la station `_catchment`
+#                                  et l'observe sous `NANCON` ; elles exigent
+#                                  les deux sous LE MEME nom de station.
+#   ensemble_band                  attend un RunSet, donc plusieurs runs.
+#   roptim_validity_chart          compare plusieurs sites, un run en tient un.
+#   calibration_landscape,         demandent deux parametres dans UNE session ;
+#   calibration_objective_surface, chaque etage n'en echantillonne qu'un, c'est
+#   calibration_pairplot           le principe meme de l'etagement.
+#   conditioning_impact_map        exige [modflow6.sgrid] condition_top = true,
+#                                  qui RELEVE le toit et changerait le modele.
+
+figures = [
+    # -- Identite du bassin et maillage --
+    "watershed_id_card",
+    "mesh_map",
+    "boundary_package_map",
+    "depression_map",
+    "flow_direction_map",
+
+    # -- Debit simule contre observe, le coeur de la demande --
+    "hydrograph_sim_obs",
+    "hydrograph_log_nse",
+    "hydrograph",
+    "duration_curve",
+    "recession",
+    "seasonal_boxplot",
+
+    # -- Bilan --
+    "water_budget",
+    "flux_timeseries",
+
+    # -- Cartes de nappe et de suintement --
+    "piezometric_map",
+    "watertable_depth_map",
+    "seepage_map",
+    "recharge_map",
+    "cross_section",
+    "accumulation_map",
+
+    # -- Reseau simule contre reseau cartographie --
+    "simulated_active_network",
+    "simulated_active_network_reference_overlay",
+    "seepage_network_reference_overlay",
+    "seepage_network_confusion_map",
+    "downslope_distance_map",
+    "hydrographic_network_reference",
+    "hydrographic_network_generated",
+    "hydrographic_network_comparison",
+
+    # -- Diagnostic de la calibration elle-meme --
+    "abherve_two_stage_card",
+    "bisection_bracket_trace",
+    "downslope_distance_crossing",
+    "parameter_cost_profile",
+    "calibration_convergence",
+    "calibration_trace",
+    "calibration_posterior",
+]
