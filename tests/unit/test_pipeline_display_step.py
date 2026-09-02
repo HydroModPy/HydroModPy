@@ -80,7 +80,10 @@ def test_display_step_skips_when_disabled(monkeypatch, tmp_path):
 
 
 def test_display_step_skips_when_empty_figure_list(monkeypatch, tmp_path):
-    ctx = _make_ctx(enabled=True, figures=[], project_root=tmp_path)
+    # A store is passed on purpose: without one the step returns on the
+    # "no config, sim_id or store" branch and this test would pass without
+    # ever reaching the empty-list decision it is named after.
+    ctx = _make_ctx(enabled=True, figures=[], project_root=tmp_path, store=object())
     state = PipelineState(run_id="r", data={"ctx": ctx})
 
     renderer = MagicMock()
@@ -88,6 +91,24 @@ def test_display_step_skips_when_empty_figure_list(monkeypatch, tmp_path):
     final = DisplayStep().run(state)
     assert final.get("rendered_figures") == []
     renderer.assert_not_called()
+
+
+def test_display_step_says_out_loud_that_it_drew_nothing(monkeypatch, tmp_path, caplog):
+    # A run that draws nothing looks exactly like a run whose figure list
+    # silently emptied. In TOML a table header swallows every key below it, so
+    # a `[display.overrides.<fig>]` written above `figures` takes the list with
+    # it, `hmp config check` still passes, and the run renders zero figure. The
+    # line has to be readable at the default level or the accident is mute.
+    ctx = _make_ctx(enabled=True, figures=[], project_root=tmp_path, store=object())
+    state = PipelineState(run_id="r", data={"ctx": ctx})
+    monkeypatch.setattr(display_runs, "render_figures_for_run", MagicMock())
+
+    with caplog.at_level("INFO"):
+        DisplayStep().run(state)
+
+    message = " ".join(r.getMessage() for r in caplog.records)
+    assert "No figure rendered" in message
+    assert "[display]" in message
 
 
 def test_display_step_invokes_renderer_when_enabled(monkeypatch, tmp_path):

@@ -188,10 +188,15 @@ class DisplayStep:
             if display_cfg is None or sim_id is None or store is None:
                 logger.debug("DisplayStep: no display config, sim_id or store, skipping")
             elif not display_cfg.enabled or not display_cfg.figures:
-                logger.debug(
-                    "DisplayStep: nothing to render (enabled=%s, figures=%s)",
+                # At info, not debug: a run that draws nothing looks exactly
+                # like a run whose figure list silently emptied, and the second
+                # one is a real accident. In TOML a table header swallows every
+                # key below it, so a `[display.overrides.<fig>]` written above
+                # `figures` takes the list with it and nothing warns.
+                logger.info(
+                    "No figure rendered: [display] enabled = %s, figures lists %d name(s).",
                     display_cfg.enabled,
-                    list(display_cfg.figures),
+                    len(display_cfg.figures),
                 )
             else:
                 project_root = ctx.setup.workspace.project_root
