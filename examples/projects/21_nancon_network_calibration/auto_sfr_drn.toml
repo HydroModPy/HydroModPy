@@ -416,14 +416,6 @@ output_dir = "figures"
 cmap = "viridis"
 on_error = "warn"
 
-# Ce que `hydrograph_log_nse` ne peut pas deviner. La fenetre de score est
-# une notion de CALIBRATION : la figure lit un run, et un run ne sait pas
-# sur quelle fenetre il a ete note. Sans elle la figure trace la serie
-# entiere, sans zone grisee. Le SCORE lui-meme n'est volontairement pas
-# pose ici : `nse_log =` existe, mais ce serait figer un resultat dans un
-# fichier d'entree, faux des la prochaine calibration.
-[display.overrides.hydrograph_log_nse]
-scoring_window = ["2001-01-01", "2001-12-31"]
 
 
 # Sept figures du registre sont volontairement ABSENTES de cette liste,
@@ -491,3 +483,18 @@ figures = [
     "calibration_trace",
     "calibration_posterior",
 ]
+
+# Ce que `hydrograph_log_nse` ne peut pas deviner. La fenetre de score est
+# une notion de CALIBRATION : la figure lit un run, et un run ne sait pas
+# sur quelle fenetre il a ete note. Sans elle la figure trace la serie
+# entiere, sans zone grisee. Le SCORE lui-meme n'est volontairement pas
+# pose ici : `nse_log =` existe, mais ce serait figer un resultat dans un
+# fichier d'entree, faux des la prochaine calibration.
+#
+# CETTE TABLE DOIT RESTER LA DERNIERE DU FICHIER. En TOML, tout ce qui
+# suit un en-tete de table lui appartient : placee avant `figures`, elle
+# avalait la liste et le run ne dessinait plus rien, sans que
+# `hmp config check` puisse s'en apercevoir puisque `overrides` accepte
+# n'importe quelle cle.
+[display.overrides.hydrograph_log_nse]
+scoring_window = ["2001-01-01", "2001-12-31"]
