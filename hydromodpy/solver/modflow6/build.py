@@ -1087,6 +1087,12 @@ def run_pre_processing(  # noqa: PLR0915
                     index: list(cells) for index, cells in enumerate(lake_cell_ids_by_lake.values())
                 },
                 watershed_cell_mask=_watershed_drainage_mask(model, drn_cell_centroids),
+                # The D8 pointer the geographic step computed on the BREACHED
+                # routing DEM. Rebuilding a descent on the raw mesh top instead
+                # strands every cell upstream of a closed depression.
+                d8_pointer_path=getattr(
+                    getattr(model, "geographic", None), "watershed_box_buff_direc", None
+                ),
             )
             if drainage_movers:
                 drainage_mover_rows = build_mvr_period_records(drainage_movers)

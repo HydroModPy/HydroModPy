@@ -66,7 +66,18 @@ buff_area = "10%"
 enabled = true
 stream_geometry_path = "nancon_stream_network.gpkg"
 mode = "constant"
-depth_m = 30.0
+# 10 m et non 30. Balayage mesure sur ce bassin : a partir de 10 m le trace
+# derive et l'ensemble des mailles posees sur le lineaire sont STRICTEMENT
+# identiques a ce que donne 30 m (1535 mailles, Jaccard 1,000). A 5 m, 81
+# mailles du bassin changent encore de direction D8. Les 20 m de rab ne
+# gagnaient rien et enfoncaient le `rtp` delineate, lu sur ce MNT burne, bien
+# sous la bande de sa propre maille.
+#
+# Ce reglage abaisse le MNT DE ROUTAGE, pas l'aquifere : le toit du modele
+# reste le MNT brut, verifie au bit pres. Il ne creuse rien pour raccorder les
+# biefs vers l'aval, c'est `min_slope` et le conditionnement monotone qui s'en
+# chargent, et `bed_incision` qui ancre le lit sous le toit de sa maille.
+depth_m = 10.0
 
 # Reseau derive du MNT. Il ne change pas le modele : il donne aux figures
 # le trace "genere" a comparer au lineaire cartographie.
