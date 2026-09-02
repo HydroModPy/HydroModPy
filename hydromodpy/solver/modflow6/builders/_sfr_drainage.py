@@ -15,10 +15,15 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.builders.mvr import MoverRecord
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from hydromodpy.solver.modflow6.builders.sfr import ResolvedSfrNetwork
+
+logger = get_logger(__name__)
 
 # The single SFR package name used across the GWF model (see build.py: pname="SFR").
 _SFR_PACKAGE_NAME = "SFR"
@@ -85,6 +90,98 @@ def watershed_drainage_cell_mask(
     )
 
 
+def receiver_from_d8_pointer(
+    pointer_path: str | Path,
+    cell_centroids: np.ndarray,
+    n_cells: int,
+) -> np.ndarray | None:
+    """Per-cell receiver read from the preprocessing D8 pointer, or None.
+
+    That pointer is computed on the BREACHED routing DEM, so every cell holds a
+    descending path to the outlet. Rebuilding a descent on the mesh top instead
+    walks the raw DEM, where one closed depression ends the path and strands
+    everything upstream of it: measured on the Nancon at 25 m, 26 per cent of the
+    hillslope cells reached a reach that way against 100 per cent here.
+
+    Returns None rather than a partial answer whenever the raster and the mesh do
+    not describe the same grid: a rotated or south-up transform, a cell outside
+    the raster, or two cells sharing one pixel. The caller then falls back to the
+    mesh graph, which is correct on any mesh but reaches less far.
+    """
+    import rasterio
+
+    from hydromodpy.spatial.geographic.core.d8 import WBT_D8_OFFSETS
+
+    with rasterio.open(str(pointer_path)) as src:
+        pointer = src.read(1)
+        transform = src.transform
+
+    # The offset table counts rows southward. A rotated or flipped grid would
+    # send every descent one octant off, which looks plausible and is wrong.
+    if transform.b or transform.d or transform.a <= 0.0 or transform.e >= 0.0:
+        return None
+
+    n_rows, n_cols = pointer.shape
+    centroids = np.asarray(cell_centroids, dtype=float).reshape(n_cells, -1)
+    fcol, frow = (~transform) * (centroids[:, 0], centroids[:, 1])
+    row = np.floor(frow).astype(np.int64)
+    col = np.floor(fcol).astype(np.int64)
+    if not ((row >= 0) & (row < n_rows) & (col >= 0) & (col < n_cols)).all():
+        return None
+    pixel = row * n_cols + col
+    if np.unique(pixel).size != n_cells:
+        return None
+
+    cell_of_pixel = np.full(pointer.size, -1, dtype=np.int64)
+    cell_of_pixel[pixel] = np.arange(n_cells, dtype=np.int64)
+
+    receiver = np.full(n_cells, -1, dtype=np.int64)
+    code = pointer[row, col]
+    for value, (drow, dcol) in WBT_D8_OFFSETS.items():
+        selected = code == value
+        if not selected.any():
+            continue
+        nrow = row[selected] + drow
+        ncol = col[selected] + dcol
+        inside = (nrow >= 0) & (nrow < n_rows) & (ncol >= 0) & (ncol < n_cols)
+        target = np.full(nrow.shape, -1, dtype=np.int64)
+        target[inside] = cell_of_pixel[nrow[inside] * n_cols + ncol[inside]]
+        receiver[selected] = target
+    return receiver
+
+
+def _receiver_on_mesh_graph(
+    mesh_top: np.ndarray,
+    cell_centroids: np.ndarray,
+    cell_adjacency: Sequence[set[int]],
+    sinks: set[int],
+) -> np.ndarray:
+    """Steepest-descent receiver on the mesh face graph, the fallback.
+
+    Correct on any mesh, but it walks the RAW mesh top and only the face
+    neighbours: a closed depression or a flat link ends the path.
+    """
+    top = np.asarray(mesh_top, dtype=float).reshape(-1)
+    n_cells = top.shape[0]
+    receiver = np.full(n_cells, -1, dtype=int)
+    for cell in range(n_cells):
+        if cell in sinks:
+            continue
+        z = top[cell]
+        cx, cy = float(cell_centroids[cell][0]), float(cell_centroids[cell][1])
+        best, best_slope = -1, 0.0
+        for nb in cell_adjacency[cell]:
+            dz = z - top[nb]
+            if dz <= 0.0:
+                continue
+            dist = math.hypot(cx - float(cell_centroids[nb][0]), cy - float(cell_centroids[nb][1]))
+            slope = dz / dist if dist > 0.0 else dz
+            if slope > best_slope:
+                best_slope, best = slope, int(nb)
+        receiver[cell] = best
+    return receiver
+
+
 def build_drainage_mover_records(
     networks: Mapping[str, ResolvedSfrNetwork],
     *,
@@ -94,15 +191,22 @@ def build_drainage_mover_records(
     cell_adjacency: Sequence[set[int]],
     lake_cells_by_number: Mapping[int, Sequence[int]] | None = None,
     watershed_cell_mask: np.ndarray | None = None,
+    d8_pointer_path: str | Path | None = None,
 ) -> list[MoverRecord]:
     """Route every in-watershed DRN cell to the FIRST water its flow path reaches.
 
     The hillslope drainage exfiltrates at the land surface and follows the
     topography downhill. Each in-watershed DRN boundary becomes an MVR provider
     handing its full outflow (FACTOR 1.0) to the target its steepest-descent path
-    on ``mesh_top`` first meets: the first connected reach cell OR the first lake
-    cell, whichever the water reaches first (a D8-style single-flow-direction on
-    the mesh face graph ``cell_adjacency``). This attributes the drainage to the
+    first meets: the first connected reach cell OR the first lake cell, whichever
+    the water reaches first. The descent comes from ``d8_pointer_path``, the D8
+    pointer the geographic step computed on the BREACHED routing DEM, so every
+    cell holds a path to the outlet. Without it the descent is rebuilt on the raw
+    ``mesh_top`` over the face graph ``cell_adjacency``, which is a four-neighbour
+    walk with no diagonal: a closed depression or a flat link ends the path and
+    strands its whole upstream area. Measured on the Nancon at 25 m, that fallback
+    routed 26 per cent of the hillslope cells against 100 per cent with the
+    pointer. This attributes the drainage to the
     water body it physically reaches, not the nearest one by planar distance, so an
     upstream forebay collects its own catchment instead of the drainage jumping to a
     larger neighbouring lake. EVERY declared lake is a candidate sink, not only the
@@ -164,29 +268,29 @@ def build_drainage_mover_records(
     else:
         keep = np.arange(drn_cells.shape[0])
 
-    top = np.asarray(mesh_top, dtype=float).reshape(-1)
-    n_cells = top.shape[0]
+    n_cells = int(np.asarray(mesh_top, dtype=float).reshape(-1).shape[0])
     sinks = set(reach_cell_to_ifno) | set(lake_cell_to_number)
-    # Steepest-descent single-flow-direction receiver on the mesh face graph: the
-    # neighbour with the largest positive slope (dz / centroid distance). Sinks and
-    # local minima have no receiver (-1); condition_top fills the projection pits so a
-    # hillslope cell descends to its water body instead of a closed depression.
-    receiver = np.full(n_cells, -1, dtype=int)
-    for cell in range(n_cells):
-        if cell in sinks:
-            continue
-        z = top[cell]
-        cx, cy = float(cell_centroids[cell][0]), float(cell_centroids[cell][1])
-        best, best_slope = -1, 0.0
-        for nb in cell_adjacency[cell]:
-            dz = z - top[nb]
-            if dz <= 0.0:
-                continue
-            dist = math.hypot(cx - float(cell_centroids[nb][0]), cy - float(cell_centroids[nb][1]))
-            slope = dz / dist if dist > 0.0 else dz
-            if slope > best_slope:
-                best_slope, best = slope, int(nb)
-        receiver[cell] = best
+    receiver = None
+    if d8_pointer_path is not None:
+        try:
+            receiver = receiver_from_d8_pointer(d8_pointer_path, cell_centroids, n_cells)
+        except Exception as exc:
+            logger.warning("Drainage routing: unreadable D8 pointer %s (%s).", d8_pointer_path, exc)
+            receiver = None
+    if receiver is None:
+        # Never silent: the fallback reaches a fraction of the hillslope, and a
+        # run that used it must say so or the missing movers read as physics.
+        logger.warning(
+            "Drainage routing falls back to the mesh face graph on the raw top: "
+            "%s. A closed depression or a flat link ends a descent there, so part "
+            "of the hillslope keeps a plain DRN instead of feeding its reach.",
+            "no D8 pointer given"
+            if d8_pointer_path is None
+            else f"{d8_pointer_path} does not describe the mesh grid",
+        )
+        receiver = _receiver_on_mesh_graph(mesh_top, cell_centroids, cell_adjacency, sinks)
+    else:
+        logger.info("Drainage routing follows the preprocessing D8 pointer %s.", d8_pointer_path)
 
     # Follow each cell's descent to the first sink it meets, memoised per cell.
     target_of: dict[int, tuple[str, int] | None] = {}
