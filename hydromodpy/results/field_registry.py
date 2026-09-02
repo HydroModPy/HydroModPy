@@ -207,6 +207,17 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         cell_methods="time: mean area: mean",
         derived_by="solver",
     ),
+    "drain_to_mover": FieldDescriptor(
+        public_name="drain_to_mover",
+        zarr_path="budget/drain_to_mover",
+        standard_name="",
+        csdms_standard_name="subsurface_water__drain_volume_flux",
+        long_name="Drain flux handed to the water mover (positive leaves aquifer)",
+        units="m3 s-1",
+        shape=SHAPE_TIME_LAYER_FACE,
+        cell_methods="time: mean area: mean",
+        derived_by="solver",
+    ),
     "outflow_drain": FieldDescriptor(
         public_name="outflow_drain",
         zarr_path="derived/outflow_drain",

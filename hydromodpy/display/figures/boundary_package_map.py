@@ -74,13 +74,27 @@ The colours are fixed per package so two runs of the same catchment can be
 laid side by side, and they climb in lightness in the order written here
 (roughly L* 22, 32, 46, 57, 68, 79). Every pair is therefore separable in
 greyscale as well as in hue, and a map showing any subset keeps that spacing.
+
+``drain_to_mover`` is deliberately NOT an entry here. With ``route_drainage``
+the in-catchment drainage leaves through DRN-TO-MVR while the plain DRN record
+keeps only what leaves the model, so a routed cell falls into the neutral class
+and reads as a cell no package acts on. Fixing that needs a seventh class, and
+the six above plus the two neutrals already fill the lightness range at the 8
+L* spacing this palette guarantees: the largest free gap is 15. The routed
+drainage therefore belongs on a map of its own, not in this one.
 """
 
 SEVERAL_COLOR = "#1A1A1A"
 """Cells more than one package acts on: the darkest thing on the page."""
 
 GROUND_COLOR = "#EDEDED"
-"""Cells no boundary package acts on: they cover the catchment, so they recede."""
+"""Cells that exchanged no water: they cover the catchment, so they recede.
+
+NOT "cells without a boundary package": a drain declared over the whole top face
+sits on every active cell, and a cell whose water table never reached the surface
+still carries one. What this class means is a per-cell budget that stayed at zero
+over the whole window.
+"""
 
 GROUND_EDGE = "#C8C8C8"
 """A border on the two neutral legend swatches, which are otherwise flat."""
@@ -376,7 +390,7 @@ def _legend_handles(
             Patch(
                 facecolor=GROUND_COLOR,
                 edgecolor=GROUND_EDGE,
-                label=f"no boundary package ({_cell_count(none)})",
+                label=f"no water exchanged ({_cell_count(none)})",
             )
         )
     return handles
