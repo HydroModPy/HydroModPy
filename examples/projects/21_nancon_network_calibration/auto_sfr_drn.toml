@@ -304,7 +304,13 @@ seed = 42
 save_runs = "best_n"
 save_best_n = 1
 persist_iteration_detail = "full"
-use_cache = true
+# Volontairement a false. La cle de cache tient les PARAMETRES et un contexte
+# de configuration, jamais la version du code : un run rejoue apres un
+# correctif de solveur ressert donc les anciens nombres sans le dire. Pour un
+# fichier d'exemple dont l'objet est justement d'etre rejoue et verifie, c'est
+# le mauvais defaut. Le passer a true fait gagner des heures sur une reprise
+# apres interruption, quand le code n'a pas bouge.
+use_cache = false
 rerun_best_with_outputs = true
 
 [calibration.parameters.K]
