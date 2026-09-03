@@ -72,12 +72,21 @@ buff_area = "10%"
 enabled = true
 stream_geometry_path = "nancon_stream_network.gpkg"
 mode = "constant"
-# 10 m et non 30. Balayage mesure sur ce bassin : a partir de 10 m le trace
-# derive et l'ensemble des mailles posees sur le lineaire sont STRICTEMENT
-# identiques a ce que donne 30 m (1535 mailles, Jaccard 1,000). A 5 m, 81
-# mailles du bassin changent encore de direction D8. Les 20 m de rab ne
-# gagnaient rien et enfoncaient le `rtp` delineate, lu sur ce MNT burne, bien
-# sous la bande de sa propre maille.
+# 10 m et non 30. Le TRACE derive est strictement identique des 10 m (1535
+# mailles, Jaccard 1,000, et a 5 m 81 mailles du bassin changent encore de
+# direction D8). Mais le trace n'est pas tout le modele : mesure entre les deux
+# runs, 201 biefs sur 1536 recoivent une COTE DE LIT differente, jusqu'a 4,36 m,
+# toujours plus basse a 30 m. Sur ces biefs la mediane du lit passe de 2,61 m a
+# 5,48 m sous le toit de sa maille. 10 m vaut donc mieux que 30, et pas
+# seulement parce que le trace ne bouge plus.
+#
+# CE QUE LE BURN TRAVERSE QUAND MEME. La pente `rgrd` d'un bief est lue sur ce
+# MNT burne et livree telle quelle au solveur : `solve_reach_bed_profile` ne
+# borne que la COTE, jamais la pente. Sur les liens dont la tete est en amont du
+# lineaire cartographie alors que l'exutoire est dessus, la pente encaisse
+# exactement depth_m / longueur_du_lien. Mesure a 30 m, cela touchait 409 biefs
+# sur 1536 avec une pente 1,94 fois trop forte en mediane. Diviser la profondeur
+# par trois divise cet exces d'autant.
 #
 # Ce reglage abaisse le MNT DE ROUTAGE, pas l'aquifere : le toit du modele
 # reste le MNT brut, verifie au bit pres. Il ne creuse rien pour raccorder les
