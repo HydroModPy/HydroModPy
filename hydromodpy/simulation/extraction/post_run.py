@@ -322,6 +322,16 @@ def derive_run_outputs(
 
     sample_declared_observation_points(ctx=ctx, sim_id=sim_id, store=store)
 
+    # Phase 4: score the run against the observations sitting beside it. Last,
+    # because it reads the series the two phases above just wrote.
+    from hydromodpy.simulation.extraction.derivation.fit_metrics import write_fit_metrics
+
+    try:
+        write_fit_metrics(sim_id, store)
+    except Exception:
+        # A run's own results are already in; a missing score must not lose them.
+        logger.warning("Could not score the run against its observations", exc_info=True)
+
 
 def sample_declared_observation_points(*, ctx: RunContext, sim_id: str, store: Any) -> int:
     """Sample the ``[observation]`` points while the run still holds its fields.
