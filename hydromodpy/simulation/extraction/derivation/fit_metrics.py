@@ -81,11 +81,16 @@ def _score_one(
     station = str(reference["station_id"].iloc[0])
     paired = _pair_on_time(simulated, reference)
     if len(paired) < 2:
-        logger.warning(
-            "Cannot score '%s' for sim %s: the simulated series and the %s "
-            "observations share %d timestamp(s).",
+        # A steady run holds one value: there is no series to score, and saying
+        # so at warning level would cry wolf on every steady phase. A transient
+        # run that still fails to pair IS an anomaly, and keeps the warning.
+        level = logger.debug if len(simulated) < 2 else logger.warning
+        level(
+            "Not scoring '%s' for sim %s: the simulated series (%d step(s)) and "
+            "the %s observations share %d timestamp(s).",
             variable,
             sim_id,
+            len(simulated),
             station,
             len(paired),
         )

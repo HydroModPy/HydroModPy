@@ -99,6 +99,20 @@ def test_series_that_never_overlap_are_not_scored(caplog) -> None:
     assert "share 0 timestamp" in " ".join(r.getMessage() for r in caplog.records)
 
 
+def test_a_steady_run_is_not_scored_and_does_not_cry_wolf(caplog) -> None:
+    # One period, one value: there is no series to score. Warning on every
+    # steady phase would drown the transient case that IS an anomaly.
+    day = pd.Timestamp("2001-01-01", tz="UTC")
+    obs_days = pd.date_range("2001-01-01", periods=10, freq="D", tz="UTC")
+    store = _FakeStore(_frame([day], [1.0], obs_days, np.ones(10)))
+
+    with caplog.at_level("WARNING"):
+        assert write_fit_metrics("sim", store) == 0
+
+    assert store.metrics == []
+    assert caplog.records == []
+
+
 def test_a_run_without_observations_writes_nothing() -> None:
     days = pd.date_range("2001-01-01", periods=10, freq="D", tz="UTC")
     frame = pd.DataFrame(
