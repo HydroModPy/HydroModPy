@@ -187,14 +187,28 @@ stream_threshold_km2 = 1.0
 #   drain  C = K * A / e_lit = 2.0908e-4 * 625 / 1.0 = 0.1307 m2/s
 #   sfr    C = rhk * rlen * rwid / rbth = rhk * 25 * 2 / 1.0 = 50 * rhk
 # d'ou rhk = 2.61e-3 m/s.
-streambed_k = 2.61e-3
+# 7.83e-3 et non 2.61e-3 : `streambed_thickness` passe de 1 m a 3 m juste
+# en dessous, et la conductance vaut rhk * rlen * rwid / rbth. Les deux sont
+# multipliees par 3 ensemble, donc C est INCHANGEE a 0,1307 m2/s, la meme
+# qu'un drain de maille. Seul le seuil de connexion bouge.
+streambed_k = 7.83e-3
 streambed_k_unit = "m/s"
 
-# 1 m et non 0,1 m. MODFLOW 6 bascule un bief entre connecte et
-# deconnecte a `rtp - rbth`, pas a `rtp` : avec rbth = 0,1 m la bascule
-# se jouait sur dix centimetres et le permanent oscillait en cycle
-# binaire. A 1 m le seuil descend a 1,5 m sous le sol avec l'incision.
-streambed_thickness = "1 m"
+# 3 m. MODFLOW 6 bascule un bief entre connecte et deconnecte a
+# `rtp - rbth`, et ce coude n'est pas lisse : quand la nappe s'assied
+# dessus, la maille alterne entre deux valeurs sans s'amortir.
+#
+# MESURE. Avec le lit corrige et rbth = 1 m, le seuil remonte a 1,50 m
+# sous le sol, en plein dans la bande saisonniere de la nappe : le run a
+# diverge au pas 486 sur 731, la maille 201392 oscillant entre +1,064e-2
+# et -7,251e-3 m sur 1500 iterations externes, sous un critere de 5e-3.
+# La sous-relaxation DBD du preset COMPLEX etait deja active, avec
+# backtracking : le probleme n'est pas le solveur lineaire.
+#
+# A 3 m le seuil redescend a 3,50 m sous le sol et sort de cette bande,
+# SANS toucher au lit, qui reste ancre a 0,5 m sous le toit de sa maille.
+# La conductance est preservee en triplant `streambed_k` avec lui.
+streambed_thickness = "3 m"
 
 manning = 0.035
 min_slope = 1e-4
@@ -277,3 +291,99 @@ mf6_outer_dvclose = 5e-3
 # ----------------------------------------------------------------------
 # Calibration
 # ----------------------------------------------------------------------
+
+
+# ----------------------------------------------------------------------
+# Figures
+# ----------------------------------------------------------------------
+[display]
+enabled = true
+preset = "default"
+show = false
+save = true
+output_dir = "figures"
+cmap = "viridis"
+on_error = "warn"
+
+
+
+# Sept figures du registre sont volontairement ABSENTES de cette liste,
+# parce qu'aucune valeur de TOML ne peut les rendre possibles, mesure faite :
+#   residuals, scatter_one_to_one  le simule vit sous la station `_catchment`
+#                                  et l'observe sous `NANCON` ; elles exigent
+#                                  les deux sous LE MEME nom de station.
+#   ensemble_band                  attend un RunSet, donc plusieurs runs.
+#   roptim_validity_chart          compare plusieurs sites, un run en tient un.
+#   calibration_landscape,         demandent deux parametres dans UNE session ;
+#   calibration_objective_surface, chaque etage n'en echantillonne qu'un, c'est
+#   calibration_pairplot           le principe meme de l'etagement.
+#   conditioning_impact_map        exige [modflow6.sgrid] condition_top = true,
+#                                  qui RELEVE le toit et changerait le modele.
+
+figures = [
+    # -- Identite du bassin et maillage --
+    "watershed_id_card",
+    "mesh_map",
+    "boundary_package_map",
+    "depression_map",
+    "flow_direction_map",
+
+    # -- Debit simule contre observe --
+    "hydrograph_sim_obs",
+    "hydrograph_log_nse",
+    "hydrograph",
+    "duration_curve",
+    "recession",
+    "seasonal_boxplot",
+
+    # -- Bilan --
+    "water_budget",
+    "flux_timeseries",
+
+    # -- Le reseau SFR lui-meme --
+    "sfr_reach_network",
+    "sfr_longitudinal_profile",
+    "sfr_reach_timeseries",
+
+    # -- Cartes de nappe et de suintement --
+    "piezometric_map",
+    "watertable_depth_map",
+    "seepage_map",
+    "recharge_map",
+    "cross_section",
+    "accumulation_map",
+
+    # -- Reseau simule contre reseau cartographie --
+    "simulated_active_network",
+    "simulated_active_network_reference_overlay",
+    "seepage_network_reference_overlay",
+    "seepage_network_confusion_map",
+    "downslope_distance_map",
+    "hydrographic_network_reference",
+    "hydrographic_network_generated",
+    "hydrographic_network_comparison",
+
+    # -- Diagnostic de la calibration elle-meme --
+    "abherve_two_stage_card",
+    "bisection_bracket_trace",
+    "downslope_distance_crossing",
+    "parameter_cost_profile",
+    "calibration_convergence",
+    "calibration_trace",
+    "calibration_posterior",
+]
+
+# Ce que `hydrograph_log_nse` ne peut pas deviner. La fenetre de score est
+# une notion de CALIBRATION : la figure lit un run, et un run ne sait pas
+# sur quelle fenetre il a ete note. Sans elle la figure trace la serie
+# entiere, sans zone grisee. Le SCORE lui-meme n'est volontairement pas
+# pose ici : `nse_log =` existe, mais ce serait figer un resultat dans un
+# fichier d'entree, faux des la prochaine calibration.
+#
+# CETTE TABLE DOIT RESTER LA DERNIERE DU FICHIER. En TOML, tout ce qui
+# suit un en-tete de table lui appartient : placee avant `figures`, elle
+# avalait la liste et le run ne dessinait plus rien, sans que
+# `hmp config check` puisse s'en apercevoir puisque `overrides` accepte
+# n'importe quelle cle.
+[display.overrides.hydrograph_log_nse]
+scoring_window = ["2001-01-01", "2001-12-31"]
