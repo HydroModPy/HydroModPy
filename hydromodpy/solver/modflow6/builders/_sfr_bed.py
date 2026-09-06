@@ -82,9 +82,16 @@ def solve_reach_bed_profile(
         if record.cellid is not None and botm is not None:
             layer, cell = int(record.cellid[0]), int(record.cellid[1])
             low = float(botm[layer, cell]) + float(rbth) + RTP_ABOVE_BOTTOM_M
-            if bed_incision is not None and top is not None:
-                high = _cell_top(top, botm, layer, cell) - float(bed_incision)
-                low = max(low, high - float(max_bed_sag))
+            if top is not None:
+                # A reach top is delineated at its link outlet and rebuilt along
+                # the link gradient, so a concave profile hands a mid-link reach
+                # an elevation above its own ground. No streambed sits above the
+                # land surface of its own cell, so the cap holds even when the
+                # user declared no incision.
+                cell_top = _cell_top(top, botm, layer, cell)
+                high = cell_top - float(bed_incision or 0.0)
+                if bed_incision is not None:
+                    low = max(low, high - float(max_bed_sag))
         if low > high:
             cell_txt = "no cell" if record.cellid is None else f"cell {tuple(record.cellid)}"
             raise ValueError(
@@ -143,13 +150,14 @@ def solve_reach_bed_profile(
             worst_ifno,
         )
 
-    if bed_incision is not None and top is not None and botm is not None:
+    if top is not None and botm is not None:
         moved = [
             abs(solved[record.ifno] - target[record.ifno])
             for record in reaches
             if record.cellid is not None
         ]
         if moved and max(moved) > 1e-6:
+            incision = float(bed_incision or 0.0)
             logger.info(
                 "%s streambed profile: %d/%d reach(es) moved to hold the band "
                 "[cell top - %.2f m - %.2f m, cell top - %.2f m] and the downstream order "
@@ -157,9 +165,9 @@ def solve_reach_bed_profile(
                 location,
                 sum(1 for value in moved if value > 1e-6),
                 len(moved),
-                float(bed_incision),
-                float(max_bed_sag),
-                float(bed_incision),
+                incision,
+                float(max_bed_sag) if bed_incision is not None else float("inf"),
+                incision,
                 max(moved),
             )
     return solved

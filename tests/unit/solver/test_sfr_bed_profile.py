@@ -150,3 +150,16 @@ def test_a_climbing_trace_keeps_the_cell_and_reports_the_step_up(caplog):
     assert solved[1] <= top[1] - 0.5 + 1e-9
     assert solved[1] > solved[0], "the climb is kept, not absorbed into a wrong bed"
     assert any("could not hold the downhill order" in r.message for r in caplog.records)
+
+
+def test_a_reach_is_never_left_above_the_ground_of_its_own_cell() -> None:
+    # A reach top is delineated once per link, at its outlet, then rebuilt along
+    # the link gradient. A concave profile hands a mid-link reach an elevation
+    # above its own ground, which the stream burn used to absorb. The cap holds
+    # even when the user declared no incision.
+    reaches = _chain([100.0, 95.0, 90.0])
+    top = [100.0, 88.0, 90.0]
+    botm = [[70.0, 60.0, 60.0]]
+    solved = _solve(reaches, top=top, botm=botm, incision=None)
+    assert solved[1] <= 88.0
+    assert all(solved[i] <= top[i] for i in range(3))
