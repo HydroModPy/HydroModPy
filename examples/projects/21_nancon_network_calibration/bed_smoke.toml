@@ -280,3 +280,99 @@ mf6_outer_dvclose = 5e-3
 # ----------------------------------------------------------------------
 # Calibration
 # ----------------------------------------------------------------------
+
+
+# ----------------------------------------------------------------------
+# Figures
+# ----------------------------------------------------------------------
+[display]
+enabled = true
+preset = "default"
+show = false
+save = true
+output_dir = "figures"
+cmap = "viridis"
+on_error = "warn"
+
+
+
+# Sept figures du registre sont volontairement ABSENTES de cette liste,
+# parce qu'aucune valeur de TOML ne peut les rendre possibles, mesure faite :
+#   residuals, scatter_one_to_one  le simule vit sous la station `_catchment`
+#                                  et l'observe sous `NANCON` ; elles exigent
+#                                  les deux sous LE MEME nom de station.
+#   ensemble_band                  attend un RunSet, donc plusieurs runs.
+#   roptim_validity_chart          compare plusieurs sites, un run en tient un.
+#   calibration_landscape,         demandent deux parametres dans UNE session ;
+#   calibration_objective_surface, chaque etage n'en echantillonne qu'un, c'est
+#   calibration_pairplot           le principe meme de l'etagement.
+#   conditioning_impact_map        exige [modflow6.sgrid] condition_top = true,
+#                                  qui RELEVE le toit et changerait le modele.
+
+figures = [
+    # -- Identite du bassin et maillage --
+    "watershed_id_card",
+    "mesh_map",
+    "boundary_package_map",
+    "depression_map",
+    "flow_direction_map",
+
+    # -- Debit simule contre observe --
+    "hydrograph_sim_obs",
+    "hydrograph_log_nse",
+    "hydrograph",
+    "duration_curve",
+    "recession",
+    "seasonal_boxplot",
+
+    # -- Bilan --
+    "water_budget",
+    "flux_timeseries",
+
+    # -- Le reseau SFR lui-meme --
+    "sfr_reach_network",
+    "sfr_longitudinal_profile",
+    "sfr_reach_timeseries",
+
+    # -- Cartes de nappe et de suintement --
+    "piezometric_map",
+    "watertable_depth_map",
+    "seepage_map",
+    "recharge_map",
+    "cross_section",
+    "accumulation_map",
+
+    # -- Reseau simule contre reseau cartographie --
+    "simulated_active_network",
+    "simulated_active_network_reference_overlay",
+    "seepage_network_reference_overlay",
+    "seepage_network_confusion_map",
+    "downslope_distance_map",
+    "hydrographic_network_reference",
+    "hydrographic_network_generated",
+    "hydrographic_network_comparison",
+
+    # -- Diagnostic de la calibration elle-meme --
+    "abherve_two_stage_card",
+    "bisection_bracket_trace",
+    "downslope_distance_crossing",
+    "parameter_cost_profile",
+    "calibration_convergence",
+    "calibration_trace",
+    "calibration_posterior",
+]
+
+# Ce que `hydrograph_log_nse` ne peut pas deviner. La fenetre de score est
+# une notion de CALIBRATION : la figure lit un run, et un run ne sait pas
+# sur quelle fenetre il a ete note. Sans elle la figure trace la serie
+# entiere, sans zone grisee. Le SCORE lui-meme n'est volontairement pas
+# pose ici : `nse_log =` existe, mais ce serait figer un resultat dans un
+# fichier d'entree, faux des la prochaine calibration.
+#
+# CETTE TABLE DOIT RESTER LA DERNIERE DU FICHIER. En TOML, tout ce qui
+# suit un en-tete de table lui appartient : placee avant `figures`, elle
+# avalait la liste et le run ne dessinait plus rien, sans que
+# `hmp config check` puisse s'en apercevoir puisque `overrides` accepte
+# n'importe quelle cle.
+[display.overrides.hydrograph_log_nse]
+scoring_window = ["2001-01-01", "2001-12-31"]
