@@ -456,6 +456,13 @@ are plain ``.parquet`` files. No suffix marks a container.
    * - ``observation_points.parquet``
      - ``sim_id``, ``station_id``, ``x``, ``y``, ``cell_id``, ``layer``,
        ``crs_wkt``, ``crs_epsg``: the points declared in ``[observation]``
+   * - ``sfr_reaches.parquet``
+     - ``sim_id``, ``network_id``, ``ifno``, ``cell2d``, ``layer``, ``rtp``,
+       ``rbth``, ``rlen``, ``rwid``, ``rgrd``, ``rhk``, ``manning``,
+       ``strahler``, ``ustrf``: the resolved SFR reach geometry. The MODFLOW
+       input files are scratch, so this is the only record of which cell
+       carries which reach and where its connection threshold ``rtp - rbth``
+       sits. Absent when the run built no stream network.
    * - ``provenance.parquet``
      - input provenance rows of the run
    * - ``geographic_*.parquet``

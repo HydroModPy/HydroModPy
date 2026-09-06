@@ -1,8 +1,13 @@
 """Delineate a MODFLOW 6 SFR reach network from DEM-derived flow products.
 
 Turns the raster products built by :mod:`river_network` (the stream-link-id
-raster, the D8 pointer, the flow accumulation and the corrected DEM) into an
+raster, the D8 pointer, the flow accumulation) and the model-top DEM into an
 ordered, explicitly-connected reach table -- the :class:`SfrReachTrace`.
+
+The trace follows the routing surface, which carries the stream burn, but the
+streambed elevation is read on the model top. Reading it on the burned surface
+would hand the trench depth to the solver as a bed incision: the reach would sit
+metres below its own cell top for a reason that is a routing artefact.
 
 The output is grid-independent geometry: each reach is a LineString (in the
 projected model CRS) plus its hydraulic attributes (length, streambed top,
@@ -170,7 +175,7 @@ def delineate_sfr_reaches(
     link_id: np.ndarray,
     d8: np.ndarray,
     acc: np.ndarray,
-    dem: np.ndarray,
+    top_dem: np.ndarray,
     transform,
     crs_wkt: str,
     dem_res_m: float,
@@ -183,13 +188,16 @@ def delineate_sfr_reaches(
 
     All arrays share one (rows, cols) grid and the ``transform`` affine. ``link_id``
     marks stream cells with a positive link id (0 / negative = non-stream).
-    ``acc`` is the D8 flow accumulation in cell counts. ``lake_mask`` (optional)
+    ``acc`` is the D8 flow accumulation in cell counts. ``top_dem`` is the MODEL
+    TOP, never the burned routing surface: it is the only array read for an
+    elevation, and the connectivity comes from ``link_id`` and ``d8``, which
+    already carry the burn. ``lake_mask`` (optional)
     labels lake cells with the 1-based lake number (0 elsewhere); a plain boolean
     mask also works (every lake then reads as lake 1). The reach flowing into a
     lake is flagged terminal-to-lake and tagged with that lake number.
     """
-    if link_id.shape != d8.shape or link_id.shape != dem.shape:
-        raise ValueError("link_id, d8 and dem must share one grid shape.")
+    if link_id.shape != d8.shape or link_id.shape != top_dem.shape:
+        raise ValueError("link_id, d8 and top_dem must share one grid shape.")
     cell_area_km2 = float(dem_res_m) * float(dem_res_m) / 1_000_000.0
     lake_label = None if lake_mask is None else np.asarray(lake_mask)
     lake = None if lake_label is None else (lake_label > 0)
@@ -240,8 +248,13 @@ def delineate_sfr_reaches(
             coords = [coords[0], tail]
         line = LineString(coords)
         rlen = max(float(line.length), float(dem_res_m))
-        top_head = float(dem[head])
-        top_outlet = float(dem[outlet])
+        top_head = float(top_dem[head])
+        top_outlet = float(top_dem[outlet])
+        if not (np.isfinite(top_head) and np.isfinite(top_outlet)):
+            raise ValueError(
+                f"SFR link {link} reads a nodata model top at {head} / {outlet}: "
+                "the top DEM does not cover the delineated stream network."
+            )
         rgrd = max((top_head - top_outlet) / rlen, float(min_slope))
         order_val = 1 if strahler is None else int(max(1, int(strahler[outlet])))
         area_km2 = float(acc[outlet]) * cell_area_km2
@@ -388,12 +401,24 @@ def _topological_downstream_order(
     return order
 
 
+def _top_with_nodata_as_nan(data: np.ndarray, nodata: float | None) -> np.ndarray:
+    """Return the model top as float, with the declared nodata turned into NaN.
+
+    A sentinel such as -9999 is a finite float, so a bed read on it would pass
+    every numeric check and place the reach kilometres underground.
+    """
+    top = data.astype(float)
+    if nodata is None:
+        return top
+    return np.where(top == float(nodata), np.nan, top)
+
+
 def build_sfr_reach_trace_from_products(
     *,
     stream_link_id_full_tif: str,
     d8_pointer_tif: str,
     flow_acc_cells_tif: str,
-    dem_correc_tif: str,
+    top_dem_tif: str,
     dem_res_m: float,
     stream_order_strahler_full_tif: str | None = None,
     lake_polygons: list | None = None,
@@ -403,8 +428,11 @@ def build_sfr_reach_trace_from_products(
 ) -> SfrReachTrace:
     """Read the FULL DEM-grid flow rasters and delineate the SFR reach trace.
 
-    All four rasters must share one affine and shape (the clipped per-watershed
-    rasters have a different extent and are rejected). ``lake_polygons`` (model
+    ``top_dem_tif`` is the MODEL TOP at full DEM extent, never the burned routing
+    surface and never a clipped per-watershed raster: it is where the streambed
+    elevation and the reach gradient are read. All four rasters must share one
+    affine and shape (the clipped rasters have a different extent and are
+    rejected). ``lake_polygons`` (model
     CRS) are rasterized onto the grid so the reach flowing into a lake is
     flagged terminal-to-lake. ``watershed_polygons`` (model CRS) restrict the
     stream links to the modelled catchment: the full-grid link raster covers
@@ -422,13 +450,15 @@ def build_sfr_reach_trace_from_products(
         "stream_link_id_full": stream_link_id_full_tif,
         "d8_pointer": d8_pointer_tif,
         "flow_acc_cells": flow_acc_cells_tif,
-        "dem_correc": dem_correc_tif,
+        "top_dem": top_dem_tif,
     }
     if stream_order_strahler_full_tif is not None:
         sources["stream_order_strahler_full"] = stream_order_strahler_full_tif
+    nodata_by_name: dict[str, float | None] = {}
     for name, path in sources.items():
         with rasterio.open(path) as dataset:
             data = dataset.read(1)
+            nodata_by_name[name] = dataset.nodata
             if reference is None:
                 reference = (name, dataset.transform, data.shape)
                 transform = dataset.transform
@@ -472,7 +502,7 @@ def build_sfr_reach_trace_from_products(
         link_id=link_id,
         d8=np.nan_to_num(arrays["d8_pointer"], nan=0.0).astype(int),
         acc=np.nan_to_num(arrays["flow_acc_cells"], nan=0.0),
-        dem=arrays["dem_correc"].astype(float),
+        top_dem=_top_with_nodata_as_nan(arrays["top_dem"], nodata_by_name["top_dem"]),
         transform=transform,
         crs_wkt=crs_wkt,
         dem_res_m=float(dem_res_m),

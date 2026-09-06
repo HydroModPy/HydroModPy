@@ -95,6 +95,28 @@ class SfrObsEntry:
 
 
 @dataclass(frozen=True)
+class SfrReachGeometry:
+    """Resolved geometry of one reach, as written into the MODFLOW package.
+
+    ``cell2d`` is ``None`` for a reach that carries flow without exchanging with
+    the aquifer. The connection threshold MODFLOW switches on is ``rtp - rbth``.
+    """
+
+    ifno: int
+    layer: int | None
+    cell2d: int | None
+    rlen: float
+    rwid: float
+    rgrd: float
+    rtp: float
+    rbth: float
+    rhk: float
+    manning: float
+    strahler: int
+    ustrf: float
+
+
+@dataclass(frozen=True)
 class SfrObsSpec:
     """Build-time description of the SFR outputs, persisted as a JSON sidecar."""
 
@@ -102,6 +124,7 @@ class SfrObsSpec:
     network_id: str
     reach_count: int
     entries: list[SfrObsEntry] = field(default_factory=list)
+    reaches: list[SfrReachGeometry] = field(default_factory=list)
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, Any]) -> SfrObsSpec:
@@ -115,11 +138,29 @@ class SfrObsSpec:
             )
             for item in payload.get("entries", [])
         ]
+        reaches = [
+            SfrReachGeometry(
+                ifno=int(item["ifno"]),
+                layer=None if item.get("layer") is None else int(item["layer"]),
+                cell2d=None if item.get("cell2d") is None else int(item["cell2d"]),
+                rlen=float(item["rlen"]),
+                rwid=float(item["rwid"]),
+                rgrd=float(item["rgrd"]),
+                rtp=float(item["rtp"]),
+                rbth=float(item["rbth"]),
+                rhk=float(item["rhk"]),
+                manning=float(item["manning"]),
+                strahler=int(item["strahler"]),
+                ustrf=float(item["ustrf"]),
+            )
+            for item in payload.get("reaches", [])
+        ]
         return cls(
             obs_csv=str(payload["obs_csv"]),
             network_id=str(payload.get("network_id", "")),
             reach_count=int(payload.get("reach_count", 0)),
             entries=entries,
+            reaches=reaches,
         )
 
 

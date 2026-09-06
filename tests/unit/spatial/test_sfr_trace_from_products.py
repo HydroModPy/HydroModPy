@@ -65,7 +65,7 @@ def test_trace_from_products_flags_terminal_to_lake(tmp_path: Path) -> None:
         stream_link_id_full_tif=paths["link"],
         d8_pointer_tif=paths["d8"],
         flow_acc_cells_tif=paths["acc"],
-        dem_correc_tif=paths["dem"],
+        top_dem_tif=paths["dem"],
         dem_res_m=_RES,
         stream_order_strahler_full_tif=paths["strahler"],
         lake_polygons=[lake],
@@ -86,7 +86,7 @@ def test_trace_from_products_without_lake_keeps_outlet_external(tmp_path: Path) 
         stream_link_id_full_tif=paths["link"],
         d8_pointer_tif=paths["d8"],
         flow_acc_cells_tif=paths["acc"],
-        dem_correc_tif=paths["dem"],
+        top_dem_tif=paths["dem"],
         dem_res_m=_RES,
     )
     assert trace.reach_count == 2
@@ -97,11 +97,11 @@ def test_trace_from_products_rejects_misaligned_rasters(tmp_path: Path) -> None:
     paths = _write_products(tmp_path)
     shifted_dem = np.zeros((_N, _N))
     paths["dem"] = _write_raster(tmp_path / "dem_shifted.tif", shifted_dem, west=500.0)
-    with pytest.raises(ValueError, match="misaligned.*dem_correc"):
+    with pytest.raises(ValueError, match="misaligned.*top_dem"):
         build_sfr_reach_trace_from_products(
             stream_link_id_full_tif=paths["link"],
             d8_pointer_tif=paths["d8"],
             flow_acc_cells_tif=paths["acc"],
-            dem_correc_tif=paths["dem"],
+            top_dem_tif=paths["dem"],
             dem_res_m=_RES,
         )

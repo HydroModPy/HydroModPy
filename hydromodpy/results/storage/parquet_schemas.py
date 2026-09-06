@@ -503,6 +503,103 @@ index finds the points again with the files themselves.
 """
 
 
+SFR_REACHES_SCHEMA: Final[pa.Schema] = pa.schema(
+    [
+        pa.field("sim_id", pa.string(), nullable=False),
+        pa.field(
+            "network_id",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(description="Id of the SFR network the reach belongs to"),
+        ),
+        pa.field(
+            "ifno",
+            pa.int32(),
+            nullable=False,
+            metadata=_field_meta(description="Zero-based reach number, increasing downstream"),
+        ),
+        pa.field(
+            "cell2d",
+            pa.int32(),
+            nullable=True,
+            metadata=_field_meta(description="Mesh cell carrying the reach; null when unconnected"),
+        ),
+        pa.field(
+            "layer",
+            pa.int32(),
+            nullable=True,
+            metadata=_field_meta(description="Zero-based layer the reach exchanges with"),
+        ),
+        pa.field(
+            "rtp",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="Streambed top elevation, model length units"),
+        ),
+        pa.field(
+            "rbth",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(
+                description="Streambed thickness; MODFLOW switches connection at rtp - rbth"
+            ),
+        ),
+        pa.field(
+            "rlen",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="Reach length inside its cell"),
+        ),
+        pa.field(
+            "rwid",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="Reach width"),
+        ),
+        pa.field(
+            "rgrd",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="Reach gradient, dimensionless"),
+        ),
+        pa.field(
+            "rhk",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="Streambed hydraulic conductivity, m/s"),
+        ),
+        pa.field(
+            "manning",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="Manning roughness of the reach"),
+        ),
+        pa.field(
+            "strahler",
+            pa.int32(),
+            nullable=False,
+            metadata=_field_meta(description="Strahler order read at the link outlet"),
+        ),
+        pa.field(
+            "ustrf",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="Fraction of upstream flow routed into the reach"),
+        ),
+    ],
+    metadata=_schema_metadata(
+        "sfr_reaches",
+        pk=("sim_id", "network_id", "ifno"),
+    ),
+)
+"""Resolved geometry of every SFR reach, as written into the MODFLOW package.
+
+The MODFLOW input files are scratch, so without this table a sealed run cannot
+say which cell carries which reach, at what bed elevation, nor where the
+connection threshold ``rtp - rbth`` sits. Every figure that wants to draw the
+streambed reads it here.
+"""
+
 # Geographic vector files are NOT declared as a pa.Schema here: they are written
 # by ``geopandas.to_parquet`` (OGC GeoParquet 1.1) and carry every column of the
 # source GeoDataFrame plus the ``geo`` OGC metadata key, so no fixed pyarrow
@@ -519,6 +616,7 @@ VIEW_SCHEMAS: Final[dict[str, pa.Schema]] = {
     "metrics": METRICS_SCHEMA,
     "provenance": PROVENANCE_SCHEMA,
     "observation_points": OBSERVATION_POINTS_SCHEMA,
+    "sfr_reaches": SFR_REACHES_SCHEMA,
 }
 """Map of per-simulation view name to declared :class:`pa.Schema`."""
 
@@ -533,6 +631,15 @@ def schema_for(view_name: str) -> pa.Schema:
         return VIEW_SCHEMAS[view_name]
     except KeyError as exc:
         raise KeyError(f"Unknown Parquet view: {view_name!r}") from exc
+
+
+def primary_key_for(view_name: str) -> tuple[str, ...]:
+    """Return the declared primary key of ``view_name``, from its schema metadata."""
+    metadata = schema_for(view_name).metadata or {}
+    raw = metadata.get(b"hmp.pk")
+    if raw is None:
+        raise KeyError(f"Parquet view {view_name!r} declares no primary key")
+    return tuple(raw.decode("utf-8").split(","))
 
 
 def check_schema_version(metadata: dict[bytes, bytes] | dict[str, str] | None) -> None:
@@ -574,7 +681,9 @@ __all__ = [
     "PROVENANCE_SCHEMA",
     "ParquetSchemaVersionError",
     "TIMESERIES_SCHEMA",
+    "SFR_REACHES_SCHEMA",
     "VIEW_SCHEMAS",
     "check_schema_version",
+    "primary_key_for",
     "schema_for",
 ]

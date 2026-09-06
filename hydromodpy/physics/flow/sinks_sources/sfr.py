@@ -235,10 +235,10 @@ class FlowReachNetworkConfig(HydroModelBase):
             "bottom and no ceiling, which is what every run before this field did. When "
             "set, each reach is solved inside [cell_top - bed_incision - max_bed_sag, "
             "cell_top - bed_incision], monotone downstream, and the build refuses when "
-            "that band is empty. Set it whenever the routing DEM is burned "
-            "([geographic.enforce_streams]), because rtp is read from that burned DEM "
-            "while the aquifer top is the raw one, so the burn depth silently becomes the "
-            "bed incision. Pick it against the water table, not against the channel: "
+            "that band is empty. rtp is delineated on the model top, so this anchors a "
+            "bed that a coarse DEM cannot resolve; it is not a correction for the stream "
+            "burn, which never reaches the bed. Pick it against the water table, not "
+            "against the channel: "
             "MODFLOW 6 switches a reach between connected and disconnected at rtp minus "
             "streambed_thickness (gwf-sfr.f90:3973-3985), so a bed sitting near the "
             "seasonal water-table depth toggles at every outer iteration."
@@ -248,9 +248,10 @@ class FlowReachNetworkConfig(HydroModelBase):
         default="5 m",
         description=(
             "Only read when bed_incision is set. How far [L] below cell_top - bed_incision "
-            "the monotone-downstream solve may sink a reach before the build refuses. It "
-            "bounds the cumulative descent that a traced channel climbing over a rise "
-            "forces on everything downstream of it."
+            "the monotone-downstream solve may sink a reach. It bounds the cumulative "
+            "descent that a traced channel climbing over a rise forces on everything "
+            "downstream of it. Widening it never refuses the build on its own: a reach "
+            "that cannot hold the descent is warned about and pinned to the floor."
         ),
     )
 

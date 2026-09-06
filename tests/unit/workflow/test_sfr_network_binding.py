@@ -57,11 +57,14 @@ def _geographic_double(tmp_path: Path, *, threshold_cells: float = 50.0) -> Simp
     )
     flow_products = SimpleNamespace(
         direc=_write_raster(tmp_path / "d8.tif", d8),
-        correc=_write_raster(tmp_path / "dem_correc.tif", dem),
+        correc=_write_raster(tmp_path / "dem_correc.tif", dem - 10.0),
     )
     return SimpleNamespace(
         _river_network_products=products,
         _flow_products=flow_products,
+        # The routing surface above is trenched by 10 m; the bed must come from
+        # this one, so a reach top that reads 10 m low proves the wrong source.
+        _top_dem_path=_write_raster(tmp_path / "dem_top.tif", dem),
         dem_res=_RES,
     )
 
@@ -144,3 +147,20 @@ def test_apply_sfr_network_to_flow_without_traces_is_noop() -> None:
     flow = _flow_double(_network_config())
     assert apply_sfr_network_to_flow(flow=flow, reach_traces=None) is False
     assert apply_sfr_network_to_flow(flow=flow, reach_traces={}) is False
+
+
+def test_bind_sfr_network_traces_reads_the_bed_on_the_model_top(tmp_path: Path) -> None:
+    # The geographic double trenches its routing surface by 10 m. Binding must
+    # ignore it: a reach top read there would come out one trench depth low.
+    run_state = _run_state(tmp_path, _network_config())
+    bind_sfr_network_traces(run_state)
+    tops = [reach.rtp for reach in run_state.setup.sfr_reach_traces["net0"].reaches]
+    assert tops
+    assert min(tops) > 0.0
+
+
+def test_bind_sfr_network_traces_names_a_missing_model_top(tmp_path: Path) -> None:
+    run_state = _run_state(tmp_path, _network_config())
+    run_state.setup.geographic._top_dem_path = None
+    with pytest.raises(ConfigError, match="model-top DEM"):
+        bind_sfr_network_traces(run_state)

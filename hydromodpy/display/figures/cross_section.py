@@ -4,6 +4,12 @@ Draws the classic hydrogeological section: land surface, water table, the
 saturated body between them, the model layers below, and the seepage
 segments where the water table outcrops. The section is defined in map
 coordinates, so it is valid whatever the grid type.
+
+Where the line crosses a stream reach it also marks the streambed and the
+elevation at which MODFLOW disconnects the reach from the aquifer. Without
+them a reader compares the water table to the land surface, while the solver
+compares it to a threshold set metres lower, so a connected reach reads as a
+detached water table.
 """
 
 from __future__ import annotations
@@ -44,6 +50,7 @@ class CrossSection(BaseFigure):
         title="Cross-section",
         kind="section",
         required_fields=("watertable_elevation", "topography"),
+        optional_fields=("streambed_top", "streambed_connection"),
         default_figsize=(8.0, 4.5),
     )
 
@@ -118,6 +125,7 @@ class CrossSection(BaseFigure):
         ax.plot(distance, topography, color="saddlebrown", lw=1.8, label="Topography")
         ax.plot(distance, watertable, color="navy", lw=1.8, label="Water table")
 
+        self._mark_streambed(ax, sim, transect)
         self._mark_seepage(ax, sim, transect, topography, step)
 
         ax.set_xlabel("Distance along section (m)")
@@ -127,6 +135,57 @@ class CrossSection(BaseFigure):
         place_legend(ax, fontsize=8, framealpha=0.9)
         ax.set_title(f"{self.spec.title} - {sim.name or sim.sim_id}\n{_line_label(transect)}")
         return ax
+
+    @staticmethod
+    def _mark_streambed(ax: Axes, sim: Run, transect) -> None:
+        """Mark the streambed and the connection threshold where the line crosses one.
+
+        Reaches occupy isolated cells along the line, so this draws markers and
+        not a continuous profile: joining them would invent a channel between
+        two crossings that the section never meets.
+        """
+        if not sim.has_field("streambed_top"):
+            return
+        bed = transect.sample(np.asarray(sim.field("streambed_top")))
+        on_reach = np.isfinite(bed)
+        if not on_reach.any():
+            return
+        distance = transect.distance
+        ax.scatter(
+            distance[on_reach],
+            bed[on_reach],
+            s=26,
+            marker="_",
+            linewidths=2.0,
+            color="teal",
+            zorder=6,
+            label="Streambed",
+        )
+        if not sim.has_field("streambed_connection"):
+            return
+        threshold = transect.sample(np.asarray(sim.field("streambed_connection")))
+        visible = np.isfinite(threshold)
+        if not visible.any():
+            return
+        ax.scatter(
+            distance[visible],
+            threshold[visible],
+            s=26,
+            marker="_",
+            linewidths=1.4,
+            color="firebrick",
+            zorder=6,
+            label="Disconnection threshold",
+        )
+        ax.vlines(
+            distance[visible],
+            threshold[visible],
+            bed[visible],
+            color="firebrick",
+            lw=0.8,
+            alpha=0.55,
+            zorder=5,
+        )
 
     @staticmethod
     def _mark_seepage(
