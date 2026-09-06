@@ -40,36 +40,26 @@ y_outlet = 6816518.749
 snap_dist = "150 m"
 buff_area = "10%"
 
-# Le burn de 30 m est celui de la reference DRN, donc la delineation est
-# la meme et les deux montages restent comparables. Il redevient possible
-# en SFR parce que `bed_incision` coupe le lien entre la profondeur du
-# burn et la cote du lit : le `rtp` est lu sur le MNT CORRIGE, donc sans
-# ce garde-fou le burn devenait l'incision du lit et posait les lits au
-# mur de l'aquifere.
+# Le burn est celui de la reference DRN, donc la delineation est la meme
+# et les trois montages restent comparables.
 [geographic.enforce_streams]
 enabled = true
 stream_geometry_path = "nancon_stream_network.gpkg"
 mode = "constant"
 # 10 m et non 30. Le TRACE derive est strictement identique des 10 m (1535
 # mailles, Jaccard 1,000, et a 5 m 81 mailles du bassin changent encore de
-# direction D8). Mais le trace n'est pas tout le modele : mesure entre les deux
-# runs, 201 biefs sur 1536 recoivent une COTE DE LIT differente, jusqu'a 4,36 m,
-# toujours plus basse a 30 m. Sur ces biefs la mediane du lit passe de 2,61 m a
-# 5,48 m sous le toit de sa maille. 10 m vaut donc mieux que 30, et pas
-# seulement parce que le trace ne bouge plus.
+# direction D8). 30 m ne fait donc rien gagner sur le routage.
 #
-# CE QUE LE BURN TRAVERSE QUAND MEME. La pente `rgrd` d'un bief est lue sur ce
-# MNT burne et livree telle quelle au solveur : `solve_reach_bed_profile` ne
-# borne que la COTE, jamais la pente. Sur les liens dont la tete est en amont du
-# lineaire cartographie alors que l'exutoire est dessus, la pente encaisse
-# exactement depth_m / longueur_du_lien. Mesure a 30 m, cela touchait 409 biefs
-# sur 1536 avec une pente 1,94 fois trop forte en mediane. Diviser la profondeur
-# par trois divise cet exces d'autant.
+# CE QUE LE BURN NE TRAVERSE PLUS. La cote de lit `rtp` ET la pente `rgrd` sont
+# desormais lues sur le MNT DU TOIT, plus sur ce MNT burne. La profondeur de la
+# tranchee ne peut donc plus devenir l'incision du lit ni gonfler la pente : sur
+# le Nancon, 84,7 % des 9,96 m medians de profondeur de lit venaient de la, et
+# le lit remonte de 3,755 m en mediane apres correction.
 #
-# Ce reglage abaisse le MNT DE ROUTAGE, pas l'aquifere : le toit du modele
-# reste le MNT brut, verifie au bit pres. Il ne creuse rien pour raccorder les
-# biefs vers l'aval, c'est `min_slope` et le conditionnement monotone qui s'en
-# chargent, et `bed_incision` qui ancre le lit sous le toit de sa maille.
+# Ce reglage abaisse le MNT DE ROUTAGE, pas l'aquifere, et il ne sert plus qu'a
+# ce pour quoi il existe : tenir les chemins D8 sur le lineaire cartographie.
+# Le raccordement des biefs vers l'aval revient a `min_slope`, au conditionnement
+# monotone, et a `bed_incision` qui ancre le lit sous le toit de sa maille.
 depth_m = 10.0
 
 # Reseau derive du MNT, qui porte la topologie des biefs.
