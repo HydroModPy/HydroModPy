@@ -498,6 +498,10 @@ def build_sfr_package_args(
 
     packagedata: list[list[Any]] = []
     connectiondata: list[list[Any]] = []
+    # The resolved geometry never reaches the store otherwise: the MODFLOW input
+    # files are scratch, so a run cannot say afterwards which cell carries which
+    # reach, at what bed elevation, nor where the connection threshold sits.
+    reach_geometry: list[dict[str, Any]] = []
     for record in reaches:
         ncon = len(record.upstream) + len(record.downstream)
         cellid = record.cellid if record.cellid is not None else _UNCONNECTED_CELLID
@@ -517,6 +521,22 @@ def build_sfr_package_args(
                 float(record.ustrf),
                 int(ndv_by_reach.get(record.ifno, 0)),
             ]
+        )
+        reach_geometry.append(
+            {
+                "ifno": int(record.ifno),
+                "layer": None if record.cellid is None else int(cellid[0]),
+                "cell2d": None if record.cellid is None else int(cellid[1]),
+                "rlen": float(record.rlen),
+                "rwid": float(record.rwid),
+                "rgrd": float(record.rgrd),
+                "rtp": float(rtp_val),
+                "rbth": float(rbth),
+                "rhk": float(rhk),
+                "manning": float(manning),
+                "strahler": int(record.strahler),
+                "ustrf": float(record.ustrf),
+            }
         )
         row: list[Any] = [int(record.ifno)]
         row.extend(int(up) for up in record.upstream)
@@ -568,6 +588,7 @@ def build_sfr_package_args(
     if ts_series:
         args["ts_specs"] = ts_series
     args["obs_continuous"] = obs_continuous
+    sfr_obs_meta["reaches"] = reach_geometry
     args["sfr_obs_meta"] = sfr_obs_meta
     return args
 

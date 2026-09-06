@@ -352,6 +352,31 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         cell_methods="area: mean",
         derived_by="core",
     ),
+    "streambed_top": FieldDescriptor(
+        public_name="streambed_top",
+        zarr_path="mesh/streambed_top",
+        standard_name="altitude",
+        csdms_standard_name="channel_bottom_water-sediment__elevation",
+        long_name="SFR streambed top elevation, NaN where no reach",
+        units="m",
+        shape=SHAPE_FACE,
+        cell_methods="area: point",
+        derived_by="solver",
+    ),
+    "streambed_connection": FieldDescriptor(
+        public_name="streambed_connection",
+        zarr_path="mesh/streambed_connection",
+        standard_name="altitude",
+        csdms_standard_name="channel_bottom_water-sediment__elevation",
+        long_name=(
+            "Head below which an SFR reach disconnects from the aquifer "
+            "(rtp - streambed thickness), NaN where no reach"
+        ),
+        units="m",
+        shape=SHAPE_FACE,
+        cell_methods="area: point",
+        derived_by="solver",
+    ),
     "layer_thickness": FieldDescriptor(
         public_name="layer_thickness",
         zarr_path="mesh/layer_thickness",

@@ -197,6 +197,8 @@ def write_mesh(
     *,
     topography_reference: np.ndarray | None = None,
     layer_thickness: np.ndarray | None = None,
+    streambed_top: np.ndarray | None = None,
+    streambed_connection: np.ndarray | None = None,
     start_index: int = 0,
     grid_type: str | None = None,
     structured_shape: tuple[int, int] | None = None,
@@ -268,6 +270,14 @@ def write_mesh(
                     "units": "m",
                 },
             )
+        for name, values in (
+            ("streambed_top", streambed_top),
+            ("streambed_connection", streambed_connection),
+        ):
+            if values is None:
+                continue
+            arr = _write_array(store_obj, mesh, name, np.asarray(values, dtype="float64"))
+            update_attrs(arr, attrs_for_field(name, arr.dtype))
         if layer_thickness is not None:
             thickness_arr = _write_array(
                 store_obj,

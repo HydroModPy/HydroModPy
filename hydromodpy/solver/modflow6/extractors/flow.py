@@ -45,6 +45,68 @@ def _listing_path(solver_output_dir: Path, model_name: str) -> Path:
     return Path(solver_output_dir) / f"{mf6_safe_name(model_name)}.lst"
 
 
+def _streambed_face_arrays(
+    solver_output_dir: Path, model_name: str, n_cells: int
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """Return the per-face streambed top and connection threshold, or None.
+
+    A cross-section drawn against the land surface alone cannot say whether a
+    reach is connected: MODFLOW switches on ``rtp - streambed_thickness``, which
+    sits metres lower. These two arrays put that threshold in the store.
+    """
+    from hydromodpy.solver.modflow6.extractors.sfr import read_sfr_meta
+
+    spec = read_sfr_meta(solver_output_dir / f"{model_name}.sfr.meta.json")
+    if spec is None or not spec.reaches:
+        return None
+    top = np.full(n_cells, np.nan, dtype="float64")
+    threshold = np.full(n_cells, np.nan, dtype="float64")
+    for reach in spec.reaches:
+        cell = reach.cell2d
+        if cell is None or not 0 <= cell < n_cells:
+            continue
+        # A cell can carry two reaches; the lower bed is the one that drains it.
+        if np.isnan(top[cell]) or reach.rtp < top[cell]:
+            top[cell] = reach.rtp
+            threshold[cell] = reach.rtp - reach.rbth
+    if not np.isfinite(top).any():
+        return None
+    return top, threshold
+
+
+def _write_sfr_reach_geometry(sim_id: str, store: Any, spec: Any) -> None:
+    """Persist the resolved reach geometry the MODFLOW scratch files take away.
+
+    A run is sealed without its solver workspace, so this table is the only
+    record of which cell carries which reach and where its connection threshold
+    ``rtp - rbth`` sits.
+    """
+    if not spec.reaches:
+        return
+    rows = [
+        {
+            "network_id": spec.network_id,
+            "ifno": reach.ifno,
+            "cell2d": reach.cell2d,
+            "layer": reach.layer,
+            "rtp": reach.rtp,
+            "rbth": reach.rbth,
+            "rlen": reach.rlen,
+            "rwid": reach.rwid,
+            "rgrd": reach.rgrd,
+            "rhk": reach.rhk,
+            "manning": reach.manning,
+            "strahler": reach.strahler,
+            "ustrf": reach.ustrf,
+        }
+        for reach in spec.reaches
+    ]
+    try:
+        store.write_view(sim_id, "sfr_reaches", rows)
+    except Exception:
+        logger.debug("Could not persist the SFR reach geometry", exc_info=True)
+
+
 def _budget_field(row: Any, names: tuple[str, ...] | None, key: str) -> float:
     """Return one MF6 listing-budget field, or 0.0 when the field is absent."""
     return float(row[key]) if names is not None and key in names else 0.0
@@ -508,6 +570,7 @@ class Modflow6OutputAdapter:
                         lake_zarr.close()
             if budgets:
                 store.write_budgets(sim_id, budgets)
+            _write_sfr_reach_geometry(sim_id, store, spec)
 
     def _extract_lake_abacus(
         self,
@@ -835,6 +898,7 @@ class Modflow6OutputAdapter:
 
             sz = store.open_zarr(sim_id)
             try:
+                streambed = _streambed_face_arrays(solver_output_dir, model_name, n_cells)
                 sz.write_mesh(
                     vertices=vertices,
                     face_node_connectivity=face_node_connectivity,
@@ -842,6 +906,8 @@ class Modflow6OutputAdapter:
                     topography=top,
                     topography_reference=topography_reference,
                     layer_thickness=_layer_thickness(top, botm_per_layer),
+                    streambed_top=None if streambed is None else streambed[0],
+                    streambed_connection=None if streambed is None else streambed[1],
                     grid_type=grid_type,
                     structured_shape=structured_shape,
                 )

@@ -39,9 +39,10 @@ from hydromodpy.results.storage.parquet_io import read_kv_metadata, write_table_
 from hydromodpy.results.storage.parquet_schemas import (
     BUDGETS_SCHEMA,
     MASS_BALANCE_SCHEMA,
-    OBSERVATION_POINTS_SCHEMA,
     PARQUET_SCHEMA_VERSION,
     TIMESERIES_SCHEMA,
+    primary_key_for,
+    schema_for,
 )
 
 if TYPE_CHECKING:
@@ -344,39 +345,40 @@ class WritesMixinParquet:
         )
 
     @with_lock_retry()
-    def write_observation_points(
+    def write_view(
         self,
         sim_id: str | UUID,
+        view_name: str,
         records: Sequence[Mapping[str, Any]],
     ) -> None:
-        """Persist the observation points a run declared and sampled.
+        """Persist one declared Parquet view of a run into its run directory.
 
-        ``records`` carry ``station_id``, ``x``, ``y``, ``cell_id`` and
-        ``layer``; the CRS defaults to the one recorded for the simulation.
-        The payload lands in the run directory, which is the only home this
-        declaration has: an index rebuilt from the runs reads it back through
-        the ``observation_points`` view.
+        The run directory is the only home these declarations have: an index
+        rebuilt from the runs finds them again through the view, which globs the
+        run directories. ``sim_id`` is filled in, and a view whose schema
+        declares ``crs_wkt`` / ``crs_epsg`` inherits the simulation CRS.
         """
         if not self._persistence.save_parquet:
             return
         if not records:
             return
         sid = str(sim_id)
-        crs_wkt, crs_epsg = self._simulation_crs(sid)
+        schema = schema_for(view_name)
+        names = set(schema.names)
+        crs_wkt, crs_epsg = self._simulation_crs(sid) if "crs_wkt" in names else ("", None)
         normalised: list[dict[str, Any]] = []
         for record in records:
-            row = dict(record)
-            row.setdefault("sim_id", sid)
-            row.setdefault("crs_wkt", crs_wkt)
-            row.setdefault("crs_epsg", crs_epsg)
-            row["cell_id"] = int(row["cell_id"])
-            row["layer"] = int(row.get("layer") or 0)
+            row = {key: value for key, value in record.items() if key in names}
+            row["sim_id"] = sid
+            if "crs_wkt" in names:
+                row.setdefault("crs_wkt", crs_wkt)
+                row.setdefault("crs_epsg", crs_epsg)
             normalised.append(row)
         self._write_parquet_records(
-            target=self._paths.table_path_for(sid, "observation_points"),
+            target=self._paths.table_path_for(sid, view_name),
             records=normalised,
-            schema=OBSERVATION_POINTS_SCHEMA,
-            pk_cols=("sim_id", "station_id"),
+            schema=schema,
+            pk_cols=primary_key_for(view_name),
             sim_id=sid,
         )
 

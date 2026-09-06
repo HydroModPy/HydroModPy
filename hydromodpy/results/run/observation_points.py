@@ -90,7 +90,7 @@ def sample_observation_points(
             }
         )
     if resolved:
-        catalog.write_observation_points(sim_id, resolved)
+        catalog.write_view(sim_id, "observation_points", resolved)
     logger.info("Sampled %d observation series for sim %s", written, sim_id)
     return written
 
