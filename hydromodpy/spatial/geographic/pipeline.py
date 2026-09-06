@@ -27,6 +27,7 @@ from hydromodpy.spatial.geographic.core.lake_enforcement import (
     capture_from_config,
     routing_dem_from_config,
     top_dem_from_config,
+    top_dem_path_from_config,
 )
 from hydromodpy.spatial.geographic.core.pipeline_steps import (
     build_standard_catchment,
@@ -94,6 +95,7 @@ class GeographicRuntimeContext:
     dem_metadata: DemMetadata
     river_network_products: RiverNetworkProducts
     catchment_area_km2: float
+    top_dem_path: str
     crs_project: str | None
     epsg: int | None
     dem_res: float
@@ -119,6 +121,7 @@ class GeographicRuntimeContext:
                 "_dem_metadata": self.dem_metadata,
                 "_river_network_products": self.river_network_products,
                 "_flow_products": self.flow_products,
+                "_top_dem_path": self.top_dem_path,
             }
         )
         attrs.update(self.dem_metadata.runtime_attributes())
@@ -659,6 +662,7 @@ def build_geographic_runtime_context(
         dem_metadata=dem_metadata,
         river_network_products=river_network_products,
         catchment_area_km2=catchment_area_km2,
+        top_dem_path=top_dem_path_from_config(config, setup),
         crs_project=setup.crs_project,
         epsg=setup.epsg,
         dem_res=setup.dem_res,

@@ -312,6 +312,14 @@ def bind_sfr_network_traces(run_state: WorkflowContext) -> None:
                 "flow.sinks_sources.sfr needs the regional flow products (corrected "
                 "DEM + D8 pointer); run the geographic preprocessing first."
             )
+        # The streambed elevation is read on the model top, never on the routing
+        # surface: the stream burn belongs to the flow paths, not to the bed.
+        top_dem_tif = getattr(geographic, "_top_dem_path", None)
+        if top_dem_tif is None:
+            raise ConfigError(
+                "flow.sinks_sources.sfr needs the model-top DEM to read the streambed "
+                "elevation; run the geographic preprocessing first."
+            )
         dem_res_m = float(geographic.dem_res)
         # Lake polygons in LAK packagedata order (the lakes dict order, which the
         # solver also enumerates): the delineation burns each with its 1-based
@@ -338,7 +346,7 @@ def bind_sfr_network_traces(run_state: WorkflowContext) -> None:
                 stream_link_id_full_tif=str(link_full),
                 d8_pointer_tif=str(flow_products.direc),
                 flow_acc_cells_tif=str(products.flow_acc_cells_tif),
-                dem_correc_tif=str(flow_products.correc),
+                top_dem_tif=str(top_dem_tif),
                 dem_res_m=dem_res_m,
                 stream_order_strahler_full_tif=getattr(
                     products, "stream_order_strahler_full_tif", None

@@ -571,6 +571,21 @@ def carve_dam_into_top_dem(
     return n_carved, floor
 
 
+TOP_DEM_DAM_CARVED_FILENAME = "dem_top_dam_carved.tif"
+"""Name of the model-top DEM written when ``dam_carve`` is enabled."""
+
+
+def top_dem_path_from_config(config: object, setup: object) -> str:
+    """Return the model-top DEM path without carving anything.
+
+    The geographic cache branch needs the path but must not redo the carve.
+    """
+    dc = getattr(config, "dam_carve", None)
+    if dc is None or not getattr(dc, "enabled", False):
+        return str(setup.dem_init_path)
+    return str(Path(setup.paths.correcflow_path) / TOP_DEM_DAM_CARVED_FILENAME)
+
+
 def top_dem_from_config(config: object, setup: object) -> str:
     """Return the model-top DEM: the dam carved to the valley floor if configured, else raw.
 
@@ -582,7 +597,7 @@ def top_dem_from_config(config: object, setup: object) -> str:
     if dc is None or not getattr(dc, "enabled", False):
         return str(setup.dem_init_path)
     lines = _dam_lines_from_config(dc, setup)
-    out_path = str(Path(setup.paths.correcflow_path) / "dem_top_dam_carved.tif")
+    out_path = top_dem_path_from_config(config, setup)
     carve_dam_into_top_dem(
         dem_in_path=str(setup.dem_init_path),
         dem_out_path=out_path,

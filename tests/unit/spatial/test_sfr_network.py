@@ -94,7 +94,7 @@ def _delineate(lake: bool) -> SfrReachTrace:
         link_id=g["link"],
         d8=g["d8"],
         acc=g["acc"],
-        dem=g["dem"],
+        top_dem=g["dem"],
         transform=_TRANSFORM,
         crs_wkt="EPSG:2154",
         dem_res_m=_RES,
@@ -126,7 +126,7 @@ def test_link_gap_is_bridged_by_the_d8_path() -> None:
         link_id=link,
         d8=d8,
         acc=acc,
-        dem=dem,
+        top_dem=dem,
         transform=_TRANSFORM,
         crs_wkt="EPSG:2154",
         dem_res_m=_RES,
@@ -159,7 +159,7 @@ def test_bare_outlet_is_unflagged_for_the_solver_to_route() -> None:
         link_id=link,
         d8=d8,
         acc=acc,
-        dem=dem,
+        top_dem=dem,
         transform=_TRANSFORM,
         crs_wkt="EPSG:2154",
         dem_res_m=_RES,
@@ -240,7 +240,7 @@ def test_link_crossing_the_lake_is_truncated_at_the_shoreline() -> None:
         link_id=g["link"],
         d8=g["d8"],
         acc=g["acc"],
-        dem=g["dem"],
+        top_dem=g["dem"],
         transform=_TRANSFORM,
         crs_wkt="EPSG:2154",
         dem_res_m=_RES,
@@ -301,7 +301,7 @@ def test_two_labeled_lakes_tag_distinct_terminals() -> None:
         link_id=g["link"],
         d8=g["d8"],
         acc=g["acc"],
-        dem=g["dem"],
+        top_dem=g["dem"],
         transform=Affine(_RES, 0.0, 0.0, 0.0, -_RES, 3 * _RES),
         crs_wkt="EPSG:2154",
         dem_res_m=_RES,
@@ -324,7 +324,7 @@ def test_truncation_tags_the_lake_label() -> None:
         link_id=g["link"],
         d8=g["d8"],
         acc=g["acc"],
-        dem=g["dem"],
+        top_dem=g["dem"],
         transform=_TRANSFORM,
         crs_wkt="EPSG:2154",
         dem_res_m=_RES,
@@ -335,3 +335,86 @@ def test_truncation_tags_the_lake_label() -> None:
     terminal = [r for r in trace.reaches if r.is_terminal_to_lake]
     assert len(terminal) == 1
     assert terminal[0].terminal_lake == 2
+
+
+def test_the_stream_burn_never_reaches_the_streambed() -> None:
+    # The routing DEM is trenched along the mapped network so the D8 paths follow
+    # the map. That trench must stay in the flow paths: a bed read on it would sit
+    # one trench depth below its own cell top for a reason that is preprocessing,
+    # not hydrogeology. link_id and d8 already carry the burn, so delineating on
+    # the raw top and on the burned surface must give the same reaches with
+    # different elevations, and the same elevations as the raw top alone.
+    g = _synthetic_network()
+    burned = g["dem"].copy()
+    burned[g["link"] > 0] -= 10.0
+
+    on_top = delineate_sfr_reaches(
+        link_id=g["link"],
+        d8=g["d8"],
+        acc=g["acc"],
+        top_dem=g["dem"],
+        transform=_TRANSFORM,
+        crs_wkt="EPSG:2154",
+        dem_res_m=_RES,
+        strahler=g["strahler"],
+        min_slope=1e-4,
+    )
+    on_burn = delineate_sfr_reaches(
+        link_id=g["link"],
+        d8=g["d8"],
+        acc=g["acc"],
+        top_dem=burned,
+        transform=_TRANSFORM,
+        crs_wkt="EPSG:2154",
+        dem_res_m=_RES,
+        strahler=g["strahler"],
+        min_slope=1e-4,
+    )
+
+    assert [r.ifno for r in on_top.reaches] == [r.ifno for r in on_burn.reaches]
+    assert [r.downstream for r in on_top.reaches] == [r.downstream for r in on_burn.reaches]
+    # One trench depth, exactly: nothing else in the geometry moved.
+    for raw, dug in zip(on_top.reaches, on_burn.reaches, strict=True):
+        assert dug.rtp == pytest.approx(raw.rtp - 10.0)
+        assert dug.rgrd == pytest.approx(raw.rgrd)
+
+
+def test_a_nodata_model_top_under_a_reach_is_named_not_silently_used() -> None:
+    # A nodata sentinel is a finite float, so a bed read on it passes every
+    # numeric check and lands kilometres underground. It must name the link.
+    g = _synthetic_network()
+    top = g["dem"].copy()
+    top[4, 1] = np.nan
+    with pytest.raises(ValueError, match="nodata model top"):
+        delineate_sfr_reaches(
+            link_id=g["link"],
+            d8=g["d8"],
+            acc=g["acc"],
+            top_dem=top,
+            transform=_TRANSFORM,
+            crs_wkt="EPSG:2154",
+            dem_res_m=_RES,
+            strahler=g["strahler"],
+            min_slope=1e-4,
+        )
+
+
+def test_a_top_that_rises_downstream_still_gives_a_positive_gradient() -> None:
+    # The routing DEM is breached, the model top is not: a link head can sit lower
+    # than its own outlet on the raw surface. The gradient must fall back on the
+    # declared floor instead of going negative and breaking Manning.
+    g = _synthetic_network()
+    top = g["dem"].copy()
+    top[2, 1], top[3, 1], top[4, 1] = 6.0, 7.0, 8.0  # main channel climbs downstream
+    trace = delineate_sfr_reaches(
+        link_id=g["link"],
+        d8=g["d8"],
+        acc=g["acc"],
+        top_dem=top,
+        transform=_TRANSFORM,
+        crs_wkt="EPSG:2154",
+        dem_res_m=_RES,
+        strahler=g["strahler"],
+        min_slope=1e-3,
+    )
+    assert all(reach.rgrd >= 1e-3 for reach in trace.reaches)
