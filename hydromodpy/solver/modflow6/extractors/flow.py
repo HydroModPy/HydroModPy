@@ -104,7 +104,14 @@ def _write_sfr_reach_geometry(sim_id: str, store: Any, spec: Any) -> None:
     try:
         store.write_view(sim_id, "sfr_reaches", rows)
     except Exception:
-        logger.debug("Could not persist the SFR reach geometry", exc_info=True)
+        # Nothing else records it: the MODFLOW files are scratch, so losing this
+        # write loses the geometry for good. Say so out loud.
+        logger.warning(
+            "Could not persist the SFR reach geometry for sim %s; the sealed run "
+            "will not say which cell carries which reach.",
+            sim_id,
+            exc_info=True,
+        )
 
 
 def _budget_field(row: Any, names: tuple[str, ...] | None, key: str) -> float:

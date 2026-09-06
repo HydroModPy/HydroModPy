@@ -388,6 +388,42 @@ def test_cross_section_samples_topography_and_watertable_along_a_line(mpl) -> No
     mpl.close(fig)
 
 
+def test_cross_section_marks_the_streambed_and_its_disconnection_threshold(mpl) -> None:
+    # MODFLOW disconnects a reach at rtp minus the streambed thickness, metres
+    # below the ground. A section that only draws the land surface cannot say
+    # whether a reach is connected, so both elevations must reach the axes, and
+    # the threshold must sit under the bed.
+    class _WithStreambed(_Run):
+        def field(self, variable: str, **kwargs):
+            if variable == "streambed_top":
+                return self._values - 1.0
+            if variable == "streambed_connection":
+                return self._values - 2.0
+            return super().field(variable, **kwargs)
+
+    fig, ax = mpl.subplots()
+    CrossSection().render(_WithStreambed(), ax, line=[0.0, 0.5, 2.0, 0.5])
+    labels = [coll.get_label() for coll in ax.collections]
+    assert "Streambed" in labels
+    assert "Disconnection threshold" in labels
+    bed = ax.collections[labels.index("Streambed")].get_offsets()
+    threshold = ax.collections[labels.index("Disconnection threshold")].get_offsets()
+    assert len(bed) and len(threshold) == len(bed)
+    # Sample by sample: the threshold is one streambed thickness below the bed.
+    assert np.allclose(bed[:, 0], threshold[:, 0])
+    assert np.all(threshold[:, 1] < bed[:, 1])
+    mpl.close(fig)
+
+
+def test_cross_section_without_a_stream_network_draws_no_streambed(mpl) -> None:
+    fig, ax = mpl.subplots()
+    CrossSection().render(_Run(), ax, line=[0.0, 0.5, 2.0, 0.5])
+    labels = [coll.get_label() for coll in ax.collections]
+    assert "Streambed" not in labels
+    assert "Disconnection threshold" not in labels
+    mpl.close(fig)
+
+
 def test_particle_tracks_draws_valid_tracks(monkeypatch, mpl) -> None:
     import hydromodpy.display.figures.particle_tracks as module
 
