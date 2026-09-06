@@ -1,0 +1,289 @@
+# ======================================================================
+# Nancon - SFR + DRN, lit sur le MNT du toit
+# ======================================================================
+#
+# JUMEAU GELE de runs/grid_iter_0001.v4. Memes forcages, meme maillage,
+# memes K, Sy et Ss. La SEULE difference est le code : la cote de lit
+# `rtp` et la pente `rgrd` sont desormais lues sur le MNT DU TOIT et
+# non plus sur le MNT de routage burne.
+#
+# Ce qui change, mesure hors solveur avant de lancer :
+#   lit delinee   mediane 9,96 m sous le toit  ->  0,63 m
+#   au plancher   370 biefs sur 1536           ->  23
+#   seuil `rtp - rbth`  6,05 m sous le sol     ->  1,50 m
+#
+# Aucune cle de calage ici : ces runs mesurent l'effet du lit a
+# parametres geles. La recalibration vient apres, une fois l'effet lu.
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+
+# ----------------------------------------------------------------------
+# Geographic - delimitation et surface de routage
+# ----------------------------------------------------------------------
+
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+reuse_existing_outputs = true
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "DEM_nancon_25m.tif"
+x_outlet = 389285.91
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10%"
+
+# Le burn de 30 m est celui de la reference DRN, donc la delineation est
+# la meme et les deux montages restent comparables. Il redevient possible
+# en SFR parce que `bed_incision` coupe le lien entre la profondeur du
+# burn et la cote du lit : le `rtp` est lu sur le MNT CORRIGE, donc sans
+# ce garde-fou le burn devenait l'incision du lit et posait les lits au
+# mur de l'aquifere.
+[geographic.enforce_streams]
+enabled = true
+stream_geometry_path = "nancon_stream_network.gpkg"
+mode = "constant"
+# 10 m et non 30. Le TRACE derive est strictement identique des 10 m (1535
+# mailles, Jaccard 1,000, et a 5 m 81 mailles du bassin changent encore de
+# direction D8). Mais le trace n'est pas tout le modele : mesure entre les deux
+# runs, 201 biefs sur 1536 recoivent une COTE DE LIT differente, jusqu'a 4,36 m,
+# toujours plus basse a 30 m. Sur ces biefs la mediane du lit passe de 2,61 m a
+# 5,48 m sous le toit de sa maille. 10 m vaut donc mieux que 30, et pas
+# seulement parce que le trace ne bouge plus.
+#
+# CE QUE LE BURN TRAVERSE QUAND MEME. La pente `rgrd` d'un bief est lue sur ce
+# MNT burne et livree telle quelle au solveur : `solve_reach_bed_profile` ne
+# borne que la COTE, jamais la pente. Sur les liens dont la tete est en amont du
+# lineaire cartographie alors que l'exutoire est dessus, la pente encaisse
+# exactement depth_m / longueur_du_lien. Mesure a 30 m, cela touchait 409 biefs
+# sur 1536 avec une pente 1,94 fois trop forte en mediane. Diviser la profondeur
+# par trois divise cet exces d'autant.
+#
+# Ce reglage abaisse le MNT DE ROUTAGE, pas l'aquifere : le toit du modele
+# reste le MNT brut, verifie au bit pres. Il ne creuse rien pour raccorder les
+# biefs vers l'aval, c'est `min_slope` et le conditionnement monotone qui s'en
+# chargent, et `bed_incision` qui ancre le lit sous le toit de sa maille.
+depth_m = 10.0
+
+# Reseau derive du MNT, qui porte la topologie des biefs.
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 1.0
+compute_stream_links = true
+compute_strahler_order = true
+
+
+# ----------------------------------------------------------------------
+# Domain
+# ----------------------------------------------------------------------
+
+[domain]
+zone_ids = ["geology"]
+supports = {}
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = 30.0
+
+
+# ----------------------------------------------------------------------
+# Data
+# ----------------------------------------------------------------------
+
+[data]
+project_crs = "EPSG:2154"
+types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff"]
+
+[[data.dem.sources]]
+source = "custom"
+path = "DEM_nancon_25m.tif"
+
+[[data.geology.sources]]
+source = "brgm_1m"
+
+[[data.hydrography.sources]]
+source = "custom"
+path = "nancon_stream_network.gpkg"
+
+[data.hydrometry]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+
+[[data.hydrometry.sources]]
+source = "custom"
+path = "hydrometry"
+extent = "watershed"
+station_ids = ["NANCON"]
+
+[data.recharge]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+
+[[data.recharge.sources]]
+source = "custom"
+path = "recharge"
+station_ids = ["NANCON_REA"]
+
+[data.runoff]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+
+[[data.runoff.sources]]
+source = "custom"
+path = "runoff"
+station_ids = ["NANCON_REA"]
+
+
+# ----------------------------------------------------------------------
+# Flow - biefs SFR sur le reseau, drain de Cauchy sur les versants
+# ----------------------------------------------------------------------
+
+[flow]
+first_period_steady = true
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage", "sfr"]
+flow_regime = "transient"
+
+[flow.ic]
+type = "top"
+description = "Nappe initialisee a la surface topographique."
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 0.00021033748010870326
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.020000000000000004
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+# `value = 0.0` selectionne le repli proportionnel C = K * A / e. C'est
+# ce qui rend l'etage 1 valide quand les biefs sont eteints.
+[flow.bc.cauchy.drainage]
+id = "drainage"
+kind = "cauchy"
+application_domain = "top"
+description = "Drainage de Cauchy sur la face superieure de l'aquifere."
+value = 0.0
+
+[flow.sinks_sources.recharge]
+values = 0.0
+
+[flow.sinks_sources.sfr.nancon]
+# 1 km2 draine sur 64,6 km2 : le reseau principal en SFR, les tetes de
+# bassin restent au drain de Cauchy.
+stream_threshold_km2 = 1.0
+
+# Conductance de lit posee pour EGALER celle que la maille avait en
+# drain, seule facon de comparer les deux montages a resistance egale :
+#   drain  C = K * A / e_lit = 2.0908e-4 * 625 / 1.0 = 0.1307 m2/s
+#   sfr    C = rhk * rlen * rwid / rbth = rhk * 25 * 2 / 1.0 = 50 * rhk
+# d'ou rhk = 2.61e-3 m/s.
+streambed_k = 2.61e-3
+streambed_k_unit = "m/s"
+
+# 1 m et non 0,1 m. MODFLOW 6 bascule un bief entre connecte et
+# deconnecte a `rtp - rbth`, pas a `rtp` : avec rbth = 0,1 m la bascule
+# se jouait sur dix centimetres et le permanent oscillait en cycle
+# binaire. A 1 m le seuil descend a 1,5 m sous le sol avec l'incision.
+streambed_thickness = "1 m"
+
+manning = 0.035
+min_slope = 1e-4
+connected_to_aquifer = true
+
+# Le lit est ancre 0,5 m sous le toit de SA PROPRE maille.
+bed_incision = "0.5 m"
+max_bed_sag = "5 m"
+
+# OBLIGATOIRE ici. La serie de debit bascule sur la branche routee des
+# qu'un `ext_outflow` SFR existe, et cette branche ecarte le residu DRN
+# au lieu de l'ajouter. Sans routage ce residu serait TOUT le drainage de
+# versant, et il serait jete.
+route_drainage = true
+
+# Laisse a false. `rectify_on_mesh` exigerait `[modflow6.sgrid]
+# condition_top = true`, qui RELEVE le toit du modele. Les activer
+# comparerait deux topographies au lieu de deux conditions limites.
+rectify_on_mesh = false
+
+[flow.sinks_sources.sfr.nancon.width]
+kind = "constant"
+value = "2 m"
+
+
+# ----------------------------------------------------------------------
+# Simulation
+# ----------------------------------------------------------------------
+
+[simulation]
+name = "nancon_sfr_bed_on_top"
+description = "SFR + DRN, cote de lit lue sur le MNT du toit. Jumeau gele de grid_iter_0001.v4."
+if_exists = "replace"
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2001-12-31"
+step_value = 1
+step_unit = "day"
+coverage_policy = "warn"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+[simulation.results.derived]
+release_flux = true
+watertable_elevation = true
+watertable_depth = true
+seepage_areas = true
+accumulation_flux = true
+
+
+# ----------------------------------------------------------------------
+# MODFLOW 6
+# ----------------------------------------------------------------------
+
+[modflow6.runtime]
+print_head = false
+save_specific_discharge = false
+save_saturation = false
+
+# Le couplage MVR drain -> bief demande des iterations : mesure en
+# permanent, `qfrommvr` decroissait d'environ 1 % par iteration externe.
+mf6_outer_maximum = 1500
+ims_print_option = "SUMMARY"
+
+# Critere de charge a 5 mm au lieu de 0,1 mm. Un bief SFR bascule entre
+# connecte et deconnecte quand la nappe traverse `rtp - rbth`, et ce
+# basculement ne s'amortit pas : une seule maille alternait entre deux
+# valeurs a l'identique sur 1430 iterations. Le drain de Cauchy n'a pas
+# cette non-linearite et converge, lui, a 1e-4 ; l'ecart de critere est
+# donc imputable au montage SFR et non au pas de temps. Sur un aquifere
+# de 30 m, 5 mm reste 0,02 % de l'epaisseur, et le bilan de masse garde
+# le dernier mot.
+mf6_outer_dvclose = 5e-3
+
+
+# ----------------------------------------------------------------------
+# Calibration
+# ----------------------------------------------------------------------
