@@ -570,7 +570,6 @@ class Modflow6OutputAdapter:
                         lake_zarr.close()
             if budgets:
                 store.write_budgets(sim_id, budgets)
-            _write_sfr_reach_geometry(sim_id, store, spec)
 
     def _extract_lake_abacus(
         self,
@@ -660,6 +659,7 @@ class Modflow6OutputAdapter:
                 store.write_timeseries_columns(sim_id, columns)
             if budgets:
                 store.write_budgets(sim_id, budgets)
+            _write_sfr_reach_geometry(sim_id, store, spec)
 
     @staticmethod
     def _recarray_to_grid(
