@@ -158,10 +158,24 @@ def solve_reach_bed_profile(
         ]
         if moved and max(moved) > 1e-6:
             incision = float(bed_incision or 0.0)
+            # Where each reach ended up inside its own cell is the readable
+            # measure of how well the trace follows the terrain: a bed on the
+            # ceiling is one the delineation put above its own ground, a bed on
+            # the floor is one the downhill order dragged down.
+            on_ceiling = sum(
+                1
+                for record in reaches
+                if record.cellid is not None and abs(solved[record.ifno] - hi[record.ifno]) <= 1e-6
+            )
+            on_floor = sum(
+                1
+                for record in reaches
+                if record.cellid is not None and abs(solved[record.ifno] - lo[record.ifno]) <= 1e-6
+            )
             logger.info(
                 "%s streambed profile: %d/%d reach(es) moved to hold the band "
                 "[cell top - %.2f m - %.2f m, cell top - %.2f m] and the downstream order "
-                "(max move %.2f m).",
+                "(max move %.2f m); %d sit on the ceiling, %d on the floor.",
                 location,
                 sum(1 for value in moved if value > 1e-6),
                 len(moved),
@@ -169,5 +183,7 @@ def solve_reach_bed_profile(
                 float(max_bed_sag) if bed_incision is not None else float("inf"),
                 incision,
                 max(moved),
+                on_ceiling,
+                on_floor,
             )
     return solved

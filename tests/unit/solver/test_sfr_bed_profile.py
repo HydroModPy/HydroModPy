@@ -163,3 +163,15 @@ def test_a_reach_is_never_left_above_the_ground_of_its_own_cell() -> None:
     solved = _solve(reaches, top=top, botm=botm, incision=None)
     assert solved[1] <= 88.0
     assert all(solved[i] <= top[i] for i in range(3))
+
+
+def test_the_log_says_where_each_bed_landed_inside_its_cell(caplog) -> None:
+    # A bed on the ceiling is one the delineation put above its own ground, a bed
+    # on the floor is one the downhill order dragged down. Both are trace-quality
+    # signals, and neither is readable from the move count alone.
+    reaches = _chain([100.0, 95.0, 90.0])
+    with caplog.at_level("INFO"):
+        _solve(reaches, top=[100.0, 88.0, 90.0], botm=[[70.0, 60.0, 60.0]], incision=0.5)
+    text = " ".join(record.getMessage() for record in caplog.records)
+    assert "sit on the ceiling" in text
+    assert "on the floor" in text
