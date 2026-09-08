@@ -302,6 +302,27 @@ def test_explicit_network_ustrf_siblings_must_sum_to_one() -> None:
         resolve_sfr_networks(model, solver_mesh=mesh)
 
 
+def test_a_declared_ustrf_of_zero_is_not_rewritten_to_one() -> None:
+    # 0.0 is a legitimate declaration, for a reach fed entirely from elsewhere.
+    # It is also falsy, and the sibling-sum validator only fires on a fork, so an
+    # `or` would hand this reach all of the upstream flow with nothing to catch it.
+    mesh = _mesh()
+    head = _chain_reach(0, 1, [], [2], 96.0)
+    tail = FlowReachConfig(
+        cell={"kind": "cell", "cell": [0, 1, 1]},
+        length="10 m",
+        width="2 m",
+        slope=1e-3,
+        top=95.9,
+        upstream=[1],
+        downstream=[],
+        ustrf=0.0,
+    )
+    model = _fake_model({"net0": _explicit_payload([head, tail])})
+    networks = resolve_sfr_networks(model, solver_mesh=mesh)
+    assert networks["net0"].reaches[1].ustrf == pytest.approx(0.0)
+
+
 def test_period_data_distributes_runoff_by_length_and_inflow_on_headwater() -> None:
     mesh = _mesh()
     model = _fake_model(
