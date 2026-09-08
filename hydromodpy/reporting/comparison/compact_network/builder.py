@@ -7,6 +7,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.derive import views
 from hydromodpy.results.derive.config_flags import log_missing_field
 
 from . import maps, network, sections
@@ -265,7 +266,8 @@ class CompactNetworkSynthesisBuilder:
                         )
                         continue
                     if run.has_hydrographic_network("reference"):
-                        metrics = run.cell_field_network_distance_metrics(
+                        metrics = views.cell_field_network_distance_metrics(
+                            run,
                             network_role="reference",
                             variable=variable,
                             threshold=0.0,
@@ -310,6 +312,15 @@ class CompactNetworkSynthesisBuilder:
                     rows.append(row)
                     generated += 1
                 except Exception:
+                    # Silence here reads downstream as "the benchmark has not run
+                    # yet", which is a different statement from "it ran and this
+                    # run could not be measured".
+                    logger.warning(
+                        "No network-distance metrics for run %s; the report will show "
+                        "it as not benchmarked.",
+                        sim_id,
+                        exc_info=True,
+                    )
                     continue
                 finally:
                     if catalog is not None:
