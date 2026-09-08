@@ -292,7 +292,19 @@ ims_print_option = "SUMMARY"
 # donc imputable au montage SFR et non au pas de temps. Sur un aquifere
 # de 30 m, 5 mm reste 0,02 % de l'epaisseur, et le bilan de masse garde
 # le dernier mot.
-mf6_outer_dvclose = 5e-3
+# 2e-2 et non 5e-3. MESURE, deux runs transitoires complets sur le lit
+# corrige : la maille 201392 entre en cycle limite parfait au pas 486 sur
+# 731, le residu alternant entre +1,064e-2 et -7,251e-3 m sur 1500
+# iterations externes, aux memes chiffres dans les deux runs. Ce n'est pas
+# le coude SFR : tripler `streambed_thickness` pour descendre le seuil de
+# connexion de 2 m n'a pas deplace l'oscillation d'une decimale.
+#
+# Le lit remonte de 3,755 m met davantage de mailles dans la bande ou le
+# solveur broute. La sous-relaxation DBD du preset COMPLEX est deja active
+# (theta 0,8, kappa 1e-4, gamma 0) avec backtracking, et le TOML n'expose ni
+# theta ni gamma : le critere est le seul levier. Controle a posteriori,
+# l'ecart de bilan de masse s'AMELIORE, 0,30 % -> 0,13 % au maximum.
+mf6_outer_dvclose = 2e-2
 
 
 # ----------------------------------------------------------------------
