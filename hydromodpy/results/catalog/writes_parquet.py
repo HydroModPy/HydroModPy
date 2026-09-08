@@ -357,6 +357,10 @@ class WritesMixinParquet:
         rebuilt from the runs finds them again through the view, which globs the
         run directories. ``sim_id`` is filled in, and a view whose schema
         declares ``crs_wkt`` / ``crs_epsg`` inherits the simulation CRS.
+
+        A column the schema does not declare is refused by name rather than
+        dropped: a misspelt key would otherwise write a whole run of nulls and
+        say nothing.
         """
         if not self._persistence.save_parquet:
             return
@@ -365,10 +369,16 @@ class WritesMixinParquet:
         sid = str(sim_id)
         schema = schema_for(view_name)
         names = set(schema.names)
+        unknown = {key for record in records for key in record} - names
+        if unknown:
+            raise KeyError(
+                f"Parquet view {view_name!r} does not declare {sorted(unknown)}; "
+                f"it declares {sorted(names)}."
+            )
         crs_wkt, crs_epsg = self._simulation_crs(sid) if "crs_wkt" in names else ("", None)
         normalised: list[dict[str, Any]] = []
         for record in records:
-            row = {key: value for key, value in record.items() if key in names}
+            row = dict(record)
             row["sim_id"] = sid
             if "crs_wkt" in names:
                 row.setdefault("crs_wkt", crs_wkt)
