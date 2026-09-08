@@ -317,8 +317,8 @@ def bind_sfr_network_traces(run_state: WorkflowContext) -> None:
         top_dem_tif = getattr(geographic, "_top_dem_path", None)
         if top_dem_tif is None:
             raise ConfigError(
-                "flow.sinks_sources.sfr needs the model-top DEM to read the streambed "
-                "elevation; run the geographic preprocessing first."
+                "flow.sinks_sources.sfr reads the streambed elevation on the model-top "
+                "DEM, which the geographic preprocessing publishes; run it first."
             )
         dem_res_m = float(geographic.dem_res)
         # Lake polygons in LAK packagedata order (the lakes dict order, which the
