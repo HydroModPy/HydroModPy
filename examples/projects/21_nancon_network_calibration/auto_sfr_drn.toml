@@ -331,17 +331,21 @@ transform = "log"
 path = "flow.param.K.field.value"
 units = "m/s"
 
-# MESURE, session du 3 septembre : la grille [0,02 ; 0,30] a rendu son
-# optimum SUR la borne basse, avec des couts strictement croissants en Sy
-# (0,1576 / 0,2601 / 0,4718 / 0,6044). Le vrai optimum est donc SOUS la
-# grille, et la valeur retenue n'en etait pas une. La borne descend a
-# 5e-3, celle du montage DRN, pour que l'optimum puisse etre interieur.
+# Bornes resserrees sur ce que la grille du 8 septembre a mesure. Ses quatre
+# points log-espaces sur [5e-3 ; 0,30] ont donne un optimum INTERIEUR a
+# Sy = 0,01957 (cout nse_log 0,17075), encadre par 0,005 (cout 1,086) et
+# 0,0766 (cout 0,226). Le minimum est donc dans ]0,005 ; 0,0766[.
 #
-# Le solve SFR coute environ 3,7 fois celui du drain au meme Sy, et le cout
-# croit quand Sy baisse : la borne basse est donc ce qui fixe la duree de
-# l'etage 2. A surveiller si le calage devient trop long.
+# Ces deux voisins deviennent les bornes. Comme ils encadrent l'optimum
+# symetriquement en log, le centre de l'espace transforme tombe exactement
+# sur 0,01957, et c'est de la que `scipy_nelder_mead` demarre : le simplexe
+# initial couvre 0,119 decade au lieu de balayer deux ordres de grandeur.
+#
+# Historique : au calage du 3 septembre la borne basse valait 0,02 et
+# l'optimum s'y est pose, avec des couts strictement croissants en Sy. Ce
+# n'etait donc pas un optimum. L'abaisser a 5e-3 a rendu la grille valide.
 [calibration.parameters.Sy]
-bounds = [5e-3, 0.30]
+bounds = [5e-3, 0.0766]
 transform = "log"
 path = "flow.param.Sy.field.value"
 units = "-"
@@ -408,17 +412,37 @@ sweep_points = 7
 [[calibration.phases]]
 name = "transient_sy"
 description = "NSE des logarithmes du debit journalier 2001, reseau route."
-method = "grid"
-max_iter = 4
-batch_size = 4
-parallel = 4
+# Nelder-Mead et non plus une grille. La grille du 8 septembre a rendu un
+# optimum INTERIEUR, Sy = 0,01957 pour un cout nse_log de 0,17075, avec des
+# voisins a 1,086 (Sy = 0,005) et 0,226 (Sy = 0,0766). Mais quatre points
+# log-espaces sur [5e-3 ; 0,30] sont distants de 0,59 decade : la valeur
+# retenue etait le meilleur point TESTE, pas le minimum.
+#
+# Nelder-Mead est SEQUENTIEL, contrairement a la grille qui tournait a
+# quatre en parallele. C'est pourquoi les bornes ci-dessous ont ete
+# resserrees sur ce que la grille a appris (voir [calibration.parameters.Sy]) :
+# l'adapter demarre au centre de l'espace transforme, qui tombe alors sur
+# l'optimum de la grille, et le simplexe initial ne couvre plus que la
+# region utile.
+method = "scipy_nelder_mead"
+max_iter = 12
+batch_size = 1
+parallel = 1
 parameters = ["Sy"]
 variable = "discharge"
 objective = "nse_log"
 depends_on = "steady_k"
 
 [calibration.phases.optimizer_kwargs]
-points_per_dim = 4
+# Le budget est la vraie contrainte : chaque essai est un transitoire SFR de
+# 731 jours, environ 2 h 20. maxfev = 10 borne l'etage a une nuit.
+maxfev = 10
+# Tolerances dans l'espace TRANSFORME, donc en decades de Sy. 0,02 decade
+# vaut environ 5 % sur Sy, dix fois plus fin que le pas de la grille.
+xatol = 0.02
+# L'ecart entre les deux meilleurs points de la grille valait 0,055 ; 0,002
+# distingue donc largement, sans depenser des essais pour rien.
+fatol = 0.002
 
 [calibration.phases.scoring_window]
 start = "2001-01-01"
