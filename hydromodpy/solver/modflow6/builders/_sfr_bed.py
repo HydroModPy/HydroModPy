@@ -62,8 +62,9 @@ def solve_reach_bed_profile(
     Every bed lands inside the box its own cell allows; that box is a hard
     constraint and an empty one is refused by name. The monotone-downhill order
     is then held wherever the boxes allow it, and relaxed with a warning where a
-    climbing traced channel makes it impossible. ``bed_incision = None`` keeps
-    the historical behaviour: a floor on the cell bottom and no ceiling.
+    climbing traced channel makes it impossible. The cell top caps every bed,
+    declared incision or not; ``bed_incision = None`` only drops the
+    ``max_bed_sag`` floor, so the bed may sink to the cell bottom instead.
     """
     by_ifno: Mapping[int, Any] = {record.ifno: record for record in reaches}
     order = [record.ifno for record in reaches]
@@ -87,10 +88,12 @@ def solve_reach_bed_profile(
                 # the link gradient, so a concave profile hands a mid-link reach
                 # an elevation above its own ground. No streambed sits above the
                 # land surface of its own cell, so the cap holds even when the
-                # user declared no incision.
+                # user declared no incision; only the sag floor is theirs.
                 cell_top = _cell_top(top, botm, layer, cell)
-                high = cell_top - float(bed_incision or 0.0)
-                if bed_incision is not None:
+                if bed_incision is None:
+                    high = cell_top
+                else:
+                    high = cell_top - float(bed_incision)
                     low = max(low, high - float(max_bed_sag))
         if low > high:
             cell_txt = "no cell" if record.cellid is None else f"cell {tuple(record.cellid)}"
@@ -157,7 +160,7 @@ def solve_reach_bed_profile(
             if record.cellid is not None
         ]
         if moved and max(moved) > 1e-6:
-            incision = float(bed_incision or 0.0)
+            incision = 0.0 if bed_incision is None else float(bed_incision)
             # Where each reach ended up inside its own cell is the readable
             # measure of how well the trace follows the terrain: a bed on the
             # ceiling is one the delineation put above its own ground, a bed on

@@ -231,11 +231,11 @@ class FlowReachNetworkConfig(HydroModelBase):
         default=None,
         description=(
             "Depth [L] of the streambed top rtp below the top of the reach's OWN aquifer "
-            "cell. None (default) keeps the delineated elevation with a floor on the cell "
-            "bottom and no ceiling, which is what every run before this field did. When "
-            "set, each reach is solved inside [cell_top - bed_incision - max_bed_sag, "
-            "cell_top - bed_incision], monotone downstream, and the build refuses when "
-            "that band is empty. rtp is delineated on the model top, so this anchors a "
+            "cell. A bed never sits above the ground of its own cell, whether this is set "
+            "or not. None (default) only lifts the lower bound: the bed may then sink to "
+            "the cell bottom instead of stopping at max_bed_sag. When set, each reach is "
+            "solved inside [cell_top - bed_incision - max_bed_sag, cell_top - bed_incision], "
+            "monotone downstream, and the build refuses when that band is empty. rtp is delineated on the model top, so this anchors a "
             "bed that a coarse DEM cannot resolve; it is not a correction for the stream "
             "burn, which never reaches the bed. Pick it against the water table, not "
             "against the channel: "
