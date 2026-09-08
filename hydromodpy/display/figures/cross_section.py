@@ -163,13 +163,12 @@ class CrossSection(BaseFigure):
         )
         if not sim.has_field("streambed_connection"):
             return
+        # Written in the same pass as the bed, cell by cell, so the two share a
+        # mask: sampling one and masking with the other cannot drift.
         threshold = transect.sample(np.asarray(sim.field("streambed_connection")))
-        visible = np.isfinite(threshold)
-        if not visible.any():
-            return
         ax.scatter(
-            distance[visible],
-            threshold[visible],
+            distance[on_reach],
+            threshold[on_reach],
             s=26,
             marker="_",
             linewidths=1.4,
@@ -178,9 +177,9 @@ class CrossSection(BaseFigure):
             label="Disconnection threshold",
         )
         ax.vlines(
-            distance[visible],
-            threshold[visible],
-            bed[visible],
+            distance[on_reach],
+            threshold[on_reach],
+            bed[on_reach],
             color="firebrick",
             lw=0.8,
             alpha=0.55,

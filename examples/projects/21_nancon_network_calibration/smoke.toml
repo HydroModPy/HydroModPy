@@ -1,5 +1,5 @@
 # ======================================================================
-# Nancon - smoke permanent du lit corrige
+# Nancon - smoke permanent
 # ======================================================================
 #
 # JUMEAU GELE de runs/grid_iter_0001.v4. Memes forcages, meme maillage,
@@ -229,7 +229,7 @@ value = "2 m"
 # ----------------------------------------------------------------------
 
 [simulation]
-name = "nancon_bed_smoke"
+name = "nancon_smoke"
 description = "Smoke permanent: verifie mesh_hash, profil de lit et convergence."
 if_exists = "replace"
 

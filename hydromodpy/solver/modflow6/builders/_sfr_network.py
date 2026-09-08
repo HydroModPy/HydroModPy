@@ -397,6 +397,16 @@ def _number_and_freeze(
     return records
 
 
+def _ustrf_of(row: Any) -> float:
+    """Fraction of upstream flow routed into a declared reach.
+
+    ``0.0`` is a legitimate declaration, for a reach fed entirely from elsewhere,
+    and it is falsy: an ``or`` would hand it 100 % of the upstream flow instead.
+    """
+    value = _attr(row, "ustrf")
+    return 1.0 if value is None else float(value)
+
+
 def _resolve_explicit_network(
     *,
     definition: Mapping[str, Any],
@@ -446,7 +456,7 @@ def _resolve_explicit_network(
                 rtp=_length_m(_attr(row, "top")),
                 upstream=upstream,
                 downstream=downstream,
-                ustrf=float(_attr(row, "ustrf") or 1.0),
+                ustrf=_ustrf_of(row),
                 is_headwater=not upstream,
                 is_terminal_to_lake=False,
             )

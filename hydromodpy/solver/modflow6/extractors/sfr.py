@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
@@ -115,6 +115,23 @@ class SfrReachGeometry:
     strahler: int
     ustrf: float
 
+    _INTS = ("ifno", "strahler")
+    _NULLABLE_INTS = ("layer", "cell2d")
+
+    @classmethod
+    def from_mapping(cls, item: Mapping[str, Any]) -> SfrReachGeometry:
+        """Rebuild one reach from its sidecar entry."""
+        values: dict[str, Any] = {}
+        for name in (f.name for f in fields(cls)):
+            raw = item.get(name)
+            if name in cls._NULLABLE_INTS:
+                values[name] = None if raw is None else int(raw)
+            elif name in cls._INTS:
+                values[name] = int(raw)
+            else:
+                values[name] = float(raw)
+        return cls(**values)
+
 
 @dataclass(frozen=True)
 class SfrObsSpec:
@@ -138,23 +155,7 @@ class SfrObsSpec:
             )
             for item in payload.get("entries", [])
         ]
-        reaches = [
-            SfrReachGeometry(
-                ifno=int(item["ifno"]),
-                layer=None if item.get("layer") is None else int(item["layer"]),
-                cell2d=None if item.get("cell2d") is None else int(item["cell2d"]),
-                rlen=float(item["rlen"]),
-                rwid=float(item["rwid"]),
-                rgrd=float(item["rgrd"]),
-                rtp=float(item["rtp"]),
-                rbth=float(item["rbth"]),
-                rhk=float(item["rhk"]),
-                manning=float(item["manning"]),
-                strahler=int(item["strahler"]),
-                ustrf=float(item["ustrf"]),
-            )
-            for item in payload.get("reaches", [])
-        ]
+        reaches = [SfrReachGeometry.from_mapping(item) for item in payload.get("reaches", [])]
         return cls(
             obs_csv=str(payload["obs_csv"]),
             network_id=str(payload.get("network_id", "")),
@@ -165,7 +166,12 @@ class SfrObsSpec:
 
 
 def read_sfr_meta(meta_path: Path) -> SfrObsSpec | None:
-    """Load the SFR output sidecar, or ``None`` when it is absent / unreadable."""
+    """Load the SFR output sidecar, or ``None`` when it is absent / unreadable.
+
+    Unreadable covers a payload that parses as JSON but does not describe a
+    spec: ``from_mapping`` raises on it, and the callers sit inside blocks that
+    would take unrelated work down with them.
+    """
     if not meta_path.is_file():
         return None
     try:
@@ -173,7 +179,16 @@ def read_sfr_meta(meta_path: Path) -> SfrObsSpec | None:
     except (OSError, json.JSONDecodeError):
         logger.debug("Could not read SFR output meta %s", meta_path, exc_info=True)
         return None
-    return SfrObsSpec.from_mapping(payload)
+    try:
+        return SfrObsSpec.from_mapping(payload)
+    except (KeyError, TypeError, ValueError):
+        logger.warning(
+            "SFR output meta %s does not describe a spec; the reach series and "
+            "geometry of this run are lost.",
+            meta_path,
+            exc_info=True,
+        )
+        return None
 
 
 def build_sfr_columns(
