@@ -49,9 +49,14 @@ class FlatSubstratumDepthModel(HydroModelBase):
             "Use 'flat_substratum' to define one constant bottom elevation."
         ),
     )
-    substratum_elevation: Annotated[float, Profile.USER] = Field(
+    substratum_elevation: Annotated[LengthMeters, Profile.USER] = Field(
         default=0.0,
-        description=("Flat substratum elevation (m) applied over the full domain."),
+        description=(
+            "Flat substratum elevation applied over the full domain (canonical metres). "
+            "Accepts inline units, e.g. '40 m'. This is an ABSOLUTE elevation, not a "
+            "depth below topography: where the land surface drops under it, no aquifer "
+            "is left. Use 'constant_thickness' to follow the relief instead."
+        ),
     )
 
 
