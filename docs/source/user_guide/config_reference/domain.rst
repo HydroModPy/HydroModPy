@@ -368,7 +368,7 @@ Fields
 
                :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L52>`__
 
-                  Flat substratum elevation (m) applied over the full domain.
+                  Flat substratum elevation applied over the full domain (canonical metres). Accepts inline units, e.g. '40 m'. This is an ABSOLUTE elevation, not a depth below topography: where the land surface drops under it, no aquifer is left. Use 'constant_thickness' to follow the relief instead.
 
 
 
