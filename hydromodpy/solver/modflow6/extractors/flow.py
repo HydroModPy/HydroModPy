@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,11 @@ from hydromodpy.core.units.time import (
     factor_to_seconds,
 )
 from hydromodpy.solver.modflow6.build import mf6_safe_name
+from hydromodpy.solver.modflow6.extractors.sfr import (
+    SfrObsSpec,
+    build_sfr_columns,
+    read_sfr_meta,
+)
 from hydromodpy.solver.modflow_common.budget_components import (
     canonical_budget_component,
     is_scalar_budget_component,
@@ -54,8 +60,6 @@ def _streambed_face_arrays(
     reach is connected: MODFLOW switches on ``rtp - streambed_thickness``, which
     sits metres lower. These two arrays put that threshold in the store.
     """
-    from hydromodpy.solver.modflow6.extractors.sfr import read_sfr_meta
-
     spec = read_sfr_meta(solver_output_dir / f"{model_name}.sfr.meta.json")
     if spec is None or not spec.reaches:
         return None
@@ -74,7 +78,7 @@ def _streambed_face_arrays(
     return top, threshold
 
 
-def _write_sfr_reach_geometry(sim_id: str, store: Any, spec: Any) -> None:
+def _write_sfr_reach_geometry(sim_id: str, store: Any, spec: SfrObsSpec) -> None:
     """Persist the resolved reach geometry the MODFLOW scratch files take away.
 
     A run is sealed without its solver workspace, so this table is the only
@@ -83,24 +87,7 @@ def _write_sfr_reach_geometry(sim_id: str, store: Any, spec: Any) -> None:
     """
     if not spec.reaches:
         return
-    rows = [
-        {
-            "network_id": spec.network_id,
-            "ifno": reach.ifno,
-            "cell2d": reach.cell2d,
-            "layer": reach.layer,
-            "rtp": reach.rtp,
-            "rbth": reach.rbth,
-            "rlen": reach.rlen,
-            "rwid": reach.rwid,
-            "rgrd": reach.rgrd,
-            "rhk": reach.rhk,
-            "manning": reach.manning,
-            "strahler": reach.strahler,
-            "ustrf": reach.ustrf,
-        }
-        for reach in spec.reaches
-    ]
+    rows = [{"network_id": spec.network_id, **asdict(reach)} for reach in spec.reaches]
     try:
         store.write_view(sim_id, "sfr_reaches", rows)
     except Exception:
@@ -633,11 +620,6 @@ class Modflow6OutputAdapter:
         m3/s. Without the sidecar the model has no stream network and this is a
         no-op.
         """
-        from hydromodpy.solver.modflow6.extractors.sfr import (
-            build_sfr_columns,
-            read_sfr_meta,
-        )
-
         spec = read_sfr_meta(solver_output_dir / f"{model_name}.sfr.meta.json")
         if spec is None:
             return
@@ -921,7 +903,12 @@ class Modflow6OutputAdapter:
             finally:
                 sz.close()
         except Exception:
-            logger.debug("Could not write surface elevation for sim %s", sim_id, exc_info=True)
+            logger.warning(
+                "Could not write the mesh and surface elevation for sim %s; every map, "
+                "section and water-table depth of this run reads them.",
+                sim_id,
+                exc_info=True,
+            )
 
     @staticmethod
     def _mesh_geometry_from_grid(
