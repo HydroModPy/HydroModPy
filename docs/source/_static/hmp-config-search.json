@@ -1134,7 +1134,7 @@
     "anchor": "domain-depth-model-substratum-elevation",
     "page": "domain.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L52",
-    "description": "Flat substratum elevation (m) applied over the full domain."
+    "description": "Flat substratum elevation applied over the full domain (canonical metres). Accepts inline units, e.g. '40 m'. This is an ABSOLUTE elevation, not a depth below topography: where the land surface drops under it, no aquifer is left. Use 'const"
   },
   {
     "path": "data.project_crs",

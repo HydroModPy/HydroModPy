@@ -139,6 +139,18 @@ def test_domain_builds_top_and_bottom_with_constant_thickness_unit_string():
     np.testing.assert_allclose(domain.substratum.as_array(), dem - 30.0)
 
 
+def test_domain_builds_flat_substratum_unit_string():
+    # The sibling thickness has always taken inline units. A flat substratum is
+    # the same kind of length, so writing it the same way must work.
+    dem = np.array([[5.0, 6.0], [7.0, 8.0]], dtype=float)
+    for written in ("2.0 m", "0.002 km", 2.0):
+        cfg = DomainConfig.model_validate(
+            {"depth_model": {"kind": "flat_substratum", "substratum_elevation": written}}
+        )
+        domain = Domain(config=cfg, surface_topo=Surface(name="surface_topo", values=dem))
+        np.testing.assert_allclose(domain.substratum.as_array(), np.full_like(dem, 2.0))
+
+
 def test_domain_builds_flat_substratum():
     dem = np.array([[5.0, 6.0], [7.0, 8.0]], dtype=float)
     cfg = DomainConfig.model_validate(
