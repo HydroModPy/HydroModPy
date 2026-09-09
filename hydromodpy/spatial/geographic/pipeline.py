@@ -101,6 +101,11 @@ class GeographicRuntimeContext:
     dem_res: float
     x_outlet: float | None = None
     y_outlet: float | None = None
+    x_outlet_snapped: float | None = None
+    """Outlet the delineation actually ran from. x_outlet is what the config declared."""
+
+    y_outlet_snapped: float | None = None
+    outlet_snap_distance_m: float | None = None
 
     def runtime_attributes(self) -> dict[str, object]:
         """Return the public attribute payload expected from ``CatchmentDelineation``."""
@@ -117,6 +122,9 @@ class GeographicRuntimeContext:
                 "dem_res": self.dem_res,
                 "x_outlet": self.x_outlet,
                 "y_outlet": self.y_outlet,
+                "x_outlet_snapped": self.x_outlet_snapped,
+                "y_outlet_snapped": self.y_outlet_snapped,
+                "outlet_snap_distance_m": self.outlet_snap_distance_m,
                 "_paths": self.paths,
                 "_dem_metadata": self.dem_metadata,
                 "_river_network_products": self.river_network_products,
@@ -448,6 +456,9 @@ def build_geographic_runtime_context(
     )
 
     tool = resolve_delineation_backend(backend)
+    # Only the outlet branch snaps; a cached run, a dem or a polygon domain has
+    # no snap to report.
+    catchment_products: object | None = None
     cached_products = _load_cached_geographic_products(
         config=config,
         paths=setup.paths,
@@ -492,7 +503,7 @@ def build_geographic_runtime_context(
                 watershed_box_buff_shp=dem_products.watershed_box_buff_shp,
             )
         else:
-            build_standard_catchment(
+            catchment_products = build_standard_catchment(
                 config=config,
                 paths=setup.paths,
                 direc_path=flow_products.direc,
@@ -668,4 +679,7 @@ def build_geographic_runtime_context(
         dem_res=setup.dem_res,
         x_outlet=(float(config.x_outlet) if config.x_outlet is not None else None),
         y_outlet=(float(config.y_outlet) if config.y_outlet is not None else None),
+        x_outlet_snapped=getattr(catchment_products, "x_outlet_snapped", None),
+        y_outlet_snapped=getattr(catchment_products, "y_outlet_snapped", None),
+        outlet_snap_distance_m=getattr(catchment_products, "snap_distance_m", None),
     )
