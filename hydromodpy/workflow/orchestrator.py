@@ -20,6 +20,7 @@ from hydromodpy.workflow.steps.display import step_render_figures
 from hydromodpy.workflow.steps.export import (
     step_cleanup_scratch,
     step_close_store,
+    step_drop_empty_scratch,
     step_drop_intermediate_budget,
     step_save_run_artifacts,
     step_seal_store,
@@ -310,6 +311,8 @@ def cleanup_run(
         # Same flag on both calls: dumping the rasters and then deleting the
         # folder that holds them would make the option write for nothing.
         cleanup_stable_folder(geo, keep=keep_intermediates)
+
+    step_drop_empty_scratch(ctx)
 
     if status == "completed":
         step_drop_intermediate_budget(ctx)

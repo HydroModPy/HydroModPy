@@ -197,17 +197,20 @@ def test_effective_config_snapshot_uses_runtime_domain_and_results() -> None:
     assert snapshot["simulation"]["results"] == effective_results
 
 
+def _scratch_ctx(scratch: Path) -> SimpleNamespace:
+    return SimpleNamespace(
+        setup=SimpleNamespace(
+            workspace=SimpleNamespace(solver_scratch_folder=scratch),
+        )
+    )
+
+
 def test_step_cleanup_scratch_raises_on_cleanup_failure(monkeypatch, tmp_path: Path) -> None:
     from hydromodpy.core.exceptions import ExportError
     from hydromodpy.workflow.steps import export as export_module
 
     scratch = tmp_path / ".solver_scratch"
-    scratch.mkdir()
-    ctx = SimpleNamespace(
-        setup=SimpleNamespace(
-            workspace=SimpleNamespace(solver_scratch_folder=scratch),
-        )
-    )
+    (scratch / "sim-0001").mkdir(parents=True)
 
     def fail_rmtree(_path: Path) -> None:
         raise OSError("locked")
@@ -215,20 +218,16 @@ def test_step_cleanup_scratch_raises_on_cleanup_failure(monkeypatch, tmp_path: P
     monkeypatch.setattr(export_module.shutil, "rmtree", fail_rmtree)
 
     with pytest.raises(ExportError, match="Could not remove solver scratch directory"):
-        export_module.step_cleanup_scratch(ctx)
+        export_module.step_cleanup_scratch(_scratch_ctx(scratch))
 
 
 def test_step_cleanup_scratch_retries_after_releasing_handles(monkeypatch, tmp_path: Path) -> None:
     from hydromodpy.workflow.steps import export as export_module
 
     scratch = tmp_path / ".solver_scratch"
-    scratch.mkdir()
-    (scratch / "locked.txt").write_text("temporary", encoding="utf-8")
-    ctx = SimpleNamespace(
-        setup=SimpleNamespace(
-            workspace=SimpleNamespace(solver_scratch_folder=scratch),
-        )
-    )
+    run_dir = scratch / "sim-0001"
+    run_dir.mkdir(parents=True)
+    (run_dir / "locked.txt").write_text("temporary", encoding="utf-8")
     real_rmtree = export_module.shutil.rmtree
     calls = 0
     releases = 0
@@ -249,10 +248,41 @@ def test_step_cleanup_scratch_retries_after_releasing_handles(monkeypatch, tmp_p
     monkeypatch.setattr(export_module, "_release_cleanup_handles", fake_release)
     monkeypatch.setattr(export_module.shutil, "rmtree", flaky_rmtree)
 
-    export_module.step_cleanup_scratch(ctx)
+    export_module.step_cleanup_scratch(_scratch_ctx(scratch))
 
     assert calls == 2
     assert releases == 2
+    assert not run_dir.exists()
+
+
+def test_step_cleanup_scratch_spares_the_preprocessing_tree(tmp_path: Path) -> None:
+    """A run owns its solver folder, not the tree the whole session reads."""
+    from hydromodpy.workflow.steps import export as export_module
+
+    scratch = tmp_path / ".solver_scratch"
+    run_dir = scratch / "sim-0001"
+    run_dir.mkdir(parents=True)
+    preprocessing = scratch / "_preprocessing" / "geographic"
+    preprocessing.mkdir(parents=True)
+
+    export_module.step_cleanup_scratch(_scratch_ctx(scratch))
+
+    assert not run_dir.exists()
+    assert preprocessing.is_dir()
+
+
+def test_step_drop_empty_scratch_only_removes_an_empty_folder(tmp_path: Path) -> None:
+    from hydromodpy.workflow.steps import export as export_module
+
+    scratch = tmp_path / ".solver_scratch"
+    kept = scratch / "_preprocessing"
+    kept.mkdir(parents=True)
+
+    export_module.step_drop_empty_scratch(_scratch_ctx(scratch))
+    assert scratch.is_dir()
+
+    kept.rmdir()
+    export_module.step_drop_empty_scratch(_scratch_ctx(scratch))
     assert not scratch.exists()
 
 

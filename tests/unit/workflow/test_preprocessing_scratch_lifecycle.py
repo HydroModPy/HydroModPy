@@ -32,8 +32,12 @@ def preprocessing_tree(tmp_path):
 
 def _ctx(geographic: object, *, write_intermediates: bool = False) -> SimpleNamespace:
     return SimpleNamespace(
-        setup=SimpleNamespace(geographic=geographic),
-        cfg=SimpleNamespace(geographic=SimpleNamespace(write_intermediates=write_intermediates)),
+        setup=SimpleNamespace(geographic=geographic, workspace=None),
+        cfg=SimpleNamespace(
+            geographic=SimpleNamespace(write_intermediates=write_intermediates),
+            simulation=SimpleNamespace(results=SimpleNamespace(keep_solver_files=False)),
+        ),
+        store=None,
     )
 
 
@@ -88,6 +92,29 @@ def test_export_step_honours_write_intermediates(preprocessing_tree) -> None:
 
 def test_export_step_without_geographic_does_nothing() -> None:
     assert step_cleanup_preprocessing(_ctx(None)) == 0
+
+
+def test_export_step_keeps_the_tree_for_a_multi_run_session(preprocessing_tree) -> None:
+    """A Project builds the tree once and runs many times off it."""
+    stable, geographic = preprocessing_tree
+
+    assert step_cleanup_preprocessing(_ctx(geographic), keep=True) == 0
+    assert stable.is_dir()
+
+
+def test_the_export_step_reads_keep_preprocessing_from_the_state(preprocessing_tree) -> None:
+    """``Project.simulate`` sets the flag; the run must not drop what it borrows."""
+    from hydromodpy.workflow.internals.state import PipelineState
+    from hydromodpy.workflow.steps.export import ExportStep
+
+    stable, geographic = preprocessing_tree
+    ctx = _ctx(geographic)
+
+    ExportStep().run(PipelineState(run_id="sweep", data={"ctx": ctx, "keep_preprocessing": True}))
+    assert stable.is_dir()
+
+    ExportStep().run(PipelineState(run_id="single", data={"ctx": ctx}))
+    assert not stable.exists()
 
 
 def test_a_session_that_promotes_nothing_still_drops_the_tree(preprocessing_tree) -> None:

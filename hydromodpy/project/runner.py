@@ -277,6 +277,10 @@ class ProjectRunner:
                 "config_path": project._config_path,
                 "raw_toml": getattr(project._ctx, "raw_toml", {}) or {},
                 "skip_display": skip_display,
+                # The geographic preprocessing tree is shared by every run of
+                # this Project. Dropping it at the end of the first one leaves
+                # the next ones without a DEM to ingest; Project.close() owns it.
+                "keep_preprocessing": True,
                 "spatial_support_registry": project._spatial_support_registry,
                 "requested_spatial_support_ids": project._requested_support_ids,
                 "requested_domain_supports": project._requested_domain_supports,
