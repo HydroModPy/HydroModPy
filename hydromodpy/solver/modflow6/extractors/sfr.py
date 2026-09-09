@@ -304,6 +304,71 @@ def build_sfr_columns(
     return columns, budgets
 
 
+def reach_flow_by_cell(
+    output_dir: Path,
+    model_name: str,
+    *,
+    times: Sequence[float],
+    seconds_per_time_unit: float,
+) -> dict[int, np.ndarray] | None:
+    """Streamflow leaving each reach, keyed by the mesh cell the reach sits in [m3/s].
+
+    Under SFR nothing has to be accumulated to know the discharge at a gauge:
+    MODFLOW routed the water itself, movers included, so the reach under the
+    station already carries the simulated flow to compare. That flow is also
+    truer than an accumulation of what entered the network, because it holds
+    the channel storage and the diversions the routing applied.
+
+    ``downstream_flow`` is reported NEGATIVE by MF6 and is sign-corrected here
+    the way :func:`build_sfr_columns` does. Reaches that exchange with no cell
+    (``cell2d is None``) are skipped: nothing can be looked up at them. When
+    several reaches share a cell the most downstream one wins, which is the
+    largest flow, because a gauge on a cell measures what leaves it.
+
+    Returns ``None`` when the run carries no SFR observations, which is how the
+    caller knows to fall back to routing the release itself.
+    """
+    spec = read_sfr_meta(output_dir / f"{model_name}.sfr.meta.json")
+    if spec is None:
+        return None
+    obs_path = output_dir / f"{model_name}.sfr.obs.csv"
+    if not obs_path.is_file():
+        return None
+    header, rows = read_obs_csv(obs_path)
+    if not rows:
+        return None
+    col_index = {name: pos for pos, name in enumerate(header)}
+    n_steps = min(len(rows), len(times))
+    if n_steps == 0:
+        return None
+    matrix = rows_matrix(rows, n_steps)
+    spt = float(seconds_per_time_unit) if seconds_per_time_unit else 1.0
+
+    cell_by_reach = {reach.ifno: reach.cell2d for reach in spec.reaches if reach.cell2d is not None}
+    by_cell: dict[int, np.ndarray] = {}
+    for entry in spec.entries:
+        if entry.quantity != "downstream_flow":
+            continue
+        cell = cell_by_reach.get(entry.reach)
+        if cell is None:
+            continue
+        pos = col_index.get(entry.obsname.upper())
+        if pos is None or pos >= matrix.shape[1]:
+            continue
+        series = -np.nan_to_num(matrix[:, pos], nan=0.0) / spt
+        known = by_cell.get(int(cell))
+        if known is None or float(np.nansum(series)) > float(np.nansum(known)):
+            by_cell[int(cell)] = series
+    if not by_cell:
+        return None
+    logger.info(
+        "Per-cell discharge: read the routed SFR downstream flow of %d reach cell(s); "
+        "nothing is accumulated, MODFLOW routed the water.",
+        len(by_cell),
+    )
+    return by_cell
+
+
 def routed_outflow_series(
     output_dir: Path,
     model_name: str,
