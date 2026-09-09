@@ -360,9 +360,8 @@ For questions or collaboration requests, contact:
    User Guide <user_guide/index>
    Python API <python_api/index>
    CLI <cli/index>
-   OO Patterns <oo/index>
    Gallery <capability_gallery/index>
-   API Reference <api/index>
+   Theory <theory/index>
    Developer <architecture/index>
    About <about/index>
 

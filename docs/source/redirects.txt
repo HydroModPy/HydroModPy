@@ -134,3 +134,9 @@ architecture/overview/hydrographic-network-simulated-active-inventory architectu
 architecture/overview/testbed-workflow-architecture architecture/simulation/testbed-workflow-architecture
 architecture/overview/data-managers-and-external-dependencies architecture/data_loading/data-managers-and-external-dependencies
 architecture/process/index architecture/process/process-architecture
+oo/index python_api/project
+oo/project python_api/project
+oo/state python_api/project
+oo/catalog python_api/project
+oo/accessors python_api/project
+user_guide/project-api python_api/project
