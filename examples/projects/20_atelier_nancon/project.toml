@@ -86,14 +86,6 @@ snap_dist = "150 m"
 buff_area = "10%"
 
 [domain]
-# La geologie est la seule zonation utilisee. Elle alimente le registre
-# de supports spatiaux quand des champs de parametres heterogenes sont
-# necessaires.
-zone_ids = ["geology"]
-
-# Aucun support spatial heterogene nomme declare a ce niveau.
-supports = {}
-
 [domain.depth_model]
 # Aquifere decrit comme une couche d'epaisseur constante sous la
 # topographie. 30 m est une base raisonnable pour l'aquifere fracture

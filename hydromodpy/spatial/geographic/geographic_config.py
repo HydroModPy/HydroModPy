@@ -367,7 +367,10 @@ class StreamEnforcementConfig(HydroModelBase):
         default=None,
         description=(
             "Observed stream network (gpkg/shp) to burn. A bare filename resolves "
-            "against <workspace>/data/hydrography/. Required when enabled."
+            "against <workspace>/data/hydrography/. When left empty and enabled, it "
+            "falls back to the network [[data.hydrography.sources]] declares, so the "
+            "same file is named once; declare it here only to burn a network that "
+            "differs from the one the data family loads."
         ),
     )
     mode: Annotated[Literal["constant", "adaptive"], Profile.USER] = Field(

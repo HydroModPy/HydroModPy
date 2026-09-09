@@ -148,11 +148,6 @@ all_vertices = true
 # Domain configuration.
 
 [domain]
-# Ordered list of zone identifiers loaded in the domain registry. Keep this list for actual
-# runtime zones (for example 'catchment', 'geology', or custom zonations). Spatial-support
-# declarations live under domain.supports.
-zone_ids = ["geology"]
-
 [domain.supports.field_geology]
 kind = "geology"
 

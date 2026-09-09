@@ -103,7 +103,6 @@ buff_area = "10%"
 
 [geographic.enforce_streams]
 enabled = true
-stream_geometry_path = "nancon_stream_network.gpkg"
 mode = "constant"
 depth_m = 10.0
 
@@ -120,8 +119,6 @@ depth_m = 10.0
 # est le `nlay = 1` de la reference.
 
 [domain]
-zone_ids = ["geology"]
-supports = {}
 
 [domain.depth_model]
 kind = "constant_thickness"

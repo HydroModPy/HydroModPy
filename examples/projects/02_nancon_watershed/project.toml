@@ -82,13 +82,6 @@ snap_dist = "150 m"
 buff_area = "10%"
 
 [domain]
-# Geology is the only zonation we use. It feeds the spatial-support
-# registry when heterogeneous parameter fields are needed.
-zone_ids = ["geology"]
-
-# No named heterogeneous spatial support declared at this level.
-supports = {}
-
 [domain.depth_model]
 # Aquifer described as a constant-thickness layer below topography.
 # 30 m is a reasonable baseline for the Armorican fractured aquifer.

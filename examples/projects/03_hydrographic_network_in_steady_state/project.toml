@@ -75,10 +75,6 @@ compute_stream_links = true
 
 # ---------------------------------------------------------------------- domain
 [domain]
-# The geology layer is registered as a zone so the id card can map it.
-# K stays homogeneous: [flow.param.K.field] declares no zonal values.
-zone_ids = ["geology"]
-
 # 50 m aquifer below the topography, split into five layers by
 # [modflow6.sgrid.vertical].
 [domain.depth_model]

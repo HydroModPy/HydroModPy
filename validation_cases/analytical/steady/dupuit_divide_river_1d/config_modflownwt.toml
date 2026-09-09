@@ -31,8 +31,6 @@ kind = "flat"
 base_elevation = 20.0
 
 [domain]
-zone_ids = []
-
 [domain.depth_model]
 kind = "constant_thickness"
 thickness = "20.0 m"

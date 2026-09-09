@@ -59,10 +59,6 @@ snap_dist = "50 m"
 buff_area = "20%"
 
 [domain]
-# Ordered list of zone identifiers loaded in the domain.
-# Supported values currently include: 'geology'.
-zone_ids = ["geology"]
-
 [domain.depth_model]
 # Vertical domain model configuration.
 # Use 'constant_thickness' or 'flat_substratum'.

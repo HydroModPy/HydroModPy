@@ -99,9 +99,6 @@ compute_strahler_order = true
 # ----------------------------------------------------------------------
 
 [domain]
-zone_ids = ["geology"]
-supports = {}
-
 [domain.depth_model]
 kind = "constant_thickness"
 thickness = 30.0

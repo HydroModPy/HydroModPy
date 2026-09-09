@@ -56,8 +56,6 @@ base_elevation = 20.0
 right_to_left_amplitude = 20.0
 
 [domain]
-zone_ids = ["geology"]
-
 [domain.supports.field_geology]
 kind = "geology"
 

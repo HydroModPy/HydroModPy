@@ -20,8 +20,6 @@ snap_dist = "150 m"
 buff_area = "10%"
 
 [domain]
-zone_ids = ["geology"]
-
 [domain.depth_model]
 kind = "constant_thickness"
 thickness = "50.0 m"

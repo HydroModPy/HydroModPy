@@ -213,17 +213,6 @@ all_vertices = false
 # ----------------------------------------------------------------------
 
 [domain]
-# Ordered list of zone identifiers loaded in the domain registry.
-# Keep this list for actual runtime zones (for example 'catchment', 'geology', or custom zonations).
-# Spatial-support declarations live under domain.supports.
-# Type: list[str] | REQUIRED
-zone_ids = ["geology"]
-
-# Named spatial supports available to heterogeneous parameters.
-# Each key is a support identifier referenced by field_spatial_id.
-# Type: dict[str, Annotated] | REQUIRED
-supports = {}
-
 
 # Vertical domain model configuration.
 # Use 'constant_thickness' or 'flat_substratum'.

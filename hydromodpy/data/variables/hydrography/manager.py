@@ -31,6 +31,35 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def fetch_api_source(
+    source_cfg: HydrographySourceConfig,
+    bbox_wgs84: tuple[float, float, float, float],
+) -> gpd.GeoDataFrame:
+    """Dispatch one API source to its fetch function, in EPSG:4326.
+
+    Module level rather than a method because the stream burn resolver needs the
+    same dispatch before any manager exists: it downloads on an outlet box, at a
+    point in the pipeline where the watershed a manager clips against is not
+    delineated yet.
+    """
+    if source_cfg.source == "osm":
+        from hydromodpy.data.variables.hydrography.apis.osm import fetch
+
+        return fetch(source_cfg, bbox_wgs84)
+
+    if source_cfg.source == "bdtopage":
+        from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
+
+        return fetch(source_cfg, bbox_wgs84)
+
+    if source_cfg.source == "euhydro":
+        from hydromodpy.data.variables.hydrography.apis.euhydro import fetch
+
+        return fetch(source_cfg, bbox_wgs84)
+
+    raise ValueError(f"Unknown hydrography source: {source_cfg.source!r}")
+
+
 class HydrographyManager:
     """Load, clip, and rasterise hydrography vector data."""
 
@@ -235,22 +264,7 @@ class HydrographyManager:
         bbox: tuple[float, float, float, float],
     ) -> gpd.GeoDataFrame:
         """Call the appropriate API fetch function."""
-        if source_cfg.source == "osm":
-            from hydromodpy.data.variables.hydrography.apis.osm import fetch
-
-            return fetch(source_cfg, bbox)
-
-        if source_cfg.source == "bdtopage":
-            from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
-
-            return fetch(source_cfg, bbox)
-
-        if source_cfg.source == "euhydro":
-            from hydromodpy.data.variables.hydrography.apis.euhydro import fetch
-
-            return fetch(source_cfg, bbox)
-
-        raise ValueError(f"Unknown hydrography source: {source_cfg.source!r}")
+        return fetch_api_source(source_cfg, bbox)
 
     # ------------------------------------------------------------------
     # Catalog cache helpers

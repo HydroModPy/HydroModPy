@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 import hydromodpy.data.variables.dem.resolver as dem_resolver
+import hydromodpy.data.variables.hydrography.resolver as hydrography_resolver
 import hydromodpy.workflow.pipelines.overview as overview_module
 from hydromodpy.core.exceptions import ConfigMissingError
 
@@ -115,3 +116,95 @@ def test_bootstrap_dem_raises_when_no_path_or_data_source_can_resolve(
 
     with pytest.raises(ConfigMissingError, match="No dem_init_path"):
         launcher._bootstrap_dem(state)
+
+
+def _burn_state(tmp_path, *, enabled=True, declared=None, sources=()):
+    return SimpleNamespace(
+        cfg=SimpleNamespace(
+            geographic=SimpleNamespace(
+                enforce_streams=SimpleNamespace(
+                    enabled=enabled,
+                    stream_geometry_path=declared,
+                )
+            ),
+            data=SimpleNamespace(hydrography=SimpleNamespace(sources=list(sources))),
+        ),
+        workspace=SimpleNamespace(paths=SimpleNamespace(data_path=tmp_path / "data")),
+    )
+
+
+def _launcher(tmp_path):
+    launcher = object.__new__(overview_module.DataOverviewLauncher)
+    launcher.config_path = tmp_path / "overview.toml"
+    return launcher
+
+
+def test_bootstrap_stream_geometry_fills_the_burn_from_the_data_family(
+    monkeypatch, tmp_path
+) -> None:
+    network = tmp_path / "network.gpkg"
+    monkeypatch.setattr(
+        hydrography_resolver,
+        "resolve_stream_geometry_path_from_data_sources",
+        lambda *args, **kwargs: network,
+    )
+    state = _burn_state(tmp_path, sources=[SimpleNamespace(source="custom")])
+
+    _launcher(tmp_path)._bootstrap_stream_geometry(state)
+
+    assert state.cfg.geographic.enforce_streams.stream_geometry_path == network
+
+
+def test_bootstrap_stream_geometry_leaves_a_disabled_burn_alone(tmp_path) -> None:
+    state = _burn_state(tmp_path, enabled=False, sources=[SimpleNamespace(source="custom")])
+
+    _launcher(tmp_path)._bootstrap_stream_geometry(state)
+
+    assert state.cfg.geographic.enforce_streams.stream_geometry_path is None
+
+
+def test_bootstrap_stream_geometry_defers_when_no_hydrography_source_is_declared(
+    tmp_path,
+) -> None:
+    """Same deferral as the run pipeline: the burn names the file it cannot read."""
+    state = _burn_state(tmp_path, sources=[])
+
+    _launcher(tmp_path)._bootstrap_stream_geometry(state)
+
+    assert state.cfg.geographic.enforce_streams.stream_geometry_path is None
+
+
+def test_bootstrap_stream_geometry_raises_when_the_data_family_holds_no_vector(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setattr(
+        hydrography_resolver,
+        "resolve_stream_geometry_path_from_data_sources",
+        lambda *args, **kwargs: None,
+    )
+    state = _burn_state(tmp_path, sources=[SimpleNamespace(source="custom")])
+
+    with pytest.raises(ConfigMissingError, match="a raster one cannot be burned"):
+        _launcher(tmp_path)._bootstrap_stream_geometry(state)
+
+
+def test_bootstrap_dem_assigns_on_the_catchment_variant(monkeypatch, tmp_path) -> None:
+    """``GeographicConfig.dem_init_path`` is a read-only property; the field is on the variant."""
+    dem = tmp_path / "dem.tif"
+    monkeypatch.setattr(
+        dem_resolver,
+        "resolve_dem_path_from_data_sources",
+        lambda *args, **kwargs: dem,
+    )
+    catchment = SimpleNamespace(dem_init_path=None)
+    state = SimpleNamespace(
+        cfg=SimpleNamespace(
+            geographic=SimpleNamespace(dem_init_path=None, catchment=catchment),
+            data=SimpleNamespace(),
+        ),
+        workspace=SimpleNamespace(paths=SimpleNamespace(data_path=tmp_path / "data")),
+    )
+
+    _launcher(tmp_path)._bootstrap_dem(state)
+
+    assert catchment.dem_init_path == dem
