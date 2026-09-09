@@ -289,6 +289,13 @@
             ],
             "title": "Mode",
             "type": "string",
+            "value_docs": {
+              "hard_reject": "Rejects candidates that fail the configured basin area check.",
+              "report_only": "Records basin area evidence without any automatic accept or reject decision.",
+              "score": "Scores candidates by closeness of their area to preferred_area_km2.",
+              "stratify": "Makes basin area available for grouping candidates into strata.",
+              "warning": "Flags candidates that fail the configured basin area check, without rejecting them."
+            },
             "x-hmp-profile": "user"
           },
           "target_area_km2": {
@@ -573,6 +580,10 @@
             "default": null,
             "description": "Use project extent for bbox-based data retrieval.",
             "title": "Extent",
+            "value_docs": {
+              "study_area": "Turns on bbox retrieval on the project extent; today no separate study-area window is resolved.",
+              "watershed": "Turns on bbox retrieval on the project extent; today no code reads which of the two values was set."
+            },
             "x-hmp-profile": "user"
           },
           "force_refresh": {
@@ -635,6 +646,10 @@
             "default": null,
             "description": "Use project extent for bbox-based data retrieval.",
             "title": "Extent",
+            "value_docs": {
+              "study_area": "Turns on bbox retrieval on the project extent; today no separate study-area window is resolved.",
+              "watershed": "Turns on bbox retrieval on the project extent; today no code reads which of the two values was set."
+            },
             "x-hmp-profile": "user"
           },
           "force_refresh": {
@@ -710,6 +725,15 @@
             ],
             "title": "Metric",
             "type": "string",
+            "value_docs": {
+              "distance_gap": "Balances the simulated stream network against the mapped one; zero marks the crossing.",
+              "distance_mean": "Mean spatial offset between simulated and mapped streams; a diagnostic, not a substitute for distance_gap.",
+              "kge": "Kling-Gupta efficiency; separates correlation, variability and bias when NSE alone is ambiguous.",
+              "mae": "Mean absolute error, in the observed unit; less sensitive to outliers than RMSE.",
+              "nse": "Nash-Sutcliffe efficiency against the observed mean; the standard choice for a level or discharge series.",
+              "nse_log": "NSE on log-transformed series; weights low flows as heavily as peaks, good for recessions.",
+              "rmse": "Root-mean-square error, in the observed unit; penalizes large misfits most."
+            },
             "x-hmp-profile": "user"
           },
           "weight": {
@@ -756,6 +780,11 @@
             ],
             "title": "Transform",
             "type": "string",
+            "value_docs": {
+              "identity": "Uses the block cost as computed, with no transform.",
+              "inverse": "Takes -1 / (cost + epsilon), sharpening the gradient near a cost of zero.",
+              "log": "Takes log10 of the cost plus a small epsilon, compressing large costs before weighting."
+            },
             "x-hmp-profile": "user"
           },
           "warmup": {
@@ -1753,6 +1782,20 @@
             "title": "Objective",
             "x-hmp-profile": "user"
           },
+          "observed_station_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Observed station the single simulated series is scored against. A run produces one discharge series, at the catchment outlet, so an upstream gauge cannot match it: when several stations are loaded, one has to be named. Optional with a single loaded station. Overrides the calibration-level value for this phase.",
+            "title": "Observed Station Id",
+            "x-hmp-profile": "user"
+          },
           "optimizer_kwargs": {
             "additionalProperties": true,
             "description": "Extra keyword arguments forwarded to this phase's optimizer.",
@@ -2014,6 +2057,20 @@
             ],
             "title": "Variable",
             "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "observed_station_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Observed station the single simulated series is scored against. A run produces one discharge series, at the catchment outlet, so an upstream gauge cannot match it: when several stations are loaded, one has to be named. Optional with a single loaded station.",
+            "title": "Observed Station Id",
             "x-hmp-profile": "user"
           },
           "optimizer_kwargs": {
@@ -2610,6 +2667,13 @@
             ],
             "title": "Support",
             "type": "string",
+            "value_docs": {
+              "boundary": "Sums the cells listed in cell_indices, or the whole domain when none are listed.",
+              "cell_mask": "Same extraction as boundary: sums the cells listed in cell_indices.",
+              "map": "Keeps the full spatial field with no reduction.",
+              "outlet": "Reads the outlet cell given by cell_index, x/y, or anchor_id, then sums it.",
+              "point": "Reads a single cell picked by x/y, anchor_id, or cell_index."
+            },
             "x-hmp-profile": "user"
           },
           "anchor_id": {
@@ -3379,6 +3443,10 @@
             "default": null,
             "description": "Use project extent for bbox-based data retrieval.",
             "title": "Extent",
+            "value_docs": {
+              "study_area": "Turns on bbox retrieval on the project extent; today no separate study-area window is resolved.",
+              "watershed": "Turns on bbox retrieval on the project extent; today no code reads which of the two values was set."
+            },
             "x-hmp-profile": "user"
           },
           "force_refresh": {
@@ -3454,6 +3522,10 @@
             "default": null,
             "description": "Use project extent for bbox-based data retrieval.",
             "title": "Extent",
+            "value_docs": {
+              "study_area": "Turns on bbox retrieval on the project extent; today no separate study-area window is resolved.",
+              "watershed": "Turns on bbox retrieval on the project extent; today no code reads which of the two values was set."
+            },
             "x-hmp-profile": "user"
           },
           "force_refresh": {
@@ -4516,6 +4588,11 @@
             ],
             "title": "Preset",
             "type": "string",
+            "value_docs": {
+              "dark": "Uses a bright palette on a dark background, for dark-themed displays.",
+              "default": "Uses a colorful sans-serif palette on a white background, for screen viewing.",
+              "print": "Uses a grayscale serif palette sized for black-and-white print output."
+            },
             "x-hmp-profile": "user"
           },
           "show": {
@@ -4611,7 +4688,7 @@
         "description": "Domain configuration.\n\nControls which zone providers are loaded in `Domain`.",
         "properties": {
           "zone_ids": {
-            "description": "Ordered list of zone identifiers loaded in the domain registry. Keep this list for actual runtime zones (for example 'catchment', 'geology', or custom zonations). Spatial-support declarations live under domain.supports.",
+            "description": "Zone identifiers Domain.set_zone is allowed to register. It is an allowlist, not a request: nothing here causes a zone to be built. 'catchment' and 'geology' are appended by the runtime because the binders write under those fixed names, and every support id is appended too, so what belongs here is a project's own zonations. Order is never read. Spatial-support declarations live under domain.supports.",
             "items": {
               "description": "Snake-case identifier starting with a lowercase letter.",
               "pattern": "^[a-z][a-z0-9_]*$",
@@ -8957,6 +9034,13 @@
             ],
             "title": "Mode",
             "type": "string",
+            "value_docs": {
+              "hard_reject": "Rejects candidates that fail the configured flow-station check.",
+              "report_only": "Records flow-station evidence without any automatic accept or reject decision.",
+              "score": "Scores candidates by record length and station-to-outlet distance.",
+              "stratify": "Makes flow-station available for grouping candidates into strata.",
+              "warning": "Flags candidates that fail the configured flow-station check, without rejecting them."
+            },
             "x-hmp-profile": "user"
           },
           "min_record_years": {
@@ -10036,6 +10120,13 @@
             ],
             "title": "Mode",
             "type": "string",
+            "value_docs": {
+              "hard_reject": "Behaves like report_only here: geology cannot yet reject a candidate.",
+              "report_only": "Records geology evidence without any automatic accept or reject decision.",
+              "score": "Gives a full score when a geology class is found, none otherwise.",
+              "stratify": "Makes the geology class available for grouping candidates into strata.",
+              "warning": "Behaves like report_only here: geology cannot yet raise a warning."
+            },
             "x-hmp-profile": "user"
           },
           "prefer_diversity": {
@@ -10427,6 +10518,12 @@
             ],
             "title": "Source",
             "type": "string",
+            "value_docs": {
+              "bdtopage": "Downloads the French BD Topage reference network from the Sandre WFS.",
+              "custom": "Loads a river network from a local vector or raster file you provide.",
+              "euhydro": "Downloads the EEA EU-Hydro continental-scale river network.",
+              "osm": "Downloads waterway geometries from OpenStreetMap."
+            },
             "x-hmp-profile": "user"
           },
           "path": {
@@ -10559,6 +10656,11 @@
             ],
             "title": "Hydrologic Conditioning",
             "type": "string",
+            "value_docs": {
+              "breach": "Carves a channel through each depression, preserving natural flow paths.",
+              "existing_default": "Forwards 'fill' to the flow products; it is the site-selection default.",
+              "fill": "Raises each depression to its spill elevation before routing flow."
+            },
             "x-hmp-profile": "user"
           },
           "network_threshold_area_km2": {
@@ -10848,7 +10950,7 @@
           },
           "require_observations": {
             "default": true,
-            "description": "Only keep stations that have observations in the period.",
+            "description": "Drop stations whose declared service period does not overlap the requested window, before downloading them. It is a metadata filter: a station that overlaps but returns nothing is dropped after its download instead, and the run says which ones.",
             "examples": [
               true
             ],
@@ -10867,7 +10969,7 @@
               }
             ],
             "default": null,
-            "description": "Maximum number of Hub'Eau stations to download after discovery. Useful for fast preview runs over a larger territory.",
+            "description": "Maximum number of Hub'Eau stations to KEEP. Stations that return no observation in the window do not count against it, so a preview run over a larger territory gets this many stations carrying data, not this many tried.",
             "title": "Max Stations",
             "x-hmp-profile": "user"
           }
@@ -10913,6 +11015,10 @@
             "default": null,
             "description": "Use project extent for bbox-based data retrieval.",
             "title": "Extent",
+            "value_docs": {
+              "study_area": "Turns on bbox retrieval on the project extent; today no separate study-area window is resolved.",
+              "watershed": "Turns on bbox retrieval on the project extent; today no code reads which of the two values was set."
+            },
             "x-hmp-profile": "user"
           },
           "force_refresh": {
@@ -11035,6 +11141,13 @@
             ],
             "title": "Mode",
             "type": "string",
+            "value_docs": {
+              "hard_reject": "Rejects a candidate when a configured influence rejection flag is present.",
+              "report_only": "Records influence evidence without any automatic accept or reject decision.",
+              "score": "Behaves like warning here: flags influence without computing a score.",
+              "stratify": "Behaves like warning here: flags influence without grouping by class.",
+              "warning": "Flags a configured influence flag as a warning without rejecting the candidate."
+            },
             "x-hmp-profile": "user"
           },
           "reject_major_dam_upstream": {
@@ -11127,6 +11240,11 @@
             ],
             "title": "Influence Type",
             "type": "string",
+            "value_docs": {
+              "major_dam_upstream": "Marks matching basins as having a major dam upstream of the outlet.",
+              "major_regulated_reach": "Marks matching basins as having a major regulated reach upstream.",
+              "major_withdrawal_upstream": "Marks matching basins as having a major water withdrawal upstream."
+            },
             "x-hmp-profile": "user"
           },
           "id_field": {
@@ -12847,6 +12965,12 @@
             ],
             "title": "Role",
             "type": "string",
+            "value_docs": {
+              "geology": "Drawn as pale yellow polygons, styled as geology units.",
+              "hydrography": "Drawn as thin blue lines, styled as the stream network.",
+              "other": "Drawn as neutral grey polygons and lines with no special role.",
+              "territory": "Drawn as a dashed grey outline, styled as the territory boundary."
+            },
             "x-hmp-profile": "user"
           },
           "label_field": {
@@ -15081,6 +15205,13 @@
             ],
             "title": "Flow Station Mode",
             "type": "string",
+            "value_docs": {
+              "hard_reject": "Rejects candidates that fail the configured flow-station check.",
+              "report_only": "Records flow-station evidence without any automatic accept or reject decision.",
+              "score": "Scores candidates by record length and station-to-outlet distance.",
+              "stratify": "Makes flow-station available for grouping candidates into strata.",
+              "warning": "Flags candidates that fail the configured flow-station check, without rejecting them."
+            },
             "x-hmp-profile": "user"
           },
           "flow_station_max_distance_km": {
@@ -15111,6 +15242,13 @@
             ],
             "title": "Piezometer Mode",
             "type": "string",
+            "value_docs": {
+              "hard_reject": "Rejects candidates that fail the configured piezometer check.",
+              "report_only": "Records piezometer evidence without any automatic accept or reject decision.",
+              "score": "Scores candidates by distance to the nearest piezometer, or piezometer count.",
+              "stratify": "Makes piezometer available for grouping candidates into strata.",
+              "warning": "Flags candidates that fail the configured piezometer check, without rejecting them."
+            },
             "x-hmp-profile": "user"
           },
           "piezometer_max_distance_km": {
@@ -15551,6 +15689,10 @@
             ],
             "title": "Candidate Mode",
             "type": "string",
+            "value_docs": {
+              "network_sampling": "Generates candidate outlets by sampling the DEM-derived stream network.",
+              "station_outlets": "Uses imported observation station locations, such as flow stations, as candidate outlets."
+            },
             "x-hmp-profile": "user"
           },
           "min_distance_between_outlets_km": {
@@ -15679,6 +15821,10 @@
             ],
             "title": "Reference Network Source",
             "type": "string",
+            "value_docs": {
+              "bdtopage": "Downloads the reference stream network from the BD Topage WFS service.",
+              "custom": "Uses the local vector file at reference_network_path as the reference network."
+            },
             "x-hmp-profile": "user"
           },
           "reference_network_path": {
@@ -16390,6 +16536,10 @@
             ],
             "title": "Source",
             "type": "string",
+            "value_docs": {
+              "custom": "Loads groundwater-level records from local station and chronicle files.",
+              "hubeau": "Downloads public groundwater-level observations from the Hub'Eau API."
+            },
             "x-hmp-profile": "user"
           },
           "path": {
@@ -16468,6 +16618,10 @@
             ],
             "title": "Mode",
             "type": "string",
+            "value_docs": {
+              "keep_native": "Keeps the top raster's native shape and resolution, no resampling.",
+              "resample_to_shape": "Resamples top and bottom onto an explicit (ny, nx) grid, keeping the same extent."
+            },
             "x-hmp-profile": "user"
           },
           "nx": {
@@ -17613,6 +17767,11 @@
             ],
             "title": "Format",
             "type": "string",
+            "value_docs": {
+              "auto": "Infers the format from the file suffix (.csv, or .jsonl/.ndjson).",
+              "csv": "Parses the catalog as comma-separated values, one site per row.",
+              "jsonl": "Parses the catalog as one JSON object per line, one site per line."
+            },
             "x-hmp-profile": "user"
           },
           "site_id_field": {
@@ -18249,6 +18408,10 @@
             ],
             "title": "Launcher",
             "type": "string",
+            "value_docs": {
+              "comparison": "Runs each site's generated config through the comparison workflow, several child runs.",
+              "simulation": "Runs each site's generated config through the simulation workflow, one forward run."
+            },
             "x-hmp-profile": "user"
           },
           "config_path_template": {
@@ -19191,6 +19354,12 @@
             "default": null,
             "description": "Optional forcing/stress-period base time unit used with step_value when step_value is provided without an inline unit.",
             "title": "Step Unit",
+            "value_docs": {
+              "day": "Treats step_value as whole days, the common granularity for daily forcing series.",
+              "hour": "Treats step_value as whole hours, for sub-daily forcing and stress periods.",
+              "month": "Treats step_value as calendar months, so the step length varies by month.",
+              "year": "Treats step_value as calendar years, so the step length varies with leap years."
+            },
             "x-hmp-profile": "user"
           },
           "substeps_per_period": {
@@ -19343,6 +19512,13 @@
             ],
             "title": "Mode",
             "type": "string",
+            "value_docs": {
+              "delineated_catchments": "Reuses pre-delineated catchments and outlets supplied as catchments_csv.",
+              "dem_area_light": "Generates DEM-only candidate outlets around a target upstream drainage area.",
+              "generated_candidates": "Samples high-accumulation DEM/network cells to generate candidate outlets.",
+              "hydrometry": "Loads flow stations through HydroModPy data managers, then delineates their catchments.",
+              "plan_only": "Writes the selection-plan manifest and report, loading no data and delineating nothing."
+            },
             "x-hmp-profile": "user"
           },
           "catchments_csv": {
@@ -19875,6 +20051,11 @@
             ],
             "title": "Overlap Reference",
             "type": "string",
+            "value_docs": {
+              "candidate": "Divides the intersection area by the candidate basin's own area.",
+              "selected": "Divides the intersection area by the already-selected basin's own area.",
+              "smaller_basin": "Divides the intersection area by the area of the smaller of the two basins."
+            },
             "x-hmp-profile": "user"
           },
           "overlap_mode": {
@@ -19891,6 +20072,12 @@
             ],
             "title": "Overlap Mode",
             "type": "string",
+            "value_docs": {
+              "hard_reject": "Rejects a candidate whose basin overlap exceeds the configured threshold.",
+              "report_only": "Behaves like warning here: flags excess overlap rather than only recording it.",
+              "score": "Behaves like warning here: flags excess overlap without computing a score.",
+              "warning": "Flags excess basin overlap as a warning without rejecting the candidate."
+            },
             "x-hmp-profile": "user"
           },
           "spatial_quota_mode": {
@@ -19905,6 +20092,10 @@
             ],
             "title": "Spatial Quota Mode",
             "type": "string",
+            "value_docs": {
+              "grid": "Rejects extra candidates once a grid cell already holds its site quota.",
+              "none": "Applies no spatial quota; ranking alone decides which sites are kept."
+            },
             "x-hmp-profile": "user"
           },
           "spatial_quota_cell_size_km": {
@@ -20024,6 +20215,13 @@
             ],
             "title": "Mode",
             "type": "string",
+            "value_docs": {
+              "hard_reject": "Rejects candidates that fail the configured station-influence check.",
+              "report_only": "Records station-influence evidence without any automatic accept or reject decision.",
+              "score": "Scores candidates by influence status: 1.0 if none, 0.5 if unknown, 0.0 if influenced.",
+              "stratify": "Makes station-influence available for grouping candidates into strata.",
+              "warning": "Flags candidates that fail the configured station-influence check, without rejecting them."
+            },
             "x-hmp-profile": "user"
           },
           "source": {
@@ -20074,6 +20272,10 @@
             ],
             "title": "Unknown Policy",
             "type": "string",
+            "value_docs": {
+              "neutral": "Does not raise a warning when station influence metadata is missing or unknown.",
+              "warning": "Raises a warning when station influence metadata is missing or unknown."
+            },
             "x-hmp-profile": "user"
           },
           "comment_keywords": {
@@ -20105,6 +20307,10 @@
             ],
             "title": "Principle",
             "type": "string",
+            "value_docs": {
+              "criteria_crossing": "Crosses the declared spatial and physical criteria directly, with no observation-led outlets.",
+              "observation_led": "Builds candidates from imported observation outlets, such as flow stations."
+            },
             "x-hmp-profile": "user"
           },
           "profile": {
@@ -20150,6 +20356,14 @@
             ],
             "title": "Observation Role",
             "type": "string",
+            "value_docs": {
+              "bonus": "Accepted and recorded in the manifest; no code reads it, so a run is unchanged.",
+              "ignore": "Recorded but never read; the other value profile='area_only' accepts.",
+              "primary": "Accepted and recorded in the manifest; no code reads it, so a run is unchanged.",
+              "report_only": "Recorded but never read; one of the two values profile='area_only' accepts.",
+              "score": "Accepted and recorded in the manifest; no code reads it, so a run is unchanged.",
+              "stratify": "Accepted and recorded in the manifest; no code reads it, so a run is unchanged."
+            },
             "x-hmp-profile": "user"
           },
           "geology_role": {
@@ -20168,6 +20382,14 @@
             ],
             "title": "Geology Role",
             "type": "string",
+            "value_docs": {
+              "bonus": "Accepted and recorded in the manifest; no code reads it, so a run is unchanged.",
+              "ignore": "Recorded but never read; the other value profile='area_only' accepts.",
+              "primary": "Accepted and recorded in the manifest; no code reads it, so a run is unchanged.",
+              "report_only": "Recorded but never read; one of the two values profile='area_only' accepts.",
+              "score": "Accepted and recorded in the manifest; no code reads it, so a run is unchanged.",
+              "stratify": "Accepted and recorded in the manifest; no code reads it, so a run is unchanged."
+            },
             "x-hmp-profile": "user"
           },
           "primary_observation_type": {
@@ -20214,6 +20436,10 @@
             "default": null,
             "description": "Optional strategy-level candidate generation mode.",
             "title": "Candidate Mode",
+            "value_docs": {
+              "network_sampling": "Generates candidate outlets by sampling the DEM-derived stream network.",
+              "station_outlets": "Uses imported observation station locations, such as flow stations, as candidate outlets."
+            },
             "x-hmp-profile": "user"
           }
         },
@@ -20245,7 +20471,7 @@
               }
             ],
             "default": null,
-            "description": "Observed stream network (gpkg/shp) to burn. A bare filename resolves against <workspace>/data/hydrography/. Required when enabled.",
+            "description": "Observed stream network (gpkg/shp) to burn. A bare filename resolves against <workspace>/data/hydrography/. When left empty and enabled, it falls back to the network [[data.hydrography.sources]] declares, so the same file is named once; declare it here only to burn a network that differs from the one the data family loads.",
             "title": "Stream Geometry Path",
             "x-hmp-profile": "user"
           },
@@ -20510,6 +20736,10 @@
             ],
             "title": "Genmtd",
             "type": "string",
+            "value_docs": {
+              "from_chron": "Derives stress-period lengths from consecutive timestamps in the chronicle file at chron_path.",
+              "synthetic_regular": "Builds nper stress periods from lenper and itmuni, ignoring any chronicle file."
+            },
             "x-hmp-profile": "user"
           },
           "nper": {
@@ -20942,6 +21172,12 @@
             ],
             "title": "Mode",
             "type": "string",
+            "value_docs": {
+              "admin_departments": "Bounds the territory to the bounding box of the named departments.",
+              "admin_regions": "Bounds the territory to the bounding box of the named administrative regions.",
+              "bbox": "Bounds the territory to an explicit xmin, ymin, xmax, ymax box.",
+              "polygon_file": "Bounds the territory to the bounding box of a user-supplied polygon file."
+            },
             "x-hmp-profile": "user"
           },
           "country": {
@@ -21730,6 +21966,14 @@
             ],
             "title": "Hillslope Stat",
             "type": "string",
+            "value_docs": {
+              "max": "Uses the highest hillslope pixel elevation found inside the cell.",
+              "mean": "Averages every hillslope pixel in the cell to set its top elevation.",
+              "median": "Uses the median hillslope pixel elevation, robust to outlier pixels.",
+              "min": "Uses the lowest hillslope pixel elevation found inside the cell.",
+              "p10": "Uses the 10th percentile of hillslope pixel elevations inside the cell.",
+              "p25": "Uses the 25th percentile of hillslope pixel elevations inside the cell."
+            },
             "x-hmp-profile": "user"
           },
           "channel_stat": {
@@ -21747,6 +21991,13 @@
             ],
             "title": "Channel Stat",
             "type": "string",
+            "value_docs": {
+              "mean": "Averages channel pixel elevations, smoothing over the incised thalweg.",
+              "median": "Uses the median channel pixel elevation, less aggressive than the thalweg low.",
+              "min": "Uses the lowest channel pixel elevation, keeping the incised thalweg low.",
+              "p10": "Uses the 10th percentile of channel pixel elevations, near the thalweg low.",
+              "p25": "Uses the 25th percentile of channel pixel elevations, above the thalweg low."
+            },
             "x-hmp-profile": "user"
           },
           "channel_source": {
@@ -22117,6 +22368,11 @@
             ],
             "title": "Genmtd Lay",
             "type": "string",
+            "value_docs": {
+              "constant": "Splits local thickness into nlay equal-fraction layers at every cell.",
+              "decay": "Grows layer thickness geometrically with depth when lay_decay is above one.",
+              "list": "Uses the explicit per-layer thickness fractions given in lay_proportions."
+            },
             "x-hmp-profile": "user"
           },
           "nlay": {
@@ -22750,6 +23006,14 @@
             ],
             "title": "Mode",
             "type": "string",
+            "value_docs": {
+              "calibration": "Repeatedly proposes parameters, runs candidate simulations, and records the calibration history.",
+              "comparison": "Runs several child simulations from one shared base config and compares their observables.",
+              "overview": "Loads geographic and data context and renders review maps without running a solver.",
+              "simulation": "Runs one forward simulation and persists solver outputs, catalog rows, and result stores.",
+              "site_selection": "Selects or rejects candidate catchments and produces an auditable HTML review report.",
+              "testbed": "Expands a case matrix, delegates each case to a runner, and collects evidence artifacts."
+            },
             "x-hmp-profile": "user"
           },
           "profile": {
@@ -23696,6 +23960,11 @@
             ],
             "title": "Map Background Extent",
             "type": "string",
+            "value_docs": {
+              "delineation": "Reuses the DEM already used to delineate basin contours as background.",
+              "none": "Skips loading any DEM background for the review map.",
+              "territory": "Loads a separate regional DEM over the full territory for the background."
+            },
             "x-hmp-profile": "user"
           },
           "force_refresh": {

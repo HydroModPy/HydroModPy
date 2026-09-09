@@ -96,7 +96,7 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [domain]
-      # Ordered list of zone identifiers loaded in the domain registry. Keep this list for actual runtime zones (for example 'catchment', 'geology', or custom zonations). Spatial-support declarations live under domain.supports.
+      # Zone identifiers Domain.set_zone is allowed to register. It is an allowlist, not a request: nothing here causes a zone to be built. 'catchment' and 'geology' are appended by the runtime because the binders write under those fixed names, and every support id is appended too, so what belongs here is a project's own zonations. Order is never read. Spatial-support declarations live under domain.supports.
       # zone_ids = ...  # uses factory default
       # Named spatial supports available to heterogeneous parameters. Each key is a support identifier referenced by field_spatial_id.
       # supports = ...  # uses factory default
@@ -582,6 +582,8 @@ Sub-models are linked back to their per-section page.
       objective = "nse"
       # Observed variable (for ObservationSet).
       variable = "head"
+      # Observed station the single simulated series is scored against. A run produces one discharge series, at the catchment outlet, so an upstream gauge cannot match it: when several stations are loaded, one has to be named. Optional with a single loaded station.
+      # observed_station_id = ...  # default = None
       # Extra keyword arguments forwarded to the optimizer adapter.
       # optimizer_kwargs = ...  # uses factory default
       # Per-parameter declarations (bounds, transform, prior, path).

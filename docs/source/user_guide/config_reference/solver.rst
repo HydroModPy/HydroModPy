@@ -36,6 +36,8 @@ Fields
 
 .. rst-class:: hmp-config-fields
 
+.. index:: ! backend
+
 .. container:: hmp-field hmp-field-level-user
    :name: solver-backend
 
@@ -98,6 +100,8 @@ Fields
 
 
 
+.. index:: ! sink_fill
+
 .. container:: hmp-field hmp-field-level-user
    :name: solver-sink-fill
 
@@ -117,6 +121,8 @@ Fields
       * ``false``
       * ``true``
 
+
+.. index:: ! drain_bed_thickness_m
 
 .. container:: hmp-field hmp-field-level-expert
    :name: solver-drain-bed-thickness-m
@@ -139,6 +145,8 @@ Fields
       * ``0.1``
 
 
+.. index:: ! drain_conductance_floor_m2_s
+
 .. container:: hmp-field hmp-field-level-expert
    :name: solver-drain-conductance-floor-m2-s
 
@@ -152,6 +160,8 @@ Fields
 
       m2/s. Floor applied to every DRN conductance, whether declared or derived from hk. It exists for degenerate cells only, a zero-thickness or zero-conductivity cell whose formula would divide by zero or emit a zero-conductance drain MODFLOW reads as absent. It is not a physical choice and moving it does not tune anything: a real conductance on a real cell is many orders of magnitude above it. Raise it only to make a degenerate mesh audible.
 
+
+.. index:: ! drain_band_depth_m
 
 .. container:: hmp-field hmp-field-level-user
    :name: solver-drain-band-depth-m

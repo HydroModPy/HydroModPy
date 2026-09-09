@@ -32,6 +32,8 @@ Fields
 
 .. rst-class:: hmp-config-fields
 
+.. index:: ! save_catalog
+
 .. container:: hmp-field hmp-field-level-user
    :name: persistence-save-catalog
 
@@ -45,6 +47,8 @@ Fields
 
       Persist DuckDB rows (simulations, parameters, metrics, calibration_iterations). When False, catalog writes are skipped.
 
+
+.. index:: ! save_zarr
 
 .. container:: hmp-field hmp-field-level-user
    :name: persistence-save-zarr
@@ -60,6 +64,8 @@ Fields
       Persist per-simulation field arrays (head, concentration, derived) into the Zarr store.
 
 
+.. index:: ! save_parquet
+
 .. container:: hmp-field hmp-field-level-user
    :name: persistence-save-parquet
 
@@ -74,6 +80,8 @@ Fields
       Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files.
 
 
+.. index:: ! compression
+
 .. container:: hmp-field hmp-field-level-dev
    :name: persistence-compression
 
@@ -83,10 +91,16 @@ Fields
         <code class="hmp-field-name">compression</code>
       </div>
 
-   :bdg-primary:`Literal['none', 'zstd', 'lz4', 'gzip', 'snappy']` :bdg-secondary:`default = "zstd"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "zstd"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43>`__
 
       Codec used for Zarr field arrays and Parquet tables. 'none' disables compression.
 
+   .. rst-class:: hmp-field-values
+
+   **One of:** ``"none"`` ``"zstd"`` ``"lz4"`` ``"gzip"`` ``"snappy"``
+
+
+.. index:: ! compression_level
 
 .. container:: hmp-field hmp-field-level-dev
    :name: persistence-compression-level

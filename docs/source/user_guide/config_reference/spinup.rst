@@ -27,6 +27,8 @@ Fields
 
 .. rst-class:: hmp-config-fields
 
+.. index:: ! max_cycles
+
 .. container:: hmp-field hmp-field-level-user
    :name: spinup-max-cycles
 
@@ -40,6 +42,8 @@ Fields
 
       Maximum spin-up cycles before the loop stops without converging.
 
+
+.. index:: ! tol_head
 
 .. container:: hmp-field hmp-field-level-user
    :name: spinup-tol-head
@@ -55,6 +59,8 @@ Fields
       Head convergence tolerance [m]. The loop converges when the largest absolute head change between two cycles (L-inf over active cells) is below this.
 
 
+.. index:: ! tol_stage
+
 .. container:: hmp-field hmp-field-level-user
    :name: spinup-tol-stage
 
@@ -69,6 +75,8 @@ Fields
       Lake-stage convergence tolerance [m]. The loop converges when the largest absolute stage change between two cycles, over every lake, is below this. Ignored when the model has no lake.
 
 
+.. index:: ! window_start
+
 .. container:: hmp-field hmp-field-level-user
    :name: spinup-window-start
 
@@ -82,6 +90,8 @@ Fields
 
       Cycle window start (ISO datetime, e.g. '2019-01-01'). The representative forcing period each cycle repeats. None reuses [simulation.time].
 
+
+.. index:: ! window_end
 
 .. container:: hmp-field hmp-field-level-user
    :name: spinup-window-end

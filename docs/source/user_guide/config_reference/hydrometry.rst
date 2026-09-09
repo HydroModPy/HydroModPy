@@ -9,7 +9,7 @@ TOML section: ``[hydrometry]``
 
 Pydantic model: ``HydrometryConfig`` defined in ``hydromodpy.data.variables.hydrometry.config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L72>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L79>`__
 
 Top-level hydrometry configuration.
 
@@ -40,7 +40,7 @@ Fields
         <code class="hmp-field-name">date_start</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L105>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L112>`__
 
       Project start date (ISO format, e.g. '2019-01-01').
 
@@ -56,7 +56,7 @@ Fields
         <code class="hmp-field-name">date_end</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L106>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L113>`__
 
       Project end date (ISO format, e.g. '2025-12-31').
 
@@ -74,7 +74,7 @@ Fields
         <code class="hmp-field-toml">[[hydrometry.sources]]</code>
       </div>
 
-   :bdg-primary:`list[HydrometrySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L82>`__
+   :bdg-primary:`list[HydrometrySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L89>`__
 
       At least one data source.
 
@@ -83,6 +83,8 @@ Fields
       :animate: fade-in-slide-down
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. index:: ! fallback_search_radius_km
 
       .. container:: hmp-field hmp-field-level-dev
          :name: hydrometry-sources-fallback-search-radius-km
@@ -121,9 +123,13 @@ Fields
               <code class="hmp-field-name">extent</code>
             </div>
 
-         :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20>`__
+         :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20>`__
 
             Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"watershed"`` ``"study_area"``
 
 
       .. container:: hmp-field hmp-field-level-dev
@@ -275,9 +281,13 @@ Fields
               <code class="hmp-field-name">source</code>
             </div>
 
-         :bdg-primary:`Literal['custom', 'hubeau']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L31>`__
+         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L31>`__
 
             Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
+
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"custom"`` ``"hubeau"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -294,6 +304,8 @@ Fields
             Directory containing location file and chronicle CSVs.
 
 
+      .. index:: ! product
+
       .. container:: hmp-field hmp-field-level-user
          :name: hydrometry-sources-product
 
@@ -308,6 +320,8 @@ Fields
             Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HmnJ').
 
 
+      .. index:: ! require_observations
+
       .. container:: hmp-field hmp-field-level-dev
          :name: hydrometry-sources-require-observations
 
@@ -319,8 +333,10 @@ Fields
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L47>`__
 
-            Only keep stations that have observations in the period.
+            Drop stations whose declared service period does not overlap the requested window, before downloading them. It is a metadata filter: a station that overlaps but returns nothing is dropped after its download instead, and the run says which ones.
 
+
+      .. index:: ! max_stations
 
       .. container:: hmp-field hmp-field-level-user
          :name: hydrometry-sources-max-stations
@@ -331,9 +347,9 @@ Fields
               <code class="hmp-field-name">max_stations</code>
             </div>
 
-         :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L50>`__
+         :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L56>`__
 
-            Maximum number of Hub'Eau stations to download after discovery. Useful for fast preview runs over a larger territory.
+            Maximum number of Hub'Eau stations to KEEP. Stations that return no observation in the window do not count against it, so a preview run over a larger territory gets this many stations carrying data, not this many tried.
 
 
 

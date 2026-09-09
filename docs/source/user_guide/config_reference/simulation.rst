@@ -9,7 +9,7 @@ TOML section: ``[simulation]``
 
 Pydantic model: ``SimulationConfig`` defined in ``hydromodpy.simulation.planning.config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L294>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L312>`__
 
 Minimal orchestration block declared under ``[simulation]``.
 
@@ -36,12 +36,14 @@ Fields
         <code class="hmp-field-name">name</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L304>`__
+   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L322>`__
 
       Human-readable simulation name and the run's identity. When empty, derived from the TOML filename at load time (run_steady_nwt.toml -> steady_nwt); a programmatic run without a name gets a deterministic memorable slug.
 
    **Example:** ``"cheze_baseline"``
 
+
+.. index:: ! tags
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-tags
@@ -52,10 +54,12 @@ Fields
         <code class="hmp-field-name">tags</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L357>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L375>`__
 
       Free-text tags attached at registration; editable later via 'hmp tag'.
 
+
+.. index:: ! if_exists
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-if-exists
@@ -66,10 +70,16 @@ Fields
         <code class="hmp-field-name">if_exists</code>
       </div>
 
-   :bdg-primary:`Literal['replace', 'fail', 'version']` :bdg-secondary:`default = "version"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L361>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "version"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L379>`__
 
       Behavior when registering a simulation whose ``name`` already exists in this project. ``version`` (default) mints the next ``stem.vN`` and keeps every run addressable; ``replace`` trashes the predecessor (restorable) and takes the name; ``fail`` raises an error.
 
+   .. rst-class:: hmp-field-values
+
+   **One of:** ``"replace"`` ``"fail"`` ``"version"``
+
+
+.. index:: ! description
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-description
@@ -80,10 +90,12 @@ Fields
         <code class="hmp-field-name">description</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L349>`__
+   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L367>`__
 
       Short free-text description of the simulation intent.
 
+
+.. index:: ! scientific_objective
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-scientific-objective
@@ -94,10 +106,12 @@ Fields
         <code class="hmp-field-name">scientific_objective</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L377>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L395>`__
 
       Scientific objective used for catalog and ML stratification.
 
+
+.. index:: ! contact_email
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-contact-email
@@ -108,10 +122,12 @@ Fields
         <code class="hmp-field-name">contact_email</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L381>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L399>`__
 
       Contact email for the simulation metadata.
 
+
+.. index:: ! doi
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-doi
@@ -122,10 +138,12 @@ Fields
         <code class="hmp-field-name">doi</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L385>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L403>`__
 
       DOI or reference identifier for the simulation metadata.
 
+
+.. index:: ! study_area_name
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-study-area-name
@@ -136,10 +154,12 @@ Fields
         <code class="hmp-field-name">study_area_name</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L389>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L407>`__
 
       Human-readable study area name.
 
+
+.. index:: ! outlet_x
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-outlet-x
@@ -150,10 +170,12 @@ Fields
         <code class="hmp-field-name">outlet_x</code>
       </div>
 
-   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L393>`__
+   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L411>`__
 
       Outlet X coordinate in the project CRS units.
 
+
+.. index:: ! outlet_y
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-outlet-y
@@ -164,10 +186,12 @@ Fields
         <code class="hmp-field-name">outlet_y</code>
       </div>
 
-   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L397>`__
+   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L415>`__
 
       Outlet Y coordinate in the project CRS units.
 
+
+.. index:: ! time
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-time
@@ -180,7 +204,7 @@ Fields
         <code class="hmp-field-toml">[simulation.time]</code>
       </div>
 
-   :bdg-primary:`SimulationTimeConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L301>`__
+   :bdg-primary:`SimulationTimeConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L319>`__
 
       Optional canonical simulation window used to align solver temporal settings and validate forcing coverage. Required for launcher flow processes and for runtime features that explicitly consume simulation-window dates.
 
@@ -189,6 +213,8 @@ Fields
       :animate: fade-in-slide-down
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. index:: ! start_datetime
 
       .. container:: hmp-field hmp-field-level-user
          :name: simulation-time-start-datetime
@@ -206,6 +232,8 @@ Fields
          **Example:** ``"2019-01-01"``
 
 
+      .. index:: ! end_datetime
+
       .. container:: hmp-field hmp-field-level-user
          :name: simulation-time-end-datetime
 
@@ -221,6 +249,8 @@ Fields
 
          **Example:** ``"2025-12-31"``
 
+
+      .. index:: ! step_value
 
       .. container:: hmp-field hmp-field-level-user
          :name: simulation-time-step-value
@@ -242,6 +272,8 @@ Fields
             * ``"10 day"``
 
 
+      .. index:: ! step_unit
+
       .. container:: hmp-field hmp-field-level-user
          :name: simulation-time-step-unit
 
@@ -251,10 +283,26 @@ Fields
               <code class="hmp-field-name">step_unit</code>
             </div>
 
-         :bdg-primary:`Optional[Literal['hour', 'day', 'month', 'year']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L82>`__
+         :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L82>`__
 
             Optional forcing/stress-period base time unit used with step_value when step_value is provided without an inline unit.
 
+         .. rst-class:: hmp-field-values
+
+         ``"hour"``
+            Treats step_value as whole hours, for sub-daily forcing and stress periods.
+
+         ``"day"``
+            Treats step_value as whole days, the common granularity for daily forcing series.
+
+         ``"month"``
+            Treats step_value as calendar months, so the step length varies by month.
+
+         ``"year"``
+            Treats step_value as calendar years, so the step length varies with leap years.
+
+
+      .. index:: ! substeps_per_period
 
       .. container:: hmp-field hmp-field-level-dev
          :name: simulation-time-substeps-per-period
@@ -265,10 +313,12 @@ Fields
               <code class="hmp-field-name">substeps_per_period</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L89>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L107>`__
 
             Number of solver time steps within each stress period. Higher values improve transient accuracy (e.g., 30 for daily substeps inside monthly stress periods).
 
+
+      .. index:: ! coverage_policy
 
       .. container:: hmp-field hmp-field-level-dev
          :name: simulation-time-coverage-policy
@@ -279,12 +329,18 @@ Fields
               <code class="hmp-field-name">coverage_policy</code>
             </div>
 
-         :bdg-primary:`Literal['error', 'warn', 'ignore']` :bdg-secondary:`default = "error"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L98>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "error"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L116>`__
 
             Behavior when recharge does not fully cover the declared simulation window bounds [start_datetime, end_datetime]: 'error' raises, 'warn' emits a warning, 'ignore' skips checks.
 
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"error"`` ``"warn"`` ``"ignore"``
 
 
+
+
+.. index:: ! process
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-process
@@ -297,7 +353,7 @@ Fields
         <code class="hmp-field-toml">[[simulation.process]]</code>
       </div>
 
-   :bdg-primary:`type = "flow" | "transport" | "mesh"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L324>`__
+   :bdg-primary:`type = "flow" | "transport" | "mesh"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L342>`__
 
       Ordered list of requested processes loaded from [[simulation.process]]. At most one process per type is supported.
 
@@ -320,12 +376,14 @@ Fields
                     <code class="hmp-field-name">id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L171>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L189>`__
 
                   User-facing identifier for the process. This id is required and must be unique within the simulation.
 
                **Example:** ``"flow_main"``
 
+
+            .. index:: ! solvers
 
             .. container:: hmp-field hmp-field-level-user
                :name: simulation-process-solvers
@@ -336,7 +394,7 @@ Fields
                     <code class="hmp-field-name">solvers</code>
                   </div>
 
-               :bdg-primary:`list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L178>`__
+               :bdg-primary:`list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L196>`__
 
                   Ordered list of active flow solver names. At least one solver is required for flow processes.
 
@@ -349,7 +407,6 @@ Fields
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-id
 
                .. raw:: html
 
@@ -357,7 +414,7 @@ Fields
                     <code class="hmp-field-name">id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L207>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L225>`__
 
                   User-facing identifier for the process. This id is required and must be unique within the simulation.
 
@@ -365,7 +422,6 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-solvers
 
                .. raw:: html
 
@@ -373,7 +429,7 @@ Fields
                     <code class="hmp-field-name">solvers</code>
                   </div>
 
-               :bdg-primary:`list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L214>`__
+               :bdg-primary:`list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L232>`__
 
                   Ordered list of active transport solver names. At least one solver is required for transport processes.
 
@@ -386,7 +442,6 @@ Fields
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-id
 
                .. raw:: html
 
@@ -394,12 +449,14 @@ Fields
                     <code class="hmp-field-name">id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L243>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L261>`__
 
                   User-facing identifier for the process. This id is required and must be unique within the simulation.
 
                **Example:** ``"flow_main"``
 
+
+            .. index:: ! backend
 
             .. container:: hmp-field hmp-field-level-user
                :name: simulation-process-backend
@@ -410,13 +467,12 @@ Fields
                     <code class="hmp-field-name">backend</code>
                   </div>
 
-               :bdg-primary:`Literal['catchment']` :bdg-secondary:`default = "catchment"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L250>`__
+               :bdg-primary:`Literal['catchment']` :bdg-secondary:`default = "catchment"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L268>`__
 
                   Backend used by the mesh process. Currently only 'catchment' is supported (delegates to the [mesh_catchment] runtime).
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-solvers
 
                .. raw:: html
 
@@ -424,12 +480,14 @@ Fields
                     <code class="hmp-field-name">solvers</code>
                   </div>
 
-               :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L257>`__
+               :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L275>`__
 
                   Reserved for future use. Mesh processes must not declare solvers; set 'backend' instead.
 
 
 
+
+.. index:: ! results
 
 .. container:: hmp-field hmp-field-level-dev
    :name: simulation-results
@@ -442,7 +500,7 @@ Fields
         <code class="hmp-field-toml">[simulation.results]</code>
       </div>
 
-   :bdg-primary:`ResultsConfig` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L417>`__
+   :bdg-primary:`ResultsConfig` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L435>`__
 
       Results storage and export configuration loaded from [simulation.results]. Controls Catalog, derived variables, and automated exports.
 
@@ -451,6 +509,8 @@ Fields
       :animate: fade-in-slide-down
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. index:: ! persistence
 
       .. container:: hmp-field hmp-field-level-user
          :name: simulation-results-persistence
@@ -473,6 +533,8 @@ Fields
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+            .. index:: ! save_catalog
+
             .. container:: hmp-field hmp-field-level-user
                :name: simulation-results-persistence-save-catalog
 
@@ -486,6 +548,8 @@ Fields
 
                   Persist DuckDB rows (simulations, parameters, metrics, calibration_iterations). When False, catalog writes are skipped.
 
+
+            .. index:: ! save_zarr
 
             .. container:: hmp-field hmp-field-level-user
                :name: simulation-results-persistence-save-zarr
@@ -501,6 +565,8 @@ Fields
                   Persist per-simulation field arrays (head, concentration, derived) into the Zarr store.
 
 
+            .. index:: ! save_parquet
+
             .. container:: hmp-field hmp-field-level-user
                :name: simulation-results-persistence-save-parquet
 
@@ -515,6 +581,8 @@ Fields
                   Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files.
 
 
+            .. index:: ! compression
+
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-persistence-compression
 
@@ -524,10 +592,16 @@ Fields
                     <code class="hmp-field-name">compression</code>
                   </div>
 
-               :bdg-primary:`Literal['none', 'zstd', 'lz4', 'gzip', 'snappy']` :bdg-secondary:`default = "zstd"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "zstd"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43>`__
 
                   Codec used for Zarr field arrays and Parquet tables. 'none' disables compression.
 
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"none"`` ``"zstd"`` ``"lz4"`` ``"gzip"`` ``"snappy"``
+
+
+            .. index:: ! compression_level
 
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-persistence-compression-level
@@ -545,6 +619,8 @@ Fields
 
 
 
+      .. index:: ! keep_solver_files
+
       .. container:: hmp-field hmp-field-level-dev
          :name: simulation-results-keep-solver-files
 
@@ -558,6 +634,8 @@ Fields
 
             Keep raw solver output files (.hds, .cbc, .lst) after ingestion.
 
+
+      .. index:: ! derived
 
       .. container:: hmp-field hmp-field-level-user
          :name: simulation-results-derived
@@ -580,6 +658,8 @@ Fields
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+            .. index:: ! watertable_elevation
+
             .. container:: hmp-field hmp-field-level-user
                :name: simulation-results-derived-watertable-elevation
 
@@ -593,6 +673,8 @@ Fields
 
                   Persist water-table elevation (uppermost saturated layer) as a Zarr field. Off by default: figures recompute it on the fly from the stored head.
 
+
+            .. index:: ! watertable_depth
 
             .. container:: hmp-field hmp-field-level-user
                :name: simulation-results-derived-watertable-depth
@@ -608,6 +690,8 @@ Fields
                   Persist water-table depth (surface minus water-table elevation) as a Zarr field. Off by default: recomputed on the fly from head at render time.
 
 
+            .. index:: ! seepage_areas
+
             .. container:: hmp-field hmp-field-level-user
                :name: simulation-results-derived-seepage-areas
 
@@ -621,6 +705,8 @@ Fields
 
                   Persist the seepage mask (water table >= surface elevation) as a Zarr field. Off by default: recomputed on the fly from head at render time.
 
+
+            .. index:: ! release_flux
 
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-derived-release-flux
@@ -636,6 +722,8 @@ Fields
                   Positive total groundwater release flux from drains and surface excess.
 
 
+            .. index:: ! accumulation_flux
+
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-derived-accumulation-flux
 
@@ -649,6 +737,8 @@ Fields
 
                   Drain flux routed on the drainage network.
 
+
+            .. index:: ! release_accumulation_flux
 
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-derived-release-accumulation-flux
@@ -664,6 +754,8 @@ Fields
                   Release flux routed on surface drainage paths.
 
 
+            .. index:: ! outflow_drain
+
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-derived-outflow-drain
 
@@ -677,6 +769,8 @@ Fields
 
                   Positive per-cell drain outflow summed over layers.
 
+
+            .. index:: ! concentration_seepage
 
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-derived-concentration-seepage
@@ -692,6 +786,8 @@ Fields
                   Concentration at seepage cells only. Requires transport.
 
 
+            .. index:: ! mass_seepage
+
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-derived-mass-seepage
 
@@ -705,6 +801,8 @@ Fields
 
                   Mass flux at seepage cells. Requires transport + budget.
 
+
+            .. index:: ! mass_accumulated
 
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-derived-mass-accumulated
@@ -721,6 +819,8 @@ Fields
 
 
 
+
+      .. index:: ! budget
 
       .. container:: hmp-field hmp-field-level-user
          :name: simulation-results-budget
@@ -743,6 +843,8 @@ Fields
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+            .. index:: ! spatial_fields
+
             .. container:: hmp-field hmp-field-level-user
                :name: simulation-results-budget-spatial-fields
 
@@ -761,6 +863,8 @@ Fields
 
 
 
+.. index:: ! rng_seed
+
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-rng-seed
 
@@ -770,7 +874,7 @@ Fields
         <code class="hmp-field-name">rng_seed</code>
       </div>
 
-   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L425>`__
+   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L443>`__
 
       Master RNG seed for the simulation. When set, every stochastic consumer (mesh point sampling, synthetic forcing, ...) derives its own deterministic sub-seed via ``hydromodpy.core.rng.RngManager``. Persisted in ``runs_environment.rng_seed`` so the run can be re-executed from the catalog snapshot.
 

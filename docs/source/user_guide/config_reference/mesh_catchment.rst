@@ -27,6 +27,8 @@ Fields
 
 .. rst-class:: hmp-config-fields
 
+.. index:: ! constraints_mode
+
 .. container:: hmp-field hmp-field-level-user
    :name: mesh-catchment-constraints-mode
 
@@ -36,10 +38,16 @@ Fields
         <code class="hmp-field-name">constraints_mode</code>
       </div>
 
-   :bdg-primary:`Literal['geology_only', 'rivers_only', 'geology_rivers']` :bdg-secondary:`default = "geology_rivers"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L35>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "geology_rivers"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L35>`__
 
       Meshing compliance target. 'geology_only' conforms the mesh to geology interfaces only, 'rivers_only' conforms the mesh to river traces only, and 'geology_rivers' enforces both sets of constraints in one mesh.
 
+   .. rst-class:: hmp-field-values
+
+   **One of:** ``"geology_only"`` ``"rivers_only"`` ``"geology_rivers"``
+
+
+.. index:: ! output_mesh
 
 .. container:: hmp-field hmp-field-level-dev
    :name: mesh-catchment-output-mesh
@@ -55,6 +63,8 @@ Fields
       Optional `.msh` output path for the generated planar mesh. When omitted, the launcher writes the mesh to `.hmp/scratch/_preprocessing/mesh/mesh_catchment.msh` inside the active catchment workspace in standard layout, or directly to `workspace.project_root/mesh_catchment.msh` when `output_layout='flat'` is used.
 
 
+.. index:: ! output_summary_json
+
 .. container:: hmp-field hmp-field-level-dev
    :name: mesh-catchment-output-summary-json
 
@@ -68,6 +78,8 @@ Fields
 
       Optional JSON sidecar path for QA metrics, cleaned-input diagnostics, and summary metadata describing the generated mesh. When omitted, the launcher writes it next to the default mesh output.
 
+
+.. index:: ! output_figure
 
 .. container:: hmp-field hmp-field-level-dev
    :name: mesh-catchment-output-figure
@@ -83,6 +95,8 @@ Fields
       Optional overview figure path. Use it when you want a quick visual QA artifact showing the support domain, geology zones, river constraints, and final mesh footprint.
 
 
+.. index:: ! output_figure_regional
+
 .. container:: hmp-field hmp-field-level-dev
    :name: mesh-catchment-output-figure-regional
 
@@ -96,6 +110,8 @@ Fields
 
       Optional regional overview figure path. When omitted but output_figure is set, the launcher writes a second figure next to the main one with suffix `_regional` to show where the catchment sits on the full DEM.
 
+
+.. index:: ! figures_enabled
 
 .. container:: hmp-field hmp-field-level-user
    :name: mesh-catchment-figures-enabled
@@ -111,6 +127,8 @@ Fields
       If true, generate the overview figure artifacts when figure output paths are configured. Set it to false to skip figure creation entirely, even in batch mode where default filename patterns are present.
 
 
+.. index:: ! export_exchange_bundle
+
 .. container:: hmp-field hmp-field-level-user
    :name: mesh-catchment-export-exchange-bundle
 
@@ -124,6 +142,8 @@ Fields
 
       If true, export the solver-exchange mesh bundle next to the generated mesh. Set it to false for profiling or mesh-only runs that do not need bundle metadata. Downstream solvers that require runtime mesh support may fail without this bundle.
 
+
+.. index:: ! cache
 
 .. container:: hmp-field hmp-field-level-user
    :name: mesh-catchment-cache
@@ -139,6 +159,8 @@ Fields
       If true, reuse a previously generated mesh when its inputs (domain geometry, river constraint, lake/dam refinement, mesh and delineation configuration) are unchanged, instead of regenerating it. Gmsh is not reproducible run to run (it reseeds from the system clock), so regeneration yields a different mesh and makes results and calibration objectives irreproducible; caching pins the mesh. Default off (regenerate every run). See hydromodpy.spatial.mesh.mesh_cache.
 
 
+.. index:: ! figure_dpi
+
 .. container:: hmp-field hmp-field-level-user
    :name: mesh-catchment-figure-dpi
 
@@ -152,6 +174,8 @@ Fields
 
       Pixel density used when rendering the main mesh overview figure. Increase it when you need to inspect mesh edges and constraints more closely in the saved PNG.
 
+
+.. index:: ! figure_regional_dpi
 
 .. container:: hmp-field hmp-field-level-user
    :name: mesh-catchment-figure-regional-dpi
@@ -167,6 +191,8 @@ Fields
       Pixel density used when rendering the regional overview figure. Keep it lower than figure_dpi when you want detailed local mesh inspection without making the regional PNG too heavy.
 
 
+.. index:: ! output_layout
+
 .. container:: hmp-field hmp-field-level-user
    :name: mesh-catchment-output-layout
 
@@ -176,10 +202,16 @@ Fields
         <code class="hmp-field-name">output_layout</code>
       </div>
 
-   :bdg-primary:`Literal['standard', 'flat']` :bdg-secondary:`default = "standard"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L122>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "standard"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L122>`__
 
       Dedicated-launcher output layout. Use 'standard' to keep final mesh artifacts under `.hmp/scratch/_preprocessing/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate runtime folders out of that final directory.
 
+   .. rst-class:: hmp-field-values
+
+   **One of:** ``"standard"`` ``"flat"``
+
+
+.. index:: ! show_plot
 
 .. container:: hmp-field hmp-field-level-user
    :name: mesh-catchment-show-plot
@@ -195,6 +227,8 @@ Fields
       If true, open the generated overview figure interactively at the end of the run. Keep it false for batch or headless execution.
 
 
+.. index:: ! geographic_outputs_mode
+
 .. container:: hmp-field hmp-field-level-dev
    :name: mesh-catchment-geographic-outputs-mode
 
@@ -204,10 +238,16 @@ Fields
         <code class="hmp-field-name">geographic_outputs_mode</code>
       </div>
 
-   :bdg-primary:`Literal['keep', 'cleanup']` :bdg-secondary:`default = "keep"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L138>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "keep"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L138>`__
 
       Control what happens to intermediate geographic preprocessing artifacts after the mesh run. Use 'keep' to preserve the canonical `.hmp/scratch/_preprocessing/geographic` and `.hmp/scratch/_preprocessing/demcorrecflow` folders, or 'cleanup' to delete them at the end of the dedicated mesh launcher once the mesh outputs and exchange bundle have been written.
 
+   .. rst-class:: hmp-field-values
+
+   **One of:** ``"keep"`` ``"cleanup"``
+
+
+.. index:: ! rivers
 
 .. container:: hmp-field hmp-field-level-user
    :name: mesh-catchment-rivers
@@ -239,9 +279,13 @@ Fields
               <code class="hmp-field-name">source</code>
             </div>
 
-         :bdg-primary:`Literal['geographic_features', 'file']` :bdg-secondary:`default = "geographic_features"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/rivers.py#L18>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "geographic_features"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/rivers.py#L18>`__
 
             Origin of the river constraints used to force mesh edges along the river network. Use 'geographic_features' for the in-memory river trace produced by geographic preprocessing, or 'file' to reload a vector river dataset from disk.
+
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"geographic_features"`` ``"file"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -258,6 +302,8 @@ Fields
             Vector file path used only when source='file'. The path may be absolute or relative to the TOML location and should point to a line dataset describing the river centerlines to honor during meshing.
 
 
+      .. index:: ! clip_to_domain
+
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-rivers-clip-to-domain
 
@@ -272,6 +318,8 @@ Fields
             If true, clip the river trace to the effective meshing support before sending it to Gmsh. Keep this enabled in most workflows to avoid constraining the mesh with segments that lie outside the chosen domain or scope.
 
 
+      .. index:: ! min_segment_length
+
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-rivers-min-segment-length
 
@@ -285,6 +333,8 @@ Fields
 
             Minimum retained river segment length, in projected metres after reprojection. Use this to discard tiny residual segments created by clipping or noisy hydrography that would only add mesh complexity without hydraulic meaning.
 
+
+      .. index:: ! snap_tolerance
 
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-rivers-snap-tolerance
@@ -302,6 +352,8 @@ Fields
 
 
 
+.. index:: ! geology
+
 .. container:: hmp-field hmp-field-level-user
    :name: mesh-catchment-geology
 
@@ -317,6 +369,8 @@ Fields
 
       Optional geology support used when constraints_mode includes geology. This section defines which polygon source represents lithological zones and how those polygons should be interpreted before conformal meshing. Validated through the geology data-source Protocol; stored as a normalized mapping.
 
+
+.. index:: ! watershed_boundary
 
 .. container:: hmp-field hmp-field-level-user
    :name: mesh-catchment-watershed-boundary
@@ -353,6 +407,8 @@ Fields
             If true, inject the watershed boundary as one dedicated linear constraint in addition to geology and/or river constraints.
 
 
+      .. index:: ! boundary_refinement_distance
+
       .. container:: hmp-field hmp-field-level-dev
          :name: mesh-catchment-watershed-boundary-boundary-refinement-distance
 
@@ -366,6 +422,8 @@ Fields
 
             Optional influence distance, in projected metres, used for the watershed-boundary refinement family. When omitted, the mesher derives one conservative distance from the boundary extent.
 
+
+      .. index:: ! smoothing
 
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-watershed-boundary-smoothing
@@ -402,6 +460,8 @@ Fields
                   If true, apply the smoothing controls below before converting the watershed boundary into one linear constraint.
 
 
+            .. index:: ! distance
+
             .. container:: hmp-field hmp-field-level-dev
                :name: mesh-catchment-watershed-boundary-smoothing-distance
 
@@ -416,6 +476,8 @@ Fields
                   Optional regularization tolerance, in projected metres, used to simplify the watershed boundary at roughly the target internal mesh scale before it is injected as a linear mesh constraint. When omitted, the mesher reuses zone_meshing.global_size.
 
 
+            .. index:: ! river_buffer_distance
+
             .. container:: hmp-field hmp-field-level-dev
                :name: mesh-catchment-watershed-boundary-smoothing-river-buffer-distance
 
@@ -429,6 +491,8 @@ Fields
 
                   Optional protective buffer around river traces, in projected metres, merged into the boundary-support polygon before smoothing so the final watershed boundary stays slightly outside river corridors near the basin edge.
 
+
+            .. index:: ! outer_bias_distance
 
             .. container:: hmp-field hmp-field-level-dev
                :name: mesh-catchment-watershed-boundary-smoothing-outer-bias-distance
@@ -445,6 +509,8 @@ Fields
 
 
 
+
+      .. index:: ! outside_coarsening
 
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-watershed-boundary-outside-coarsening
@@ -481,6 +547,8 @@ Fields
                   If true, add one regional mesh-size field that keeps the current background size inside the watershed and coarsens the mesh outside it.
 
 
+            .. index:: ! size_factor
+
             .. container:: hmp-field hmp-field-level-dev
                :name: mesh-catchment-watershed-boundary-outside-coarsening-size-factor
 
@@ -495,6 +563,8 @@ Fields
                   Multiplicative factor applied to zone_meshing.global_size outside the watershed. Use 2.0 for an outside background roughly twice as coarse as the internal baseline.
 
 
+            .. index:: ! transition_distance
+
             .. container:: hmp-field hmp-field-level-dev
                :name: mesh-catchment-watershed-boundary-outside-coarsening-transition-distance
 
@@ -508,6 +578,8 @@ Fields
 
                   Optional transition width, in projected metres, used to ramp from the internal background size to the coarser outside size away from the watershed boundary.
 
+
+            .. index:: ! grid_resolution
 
             .. container:: hmp-field hmp-field-level-dev
                :name: mesh-catchment-watershed-boundary-outside-coarsening-grid-resolution
@@ -524,6 +596,8 @@ Fields
 
 
 
+
+      .. index:: ! geology_conformity
 
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-watershed-boundary-geology-conformity
@@ -555,10 +629,16 @@ Fields
                     <code class="hmp-field-name">mode</code>
                   </div>
 
-               :bdg-primary:`Literal['full_domain', 'buffered_watershed_envelope']` :bdg-secondary:`default = "full_domain"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/watershed.py#L90>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "full_domain"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/watershed.py#L90>`__
 
                   Control where geology remains conformal. Use 'full_domain' to keep the current behavior, or 'buffered_watershed_envelope' to keep geology interfaces active only inside one buffered envelope around the regularized watershed, without creating one strict partition boundary on that envelope.
 
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"full_domain"`` ``"buffered_watershed_envelope"``
+
+
+            .. index:: ! buffer_distance
 
             .. container:: hmp-field hmp-field-level-dev
                :name: mesh-catchment-watershed-boundary-geology-conformity-buffer-distance
@@ -577,6 +657,8 @@ Fields
 
 
 
+
+.. index:: ! hydraulic_properties
 
 .. container:: hmp-field hmp-field-level-user
    :name: mesh-catchment-hydraulic-properties
@@ -599,6 +681,8 @@ Fields
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+      .. index:: ! conductivity
+
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-hydraulic-properties-conductivity
 
@@ -620,6 +704,8 @@ Fields
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+            .. index:: ! values_source
+
             .. container:: hmp-field hmp-field-level-user
                :name: mesh-catchment-hydraulic-properties-conductivity-values-source
 
@@ -629,10 +715,16 @@ Fields
                     <code class="hmp-field-name">values_source</code>
                   </div>
 
-               :bdg-primary:`Literal['inline', 'csv']` :bdg-secondary:`default = "inline"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/hydraulic.py#L110>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "inline"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/hydraulic.py#L110>`__
 
                   Source of the geology-key to property mapping. Use 'inline' for TOML dictionaries or 'csv' for an external table.
 
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"inline"`` ``"csv"``
+
+
+            .. index:: ! values
 
             .. container:: hmp-field hmp-field-level-user
                :name: mesh-catchment-hydraulic-properties-conductivity-values
@@ -650,6 +742,8 @@ Fields
                   Inline mapping from geology zone key to property value. Keys must match the normalized `zone_key` values exported by the geology loader.
 
 
+            .. index:: ! values_csv_file
+
             .. container:: hmp-field hmp-field-level-dev
                :name: mesh-catchment-hydraulic-properties-conductivity-values-csv-file
 
@@ -663,6 +757,8 @@ Fields
 
                   CSV file used when values_source='csv'. Relative paths are resolved from the launcher TOML directory.
 
+
+            .. index:: ! csv_key_column
 
             .. container:: hmp-field hmp-field-level-dev
                :name: mesh-catchment-hydraulic-properties-conductivity-csv-key-column
@@ -678,6 +774,8 @@ Fields
                   CSV column containing geology zone keys.
 
 
+            .. index:: ! csv_value_column
+
             .. container:: hmp-field hmp-field-level-dev
                :name: mesh-catchment-hydraulic-properties-conductivity-csv-value-column
 
@@ -692,6 +790,8 @@ Fields
                   CSV column containing numeric property values.
 
 
+            .. index:: ! default_value
+
             .. container:: hmp-field hmp-field-level-user
                :name: mesh-catchment-hydraulic-properties-conductivity-default-value
 
@@ -705,6 +805,8 @@ Fields
 
                   Fallback value applied when one geology zone has no explicit mapping. Leave empty to keep exported cell values undefined for unmapped zones.
 
+
+            .. index:: ! unit
 
             .. container:: hmp-field hmp-field-level-dev
                :name: mesh-catchment-hydraulic-properties-conductivity-unit
@@ -721,6 +823,8 @@ Fields
 
 
 
+
+      .. index:: ! storage_coefficient
 
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-hydraulic-properties-storage-coefficient
@@ -752,9 +856,13 @@ Fields
                     <code class="hmp-field-name">values_source</code>
                   </div>
 
-               :bdg-primary:`Literal['inline', 'csv']` :bdg-secondary:`default = "inline"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/hydraulic.py#L123>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "inline"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/hydraulic.py#L123>`__
 
                   Source of the geology-key to property mapping. Use 'inline' for TOML dictionaries or 'csv' for an external table.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"inline"`` ``"csv"``
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -833,6 +941,8 @@ Fields
 
 
 
+.. index:: ! domain
+
 .. container:: hmp-field hmp-field-level-user
    :name: mesh-catchment-domain
 
@@ -858,6 +968,8 @@ Fields
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+            .. index:: ! bbox
+
             .. container:: hmp-field hmp-field-level-user
                :name: mesh-catchment-domain-bbox
 
@@ -876,6 +988,8 @@ Fields
          TOML: ``[mesh_catchment.domain]`` with ``kind = "polygon"`` -- model ``ZoneMeshingDomainPolygon``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. index:: ! coordinates
 
             .. container:: hmp-field hmp-field-level-user
                :name: mesh-catchment-domain-coordinates
@@ -908,6 +1022,8 @@ Fields
                :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py#L61>`__
 
 
+            .. index:: ! id_field
+
             .. container:: hmp-field hmp-field-level-user
                :name: mesh-catchment-domain-id-field
 
@@ -921,6 +1037,8 @@ Fields
 
                   Optional vector attribute field name used to filter features.
 
+
+            .. index:: ! selected_id
 
             .. container:: hmp-field hmp-field-level-user
                :name: mesh-catchment-domain-selected-id
@@ -959,6 +1077,8 @@ Fields
 
 
 
+.. index:: ! zone_meshing
+
 .. container:: hmp-field hmp-field-level-dev
    :name: mesh-catchment-zone-meshing
 
@@ -980,6 +1100,8 @@ Fields
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+      .. index:: ! algorithm
+
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-zone-meshing-algorithm
 
@@ -993,6 +1115,8 @@ Fields
 
             Planar Gmsh algorithm name. In practice the examples use 'delaunay', which is a robust default for irregular geological and river-constrained domains.
 
+
+      .. index:: ! global_size
 
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-zone-meshing-global-size
@@ -1008,6 +1132,8 @@ Fields
             Baseline target cell size in projected metres over the full support domain. Think of it as the coarse background resolution before local interface refinement is added.
 
 
+      .. index:: ! min_size
+
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-zone-meshing-min-size
 
@@ -1021,6 +1147,8 @@ Fields
 
             Lower bound on local cell size in projected metres. Use it to prevent extreme refinement from generating very small cells in narrow features.
 
+
+      .. index:: ! max_size
 
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-zone-meshing-max-size
@@ -1036,6 +1164,8 @@ Fields
             Upper bound on local cell size in projected metres. Use it when you want to cap the coarsening far from interfaces.
 
 
+      .. index:: ! simplify_tolerance
+
       .. container:: hmp-field hmp-field-level-dev
          :name: mesh-catchment-zone-meshing-simplify-tolerance
 
@@ -1049,6 +1179,8 @@ Fields
 
             Geometry simplification tolerance, in projected metres, applied before meshing. Increase it only when the source polygons contain excessive vertex noise that does not carry hydrogeological meaning.
 
+
+      .. index:: ! heal_tolerance
 
       .. container:: hmp-field hmp-field-level-dev
          :name: mesh-catchment-zone-meshing-heal-tolerance
@@ -1064,6 +1196,8 @@ Fields
             Cleanup tolerance, in projected metres, used to repair tiny gaps or slivers between input polygons. Keep it near zero unless the source dataset is known to contain topology artifacts.
 
 
+      .. index:: ! linear_constraint_snap_tolerance
+
       .. container:: hmp-field hmp-field-level-dev
          :name: mesh-catchment-zone-meshing-linear-constraint-snap-tolerance
 
@@ -1077,6 +1211,8 @@ Fields
 
             Optional global snapping tolerance, in projected metres, applied to internal linear constraints such as rivers or watershed-boundary segments before partition splitting and Gmsh embedding.
 
+
+      .. index:: ! min_polygon_area
 
       .. container:: hmp-field hmp-field-level-dev
          :name: mesh-catchment-zone-meshing-min-polygon-area
@@ -1092,6 +1228,8 @@ Fields
             Minimum polygon area, in square metres, kept after cleaning. Use it to drop microscopic remnants that would otherwise create meaningless tiny mesh patches.
 
 
+      .. index:: ! refine_interfaces
+
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-zone-meshing-refine-interfaces
 
@@ -1105,6 +1243,8 @@ Fields
 
             Enable a distance-based size field around geology or river interfaces. When false, the mesh uses only the global background size constraints.
 
+
+      .. index:: ! interface_size
 
       .. container:: hmp-field hmp-field-level-dev
          :name: mesh-catchment-zone-meshing-interface-size
@@ -1120,6 +1260,8 @@ Fields
             Target local size, in projected metres, close to constrained interfaces. When omitted and refine_interfaces=true, the schema derives a conservative default from global_size/min_size.
 
 
+      .. index:: ! interface_distance
+
       .. container:: hmp-field hmp-field-level-dev
          :name: mesh-catchment-zone-meshing-interface-distance
 
@@ -1134,6 +1276,8 @@ Fields
             Influence distance, in projected metres, over which the local interface refinement fades back to the background size. Larger values spread refinement farther away from the interface network.
 
 
+      .. index:: ! interface_sampling
+
       .. container:: hmp-field hmp-field-level-dev
          :name: mesh-catchment-zone-meshing-interface-sampling
 
@@ -1147,6 +1291,8 @@ Fields
 
             Sampling density used to discretize interface-based distance fields. Higher values better capture long and sinuous interfaces but increase Gmsh preprocessing cost.
 
+
+      .. index:: ! refinement_policy
 
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-zone-meshing-refinement-policy
@@ -1192,10 +1338,16 @@ Fields
                     <code class="hmp-field-name">mode</code>
                   </div>
 
-               :bdg-primary:`Literal['family_priority_local_budget', 'grid_local_budget']` :bdg-secondary:`default = "family_priority_local_budget"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L175>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "family_priority_local_budget"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L175>`__
 
                   Refinement mode selector. One of 'family_priority_local_budget' or 'grid_local_budget'.
 
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"family_priority_local_budget"`` ``"grid_local_budget"``
+
+
+            .. index:: ! hotspot
 
             .. container:: hmp-field hmp-field-level-dev
                :name: mesh-catchment-zone-meshing-refinement-policy-hotspot
@@ -1218,6 +1370,8 @@ Fields
 
                   .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+                  .. index:: ! radius
+
                   .. container:: hmp-field hmp-field-level-dev
                      :name: mesh-catchment-zone-meshing-refinement-policy-hotspot-radius
 
@@ -1231,6 +1385,8 @@ Fields
 
                         Hotspot detection radius in projected metres. None lets the mesher derive a default.
 
+
+                  .. index:: ! max_curve_count
 
                   .. container:: hmp-field hmp-field-level-dev
                      :name: mesh-catchment-zone-meshing-refinement-policy-hotspot-max-curve-count
@@ -1246,6 +1402,8 @@ Fields
                         Maximum number of constraint curves admitted in one hotspot before triggering local refinement.
 
 
+                  .. index:: ! max_family_count
+
                   .. container:: hmp-field hmp-field-level-dev
                      :name: mesh-catchment-zone-meshing-refinement-policy-hotspot-max-family-count
 
@@ -1259,6 +1417,8 @@ Fields
 
                         Maximum number of distinct constraint families coexisting in one hotspot.
 
+
+                  .. index:: ! min_gap
 
                   .. container:: hmp-field hmp-field-level-dev
                      :name: mesh-catchment-zone-meshing-refinement-policy-hotspot-min-gap
@@ -1274,6 +1434,8 @@ Fields
                         Minimum acceptable gap between non-conformal curves in projected metres.
 
 
+                  .. index:: ! max_node_degree
+
                   .. container:: hmp-field hmp-field-level-dev
                      :name: mesh-catchment-zone-meshing-refinement-policy-hotspot-max-node-degree
 
@@ -1288,6 +1450,8 @@ Fields
                         Maximum tolerated topological degree at a hotspot junction node.
 
 
+                  .. index:: ! short_segment_length
+
                   .. container:: hmp-field hmp-field-level-dev
                      :name: mesh-catchment-zone-meshing-refinement-policy-hotspot-short-segment-length
 
@@ -1301,6 +1465,8 @@ Fields
 
                         Length threshold below which a constraint segment is counted as short, in projected metres.
 
+
+                  .. index:: ! max_short_segment_count
 
                   .. container:: hmp-field hmp-field-level-dev
                      :name: mesh-catchment-zone-meshing-refinement-policy-hotspot-max-short-segment-count
@@ -1317,6 +1483,8 @@ Fields
 
 
 
+
+            .. index:: ! grid
 
             .. container:: hmp-field hmp-field-level-user
                :name: mesh-catchment-zone-meshing-refinement-policy-grid
@@ -1339,6 +1507,8 @@ Fields
 
                   .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+                  .. index:: ! cell_size
+
                   .. container:: hmp-field hmp-field-level-user
                      :name: mesh-catchment-zone-meshing-refinement-policy-grid-cell-size
 
@@ -1352,6 +1522,8 @@ Fields
 
                         Target cell size in projected metres. None lets the mesher derive a default from constraints.
 
+
+                  .. index:: ! neighborhood_rings
 
                   .. container:: hmp-field hmp-field-level-dev
                      :name: mesh-catchment-zone-meshing-refinement-policy-grid-neighborhood-rings
@@ -1367,6 +1539,8 @@ Fields
                         Number of cell rings inspected around each hotspot when projecting refinement budget.
 
 
+                  .. index:: ! enable_exact_gap_check
+
                   .. container:: hmp-field hmp-field-level-dev
                      :name: mesh-catchment-zone-meshing-refinement-policy-grid-enable-exact-gap-check
 
@@ -1380,6 +1554,8 @@ Fields
 
                         If True, run the exact pairwise gap check between candidate hotspot curves.
 
+
+                  .. index:: ! max_exact_gap_candidates
 
                   .. container:: hmp-field hmp-field-level-dev
                      :name: mesh-catchment-zone-meshing-refinement-policy-grid-max-exact-gap-candidates
@@ -1396,6 +1572,8 @@ Fields
 
 
 
+
+            .. index:: ! families
 
             .. container:: hmp-field hmp-field-level-user
                :name: mesh-catchment-zone-meshing-refinement-policy-families
@@ -1431,6 +1609,8 @@ Fields
 
                         If False, this family is parsed but skipped during refinement. Per-family defaults: river and geology_interface are enabled, watershed_boundary is disabled (whole-divide refinement is opt-in).
 
+
+                  .. index:: ! priority
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: mesh-catchment-zone-meshing-refinement-policy-families-id-priority
@@ -1494,6 +1674,8 @@ Fields
 
 
 
+.. index:: ! lake_refinement
+
 .. container:: hmp-field hmp-field-level-user
    :name: mesh-catchment-lake-refinement
 
@@ -1543,6 +1725,8 @@ Fields
             Target cell size [L] in the lake shoreline band.
 
 
+      .. index:: ! shoreline_band
+
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-lake-refinement-shoreline-band
 
@@ -1556,6 +1740,8 @@ Fields
 
             Half-width [L] of the refined band around the lake shoreline. When omitted, derives 2 * cell_size. Must be >= cell_size so the band holds at least one target cell (a thinner band would slip between the size-field sampling nodes).
 
+
+      .. index:: ! buffer
 
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-lake-refinement-buffer
@@ -1571,6 +1757,8 @@ Fields
             Transition distance [L] over which the lake sizes ramp back to global.
 
 
+      .. index:: ! interior_size
+
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-lake-refinement-interior-size
 
@@ -1584,6 +1772,8 @@ Fields
 
             Optional target cell size [L] inside the whole lake footprint (marnage / bathymetry resolution). When omitted, the interior keeps the background size.
 
+
+      .. index:: ! dam_cell_size
 
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-lake-refinement-dam-cell-size
@@ -1599,6 +1789,8 @@ Fields
             Target cell size [L] in the hydraulic-structure zones (cutoff wall, sill).
 
 
+      .. index:: ! dam_buffer
+
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-lake-refinement-dam-buffer
 
@@ -1613,6 +1805,8 @@ Fields
             Base half-width [L] of the structure refinement corridors; also the radius of the optional dam-outlet disk.
 
 
+      .. index:: ! hfb_buffer
+
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-lake-refinement-hfb-buffer
 
@@ -1626,6 +1820,8 @@ Fields
 
             Half-width [L] of the refined zone around the dam cutoff wall (HFB). The zone covers the lake outlet area. When omitted, derives 2 * dam_buffer. Must be >= dam_cell_size so the zone holds at least one target cell.
 
+
+      .. index:: ! dam_outlet_disk
 
       .. container:: hmp-field hmp-field-level-user
          :name: mesh-catchment-lake-refinement-dam-outlet-disk
@@ -1642,6 +1838,8 @@ Fields
 
 
 
+
+.. index:: ! refinement_zone
 
 .. container:: hmp-field hmp-field-level-user
    :name: mesh-catchment-refinement-zone
