@@ -723,5 +723,9 @@ begin with.
 References
 ----------
 
-.. bibliography::
-   :filter: docname in docnames
+- :cite:`abherve2023` for the published bidirectional downslope-distance
+  criterion this page calibrates against.
+
+See :doc:`/theory/bibliography` for the full reference list. A page-local
+``.. bibliography::`` would declare a second citation target for the same key
+and shadow the one on that page.

@@ -77,7 +77,9 @@ jobs:
             exit 0
           fi
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-          HMP_DOC_VERSION="${version}" python -m sphinx -j auto -b html docs/source "site/${version}"
+          # -W --keep-going: the build that ships is the build that is checked.
+          # The PR gate already runs the same policy via `make -C docs html-strict`.
+          HMP_DOC_VERSION="${version}" python -m sphinx -j auto -W --keep-going -b html docs/source "site/${version}"
 
       - name: Build switcher.json (all versions) and shrink gallery PNGs
         if: steps.build.outputs.skip != '1'

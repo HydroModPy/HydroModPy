@@ -14,9 +14,24 @@ Mesh- or raster-backed scalar maps of one persisted field.
    * - Figure name
      - Title
      - Required inputs
+   * - ``accumulation_map``
+     - Accumulated drainage flux
+     - fields ``accumulation_flux``
+   * - ``boundary_package_map``
+     - Boundary packages
+     - (no fixed input)
    * - ``concentration_map``
      - Concentration
      - fields ``concentration``
+   * - ``depression_map``
+     - Closed depressions of the routing surface
+     - (no fixed input)
+   * - ``downslope_distance_map``
+     - Downslope distance
+     - fields ``release_flux``
+   * - ``flow_direction_map``
+     - Flow direction
+     - (no fixed input)
    * - ``mesh_map``
      - Solver mesh
      - fields ``topography``
@@ -67,11 +82,17 @@ Chronicles read from the catalog ``timeseries`` table.
    * - Figure name
      - Title
      - Required inputs
+   * - ``bisection_bracket_trace``
+     - Bisection bracket trace
+     - tables ``calibration_iterations``
    * - ``calibration_convergence``
      - Calibration convergence
      - tables ``calibration_iterations``
    * - ``calibration_trace``
      - Calibration parameter trace
+     - tables ``calibration_iterations``
+   * - ``downslope_distance_crossing``
+     - Downslope distance crossing
      - tables ``calibration_iterations``
    * - ``duration_curve``
      - Flow-duration curve
@@ -79,6 +100,9 @@ Chronicles read from the catalog ``timeseries`` table.
    * - ``hydrograph``
      - Discharge hydrograph
      - tables ``timeseries``
+   * - ``parameter_cost_profile``
+     - Parameter cost profile
+     - tables ``calibration_iterations``
    * - ``recession``
      - Recession analysis
      - tables ``timeseries``
@@ -139,6 +163,9 @@ Multi-panel views combining one or several runs, observed data, or calibration t
    * - Figure name
      - Title
      - Required inputs
+   * - ``abherve_two_stage_card``
+     - Two-stage calibration card
+     - tables ``calibration_iterations``
    * - ``calibration_landscape``
      - Calibration objective landscape
      - tables ``calibration_iterations``
@@ -159,6 +186,9 @@ Multi-panel views combining one or several runs, observed data, or calibration t
      - (no fixed input)
    * - ``ensemble_band``
      - Ensemble envelope
+     - tables ``timeseries``
+   * - ``hydrograph_log_nse``
+     - Hydrograph on a log axis with NSElog
      - tables ``timeseries``
    * - ``hydrograph_sim_obs``
      - Discharge hydrograph (sim vs obs)
@@ -193,9 +223,18 @@ Multi-panel views combining one or several runs, observed data, or calibration t
    * - ``residuals``
      - Residuals (sim - obs)
      - tables ``timeseries``
+   * - ``roptim_validity_chart``
+     - Optimal agreement and validity bound
+     - (no fixed input)
    * - ``scatter_one_to_one``
      - Sim vs obs scatter (1:1)
      - tables ``timeseries``
+   * - ``seepage_network_confusion_map``
+     - Seepage network confusion
+     - fields ``release_flux``
+   * - ``seepage_network_reference_overlay``
+     - Simulated network over reference
+     - fields ``release_flux``
    * - ``side_by_side``
      - Side-by-side map
      - (no fixed input)

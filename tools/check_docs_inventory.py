@@ -36,6 +36,43 @@ REQUIRED_USER_GUIDE_PAGES = {
     "data/index",
 }
 
+# --- guide page floor -------------------------------------------------------
+#
+# The documentation is written by three machines: a generator (the config
+# reference, whose floor is the JSON schema), recursive autosummary (removed:
+# its floor was zero) and hand writing, which had no floor at all. The two
+# checks below are that floor. Both use a shrinking allowlist: a page listed
+# there is a known debt, and once it complies it must be REMOVED from the list,
+# so the count can only go down.
+
+USER_GUIDE_DIR = DOC_SOURCE / "user_guide"
+GENERATED_GUIDE_DIRS = ("config_reference",)
+
+CROSSREF_ROLE = re.compile(r":(?:doc|ref|mod|class|func|meth|attr|term|option|numref|cite):`")
+CROSSREF_ALLOWLIST = ROOT / "tools" / "docs_crossref_allowlist.txt"
+
+# One page per data family, following user_guide/data/dem.rst.
+DATA_DIR = USER_GUIDE_DIR / "data"
+DATA_REQUIRED_HEADINGS = ("Accepted sources", "Minimal example", "Downstream uses")
+DATA_NON_FAMILY_PAGES = {
+    "index.rst",
+    "cache-and-lockfiles.rst",
+    "custom-data.rst",
+    "provider-replay-cases.rst",
+    "retrieval-workflow.rst",
+    "runs-and-figures.rst",
+}
+DATA_TEMPLATE_ALLOWLIST = ROOT / "tools" / "docs_data_template_allowlist.txt"
+
+# The recursive autosummary produced 1290 pages of which 11 rendered a single
+# Python object, and those empty pages owned the search index: searchtools.js
+# scores a matching py:module at 26 against 15 for a page title and 5 for body
+# text. Re-adding :recursive: silently undoes that.
+RECURSIVE_BANNED_IN = (
+    DOC_SOURCE / "api" / "index.rst",
+    DOC_SOURCE / "_templates" / "autosummary" / "module.rst",
+)
+
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -108,12 +145,120 @@ def check_user_guide_pages() -> list[str]:
     return []
 
 
+def _read_allowlist(path: Path) -> list[str]:
+    if not path.exists():
+        return []
+    entries = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line:
+            entries.append(line)
+    return entries
+
+
+def _authored_user_guide_pages() -> list[Path]:
+    """Hand-written user_guide pages, excluding the generated reference."""
+    pages = []
+    for path in sorted(USER_GUIDE_DIR.rglob("*.rst")):
+        rel = path.relative_to(USER_GUIDE_DIR).as_posix()
+        if any(rel.startswith(part + "/") for part in GENERATED_GUIDE_DIRS):
+            continue
+        if path.name.endswith(".partial.rst"):
+            continue
+        pages.append(path)
+    return pages
+
+
+def _check_against_allowlist(
+    violations: set[str], allowlist_path: Path, what: str
+) -> list[str]:
+    """Ratchet: no new violation, and a fixed page must leave the allowlist."""
+    errors: list[str] = []
+    allowed = set(_read_allowlist(allowlist_path))
+    rel_allowlist = allowlist_path.relative_to(ROOT).as_posix()
+
+    for rel in sorted(violations - allowed):
+        errors.append(f"{rel}: {what}")
+
+    for rel in sorted(allowed - violations):
+        target = ROOT / rel
+        if not target.exists():
+            errors.append(f"{rel_allowlist} lists {rel}, which no longer exists. Remove the line.")
+        else:
+            errors.append(
+                f"{rel} now complies. Remove it from {rel_allowlist}; the list only shrinks."
+            )
+    return errors
+
+
+def check_user_guide_crossrefs() -> list[str]:
+    """Every hand-written guide page must link somewhere."""
+    violations = {
+        path.relative_to(ROOT).as_posix()
+        for path in _authored_user_guide_pages()
+        if not CROSSREF_ROLE.search(path.read_text(encoding="utf-8", errors="ignore"))
+    }
+    return _check_against_allowlist(
+        violations,
+        CROSSREF_ALLOWLIST,
+        "carries no cross-reference role. A guide page that links nowhere is a dead end; "
+        "link the fields it names to /user_guide/config_reference/.",
+    )
+
+
+def _rst_headings(text: str) -> set[str]:
+    lines = text.splitlines()
+    headings: set[str] = set()
+    for i in range(len(lines) - 1):
+        title, rule = lines[i].strip(), lines[i + 1].strip()
+        if not title or len(rule) < len(title):
+            continue
+        if len(set(rule)) == 1 and rule[0] in "=-^~\"'+*#:":
+            headings.add(title)
+    return headings
+
+
+def check_data_pages_follow_template() -> list[str]:
+    """Every data family page must follow user_guide/data/dem.rst."""
+    violations: set[str] = set()
+    for path in sorted(DATA_DIR.glob("*.rst")):
+        if path.name in DATA_NON_FAMILY_PAGES:
+            continue
+        headings = _rst_headings(path.read_text(encoding="utf-8", errors="ignore"))
+        if not all(required in headings for required in DATA_REQUIRED_HEADINGS):
+            violations.add(path.relative_to(ROOT).as_posix())
+    return _check_against_allowlist(
+        violations,
+        DATA_TEMPLATE_ALLOWLIST,
+        "does not follow user_guide/data/dem.rst. Required sections: "
+        + ", ".join(DATA_REQUIRED_HEADINGS)
+        + ".",
+    )
+
+
+def check_api_reference_is_not_recursive() -> list[str]:
+    errors: list[str] = []
+    for path in RECURSIVE_BANNED_IN:
+        if not path.exists():
+            continue
+        if ":recursive:" in path.read_text(encoding="utf-8"):
+            errors.append(
+                f"{path.relative_to(ROOT).as_posix()}: ':recursive:' is banned. It generated "
+                "1290 pages of which 11 documented a Python object, and they dominated the "
+                "site search."
+            )
+    return errors
+
+
 def run_checks() -> list[str]:
     errors: list[str] = []
     errors.extend(check_cli_reference())
     errors.extend(check_banned_authored_references())
     errors.extend(check_api_reference_pages())
     errors.extend(check_user_guide_pages())
+    errors.extend(check_user_guide_crossrefs())
+    errors.extend(check_data_pages_follow_template())
+    errors.extend(check_api_reference_is_not_recursive())
     return errors
 
 

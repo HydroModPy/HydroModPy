@@ -74,8 +74,13 @@ html:
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
+# The trailing `|| true` of $(SPHINX_FILTER) used to swallow sphinx's exit code,
+# so -W was decorative and this target could not fail: the CI gate that runs it
+# was green whatever the build said. The braces keep grep's "nothing matched"
+# status from being read as a build failure, and PIPESTATUS[0] restores sphinx's
+# own.
 html-strict:
-	$(SPHINXBUILD) -b html -W --keep-going $(ALLSPHINXOPTS) $(BUILDDIR)/html $(SPHINX_FILTER)
+	$(SPHINXBUILD) -b html -W --keep-going $(ALLSPHINXOPTS) $(BUILDDIR)/html 2>&1 | { grep -v $(NOISY_PATTERNS) || true; }; exit $${PIPESTATUS[0]}
 	@echo
 	@echo "Strict build finished (warnings treated as errors)."
 
