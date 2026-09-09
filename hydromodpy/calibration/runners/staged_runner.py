@@ -176,6 +176,8 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
         payload["variable"] = decl.variable
     if decl.objective is not None:
         payload["objective"] = decl.objective
+    if decl.observed_station_id is not None:
+        payload["observed_station_id"] = decl.observed_station_id
     if decl.scoring_window is not None:
         payload["scoring_window"] = decl.scoring_window.model_dump()
     payload["parameters"] = {name: payload["parameters"][name] for name in decl.parameters}

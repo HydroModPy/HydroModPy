@@ -32,10 +32,16 @@ def test_the_composite_metric_guards_the_runoff_addition():
     from hydromodpy.calibration.metrics import composite
 
     source = inspect.getsource(composite)
-    assert "add_runoff_to_discharge(simulated, trial_ctx)" in source
+    # Assert the guard, not the variable name a refactor is free to change.
+    assert "add_runoff_to_discharge(" in source
     guard = next(
         line for line in source.splitlines() if "includes_runoff" in line and "if " in line
     )
     assert "not " in guard, (
         "The runoff must be added ONLY when the observable does not already hold it."
+    )
+    added = source.index("add_runoff_to_discharge(", source.index(guard))
+    between = source[source.index(guard) : added]
+    assert between.count("\n") <= 2, (
+        "The runoff addition must sit directly under its includes_runoff guard."
     )

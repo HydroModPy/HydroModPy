@@ -96,7 +96,12 @@ def resolve_time_index(ctx: Any, n_timesteps: int = 0) -> pd.DatetimeIndex | Non
 _RUNOFF_WARNING_EMITTED: set[int] = set()
 
 
-def add_runoff_to_discharge(simulated: pd.Series, ctx: Any) -> pd.Series:
+def add_runoff_to_discharge(
+    simulated: pd.Series,
+    ctx: Any,
+    *,
+    area_m2: float | None = None,
+) -> pd.Series:
     """Add the surface-runoff forcing to a baseflow series in m³/s.
 
     The runoff data manager exposes one or more station time-series in
@@ -105,6 +110,12 @@ def add_runoff_to_discharge(simulated: pd.Series, ctx: Any) -> pd.Series:
     (``core.time.period_aggregation.period_mean_on_index``), and converted to
     ``m³/s`` using the catchment area read from the geographic runtime. When no runoff is loaded, a
     one-shot warning is emitted and the baseflow is returned unchanged.
+
+    ``area_m2`` overrides that catchment area, which is what a gauge away from
+    the outlet needs: it sees the runoff of the area it drains, not of the whole
+    basin. The runoff is spatially uniform here, one rate averaged over its
+    stations, so scaling that rate by the upstream area is the exact
+    generalisation of the whole-basin formula and adds no assumption.
     """
     runoff = getattr(getattr(ctx, "loaded_data", None), "runoff", None)
     points = getattr(runoff, "points", None) if runoff is not None else None
@@ -119,15 +130,22 @@ def add_runoff_to_discharge(simulated: pd.Series, ctx: Any) -> pd.Series:
             _RUNOFF_WARNING_EMITTED.add(ctx_id)
         return simulated
 
-    geo = getattr(getattr(ctx, "setup", None), "geographic", None)
-    catch_area_km2 = float(getattr(geo, "catch_area", 0.0) or 0.0)
-    if catch_area_km2 <= 0.0:
-        logger.warning(
-            "calibration discharge: catchment area unavailable in setup.geographic; "
-            "skipping runoff addition."
-        )
-        return simulated
-    catch_area_m2 = catch_area_km2 * 1e6
+    if area_m2 is not None:
+        catch_area_m2 = float(area_m2)
+        if catch_area_m2 <= 0.0:
+            raise ValueError(
+                f"the upstream area a gauge drains must be positive, got {area_m2} m2."
+            )
+    else:
+        geo = getattr(getattr(ctx, "setup", None), "geographic", None)
+        catch_area_km2 = float(getattr(geo, "catch_area", 0.0) or 0.0)
+        if catch_area_km2 <= 0.0:
+            logger.warning(
+                "calibration discharge: catchment area unavailable in setup.geographic; "
+                "skipping runoff addition."
+            )
+            return simulated
+        catch_area_m2 = catch_area_km2 * 1e6
 
     series_list: list[pd.Series] = []
     for rec in points:

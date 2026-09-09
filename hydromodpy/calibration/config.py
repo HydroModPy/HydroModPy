@@ -507,6 +507,24 @@ class CalibObjectiveBlockDecl(HydroModelBase):
     metric: Annotated[MetricKind, Profile.USER] = Field(
         default="rmse",
         description="Metric key. One of rmse, nse, kge, mae, nse_log.",
+        json_schema_extra={
+            "value_docs": {
+                "rmse": "Root-mean-square error, in the observed unit; penalizes large "
+                "misfits most.",
+                "nse": "Nash-Sutcliffe efficiency against the observed mean; the "
+                "standard choice for a level or discharge series.",
+                "kge": "Kling-Gupta efficiency; separates correlation, variability "
+                "and bias when NSE alone is ambiguous.",
+                "mae": "Mean absolute error, in the observed unit; less sensitive to "
+                "outliers than RMSE.",
+                "nse_log": "NSE on log-transformed series; weights low flows as "
+                "heavily as peaks, good for recessions.",
+                "distance_gap": "Balances the simulated stream network against the "
+                "mapped one; zero marks the crossing.",
+                "distance_mean": "Mean spatial offset between simulated and mapped "
+                "streams; a diagnostic, not a substitute for distance_gap.",
+            }
+        },
     )
     weight: Annotated[PositiveFloat, Profile.USER] = Field(
         default=1.0,
@@ -526,6 +544,15 @@ class CalibObjectiveBlockDecl(HydroModelBase):
         description="Per-block cost transform applied before weighting. Note that "
         "transform='log' takes the logarithm of the cost, which is not the same "
         "thing as metric='nse_log', an NSE computed on log-transformed series.",
+        json_schema_extra={
+            "value_docs": {
+                "identity": "Uses the block cost as computed, with no transform.",
+                "log": "Takes log10 of the cost plus a small epsilon, compressing "
+                "large costs before weighting.",
+                "inverse": "Takes -1 / (cost + epsilon), sharpening the gradient near "
+                "a cost of zero.",
+            }
+        },
     )
     warmup: Annotated[NonNegativeInt | None, Profile.USER] = Field(
         default=None,
@@ -613,6 +640,10 @@ class CalibPhaseDecl(HydroModelBase):
     objective: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="Single-metric objective, when this phase does not use blocks.",
+    )
+    observed_station_id: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Observed station the single simulated series is scored against. A run produces one discharge series, at the catchment outlet, so an upstream gauge cannot match it: when several stations are loaded, one has to be named. Optional with a single loaded station. Overrides the calibration-level value for this phase.",
     )
     optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
         default_factory=dict,
@@ -762,6 +793,10 @@ class CalibrationConfig(HydroModelBase):
     variable: Annotated[str, Profile.USER] = Field(
         default="head",
         description="Observed variable (for ObservationSet).",
+    )
+    observed_station_id: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Observed station the single simulated series is scored against. A run produces one discharge series, at the catchment outlet, so an upstream gauge cannot match it: when several stations are loaded, one has to be named. Optional with a single loaded station.",
     )
     optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
         default_factory=dict,

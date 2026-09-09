@@ -365,6 +365,7 @@ def run_calibration_core(
                 objective_blocks=cfg.objective_blocks or None,
                 warmup_periods=int(cfg.warmup_periods),
                 scoring_window=scoring_window_bounds(cfg.scoring_window),
+                observed_station_id=cfg.observed_station_id,
             )
 
     use_api_isolation = _api_isolation_needed(cfg.parallel)
