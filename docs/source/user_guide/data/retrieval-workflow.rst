@@ -242,3 +242,16 @@ Failure triage
   existing attribute column.
 - If a gridded custom forcing has wrong magnitudes, set ``source_unit`` instead
   of editing solver parameters to compensate.
+
+See also
+--------
+
+- :doc:`/user_guide/config_reference/data` for every field named above, including ``types``,
+  ``inference_mode``, and ``extent``.
+- :doc:`custom-data` for the same retrieval pattern using ``source = "custom"`` instead of a
+  public provider.
+- :doc:`cache-and-lockfiles` for what ``force_refresh`` and ``hmp run --frozen`` do to the
+  workspace cache this workflow populates.
+- :doc:`/user_guide/troubleshooting` for errors that are not covered by the failure triage above.
+- :doc:`/architecture/data_loading/data-managers-and-external-dependencies` for the activation
+  and inference rules implemented by the planner.

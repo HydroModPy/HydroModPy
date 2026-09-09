@@ -18,10 +18,10 @@ Accepted sources
      - Source page
    * - ``custom``
      - Local sea-level files are authoritative.
-     - ``custom``
+     - :doc:`custom-data`
    * - ``shom``
      - SHOM observations should be discovered or retrieved.
-     - ``shom``
+     - :doc:`provider-replay-cases`
    * - ``constant``
      - A controlled fixed sea level is enough for the case.
      - ``constant``
@@ -38,6 +38,9 @@ Minimal example
    [[data.oceanic.sources]]
    source = "constant"
    value = 0.0
+
+All field definitions, types, and defaults live in the generated reference:
+:doc:`/user_guide/config_reference/data`.
 
 Checks
 ------
@@ -64,6 +67,18 @@ loaded, summarized, and plotted without requiring network access.
    used by the data-only case. This is the minimum useful visual contract for
    ``custom`` oceanic data: timestamps, values, units, and summary level are
    visible.
+
+Downstream uses
+---------------
+
+- the ``ocean`` boundary condition, when ``flow.active_bc`` includes ``"ocean"``
+  (:doc:`/user_guide/config_reference/flow`); the loaded value primes the
+  boundary's prescribed sea level, as described in
+  :doc:`/theory/hydrology/stream-ocean-and-drainage-semantics`;
+- calibration replay, which re-injects the loaded oceanic forcing into each
+  trial's flow object alongside recharge;
+- the local regression case under ``hydromodpy/data/variables/oceanic/cases``,
+  kept for the ``custom`` source's data-only proof rather than a coastal study.
 
 Remaining gallery gap
 ---------------------

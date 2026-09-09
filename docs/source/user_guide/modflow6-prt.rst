@@ -3,7 +3,8 @@ MODFLOW 6 PRT Particle Tracking
 
 Use ``transport/modflow6prt`` when the question is advective travel paths or
 travel time in a MODFLOW 6 flow field. This is particle tracking, not a
-concentration-transport solve. For concentration, use ``transport/modflow6gwt``.
+concentration-transport solve. For concentration, use ``transport/modflow6gwt``,
+covered with the rest of the solver family in :doc:`/user_guide/solvers`.
 
 Execution Model
 ---------------
@@ -56,7 +57,9 @@ dedicated streaming callback; that is not how HydroModPy currently runs MODFLOW
 Minimal TOML Pattern
 --------------------
 
-Declare the flow process first, then the PRT process:
+Declare the flow process first, then the PRT process. Both run under a single
+:doc:`hmp run </cli/run>` invocation; ``[transport.modflow6prt.parameters]``
+fields below are documented in :doc:`/user_guide/config_reference/transport`:
 
 .. code-block:: toml
 
@@ -157,7 +160,8 @@ Version Requirements
 
 Use a recent MODFLOW 6 executable with PRT support. The Nancon PRT demonstrator
 has been verified with MODFLOW 6.7.0. If HydroModPy resolves an older cached
-``mf6`` binary, set an explicit path:
+``mf6`` binary, set an explicit path with ``[modflow6.runtime]`` (see
+:doc:`/user_guide/config_reference/modflow6`):
 
 .. code-block:: toml
 

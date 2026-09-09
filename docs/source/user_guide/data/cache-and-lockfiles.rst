@@ -199,3 +199,17 @@ Recommended policy
    * - Provider refresh
      - Refresh one source intentionally.
      - Add ``force_refresh = true`` to that source, run, then update the lock.
+
+See also
+--------
+
+- :doc:`/user_guide/config_reference/data` for the ``force_refresh`` field named in the table
+  above, set on one source block at a time.
+- :doc:`provider-replay-cases` for the same replay-then-refresh-then-lock policy applied to
+  provider-specific figures.
+- :doc:`retrieval-workflow` for the run that first populates the cache this page inspects and
+  repairs.
+- :doc:`/user_guide/troubleshooting` for the ``payload_dir not found`` and ``No .hmp archive``
+  errors that the inspect and repair commands above address.
+- :doc:`/architecture/data_loading/data-managers-and-external-dependencies` for the cache and
+  ``force_refresh`` contract enforced by the data-manager root layer.

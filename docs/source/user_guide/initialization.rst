@@ -19,8 +19,9 @@ configurable and each safe to leave at its default.
 Steady warm-up period
 ---------------------
 
-``[flow] first_period_steady = true`` (the default) marks the first solver stress
-period as steady state. Its solution seeds the transient periods that follow.
+``[flow] first_period_steady = true`` (the default, see
+:doc:`/user_guide/config_reference/flow`) marks the first solver stress period
+as steady state. Its solution seeds the transient periods that follow.
 
 The steady period is forced with the **long-term mean recharge**, not the first
 window's recharge. ``[flow.sinks_sources.recharge] first_clim = "mean"`` (the
@@ -28,7 +29,10 @@ default) makes period 0 use the record mean, and the recharge/EVT split assigns
 every steady period the per-cell time mean of the recharge and of the routed
 climatic deficit. Equilibrating to average conditions, rather than to one
 arbitrary window, is the standard warm-up practice and keeps the calibrated
-storage parameters unbiased.
+storage parameters unbiased. See
+:doc:`/theory/hydrology/forcing-time-aggregation-and-first-clim` for how
+``first_clim`` interacts with the stress-period partition and the forcing
+aggregation rule.
 
 Set ``first_clim = "first"`` to force the first window instead, or a numeric
 value to force a fixed rate.
@@ -41,7 +45,8 @@ window from the objective (next section).
 Burn-in excluded from calibration
 ---------------------------------
 
-``[calibration] warmup_periods = N`` drops the first ``N`` periods of every
+``[calibration] warmup_periods = N`` (see
+:doc:`/user_guide/config_reference/calibration`) drops the first ``N`` periods of every
 observed and simulated series before the objective metric is computed. The
 window where the state still depends on the initial condition then does not
 enter the calibration. The default is ``0`` (no exclusion).
@@ -59,7 +64,8 @@ Adaptive time stepping
 Weekly or longer stress periods solved in a single time step can carry a large
 budget error, or fail to converge, on the periods where littoral cells wet and
 dry under the Newton formulation. ``[modflow6.runtime] mf6_ats = true`` (opt-in,
-off by default) enables MODFLOW 6 adaptive time stepping on the transient
+off by default, see :doc:`/user_guide/config_reference/modflow6`) enables
+MODFLOW 6 adaptive time stepping on the transient
 periods: each period starts at its full length and MODFLOW 6 subdivides only the
 periods it cannot solve in one step. Output is still written once per period, so
 the extracted time axis is unchanged.
@@ -103,12 +109,13 @@ Advanced: restart and cyclic spin-up
   the cache pins the grid between runs (the generator is not deterministic on
   its own), and a cell-count mismatch is refused rather than silently
   reindexed. A lake absent from the prior run keeps its ``stageinit``.
-- **Cyclic spin-up to dynamic equilibrium.** ``hmp spinup <toml>`` repeats a
-  representative window, restarting each cycle from the previous cycle's state,
-  until the aquifer heads and the lake stage stop changing between cycles (L-inf
-  below tolerance). This gives a seasonally consistent antecedent state that a
-  single steady solve cannot, and it is the right method when the lake stage and
-  the heads are strongly coupled. Configure it under ``[spinup]``:
+- **Cyclic spin-up to dynamic equilibrium.** ``hmp spinup <toml>`` (see
+  :doc:`/cli/run`) repeats a representative window, restarting each cycle from
+  the previous cycle's state, until the aquifer heads and the lake stage stop
+  changing between cycles (L-inf below tolerance). This gives a seasonally
+  consistent antecedent state that a single steady solve cannot, and it is the right
+  method when the lake stage and the heads are strongly coupled. Configure it
+  under ``[spinup]`` (see :doc:`/user_guide/config_reference/spinup`):
   ``max_cycles``, ``tol_head`` / ``tol_stage`` (metres), and an optional shorter
   ``window_start`` / ``window_end`` so each cycle repeats a representative period
   rather than the full chronicle. The driver reuses one model, so the mesh is

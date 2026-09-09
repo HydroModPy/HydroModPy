@@ -29,6 +29,9 @@ Accepted sources
      - EU-Hydro coverage is the intended continental-scale reference.
      - ``euhydro``
 
+The complete ``[[data.hydrography.sources]]`` schema for all four sources is
+defined in :ref:`the data reference <data-hydrography-sources>`.
+
 Minimal example
 ---------------
 
@@ -85,8 +88,8 @@ Local spatial smoke test
    :alt: Local DEM and hydrography stack
    :width: 100%
 
-   The local data-doc run reads a versioned DEM and a versioned river-network
-   vector. It is a compact check for CRS agreement, network density, and
+   The local data-doc run reads a versioned :doc:`DEM <dem>` and a versioned
+   river-network vector. It is a compact check for CRS agreement, network density, and
    whether a custom hydrography file is spatially plausible before it is used
    for mesh constraints or active-network interpretation.
 
@@ -94,8 +97,11 @@ Downstream uses
 ---------------
 
 - hydrography panels in data overviews;
-- river constraints for meshes;
-- drainage target interpretation;
+- river constraints for meshes, through the :ref:`rivers field
+  <mesh-catchment-rivers>` of the :doc:`[mesh_catchment] launcher
+  </user_guide/config_reference/mesh_catchment>`;
+- drainage target interpretation, including stream burning of the routing DEM
+  (:ref:`[geographic.enforce_streams] <geographic-enforce-streams>`);
 - active-network comparison after simulation.
 
 Hydrography Source: bdtopage
@@ -177,8 +183,8 @@ Operational checks
 
 - The network CRS must match or be safely reprojectable to the project CRS.
 - The layer should cover the modeled basin and its outlet neighborhood.
-- ``rasterize_field`` should identify stable features when raster products are
-  generated.
+- :ref:`rasterize_field <data-hydrography-sources-rasterize-field>` should
+  identify stable features when raster products are generated.
 - A correct file path is not enough; inspect the map overlay.
 
 
@@ -249,7 +255,8 @@ Minimal example
 Operational checks
 """"""""""""""""""
 
-- ``waterway_types`` controls which OSM waterway classes are retained.
+- :ref:`waterway_types <data-hydrography-sources-waterway-types>` controls
+  which OSM waterway classes are retained.
 - OSM completeness can vary by region, so visual inspection is mandatory.
 - Avoid treating OSM density as a hydrological truth without local validation.
 

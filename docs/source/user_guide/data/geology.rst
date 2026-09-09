@@ -27,6 +27,9 @@ Accepted sources
        finer geological structure.
      - ``brgm-50k``
 
+The complete ``[[data.geology.sources]]`` schema for all three sources is defined
+in :ref:`the data reference <data-geology-sources>`.
+
 Minimal example
 ---------------
 
@@ -43,8 +46,8 @@ Loaded shape
 ------------
 
 The loaded object should preserve zone geometries and a stable geology code.
-When ``values_table_path`` is provided, the code also becomes the join key for
-hydraulic-property tables.
+When :ref:`values_table_path <data-geology-sources-values-table-path>` is
+provided, the code also becomes the join key for hydraulic-property tables.
 
 Visual check
 ------------
@@ -82,7 +85,9 @@ Downstream uses
 ---------------
 
 - geology maps in data overviews;
-- mesh constraints and interfaces;
+- mesh constraints and interfaces, through the :ref:`geology field
+  <mesh-catchment-geology>` of the :doc:`[mesh_catchment] launcher
+  </user_guide/config_reference/mesh_catchment>`;
 - support selection for fields;
 - hydraulic conductivity, storage, or zone-based parameterization.
 
@@ -169,10 +174,10 @@ Minimal example
 Operational checks
 """"""""""""""""""
 
-- ``code_field`` must exist in the local layer and remain non-empty after
-  clipping.
-- ``values_table_path`` should use the same geology codes when properties are
-  joined.
+- :ref:`code_field <data-geology-sources-code-field>` must exist in the local
+  layer and remain non-empty after clipping.
+- :ref:`values_table_path <data-geology-sources-values-table-path>` should use
+  the same geology codes when properties are joined.
 - CRS and geometry validity matter because geology can constrain meshes.
 - Empty or unlabeled legend categories usually mean the code field or property
   join is wrong.

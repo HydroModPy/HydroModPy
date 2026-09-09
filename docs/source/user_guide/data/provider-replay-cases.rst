@@ -93,3 +93,17 @@ The remaining provider-specific gallery work should be done in this order:
   coastal boundary condition rather than only a data replay.
 - A Hub'Eau refresh case that displays downloaded station discovery next to a
   frozen replay from the cache and lockfile.
+
+See also
+--------
+
+- :doc:`/user_guide/config_reference/data` for the ``hubeau``, ``shom``, ``sim2``, ``bdtopage``,
+  ``osm``, and ``euhydro`` source values shown in the figures above.
+- :doc:`hydrography` for the operational contract behind the BD Topage, OSM, and EU-Hydro
+  comparison.
+- :doc:`cache-and-lockfiles` for the replay, refresh, cache, and lock ladder shown in the policy
+  figure above.
+- :doc:`/user_guide/troubleshooting` for network and cache errors encountered when a live
+  refresh is used instead of a committed replay.
+- :doc:`/architecture/data_loading/data-managers-and-external-dependencies` for the provider
+  inventory and external-dependency constraints behind these families.

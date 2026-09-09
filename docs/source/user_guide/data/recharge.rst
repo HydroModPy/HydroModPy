@@ -17,10 +17,10 @@ Accepted sources
      - Source page
    * - ``custom``
      - Local recharge files are authoritative.
-     - ``custom``
+     - :doc:`custom-data`
    * - ``sim2``
      - SIM2 gridded recharge should be retrieved over the project period.
-     - ``sim2``
+     - :doc:`provider-replay-cases`
    * - ``synthetic``
      - A deterministic recharge sequence is needed for tests or examples.
      - ``synthetic``
@@ -37,6 +37,9 @@ Minimal example
    [[data.recharge.sources]]
    source = "sim2"
    extent = "watershed"
+
+All field definitions, types, and defaults live in the generated reference:
+:doc:`/user_guide/config_reference/data`.
 
 Visual check
 ------------
@@ -58,6 +61,19 @@ post-solver confirmation that recharge was consumed as intended.
    For ``sim2`` recharge, inspect the grid support as well as the temporal
    forcing context. A valid file path is not enough if the spatial support or
    selected period is wrong.
+
+Downstream uses
+---------------
+
+- the solver RCH package, built from ``flow.sinks_sources.recharge``
+  (:doc:`/user_guide/config_reference/flow`); both the MODFLOW 6 and the
+  MODFLOW-NWT backends assemble it;
+- the initial-condition solve, when ``flow.ic.h.source`` is set to
+  ``"recharge"`` or ``"mean_recharge"`` (:doc:`/user_guide/config_reference/flow`);
+- climatic summaries and water-budget checks alongside :doc:`precipitation`,
+  :doc:`etp`, and :doc:`temperature`;
+- the surface-exchange semantics described in
+  :doc:`/theory/hydrology/recharge-and-surface-exchange-semantics`.
 
 Recharge Source: custom
 ^^^^^^^^^^^^^^^^^^^^^^^
