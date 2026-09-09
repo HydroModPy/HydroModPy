@@ -16,7 +16,8 @@ from hydromodpy.core.state.paths import (
 #: Preprocessing intermediates go under .hmp/scratch/_preprocessing/.
 #: These files are needed on disk by whitebox/rasterio during the pipeline,
 #: then ingested into the project store and cleaned up.
-PREPROCESSING_DIR = f"{INTERNAL_DIRNAME}/scratch/_preprocessing"
+PREPROCESSING_DIRNAME = "_preprocessing"
+PREPROCESSING_DIR = f"{INTERNAL_DIRNAME}/scratch/{PREPROCESSING_DIRNAME}"
 
 if TYPE_CHECKING:
     from hydromodpy.core.workspace.config import WorkspaceConfig

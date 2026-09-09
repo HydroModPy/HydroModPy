@@ -2,14 +2,17 @@
 # HydroModPy - example 03: hydrographic network in steady state
 # ----------------------------------------------------------------------
 # Canut catchment (Brittany, EPSG:2154), extracted from the regional 75 m
-# DEM by outlet snapping. Steady-state groundwater flow with a five-layer
-# aquifer, solved with MODFLOW 6. The catchment stream network is
-# delineated from the DEM and the simulated active network (cells where
-# the water table sustains a drain outflow) is rendered on top of it.
+# DEM by outlet snapping. Steady-state groundwater flow in a 50 m aquifer
+# split into five layers, solved with MODFLOW 6.
+#
+# Three networks are put side by side:
+#   - the observed one, from the regional stream shapefile (reference),
+#   - the one delineated from the DEM by flow accumulation (generated),
+#   - the one the water table actually sustains (simulated active).
 #
 # This is the "how does the perennial network emerge from groundwater"
-# case: raise or lower K in run_manual.py and watch the active network
-# grow or shrink.
+# case: raise or lower K and the simulated active network grows or
+# shrinks. run_manual.py drives that sweep from Python.
 #
 # Launch:
 #   hmp run examples/projects/03_hydrographic_network_in_steady_state/project.toml
@@ -25,7 +28,7 @@ project_root = "."
 
 [simulation]
 name = "canut_steady_mf6"
-description = "Canut catchment, steady-state MODFLOW 6, five-layer aquifer, DEM-delineated stream network."
+description = "Canut catchment, steady-state MODFLOW 6, five-layer 50 m aquifer, observed and simulated stream networks."
 if_exists = "replace"
 
 # One steady groundwater-flow process.
@@ -33,6 +36,15 @@ if_exists = "replace"
 id = "flow_main"
 type = "flow"
 solvers = ["modflow6"]
+
+# Fields the network figures and run_manual.py read back. Each one is
+# persisted during the run; they are not recomputed on read.
+[simulation.results.derived]
+watertable_elevation = true
+watertable_depth = true
+seepage_areas = true
+outflow_drain = true
+accumulation_flux = true
 
 
 # ---------------------------------------------------------------------- geographic
@@ -63,9 +75,13 @@ compute_stream_links = true
 
 # ---------------------------------------------------------------------- domain
 [domain]
+# The geology layer is registered as a zone so the id card can map it.
+# K stays homogeneous: [flow.param.K.field] declares no zonal values.
+zone_ids = ["geology"]
 
+# 50 m aquifer below the topography, split into five layers by
+# [modflow6.sgrid.vertical].
 [domain.depth_model]
-# 50 m aquifer split into five layers below the topography.
 kind = "constant_thickness"
 thickness = "50.0 m"
 
@@ -73,19 +89,38 @@ thickness = "50.0 m"
 # ---------------------------------------------------------------------- data
 [data]
 project_crs = "EPSG:2154"
-types = ["dem", "recharge"]
+types = ["dem", "recharge", "geology", "hydrography"]
 inference_mode = "warn"
 
 [[data.dem.sources]]
 source = "custom"
 path = "DEM_armorican_massif.tif"
 
-# Steady mean recharge, mm/day. The legacy monthly climatology averages to
-# ~1.2 mm/day over the Canut; a single constant value drives the steady run.
+# BRGM 1:1 000 000 geology, clipped to the catchment. Context only here:
+# no parameter is zoned on it.
+[data.geology]
+id = "field_geology"
+
+[[data.geology.sources]]
+source = "custom"
+path = "../../data/geology/GEO1M.shp"
+code_field = "CODE_LEG"
+
+# Observed stream network, BD Topage. This is what gives the run its
+# "reference" hydrographic role, and with it the comparison figures.
+[data.hydrography]
+
+[[data.hydrography.sources]]
+source = "bdtopage"
+
+# Monthly recharge climatology of the Canut, mm/day. The steady run uses
+# its mean (1.17 mm/day) through [flow.sinks_sources.recharge].
 [[data.recharge.sources]]
 source = "synthetic"
-values = [1.2]
-runoff_ratio = 0.0
+values = [0.333, 0.667, 1.000, 1.333, 1.667, 2.000, 2.000, 1.667, 1.333, 1.000, 0.667, 0.333]
+start_date = "2000-01-01"
+freq = "MS"
+periods = 12
 
 
 # ---------------------------------------------------------------------- flow
@@ -113,6 +148,8 @@ kind = "homogeneous"
 unit = "-"
 value = 0.1
 
+# value = 0.0 asks the solver for the K-based drain conductance
+# (K * cell area / bed thickness) instead of a fixed one.
 [flow.bc.cauchy.drainage]
 id = "drainage"
 kind = "cauchy"
@@ -132,7 +169,7 @@ mf6_ims_complexity = "MODERATE"
 mode = "keep_native"
 
 [modflow6.sgrid.vertical]
-# Five layers, uniform thickness.
+# Five layers of uniform thickness over the 50 m aquifer.
 genmtd_lay = "constant"
 nlay = 5
 
@@ -150,8 +187,12 @@ figures = [
     "piezometric_map",
     "watertable_depth_map",
     "seepage_map",
+    "hydrographic_network_reference",
     "hydrographic_network_generated",
+    "hydrographic_network_comparison",
     "simulated_active_network",
+    "simulated_active_network_reference_overlay",
+    "accumulation_map",
     "cross_section",
     "water_budget",
 ]
