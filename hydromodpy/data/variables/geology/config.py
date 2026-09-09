@@ -30,6 +30,18 @@ class _GeologySourceBase(HydroModelBase):
     extent: Annotated[Literal["watershed", "study_area"] | None, Profile.USER] = Field(
         default=None,
         description="Use project extent for bbox-based data retrieval.",
+        json_schema_extra={
+            "value_docs": {
+                "watershed": (
+                    "Turns on bbox retrieval on the project extent; today no code reads "
+                    "which of the two values was set."
+                ),
+                "study_area": (
+                    "Turns on bbox retrieval on the project extent; today no separate "
+                    "study-area window is resolved."
+                ),
+            }
+        },
     )
     force_refresh: Annotated[bool, Profile.DEV] = Field(
         default=False,

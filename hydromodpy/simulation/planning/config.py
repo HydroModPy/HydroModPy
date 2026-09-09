@@ -85,6 +85,24 @@ class SimulationTimeConfig(HydroModelBase):
             "Optional forcing/stress-period base time unit used with step_value "
             "when step_value is provided without an inline unit."
         ),
+        json_schema_extra={
+            "value_docs": {
+                "hour": (
+                    "Treats step_value as whole hours, for sub-daily forcing and stress periods."
+                ),
+                "day": (
+                    "Treats step_value as whole days, the common granularity "
+                    "for daily forcing series."
+                ),
+                "month": (
+                    "Treats step_value as calendar months, so the step length varies by month."
+                ),
+                "year": (
+                    "Treats step_value as calendar years, so the step length "
+                    "varies with leap years."
+                ),
+            }
+        },
     )
     substeps_per_period: Annotated[int, Profile.DEV] = Field(
         default=1,

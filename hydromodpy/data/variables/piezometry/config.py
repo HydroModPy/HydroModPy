@@ -28,7 +28,16 @@ class PiezometrySourceConfig(
     """
 
     source: Annotated[Literal["custom", "hubeau"], Profile.USER] = Field(
-        ..., description="Data provider."
+        ...,
+        description="Data provider.",
+        json_schema_extra={
+            "value_docs": {
+                "custom": (
+                    "Loads groundwater-level records from local station and chronicle files."
+                ),
+                "hubeau": "Downloads public groundwater-level observations from the Hub'Eau API.",
+            }
+        },
     )
 
     # --- Custom source fields ---
