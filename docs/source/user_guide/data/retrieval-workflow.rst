@@ -14,6 +14,10 @@ small enough to read in one pass:
 
 .. code-block:: toml
 
+   [simulation.time]
+   start_datetime = "2018-01-01"
+   end_datetime = "2020-12-31"
+
    [data]
    project_crs = "EPSG:2154"
    inference_mode = "strict"
@@ -32,10 +36,6 @@ small enough to read in one pass:
    [[data.hydrography.sources]]
    source = "bdtopage"
 
-   [data.hydrometry]
-   date_start = "2018-01-01"
-   date_end = "2020-12-31"
-
    [[data.hydrometry.sources]]
    source = "hubeau"
    product = "QmnJ"
@@ -43,18 +43,10 @@ small enough to read in one pass:
    require_observations = true
    fallback_search_radius_km = 10
 
-   [data.piezometry]
-   date_start = "2018-01-01"
-   date_end = "2020-12-31"
-
    [[data.piezometry.sources]]
    source = "hubeau"
    extent = "watershed"
    product = "level"
-
-   [data.recharge]
-   date_start = "2018-01-01"
-   date_end = "2020-12-31"
 
    [[data.recharge.sources]]
    source = "sim2"
@@ -66,7 +58,9 @@ Read it from top to bottom:
 - ``project_crs`` is the target CRS for normalized project data.
 - ``extent = "watershed"`` asks compatible providers to use the project
   watershed or study-area extent.
-- Date windows live on the family section, such as ``[data.hydrometry]``.
+- Date windows come from ``[simulation.time]``, or from ``[overview]`` in
+  overview mode. A family section such as ``[data.hydrometry]`` declares one
+  only to override that inheritance.
 - ``hydrography`` providers do not expose an ``extent`` field in their source
   config; the runtime uses the geographic context passed to the hydrography
   manager.
@@ -166,21 +160,50 @@ Most API-backed spatial sources need one of these selectors:
 Temporal filters
 ----------------
 
-Time windows are set on the family block:
+``[simulation.time]`` is the date declaration of a run file. A family block
+that declares no window inherits it, so the dates are written once:
+
+.. code-block:: toml
+
+   [simulation.time]
+   start_datetime = "2020-01-01"
+   end_datetime = "2020-12-31"
+
+   [[data.hydrometry.sources]]
+   source = "hubeau"
+   extent = "watershed"
+
+A window declared on the family block overrides that inheritance, and is
+reused by all sources in that family:
 
 .. code-block:: toml
 
    [data.hydrometry]
-   date_start = "2020-01-01"
+   date_start = "2010-01-01"
    date_end = "2020-12-31"
 
    [[data.hydrometry.sources]]
    source = "hubeau"
    extent = "watershed"
 
-The family-level window is reused by all sources in that family. SIM2 sources
-also require a project period, so explicit dates are the clearest option for
-reproducible forcing downloads.
+Declare it only to fetch a window **wider** than the simulation, typically to
+download once a chronicle that several runs of different lengths will reuse
+from the cache. A narrower window starves the run instead. The two bounds must
+be declared together: a half-declared window is a configuration error, not a
+partial override.
+
+In overview mode there is no ``[simulation.time]``: ``[overview].date_start``
+and ``[overview].date_end`` carry the window, and the family blocks inherit
+from it under the same rule.
+
+``lake_geometry``, ``lake_bathymetry`` and ``lake_abacus`` are static and carry
+no window at all.
+
+The Python API reverses the relation in one case: when a ``Project`` has no
+``[simulation]`` block at all, ``[data.recharge].date_start`` /
+``[data.recharge].date_end`` become the simulation window
+(``hydromodpy.project.phases.ensure_simulation_block``). A TOML run file always
+goes the other way.
 
 Running and inspecting
 ----------------------
