@@ -87,19 +87,53 @@ def protocol_record(name: str) -> dict[str, Any]:
 
     A calibrated value that came out of a published method carries the method
     with it: the report, the session and anyone reading either can then say what
-    the number rests on without going back to the file.
+    the number rests on without going back to the file. The version is part of
+    that: a number which informed a decision must be replayable with the recipe of
+    its era, not with whatever the recipe became.
     """
     protocol = get_protocol(name)
     return {
         "name": protocol.name,
+        "version": protocol.version,
         "title": protocol.title,
         "summary": protocol.summary,
         "stages": list(protocol.stages),
         "references": [reference.cite() for reference in protocol.references],
+        "support": dict(protocol.support),
+        "deviations": [
+            {
+                "key": deviation.key,
+                "paper": deviation.paper,
+                "here": deviation.here,
+                "why": deviation.why,
+            }
+            for deviation in protocol.deviations
+        ],
+        "reference_values": dict(protocol.reference_values),
     }
 
 
+def assert_version_is_available(name: str, version: str | None) -> None:
+    """Refuse a pinned version this registry does not hold.
+
+    Approximating it with the current recipe is the one thing a pin exists to
+    prevent: a file that pins 1.0 and silently gets 1.1 has lost the guarantee it
+    asked for.
+    """
+    if version is None:
+        return
+    protocol = get_protocol(name)
+    if str(version) != str(protocol.version):
+        raise ValueError(
+            f"[calibration.protocol] pins {name!r} at version {version!r}, and this "
+            f"installation carries {protocol.version!r}. A pin exists so a result stays "
+            "replayable, so it is refused rather than approximated: install the version "
+            "this file was written against, or drop the pin to run the one that is here."
+        )
+
+
 __all__ = [
+    "assert_version_is_available",
     "available_protocols",
     "expand_calibration_protocol",
     "get_protocol",

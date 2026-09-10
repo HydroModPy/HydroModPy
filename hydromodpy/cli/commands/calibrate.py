@@ -98,11 +98,53 @@ def _announce_the_protocol(cfg) -> None:
     from hydromodpy.calibration.protocols import protocol_record
 
     record = protocol_record(declared.name)
-    print(f"protocol: {record['name']} - {record['title']}", file=sys.stderr)
+    print(
+        f"protocol: {record['name']}@{record['version']} - {record['title']}",
+        file=sys.stderr,
+    )
     for index, stage in enumerate(record["stages"], start=1):
         print(f"  stage {index}: {stage}", file=sys.stderr)
     for reference in record["references"]:
         print(f"  cite: {reference}", file=sys.stderr)
+    # Where this run departs from the publication it cites. A reader comparing a
+    # result to the literature needs this before the run, not after.
+    chosen = _values_this_file_set(cfg, [item["key"] for item in record["deviations"]])
+    for deviation in record["deviations"]:
+        line = (
+            f"  differs from the paper on {deviation['key']}: {deviation['here']} "
+            f"(paper: {deviation['paper']})"
+        )
+        if deviation["key"] in chosen:
+            line += f" - this file sets {chosen[deviation['key']]!r}"
+        print(line, file=sys.stderr)
+    backend = getattr(getattr(cfg, "solver", None), "backend_name", None)
+    backend = str(getattr(backend, "value", backend) or "")
+    verdict = record["support"].get(backend)
+    if verdict is not None and verdict != "tested":
+        print(
+            f"  on {backend}: {verdict.replace('_', ' ')} - no case in this repository "
+            "runs the protocol on that backend.",
+            file=sys.stderr,
+        )
+
+
+def _values_this_file_set(cfg, keys: list[str]) -> dict[str, object]:
+    """Return, for the keys a protocol departs on, what this file actually wrote.
+
+    The deviation table describes the recipe's defaults. What a reader comparing
+    to the publication needs is the value in front of them, which may be the
+    paper's or may be the departure.
+    """
+    calibration = getattr(cfg, "calibration", None)
+    outputs = getattr(calibration, "outputs", None) or {}
+    found: dict[str, object] = {}
+    for key in keys:
+        for output in outputs.values():
+            value = getattr(output, key, None)
+            if value is not None:
+                found[key] = value
+                break
+    return found
 
 
 def run(args: argparse.Namespace) -> None:

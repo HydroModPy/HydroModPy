@@ -28,7 +28,7 @@ from typing import Annotated, Any, Literal
 import pandas as pd
 from pydantic import Field, model_validator
 
-from hydromodpy.calibration.protocols.base import Reference
+from hydromodpy.calibration.protocols.base import Deviation, Reference
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 
@@ -48,6 +48,14 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
 
     name: Annotated[Literal["matching_hydrographic_network"], Profile.USER] = Field(
         description="Protocol identifier.",
+    )
+    version: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Recipe version this file was written against. Unset runs the version this "
+            "installation carries; pinned, a mismatch is refused rather than "
+            "approximated, so a result that informed a decision stays replayable."
+        ),
     )
     conductivity: Annotated[str, Profile.USER] = Field(
         default="K",
@@ -137,6 +145,7 @@ class MatchingHydrographicNetwork:
     """Conductivity from the mapped stream network, storage from the hydrograph."""
 
     name = "matching_hydrographic_network"
+    version = "1.0"
     title = "Matching the hydrographic network"
     summary = (
         "Two stages. The mapped stream network constrains the hydraulic conductivity "
@@ -184,11 +193,93 @@ class MatchingHydrographicNetwork:
         ),
     )
 
+    support: Mapping[str, str] = {
+        # A case in this repository runs the two stages on MODFLOW 6, DIS and DISV.
+        "modflow6": "tested",
+        # Nothing structural forbids it: NWT serves a head at a cell and a per-cell
+        # release flux, which is all stage one reads. Nobody has run it.
+        "modflow_nwt": "expected_untested",
+        # Boussinesq computes a saturation excess per cell and its mesh carries the
+        # connectivity, the areas and the elevations, so the criterion is reachable.
+        # Nobody has run the two stages end to end.
+        "boussinesq": "expected_untested",
+    }
+
+    deviations = (
+        Deviation(
+            key="tau_specific_ratio",
+            paper="zero: a cell is a seepage face on the purely geometric test",
+            here="1e-4 of the cell's own recharge by default; 0 reproduces the paper",
+            why=(
+                "a strictly geometric test counts a cell releasing a negligible "
+                "trickle, which on a fine mesh inflates the simulated network; the "
+                "paper's own value reproduces the publication exactly."
+            ),
+        ),
+        Deviation(
+            key="observed_position_accuracy",
+            paper="the validity length is the DEM resolution and nothing else",
+            here="unset, so the paper's reading holds unless a file states it",
+            why=(
+                "the positional accuracy of the mapped network does not improve "
+                "because the mesh is refined, so without a floor the validity ratio "
+                "follows the mesh; declaring it is a departure and is left to the file."
+            ),
+        ),
+        Deviation(
+            key="weighting",
+            paper="one cell one vote",
+            here="'cell' by default, the paper's value; 'area' is offered and departs",
+            why=(
+                "'area' exists because a mesh refined along the streams has its highest "
+                "cell density exactly where distances are smallest, so one vote per cell "
+                "over-weights the refined reaches. Choosing it leaves the publication."
+            ),
+        ),
+    )
+
+    reference_values: Mapping[str, str] = {
+        "roptim_max": "2, the validity bound of Eq. 4",
+        "criterion": "J = D_so - D_os, Eq. 1, whose zero is the balance",
+        "r_optim": "D_optim / L_ref, Eq. 3",
+        "catchments": "Abherve et al. (2023) report the method on 45 Brittany catchments",
+    }
+
+    adjustable = frozenset(
+        {
+            "conductivity",
+            "storage",
+            "network_output",
+            "steady_metric",
+            "steady_method",
+            "steady_max_iter",
+            "steady_optimizer_kwargs",
+            "steady_window",
+            "transient_metric",
+            "transient_method",
+            "transient_max_iter",
+            "transient_optimizer_kwargs",
+            "discharge_variable",
+            "observed_station_id",
+            "scoring_window",
+        }
+    )
+    """Everything the options model exposes. Changing one keeps the method; the
+    record still says which values were used, because a reader comparing to the
+    publication needs to know that the engine was swapped."""
+
     def expand(self, options: Mapping[str, Any], document: Mapping[str, Any]) -> dict[str, Any]:
         """Return the document with the two stages and their objective block written."""
         opts = MatchingHydrographicNetworkOptions.model_validate(
             {"name": self.name, **dict(options)}
         )
+        if opts.version is not None and str(opts.version) != self.version:
+            raise ValueError(
+                f"[calibration.protocol] pins {self.name!r} at version "
+                f"{opts.version!r}, and this installation carries {self.version!r}. A "
+                "pin exists so a result stays replayable, so it is refused rather than "
+                "approximated."
+            )
         expanded = copy.deepcopy(dict(document))
         calibration = dict(expanded.get("calibration") or {})
 
