@@ -363,6 +363,14 @@ def apply_parameter_to_config(
     path = param.effective_path
     if path is None:
         raise ValueError(f"Parameter {param.name!r} has no target or path")
+    try:
+        _apply_resolved(cfg, param, path, value)
+    except ValueError as exc:
+        # Name the TOML key that declared the path: the walk only knows the path.
+        raise ValueError(f"[calibration.parameters.{param.name}] {exc}") from None
+
+
+def _apply_resolved(cfg: Any, param: CalibParameter, path: str, value: float) -> None:
     if param.mode == "replace":
         set_by_path(cfg, path, float(value))
         return
@@ -387,25 +395,46 @@ def apply_parameter_to_config(
     )
 
 
+def _unknown_segment(path: str, part: str, depth: int, target: Any) -> ValueError:
+    """Say which segment of which path is wrong, and what was there instead.
+
+    The reader wrote the path in a TOML and has never seen the Python class the
+    walk reached, so the class name is the last thing in the message rather than
+    its subject.
+    """
+    reached = ".".join(path.split(".")[:depth]) or "the configuration root"
+    if isinstance(target, Mapping):
+        available = sorted(str(key) for key in target)
+    else:
+        available = sorted(k for k in vars(type(target)).get("model_fields", ()) or ())
+        if not available:
+            available = sorted(k for k in vars(target) if not k.startswith("_"))
+    known = ", ".join(available[:12]) if available else "nothing"
+    return ValueError(
+        f"{path!r}: no {part!r} under {reached}, which holds {known} "
+        f"({type(target).__name__})."
+    )
+
+
 def set_by_path(cfg: Any, path: str, value: Any) -> None:
     """Set ``value`` at ``path`` on ``cfg``. Accepts Pydantic and Mapping."""
     parts = path.split(".")
     target: Any = cfg
-    for part in parts[:-1]:
+    for depth, part in enumerate(parts[:-1]):
         if isinstance(target, Mapping):
             if part not in target:
-                raise ValueError(f"Path segment {part!r} not found on {type(target).__name__}")
+                raise _unknown_segment(path, part, depth, target)
             target = target[part]
         else:
             if not hasattr(target, part):
-                raise ValueError(f"Path segment {part!r} not found on {type(target).__name__}")
+                raise _unknown_segment(path, part, depth, target)
             target = getattr(target, part)
     leaf = parts[-1]
     if isinstance(target, Mapping):
         target[leaf] = value
     else:
         if not hasattr(target, leaf):
-            raise ValueError(f"Leaf segment {leaf!r} not found on {type(target).__name__}")
+            raise _unknown_segment(path, leaf, len(parts) - 1, target)
         setattr(target, leaf, value)
 
 
