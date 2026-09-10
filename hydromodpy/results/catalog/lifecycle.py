@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from hydromodpy.core.io.db_retry import with_lock_retry
@@ -70,6 +70,66 @@ def stamp_trash_marker(
         ),
         sim_id=sim_id,
     )
+
+
+class CalibrationSessionNamespace:
+    """Session-level verbs, composed onto the catalog rather than stapled on it.
+
+    The facade is capped: a new run-management verb routes through a namespace
+    instead of growing the god-object. This one owns what happens to a
+    calibration session's own row, which is a different concern from a run's
+    lifecycle.
+    """
+
+    def __init__(self, backend: Any) -> None:
+        self._backend = backend
+
+    def abandoned(self, minutes: int = 60) -> list[dict]:
+        """Return sessions still ``running`` more than ``minutes`` after they opened.
+
+        A session is opened ``running`` and closed in a ``finally``. A SIGKILL, a
+        power cut or a lost machine runs neither, so the row stays ``running``
+        for good: no end date, no outcome, and every listing shows a calibration
+        that is not happening. There is no heartbeat to read here, so age since
+        the start is the signal, and the window has to be generous: a real
+        calibration runs for hours.
+        """
+        rows = self._backend.fetch_all(
+            "SELECT CAST(cs.session_id AS VARCHAR), cs.project, cs.method, cs.started_at, "
+            "EXTRACT(EPOCH FROM (current_timestamp - cs.started_at)) / 60.0 "
+            "FROM calibration_sessions cs JOIN statuses st ON cs.status_id = st.id "
+            "WHERE st.code = 'running' AND cs.started_at < current_timestamp - "
+            "INTERVAL (?) MINUTE ORDER BY cs.started_at",
+            [int(minutes)],
+        )
+        return [
+            {
+                "session_id": str(r[0]),
+                "project": r[1],
+                "method": r[2],
+                "started_at": r[3],
+                "age_minutes": float(r[4]),
+            }
+            for r in rows
+        ]
+
+    @with_lock_retry()
+    def close_abandoned(self, session_id: str) -> None:
+        """Mark one abandoned session ``aborted``, saying that is what happened.
+
+        Only a session still ``running`` is touched, so calling this twice is
+        the same as calling it once and a session that finished between the
+        listing and the fix keeps its own outcome.
+        """
+        self._backend.execute(
+            "UPDATE calibration_sessions "
+            "SET status_id = (SELECT id FROM statuses WHERE code = 'aborted'), "
+            "ended_at = current_timestamp, "
+            "error_message = 'the process never closed this session; it was reconciled' "
+            "WHERE CAST(session_id AS VARCHAR) = ? AND status_id = "
+            "(SELECT id FROM statuses WHERE code = 'running')",
+            [str(session_id)],
+        )
 
 
 class LifecycleMixin:

@@ -25,9 +25,69 @@ _NAMES = (
 )
 
 
-def _calibration(name: str) -> CalibrationConfig:
-    raw = expand_calibration_protocol(load_toml_with_base_config(RECIPES / f"{name}.toml"))
+_STUB_PROJECT = """
+[workspace]
+project_root = "."
+
+[workflow]
+mode = "simulation"
+
+[geographic]
+source_mode = "synthetic"
+
+# A calibration moves a parameter the project declares, so the project has to
+# declare it. This is the smallest project any of the three recipes can sit on.
+[flow]
+param_list = ["K", "Sy"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 6.4e-5
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+"""
+
+
+def _beside_a_project(name: str, tmp_path) -> Path:
+    """Copy one recipe next to a project, which is how a reader uses it."""
+    (tmp_path / "project.toml").write_text(_STUB_PROJECT, encoding="utf-8")
+    (tmp_path / "streams.gpkg").write_bytes(b"")
+    target = tmp_path / f"{name}.toml"
+    target.write_text((RECIPES / f"{name}.toml").read_text(encoding="utf-8"), encoding="utf-8")
+    return target
+
+
+def _calibration(name: str, tmp_path) -> CalibrationConfig:
+    raw = expand_calibration_protocol(
+        load_toml_with_base_config(_beside_a_project(name, tmp_path))
+    )
     return CalibrationConfig.model_validate(raw["calibration"])
+
+
+def test_every_recipe_is_an_overlay_on_a_project() -> None:
+    """A calibration file carries the search; the model it runs comes from the project."""
+    import tomllib
+
+    for name in _NAMES:
+        raw = tomllib.loads((RECIPES / f"{name}.toml").read_text(encoding="utf-8"))
+        assert raw["base_config"] == "project.toml", name
+        assert raw["workflow"]["mode"] == "calibration", name
+
+
+def test_no_recipe_redeclares_the_catchment() -> None:
+    """Redeclaring it here is how a calibration and its run drift apart."""
+    import tomllib
+
+    for name in _NAMES:
+        raw = tomllib.loads((RECIPES / f"{name}.toml").read_text(encoding="utf-8"))
+        assert "workspace" not in raw, name
+        assert set(raw.get("geographic", {})) <= {"enforce_streams"}, name
 
 
 def test_the_three_recipes_are_shipped() -> None:
@@ -35,28 +95,28 @@ def test_the_three_recipes_are_shipped() -> None:
 
 
 @pytest.mark.parametrize("name", _NAMES)
-def test_a_recipe_loads(name: str) -> None:
-    assert _calibration(name) is not None
+def test_a_recipe_loads(name: str, tmp_path) -> None:
+    assert _calibration(name, tmp_path) is not None
 
 
-def test_the_single_gauge_recipe_scores_one_series() -> None:
-    cfg = _calibration("calibration_single_gauge")
+def test_the_single_gauge_recipe_scores_one_series(tmp_path) -> None:
+    cfg = _calibration("calibration_single_gauge", tmp_path)
 
     assert cfg.objective_blocks == []
     assert cfg.variable == "discharge"
     assert list(cfg.parameters) == ["K"]
 
 
-def test_the_multi_objective_weights_read_as_shares() -> None:
-    cfg = _calibration("calibration_multi_objective")
+def test_the_multi_objective_weights_read_as_shares(tmp_path) -> None:
+    cfg = _calibration("calibration_multi_objective", tmp_path)
 
     weights = {block.name: block.weight for block in cfg.objective_blocks}
     assert weights == {"hydrograph": 0.65, "piezometry": 0.25, "lake": 0.10}
     assert sum(weights.values()) == pytest.approx(1.0)
 
 
-def test_the_protocol_recipe_expands_into_the_published_two_stages() -> None:
-    cfg = _calibration("calibration_matching_hydrographic_network")
+def test_the_protocol_recipe_expands_into_the_published_two_stages(tmp_path) -> None:
+    cfg = _calibration("calibration_matching_hydrographic_network", tmp_path)
 
     assert cfg.protocol is not None
     assert [phase.name for phase in cfg.phases or []] == [

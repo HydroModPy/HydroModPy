@@ -146,32 +146,29 @@ def _distance_pair(simulated: np.ndarray) -> tuple[float, float]:
     return float(values[0]), float(values[1])
 
 
-def distance_gap(simulated: np.ndarray, observed: np.ndarray) -> float:
+def distance_gap(simulated: np.ndarray) -> float:
     """``abs(D_so - D_os)``, Eq. 1: the cost the root search drives to zero.
 
-    ``observed`` is ignored and structurally so: the criterion balances an
-    excess of simulated stream against a missing one, both simulated. There is
-    no observed vector to fit, which is why the zero of this cost is an
-    intersection and not a minimum of distance.
+    It takes no observed vector, structurally: the criterion balances an excess
+    of simulated stream against a missing one, both simulated. That is why the
+    zero of this cost is an intersection and not a minimum of distance.
     """
-    del observed
     d_so, d_os = _distance_pair(simulated)
     return abs(d_so - d_os)
 
 
-def distance_mean(simulated: np.ndarray, observed: np.ndarray) -> float:
+def distance_mean(simulated: np.ndarray) -> float:
     """``(D_so + D_os) / 2``, Eq. 2. A diagnostic, and a cost only outside.
 
     It is legitimate as a cost in the outer loop that picks between structures
     already balanced at ``J = 0``; using it inside, in place of Eq. 1, is a
     different estimator, and nothing puts its interior minimum at the crossing.
     """
-    del observed
     d_so, d_os = _distance_pair(simulated)
     return 0.5 * (d_so + d_os)
 
 
-METRICS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
+METRICS: dict[str, Callable[..., float]] = {
     "nse": nse,
     "rmse": rmse,
     "mae": mae,
@@ -187,6 +184,29 @@ METRICS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
 HIGHER_IS_BETTER: frozenset[str] = frozenset(
     {"nse", "kge", "nse_delta", "nse_seasonal", "nse_log", "reservoir"}
 )
+
+# Metrics whose cost is a function of the simulated values alone. A criterion
+# that balances two simulated quantities has no observed series anywhere in it,
+# so a block scored on one asks for none: fabricating a vector of zeros to pair
+# against told a reader that a network output has observations, drove the
+# reference scale and the length check, and meant "there is nothing here" in the
+# one notation that cannot say so.
+CRITERION_METRICS: frozenset[str] = frozenset({"distance_gap", "distance_mean"})
+
+# Metrics whose cost is already a pure number, so there is no unit in it to
+# remove. ``normalize_cost`` exists to stop a unit deciding the weighting of a
+# composite; dividing an efficiency score by the standard deviation of its own
+# observations does the opposite, multiplying that block's weight by a number
+# that belongs to its data and saying nothing about it.
+DIMENSIONLESS_METRICS: frozenset[str] = frozenset(
+    {"nse", "kge", "nse_delta", "nse_seasonal", "nse_log", "reservoir"}
+)
+
+# Metrics scored on a criterion that produces no observed vector. Their cost has
+# a unit, metres, but the reference scale would be read off a pair of zeros and
+# collapse to one, so normalising them is a no-op wearing the name of a
+# correction.
+UNNORMALISABLE_METRICS: frozenset[str] = frozenset({"distance_gap", "distance_mean"})
 
 # Metrics that take the logarithm of the series and therefore refuse a negative
 # value. Do not confuse ``nse_log``, an NSE computed on log-transformed series,
@@ -431,6 +451,25 @@ class CompositeObjective:
         return ObjectiveValue(total=float(total), components=merged_components)
 
 
+def refuse_a_normalisation_that_means_nothing(block: str, metric: str) -> None:
+    """Refuse ``normalize_cost`` where dividing by a reference scale says nothing."""
+    if metric in DIMENSIONLESS_METRICS:
+        raise ValueError(
+            f"Block {block!r}: normalize_cost = true divides the cost by the standard "
+            f"deviation of the observations, and {metric!r} is already a pure number. "
+            "Dividing it does not put two blocks on a common footing, it multiplies "
+            "this one's weight by a figure that belongs to its data. Set the share you "
+            "want in 'weight' and leave normalize_cost off."
+        )
+    if metric in UNNORMALISABLE_METRICS:
+        raise ValueError(
+            f"Block {block!r}: normalize_cost = true has nothing to read a scale from "
+            f"for {metric!r}. That criterion balances two simulated quantities, so its "
+            "observed vector is a pair of zeros and the scale collapses to one. Set the "
+            "share you want in 'weight'."
+        )
+
+
 class ConfigBlockObjective:
     """Objective for one ``[[calibration.objective_blocks]]`` declaration.
 
@@ -463,14 +502,20 @@ class ConfigBlockObjective:
         outputs = tuple(str(output) for output in uses_outputs)
         if not outputs:
             raise ValueError(f"Block {name!r}: uses_outputs must not be empty")
+        scores_a_criterion = metric_key in CRITERION_METRICS
         observed_parts: list[np.ndarray] = []
-        for output_name in outputs:
-            values = observed_by_output.get(output_name)
-            if values is None:
-                raise ValueError(f"Block {name!r}: output {output_name!r} has no observed_values")
-            observed_parts.append(np.asarray(list(values), dtype=float).ravel())
+        if not scores_a_criterion:
+            for output_name in outputs:
+                values = observed_by_output.get(output_name)
+                if values is None:
+                    raise ValueError(
+                        f"Block {name!r}: output {output_name!r} has no observed values. "
+                        "Name a station in 'observes', or write 'observed_values'."
+                    )
+                observed_parts.append(np.asarray(list(values), dtype=float).ravel())
         observed = np.concatenate(observed_parts) if observed_parts else np.empty(0)
         self.name = str(name)
+        self._scores_a_criterion = scores_a_criterion
         self._metric = metric_key
         self._metric_fn = METRICS[metric_key]
         self._higher_is_better = metric_key in HIGHER_IS_BETTER
@@ -491,6 +536,8 @@ class ConfigBlockObjective:
                 f"output(s) {timeless}, which carry no time axis. Declare warmup = 0 on "
                 "this block to keep the calibration-wide burn-in for the others."
             )
+        if normalize_cost:
+            refuse_a_normalisation_that_means_nothing(self.name, metric_key)
         self._normalize_cost = bool(normalize_cost)
         self._transform_name = str(transform).strip().lower() if transform else "identity"
         self._transform_fn = _resolve_transform(self._transform_name)
@@ -538,17 +585,24 @@ class ConfigBlockObjective:
         else:
             simulated = np.concatenate(simulated_parts) if simulated_parts else np.empty(0)
             observed = self._observed
-        if observed.size == 0 or simulated.size == 0:
+        if simulated.size == 0:
             return ObjectiveValue(total=float("inf"), components={})
-        if simulated.size != observed.size:
-            raise ValueError(
-                f"Block {self.name!r}: simulated length {simulated.size} does not match "
-                f"observed length {observed.size}"
-            )
-        n_clipped = 0
-        if self._metric in LOG_METRICS:
-            simulated, observed, n_clipped = clip_negatives_for_log_metric(simulated, observed)
-        raw = float(self._metric_fn(simulated, observed))
+        if self._scores_a_criterion:
+            raw = float(self._metric_fn(simulated))
+            n_clipped = 0
+            observed = simulated
+        else:
+            if observed.size == 0:
+                return ObjectiveValue(total=float("inf"), components={})
+            if simulated.size != observed.size:
+                raise ValueError(
+                    f"Block {self.name!r}: simulated length {simulated.size} does not "
+                    f"match observed length {observed.size}"
+                )
+            n_clipped = 0
+            if self._metric in LOG_METRICS:
+                simulated, observed, n_clipped = clip_negatives_for_log_metric(simulated, observed)
+            raw = float(self._metric_fn(simulated, observed))
         if not np.isfinite(raw):
             return ObjectiveValue(
                 total=float("inf"),
@@ -568,7 +622,11 @@ class ConfigBlockObjective:
         return ObjectiveValue(total=float(transformed), components=components)
 
 
-def build_objective_from_config(cfg: Any) -> Objective:
+def build_objective_from_config(
+    cfg: Any,
+    *,
+    observed_by_output: Mapping[str, Iterable[float]] | None = None,
+) -> Objective:
     """Assemble an :class:`Objective` from a :class:`CalibrationConfig`.
 
     Each ``objective_block`` becomes one :class:`ConfigBlockObjective`
@@ -578,6 +636,13 @@ def build_objective_from_config(cfg: Any) -> Objective:
 
     A block that inherits a burn-in while consuming an output with no time
     axis is refused here, by name, rather than scored on a truncated vector.
+
+    ``observed_by_output`` supplies the observed vector of an output that names
+    a station rather than typing its values: the record is only known once it
+    has been aligned on a trial's simulated timestamps, so it arrives here
+    instead of being read off the declaration. What it names wins over
+    ``observed_values``; every other output is read from its declaration as
+    before.
     """
     blocks = getattr(cfg, "objective_blocks", None) or []
     outputs = getattr(cfg, "outputs", None) or {}
@@ -586,14 +651,16 @@ def build_objective_from_config(cfg: Any) -> Objective:
             "cfg.objective_blocks is empty; declare [[calibration.objective_blocks]] "
             "or populate cfg.outputs so the implicit block can be synthesised."
         )
-    observed_by_output: dict[str, tuple[float, ...]] = {}
+    declared_observed: dict[str, tuple[float, ...]] = {}
     timeless_outputs: set[str] = set()
     for output_name, decl in outputs.items():
         values = getattr(decl, "observed_values", None)
         if values is not None:
-            observed_by_output[str(output_name)] = tuple(float(v) for v in values)
+            declared_observed[str(output_name)] = tuple(float(v) for v in values)
         if getattr(decl, "support", None) in TIMELESS_SUPPORTS:
             timeless_outputs.add(str(output_name))
+    for output_name, values in (observed_by_output or {}).items():
+        declared_observed[str(output_name)] = tuple(float(v) for v in values)
     # Burn-in periods excluded from every block's metric (spin-up window). A block
     # overrides the calibration-wide default with its own ``warmup``; the test is on
     # ``is None`` and not on truthiness, otherwise ``warmup = 0`` would fall back to
@@ -613,7 +680,7 @@ def build_objective_from_config(cfg: Any) -> Objective:
                 name=name,
                 metric=metric,
                 uses_outputs=uses_outputs,
-                observed_by_output=observed_by_output,
+                observed_by_output=declared_observed,
                 normalize_cost=normalize_cost,
                 transform=transform,
                 warmup=warmup,
@@ -639,12 +706,16 @@ __all__ = [
     "CompositeObjective",
     "ConfigBlockObjective",
     "build_objective_from_config",
+    "CRITERION_METRICS",
+    "DIMENSIONLESS_METRICS",
     "METRICS",
     "HIGHER_IS_BETTER",
     "LOG_METRICS",
     "TIMELESS_SUPPORTS",
+    "UNNORMALISABLE_METRICS",
     "distance_gap",
     "distance_mean",
     "clip_negatives_for_log_metric",
+    "refuse_a_normalisation_that_means_nothing",
     "evaluate_objective",
 ]

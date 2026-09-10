@@ -287,7 +287,7 @@ class TestErrors:
                 ],
             }
         )
-        with pytest.raises(ValueError, match="no observed_values"):
+        with pytest.raises(ValueError, match="no observed values"):
             build_objective_from_config(cfg)
 
     def test_missing_simulated_output_returns_inf(self):

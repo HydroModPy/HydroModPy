@@ -18,6 +18,7 @@ from hydromodpy.calibration.config import (
 from hydromodpy.calibration.metrics import composite
 from hydromodpy.calibration.metrics.composite import build_metric_extractor
 from hydromodpy.calibration.metrics.scalar import score
+from hydromodpy.calibration.metrics.solver_extract import ExtractedOutputs
 from hydromodpy.calibration.optim.objective import (
     HIGHER_IS_BETTER,
     METRICS,
@@ -239,7 +240,11 @@ class TestBlockRouteBurnIn:
         # objective_blocks were used and the spin-up was scored anyway.
         cfg = self._config()
         monkeypatch.setattr(
-            composite, "extract_outputs", lambda ctx, outputs: ({"q": [0.0, 0.0, 1.0, 1.0]}, {})
+            composite,
+            "extract_outputs",
+            lambda ctx, outputs: ExtractedOutputs(
+                values={"q": [0.0, 0.0, 1.0, 1.0]}, series={}, diagnostics={}
+            ),
         )
         metric_fn = build_metric_extractor(
             None,
@@ -256,7 +261,11 @@ class TestBlockRouteBurnIn:
     def test_without_it_the_spin_up_is_scored(self, monkeypatch) -> None:
         cfg = self._config()
         monkeypatch.setattr(
-            composite, "extract_outputs", lambda ctx, outputs: ({"q": [0.0, 0.0, 1.0, 1.0]}, {})
+            composite,
+            "extract_outputs",
+            lambda ctx, outputs: ExtractedOutputs(
+                values={"q": [0.0, 0.0, 1.0, 1.0]}, series={}, diagnostics={}
+            ),
         )
         metric_fn = build_metric_extractor(
             None,
@@ -335,15 +344,15 @@ class TestDistanceBlock:
         )
 
     def test_the_gap_is_the_absolute_signed_difference(self) -> None:
-        assert distance_gap(np.array([300.0, 100.0]), np.array([0.0, 0.0])) == pytest.approx(200.0)
-        assert distance_gap(np.array([100.0, 300.0]), np.array([0.0, 0.0])) == pytest.approx(200.0)
+        assert distance_gap(np.array([300.0, 100.0])) == pytest.approx(200.0)
+        assert distance_gap(np.array([100.0, 300.0])) == pytest.approx(200.0)
 
     def test_the_mean_averages_the_pair(self) -> None:
-        assert distance_mean(np.array([300.0, 100.0]), np.array([0.0, 0.0])) == pytest.approx(200.0)
+        assert distance_mean(np.array([300.0, 100.0])) == pytest.approx(200.0)
 
     def test_a_time_series_is_not_a_pair(self) -> None:
         with pytest.raises(ValueError, match="got 3 value"):
-            distance_gap(np.array([1.0, 2.0, 3.0]), np.array([0.0, 0.0]))
+            distance_gap(np.array([1.0, 2.0, 3.0]))
 
     def test_a_block_scores_the_pair(self) -> None:
         value = build_objective_from_config(self._config()).evaluate({"net": [300.0, 100.0]})

@@ -31,7 +31,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import INTERNAL_DIRNAME, catalog_path_for, runs_dir_for
 from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 from hydromodpy.results.catalog.discovery import DiscoveryMixin
-from hydromodpy.results.catalog.lifecycle import LifecycleMixin
+from hydromodpy.results.catalog.lifecycle import CalibrationSessionNamespace, LifecycleMixin
 from hydromodpy.results.catalog.package_io import PackageIOMixin
 from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
 from hydromodpy.results.catalog.ports import CatalogBackend
@@ -484,6 +484,11 @@ class Catalog(
     def backend(self) -> CatalogBackend:
         """Return the storage backend port driving SQL reads and writes."""
         return self._backend
+
+    @property
+    def sessions(self) -> CalibrationSessionNamespace:
+        """Session-level verbs, composed rather than stapled onto this facade."""
+        return CalibrationSessionNamespace(self._backend)
 
     @property
     def workspace_path(self) -> Path:

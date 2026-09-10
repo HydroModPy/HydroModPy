@@ -66,6 +66,7 @@ from hydromodpy.calibration.runners.trial import (
     prepare_trials,
 )
 from hydromodpy.core.exceptions import ObjectiveError
+from hydromodpy.core.interrupts import TerminationRequested, terminate_as_interrupt
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
@@ -342,18 +343,31 @@ def _tolerance_intervals_or_none(
     trace: list[dict[str, Any]],
     names: list[str],
     space: ParameterSpace,
+    decl: Any,
 ) -> list[ParameterInterval]:
     """Return the interval around each calibrated value, or nothing.
 
     A criterion solved at zero, such as the stream-network gap, has no fraction
-    of itself to take: there the width has to be stated in the unit of the cost,
-    which only the reader of that criterion can do. Reporting nothing is the
-    honest answer rather than a number under a rule nobody chose.
+    of itself to take, so a relative tolerance means nothing there. Reporting
+    nothing is the honest answer rather than a number under a rule nobody chose,
+    and the run says which line turns it back on.
     """
     bounds = {param.name: (param.lower, param.upper) for param in space}
     try:
-        return tolerance_intervals(trace, names, bounds=bounds)
-    except ValueError:
+        return tolerance_intervals(
+            trace,
+            names,
+            bounds=bounds,
+            tolerance=float(decl.tolerance),
+            mode=decl.mode,
+        )
+    except ValueError as exc:
+        logger.warning(
+            "No interval was reported around the calibrated values: %s Write "
+            '[calibration.uncertainty] mode = "absolute" with a tolerance in the unit '
+            "of the cost to get one.",
+            exc,
+        )
         return []
 
 
@@ -591,7 +605,12 @@ def run_calibration_core(
         # only; promotion below replays a single run and stays in-process. The
         # switch is backend-neutral on purpose: this path runs for every solver,
         # so importing it must not cost a backend.
-        with api_isolation_context(use_api_isolation):
+        #
+        # A calibration is hours long, so what ends it is often not a keyboard:
+        # a scheduler time limit, a container stop, a plain kill. All of those
+        # are SIGTERM, which by default ends the process where it stands and
+        # leaves this session 'running' in the index for good.
+        with terminate_as_interrupt(), api_isolation_context(use_api_isolation):
             session = engine.run()
         best = session.best
 
@@ -628,6 +647,10 @@ def run_calibration_core(
         if promotion_failures:
             final_status = "partial" if promotion_count > 0 else "failed"
             final_error = "; ".join(promotion_failures)
+    except TerminationRequested:
+        final_status = "aborted"
+        final_error = "SIGTERM"
+        raise
     except KeyboardInterrupt:
         final_status = "aborted"
         final_error = "SIGINT"
@@ -660,7 +683,7 @@ def run_calibration_core(
     trace = calibration_trace(session.history, values_by_trial)
     names = [param.name for param in space]
     correlated = correlated_parameter_pairs(trace, names)
-    intervals = _tolerance_intervals_or_none(trace, names, space)
+    intervals = _tolerance_intervals_or_none(trace, names, space, cfg.uncertainty)
     if correlated:
         for first, second, coefficient in correlated:
             logger.warning(

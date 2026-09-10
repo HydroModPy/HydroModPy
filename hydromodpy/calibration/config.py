@@ -144,7 +144,38 @@ class CalibParameterDecl(HydroModelBase):
         return self.target if self.target is not None else self.path
 
 
-class CalibOutputPoint(HydroModelBase):
+class ScoresAnObservedRecord:
+    """Shared observation surface for the outputs that carry a time axis.
+
+    An output says what it is compared against in one of two ways, never both:
+    ``observes`` names a station whose loaded record is aligned on the simulated
+    timestamps, and ``observed_values`` is a positional vector written into the
+    file. A network output inherits neither: its criterion balances two
+    simulated quantities and has no record to fit.
+    """
+
+    observes: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Station whose loaded record this output is scored against. The "
+        "record is aligned on the simulated timestamps, so a weighted block scores "
+        "dated observations rather than a vector typed into the file. The data family "
+        "follows 'variable': discharge from hydrometry, head from piezometry, stage "
+        "from lake_levels. Mutually exclusive with 'observed_values'.",
+    )
+
+    @model_validator(mode="after")
+    def _check_one_source_of_observations(self):
+        if self.observes is not None and self.observed_values is not None:
+            raise ValueError(
+                f"an output declares both observes={self.observes!r} and "
+                "observed_values; they are two answers to one question. Keep 'observes' "
+                "to score the loaded record, or 'observed_values' to score the vector "
+                "written here."
+            )
+        return self
+
+
+class CalibOutputPoint(ScoresAnObservedRecord, HydroModelBase):
     """Observable extracted at a planar ``(x, y)`` point.
 
     Use this variant for piezometric heads sampled at a single coordinate.
@@ -181,7 +212,8 @@ class CalibOutputPoint(HydroModelBase):
     )
     observed_values: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
-        description="Hard-coded observed values (used by twin-synthetic cases).",
+        description="Hard-coded observed values, positional and dateless. Name a "
+        "station in 'observes' to score a record the project loaded instead.",
     )
 
     @model_validator(mode="after")
@@ -191,7 +223,7 @@ class CalibOutputPoint(HydroModelBase):
         return self
 
 
-class CalibOutputBoundary(HydroModelBase):
+class CalibOutputBoundary(ScoresAnObservedRecord, HydroModelBase):
     """Observable extracted from a boundary package.
 
     Use this variant for fluxes integrated over a named boundary
@@ -219,11 +251,12 @@ class CalibOutputBoundary(HydroModelBase):
     )
     observed_values: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
-        description="Hard-coded observed values (used by twin-synthetic cases).",
+        description="Hard-coded observed values, positional and dateless. Name a "
+        "station in 'observes' to score a record the project loaded instead.",
     )
 
 
-class CalibOutputCell(HydroModelBase):
+class CalibOutputCell(ScoresAnObservedRecord, HydroModelBase):
     """Observable extracted at one structured cell.
 
     Use this variant for explicit ``(row, col)`` selectors on a structured
@@ -265,7 +298,8 @@ class CalibOutputCell(HydroModelBase):
     )
     observed_values: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
-        description="Hard-coded observed values (used by twin-synthetic cases).",
+        description="Hard-coded observed values, positional and dateless. Name a "
+        "station in 'observes' to score a record the project loaded instead.",
     )
 
     @model_validator(mode="after")
@@ -275,7 +309,7 @@ class CalibOutputCell(HydroModelBase):
         return self
 
 
-class CalibOutputLake(HydroModelBase):
+class CalibOutputLake(ScoresAnObservedRecord, HydroModelBase):
     """Observable extracted from a MODFLOW 6 LAK lake state.
 
     Use this variant to score a lake water level, stored volume or free surface
@@ -315,7 +349,8 @@ class CalibOutputLake(HydroModelBase):
     )
     observed_values: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
-        description="Hard-coded observed values (used by twin-synthetic cases).",
+        description="Hard-coded observed values, positional and dateless. Name a "
+        "station in 'observes' to score a record the project loaded instead.",
     )
 
 
@@ -329,9 +364,9 @@ class CalibOutputNetwork(HydroModelBase):
     difference in absolute value, whose zero is the balance between an excess
     of simulated stream and a missing one.
 
-    ``observed_values`` is not asked of the user and defaults to a pair of
-    zeros: the criterion balances two simulated quantities against each other,
-    so there is no observed vector to fit. The mapped network enters through
+    There is no ``observed_values`` here and there cannot be: the criterion
+    balances two simulated quantities against each other, so nothing in it is
+    fitted to a record. The mapped network enters through
     ``stream_geometry_path``, as a geometry, not as a series.
     """
 
@@ -432,22 +467,6 @@ class CalibOutputNetwork(HydroModelBase):
         description="Which timesteps the release flux is read at. Phase one runs a "
         "single steady period, so 'last' is the whole run.",
     )
-    observed_values: Annotated[list[float] | None, Profile.USER] = Field(
-        default=None,
-        description="Structurally absent: the criterion balances two simulated "
-        "quantities. Defaults to a pair of zeros so a block can be declared on it.",
-    )
-
-    @model_validator(mode="after")
-    def _default_observed_pair(self) -> CalibOutputNetwork:
-        if self.observed_values is None:
-            self.observed_values = [0.0, 0.0]
-        elif len(self.observed_values) != 2:
-            raise ValueError(
-                "a network output produces the pair (D_so, D_os); observed_values must "
-                f"hold two entries, got {len(self.observed_values)}."
-            )
-        return self
 
 
 CalibOutputDecl: TypeAlias = Annotated[
@@ -601,6 +620,21 @@ class CalibObjectiveBlockDecl(HydroModelBase):
         ),
     )
 
+    @model_validator(mode="after")
+    def _check_the_normalisation_means_something(self) -> CalibObjectiveBlockDecl:
+        """Refuse here what the objective would refuse at the first trial.
+
+        The reader of this message writes TOML, so the refusal belongs where the
+        file is read rather than hours later inside a search.
+        """
+        if self.normalize_cost:
+            from hydromodpy.calibration.optim.objective import (
+                refuse_a_normalisation_that_means_nothing,
+            )
+
+            refuse_a_normalisation_that_means_nothing(self.name, str(self.metric).lower())
+        return self
+
 
 class CalibPhaseDecl(HydroModelBase):
     """One stage of a calibration that runs in several.
@@ -721,6 +755,43 @@ class CalibPhaseDecl(HydroModelBase):
         and score it on a criterion it never asked for.
         """
         return self.variable is not None or self.objective is not None
+
+
+class CalibUncertaintyDecl(HydroModelBase):
+    """How wide the search says its own answer is.
+
+    The calibrated value never moves: this block only decides what is reported
+    beside it. ``cost_profile`` reads the interval off the trials the search
+    already ran, so it costs no extra model run and rests on no error model. It
+    says what the search could not tell apart, which is a statement about the
+    trace and not a posterior.
+    """
+
+    method: Annotated[Literal["cost_profile"], Profile.USER] = Field(
+        default="cost_profile",
+        description=(
+            "How the interval around each calibrated value is obtained. "
+            "'cost_profile' reads the range of sampled values whose cost stayed within "
+            "'tolerance' of the best, off the trace the search already produced."
+        ),
+    )
+    tolerance: Annotated[PositiveFloat, Profile.USER] = Field(
+        default=0.05,
+        description=(
+            "Width of the interval. A fraction of the best cost when mode='relative' "
+            "(0.05 = five per cent), and a number in the unit of the cost when "
+            "mode='absolute'."
+        ),
+    )
+    mode: Annotated[Literal["relative", "absolute"], Profile.USER] = Field(
+        default="relative",
+        description=(
+            "How 'tolerance' is read. 'relative' is a fraction of the best cost and is "
+            "the usual choice for an efficiency score. A criterion solved at zero, such "
+            "as the stream-network gap, has no fraction of itself to take: state the "
+            "width in the unit of the cost with 'absolute', for example 25 metres."
+        ),
+    )
 
 
 class CalibrationConfig(HydroModelBase):
@@ -891,6 +962,11 @@ class CalibrationConfig(HydroModelBase):
         default=None,
         description="Directory for per-candidate overlay TOMLs. "
         "Required when materialize_candidates is True.",
+    )
+    uncertainty: Annotated[CalibUncertaintyDecl, Profile.USER] = Field(
+        default_factory=CalibUncertaintyDecl,
+        description="How wide the search reports its own answer to be. The calibrated "
+        "value is unaffected; this only decides the interval printed beside it.",
     )
     persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
         default_factory=PersistenceConfig,

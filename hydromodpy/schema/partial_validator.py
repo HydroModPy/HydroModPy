@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from functools import lru_cache
-from typing import Any
+from typing import Any, get_origin
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic.fields import FieldInfo
@@ -62,13 +62,23 @@ def _resolve_field(path: str) -> tuple[type[BaseModel], str, FieldInfo]:
     """
     parts = _split_path(path)
     candidates: list[type[BaseModel]] = [_root_model()]
-    for name in parts[:-1]:
+    skip_next = False
+    for index, name in enumerate(parts[:-1]):
+        if skip_next:
+            # The segment before this one was a mapping of models, so this one
+            # is a key the user chose (a parameter id, a boundary id, a support)
+            # and not a field any model declares. Looking it up would refuse
+            # every path a calibration actually writes.
+            skip_next = False
+            continue
         next_candidates: list[type[BaseModel]] = []
         seen: set[type[BaseModel]] = set()
         for cls in candidates:
             if name not in cls.model_fields:
                 continue
             annotation = cls.model_fields[name].annotation
+            if _is_mapping_of_models(annotation):
+                skip_next = True
             for nested in _iter_basemodels(annotation):
                 if nested in seen:
                     continue
@@ -78,12 +88,37 @@ def _resolve_field(path: str) -> tuple[type[BaseModel], str, FieldInfo]:
             current_name = candidates[0].__name__ if candidates else "?"
             raise KeyError(f"unknown field {name!r} while resolving {path!r} in {current_name}")
         candidates = next_candidates
+        del index
 
     leaf = parts[-1]
+    if skip_next:
+        # The path stops on the instance itself, which is a whole model rather
+        # than one of its values; there is no leaf type to validate against.
+        raise KeyError(f"{path!r} names an entry, not one of its values")
     for cls in candidates:
         if leaf in cls.model_fields:
             return cls, leaf, cls.model_fields[leaf]
     raise KeyError(f"unknown leaf {leaf!r} in {candidates[0].__name__}")
+
+
+def _is_mapping_of_models(annotation: Any) -> bool:
+    """Return whether ``annotation`` is a mapping whose values are models.
+
+    A mapping is where an instance lives: the key is a name the user chose, so
+    the segment after it belongs to the value type and not to the mapping.
+    """
+    from collections.abc import Mapping as MappingABC
+
+    for node in (annotation, *(getattr(annotation, "__args__", ()) or ())):
+        origin = get_origin(node)
+        if origin is None:
+            continue
+        if not (isinstance(origin, type) and issubclass(origin, (dict, MappingABC))):
+            continue
+        args = getattr(node, "__args__", ()) or ()
+        if len(args) == 2 and _iter_basemodels(args[1]):
+            return True
+    return False
 
 
 def _iter_basemodels(annotation: Any) -> list[type[BaseModel]]:

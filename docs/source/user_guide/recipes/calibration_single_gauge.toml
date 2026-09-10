@@ -5,10 +5,16 @@
 # discharge series, and the best value is replayed with its full outputs so the
 # figures show the calibrated model and not the last trial.
 #
-# Load it with `hmp calibrate <this file>`.
+# Load it with `hmp calibrate calibration_single_gauge.toml`.
 
-[workspace]
-name = "calibration_single_gauge"
+# This file is an overlay: it carries the calibration and inherits the
+# catchment, the data and the solver from the project it points at. Every
+# calibration in the repository is written this way, so the same model is
+# run and calibrated from one description.
+base_config = "project.toml"
+
+[workflow]
+mode = "calibration"
 
 [simulation.time]
 start_datetime = "2000-01-01"

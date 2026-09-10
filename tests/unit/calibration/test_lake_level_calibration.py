@@ -269,7 +269,8 @@ class TestBridge:
         out = validate_calib_output(
             {"support": "lake", "lake_id": "lac0", "time": "last", "reducer": "last"}
         )
-        simulated, diagnostics = _extract_outputs(SimpleNamespace(), {"lake": out})
+        extracted = _extract_outputs(SimpleNamespace(), {"lake": out})
+        simulated, diagnostics = extracted.values, extracted.diagnostics
         assert simulated == {"lake": [3.0]}
         assert diagnostics == {}
 
