@@ -33,6 +33,7 @@ import math
 from collections.abc import Mapping, Sequence
 
 from hydromodpy.calibration.optim.optimizer import (
+    EngineTraits,
     EvaluationResult,
     ParamSuggestion,
     register_optimizer,
@@ -82,6 +83,14 @@ class BisectionAdapter:
     """Bracket the sign change of a residual, then close the bracket."""
 
     name = "bisection"
+
+    traits = EngineTraits(
+        max_parameters=1,
+        required_transform="log",
+        needs_signed_residual=True,
+        supports_parallel=False,
+    )
+    """The same three refusals the constructor makes, readable before it runs."""
 
     def __init__(
         self,

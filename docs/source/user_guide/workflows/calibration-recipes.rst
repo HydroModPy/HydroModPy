@@ -140,6 +140,12 @@ physical range the registry enforces, that a stream geometry is where the run
 will look for it, and that every name a block or a phase uses is declared. It
 exits on the config code when anything is wrong, so a script can gate on it.
 
+It also faces each search with what its engine says it can be handed. A
+bisection moves one parameter, walks a log10 variable and drives a signed
+residual to zero; hand it two parameters, a linear one, or a search scored on
+``nse_log``, and the refusal used to arrive when that phase started, after the
+phases before it had spent their whole budget.
+
 What it cannot see it does not pretend to: an observed record is loaded by the
 data step, which needs a delineated catchment, so preflight checks the names a
 file declares against each other and leaves the loading to the run.

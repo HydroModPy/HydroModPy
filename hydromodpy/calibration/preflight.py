@@ -69,6 +69,7 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     findings.extend(_check_outputs(calibration, where_from))
     findings.extend(_check_blocks(calibration))
     findings.extend(_check_phases(calibration))
+    findings.extend(_check_engines(calibration))
     return findings
 
 
@@ -214,6 +215,115 @@ def _check_phases(calibration: Any) -> list[PreflightFinding]:
             )
         ran.add(phase.name)
     return findings
+
+
+_SIGNED_RESIDUAL_METRICS: frozenset[str] = frozenset({"distance_gap"})
+"""Metrics whose criterion publishes the signed residual a root search reads."""
+
+
+def _check_engines(calibration: Any) -> list[PreflightFinding]:
+    """Face each search with what its engine says it can be handed.
+
+    An engine refuses an impossible pairing in its constructor, which is right
+    but late: a staged calibration builds phase two's optimizer when phase two
+    starts, after phase one has spent its whole budget.
+    """
+    from hydromodpy.calibration.optim.optimizer import available_optimizers, engine_traits
+
+    known = set(available_optimizers())
+    findings: list[PreflightFinding] = []
+    for where, method, names, metrics, parallel in _searches(calibration):
+        if method not in known:
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    f"method {method!r} is not registered. Available: {', '.join(sorted(known))}.",
+                )
+            )
+            continue
+        traits = engine_traits(method)
+        if traits.max_parameters is not None and len(names) > traits.max_parameters:
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    f"{method!r} moves {traits.max_parameters} parameter(s) at a time and "
+                    f"this search declares {len(names)}: {', '.join(names)}.",
+                )
+            )
+        if traits.required_transform is not None:
+            wrong = [
+                name
+                for name, decl in (calibration.parameters or {}).items()
+                if name in names
+                and str(getattr(decl, "transform", "identity")) != traits.required_transform
+            ]
+            if wrong:
+                findings.append(
+                    PreflightFinding(
+                        "error",
+                        where,
+                        f"{method!r} walks a {traits.required_transform!r} variable and "
+                        f"its stopping rule is a width in it, but {', '.join(wrong)} "
+                        f"declare(s) another transform.",
+                    )
+                )
+        if traits.needs_signed_residual and not (metrics & _SIGNED_RESIDUAL_METRICS):
+            named = ", ".join(sorted(metrics)) or "nothing"
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    f"{method!r} drives a signed residual to zero, and this search is "
+                    f"scored on {named}, which publishes none. Score it on "
+                    f"{', '.join(sorted(_SIGNED_RESIDUAL_METRICS))}.",
+                )
+            )
+        if parallel > 1 and not traits.supports_parallel:
+            findings.append(
+                PreflightFinding(
+                    "warning",
+                    where,
+                    f"{method!r} returns one point at a time, so parallel = {parallel} "
+                    "buys nothing.",
+                )
+            )
+    return findings
+
+
+def _searches(calibration: Any) -> list[tuple[str, str, list[str], set[str], int]]:
+    """Return one entry per search: where it is written, and what it is handed."""
+    blocks = {block.name: str(block.metric) for block in calibration.objective_blocks or []}
+    every_metric = set(blocks.values())
+
+    def _metrics_of(selected: list[str], single: str | None) -> set[str]:
+        if single:
+            return {str(single)}
+        if selected:
+            return {blocks[name] for name in selected if name in blocks}
+        return set(every_metric)
+
+    if not calibration.phases:
+        return [
+            (
+                "[calibration]",
+                str(calibration.method),
+                sorted(calibration.parameters or {}),
+                _metrics_of([], None if calibration.objective_blocks else calibration.objective),
+                int(calibration.parallel),
+            )
+        ]
+    return [
+        (
+            f"[[calibration.phases]] {phase.name!r}",
+            str(phase.method),
+            list(phase.parameters),
+            _metrics_of(list(phase.objective_blocks), phase.objective),
+            int(phase.parallel),
+        )
+        for phase in calibration.phases
+    ]
 
 
 def _missing(

@@ -92,6 +92,52 @@ def register_optimizer(name: str) -> Callable[[type], type]:
     return deco
 
 
+@dataclass(frozen=True)
+class EngineTraits:
+    """What a search engine can and cannot be handed.
+
+    An engine refuses an impossible pairing in its constructor, which is right
+    but late: a staged calibration builds phase two's optimizer only when phase
+    two starts, after phase one has spent its whole solve budget. Declaring the
+    same facts here lets a check read them before anything solves.
+
+    The defaults are permissive on purpose: an engine that constrains nothing
+    declares nothing, and a third-party one that says nothing is taken at its
+    word rather than assumed to be limited.
+    """
+
+    max_parameters: int | None = None
+    """How many parameters the engine can move at once. ``None`` means any number."""
+
+    required_transform: str | None = None
+    """The sampling transform the engine's stopping rule is written in."""
+
+    needs_signed_residual: bool = False
+    """Whether the engine reads a signed residual the criterion has to publish."""
+
+    supports_parallel: bool = True
+    """Whether several trials of one batch can be evaluated at once."""
+
+
+DEFAULT_ENGINE_TRAITS = EngineTraits()
+
+
+def engine_traits(name: str) -> EngineTraits:
+    """Return what the engine registered under ``name`` declares about itself."""
+    _ensure_builtins_loaded()
+    engine = _BUILTIN.get(name)
+    if engine is None:
+        for ep in entry_points(group="hydromodpy.optimizer"):
+            if ep.name == name:
+                try:
+                    engine = ep.load()
+                except Exception:  # noqa: BLE001 - an engine that will not load has no traits
+                    return DEFAULT_ENGINE_TRAITS
+                break
+    declared = getattr(engine, "traits", None)
+    return declared if isinstance(declared, EngineTraits) else DEFAULT_ENGINE_TRAITS
+
+
 def build_optimizer(name: str, space, **kwargs) -> Optimizer:
     """Construct an optimizer by name.
 
