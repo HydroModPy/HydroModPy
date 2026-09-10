@@ -53,7 +53,12 @@ def _outlet_index(model: SimpleNamespace, accumulated: np.ndarray) -> int:
 
 
 def test_the_outlet_collects_every_release_of_the_catchment():
-    """The identity the whole design rests on: routed(outlet) == domain sum."""
+    """routed(outlet) == the catchment sum, when the graph has ONE sink.
+
+    A catchment whose routing graph terminates in several cells splits the sum
+    between them; the general statement is the mass conservation below, and this
+    fixture is the single-sink special case.
+    """
     model = _model(_south_sloping_top())
     graph = routing_graph_for_model(model)
     release = np.arange(1.0, _NROW * _NCOL + 1.0)
@@ -163,3 +168,28 @@ def test_a_cell_outside_the_mesh_is_refused():
 def test_a_model_without_a_mesh_says_so():
     with pytest.raises(ValueError, match="carries none"):
         routing_graph_for_model(SimpleNamespace(solver_mesh=None))
+
+
+def test_what_leaves_through_the_sinks_is_everything_released():
+    """The general identity, whatever the number of terminal cells."""
+    model = _model(_south_sloping_top())
+    graph = routing_graph_for_model(model)
+    release = np.arange(1.0, _NROW * _NCOL + 1.0)
+    mask = np.ones(_NROW * _NCOL, dtype=bool)
+
+    accumulated = route_release_to_discharge(release, graph, catchment_mask=mask)
+
+    sinks = np.flatnonzero(np.asarray(graph.downstream) < 0)
+    assert sinks.size
+    assert float(accumulated[sinks].sum()) == pytest.approx(release.sum())
+
+
+def test_no_cell_carries_more_than_the_catchment_released():
+    model = _model(_south_sloping_top())
+    graph = routing_graph_for_model(model)
+    release = np.arange(1.0, _NROW * _NCOL + 1.0)
+    mask = np.ones(_NROW * _NCOL, dtype=bool)
+
+    accumulated = route_release_to_discharge(release, graph, catchment_mask=mask)
+
+    assert float(accumulated.max()) <= release.sum() + 1e-12
