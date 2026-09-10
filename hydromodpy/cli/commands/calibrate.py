@@ -42,8 +42,46 @@ def register(subparsers) -> argparse.ArgumentParser:
         action="store_true",
         help="List the declared phases and exit without running anything.",
     )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Check everything the search needs and exit without solving. Reports every "
+        "problem at once rather than the first.",
+    )
     parser.set_defaults(_handler=run)
     return parser
+
+
+def _check_only(target: Path) -> None:
+    """Report everything wrong with the calibration in ``target`` and exit.
+
+    Nothing solves, so this costs a second whatever the model. Every check runs,
+    so a file with three mistakes takes one pass to fix rather than three
+    overnight runs.
+    """
+    from hydromodpy.calibration.preflight import PreflightFinding, preflight_calibration
+    from hydromodpy.config import HydroModPyConfig
+
+    try:
+        cfg = HydroModPyConfig.from_toml(target)
+    except Exception as exc:
+        # A file that will not load has nothing else to check: every other
+        # finding would be about a configuration that does not exist.
+        findings = [PreflightFinding("error", target.name, f"the file does not load: {exc}")]
+    else:
+        findings = preflight_calibration(cfg, source=target)
+    if not findings:
+        print(f"{target.name}: ready to run.", file=sys.stderr)
+        return
+    for finding in findings:
+        print(finding.line(), file=sys.stderr)
+    errors = sum(1 for finding in findings if finding.severity == "error")
+    print(
+        f"{target.name}: {errors} error(s), {len(findings) - errors} warning(s).",
+        file=sys.stderr,
+    )
+    if errors:
+        sys.exit(EXIT_CONFIG)
 
 
 def run(args: argparse.Namespace) -> None:
@@ -65,6 +103,9 @@ def run(args: argparse.Namespace) -> None:
             profile_arg = profile_arg_from_toml(load_toml_with_base_config(target))
         except Exception:
             profile_arg = None
+    if getattr(args, "check", False):
+        _check_only(target)
+        return
     if args.list_phases:
         try:
             phases = hmp.calibrate(target, list_phases=True)
