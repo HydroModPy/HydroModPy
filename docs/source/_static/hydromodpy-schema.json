@@ -6589,7 +6589,8 @@
             {
               "enum": [
                 "recharge",
-                "mean_recharge"
+                "mean_recharge",
+                "prescribed"
               ],
               "type": "string"
             },
@@ -6598,7 +6599,7 @@
             }
           ],
           "default": null,
-          "description": "Forcing source used by the initialization solve. 'mean_recharge' is an alias for source='recharge' with recharge_statistic='time_mean'.",
+          "description": "Forcing source used by the initialization solve. 'mean_recharge' is an alias for source='recharge' with recharge_statistic='time_mean'. 'prescribed' holds the solve at the single rate given by `rate` instead of reading the chronicle.",
           "title": "Source",
           "x-hmp-profile": "user"
         },
@@ -6615,6 +6616,20 @@
           "default": null,
           "description": "Statistic applied to the recharge chronicle.",
           "title": "Recharge Statistic",
+          "x-hmp-profile": "user"
+        },
+        "rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Recharge rate the initialization solve is held at, in m/s. Carries its own unit: '500 mm/yr', '2 mm/day', 1.6e-8. Required by source='prescribed' and refused by any other source.",
+          "title": "Rate",
           "x-hmp-profile": "user"
         },
         "boundary_condition_policy": {

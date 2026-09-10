@@ -5,6 +5,10 @@ from __future__ import annotations
 import copy
 from dataclasses import dataclass
 
+from pydantic import TypeAdapter
+
+from hydromodpy.core.units import FluxDensityMPerS
+from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
 from hydromodpy.physics.flow.initial_conditions import (
     FlowICTop,
     FlowICTopOffset,
@@ -17,14 +21,18 @@ from hydromodpy.solver.initial_conditions import (
     resolve_head_initial_condition,
 )
 
+_RATE_ADAPTER: TypeAdapter[float] = TypeAdapter(FluxDensityMPerS)
+
 
 @dataclass(frozen=True)
 class SteadyStateInitialConditionStrategy:
     """Validated strategy payload for ``flow.ic.type='steady_state'``."""
 
     source: str = "mean_recharge"
-    recharge_statistic: str = "time_mean"
+    recharge_statistic: str | None = "time_mean"
     boundary_condition_policy: str = "first_period"
+    rate_m_s: float | None = None
+    """Rate the steady solve is held at, set only by ``source='prescribed'``."""
 
 
 def flow_uses_steady_state_initial_condition(flow: object) -> bool:
@@ -44,20 +52,40 @@ def steady_state_initial_condition_strategy(
     source = str(
         initial_condition_field(head_ic, "source", "mean_recharge") or "mean_recharge"
     ).strip()
-    recharge_statistic = str(
-        initial_condition_field(head_ic, "recharge_statistic", "time_mean") or "time_mean"
-    ).strip()
     boundary_policy = str(
         initial_condition_field(head_ic, "boundary_condition_policy", "first_period")
         or "first_period"
     ).strip()
+    raw_rate = initial_condition_field(head_ic, "rate", None)
 
-    if source not in {"recharge", "mean_recharge"}:
-        raise ValueError("flow.ic.source must be 'recharge' or 'mean_recharge'")
-    if recharge_statistic != "time_mean":
-        raise ValueError("flow.ic.recharge_statistic must be 'time_mean'")
+    if source not in {"recharge", "mean_recharge", "prescribed"}:
+        raise ValueError("flow.ic.source must be 'recharge', 'mean_recharge', or 'prescribed'")
     if boundary_policy != "first_period":
         raise ValueError("flow.ic.boundary_condition_policy must be 'first_period'")
+
+    if source == "prescribed":
+        if raw_rate is None:
+            raise ValueError(
+                "flow.ic.rate is required when flow.ic.source='prescribed'; "
+                "write the equilibrium rate with its unit, for example rate = '500 mm/yr'"
+            )
+        return SteadyStateInitialConditionStrategy(
+            source=source,
+            recharge_statistic=None,
+            boundary_condition_policy=boundary_policy,
+            rate_m_s=_RATE_ADAPTER.validate_python(raw_rate),
+        )
+
+    if raw_rate is not None:
+        raise ValueError(
+            "flow.ic.rate is only read when flow.ic.source='prescribed'; "
+            f"got source={source!r}, which reads the recharge chronicle instead"
+        )
+    recharge_statistic = str(
+        initial_condition_field(head_ic, "recharge_statistic", "time_mean") or "time_mean"
+    ).strip()
+    if recharge_statistic != "time_mean":
+        raise ValueError("flow.ic.recharge_statistic must be 'time_mean'")
 
     return SteadyStateInitialConditionStrategy(
         source=source,
@@ -79,8 +107,24 @@ def apply_steady_state_initial_condition_strategy(
     if not isinstance(sinks_sources, dict):
         return
     recharge = sinks_sources.get("recharge")
-    if recharge is not None and hasattr(recharge, "model_copy"):
+    if recharge is None or not hasattr(recharge, "model_copy"):
+        return
+    if strategy.rate_m_s is None:
         sinks_sources["recharge"] = recharge.model_copy(update={"first_clim": "mean"})
+        return
+
+    # A prescribed rate must reach the solve whatever shape the payload has:
+    # `first_clim` alone is ignored for a scalar payload and overridden by a
+    # per-cell field, so the whole payload is replaced by the stated rate.
+    payload_units = str(getattr(recharge, "units", "m/s") or "m/s")
+    rate_in_payload_units = strategy.rate_m_s / factor_to_m_per_s(payload_units)
+    sinks_sources["recharge"] = recharge.model_copy(
+        update={
+            "values": rate_in_payload_units,
+            "first_clim": rate_in_payload_units,
+            "heterogeneous_source": None,
+        }
+    )
 
 
 def _flow_config_value(flow: object, name: str) -> object:

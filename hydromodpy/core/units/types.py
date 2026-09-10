@@ -306,12 +306,25 @@ HydraulicConductivityMPerS = Annotated[
 """Hydraulic conductivity in m/s expressed as ``float``."""
 
 
+FluxDensityMPerS = Annotated[
+    float,
+    BeforeValidator(_coerce_to_canonical_float("m/s")),
+]
+"""Surface flux density (recharge, infiltration) in m/s expressed as ``float``.
+
+Accepts ``"500 mm/yr"``, ``"2 mm/day"``, ``1.6e-8``. Same dimension as
+:data:`HydraulicConductivityMPerS`, kept apart because a rate that crosses the
+land surface and a property of the medium are not interchangeable in a message.
+"""
+
+
 __all__ = [
     "Area",
     "AreaSquareMeters",
     "Dimensionless",
     "DurationSeconds",
     "FlowRate",
+    "FluxDensityMPerS",
     "HydraulicConductivity",
     "HydraulicConductivityMPerS",
     "Length",

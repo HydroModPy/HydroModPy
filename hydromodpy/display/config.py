@@ -69,7 +69,14 @@ class DisplayConfig(HydroModelBase):
     )
     cmap: Annotated[str, Profile.USER] = Field(
         default="viridis",
-        description="Default sequential colormap for spatial figures.",
+        description=(
+            "Force ONE colormap onto every spatial figure. Writing it at all is the "
+            "decision, not the value: each figure otherwise picks a scale suited to "
+            "what it shows, reversed for a depth, diverging for a difference, discrete "
+            "for an indicator, and this replaces all of them. Writing the default "
+            "spelled out is therefore NOT a no-op, unlike everywhere else. Leave it "
+            "out unless one scale for everything is what you want."
+        ),
     )
     figures: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,

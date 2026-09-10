@@ -50,10 +50,11 @@ def migrate_config_doc(doc: Any) -> list[str]:
     """
     changes: list[str] = _drop_dead_result_options(doc)
     changes.extend(_flatten_boundary_conditions(doc))
+    changes.extend(_drop_the_modflow6_time_grid(doc))
 
     simulation = doc.get("simulation")
     if simulation is None:
-        return changes
+        return _finish(doc, changes)
 
     if "on_collision" in simulation:
         value = simulation["on_collision"]
@@ -74,6 +75,48 @@ def migrate_config_doc(doc: Any) -> list[str]:
         del simulation["run_id"]
 
     changes.extend(_promote_export(doc, simulation))
+    return _finish(doc, changes)
+
+
+def _finish(doc: Any, changes: list[str]) -> list[str]:
+    """Run the migrations that must see the promoted top-level tables."""
+    changes.extend(_drop_dead_export_toggles(doc))
+    return changes
+
+
+def _drop_dead_export_toggles(doc: Any) -> list[str]:
+    """Remove the two export toggles that gated nothing.
+
+    ``head``, ``concentration`` and ``derived`` name variables the exporter can
+    actually write. ``budget`` and ``pathlines`` named none, so they were removed
+    from the schema; ``extra="forbid"`` then refuses a file that still sets them,
+    which is why they have to be dropped rather than merely ignored.
+    """
+    variables = (doc.get("export") or {}).get("variables")
+    if variables is None:
+        return []
+    changes: list[str] = []
+    for dead in ("budget", "pathlines"):
+        if dead in variables:
+            del variables[dead]
+            changes.append(f"export.variables.{dead} dropped (gated no export)")
+    return changes
+
+
+def _drop_the_modflow6_time_grid(doc: Any) -> list[str]:
+    """Drop [modflow6.tgrid], removed from the schema as an inert mirror.
+
+    The table mirrored a temporal discretization the MODFLOW 6 backend never
+    read; ba4a75512 removed the field and the runtime now refuses the section
+    outright, so a file still carrying it does not load at all. Its only key in
+    this repository, firstpersteady, exists nowhere in the code.
+    """
+    changes: list[str] = []
+    modflow6 = doc.get("modflow6")
+    if modflow6 is None or "tgrid" not in modflow6:
+        return changes
+    del modflow6["tgrid"]
+    changes.append("modflow6.tgrid dropped (removed from the schema, never read)")
     return changes
 
 

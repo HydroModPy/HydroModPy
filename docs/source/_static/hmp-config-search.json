@@ -6676,7 +6676,7 @@
     "section": "flow",
     "anchor": "flow-ic-h",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L174",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L205",
     "description": "Hydraulic-head initial condition payload."
   },
   {
@@ -6742,14 +6742,14 @@
   {
     "path": "flow.ic.h.source",
     "name": "source",
-    "type": "Optional[Literal['recharge', 'mean_recharge']]",
+    "type": "Optional[Literal['recharge', 'mean_recharge', 'prescribed']]",
     "profile": "user",
     "stability": "stable",
     "section": "flow",
     "anchor": "flow-ic-h-source",
     "page": "flow.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L131",
-    "description": "Forcing source used by the initialization solve. 'mean_recharge' is an alias for source='recharge' with recharge_statistic='time_mean'."
+    "description": "Forcing source used by the initialization solve. 'mean_recharge' is an alias for source='recharge' with recharge_statistic='time_mean'. 'prescribed' holds the solve at the single rate given by `rate` instead of reading the chronicle."
   },
   {
     "path": "flow.ic.h.recharge_statistic",
@@ -6760,8 +6760,20 @@
     "section": "flow",
     "anchor": "flow-ic-h-recharge-statistic",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L139",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L142",
     "description": "Statistic applied to the recharge chronicle."
+  },
+  {
+    "path": "flow.ic.h.rate",
+    "name": "rate",
+    "type": "Optional[float]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ic-h-rate",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L146",
+    "description": "Recharge rate the initialization solve is held at, in m/s. Carries its own unit: '500 mm/yr', '2 mm/day', 1.6e-8. Required by source='prescribed' and refused by any other source."
   },
   {
     "path": "flow.ic.h.boundary_condition_policy",
@@ -6772,7 +6784,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-boundary-condition-policy",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L143",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L154",
     "description": "Policy used for transient boundary-condition chronicles during the steady initialization solve."
   },
   {

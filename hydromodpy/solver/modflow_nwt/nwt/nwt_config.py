@@ -79,9 +79,13 @@ class NwtSolverConfig(HydroModelBase):
 class DisConfig(HydroModelBase):
     """DIS package settings."""
 
-    itmuni: Annotated[int, Profile.EXPERT] = Field(
+    itmuni: Annotated[int, Profile.DEV] = Field(
         default=0,
-        description="DIS time unit code used by MODFLOW (ITMUNI).",
+        description=(
+            "DIS time unit code (ITMUNI). Recorded, not obeyed: the launcher writes "
+            "seconds because [simulation.time] already materializes every period length "
+            "in seconds, so the run is in seconds whatever this says."
+        ),
     )
 
 

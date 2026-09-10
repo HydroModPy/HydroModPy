@@ -204,7 +204,9 @@ def _aquifer_bounds(model: Any) -> tuple[np.ndarray, np.ndarray]:
     """Return the top and the base of the aquifer, one value per cell."""
     mesh = getattr(model, "solver_mesh", None)
     if mesh is None:
-        raise ObservableNotAvailableError("saturated_thickness needs a solver mesh on the run model.")
+        raise ObservableNotAvailableError(
+            "saturated_thickness needs a solver mesh on the run model."
+        )
     top = np.asarray(mesh.top, dtype=float).reshape(-1)
     botm = np.asarray(mesh.botm, dtype=float)
     if botm.ndim == 1:
@@ -285,7 +287,9 @@ def extract_common_modflow_observables(
             try:
                 series = series_by_station[request.id]
             except KeyError as exc:
-                raise ObservableNotAvailableError(f"No head series extracted for station {request.id!r}") from exc
+                raise ObservableNotAvailableError(
+                    f"No head series extracted for station {request.id!r}"
+                ) from exc
             served[request.id] = series_observable(request, series, units=_HEAD_UNITS)
 
     if area_requests:

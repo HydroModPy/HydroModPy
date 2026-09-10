@@ -431,8 +431,7 @@ def _seepage_needs_surface_excess(
     from hydromodpy.solver.base.registry import capabilities
 
     if not any(
-        SURFACE_EXCESS_CAPABILITY in capabilities(run.process_type, run.solver)
-        for run in plan.runs
+        SURFACE_EXCESS_CAPABILITY in capabilities(run.process_type, run.solver) for run in plan.runs
     ):
         return False
     if cfg.derived.seepage_areas:

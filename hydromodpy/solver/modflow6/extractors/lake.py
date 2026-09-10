@@ -253,7 +253,9 @@ def extract_lake_series(
     meta_path = output_dir / f"{model_name}.lak.meta.json"
     spec = read_lake_meta(meta_path)
     if spec is None:
-        raise ObservableNotAvailableError(f"LAK output sidecar not found or unreadable: {meta_path}")
+        raise ObservableNotAvailableError(
+            f"LAK output sidecar not found or unreadable: {meta_path}"
+        )
 
     entry = next(
         (

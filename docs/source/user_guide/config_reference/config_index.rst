@@ -3295,7 +3295,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-ic-h>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L174>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L205>`__
    * - ``flow.ic.h.id``
      - ``str``
      - dev
@@ -3327,7 +3327,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `flow <flow.html#flow-ic-h>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L70>`__
    * - ``flow.ic.h.source``
-     - ``Optional[Literal['recharge', 'mean_recharge']]``
+     - ``Optional[Literal['recharge', 'mean_recharge', 'prescribed']]``
      - user
      - -
      - `flow <flow.html#flow-ic-h-source>`__
@@ -3337,13 +3337,19 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-ic-h-recharge-statistic>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L139>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L142>`__
+   * - ``flow.ic.h.rate``
+     - ``Optional[float]``
+     - user
+     - -
+     - `flow <flow.html#flow-ic-h-rate>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L146>`__
    * - ``flow.ic.h.boundary_condition_policy``
      - ``Optional[Literal['first_period']]``
      - user
      - -
      - `flow <flow.html#flow-ic-h-boundary-condition-policy>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L143>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L154>`__
    * - ``flow.bc``
      - ``dict[str, DirichletBC | CauchyBC | RobinBC]``
      - user

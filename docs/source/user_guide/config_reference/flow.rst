@@ -691,7 +691,7 @@ Fields
               <code class="hmp-field-toml">[flow.ic.h]</code>
             </div>
 
-         :bdg-primary:`type = "top" | "top_offset" | "bottom" | "custom" | "steady_state"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L174>`__
+         :bdg-primary:`type = "top" | "top_offset" | "bottom" | "custom" | "steady_state"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L205>`__
 
             Hydraulic-head initial condition payload.
 
@@ -1010,11 +1010,11 @@ Fields
 
                      :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L131>`__
 
-                        Forcing source used by the initialization solve. 'mean_recharge' is an alias for source='recharge' with recharge_statistic='time_mean'.
+                        Forcing source used by the initialization solve. 'mean_recharge' is an alias for source='recharge' with recharge_statistic='time_mean'. 'prescribed' holds the solve at the single rate given by `rate` instead of reading the chronicle.
 
                      .. rst-class:: hmp-field-values
 
-                     **One of:** ``"recharge"`` ``"mean_recharge"``
+                     **One of:** ``"recharge"`` ``"mean_recharge"`` ``"prescribed"``
 
 
                   .. index:: ! recharge_statistic
@@ -1028,9 +1028,25 @@ Fields
                           <code class="hmp-field-name">recharge_statistic</code>
                         </div>
 
-                     :bdg-primary:`Optional[Literal['time_mean']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L139>`__
+                     :bdg-primary:`Optional[Literal['time_mean']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L142>`__
 
                         Statistic applied to the recharge chronicle.
+
+
+                  .. index:: ! rate
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: flow-ic-h-rate
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.rate">
+                          <code class="hmp-field-name">rate</code>
+                        </div>
+
+                     :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L146>`__
+
+                        Recharge rate the initialization solve is held at, in m/s. Carries its own unit: '500 mm/yr', '2 mm/day', 1.6e-8. Required by source='prescribed' and refused by any other source.
 
 
                   .. index:: ! boundary_condition_policy
@@ -1044,7 +1060,7 @@ Fields
                           <code class="hmp-field-name">boundary_condition_policy</code>
                         </div>
 
-                     :bdg-primary:`Optional[Literal['first_period']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L143>`__
+                     :bdg-primary:`Optional[Literal['first_period']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L154>`__
 
                         Policy used for transient boundary-condition chronicles during the steady initialization solve.
 
@@ -2549,8 +2565,6 @@ Fields
                      TOML: ``[[flow.sinks_sources.lakes.<id>.outlets]]`` with ``couttype = "SPECIFIED"`` -- model ``FlowLakeOutletSpecified``.
 
                      .. rst-class:: hmp-config-fields hmp-config-fields-nested
-
-                        .. index:: ! rate
 
                         .. container:: hmp-field hmp-field-level-user
                            :name: flow-sinks-sources-lakes-id-outlets-rate

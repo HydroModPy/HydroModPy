@@ -46,7 +46,7 @@ def normalize_flow_initial_conditions(
     - `FlowInitialConditions` -> passthrough
     - any concrete `FlowInitialCondition` variant -> wrapped as `{"h": ...}`
     - flat mapping with keys `type`, `value`, `unit|units`, `description`,
-      `source`, `recharge_statistic`, `boundary_condition_policy`;
+      `source`, `recharge_statistic`, `rate`, `boundary_condition_policy`;
       `type` is required for any non-empty mapping;
       `value` and `unit|units` are accepted only for `custom` and
       `top_offset`, and `value` can be numeric or a string like `"12.5 m"`
@@ -78,6 +78,7 @@ def normalize_flow_initial_conditions(
         "description",
         "source",
         "recharge_statistic",
+        "rate",
         "boundary_condition_policy",
     }
     unknown_keys = [str(key).strip() for key in payload if str(key).strip() not in direct_keys]
@@ -86,7 +87,7 @@ def normalize_flow_initial_conditions(
         raise ValueError(
             f"{location_prefix} accepts only direct keys "
             "[type, value, unit, units, description, source, "
-            f"recharge_statistic, boundary_condition_policy]. Unknown keys: {unknown_text}"
+            f"recharge_statistic, rate, boundary_condition_policy]. Unknown keys: {unknown_text}"
         )
 
     normalized = _normalize_single_ic_payload(payload, location_prefix=location_prefix)
@@ -137,7 +138,8 @@ def _normalize_single_ic_payload(
         payload_dict.pop("unit", None)
         payload_dict.pop("units", None)
         payload_dict.setdefault("source", "mean_recharge")
-        payload_dict.setdefault("recharge_statistic", "time_mean")
+        if str(payload_dict.get("source", "")).strip() != "prescribed":
+            payload_dict.setdefault("recharge_statistic", "time_mean")
         payload_dict.setdefault("boundary_condition_policy", "first_period")
     else:
         if "value" in payload_dict:
@@ -155,6 +157,7 @@ def _normalize_single_ic_payload(
         for strategy_key in (
             "source",
             "recharge_statistic",
+            "rate",
             "boundary_condition_policy",
         ):
             if strategy_key in payload_dict:

@@ -482,6 +482,17 @@ def _auto_export(
         var_names = export.variables.active_names()
         raster_time = _single_timestep(export.times)
         token = _time_token(raster_time)
+        if raster_time != export.times and (export.vtu or export.geotiff or export.shapefile):
+            # One file holds one timestep in these formats, so the selector has
+            # to collapse. Saying so is the point: export.times = "all" reads as
+            # a whole chronicle and writes a single date.
+            logger.warning(
+                "export.times=%r selects several timesteps, but vtu, geotiff and shapefile "
+                "hold one per file: those are written at %r instead. Only the NetCDF export "
+                "carries the whole selection.",
+                export.times,
+                raster_time,
+            )
         if export.csv_timeseries:
             specs.append(ExportSpec(var="*", dest=output_dir / "timeseries.csv"))
         if var_names:
