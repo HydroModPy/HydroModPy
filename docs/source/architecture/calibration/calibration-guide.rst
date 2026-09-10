@@ -859,11 +859,13 @@ Common pitfalls and how to avoid them
   completes in seconds with no usable output. Check that
   ``[data.hydrometry]`` (or ``[data.piezometry]`` for head) is
   populated.
-- **MODFLOW 6 + discharge calibration.** The extractor in
-  ``hydromodpy.calibration.metrics`` currently covers MODFLOW-NWT
-  only; MODFLOW 6 returns ``NaN``. Scheduled as future work: use
-  MODFLOW-NWT in the meantime, or plug in a custom extractor through
-  §10.
+- **Reading a gauge away from the outlet.** Every loaded discharge
+  station is scored at its own mesh cell, on both MODFLOW backends:
+  under MODFLOW 6 a reach sitting on that cell gives its routed flow
+  directly, otherwise the per-cell release is accumulated over the
+  sub-network upstream of the cell. A station the mesh cannot place
+  falls back to the whole-catchment series, which is right for the
+  outlet gauge only, so check the warning it logs.
 - **Forgetting ``[workflow].mode = "calibration"``.** ``hmp run``
   then treats the TOML as a simulation and runs ``K`` exactly once
   with its default value. The ``[calibration]`` section is silently

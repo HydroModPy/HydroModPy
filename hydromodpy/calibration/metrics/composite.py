@@ -49,19 +49,20 @@ def _area_id(station_id: str) -> str:
 
 
 def _discharge_target(observed: list, declared_station_id: str | None):
-    """Return the single observed station the outlet discharge is scored against.
+    """Return the observed station whose cost the optimizer minimises.
 
-    A gauge should be compared to the simulated discharge AT ITS OWN POSITION,
-    the way ``head`` already is: ``resolve_station_cells`` gives each piezometer
-    its own cell. Discharge cannot do that yet. No solver adapter serves it
-    anywhere but ``support="domain"``, so the only simulated series a trial can
-    read is the whole-catchment outlet.
+    Every loaded gauge is compared to the simulated discharge AT ITS OWN
+    POSITION, the way ``head`` already is: ``resolve_station_cells`` gives each
+    one its cell and ``_simulated_discharge_by_station`` reads the discharge
+    routed to it, with its runoff scaled by the area that cell drains. Each cost
+    is reported as ``cost:<objective>@<station_id>``.
 
-    Until a per-cell discharge observable exists, one station is scored and the
-    others are reported without scoring. Averaging them, which is what this did
-    before, compared an upstream gauge draining a smaller area against the
-    outlet series it cannot reproduce, and let that impossible fit move the
-    parameters.
+    What this function picks is which of those costs the search follows. One
+    station drives it and the others stay diagnostic, because a weighted sum
+    across gauges needs weights, an error model and a decision about nested
+    gauges sharing the same water, none of which this single-metric route
+    carries. Averaging them, which is what this did before, gave every gauge the
+    same say whatever its record was worth.
     """
     if not observed:
         raise ValueError("No observed discharge station is available for calibration")

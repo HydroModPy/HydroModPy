@@ -643,7 +643,7 @@ class CalibPhaseDecl(HydroModelBase):
     )
     observed_station_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Observed station the single simulated series is scored against. A run produces one discharge series, at the catchment outlet, so an upstream gauge cannot match it: when several stations are loaded, one has to be named. Optional with a single loaded station. Overrides the calibration-level value for this phase.",
+        description="Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one. Overrides the calibration-level value for this phase.",
     )
     optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
         default_factory=dict,
