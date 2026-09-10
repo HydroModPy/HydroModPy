@@ -6421,7 +6421,7 @@
     "section": "flow",
     "anchor": "flow-param-list",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L128",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L135",
     "description": "Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).",
     "examples": [
       "[\"K\", \"Sy\", \"Ss\"]"
@@ -6436,7 +6436,7 @@
     "section": "flow",
     "anchor": "flow-param",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L136",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L143",
     "description": "Mapping of flow-parameter identifiers to native FieldParamConfig payloads."
   },
   {
@@ -6664,7 +6664,7 @@
     "section": "flow",
     "anchor": "flow-ic",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L176",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L183",
     "description": "Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition)."
   },
   {
@@ -6796,7 +6796,7 @@
     "section": "flow",
     "anchor": "flow-bc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L140",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L147",
     "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.  **Supported TOML sections**  - ``[flow.bc.<id>]``, one block per boundary, keyed by what it is. Canonical ids: ``drainage``, ``ocean``, ``stream``, ``north_side``, ``so"
   },
   {
@@ -7036,7 +7036,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L183",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L190",
     "description": "Typed sinks/sources payload (for example pumping wells)."
   },
   {
@@ -10192,7 +10192,7 @@
     "section": "flow",
     "anchor": "flow-active-sinks-sources",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L187",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L194",
     "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells', 'etp'. Boussinesq currently rejects 'etp' at solver-contract validation. An empty list means no sink/source package is assembled by the solver.",
     "examples": [
       "[\"recharge\"]",
@@ -10209,7 +10209,7 @@
     "section": "flow",
     "anchor": "flow-active-bc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L197",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L204",
     "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage', 'lake",
     "examples": [
       "[\"ocean\"]",
