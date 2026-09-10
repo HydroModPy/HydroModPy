@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.cache import ParamsHashCache
 from hydromodpy.calibration.optim.parameters import ParameterSpace
@@ -164,6 +166,43 @@ def preload_hash_cache(catalog_conn, cache: ParamsHashCache) -> int:
     return added
 
 
+def mesh_fingerprint(ctx: Any) -> dict[str, object] | None:
+    """Return an identity for the mesh this run actually built, or ``None``.
+
+    Declaring the requested mesh settings would not be enough: gmsh is not
+    reproducible, so the same request can produce a different triangulation, and
+    the stream-network criterion is normalised by cell size. A cost computed on
+    another mesh is therefore not the same number, and a cache that cannot tell
+    the two apart serves the first one's objectives for the second one's model.
+
+    ``None`` when there is no mesh, which is the honest answer for a lumped model:
+    keying on a placeholder would claim an identity that does not exist.
+    """
+    import hashlib
+
+    mesh = getattr(getattr(ctx, "setup", None), "mesh_planar", None)
+    if mesh is None:
+        return None
+    centroids_of = getattr(mesh, "cell_centroids", None)
+    if not callable(centroids_of):
+        return None
+    try:
+        centroids = np.asarray(centroids_of(), dtype=float)
+    except Exception:  # noqa: BLE001 - a mesh that cannot describe itself has no identity
+        return None
+    if centroids.ndim != 2 or centroids.shape[0] == 0:
+        return None
+    # Rounded before hashing so a re-read of the same mesh through a different
+    # float path stays the same mesh, and ordered as given because cell order IS
+    # the solver's indexing.
+    digest = hashlib.sha256(np.round(centroids, 6).tobytes()).hexdigest()[:32]
+    return {
+        "n_cells": int(centroids.shape[0]),
+        "centroid_digest": digest,
+        "structured": bool(getattr(mesh, "is_structured", False)),
+    }
+
+
 def build_cache_context(
     *,
     cfg: CalibrationConfig,
@@ -207,6 +246,9 @@ def build_cache_context(
         "override_paths": dict(sorted(override_paths.items())),
         "parameter_space": _parameter_space_context(space),
         "input_files": _input_file_fingerprints(trial_ctx.base_cfg),
+        # The mesh that was built, not the one that was requested: gmsh is not
+        # reproducible and the network criterion is normalised by cell size.
+        "mesh": mesh_fingerprint(trial_ctx.ctx),
     }
 
     if objective_entrypoint:
@@ -306,4 +348,5 @@ __all__ = [
     "load_metric_fn_entry_point",
     "preload_hash_cache",
     "build_cache_context",
+    "mesh_fingerprint",
 ]
