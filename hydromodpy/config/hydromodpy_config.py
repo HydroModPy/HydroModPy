@@ -36,6 +36,7 @@ from pydantic import Field, ValidationError, ValidationInfo, model_validator
 from hydromodpy.analysis.config import AnalysisConfig
 from hydromodpy.analysis.testbed.config import TestbedConfig
 from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.config.toml_section_loader import (
     _deep_merge,
     _load_data_section,
@@ -613,7 +614,7 @@ class HydroModPyConfig(HydroModelBase):
         context: ValidationContext = "api",
     ) -> HydroModPyConfig:
         """Normalize one raw config payload and validate the root model."""
-        raw = copy.deepcopy(dict(payload))
+        raw = expand_calibration_protocol(copy.deepcopy(dict(payload)))
         if "initializing" in raw:
             raise ValueError(
                 "Section [initializing] is no longer supported. Use [workspace] instead."
