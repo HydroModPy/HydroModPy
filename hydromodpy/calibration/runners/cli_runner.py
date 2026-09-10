@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.calibration.config import CalibrationConfig, scoring_window_bounds
 from hydromodpy.calibration.metrics import build_metric_extractor
 from hydromodpy.calibration.optim.cache import ParamsHashCache
+from hydromodpy.calibration.optim.diagnostics import correlated_parameter_pairs
 from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
@@ -427,12 +428,6 @@ def run_calibration_core(
         materialize_root = Path(cfg.candidates_root).expanduser().resolve()
         materialize_root.mkdir(parents=True, exist_ok=True)
 
-    # A mis-configured search fails the same way on every trial. Stopping on a
-    # streak refuses it in seconds instead of spending the whole budget and
-    # reporting a best candidate chosen between values that all came from one
-    # error. A cache hit never reaches this wrapper, so it cannot count.
-    failure_watch = ConsecutiveFailureWatch()
-
     def wrapped_evaluator(sugg: ParamSuggestion) -> EvaluationResult:
         from hydromodpy.calibration.runners.trial import run_trial_light
 
@@ -451,7 +446,6 @@ def run_calibration_core(
         if result.error:
             meta["error"] = result.error
             logger.warning("Calibration trial %d %s: %s", sugg.trial_id, db_status, result.error)
-        failure_watch.record(failed=result.status != "completed", error=result.error)
         if cfg.persist_iteration_detail == "full":
             meta["block_costs"] = dict(result.metrics) if result.metrics else {}
         if materialize_root is not None and cfg_path is not None:
@@ -487,6 +481,12 @@ def run_calibration_core(
     # are seen. Keeping them is what lets the report name the best candidate.
     values_by_trial: dict[int, dict[str, float]] = {}
 
+    # A mis-configured search fails the same way on every trial. Stopping on a
+    # streak refuses it in seconds instead of spending the whole budget and then
+    # reporting a best candidate chosen between values that all came from one
+    # error.
+    failure_watch = ConsecutiveFailureWatch()
+
     def on_iteration(sugg: ParamSuggestion, result: EvaluationResult) -> None:
         values_by_trial[sugg.trial_id] = {k: float(v) for k, v in sugg.values.items()}
         persistence.append_iteration(
@@ -494,6 +494,13 @@ def run_calibration_core(
             sugg,
             result,
             detail=cfg.persist_iteration_detail,
+        )
+        # After the trial is recorded, so a stopped search still shows what it
+        # tried, and only for trials the engine actually ran: a cache hit never
+        # reaches this callback.
+        failure_watch.record(
+            failed=result.status != "completed",
+            error=str((result.metadata or {}).get("error") or ""),
         )
 
     logger.info(
@@ -597,9 +604,28 @@ def run_calibration_core(
         if close is not None:
             close()
 
+    # Two parameters that moved together across the whole search were never told
+    # apart by the data: the search stopped on a ridge and reported that point as
+    # a minimum. Read off the trace the session already holds, so it costs nothing.
+    correlated = correlated_parameter_pairs(
+        [{**values_by_trial.get(item.trial_id, {}), "objective_total": item.objective_value}
+         for item in session.history
+         if item.trial_id in values_by_trial]
+    )
+    if correlated:
+        for first, second, coefficient in correlated:
+            logger.warning(
+                "Calibration parameters %s and %s moved together (r = %+.2f): the trace "
+                "does not tell them apart, so the reported pair is one point on a ridge.",
+                first,
+                second,
+                coefficient,
+            )
+
     return CalibrationReport(
         session_id=session_id,
         method=cfg.method,
+        extra={"correlated_parameters": correlated} if correlated else {},
         n_iterations=len(session.history),
         best_objective=best.objective_value if best else None,
         best_sim_id=best_sim_id,
