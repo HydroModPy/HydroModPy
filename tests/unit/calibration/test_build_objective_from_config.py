@@ -82,17 +82,21 @@ def _cfg_two_blocks_weighted() -> CalibrationConfig:
                 },
             },
             "objective_blocks": [
+                # Metres and m3/s: both normalised, because a sum of two units
+                # would let their magnitudes set the weighting.
                 {
                     "name": "head_block",
                     "metric": "rmse",
                     "weight": 2.0,
                     "uses_outputs": ["head_A"],
+                    "normalize_cost": True,
                 },
                 {
                     "name": "discharge_block",
                     "metric": "rmse",
                     "weight": 1.0,
                     "uses_outputs": ["outlet"],
+                    "normalize_cost": True,
                 },
             ],
         }
@@ -178,8 +182,14 @@ class TestCompositeBlocks:
                 }
             )
         )
+        # Both blocks are normalised, so each cost is divided by the standard
+        # deviation of its own observations before the weights apply. That is the
+        # whole point of normalising: the metres and the m3/s become pure numbers
+        # first, and only then do the weights decide the shares.
+        head_scale = float(np.std([1.0, 2.0, 3.0]))
+        flow_scale = float(np.std([10.0, 20.0, 30.0]))
         # weights [2.0, 1.0] normalised to [2/3, 1/3]
-        expected = (2.0 / 3.0) * 0.0 + (1.0 / 3.0) * 5.0
+        expected = (2.0 / 3.0) * (0.0 / head_scale) + (1.0 / 3.0) * (5.0 / flow_scale)
         assert result.total == pytest.approx(expected)
 
 

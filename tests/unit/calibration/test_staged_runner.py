@@ -54,15 +54,19 @@ x = 100.0
 y = 0.0
 observed_values = [42.0, 41.5]
 
+# One cost in m3/s and one in metres: both are normalised, because a sum of
+# two units would let their magnitudes set the weighting.
 [[calibration.objective_blocks]]
 name = "q_block"
 metric = "rmse"
 uses_outputs = ["q"]
+normalize_cost = true
 
 [[calibration.objective_blocks]]
 name = "h_block"
 metric = "rmse"
 uses_outputs = ["h"]
+normalize_cost = true
 """
 
 TWO_PHASES = """

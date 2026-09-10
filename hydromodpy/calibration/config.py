@@ -975,6 +975,58 @@ class CalibrationConfig(HydroModelBase):
     )
 
     @model_validator(mode="after")
+    def _check_the_costs_can_be_added(self) -> CalibrationConfig:
+        """Refuse a weighted sum whose members are not in the same unit.
+
+        ``normalize_cost`` exists for exactly this: it divides a block's cost by a
+        reference scale so two blocks become comparable. Nothing enforced it, so a
+        file could weight a head RMSE in metres at 0.5 and a discharge RMSE in
+        m3/s at 0.5, believe it had split the cost evenly, and hand the metres
+        whatever share their own magnitude happened to buy.
+
+        The criterion declares whether its cost carries a unit; the outputs a
+        block reads say which unit that is. A member is addable when it is
+        dimensionless or normalised, and a sum of two that are neither, in
+        different families, is refused.
+        """
+        from hydromodpy.calibration.criteria import criterion_for
+
+        if len(self.objective_blocks) < 2:
+            return self
+        raw: dict[str, tuple[str, ...]] = {}
+        for block in self.objective_blocks:
+            if block.normalize_cost:
+                continue
+            try:
+                needs = criterion_for(str(block.metric)).requirements()
+            except ValueError:
+                continue
+            if needs.cost_is_dimensionless:
+                continue
+            families = tuple(
+                sorted(
+                    {
+                        str(getattr(self.outputs[name], "variable", ""))
+                        for name in block.uses_outputs
+                        if name in self.outputs
+                    }
+                )
+            )
+            raw[str(block.name)] = families
+        distinct = {families for families in raw.values() if families}
+        if len(distinct) > 1:
+            listed = "; ".join(
+                f"{name!r} on {', '.join(families)}" for name, families in sorted(raw.items())
+            )
+            raise ValueError(
+                f"these blocks add costs that carry different units: {listed}. The sum "
+                "would let the unit set the weighting instead of 'weight'. Declare "
+                "normalize_cost = true on each of them, or score them on a metric whose "
+                "cost is already a pure number."
+            )
+        return self
+
+    @model_validator(mode="after")
     def _check_the_protocol_was_expanded(self) -> CalibrationConfig:
         """Refuse a protocol whose stages nobody wrote.
 
