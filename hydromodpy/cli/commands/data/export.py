@@ -1,4 +1,4 @@
-"""``hmp export`` - export geographic or simulation results."""
+"""``hmp data export`` - export geographic or simulation results."""
 
 from __future__ import annotations
 
@@ -291,7 +291,7 @@ def run(args: argparse.Namespace) -> None:
     catalog.close()
     if not any([args.raster, args.feature, args.sim, exported]):
         print(
-            "Usage: hmp export <project> --list | --sim NAME [--csv --netcdf] | --raster NAME",
+            "Usage: hmp data export <project> --list | --sim NAME [--csv --netcdf] | --raster NAME",
             file=sys.stderr,
         )
         sys.exit(EXIT_CONFIG)

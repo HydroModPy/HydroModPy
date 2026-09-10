@@ -1,7 +1,7 @@
 """Auto-scan the ``data/<variable>/`` folders for custom files.
 
 Called at the start of every ``hmp run`` and from ``hmp data check`` /
-``hmp data list``. Detects new or modified ``<variable>_custom_*`` files
+``hmp data ls``. Detects new or modified ``<variable>_custom_*`` files
 (mtime > last indexed timestamp), validates them via the adapters,
 normalises to the internal pivot format, and registers the result in
 ``data/cache.duckdb`` with ``provider="custom"``. API files

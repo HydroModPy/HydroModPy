@@ -374,7 +374,7 @@ class SimulationConfig(HydroModelBase):
     )
     tags: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
-        description="Free-text tags attached at registration; editable later via 'hmp tag'.",
+        description="Free-text tags attached at registration; editable later via 'hmp catalog tag'.",
     )
     if_exists: Annotated[
         Literal["replace", "fail", "version"],

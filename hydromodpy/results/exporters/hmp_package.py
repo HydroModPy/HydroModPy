@@ -558,7 +558,7 @@ def _write_readme(
             f"- **hydromodpy_version**: `{_hydromodpy_version()}`\n"
             f"{inputs_line}\n"
             "Import with `Catalog.import_package(<path>.hmp)` "
-            "or the `hmp add <archive>.hmp` CLI.\n"
+            "or the `hmp data import <archive>.hmp` CLI.\n"
             "Integrity of the archive is verified against `manifest.json` "
             "on import (SHA-256 per file).\n"
         ),
