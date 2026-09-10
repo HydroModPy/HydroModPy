@@ -240,5 +240,68 @@ the yardstick the search is scored against, and a search that optimises it
 improves the number by changing the ruler.
 
 A mesh question is a convergence question, and it is answered by a sweep: one
-run per mesh, compared. Use ``mode = "comparison"`` and read the spread of the
-results as the numerical error of the answer, not as a score to minimise.
+run per mesh, compared, and read for convergence rather than for a best score.
+
+.. code-block:: toml
+
+   # mesh_sweep.toml
+   [workflow]
+   mode = "comparison"
+
+   [comparison]
+   comparison_id = "mesh_convergence"
+   base_simulation_config = "project.toml"
+   output_root = "outputs/mesh_convergence"
+   reference_simulation = "mesh_250"
+
+   [[comparison.simulation]]
+   id = "mesh_500"
+   label = "target cell size 500 m"
+   solver = "modflow6"
+
+   [comparison.simulation.overlay.mesh_catchment.zone_meshing]
+   global_size = 500.0
+
+   [[comparison.simulation]]
+   id = "mesh_350"
+   label = "target cell size 350 m"
+   solver = "modflow6"
+
+   [comparison.simulation.overlay.mesh_catchment.zone_meshing]
+   global_size = 350.0
+
+   [[comparison.simulation]]
+   id = "mesh_250"
+   label = "target cell size 250 m"
+   solver = "modflow6"
+
+   [comparison.simulation.overlay.mesh_catchment.zone_meshing]
+   global_size = 250.0
+
+   # What the three meshes are compared on. The seepage extent is the quantity
+   # the stream-network criterion reads, so it is the one whose mesh sensitivity
+   # decides how fine the calibration has to be.
+   [[comparison.observable]]
+   name = "seepage_map_last"
+   variable = "seepage_areas"
+   support = "map"
+   time = "last"
+   unit = "-"
+
+   [[comparison.observable]]
+   name = "head_map_last"
+   variable = "watertable_elevation"
+   support = "map"
+   time = "last"
+   unit = "m"
+
+.. code-block:: bash
+
+   hmp compare mesh_sweep.toml
+
+Read the spread across the three as the numerical error on whatever you report,
+and refine until it stops moving. Calibrate on the coarsest mesh whose answer no
+longer changes: a finer one buys solve time, not information. Running the
+calibration on each mesh in turn and keeping the K that scored best is the same
+circularity in a longer form, because the criterion those K are compared on is
+itself normalised by cell size.

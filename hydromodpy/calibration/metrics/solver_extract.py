@@ -308,9 +308,10 @@ def score_network_output(
 
     logger.info("Output %s scored with distance method %s.", name, DISTANCE_METHOD)
 
-    # D_so has no support when the network is empty, and the pair still has to
-    # reproduce the signed residual the bracket reads: it is rebuilt from D_os
-    # and the residual so the two never disagree.
+    # The output of this criterion is the pair (D_so, D_os), two distances in
+    # metres, and not a series. D_so has no support when the network is empty,
+    # so it is rebuilt from D_os and the signed residual rather than read: that
+    # way the pair and the residual the bracket closes on cannot disagree.
     d_os = float(scored.components["D_os"])
     pair = [d_os + scored.signed_gap, d_os]
     diagnostics = {
@@ -376,7 +377,7 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
     for name, output in outputs.items():
         result = results.get(name)
         if result is None or np.asarray(result.values).size == 0:
-            raise NotImplementedError(f"Solver returned no calibration series for output {name!r}")
+            raise NotImplementedError(f"Solver returned no calibration values for output {name!r}")
         if output.support == "network":
             simulated[name], scored = score_network_output(run_ctx, name, output, result)
             diagnostics.update(scored)
