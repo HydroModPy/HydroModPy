@@ -982,7 +982,7 @@
     },
     "CalibOutputNetwork": {
       "additionalProperties": false,
-      "description": "The mapped stream network as a calibration target.\n\nThe model is compared to a hydrographic network rather than to a gauge:\nfor every cell where it releases water to the surface, the descent to the\nmapped network is measured, and reciprocally. The output produces the pair\n``(D_so, D_os)``; the metric on top of it is ``distance_gap``, their signed\ndifference in absolute value, whose zero is the balance between an excess\nof simulated stream and a missing one.\n\n``observed_values`` is not asked of the user and defaults to a pair of\nzeros: the criterion balances two simulated quantities against each other,\nso there is no observed vector to fit. The mapped network enters through\n``stream_geometry_path``, as a geometry, not as a series.",
+      "description": "The mapped stream network as a calibration target.\n\nThe model is compared to a hydrographic network rather than to a gauge:\nfor every cell where it releases water to the surface, the descent to the\nmapped network is measured, and reciprocally. The output produces the pair\n``(D_so, D_os)``; the metric on top of it is ``distance_gap``, their signed\ndifference in absolute value, whose zero is the balance between an excess\nof simulated stream and a missing one.\n\nThere is no ``observed_values`` here and there cannot be: the criterion\nbalances two simulated quantities against each other, so nothing in it is\nfitted to a record. The mapped network enters through\n``stream_geometry_path``, as a geometry, not as a series.",
       "properties": {
         "variable": {
           "default": "release_flux",
@@ -1175,23 +1175,6 @@
             "last"
           ],
           "title": "Time",
-          "x-hmp-profile": "user"
-        },
-        "observed_values": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "number"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Structurally absent: the criterion balances two simulated quantities. Defaults to a pair of zeros so a block can be declared on it.",
-          "title": "Observed Values",
           "x-hmp-profile": "user"
         }
       },

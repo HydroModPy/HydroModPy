@@ -344,15 +344,15 @@ class TestDistanceBlock:
         )
 
     def test_the_gap_is_the_absolute_signed_difference(self) -> None:
-        assert distance_gap(np.array([300.0, 100.0]), np.array([0.0, 0.0])) == pytest.approx(200.0)
-        assert distance_gap(np.array([100.0, 300.0]), np.array([0.0, 0.0])) == pytest.approx(200.0)
+        assert distance_gap(np.array([300.0, 100.0])) == pytest.approx(200.0)
+        assert distance_gap(np.array([100.0, 300.0])) == pytest.approx(200.0)
 
     def test_the_mean_averages_the_pair(self) -> None:
-        assert distance_mean(np.array([300.0, 100.0]), np.array([0.0, 0.0])) == pytest.approx(200.0)
+        assert distance_mean(np.array([300.0, 100.0])) == pytest.approx(200.0)
 
     def test_a_time_series_is_not_a_pair(self) -> None:
         with pytest.raises(ValueError, match="got 3 value"):
-            distance_gap(np.array([1.0, 2.0, 3.0]), np.array([0.0, 0.0]))
+            distance_gap(np.array([1.0, 2.0, 3.0]))
 
     def test_a_block_scores_the_pair(self) -> None:
         value = build_objective_from_config(self._config()).evaluate({"net": [300.0, 100.0]})

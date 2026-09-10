@@ -364,9 +364,9 @@ class CalibOutputNetwork(HydroModelBase):
     difference in absolute value, whose zero is the balance between an excess
     of simulated stream and a missing one.
 
-    ``observed_values`` is not asked of the user and defaults to a pair of
-    zeros: the criterion balances two simulated quantities against each other,
-    so there is no observed vector to fit. The mapped network enters through
+    There is no ``observed_values`` here and there cannot be: the criterion
+    balances two simulated quantities against each other, so nothing in it is
+    fitted to a record. The mapped network enters through
     ``stream_geometry_path``, as a geometry, not as a series.
     """
 
@@ -467,22 +467,6 @@ class CalibOutputNetwork(HydroModelBase):
         description="Which timesteps the release flux is read at. Phase one runs a "
         "single steady period, so 'last' is the whole run.",
     )
-    observed_values: Annotated[list[float] | None, Profile.USER] = Field(
-        default=None,
-        description="Structurally absent: the criterion balances two simulated "
-        "quantities. Defaults to a pair of zeros so a block can be declared on it.",
-    )
-
-    @model_validator(mode="after")
-    def _default_observed_pair(self) -> CalibOutputNetwork:
-        if self.observed_values is None:
-            self.observed_values = [0.0, 0.0]
-        elif len(self.observed_values) != 2:
-            raise ValueError(
-                "a network output produces the pair (D_so, D_os); observed_values must "
-                f"hold two entries, got {len(self.observed_values)}."
-            )
-        return self
 
 
 CalibOutputDecl: TypeAlias = Annotated[

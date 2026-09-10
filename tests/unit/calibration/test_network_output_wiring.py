@@ -144,16 +144,16 @@ def _network_output(stream_file, **overrides):
 
 
 class TestSchema:
-    def test_a_network_output_needs_no_observed_values(self, stream_file) -> None:
+    def test_a_network_output_has_no_observed_values_at_all(self, stream_file) -> None:
+        # The criterion balances two simulated quantities, so there is nothing to
+        # fit and the schema says so rather than standing in a pair of zeros.
         out = _network_output(stream_file)
-        # The criterion balances two simulated quantities, so the pair of zeros
-        # is structural rather than something the user is asked for.
-        assert out.observed_values == [0.0, 0.0]
+        assert not hasattr(out, "observed_values")
         assert out.time == "last"
 
-    def test_the_pair_must_hold_two_entries(self, stream_file) -> None:
-        with pytest.raises(ValueError, match="must hold two entries"):
-            _network_output(stream_file, observed_values=[0.0])
+    def test_writing_observed_values_on_it_is_refused(self, stream_file) -> None:
+        with pytest.raises(ValueError):
+            _network_output(stream_file, observed_values=[0.0, 0.0])
 
     def test_it_becomes_a_whole_field_request(self, stream_file) -> None:
         request = observable_request_for_output("net", _network_output(stream_file), None)

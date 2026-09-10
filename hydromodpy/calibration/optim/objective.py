@@ -146,32 +146,29 @@ def _distance_pair(simulated: np.ndarray) -> tuple[float, float]:
     return float(values[0]), float(values[1])
 
 
-def distance_gap(simulated: np.ndarray, observed: np.ndarray) -> float:
+def distance_gap(simulated: np.ndarray) -> float:
     """``abs(D_so - D_os)``, Eq. 1: the cost the root search drives to zero.
 
-    ``observed`` is ignored and structurally so: the criterion balances an
-    excess of simulated stream against a missing one, both simulated. There is
-    no observed vector to fit, which is why the zero of this cost is an
-    intersection and not a minimum of distance.
+    It takes no observed vector, structurally: the criterion balances an excess
+    of simulated stream against a missing one, both simulated. That is why the
+    zero of this cost is an intersection and not a minimum of distance.
     """
-    del observed
     d_so, d_os = _distance_pair(simulated)
     return abs(d_so - d_os)
 
 
-def distance_mean(simulated: np.ndarray, observed: np.ndarray) -> float:
+def distance_mean(simulated: np.ndarray) -> float:
     """``(D_so + D_os) / 2``, Eq. 2. A diagnostic, and a cost only outside.
 
     It is legitimate as a cost in the outer loop that picks between structures
     already balanced at ``J = 0``; using it inside, in place of Eq. 1, is a
     different estimator, and nothing puts its interior minimum at the crossing.
     """
-    del observed
     d_so, d_os = _distance_pair(simulated)
     return 0.5 * (d_so + d_os)
 
 
-METRICS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
+METRICS: dict[str, Callable[..., float]] = {
     "nse": nse,
     "rmse": rmse,
     "mae": mae,
@@ -187,6 +184,14 @@ METRICS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
 HIGHER_IS_BETTER: frozenset[str] = frozenset(
     {"nse", "kge", "nse_delta", "nse_seasonal", "nse_log", "reservoir"}
 )
+
+# Metrics whose cost is a function of the simulated values alone. A criterion
+# that balances two simulated quantities has no observed series anywhere in it,
+# so a block scored on one asks for none: fabricating a vector of zeros to pair
+# against told a reader that a network output has observations, drove the
+# reference scale and the length check, and meant "there is nothing here" in the
+# one notation that cannot say so.
+CRITERION_METRICS: frozenset[str] = frozenset({"distance_gap", "distance_mean"})
 
 # Metrics whose cost is already a pure number, so there is no unit in it to
 # remove. ``normalize_cost`` exists to stop a unit deciding the weighting of a
@@ -497,14 +502,20 @@ class ConfigBlockObjective:
         outputs = tuple(str(output) for output in uses_outputs)
         if not outputs:
             raise ValueError(f"Block {name!r}: uses_outputs must not be empty")
+        scores_a_criterion = metric_key in CRITERION_METRICS
         observed_parts: list[np.ndarray] = []
-        for output_name in outputs:
-            values = observed_by_output.get(output_name)
-            if values is None:
-                raise ValueError(f"Block {name!r}: output {output_name!r} has no observed_values")
-            observed_parts.append(np.asarray(list(values), dtype=float).ravel())
+        if not scores_a_criterion:
+            for output_name in outputs:
+                values = observed_by_output.get(output_name)
+                if values is None:
+                    raise ValueError(
+                        f"Block {name!r}: output {output_name!r} has no observed values. "
+                        "Name a station in 'observes', or write 'observed_values'."
+                    )
+                observed_parts.append(np.asarray(list(values), dtype=float).ravel())
         observed = np.concatenate(observed_parts) if observed_parts else np.empty(0)
         self.name = str(name)
+        self._scores_a_criterion = scores_a_criterion
         self._metric = metric_key
         self._metric_fn = METRICS[metric_key]
         self._higher_is_better = metric_key in HIGHER_IS_BETTER
@@ -574,17 +585,24 @@ class ConfigBlockObjective:
         else:
             simulated = np.concatenate(simulated_parts) if simulated_parts else np.empty(0)
             observed = self._observed
-        if observed.size == 0 or simulated.size == 0:
+        if simulated.size == 0:
             return ObjectiveValue(total=float("inf"), components={})
-        if simulated.size != observed.size:
-            raise ValueError(
-                f"Block {self.name!r}: simulated length {simulated.size} does not match "
-                f"observed length {observed.size}"
-            )
-        n_clipped = 0
-        if self._metric in LOG_METRICS:
-            simulated, observed, n_clipped = clip_negatives_for_log_metric(simulated, observed)
-        raw = float(self._metric_fn(simulated, observed))
+        if self._scores_a_criterion:
+            raw = float(self._metric_fn(simulated))
+            n_clipped = 0
+            observed = simulated
+        else:
+            if observed.size == 0:
+                return ObjectiveValue(total=float("inf"), components={})
+            if simulated.size != observed.size:
+                raise ValueError(
+                    f"Block {self.name!r}: simulated length {simulated.size} does not "
+                    f"match observed length {observed.size}"
+                )
+            n_clipped = 0
+            if self._metric in LOG_METRICS:
+                simulated, observed, n_clipped = clip_negatives_for_log_metric(simulated, observed)
+            raw = float(self._metric_fn(simulated, observed))
         if not np.isfinite(raw):
             return ObjectiveValue(
                 total=float("inf"),
@@ -688,6 +706,7 @@ __all__ = [
     "CompositeObjective",
     "ConfigBlockObjective",
     "build_objective_from_config",
+    "CRITERION_METRICS",
     "DIMENSIONLESS_METRICS",
     "METRICS",
     "HIGHER_IS_BETTER",
