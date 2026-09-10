@@ -910,6 +910,19 @@ class CalibrationConfig(HydroModelBase):
             "thread pool. parallel=1 keeps the legacy sequential loop."
         ),
     )
+    reject_water_budget_above: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        ge=0.0,
+        description=(
+            "Percent water-balance discrepancy past which a trial is rejected instead "
+            "of scored. The solver reports the figure on every run; unset, it is "
+            "recorded and nothing acts on it, so a run at twelve per cent is ranked "
+            "beside one that closed even though part of the water it routed came from "
+            "nowhere. There is no default because there is no universal value: a steady "
+            "solve on a coarse mesh closes to a fraction of a per cent, a transient one "
+            "with a lake and a routed network legitimately sits higher."
+        ),
+    )
     warmup_periods: Annotated[int, Profile.USER] = Field(
         default=0,
         ge=0,

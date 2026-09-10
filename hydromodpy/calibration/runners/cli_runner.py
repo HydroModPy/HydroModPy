@@ -503,6 +503,7 @@ def run_calibration_core(
             variable=cfg.variable,
             metric_fn=metric_fn,
             trial_id=sugg.trial_id,
+            reject_water_budget_above=cfg.reject_water_budget_above,
         )
         # calibration_iterations CHECK accepts only finite lifecycle states.
         # Map "failed" metric errors onto "crashed" for persistence.
