@@ -72,6 +72,22 @@ Fields
             Protocol identifier.
 
 
+      .. index:: ! version
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: calibration-protocol-version
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="calibration.protocol.version">
+              <code class="hmp-field-name">version</code>
+            </div>
+
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L52>`__
+
+            Recipe version this file was written against. Unset runs the version this installation carries; pinned, a mismatch is refused rather than approximated, so a result that informed a decision stays replayable.
+
+
       .. index:: ! conductivity
 
       .. container:: hmp-field hmp-field-level-user
@@ -83,7 +99,7 @@ Fields
               <code class="hmp-field-name">conductivity</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "K"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L52>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "K"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L60>`__
 
             Name of the calibration parameter stage one moves, as the file declares it under [calibration.parameters].
 
@@ -99,7 +115,7 @@ Fields
               <code class="hmp-field-name">storage</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = "Sy"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L57>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = "Sy"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L65>`__
 
             Name of the calibration parameter stage two moves. Null runs the network stage alone, which is a method in its own right: it identifies the conductivity without any discharge record.
 
@@ -115,7 +131,7 @@ Fields
               <code class="hmp-field-name">network_output</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L63>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L71>`__
 
             Name of the network output stage one is scored on. Unset picks the single output declared with support='network'.
 
@@ -131,7 +147,7 @@ Fields
               <code class="hmp-field-name">steady_metric</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "distance_gap"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L68>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "distance_gap"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L76>`__
 
             Criterion of stage one. 'distance_gap' is the signed difference of Eq. 1, whose zero is the balance the paper solves for. 'distance_mean' is the mean offset: a diagnostic, and the estimator of the reference script, whose interior minimum sits nowhere in particular.
 
@@ -151,7 +167,7 @@ Fields
               <code class="hmp-field-name">steady_method</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "bisection"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L75>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "bisection"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L83>`__
 
             Engine of stage one. The signed criterion crosses zero once over several decades, which is what a root search wants; any registered engine is accepted.
 
@@ -167,7 +183,7 @@ Fields
               <code class="hmp-field-name">steady_max_iter</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 20` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L81>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 20` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L89>`__
 
             Evaluation budget of stage one.
 
@@ -185,7 +201,7 @@ Fields
               <code class="hmp-field-toml">[calibration.protocol.steady_optimizer_kwargs.&lt;id&gt;]</code>
             </div>
 
-         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L86>`__
+         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L94>`__
 
             Extra arguments forwarded to the stage-one engine.
 
@@ -203,7 +219,7 @@ Fields
               <code class="hmp-field-toml">[calibration.protocol.steady_window.&lt;id&gt;]</code>
             </div>
 
-         :bdg-primary:`dict[str, str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L90>`__
+         :bdg-primary:`dict[str, str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L98>`__
 
             Dates the steady stage averages, as {start, end}. Unset takes the whole [simulation.time] window.
 
@@ -219,7 +235,7 @@ Fields
               <code class="hmp-field-name">transient_metric</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "nse_log"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L95>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "nse_log"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L103>`__
 
             Criterion of stage two. The default weights recessions as heavily as peaks, which is where storage shows.
 
@@ -235,7 +251,7 @@ Fields
               <code class="hmp-field-name">transient_method</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "scipy_nelder_mead"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L100>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "scipy_nelder_mead"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L108>`__
 
             Engine of stage two.
 
@@ -251,7 +267,7 @@ Fields
               <code class="hmp-field-name">transient_max_iter</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 120` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L104>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 120` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L112>`__
 
             Evaluation budget of stage two.
 
@@ -269,7 +285,7 @@ Fields
               <code class="hmp-field-toml">[calibration.protocol.transient_optimizer_kwargs.&lt;id&gt;]</code>
             </div>
 
-         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L109>`__
+         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L117>`__
 
             Extra arguments forwarded to the stage-two engine.
 
@@ -285,7 +301,7 @@ Fields
               <code class="hmp-field-name">discharge_variable</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "discharge"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L113>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "discharge"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L121>`__
 
             Observed variable stage two is scored on.
 
@@ -301,7 +317,7 @@ Fields
               <code class="hmp-field-name">observed_station_id</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L117>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L125>`__
 
             Gauge whose cost drives stage two. Required when several stations are loaded.
 
@@ -319,7 +335,7 @@ Fields
               <code class="hmp-field-toml">[calibration.protocol.scoring_window.&lt;id&gt;]</code>
             </div>
 
-         :bdg-primary:`dict[str, str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L121>`__
+         :bdg-primary:`dict[str, str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L129>`__
 
             Dates bounding the samples stage two scores on, as {start, end}. Use it to drop the spin-up year the transient stage still has to simulate.
 
@@ -2384,6 +2400,7 @@ Starter TOML snippet
 
       [calibration.protocol]
       # name = ""  # REQUIRED
+      # version = ...  # default = None
       # conductivity = "K"
       # storage = "Sy"
       # network_output = ...  # default = None

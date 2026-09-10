@@ -12981,6 +12981,20 @@
           "type": "string",
           "x-hmp-profile": "user"
         },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Recipe version this file was written against. Unset runs the version this installation carries; pinned, a mismatch is refused rather than approximated, so a result that informed a decision stays replayable.",
+          "title": "Version",
+          "x-hmp-profile": "user"
+        },
         "conductivity": {
           "default": "K",
           "description": "Name of the calibration parameter stage one moves, as the file declares it under [calibration.parameters].",
