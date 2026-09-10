@@ -215,7 +215,7 @@ def _assert_network_conductance_proportional(cfg: CalibrationConfig, trial_ctx: 
         return
     names = ", ".join(repr(name) for name in network_outputs)
     raise ObjectiveError(
-        f"Network calibration output(s) {names}: flow.bc.{boundary.kind}.drainage.value is "
+        f"Network calibration output(s) {names}: flow.bc.drainage.value is "
         f"{float(boundary.value):g} {boundary.units}, a fixed drain conductance. The criterion "
         "calibrates the ratio K/R, which holds only while the conductance follows the "
         "conductivity (C = K * cell_area / top_thickness, the fallback applied when the "

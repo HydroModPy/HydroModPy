@@ -13,6 +13,7 @@ from typing import Annotated, ClassVar
 
 from pydantic import (
     Field,
+    ValidationError,
     ValidationInfo,
     field_validator,
     model_validator,
@@ -25,6 +26,7 @@ from hydromodpy.physics.base import ProcessSpatialConfig
 from hydromodpy.physics.flow import flow_toml_loader
 from hydromodpy.physics.flow.boundary_condition_registry import (
     SUPPORTED_FLOW_BOUNDARY_IDS,
+    boundary_definition,
 )
 from hydromodpy.physics.flow.boundary_conditions import (
     BCEntry,
@@ -142,19 +144,21 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
             "\n"
             "**Supported TOML sections**\n"
             "\n"
-            "- ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of "
-            "``ocean``, ``stream``, ``north_side``, ``south_side``, "
-            "``east_side``, ``west_side``\n"
-            "- ``[flow.bc.cauchy.drainage]``\n"
-            "- ``[flow.bc.robin.drainage]``\n"
-            "- ``[flow.bc.<custom_id>]`` for generic payloads\n"
+            "- ``[flow.bc.<id>]``, one block per boundary, keyed by what it is. "
+            "Canonical ids: ``drainage``, ``ocean``, ``stream``, ``north_side``, "
+            "``south_side``, ``east_side``, ``west_side``\n"
+            "- a boundary the registry describes entirely needs NO block: listing "
+            "it in ``flow.active_bc`` is enough\n"
             "\n"
             "**Common keys**\n"
             "\n"
-            "- ``value`` (required): numeric or ``'<value> <unit>'``\n"
-            "- ``application_domain``: optional for dirichlet when ``<id>`` "
-            "implies it (e.g. ``west_side`` -> ``'west side'``); required "
-            "for ``cauchy`` and ``robin`` drainage\n"
+            "- ``kind``: optional, the registry supplies it; write it only to "
+            "depart from the default, and only within a family (``cauchy`` and "
+            "``robin`` may be swapped, a prescribed head may not)\n"
+            "- ``value``: optional on a drainage, where leaving it out derives the "
+            "conductance from K; required for a prescribed head\n"
+            "- ``application_domain``: optional, the registry supplies it, and a "
+            "value contradicting it is refused\n"
             "\n"
             "**Allowed application_domain values:** ``top``, ``north side``, "
             "``south side``, ``east side``, ``west side``.\n"
@@ -382,6 +386,42 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
             base_dir=base_dir,
             workspace_data_dir=workspace_data_dir,
         )
+
+    @model_validator(mode="after")
+    def _declare_boundaries_the_registry_can_describe(self) -> FlowConfig:
+        """Build a boundary the registry fully describes when no table declares it.
+
+        ``active_bc`` already says which boundaries a run carries, and the
+        registry owns their kind, their application domain and their units. A
+        drainage therefore needs no table at all: what a table adds is a value
+        the registry cannot know, such as an imposed conductance or a head.
+
+        Only boundaries whose canonical payload validates on its own are built
+        here. One that needs a value the registry does not hold is left absent,
+        exactly as before, so this adds a capability and removes none.
+        """
+        from pydantic import TypeAdapter
+
+        for bc_id in self.active_bc:
+            if bc_id in self.bc:
+                continue
+            definition = boundary_definition(bc_id)
+            if definition is None or definition.default_type not in (
+                "dirichlet",
+                "cauchy",
+                "robin",
+            ):
+                continue
+            payload = {
+                "id": bc_id,
+                "kind": definition.default_type,
+                "_location_prefix": f"flow.bc.{definition.default_type}.{bc_id}",
+            }
+            try:
+                self.bc[bc_id] = TypeAdapter(BCEntry).validate_python(payload)
+            except ValidationError:
+                continue
+        return self
 
     @field_validator("ic", mode="before")
     @classmethod
