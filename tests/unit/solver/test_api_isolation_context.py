@@ -9,7 +9,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import copy_context
 
-from hydromodpy.solver.modflow6.run import api_isolation_context, api_isolation_enabled
+from hydromodpy.solver.base.api_isolation import api_isolation_context, api_isolation_enabled
 
 
 def test_default_is_in_process() -> None:

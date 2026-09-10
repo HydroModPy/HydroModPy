@@ -509,10 +509,12 @@ def run_calibration_core(
     best: EvaluationResult | None = None
 
     try:
-        from hydromodpy.solver.modflow6.run import api_isolation_context
+        from hydromodpy.solver.base.api_isolation import api_isolation_context
 
         # Isolate each api solve in its own process for the PARALLEL trial loop
-        # only; promotion below replays a single run and stays in-process.
+        # only; promotion below replays a single run and stays in-process. The
+        # switch is backend-neutral on purpose: this path runs for every solver,
+        # so importing it must not cost a backend.
         with api_isolation_context(use_api_isolation):
             session = engine.run()
         best = session.best

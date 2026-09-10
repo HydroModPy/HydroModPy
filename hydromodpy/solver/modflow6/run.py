@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import time
-from contextlib import contextmanager
-from contextvars import ContextVar
 
 from hydromodpy.core import progress
+from hydromodpy.solver.base.api_isolation import (
+    api_isolation_enabled,
+    api_isolation_timeout_s,
+)
 from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
 from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
     apply_modflow6_steady_state_initial_heads,
@@ -73,34 +75,11 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
     return success_model
 
 
-# Process-isolation toggle for the in-process API runner. libmf6 holds global
-# Fortran state, so concurrent in-process solves (calibration threads) corrupt
-# each other. The parallel calibration loop turns this on (api_isolation_context)
-# so each thread's api solve runs in its own spawn child process; single runs and
-# the promotion replay leave it off, keeping the in-process live progress bar and
-# avoiding a per-solve process spawn.
-#
-# Scoped through a ContextVar, not a module global: two overlapping calibration
-# sessions in one process each get an independent binding, so one exiting can no
-# longer flip the other back to in-process mid-run. Worker threads do NOT inherit
-# a ContextVar automatically; the parallel engine propagates the caller's context
-# to each worker (calibration.engine copies the context per task).
-_api_isolation_var: ContextVar[bool] = ContextVar("hmp_api_isolation", default=False)
-
-# A non-converging libmf6 solve can spin at full CPU indefinitely (the solve() call
-# never returns), which would wedge a whole parallel calibration on one bad trial.
-# The isolated child is killed after this wall-clock budget so the trial is recorded
-# as failed and the session continues. Generous vs a normal daily solve (~15 min);
-# override per model with ``[<backend>].mf6_api_timeout_s`` (a positive float).
-_API_ISOLATION_DEFAULT_TIMEOUT_S = 2400.0
-
-
-def _api_isolation_timeout_s(model) -> float | None:
-    runtime = getattr(getattr(model, "modflow_config", None), "runtime", None)
-    override = getattr(runtime, "mf6_api_timeout_s", None)
-    if override is not None:
-        return float(override)
-    return _API_ISOLATION_DEFAULT_TIMEOUT_S
+# Whether a solve runs isolated is asked for in ``solver/base/api_isolation``:
+# libmf6 holds global Fortran state, so concurrent in-process solves corrupt each
+# other and the parallel calibration loop turns the switch on. The switch itself
+# lives in the neutral module because that loop runs whatever backend the run
+# selected, and importing it must not cost a MODFLOW binding.
 
 
 def _warn_mf6_version_parity(lib_path: str, bin_path: object) -> None:
@@ -120,27 +99,6 @@ def _warn_mf6_version_parity(lib_path: str, bin_path: object) -> None:
         warn_on_mf6_version_mismatch(exe, lib_path)
     except Exception:  # pragma: no cover - a version probe must never break a solve
         pass
-
-
-@contextmanager
-def api_isolation_context(enabled: bool):
-    """Isolate api solves in a spawn child process within this dynamic scope.
-
-    The setting is context-local (a ContextVar), so overlapping sessions do not
-    clobber each other and the token reset restores exactly the caller's prior
-    value. Promotion (a single replay run) runs outside the scope and stays
-    in-process.
-    """
-    token = _api_isolation_var.set(bool(enabled))
-    try:
-        yield
-    finally:
-        _api_isolation_var.reset(token)
-
-
-def api_isolation_enabled() -> bool:
-    """Return whether the current context isolates api solves in a child process."""
-    return _api_isolation_var.get()
 
 
 def _run_via_api(model, *, verbose: bool) -> bool:
@@ -179,7 +137,7 @@ def _run_via_api(model, *, verbose: bool) -> bool:
             model.full_path,
             band_specs=getattr(model, "_exposed_band_runoff_specs", None),
             lib_path=lib_path,
-            timeout=_api_isolation_timeout_s(model),
+            timeout=api_isolation_timeout_s(model),
             label=getattr(model, "model_name", None),
         )
 
