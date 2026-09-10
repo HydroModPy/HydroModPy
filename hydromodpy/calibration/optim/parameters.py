@@ -161,6 +161,42 @@ def _assert_path_is_not_the_mesh(name: str, path: str | None) -> None:
     )
 
 
+_STAGE_BOUNDARY_PATHS: tuple[str, ...] = (
+    "flow.flow_regime",
+    "simulation.time.start_datetime",
+    "simulation.time.end_datetime",
+    "simulation.time.step_value",
+    "simulation.time.step_unit",
+    "simulation.time.substeps_per_period",
+)
+"""Paths that say WHICH MODEL a stage runs, rather than a property of one."""
+
+
+def _assert_path_is_not_a_stage_boundary(name: str, path: str | None) -> None:
+    """Refuse a parameter that would search over the stage instead of the model.
+
+    A flow regime and a simulation window are not properties of the aquifer:
+    they say which model a stage runs. A phase declares them in its own
+    ``overrides``, which is where a two-stage method makes one stage steady and
+    the other transient. Searching over one asks the optimizer to choose between
+    two different models on a cost that only ever compares trials of one, and a
+    regime is categorical besides: every candidate is written through
+    ``float(value)``, so the search would put 0.5 into a field whose two legal
+    values are two words.
+    """
+    if not path:
+        return
+    if str(path) not in _STAGE_BOUNDARY_PATHS:
+        return
+    raise ValueError(
+        f"[calibration.parameters.{name}] points at {path!r}, which is a stage boundary "
+        "and not a dimension a search may move: it says which model the stage runs, not "
+        "a property of that model. Declare it in a phase's [calibration.phases.overrides] "
+        "instead, which is how a two-stage method makes one stage steady and the next "
+        "transient."
+    )
+
+
 def _assert_bounds_are_physical(name: str, low: float, high: float, unit: object) -> None:
     """Face a declared bound with the ceiling a literal value already faces.
 
@@ -312,6 +348,8 @@ class ParameterSpace:
             target = decl.get("target")
             _assert_path_is_not_the_mesh(name, path)
             _assert_path_is_not_the_mesh(name, target)
+            _assert_path_is_not_a_stage_boundary(name, path)
+            _assert_path_is_not_a_stage_boundary(name, target)
             mode = str(decl.get("mode", "replace")).strip().lower()
             if mode not in {"replace", "scale"}:
                 raise ValueError(
@@ -428,8 +466,30 @@ def apply_parameter_to_config(
         raise ValueError(f"[calibration.parameters.{param.name}] {exc}") from None
 
 
+def _assert_candidate_is_physical(param: CalibParameter, written: float) -> None:
+    """Face the value about to be written with the registry's ceiling.
+
+    Checking the declared bounds at load time refuses the impossible region
+    once, and that covers ``mode="replace"``. It does not cover ``mode="scale"``,
+    where the sample is a multiplier: legal bounds on the multiplier say nothing
+    about where the product lands, so a scale of 8 on a specific yield of 0.1
+    writes 0.8, past the physical ceiling, and only the solver would notice.
+    """
+    from hydromodpy.spatial.field.core.physical_bounds import (
+        PhysicalBoundsError,
+        validate_physical_value,
+    )
+
+    unit_text = str(param.units) if param.units is not None else None
+    try:
+        validate_physical_value(param_id=param.name, value=written, unit=unit_text)
+    except PhysicalBoundsError as exc:
+        raise ValueError(f"candidate {written!r}: {exc}") from None
+
+
 def _apply_resolved(cfg: Any, param: CalibParameter, path: str, value: float) -> None:
     if param.mode == "replace":
+        _assert_candidate_is_physical(param, float(value))
         set_by_path(cfg, path, float(value))
         return
     if param.mode == "scale":
@@ -446,7 +506,9 @@ def _apply_resolved(cfg: Any, param: CalibParameter, path: str, value: float) ->
                 f"Parameter {param.name!r}: scale mode requires a numeric base "
                 f"value at {path!r}; got {base!r}."
             ) from exc
-        set_by_path(cfg, path, base_f * float(value))
+        written = base_f * float(value)
+        _assert_candidate_is_physical(param, written)
+        set_by_path(cfg, path, written)
         return
     raise ValueError(
         f"Parameter {param.name!r}: unsupported mode {param.mode!r} (expected 'replace' or 'scale')"
