@@ -436,8 +436,7 @@ def _unknown_segment(path: str, part: str, depth: int, target: Any) -> ValueErro
             available = sorted(k for k in vars(target) if not k.startswith("_"))
     known = ", ".join(available[:12]) if available else "nothing"
     return ValueError(
-        f"{path!r}: no {part!r} under {reached}, which holds {known} "
-        f"({type(target).__name__})."
+        f"{path!r}: no {part!r} under {reached}, which holds {known} ({type(target).__name__})."
     )
 
 

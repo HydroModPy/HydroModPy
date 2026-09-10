@@ -608,9 +608,11 @@ def run_calibration_core(
     # apart by the data: the search stopped on a ridge and reported that point as
     # a minimum. Read off the trace the session already holds, so it costs nothing.
     correlated = correlated_parameter_pairs(
-        [{**values_by_trial.get(item.trial_id, {}), "objective_total": item.objective_value}
-         for item in session.history
-         if item.trial_id in values_by_trial]
+        [
+            {**values_by_trial.get(item.trial_id, {}), "objective_total": item.objective_value}
+            for item in session.history
+            if item.trial_id in values_by_trial
+        ]
     )
     if correlated:
         for first, second, coefficient in correlated:

@@ -104,7 +104,9 @@ def _resolve_cbc_path(output_dir: Path, model_name: str) -> Path:
     if not cbc_path.exists():
         cbc_path = output_dir / f"{model_name}.cbb"
     if not cbc_path.exists():
-        raise ObservableNotAvailableError(f"CBC file not found for model {model_name!r} in {output_dir}")
+        raise ObservableNotAvailableError(
+            f"CBC file not found for model {model_name!r} in {output_dir}"
+        )
     return cbc_path
 
 
@@ -245,7 +247,9 @@ def _find_drain_component(cbb: object) -> str:
         None,
     )
     if drain_key is None:
-        raise ObservableNotAvailableError(f"No DRAIN component in CBC; components were {record_names}")
+        raise ObservableNotAvailableError(
+            f"No DRAIN component in CBC; components were {record_names}"
+        )
     return drain_key
 
 
@@ -508,7 +512,9 @@ def extract_release_flux_by_cell_from_cbc(
         cbb.close()
 
     if width is None:
-        raise ObservableNotAvailableError("No readable release budget array was found in the CBC file.")
+        raise ObservableNotAvailableError(
+            "No readable release budget array was found in the CBC file."
+        )
 
     filled_rows = [
         np.zeros(width, dtype="float64") if row is None else row / seconds_per_unit for row in rows
@@ -532,7 +538,9 @@ def extract_head_from_hds(
 
     hds_path = output_dir / f"{model_name}.hds"
     if not hds_path.exists():
-        raise ObservableNotAvailableError(f"HDS file not found for model {model_name!r} in {output_dir}")
+        raise ObservableNotAvailableError(
+            f"HDS file not found for model {model_name!r} in {output_dir}"
+        )
 
     hf = bf.HeadFile(str(hds_path))
     try:
@@ -589,7 +597,9 @@ def extract_saturated_thickness_by_cell_from_hds(
 
     hds_path = output_dir / f"{model_name}.hds"
     if not hds_path.exists():
-        raise ObservableNotAvailableError(f"HDS file not found for model {model_name!r} in {output_dir}")
+        raise ObservableNotAvailableError(
+            f"HDS file not found for model {model_name!r} in {output_dir}"
+        )
 
     top_m = np.asarray(top, dtype=float).reshape(-1)
     bottom_m = np.asarray(bottom, dtype=float).reshape(-1)
