@@ -313,11 +313,10 @@ def test_apply_simulation_time_to_flow_wells_binds_csv_forcing(tmp_path: Path) -
 def test_apply_simulation_time_to_flow_boundary_conditions_binds_constant_forcing() -> None:
     cfg = FlowConfig(
         bc={
-            "dirichlet": {
-                "west_side": {
-                    "units": "cm",
-                    "forcing": {"mode": "constant", "value": 12.0},
-                }
+            "west_side": {
+                "kind": "dirichlet",
+                "units": "cm",
+                "forcing": {"mode": "constant", "value": 12.0},
             }
         },
         active_bc=["west_side"],
@@ -359,15 +358,14 @@ def test_apply_simulation_time_to_flow_boundary_conditions_binds_csv_forcing(
     )
     cfg = FlowConfig(
         bc={
-            "dirichlet": {
-                "east_side": {
-                    "forcing": {
-                        "mode": "csv",
-                        "path_file": csv_path,
-                        "date_column": "date",
-                        "value_column": "head",
-                    }
-                }
+            "east_side": {
+                "kind": "dirichlet",
+                "forcing": {
+                    "mode": "csv",
+                    "path_file": csv_path,
+                    "date_column": "date",
+                    "value_column": "head",
+                },
             }
         },
         active_bc=["east_side"],

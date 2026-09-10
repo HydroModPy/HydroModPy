@@ -65,10 +65,8 @@ def test_flow_builds_boundary_bundle_from_config() -> None:
     cfg = FlowConfig(
         active_bc=["east_side", "west_side"],
         bc={
-            "dirichlet": {
-                "west_side": {"value": "10 m"},
-                "east_side": {"value": "8 m"},
-            }
+            "west_side": {"kind": "dirichlet", "value": "10 m"},
+            "east_side": {"kind": "dirichlet", "value": "8 m"},
         },
     )
 

@@ -8,19 +8,16 @@ def test_flow_bc_native_round_trip_dirichlet_and_cauchy() -> None:
     cfg = FlowConfig.model_validate(
         {
             "bc": {
-                "dirichlet": {
-                    "ocean": {"value": 0.0},
-                    "stream": {"value": 1.0},
-                    "north_side": {"value": 2.0},
-                    "south_side": {"value": 3.0},
-                    "east_side": {"value": 4.0},
-                    "west_side": {"value": 5.0},
-                },
-                "cauchy": {
-                    "drainage": {
-                        "value": "10 cm2/day",
-                        "application_domain": "top",
-                    }
+                "ocean": {"kind": "dirichlet", "value": 0.0},
+                "stream": {"kind": "dirichlet", "value": 1.0},
+                "north_side": {"kind": "dirichlet", "value": 2.0},
+                "south_side": {"kind": "dirichlet", "value": 3.0},
+                "east_side": {"kind": "dirichlet", "value": 4.0},
+                "west_side": {"kind": "dirichlet", "value": 5.0},
+                "drainage": {
+                    "kind": "cauchy",
+                    "value": "10 cm2/day",
+                    "application_domain": "top",
                 },
             }
         }
@@ -38,11 +35,10 @@ def test_flow_bc_native_round_trip_robin() -> None:
     cfg = FlowConfig.model_validate(
         {
             "bc": {
-                "robin": {
-                    "drainage": {
-                        "value": 2.0e-6,
-                        "application_domain": "top",
-                    }
+                "drainage": {
+                    "kind": "robin",
+                    "value": 2.0e-6,
+                    "application_domain": "top",
                 }
             }
         }
