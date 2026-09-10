@@ -31,12 +31,6 @@ class ExportVariablesConfig(HydroModelBase):
     concentration: Annotated[bool, Profile.USER] = Field(
         default=False, description="Export concentration field."
     )
-    budget: Annotated[bool, Profile.DEV] = Field(
-        default=False, description="Export spatial budget fields."
-    )
-    pathlines: Annotated[bool, Profile.DEV] = Field(
-        default=False, description="Export pathline data."
-    )
     derived: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Export derived variables (watertable_depth, seepage_mask, etc.).",
@@ -94,7 +88,10 @@ class ExportConfig(HydroModelBase):
         default="last",
         description=(
             "Timestep selector for field/raster exports: 'first', 'last', 'all', a "
-            "timestep index, or a list of indices. Time-series CSV always covers all steps."
+            "timestep index, or a list of indices. Time-series CSV always covers all "
+            "steps. A vtu, a geotiff and a shapefile hold ONE timestep per file, so a "
+            "selector naming several collapses to the last for them and the run says so; "
+            "only the NetCDF export carries the whole selection."
         ),
     )
     resolution: Annotated[float | None, Profile.DEV] = Field(

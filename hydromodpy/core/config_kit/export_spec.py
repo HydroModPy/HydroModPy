@@ -116,6 +116,18 @@ class ExportSpec(HydroModelBase):
                     f"({', '.join(sorted(_SUFFIX_TO_FORMAT))})."
                 )
             object.__setattr__(self, "fmt", inferred)
+        else:
+            # A declared format and a destination extension are two statements
+            # about one file. Left unchecked, the bytes of one land under the
+            # name of the other and nothing says so: a csv written as .tif opens
+            # in no raster reader and looks like a corrupt file, not a mistake.
+            inferred = format_from_path(self.dest)
+            if inferred is not None and inferred != self.fmt:
+                raise ValueError(
+                    f"fmt={self.fmt.value!r} writes {self.fmt.value} bytes but dest "
+                    f"{self.dest!r} names a {inferred.value} file. Drop 'fmt' to take the "
+                    "extension, or give dest the extension the format writes."
+                )
         if self.fmt in _SINGLE_TIMESTEP and (self.time == "all" or isinstance(self.time, list)):
             raise ValueError(
                 f"time={self.time!r} selects multiple timesteps, invalid for "

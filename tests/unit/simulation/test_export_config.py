@@ -66,8 +66,6 @@ class TestExportVariablesConfig:
         cfg = ExportVariablesConfig(
             head=False,
             concentration=False,
-            budget=False,
-            pathlines=False,
             derived=False,
         )
         assert cfg.active_names() == []
