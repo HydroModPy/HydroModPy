@@ -1674,7 +1674,7 @@
     "anchor": "data-hydrometry-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L112",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -1689,7 +1689,7 @@
     "anchor": "data-hydrometry-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L113",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -1944,7 +1944,7 @@
     "anchor": "data-intermittency-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/intermittency/config.py#L61",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -1959,7 +1959,7 @@
     "anchor": "data-intermittency-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/intermittency/config.py#L61",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -2418,7 +2418,7 @@
     "anchor": "data-lake-inflow-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L68",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -2433,7 +2433,7 @@
     "anchor": "data-lake-inflow-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L69",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -2640,7 +2640,7 @@
     "anchor": "data-lake-levels-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L69",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -2655,7 +2655,7 @@
     "anchor": "data-lake-levels-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L70",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -2862,7 +2862,7 @@
     "anchor": "data-lake-outflow-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L68",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -2877,7 +2877,7 @@
     "anchor": "data-lake-outflow-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L69",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -3084,7 +3084,7 @@
     "anchor": "data-lake-withdrawal-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L68",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -3099,7 +3099,7 @@
     "anchor": "data-lake-withdrawal-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L69",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -3306,7 +3306,7 @@
     "anchor": "data-oceanic-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L74",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -3321,7 +3321,7 @@
     "anchor": "data-oceanic-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L74",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -3576,7 +3576,7 @@
     "anchor": "data-piezometry-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L75",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -3591,7 +3591,7 @@
     "anchor": "data-piezometry-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L75",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -3846,7 +3846,7 @@
     "anchor": "data-water-quality-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L69",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -3861,7 +3861,7 @@
     "anchor": "data-water-quality-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L69",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -4116,7 +4116,7 @@
     "anchor": "data-recharge-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/recharge/config.py#L129",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -4131,7 +4131,7 @@
     "anchor": "data-recharge-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/recharge/config.py#L130",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -4434,7 +4434,7 @@
     "anchor": "data-runoff-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/runoff/config.py#L52",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -4449,7 +4449,7 @@
     "anchor": "data-runoff-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/runoff/config.py#L52",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -4656,7 +4656,7 @@
     "anchor": "data-precipitation-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L59",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -4671,7 +4671,7 @@
     "anchor": "data-precipitation-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L59",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -4890,7 +4890,7 @@
     "anchor": "data-etp-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -4905,7 +4905,7 @@
     "anchor": "data-etp-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -5136,7 +5136,7 @@
     "anchor": "data-temperature-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/temperature/config.py#L52",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -5151,7 +5151,7 @@
     "anchor": "data-temperature-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/temperature/config.py#L52",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -5358,7 +5358,7 @@
     "anchor": "data-wind-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/wind/config.py#L52",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -5373,7 +5373,7 @@
     "anchor": "data-wind-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/wind/config.py#L52",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -5580,7 +5580,7 @@
     "anchor": "data-humidity-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/humidity/config.py#L52",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -5595,7 +5595,7 @@
     "anchor": "data-humidity-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/humidity/config.py#L52",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -5802,7 +5802,7 @@
     "anchor": "data-radiation-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L59",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -5817,7 +5817,7 @@
     "anchor": "data-radiation-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L59",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -6036,7 +6036,7 @@
     "anchor": "data-soil-moisture-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L52",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -6051,7 +6051,7 @@
     "anchor": "data-soil-moisture-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L52",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -15554,7 +15554,7 @@
     "section": "overview",
     "anchor": "overview-name",
     "page": "overview.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L41",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L42",
     "description": "Watershed name."
   },
   {
@@ -15566,8 +15566,11 @@
     "section": "overview",
     "anchor": "overview-date-start",
     "page": "overview.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L42",
-    "description": "Global start date (YYYY-MM-DD)."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L43",
+    "description": "Start of the overview window (ISO date, e.g. '2019-01-01'). Overview mode has no [simulation.time], so this is the date declaration every [data.<type>] section without a window of its own inherits. Must be declared together with date_end.",
+    "examples": [
+      "\"2019-01-01\""
+    ]
   },
   {
     "path": "overview.date_end",
@@ -15578,8 +15581,11 @@
     "section": "overview",
     "anchor": "overview-date-end",
     "page": "overview.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L45",
-    "description": "Global end date (YYYY-MM-DD)."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L53",
+    "description": "End of the overview window (ISO date, e.g. '2025-12-31'). Overview mode has no [simulation.time], so this is the date declaration every [data.<type>] section without a window of its own inherits. Must be declared together with date_start.",
+    "examples": [
+      "\"2025-12-31\""
+    ]
   },
   {
     "path": "overview.regional_context_label",
@@ -15590,7 +15596,7 @@
     "section": "overview",
     "anchor": "overview-regional-context-label",
     "page": "overview.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L48",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L63",
     "description": "Label used for the regional location figure."
   },
   {
@@ -15602,7 +15608,7 @@
     "section": "overview",
     "anchor": "overview-panels",
     "page": "overview.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L52",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L67",
     "description": "Panel toggles."
   },
   {
@@ -15614,7 +15620,7 @@
     "section": "overview",
     "anchor": "overview-panels-map-dem",
     "page": "overview.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L16",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L17",
     "description": "DEM elevation map."
   },
   {
@@ -15626,7 +15632,7 @@
     "section": "overview",
     "anchor": "overview-panels-map-geology",
     "page": "overview.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L17",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L18",
     "description": "Geology lithology map."
   },
   {
@@ -15638,7 +15644,7 @@
     "section": "overview",
     "anchor": "overview-panels-map-hydrography",
     "page": "overview.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L18",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L19",
     "description": "River network map."
   },
   {
@@ -15650,7 +15656,7 @@
     "section": "overview",
     "anchor": "overview-panels-stats-card",
     "page": "overview.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L19",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L20",
     "description": "Watershed metrics card."
   },
   {
@@ -15662,7 +15668,7 @@
     "section": "overview",
     "anchor": "overview-panels-timeseries-discharge",
     "page": "overview.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L20",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L21",
     "description": "Observed discharge."
   },
   {
@@ -15674,7 +15680,7 @@
     "section": "overview",
     "anchor": "overview-panels-timeseries-piezometry",
     "page": "overview.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L23",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L24",
     "description": "Observed piezometry."
   },
   {
@@ -15686,7 +15692,7 @@
     "section": "overview",
     "anchor": "overview-panels-climatic-summary",
     "page": "overview.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L26",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L27",
     "description": "P/ETP monthly bars."
   },
   {
@@ -15698,7 +15704,7 @@
     "section": "overview",
     "anchor": "overview-panels-timeseries-intermittency",
     "page": "overview.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L27",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L28",
     "description": "ONDE intermittency."
   },
   {
@@ -15710,7 +15716,7 @@
     "section": "overview",
     "anchor": "overview-panels-timeseries-water-quality",
     "page": "overview.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L30",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L31",
     "description": "Water-quality series."
   },
   {
@@ -15722,7 +15728,7 @@
     "section": "overview",
     "anchor": "overview-panels-station-inventory",
     "page": "overview.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L33",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L34",
     "description": "Station inventory table."
   },
   {
@@ -17295,7 +17301,7 @@
     "anchor": "calibration-phases-observed-station-id",
     "page": "calibration.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L644",
-    "description": "Observed station the single simulated series is scored against. A run produces one discharge series, at the catchment outlet, so an upstream gauge cannot match it: when several stations are loaded, one has to be named. Optional with a singl"
+    "description": "Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when"
   },
   {
     "path": "calibration.phases.optimizer_kwargs",
@@ -20703,7 +20709,7 @@
     "anchor": "hydrometry-date-start",
     "page": "hydrometry.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L112",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -20718,7 +20724,7 @@
     "anchor": "hydrometry-date-end",
     "page": "hydrometry.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L113",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
     ]

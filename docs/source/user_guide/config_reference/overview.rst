@@ -9,7 +9,7 @@ TOML section: ``[overview]``
 
 Pydantic model: ``OverviewConfig`` defined in ``hydromodpy.display.overview.config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L38>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L39>`__
 
 Overview report settings (watershed identity card).
 
@@ -36,7 +36,7 @@ Fields
         <code class="hmp-field-name">name</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L41>`__
+   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L42>`__
 
       Watershed name.
 
@@ -50,9 +50,11 @@ Fields
         <code class="hmp-field-name">date_start</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L42>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L43>`__
 
-      Global start date (YYYY-MM-DD).
+      Start of the overview window (ISO date, e.g. '2019-01-01'). Overview mode has no [simulation.time], so this is the date declaration every [data.<type>] section without a window of its own inherits. Must be declared together with date_end.
+
+   **Example:** ``"2019-01-01"``
 
 
 .. container:: hmp-field hmp-field-level-user
@@ -64,9 +66,11 @@ Fields
         <code class="hmp-field-name">date_end</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L45>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L53>`__
 
-      Global end date (YYYY-MM-DD).
+      End of the overview window (ISO date, e.g. '2025-12-31'). Overview mode has no [simulation.time], so this is the date declaration every [data.<type>] section without a window of its own inherits. Must be declared together with date_start.
+
+   **Example:** ``"2025-12-31"``
 
 
 .. index:: ! regional_context_label
@@ -80,7 +84,7 @@ Fields
         <code class="hmp-field-name">regional_context_label</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L48>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L63>`__
 
       Label used for the regional location figure.
 
@@ -98,7 +102,7 @@ Fields
         <code class="hmp-field-toml">[overview.panels]</code>
       </div>
 
-   :bdg-primary:`OverviewPanelsConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L52>`__
+   :bdg-primary:`OverviewPanelsConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L67>`__
 
       Panel toggles.
 
@@ -119,7 +123,7 @@ Fields
               <code class="hmp-field-name">map_dem</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L16>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L17>`__
 
             DEM elevation map.
 
@@ -135,7 +139,7 @@ Fields
               <code class="hmp-field-name">map_geology</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L17>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L18>`__
 
             Geology lithology map.
 
@@ -151,7 +155,7 @@ Fields
               <code class="hmp-field-name">map_hydrography</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L18>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L19>`__
 
             River network map.
 
@@ -167,7 +171,7 @@ Fields
               <code class="hmp-field-name">stats_card</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L19>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L20>`__
 
             Watershed metrics card.
 
@@ -183,7 +187,7 @@ Fields
               <code class="hmp-field-name">timeseries_discharge</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L20>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L21>`__
 
             Observed discharge.
 
@@ -199,7 +203,7 @@ Fields
               <code class="hmp-field-name">timeseries_piezometry</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L23>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L24>`__
 
             Observed piezometry.
 
@@ -215,7 +219,7 @@ Fields
               <code class="hmp-field-name">climatic_summary</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L26>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L27>`__
 
             P/ETP monthly bars.
 
@@ -231,7 +235,7 @@ Fields
               <code class="hmp-field-name">timeseries_intermittency</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L27>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L28>`__
 
             ONDE intermittency.
 
@@ -247,7 +251,7 @@ Fields
               <code class="hmp-field-name">timeseries_water_quality</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L30>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L31>`__
 
             Water-quality series.
 
@@ -263,7 +267,7 @@ Fields
               <code class="hmp-field-name">station_inventory</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L33>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L34>`__
 
             Station inventory table.
 

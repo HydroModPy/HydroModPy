@@ -7711,91 +7711,91 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `overview <overview.html#overview-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L41>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L42>`__
    * - ``overview.date_start``
      - ``str | None``
      - user
      - -
      - `overview <overview.html#overview-date-start>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L42>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L43>`__
    * - ``overview.date_end``
      - ``str | None``
      - user
      - -
      - `overview <overview.html#overview-date-end>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L45>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L53>`__
    * - ``overview.regional_context_label``
      - ``str | None``
      - user
      - -
      - `overview <overview.html#overview-regional-context-label>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L48>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L63>`__
    * - ``overview.panels``
      - ``OverviewPanelsConfig``
      - user
      - -
      - `overview <overview.html#overview-panels>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L52>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L67>`__
    * - ``overview.panels.map_dem``
      - ``bool``
      - user
      - -
      - `overview <overview.html#overview-panels-map-dem>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L16>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L17>`__
    * - ``overview.panels.map_geology``
      - ``bool``
      - user
      - -
      - `overview <overview.html#overview-panels-map-geology>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L17>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L18>`__
    * - ``overview.panels.map_hydrography``
      - ``bool``
      - user
      - -
      - `overview <overview.html#overview-panels-map-hydrography>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L18>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L19>`__
    * - ``overview.panels.stats_card``
      - ``bool``
      - user
      - -
      - `overview <overview.html#overview-panels-stats-card>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L19>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L20>`__
    * - ``overview.panels.timeseries_discharge``
      - ``bool``
      - user
      - -
      - `overview <overview.html#overview-panels-timeseries-discharge>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L20>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L21>`__
    * - ``overview.panels.timeseries_piezometry``
      - ``bool``
      - user
      - -
      - `overview <overview.html#overview-panels-timeseries-piezometry>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L23>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L24>`__
    * - ``overview.panels.climatic_summary``
      - ``bool``
      - user
      - -
      - `overview <overview.html#overview-panels-climatic-summary>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L26>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L27>`__
    * - ``overview.panels.timeseries_intermittency``
      - ``bool``
      - user
      - -
      - `overview <overview.html#overview-panels-timeseries-intermittency>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L27>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L28>`__
    * - ``overview.panels.timeseries_water_quality``
      - ``bool``
      - user
      - -
      - `overview <overview.html#overview-panels-timeseries-water-quality>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L30>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L31>`__
    * - ``overview.panels.station_inventory``
      - ``bool``
      - user
      - -
      - `overview <overview.html#overview-panels-station-inventory>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L33>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L34>`__
    * - ``mesh_catchment.constraints_mode``
      - ``Literal['geology_only', 'rivers_only', 'geology_rivers']``
      - user

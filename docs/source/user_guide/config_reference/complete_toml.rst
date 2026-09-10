@@ -473,9 +473,11 @@ Sub-models are linked back to their per-section page.
       [overview]
       # Watershed name.
       name = ""
-      # Global start date (YYYY-MM-DD).
+      # Start of the overview window (ISO date, e.g. '2019-01-01'). Overview mode has no [simulation.time], so this is the date declaration every [data.<type>] section without a window of its own inherits. Must be declared together with date_end.
+      # example: date_start = "2019-01-01"
       # date_start = ...  # default = None
-      # Global end date (YYYY-MM-DD).
+      # End of the overview window (ISO date, e.g. '2025-12-31'). Overview mode has no [simulation.time], so this is the date declaration every [data.<type>] section without a window of its own inherits. Must be declared together with date_start.
+      # example: date_end = "2025-12-31"
       # date_end = ...  # default = None
       # Label used for the regional location figure.
       # regional_context_label = ...  # default = None
@@ -708,10 +710,10 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [hydrometry]
-      # Project start date (ISO format, e.g. '2019-01-01').
+      # Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than the simulation, typically a cache shared by several runs. Must be declared together with date_end.
       # example: date_start = "2019-01-01"
       # date_start = ...  # default = None
-      # Project end date (ISO format, e.g. '2025-12-31').
+      # End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the simulation, typically a cache shared by several runs. Must be declared together with date_start.
       # example: date_end = "2025-12-31"
       # date_end = ...  # default = None
       # At least one data source.
