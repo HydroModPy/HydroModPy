@@ -1683,6 +1683,19 @@
       "additionalProperties": false,
       "description": "Top-level ``[calibration]`` section.\n\nThe config selects the optimizer, iteration budget, candidate persistence\npolicy, parameter declarations, observable outputs, and objective blocks.\nIt is the stable user-facing schema used by CLI calibration and\n``Project.calibrate``.\n\nWhen no explicit objective block is declared, HydroModPy can synthesize one\nfrom ``objective`` and ``variable`` if the matching output exists.",
       "properties": {
+        "protocol": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MatchingHydrographicNetworkOptions"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Published calibration method this file runs, named instead of retyped. A protocol writes the stages, their criteria and the model regimes they need, so the file states only what belongs to the site. Write the name alone, or a table carrying it plus the names this file uses for the parameters and outputs the method moves. Registered: 'matching_hydrographic_network' (Abherve et al., 2023, doi:10.5194/hess-27-3221-2023). A file that declares its own phases or objective blocks cannot also name a protocol.",
+          "x-hmp-profile": "user"
+        },
         "method": {
           "default": "grid",
           "description": "Optimization method. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.",
@@ -12776,6 +12789,206 @@
         "path"
       ],
       "title": "MapContextLayerConfig",
+      "type": "object"
+    },
+    "MatchingHydrographicNetworkOptions": {
+      "additionalProperties": false,
+      "description": "What a file may say about the protocol beyond naming it.\n\nEverything here has a default that reproduces the published method. The\nnames are the ones the file uses for its own parameters and outputs, and the\nengines are free: the method is the pair of criteria and the order they run\nin, not the optimizer that walks them.",
+      "properties": {
+        "name": {
+          "const": "matching_hydrographic_network",
+          "description": "Protocol identifier.",
+          "examples": [
+            "matching_hydrographic_network"
+          ],
+          "title": "Name",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "conductivity": {
+          "default": "K",
+          "description": "Name of the calibration parameter stage one moves, as the file declares it under [calibration.parameters].",
+          "examples": [
+            "K"
+          ],
+          "title": "Conductivity",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "storage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "Sy",
+          "description": "Name of the calibration parameter stage two moves. Null runs the network stage alone, which is a method in its own right: it identifies the conductivity without any discharge record.",
+          "examples": [
+            "Sy"
+          ],
+          "title": "Storage",
+          "x-hmp-profile": "user"
+        },
+        "network_output": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of the network output stage one is scored on. Unset picks the single output declared with support='network'.",
+          "title": "Network Output",
+          "x-hmp-profile": "user"
+        },
+        "steady_metric": {
+          "default": "distance_gap",
+          "description": "Criterion of stage one. 'distance_gap' is the signed difference of Eq. 1, whose zero is the balance the paper solves for. 'distance_mean' is the mean offset: a diagnostic, and the estimator of the reference script, whose interior minimum sits nowhere in particular.",
+          "enum": [
+            "distance_gap",
+            "distance_mean"
+          ],
+          "examples": [
+            "distance_gap"
+          ],
+          "title": "Steady Metric",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "steady_method": {
+          "default": "bisection",
+          "description": "Engine of stage one. The signed criterion crosses zero once over several decades, which is what a root search wants; any registered engine is accepted.",
+          "examples": [
+            "bisection"
+          ],
+          "title": "Steady Method",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "steady_max_iter": {
+          "default": 20,
+          "description": "Evaluation budget of stage one.",
+          "examples": [
+            20
+          ],
+          "minimum": 1,
+          "title": "Steady Max Iter",
+          "type": "integer",
+          "x-hmp-profile": "user"
+        },
+        "steady_optimizer_kwargs": {
+          "additionalProperties": true,
+          "description": "Extra arguments forwarded to the stage-one engine.",
+          "title": "Steady Optimizer Kwargs",
+          "type": "object",
+          "x-hmp-profile": "dev"
+        },
+        "steady_window": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Dates the steady stage averages, as {start, end}. Unset takes the whole [simulation.time] window.",
+          "title": "Steady Window",
+          "x-hmp-profile": "user"
+        },
+        "transient_metric": {
+          "default": "nse_log",
+          "description": "Criterion of stage two. The default weights recessions as heavily as peaks, which is where storage shows.",
+          "examples": [
+            "nse_log"
+          ],
+          "title": "Transient Metric",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "transient_method": {
+          "default": "scipy_nelder_mead",
+          "description": "Engine of stage two.",
+          "examples": [
+            "scipy_nelder_mead"
+          ],
+          "title": "Transient Method",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "transient_max_iter": {
+          "default": 120,
+          "description": "Evaluation budget of stage two.",
+          "examples": [
+            120
+          ],
+          "minimum": 1,
+          "title": "Transient Max Iter",
+          "type": "integer",
+          "x-hmp-profile": "user"
+        },
+        "transient_optimizer_kwargs": {
+          "additionalProperties": true,
+          "description": "Extra arguments forwarded to the stage-two engine.",
+          "title": "Transient Optimizer Kwargs",
+          "type": "object",
+          "x-hmp-profile": "dev"
+        },
+        "discharge_variable": {
+          "default": "discharge",
+          "description": "Observed variable stage two is scored on.",
+          "examples": [
+            "discharge"
+          ],
+          "title": "Discharge Variable",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "observed_station_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Gauge whose cost drives stage two. Required when several stations are loaded.",
+          "title": "Observed Station Id",
+          "x-hmp-profile": "user"
+        },
+        "scoring_window": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Dates bounding the samples stage two scores on, as {start, end}. Use it to drop the spin-up year the transient stage still has to simulate.",
+          "title": "Scoring Window",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "MatchingHydrographicNetworkOptions",
       "type": "object"
     },
     "MeshCatchmentConfig": {
