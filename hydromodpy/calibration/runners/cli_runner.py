@@ -82,12 +82,23 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     a base configuration invisible here while the pipeline resolved it, so a
     calibration overlay of two lines failed on "No [calibration] section".
     """
+    from pydantic import ValidationError
+
+    from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.core.toml_io.error_locator import format_validation_error
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
     raw = load_toml_with_base_config(path)
     if "calibration" not in raw:
         raise ValueError(f"No [calibration] section in {path}")
-    cfg = CalibrationConfig.model_validate(raw["calibration"])
+    try:
+        cfg = CalibrationConfig.model_validate(raw["calibration"])
+    except ValidationError as exc:
+        # The reader of this message writes TOML and does not read Python, so it
+        # has to name the file, the line and the key rather than the model.
+        raise ConfigError(
+            format_validation_error(exc, source_path=path, loc_prefix=("calibration",))
+        ) from None
     _resolve_stream_geometry_paths(cfg, path)
     return cfg, raw
 
