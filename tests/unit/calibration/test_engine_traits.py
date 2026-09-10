@@ -228,3 +228,33 @@ class TestWhatPreflightCatches:
         )
 
         assert findings == []
+
+
+def test_a_root_search_on_the_mean_distance_is_refused(tmp_path) -> None:
+    """The bracket closes on a zero the mean's minimum does not sit on."""
+    (tmp_path / "net.gpkg").write_bytes(b"")
+    findings = _check(
+        tmp_path,
+        """
+        [calibration]
+        method = "bisection"
+
+        [calibration.parameters.K]
+        bounds = [1e-7, 1e-3]
+        transform = "log"
+        path = "flow.param.K.field.value"
+
+        [calibration.outputs.net]
+        support = "network"
+        stream_geometry_path = "PROJECT_ROOT/net.gpkg"
+
+        [[calibration.objective_blocks]]
+        name = "mean"
+        metric = "distance_mean"
+        uses_outputs = ["net"]
+        """,
+    )
+
+    message = _messages(findings)
+    assert "distance_mean" in message
+    assert "distance_gap" in message

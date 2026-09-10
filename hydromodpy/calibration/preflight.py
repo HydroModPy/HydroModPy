@@ -218,7 +218,16 @@ def _check_phases(calibration: Any) -> list[PreflightFinding]:
 
 
 _SIGNED_RESIDUAL_METRICS: frozenset[str] = frozenset({"distance_gap"})
-"""Metrics whose criterion publishes the signed residual a root search reads."""
+"""Metrics whose cost IS the absolute signed residual a root search closes on.
+
+The network criterion publishes ``J_signed`` beside every cost, so a metric that
+merely reads that output is not enough. A bisection reports as its best the
+trial whose cost is smallest, and it can only do that because ``distance_gap``
+makes the cost ``abs(J_signed)``: the two agree by construction.
+``distance_mean`` averages the two distances instead, so its minimum sits
+nowhere near the zero the bracket closed on and the reported best would be a
+different trial from the one the search converged to, silently.
+"""
 
 
 def _check_engines(calibration: Any) -> list[PreflightFinding]:
@@ -275,9 +284,11 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                 PreflightFinding(
                     "error",
                     where,
-                    f"{method!r} drives a signed residual to zero, and this search is "
-                    f"scored on {named}, which publishes none. Score it on "
-                    f"{', '.join(sorted(_SIGNED_RESIDUAL_METRICS))}.",
+                    f"{method!r} closes a bracket on a signed residual and reports the "
+                    f"trial with the smallest cost as its best, which only agree when "
+                    f"the cost IS that residual. This search is scored on {named}. "
+                    f"Score it on {', '.join(sorted(_SIGNED_RESIDUAL_METRICS))}, or "
+                    "search it with a minimiser.",
                 )
             )
         if parallel > 1 and not traits.supports_parallel:
