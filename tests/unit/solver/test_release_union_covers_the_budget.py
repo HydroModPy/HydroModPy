@@ -21,6 +21,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.solver.modflow_common.calibration_extractors import (
     ReleasePackage,
     _refuse_records_the_union_misses,
@@ -43,12 +44,12 @@ def test_a_union_that_covers_every_release_record_passes() -> None:
 
 
 def test_a_stream_record_no_package_reads_is_refused() -> None:
-    with pytest.raises(KeyError, match="SFR"):
+    with pytest.raises(ObservableNotAvailableError, match="SFR"):
         _refuse_records_the_union_misses([DRN], ["         DRN", "         SFR"])
 
 
 def test_the_message_names_what_is_missed_and_what_is_covered() -> None:
-    with pytest.raises(KeyError) as failure:
+    with pytest.raises(ObservableNotAvailableError) as failure:
         _refuse_records_the_union_misses([DRN], ["         DRN", "         LAK"])
 
     message = str(failure.value)
@@ -73,7 +74,7 @@ def test_the_comparison_ignores_the_padding_flopy_keeps() -> None:
 
 @pytest.mark.parametrize("record", ["CHD", "CONSTANT HEAD", "RIV", "UZF", "DRN-TO-MVR"])
 def test_every_declared_release_path_is_watched(record: str) -> None:
-    with pytest.raises(KeyError, match="release record"):
+    with pytest.raises(ObservableNotAvailableError, match="release record"):
         _refuse_records_the_union_misses([DRN], ["         DRN", f"         {record}"])
 
 
@@ -104,11 +105,11 @@ class TestRecordsTheModelRuledOut:
         )
 
     def test_the_same_record_with_no_reason_is_still_refused(self) -> None:
-        with pytest.raises(KeyError, match="CONSTANT HEAD"):
+        with pytest.raises(ObservableNotAvailableError, match="CONSTANT HEAD"):
             _refuse_records_the_union_misses([DRN], ["         DRN", "  CONSTANT HEAD"])
 
     def test_an_exclusion_does_not_cover_a_different_record(self) -> None:
-        with pytest.raises(KeyError, match="SFR"):
+        with pytest.raises(ObservableNotAvailableError, match="SFR"):
             _refuse_records_the_union_misses(
                 [DRN],
                 ["         DRN", "  CONSTANT HEAD", "         SFR"],
@@ -217,7 +218,7 @@ class TestSiblingBudgets:
         cbc.write_bytes(b"")
         (tmp_path / "nancon.sfr.cbc").write_bytes(b"")
 
-        with pytest.raises(KeyError, match="SFR"):
+        with pytest.raises(ObservableNotAvailableError, match="SFR"):
             _refuse_sibling_budgets_the_union_cannot_read(cbc, [DRN], ["         DRN"])
 
     def test_a_package_already_in_the_union_is_not_refused(self, tmp_path) -> None:
@@ -238,7 +239,7 @@ class TestSiblingBudgets:
         (tmp_path / "cheze.lak.cbc").write_bytes(b"")
 
         _refuse_sibling_budgets_the_union_cannot_read(cbc, [DRN], ["         DRN", "         LAK"])
-        with pytest.raises(KeyError, match="LAK"):
+        with pytest.raises(ObservableNotAvailableError, match="LAK"):
             _refuse_records_the_union_misses([DRN], ["         DRN", "         LAK"])
 
     def test_no_sibling_means_nothing_to_refuse(self, tmp_path) -> None:
@@ -252,7 +253,7 @@ class TestSiblingBudgets:
         cbc.write_bytes(b"")
         (tmp_path / "nancon.lak.cbc").write_bytes(b"")
 
-        with pytest.raises(KeyError) as failure:
+        with pytest.raises(ObservableNotAvailableError) as failure:
             _refuse_sibling_budgets_the_union_cannot_read(cbc, [DRN], ["         DRN"])
 
         assert "dry land" in str(failure.value)
@@ -358,7 +359,7 @@ class TestTheStreamExchangeOnTheCellSupport:
         directory.mkdir()
         _write_budget(directory, "nancon", {"DRN": [(1, 1, -1.0)], "SFR": [(4, 1, -2.0)]})
 
-        with pytest.raises(KeyError, match="release record"):
+        with pytest.raises(ObservableNotAvailableError, match="release record"):
             extract_release_flux_by_cell_from_cbc(
                 directory, "nancon", packages=[DRN], n_cells=_N_CELLS
             )

@@ -18,6 +18,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.contracts.observables import ObservableRequest
+from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.solver.modflow_common import calibration_extractors as extractors
 from hydromodpy.solver.modflow_common.observable_extraction import (
     extract_common_modflow_observables,
@@ -204,12 +205,12 @@ def test_release_flux_counts_only_the_stream_role_chd(tmp_path: Path) -> None:
 def test_release_flux_refuses_a_declared_package_with_no_budget_record(tmp_path: Path) -> None:
     write_cbc(tmp_path, "model", [{"DRN": [(1, -2.0)]}])
 
-    with pytest.raises(KeyError, match="SFR"):
+    with pytest.raises(ObservableNotAvailableError, match="SFR"):
         release_frame(tmp_path, fake_model(drn=True, sfr=True))
 
 
 def test_release_packages_refuses_a_model_with_no_release_package() -> None:
-    with pytest.raises(RuntimeError, match="release"):
+    with pytest.raises(ObservableNotAvailableError, match="release"):
         release_packages_for_model(fake_model(chd=True))
 
 

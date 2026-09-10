@@ -122,11 +122,11 @@ class TestExtractor:
 
     def test_unknown_lake_raises_keyerror(self, tmp_path: Path):
         _write_lake_outputs(tmp_path, "m")
-        with pytest.raises(KeyError, match="other_lake"):
+        with pytest.raises(ObservableNotAvailableError, match="other_lake"):
             extract_lake_series(tmp_path, "m", lake_id="other_lake")
 
     def test_missing_sidecar_raises(self, tmp_path: Path):
-        with pytest.raises(FileNotFoundError, match="sidecar"):
+        with pytest.raises(ObservableNotAvailableError, match="sidecar"):
             extract_lake_series(tmp_path, "m", lake_id="lac0")
 
     def test_unsupported_quantity_raises(self, tmp_path: Path):

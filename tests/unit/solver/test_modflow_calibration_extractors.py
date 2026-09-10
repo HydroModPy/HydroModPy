@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.solver.modflow_common import calibration_extractors as extractors
 
 
@@ -82,7 +83,7 @@ def test_extract_saturated_thickness_validates_the_bounds(tmp_path, monkeypatch)
 
 
 def test_extract_saturated_thickness_needs_the_head_file(tmp_path):
-    with pytest.raises(FileNotFoundError, match="HDS file not found"):
+    with pytest.raises(ObservableNotAvailableError, match="HDS file not found"):
         extractors.extract_saturated_thickness_by_cell_from_hds(
             tmp_path, "model", top=np.zeros(3), bottom=np.zeros(3)
         )
