@@ -66,6 +66,7 @@ from hydromodpy.calibration.runners.trial import (
     prepare_trials,
 )
 from hydromodpy.core.exceptions import ObjectiveError
+from hydromodpy.core.interrupts import TerminationRequested, terminate_as_interrupt
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
@@ -591,7 +592,12 @@ def run_calibration_core(
         # only; promotion below replays a single run and stays in-process. The
         # switch is backend-neutral on purpose: this path runs for every solver,
         # so importing it must not cost a backend.
-        with api_isolation_context(use_api_isolation):
+        #
+        # A calibration is hours long, so what ends it is often not a keyboard:
+        # a scheduler time limit, a container stop, a plain kill. All of those
+        # are SIGTERM, which by default ends the process where it stands and
+        # leaves this session 'running' in the index for good.
+        with terminate_as_interrupt(), api_isolation_context(use_api_isolation):
             session = engine.run()
         best = session.best
 
@@ -628,6 +634,10 @@ def run_calibration_core(
         if promotion_failures:
             final_status = "partial" if promotion_count > 0 else "failed"
             final_error = "; ".join(promotion_failures)
+    except TerminationRequested:
+        final_status = "aborted"
+        final_error = "SIGTERM"
+        raise
     except KeyboardInterrupt:
         final_status = "aborted"
         final_error = "SIGINT"
