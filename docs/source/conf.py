@@ -488,7 +488,10 @@ language = "en"
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path .
-exclude_patterns = ["user_guide/figures_inventory.partial.rst"]
+exclude_patterns = [
+    "user_guide/figures_inventory.partial.rst",
+    "architecture/layer-matrix.partial.rst",
+]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
@@ -648,6 +651,20 @@ def _regenerate_config_reference(app) -> None:
     generate_all()
 
 
+def _regenerate_contract_tables(app) -> None:
+    """Regenerate the documentation tables owned by a declared contract.
+
+    Same contract as _regenerate_config_reference. Escape hatch:
+    ``HMP_SKIP_CONTRACT_TABLES_GEN=1``.
+    """
+    if os.environ.get("HMP_SKIP_CONTRACT_TABLES_GEN") == "1":
+        _logger.info("[doc_contracts] regeneration skipped (HMP_SKIP_CONTRACT_TABLES_GEN=1)")
+        return
+    from tools.doc_contracts import generate_all
+
+    generate_all()
+
+
 def _regenerate_figures_inventory(app) -> None:
     """Regenerate the figures inventory included by user_guide/figures.rst.
 
@@ -676,6 +693,7 @@ def setup(app):
         app.add_directive("uml", _MissingPlantUMLDirective, override=True)
         app.add_directive("plantuml", _MissingPlantUMLDirective, override=True)
     app.connect("builder-inited", _regenerate_config_reference)
+    app.connect("builder-inited", _regenerate_contract_tables)
     app.connect("builder-inited", _regenerate_figures_inventory)
     app.connect("build-finished", _ensure_doctree_dir_for_late_extension_caches, priority=0)
     return {
