@@ -79,7 +79,13 @@ Non-goals
 - no temporal stress-period formatting in this module.
 """
 
-from hydromodpy.core.units import convert_payload_to_m_per_s, normalize_m_per_s_unit
+from numbers import Real
+
+from hydromodpy.core.units import (
+    convert_payload_to_m_per_s,
+    convert_to_m_per_s,
+    normalize_m_per_s_unit,
+)
 from hydromodpy.core.units.volumetric_flow import (
     convert_to_m3_per_s,
     normalize_m3_per_s_unit,
@@ -100,6 +106,30 @@ from hydromodpy.physics.flow.sinks_sources import (
     FlowRechargeConfig,
     FlowSinksSourcesConfig,
 )
+
+
+def _flux_payload_update(
+    payload: object,
+    *,
+    values_si: object,
+    canonical_units: str,
+    location_prefix: str,
+) -> dict[str, object]:
+    """Return the SI update for a flux payload, first period included.
+
+    ``first_clim`` overrides one entry of ``values``, so a numeric override is
+    written in the payload unit and has to follow it into m/s. The two keywords
+    name a statistic of the converted series and stay as they are.
+    """
+    update: dict[str, object] = {"values": values_si, "units": "m/s"}
+    first_clim = getattr(payload, "first_clim", "mean")
+    if isinstance(first_clim, Real) and not isinstance(first_clim, bool):
+        update["first_clim"] = convert_to_m_per_s(
+            first_clim,
+            unit=canonical_units,
+            label=f"{location_prefix}.first_clim",
+        )
+    return update
 
 
 class Flow(ProcessSpatial):
@@ -511,7 +541,14 @@ class Flow(ProcessSpatial):
             unit=canonical_units,
             label=f"{location_prefix}.values",
         )
-        return recharge.model_copy(update={"values": values_si, "units": "m/s"})
+        return recharge.model_copy(
+            update=_flux_payload_update(
+                recharge,
+                values_si=values_si,
+                canonical_units=canonical_units,
+                location_prefix=location_prefix,
+            )
+        )
 
     def set_recharge(self, recharge: FlowRechargeConfig | None) -> None:
         """
@@ -552,7 +589,14 @@ class Flow(ProcessSpatial):
             unit=canonical_units,
             label=f"{location_prefix}.values",
         )
-        return etp.model_copy(update={"values": values_si, "units": "m/s"})
+        return etp.model_copy(
+            update=_flux_payload_update(
+                etp,
+                values_si=values_si,
+                canonical_units=canonical_units,
+                location_prefix=location_prefix,
+            )
+        )
 
     def set_etp(self, etp: FlowEtpConfig | None) -> None:
         """Inject or replace the ETP payload at runtime."""
