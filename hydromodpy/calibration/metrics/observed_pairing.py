@@ -102,12 +102,17 @@ def pair_outputs_with_observations(
     observed: Mapping[str, pd.Series],
     simulated: Mapping[str, pd.Series],
     scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
+    min_samples: int = 1,
 ) -> PairedOutputs:
     """Align each observed record on its simulated series and return both.
 
     ``scoring_window`` bounds the dates kept. It is applicable here and nowhere
     else in the block route: these series carry timestamps, which is exactly
     what a window needs to cut on.
+
+    ``min_samples`` is the fewest pairs a member may be scored on. An overlap
+    that collapses to three days still produces a number, and a weight of 65 per
+    cent resting on three days is not what the file says it is.
     """
     paired_observed: dict[str, list[float]] = {}
     paired_simulated: dict[str, list[float]] = {}
@@ -137,6 +142,13 @@ def pair_outputs_with_observations(
             raise ValueError(
                 f"output {name!r} and the record it observes share no timestamp{window}: "
                 f"the record runs {_span(record)} and the run {_span(series)}."
+            )
+        if len(frame) < int(min_samples):
+            raise ValueError(
+                f"output {name!r} and the record it observes share {len(frame)} dated "
+                f"sample(s), fewer than the {int(min_samples)} "
+                "[calibration.aggregate].min_samples asks for. A cost on that few is "
+                "not the cost the weights describe."
             )
         paired_observed[name] = [float(value) for value in frame["obs"]]
         paired_simulated[name] = [float(value) for value in frame["sim"]]

@@ -757,6 +757,65 @@ class CalibPhaseDecl(HydroModelBase):
         return self.variable is not None or self.objective is not None
 
 
+class CalibAggregateDecl(HydroModelBase):
+    """How several scored targets become one cost.
+
+    Two questions the word "weight" runs together. Whether an error is large for
+    what the instrument can resolve is a property of the measurement, not a
+    decision. What matters more between the outlet and the reservoir is a
+    decision, and the modeller's. The cost is the product of both, never one of
+    them, and this section names which recipe made them addable.
+
+    The literature offers two named recipes and states they are incompatible: one
+    over sigma, which makes each residual dimensionless and statistically
+    defensible, and an equal share of the initial objective, which guarantees no
+    data type is invisible to the search. There is no third to invent, only a
+    choice to name and to record.
+    """
+
+    weighting: Annotated[Literal["manual", "error"], Profile.USER] = Field(
+        default="manual",
+        description=(
+            "How the members are made comparable before the weights apply. "
+            "'manual' takes the declared 'weight' of each block as the whole story, "
+            "which is honest as long as the costs are already commensurable. "
+            "'error' divides each residual by what its instrument resolves, so the "
+            "members become pure numbers first; it needs a residual criterion and an "
+            "observation carrying an error model, and is refused without both."
+        ),
+    )
+    nested_gauges: Annotated[Literal["total", "incremental"], Profile.USER] = Field(
+        default="total",
+        description=(
+            "How two gauges on imbricated catchments are read. 'total' scores each "
+            "against its own full drained area, which is what a gauge measures; the "
+            "residuals are then statistically dependent, and no standard correction "
+            "exists for that. 'incremental' scores the downstream one on what its own "
+            "reach adds, downstream minus upstream, which is the only mechanisable way "
+            "to make the two independent. Neither is inferred: the overlap is measured "
+            "and reported whichever is chosen."
+        ),
+    )
+    min_samples: Annotated[int, Profile.USER] = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Fewest paired samples a member may be scored on. An alignment that "
+            "collapses to three days still returns a number, and a weight of 65 per "
+            "cent resting on three days is not what the file says it is."
+        ),
+    )
+    on_member_failure: Annotated[Literal["veto", "drop"], Profile.USER] = Field(
+        default="veto",
+        description=(
+            "What one unscorable member does to the total. 'veto' makes the whole "
+            "trial fail, which is the default because a partial cost is not "
+            "comparable to a full one. 'drop' scores the survivors and records which "
+            "member was left out, which has to be asked for explicitly."
+        ),
+    )
+
+
 class CalibUncertaintyDecl(HydroModelBase):
     """How wide the search says its own answer is.
 
@@ -963,6 +1022,11 @@ class CalibrationConfig(HydroModelBase):
         description="Directory for per-candidate overlay TOMLs. "
         "Required when materialize_candidates is True.",
     )
+    aggregate: Annotated[CalibAggregateDecl, Profile.USER] = Field(
+        default_factory=CalibAggregateDecl,
+        description="How several scored targets become one cost: what made them "
+        "comparable, how nested gauges are read, and what one unscorable member does.",
+    )
     uncertainty: Annotated[CalibUncertaintyDecl, Profile.USER] = Field(
         default_factory=CalibUncertaintyDecl,
         description="How wide the search reports its own answer to be. The calibrated "
@@ -973,6 +1037,43 @@ class CalibrationConfig(HydroModelBase):
         description="Single switch governing every persistence sink "
         "(catalog, Zarr, Parquet, lockfile) for calibration outputs.",
     )
+
+    @model_validator(mode="after")
+    def _check_the_error_weighting_has_something_to_divide_by(self) -> CalibrationConfig:
+        """Refuse ``weighting = "error"`` where there is no residual, or no sigma.
+
+        One over sigma divides a residual by what its instrument resolves. An
+        efficiency score is not a residual: it is an aggregate already without a
+        unit, so there is nothing to divide. And sigma comes from an observation,
+        which means a loaded record: a vector typed into the file carries no error
+        model and never will.
+        """
+        if self.aggregate.weighting != "error":
+            return self
+        from hydromodpy.calibration.criteria import criterion_for
+
+        for block in self.objective_blocks:
+            try:
+                needs = criterion_for(str(block.metric)).requirements()
+            except ValueError:
+                continue
+            if needs.cost_is_dimensionless:
+                raise ValueError(
+                    f'[calibration.aggregate].weighting = "error" divides a residual by '
+                    f"what its instrument resolves, and block {block.name!r} is scored on "
+                    f"{block.metric!r}, an aggregate that is already a pure number. Score "
+                    'it on a residual metric, or set weighting = "manual" and say the '
+                    "shares in 'weight'."
+                )
+        if self.outputs and not any(
+            getattr(decl, "observes", None) for decl in self.outputs.values()
+        ):
+            raise ValueError(
+                '[calibration.aggregate].weighting = "error" needs an error model, which '
+                "comes from a loaded record: name a station in an output's 'observes'. A "
+                "vector written as 'observed_values' carries none."
+            )
+        return self
 
     @model_validator(mode="after")
     def _check_the_costs_can_be_added(self) -> CalibrationConfig:

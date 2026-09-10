@@ -232,6 +232,35 @@ when it has to:
    mode = "absolute"
    tolerance = 25.0        # metres of network offset
 
+**How the members were made addable.** ``[calibration.aggregate]`` names it
+rather than leaving it implicit:
+
+.. code-block:: toml
+
+   [calibration.aggregate]
+   weighting = "manual"        # or "error": one over sigma
+   nested_gauges = "total"     # or "incremental" on imbricated catchments
+   min_samples = 30            # refuse a member scored on fewer pairs
+   on_member_failure = "veto"  # or "drop", which records what was left out
+
+Two questions the word "weight" runs together. Whether an error is large *for
+what the instrument can resolve* is a property of the measurement, not a
+decision. What matters more between the outlet and the reservoir is a decision,
+and yours. The cost is the product of both.
+
+``weighting = "error"`` divides each residual by what its gauge resolves, so the
+members become pure numbers before the weights apply. It needs a residual metric
+and a loaded record carrying an error model, and is refused without both: an
+efficiency score has no residual to divide, and a vector typed into the file
+carries no sigma.
+
+``nested_gauges`` matters when two gauges sit on imbricated catchments. Nothing
+is double counted, but the residuals are statistically dependent and no standard
+correction exists. ``"total"`` scores each gauge against its own full drained
+area, which is what a gauge measures; ``"incremental"`` scores the downstream one
+on what its own reach adds, which is the only mechanisable way to make the two
+independent. The overlap is measured and reported either way.
+
 **Whether two parameters were told apart.** ``correlated_parameters`` lists the
 pairs that moved together across the whole search to hold the same cost. Such a
 pair was not identified: the search stopped somewhere on a ridge and reported

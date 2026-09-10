@@ -443,6 +443,7 @@ def run_calibration_core(
                 warmup_periods=int(cfg.warmup_periods),
                 scoring_window=scoring_window_bounds(cfg.scoring_window),
                 observed_station_id=cfg.observed_station_id,
+                min_samples=int(cfg.aggregate.min_samples),
             )
 
     use_api_isolation = _api_isolation_needed(cfg.parallel)
