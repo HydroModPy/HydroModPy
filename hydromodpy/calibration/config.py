@@ -144,7 +144,38 @@ class CalibParameterDecl(HydroModelBase):
         return self.target if self.target is not None else self.path
 
 
-class CalibOutputPoint(HydroModelBase):
+class ScoresAnObservedRecord:
+    """Shared observation surface for the outputs that carry a time axis.
+
+    An output says what it is compared against in one of two ways, never both:
+    ``observes`` names a station whose loaded record is aligned on the simulated
+    timestamps, and ``observed_values`` is a positional vector written into the
+    file. A network output inherits neither: its criterion balances two
+    simulated quantities and has no record to fit.
+    """
+
+    observes: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Station whose loaded record this output is scored against. The "
+        "record is aligned on the simulated timestamps, so a weighted block scores "
+        "dated observations rather than a vector typed into the file. The data family "
+        "follows 'variable': discharge from hydrometry, head from piezometry, stage "
+        "from lake_levels. Mutually exclusive with 'observed_values'.",
+    )
+
+    @model_validator(mode="after")
+    def _check_one_source_of_observations(self):
+        if self.observes is not None and self.observed_values is not None:
+            raise ValueError(
+                f"an output declares both observes={self.observes!r} and "
+                "observed_values; they are two answers to one question. Keep 'observes' "
+                "to score the loaded record, or 'observed_values' to score the vector "
+                "written here."
+            )
+        return self
+
+
+class CalibOutputPoint(ScoresAnObservedRecord, HydroModelBase):
     """Observable extracted at a planar ``(x, y)`` point.
 
     Use this variant for piezometric heads sampled at a single coordinate.
@@ -181,7 +212,8 @@ class CalibOutputPoint(HydroModelBase):
     )
     observed_values: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
-        description="Hard-coded observed values (used by twin-synthetic cases).",
+        description="Hard-coded observed values, positional and dateless. Name a "
+        "station in 'observes' to score a record the project loaded instead.",
     )
 
     @model_validator(mode="after")
@@ -191,7 +223,7 @@ class CalibOutputPoint(HydroModelBase):
         return self
 
 
-class CalibOutputBoundary(HydroModelBase):
+class CalibOutputBoundary(ScoresAnObservedRecord, HydroModelBase):
     """Observable extracted from a boundary package.
 
     Use this variant for fluxes integrated over a named boundary
@@ -219,11 +251,12 @@ class CalibOutputBoundary(HydroModelBase):
     )
     observed_values: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
-        description="Hard-coded observed values (used by twin-synthetic cases).",
+        description="Hard-coded observed values, positional and dateless. Name a "
+        "station in 'observes' to score a record the project loaded instead.",
     )
 
 
-class CalibOutputCell(HydroModelBase):
+class CalibOutputCell(ScoresAnObservedRecord, HydroModelBase):
     """Observable extracted at one structured cell.
 
     Use this variant for explicit ``(row, col)`` selectors on a structured
@@ -265,7 +298,8 @@ class CalibOutputCell(HydroModelBase):
     )
     observed_values: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
-        description="Hard-coded observed values (used by twin-synthetic cases).",
+        description="Hard-coded observed values, positional and dateless. Name a "
+        "station in 'observes' to score a record the project loaded instead.",
     )
 
     @model_validator(mode="after")
@@ -275,7 +309,7 @@ class CalibOutputCell(HydroModelBase):
         return self
 
 
-class CalibOutputLake(HydroModelBase):
+class CalibOutputLake(ScoresAnObservedRecord, HydroModelBase):
     """Observable extracted from a MODFLOW 6 LAK lake state.
 
     Use this variant to score a lake water level, stored volume or free surface
@@ -315,7 +349,8 @@ class CalibOutputLake(HydroModelBase):
     )
     observed_values: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
-        description="Hard-coded observed values (used by twin-synthetic cases).",
+        description="Hard-coded observed values, positional and dateless. Name a "
+        "station in 'observes' to score a record the project loaded instead.",
     )
 
 

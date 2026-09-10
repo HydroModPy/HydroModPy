@@ -8,6 +8,7 @@ mapping helpers that locate observation stations on a structured grid.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -17,7 +18,7 @@ from hydromodpy.calibration.metrics.downslope_network import (
     DISTANCE_METHOD,
     seepage_distance_cost,
 )
-from hydromodpy.calibration.metrics.series import ObservedSeries
+from hydromodpy.calibration.metrics.series import ObservedSeries, resolve_time_index
 from hydromodpy.calibration.observations.network_geometry import geometry_from_run
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
@@ -319,9 +320,24 @@ def score_network_output(
     return pair, diagnostics
 
 
-def extract_outputs(
-    ctx: Any, outputs: Mapping[str, CalibOutputDecl]
-) -> tuple[dict[str, list[float]], dict[str, float]]:
+@dataclass(frozen=True)
+class ExtractedOutputs:
+    """What one batch of output extraction produced.
+
+    ``values`` holds the scored vector of every output, after its time selector
+    and reducer. ``series`` holds the same values still carrying their
+    timestamps, for the outputs the run could date; an output scored against a
+    loaded record needs those to align on, and one that reduces to a scalar has
+    none. ``diagnostics`` carries what the network criterion emits beside its
+    cost.
+    """
+
+    values: dict[str, list[float]]
+    series: dict[str, pd.Series]
+    diagnostics: dict[str, float]
+
+
+def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> ExtractedOutputs:
     """Ask the flow adapter for every declared output, in one batch.
 
     One adapter resolution and one call per trial, whatever the number of
@@ -347,9 +363,15 @@ def extract_outputs(
                 f"Output {name!r} extraction failed: {type(exc).__name__}: {exc}"
             ) from exc
 
-    results = adapter.extract_observables(run_ctx, None, requests, time_index=None)
+    # The time grid is passed so a dated output comes back dated. An output
+    # scored against a loaded record has to align on those timestamps, and the
+    # ones scored positionally read the values and ignore the index.
+    results = adapter.extract_observables(
+        run_ctx, None, requests, time_index=resolve_time_index(ctx, n_timesteps=0)
+    )
 
     simulated: dict[str, list[float]] = {}
+    series: dict[str, pd.Series] = {}
     diagnostics: dict[str, float] = {}
     for name, output in outputs.items():
         result = results.get(name)
@@ -358,9 +380,24 @@ def extract_outputs(
         if output.support == "network":
             simulated[name], scored = score_network_output(run_ctx, name, output, result)
             diagnostics.update(scored)
-        else:
-            simulated[name] = slice_time(result.values, output.time, output.reducer)
-    return simulated, diagnostics
+            continue
+        simulated[name] = slice_time(result.values, output.time, output.reducer)
+        dated = _dated_series(result)
+        if dated is not None:
+            series[name] = dated
+    return ExtractedOutputs(values=simulated, series=series, diagnostics=diagnostics)
+
+
+def _dated_series(result: Any) -> pd.Series | None:
+    """Return the result as a timestamped series, or ``None`` when it is not one."""
+    times = getattr(result, "times", None)
+    if times is None:
+        return None
+    values = np.asarray(result.values, dtype=float).ravel()
+    index = pd.DatetimeIndex(times)
+    if values.size == 0 or len(index) != values.size:
+        return None
+    return pd.Series(values, index=index)
 
 
 # ---------------------------------------------------------------------------
@@ -529,6 +566,7 @@ def _find_cell_in_modflow_grid(
 
 
 __all__ = [
+    "ExtractedOutputs",
     "extract_outputs",
     "score_network_output",
     "find_cell_at_point",

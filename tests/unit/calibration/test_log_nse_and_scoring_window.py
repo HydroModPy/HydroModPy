@@ -18,6 +18,7 @@ from hydromodpy.calibration.config import (
 from hydromodpy.calibration.metrics import composite
 from hydromodpy.calibration.metrics.composite import build_metric_extractor
 from hydromodpy.calibration.metrics.scalar import score
+from hydromodpy.calibration.metrics.solver_extract import ExtractedOutputs
 from hydromodpy.calibration.optim.objective import (
     HIGHER_IS_BETTER,
     METRICS,
@@ -239,7 +240,11 @@ class TestBlockRouteBurnIn:
         # objective_blocks were used and the spin-up was scored anyway.
         cfg = self._config()
         monkeypatch.setattr(
-            composite, "extract_outputs", lambda ctx, outputs: ({"q": [0.0, 0.0, 1.0, 1.0]}, {})
+            composite,
+            "extract_outputs",
+            lambda ctx, outputs: ExtractedOutputs(
+                values={"q": [0.0, 0.0, 1.0, 1.0]}, series={}, diagnostics={}
+            ),
         )
         metric_fn = build_metric_extractor(
             None,
@@ -256,7 +261,11 @@ class TestBlockRouteBurnIn:
     def test_without_it_the_spin_up_is_scored(self, monkeypatch) -> None:
         cfg = self._config()
         monkeypatch.setattr(
-            composite, "extract_outputs", lambda ctx, outputs: ({"q": [0.0, 0.0, 1.0, 1.0]}, {})
+            composite,
+            "extract_outputs",
+            lambda ctx, outputs: ExtractedOutputs(
+                values={"q": [0.0, 0.0, 1.0, 1.0]}, series={}, diagnostics={}
+            ),
         )
         metric_fn = build_metric_extractor(
             None,

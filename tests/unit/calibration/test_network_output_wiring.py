@@ -245,7 +245,8 @@ def _extract(monkeypatch, bench, stream_file, threshold, units="m3 s-1", **overr
     run_ctx = _fake_run_ctx(bench)
     monkeypatch.setattr(_solver_extract, "resolve_flow_adapter", lambda ctx: (adapter, run_ctx))
     outputs = {"net": _network_output(stream_file, **overrides)}
-    return extract_outputs(run_ctx, outputs)
+    extracted = extract_outputs(run_ctx, outputs)
+    return extracted.values, extracted.diagnostics
 
 
 class TestEndToEnd:

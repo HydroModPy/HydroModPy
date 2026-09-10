@@ -568,7 +568,11 @@ class ConfigBlockObjective:
         return ObjectiveValue(total=float(transformed), components=components)
 
 
-def build_objective_from_config(cfg: Any) -> Objective:
+def build_objective_from_config(
+    cfg: Any,
+    *,
+    observed_by_output: Mapping[str, Iterable[float]] | None = None,
+) -> Objective:
     """Assemble an :class:`Objective` from a :class:`CalibrationConfig`.
 
     Each ``objective_block`` becomes one :class:`ConfigBlockObjective`
@@ -578,6 +582,13 @@ def build_objective_from_config(cfg: Any) -> Objective:
 
     A block that inherits a burn-in while consuming an output with no time
     axis is refused here, by name, rather than scored on a truncated vector.
+
+    ``observed_by_output`` supplies the observed vector of an output that names
+    a station rather than typing its values: the record is only known once it
+    has been aligned on a trial's simulated timestamps, so it arrives here
+    instead of being read off the declaration. What it names wins over
+    ``observed_values``; every other output is read from its declaration as
+    before.
     """
     blocks = getattr(cfg, "objective_blocks", None) or []
     outputs = getattr(cfg, "outputs", None) or {}
@@ -586,14 +597,16 @@ def build_objective_from_config(cfg: Any) -> Objective:
             "cfg.objective_blocks is empty; declare [[calibration.objective_blocks]] "
             "or populate cfg.outputs so the implicit block can be synthesised."
         )
-    observed_by_output: dict[str, tuple[float, ...]] = {}
+    declared_observed: dict[str, tuple[float, ...]] = {}
     timeless_outputs: set[str] = set()
     for output_name, decl in outputs.items():
         values = getattr(decl, "observed_values", None)
         if values is not None:
-            observed_by_output[str(output_name)] = tuple(float(v) for v in values)
+            declared_observed[str(output_name)] = tuple(float(v) for v in values)
         if getattr(decl, "support", None) in TIMELESS_SUPPORTS:
             timeless_outputs.add(str(output_name))
+    for output_name, values in (observed_by_output or {}).items():
+        declared_observed[str(output_name)] = tuple(float(v) for v in values)
     # Burn-in periods excluded from every block's metric (spin-up window). A block
     # overrides the calibration-wide default with its own ``warmup``; the test is on
     # ``is None`` and not on truthiness, otherwise ``warmup = 0`` would fall back to
@@ -613,7 +626,7 @@ def build_objective_from_config(cfg: Any) -> Objective:
                 name=name,
                 metric=metric,
                 uses_outputs=uses_outputs,
-                observed_by_output=observed_by_output,
+                observed_by_output=declared_observed,
                 normalize_cost=normalize_cost,
                 transform=transform,
                 warmup=warmup,

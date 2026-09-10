@@ -76,9 +76,11 @@ def resolve_time_index(ctx: Any, n_timesteps: int = 0) -> pd.DatetimeIndex | Non
 
     Returns the stress-period end timestamps. ``n_timesteps > 0`` truncates the
     index. ``None`` is returned when boundaries are not available so callers
-    fall back to a positional series.
+    fall back to a positional series. A context carrying no ``setup`` at all is
+    one of those cases: it says there is no time grid to read, which is the same
+    answer as an empty one.
     """
-    time_grid = getattr(ctx.setup, "time_grid", None)
+    time_grid = getattr(getattr(ctx, "setup", None), "time_grid", None)
     if time_grid is None:
         return None
     boundaries = getattr(time_grid, "boundaries", None)

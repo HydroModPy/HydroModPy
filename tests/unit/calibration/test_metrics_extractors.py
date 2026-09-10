@@ -232,7 +232,8 @@ class TestHelpers:
             ),
         }
 
-        simulated, diagnostics = _extract_outputs(_empty_ctx(), outputs)
+        extracted = _extract_outputs(_empty_ctx(), outputs)
+        simulated, diagnostics = extracted.values, extracted.diagnostics
 
         # Two outputs, one adapter call: that is what the batch buys.
         assert seen["n_calls"] == 1
