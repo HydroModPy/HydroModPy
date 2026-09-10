@@ -24,6 +24,7 @@ from hydromodpy.core.contracts.observables import (
     ObservableResult,
     require_unique_request_ids,
 )
+from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.solver.base.observables import (
     field_observable,
     scalar_observable,
@@ -68,7 +69,7 @@ def resolve_run_output(ctx: Any, *, name_attributes: Sequence[str]) -> tuple[Pat
     output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
     model = ctx.state.execution.models_by_run_id.get(ctx.run.id)
     if output_dir is None or model is None:
-        raise RuntimeError(f"No solver output recorded for run {ctx.run.id!r}")
+        raise ObservableNotAvailableError(f"No solver output recorded for run {ctx.run.id!r}")
     model_name = next(
         (
             value
@@ -78,7 +79,7 @@ def resolve_run_output(ctx: Any, *, name_attributes: Sequence[str]) -> tuple[Pat
         None,
     )
     if model_name is None:
-        raise RuntimeError(f"Model name is missing for run {ctx.run.id!r}")
+        raise ObservableNotAvailableError(f"Model name is missing for run {ctx.run.id!r}")
     return Path(output_dir), model, str(model_name)
 
 
@@ -145,7 +146,7 @@ def release_packages_for_model(model: Any) -> list[ReleasePackage]:
             )
         )
     if not packages:
-        raise RuntimeError(
+        raise ObservableNotAvailableError(
             "release_flux needs a package that releases groundwater to the surface, and "
             "this run declares no DRN, no SFR, no LAK and no stream-role CHD."
         )
@@ -203,7 +204,7 @@ def _aquifer_bounds(model: Any) -> tuple[np.ndarray, np.ndarray]:
     """Return the top and the base of the aquifer, one value per cell."""
     mesh = getattr(model, "solver_mesh", None)
     if mesh is None:
-        raise RuntimeError("saturated_thickness needs a solver mesh on the run model.")
+        raise ObservableNotAvailableError("saturated_thickness needs a solver mesh on the run model.")
     top = np.asarray(mesh.top, dtype=float).reshape(-1)
     botm = np.asarray(mesh.botm, dtype=float)
     if botm.ndim == 1:
@@ -284,7 +285,7 @@ def extract_common_modflow_observables(
             try:
                 series = series_by_station[request.id]
             except KeyError as exc:
-                raise KeyError(f"No head series extracted for station {request.id!r}") from exc
+                raise ObservableNotAvailableError(f"No head series extracted for station {request.id!r}") from exc
             served[request.id] = series_observable(request, series, units=_HEAD_UNITS)
 
     if area_requests:

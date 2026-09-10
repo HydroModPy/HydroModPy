@@ -5,11 +5,11 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from hydromodpy.solver.modflow6.modflow6_config import Modflow6RuntimeConfig
-from hydromodpy.solver.modflow6.run import (
-    _API_ISOLATION_DEFAULT_TIMEOUT_S,
-    _api_isolation_timeout_s,
+from hydromodpy.solver.base.api_isolation import (
+    API_ISOLATION_DEFAULT_TIMEOUT_S,
+    api_isolation_timeout_s,
 )
+from hydromodpy.solver.modflow6.modflow6_config import Modflow6RuntimeConfig
 
 
 def _model(runtime: Modflow6RuntimeConfig) -> SimpleNamespace:
@@ -19,18 +19,18 @@ def _model(runtime: Modflow6RuntimeConfig) -> SimpleNamespace:
 
 
 def test_default_timeout_when_no_override() -> None:
-    assert _api_isolation_timeout_s(_model(Modflow6RuntimeConfig())) == (
-        _API_ISOLATION_DEFAULT_TIMEOUT_S
+    assert api_isolation_timeout_s(_model(Modflow6RuntimeConfig())) == (
+        API_ISOLATION_DEFAULT_TIMEOUT_S
     )
 
 
 def test_missing_runtime_uses_default() -> None:
-    assert _api_isolation_timeout_s(SimpleNamespace()) == _API_ISOLATION_DEFAULT_TIMEOUT_S
+    assert api_isolation_timeout_s(SimpleNamespace()) == API_ISOLATION_DEFAULT_TIMEOUT_S
 
 
 def test_positive_override_is_honored() -> None:
     runtime = Modflow6RuntimeConfig(mf6_api_timeout_s=600.0)
-    assert _api_isolation_timeout_s(_model(runtime)) == 600.0
+    assert api_isolation_timeout_s(_model(runtime)) == 600.0
 
 
 def test_field_survives_extra_forbid() -> None:

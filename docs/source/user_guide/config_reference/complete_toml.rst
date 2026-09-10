@@ -376,7 +376,7 @@ Sub-models are linked back to their per-section page.
       output_dir = "figures"
       # DPI used when saving raster figures.
       dpi = 150
-      # Default sequential colormap for spatial figures.
+      # Force ONE colormap onto every spatial figure. Writing it at all is the decision, not the value: each figure otherwise picks a scale suited to what it shows, reversed for a depth, diverging for a difference, discrete for an indicator, and this replaces all of them. Writing the default spelled out is therefore NOT a no-op, unlike everywhere else. Leave it out unless one scale for everything is what you want.
       cmap = "viridis"
       # Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp viz gallery`). Every name must exist in the figure registry; list them with `hmp viz list`. A figure whose requirements the run does not meet is skipped with an explicit reason. Empty list disables auto-rendering. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.
       # figures = ...  # uses factory default
@@ -409,7 +409,7 @@ Sub-models are linked back to their per-section page.
       # output_dir = ...  # default = None
       # Which variables to include in exports.
       # variables = ...  # uses factory default
-      # Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps.
+      # Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps. A vtu, a geotiff and a shapefile hold ONE timestep per file, so a selector naming several collapses to the last for them and the run says so; only the NetCDF export carries the whole selection.
       times = "last"
       # GeoTIFF pixel size in CRS units for toggle exports. Auto-derived from the grid when omitted.
       # resolution = ...  # default = None
@@ -473,9 +473,11 @@ Sub-models are linked back to their per-section page.
       [overview]
       # Watershed name.
       name = ""
-      # Global start date (YYYY-MM-DD).
+      # Start of the overview window (ISO date, e.g. '2019-01-01'). Overview mode has no [simulation.time], so this is the date declaration every [data.<type>] section without a window of its own inherits. Must be declared together with date_end.
+      # example: date_start = "2019-01-01"
       # date_start = ...  # default = None
-      # Global end date (YYYY-MM-DD).
+      # End of the overview window (ISO date, e.g. '2025-12-31'). Overview mode has no [simulation.time], so this is the date declaration every [data.<type>] section without a window of its own inherits. Must be declared together with date_start.
+      # example: date_end = "2025-12-31"
       # date_end = ...  # default = None
       # Label used for the regional location figure.
       # regional_context_label = ...  # default = None
@@ -578,7 +580,7 @@ Sub-models are linked back to their per-section page.
       use_cache = true
       # Skip Parquet/Zarr writes for lumped models (GR4J, ...) and read simulated series from the per-trial RAM cache instead. Only the promoted runs go through the catalog write path.
       lightweight_extraction = true
-      # Metric key used by the default ScalarObjective.
+      # Metric scoring the single simulated series, when no objective block is declared. Same vocabulary as a block's 'metric'; typed here so a bad value is reported against the key that was written.
       objective = "nse"
       # Observed variable (for ObservationSet).
       variable = "head"
@@ -708,10 +710,10 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [hydrometry]
-      # Project start date (ISO format, e.g. '2019-01-01').
+      # Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than the simulation, typically a cache shared by several runs. Must be declared together with date_end.
       # example: date_start = "2019-01-01"
       # date_start = ...  # default = None
-      # Project end date (ISO format, e.g. '2025-12-31').
+      # End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the simulation, typically a cache shared by several runs. Must be declared together with date_start.
       # example: date_end = "2025-12-31"
       # date_end = ...  # default = None
       # At least one data source.

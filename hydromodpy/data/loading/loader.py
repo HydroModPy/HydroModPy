@@ -157,7 +157,7 @@ class DataManagersRuntimeLoader:
             return
 
         if spec.apply_simulation_window:
-            self._apply_simulation_window_dates(raw_section, result, variable)
+            self._apply_simulation_window_dates(raw_section, result)
 
         try:
             config_cls = getattr(
@@ -207,6 +207,13 @@ class DataManagersRuntimeLoader:
         spec: VariableSpec,
         result: WorkflowContext,
     ) -> tuple[dt, dt] | None:
+        # One precedence rule for every spec: the section window wins. It is
+        # either authored, or injected from [simulation.time] by
+        # _apply_simulation_window_dates for specs that opt into the injection.
+        date_start = getattr(cfg, "date_start", None)
+        date_end = getattr(cfg, "date_end", None)
+        if date_start and date_end:
+            return (dt.fromisoformat(date_start), dt.fromisoformat(date_end))
         if spec.period_source == "simulation_or_overview":
             period = self._resolve_simulation_time_window_dates(result)
             if period is not None:
@@ -218,11 +225,6 @@ class DataManagersRuntimeLoader:
                 de = getattr(overview, "date_end", None)
                 if ds and de:
                     return (dt.fromisoformat(ds), dt.fromisoformat(de))
-            return None
-        date_start = getattr(cfg, "date_start", None)
-        date_end = getattr(cfg, "date_end", None)
-        if date_start and date_end:
-            return (dt.fromisoformat(date_start), dt.fromisoformat(date_end))
         return None
 
     def _load_dem_data(self, result: WorkflowContext) -> None:
@@ -472,83 +474,25 @@ class DataManagersRuntimeLoader:
     ) -> tuple[str, str] | None:
         return resolve_simulation_time_window_dates(result.cfg)
 
-    def _require_simulation_time_window_dates(
-        self,
-        result: WorkflowContext,
-        *,
-        option_name: str,
-    ) -> tuple[str, str]:
-        try:
-            simulation_dates = self._resolve_simulation_time_window_dates(result)
-        except ValueError as exc:
-            raise ValueError(
-                f"{option_name}=true requires a valid [simulation.time] section."
-            ) from exc
-        if simulation_dates is None:
-            raise ValueError(f"{option_name}=true requires a valid [simulation.time] section.")
-        return simulation_dates
-
     def _apply_simulation_window_dates(
         self,
         section: dict[str, Any],
         result: WorkflowContext,
-        manager_type: str,
     ) -> None:
-        """Inject date_start/date_end from [simulation.time] when not explicit.
+        """Inject date_start/date_end from [simulation.time] when not declared.
 
-        In launcher mode, data managers benefit from an automatic date window
-        derived from the simulation time config. This avoids requiring the
-        user to repeat dates in both [simulation.time] and [data.<type>].
+        This is what makes [simulation.time] the single date declaration of a
+        TOML file: a [data.<type>] section that declares no window inherits it,
+        and one that declares a window keeps it. ``BaseVariableConfig`` rejects
+        a half-declared window, so the two bounds are always both absent or
+        both present here.
         """
-        if section.get("date_start") and section.get("date_end"):
+        if section.get("date_start") or section.get("date_end"):
             return
         simulation_dates = self._resolve_simulation_time_window_dates(result)
         if simulation_dates is None:
             return
-        date_start, date_end = simulation_dates
-        if not section.get("date_start"):
-            section["date_start"] = date_start
-        if not section.get("date_end"):
-            section["date_end"] = date_end
-
-    @staticmethod
-    def _coerce_optional_bool(value: Any) -> bool | None:
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, str):
-            token = value.strip().lower()
-            if token in {"1", "true", "yes", "on"}:
-                return True
-            if token in {"0", "false", "no", "off"}:
-                return False
-        return None
-
-    def _apply_simulation_window_to_station_section(
-        self,
-        *,
-        result: WorkflowContext,
-        payload: dict[str, Any],
-        root_key: str,
-        manager_type: str,
-    ) -> None:
-        section_raw = payload.get(root_key)
-        if not isinstance(section_raw, Mapping):
-            return
-        section = dict(section_raw)
-        payload[root_key] = section
-
-        use_window = self._coerce_optional_bool(section.get("use_simulation_time_window"))
-        if use_window is None:
-            use_window = False
-        if not use_window:
-            return
-
-        date_start, date_end = self._require_simulation_time_window_dates(
-            result,
-            option_name=f"data.{manager_type}.use_simulation_time_window",
-        )
-        section["date_start"] = date_start
-        section["date_end"] = date_end
+        section["date_start"], section["date_end"] = simulation_dates
 
     def _resolve_path_like(self, value: Any) -> Path:
         path = Path(str(value)).expanduser()

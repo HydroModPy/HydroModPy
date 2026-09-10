@@ -32,10 +32,13 @@ from hydromodpy.solver.modflow_common.options import (
     ModflowRunOptions,
 )
 
+WATER_BUDGET_METRIC = "water_budget_percent_discrepancy"
+"""Run-metric name for the final water-budget PERCENT DISCREPANCY, in percent."""
+
 _PERCENT_DISCREPANCY_RE = re.compile(r"PERCENT\s+DISCREPANCY\s*=\s*([-+0-9.Ee]+)")
 
 
-def _last_percent_discrepancy(listing_dir: Path) -> float | None:
+def last_percent_discrepancy(listing_dir: Path) -> float | None:
     """Return the final water-budget PERCENT DISCREPANCY from a per-model listing.
 
     Best-effort and never raises: scans every ``*.lst`` except the simulation
@@ -232,7 +235,7 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
         diagnostics_path = model_dir
         detail = ""
         if ctx.run.solver == "modflow6":
-            percent = _last_percent_discrepancy(model_dir)
+            percent = last_percent_discrepancy(model_dir)
             if percent is not None:
                 detail = f" Final water-budget PERCENT DISCREPANCY = {percent}."
             diagnostics_path = model_dir / "mfsim.lst"
@@ -245,6 +248,12 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
     flow_solve_time = getattr(model_modflow, "last_flow_solve_time_seconds", None)
     if flow_solve_time is not None:
         metrics["flow_solve_time_seconds"] = float(flow_solve_time)
+    # Convergence and a closed budget are two questions. A run that converges and
+    # writes heads with a large imbalance was otherwise indistinguishable from a
+    # sound one, so the number rides with every run rather than only with a failure.
+    discrepancy = last_percent_discrepancy(Path(model_modflow.full_path))
+    if discrepancy is not None:
+        metrics[WATER_BUDGET_METRIC] = float(discrepancy)
     return RunExecutionResult(
         primary_model=model_modflow,
         solver_output_dir=Path(model_modflow.full_path),

@@ -447,6 +447,27 @@ class TestConfigOverridePaths:
 class TestSessionLifecycle:
     """No zombie ``status='running'`` rows: failures and aborts must finalize."""
 
+    def _count_iterations(self, workspace_root):
+        """How many trials the stopped search left behind."""
+        from hydromodpy.results.catalog import Catalog
+
+        with Catalog(workspace_root) as catalog:
+            return catalog.connection.execute(
+                "SELECT count(*) FROM calibration_iterations"
+            ).fetchone()[0]
+
+    def _read_latest_session(self, workspace_root):
+        """The most recent session, for a run that raised instead of returning one."""
+        from hydromodpy.results.catalog import Catalog
+
+        with Catalog(workspace_root) as catalog:
+            return catalog.connection.execute(
+                "SELECT st.code, cs.error_message, cs.n_iterations "
+                "FROM calibration_sessions cs "
+                "JOIN statuses st ON cs.status_id = st.id "
+                "ORDER BY cs.started_at DESC LIMIT 1"
+            ).fetchone()
+
     def _read_session(self, workspace_root, session_id):
         from hydromodpy.results.catalog import Catalog
 
@@ -513,11 +534,21 @@ class TestSessionLifecycle:
         assert row[0] == "aborted"
         assert row[1] == "SIGINT"
 
-    def test_all_iterations_crashed_marks_failed(self, calib_toml, fake_pipeline):
+    def test_all_iterations_crashed_stops_and_marks_failed(self, calib_toml, fake_pipeline):
+        """A search that cannot score anything is refused, not run to its budget.
+
+        Every trial fails the same way, so the streak fires and the session ends
+        rather than reporting a best candidate chosen between values that all came
+        from one error. The trials it did run stay recorded.
+        """
+        from hydromodpy.calibration.runners.failure_watch import EveryTrialFailedError
+
         def crashing_metric(ctx, *, objective, variable):
             raise RuntimeError("metric blew up")
 
-        summary = run_calibration_cli(calib_toml, metric_fn=crashing_metric)
-        row = self._read_session(calib_toml.parent, summary["session_id"])
+        with pytest.raises(EveryTrialFailedError, match="metric blew up"):
+            run_calibration_cli(calib_toml, metric_fn=crashing_metric)
+
+        row = self._read_latest_session(calib_toml.parent)
         assert row[0] == "failed"
-        assert row[2] == 5
+        assert self._count_iterations(calib_toml.parent) == 5

@@ -32,6 +32,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.extractors.cbc_reader import Mf6CellBudgetReader
 from hydromodpy.solver.modflow6.extractors.obs_common import (
@@ -252,7 +253,7 @@ def extract_lake_series(
     meta_path = output_dir / f"{model_name}.lak.meta.json"
     spec = read_lake_meta(meta_path)
     if spec is None:
-        raise FileNotFoundError(f"LAK output sidecar not found or unreadable: {meta_path}")
+        raise ObservableNotAvailableError(f"LAK output sidecar not found or unreadable: {meta_path}")
 
     entry = next(
         (
@@ -264,7 +265,7 @@ def extract_lake_series(
     )
     if entry is None:
         known = sorted({item.lake_id for item in spec.entries})
-        raise KeyError(
+        raise ObservableNotAvailableError(
             f"No {quantity!r} observation for lake {lake_id!r} in {meta_path.name}. "
             f"Known lakes: {known}."
         )
@@ -274,7 +275,7 @@ def extract_lake_series(
     col_index = {name: pos for pos, name in enumerate(header)}
     pos = col_index.get(entry.obsname.upper())
     if pos is None:
-        raise KeyError(f"Column {entry.obsname!r} missing from {obs_path.name}.")
+        raise ObservableNotAvailableError(f"Column {entry.obsname!r} missing from {obs_path.name}.")
 
     values = [float(row[pos]) for row in rows if pos < len(row)]
     if time_index is not None and len(time_index) == len(values):

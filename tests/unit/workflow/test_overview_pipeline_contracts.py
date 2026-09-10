@@ -3,34 +3,69 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 
 import hydromodpy.data.variables.dem.resolver as dem_resolver
 import hydromodpy.data.variables.hydrography.resolver as hydrography_resolver
 import hydromodpy.workflow.pipelines.overview as overview_module
 from hydromodpy.core.exceptions import ConfigMissingError
+from hydromodpy.data.managers.config_schema import DataManagersConfig
+from hydromodpy.data.variables.recharge.config import RechargeConfig, RechargeSourceConfig
+from hydromodpy.data.variables.runoff.config import RunoffConfig, RunoffSourceConfig
 
 
-def test_inject_overview_dates_only_fills_missing_date_fields() -> None:
-    recharge = SimpleNamespace(date_start=None, date_end=None)
-    hydrography = SimpleNamespace(date_start="2020-03-01", date_end=None)
-    state = SimpleNamespace(
+def _overview_state(data: DataManagersConfig, window: tuple[str, str]) -> SimpleNamespace:
+    return SimpleNamespace(
         cfg=SimpleNamespace(
-            overview=SimpleNamespace(date_start="2020-01-01", date_end="2020-12-31"),
-            data=SimpleNamespace(
-                types=("recharge", "hydrography", "static_layer", "missing"),
-                recharge=recharge,
-                hydrography=hydrography,
-                static_layer=SimpleNamespace(path="static.gpkg"),
-            ),
+            overview=SimpleNamespace(date_start=window[0], date_end=window[1]),
+            data=data,
         )
     )
 
+
+def _data_config(**sections) -> DataManagersConfig:
+    return DataManagersConfig(types=list(sections), **sections)
+
+
+def test_inject_overview_dates_only_fills_sections_without_a_window(tmp_path) -> None:
+    data = _data_config(
+        recharge=RechargeConfig(
+            sources=[
+                RechargeSourceConfig(
+                    source="synthetic",
+                    freq="MS",
+                    start_date="2020-01-01",
+                    periods=12,
+                    values=[1.0] * 12,
+                )
+            ]
+        ),
+        runoff=RunoffConfig(
+            sources=[RunoffSourceConfig(source="custom", path=tmp_path / "runoff.csv")],
+            date_start="2010-01-01",
+            date_end="2019-12-31",
+        ),
+    )
+    state = _overview_state(data, ("2020-01-01", "2020-12-31"))
+
     overview_module.DataOverviewLauncher._inject_overview_dates(state)
 
-    assert recharge.date_start == "2020-01-01"
-    assert recharge.date_end == "2020-12-31"
-    assert hydrography.date_start == "2020-03-01"
-    assert hydrography.date_end == "2020-12-31"
+    assert state.cfg.data.recharge.date_start == "2020-01-01"
+    assert state.cfg.data.recharge.date_end == "2020-12-31"
+    assert state.cfg.data.runoff.date_start == "2010-01-01"
+    assert state.cfg.data.runoff.date_end == "2019-12-31"
+
+
+def test_inject_overview_dates_rejects_a_reversed_overview_window() -> None:
+    """The pair goes through the parent, which revalidates the section."""
+    data = _data_config(recharge=RechargeConfig(sources=[RechargeSourceConfig(source="sim2")]))
+    state = _overview_state(data, ("2020-12-31", "2020-01-01"))
+
+    with pytest.raises(ValidationError, match="date_start must be before date_end"):
+        overview_module.DataOverviewLauncher._inject_overview_dates(state)
+
+    assert state.cfg.data.recharge.date_start is None
+    assert state.cfg.data.recharge.date_end is None
 
 
 def test_load_data_builds_proxy_and_attaches_hydrographic_network(monkeypatch, tmp_path) -> None:
@@ -62,7 +97,9 @@ def test_load_data_builds_proxy_and_attaches_hydrographic_network(monkeypatch, t
     launcher = object.__new__(overview_module.DataOverviewLauncher)
     launcher.config_path = config_path
     loaded_data = SimpleNamespace(hydrography="network")
-    recharge = SimpleNamespace(date_start=None, date_end=None)
+    recharge = RechargeConfig(
+        sources=[RechargeSourceConfig(source="custom", path=tmp_path / "recharge.csv")]
+    )
     state = SimpleNamespace(
         cfg=SimpleNamespace(
             data=SimpleNamespace(
@@ -91,7 +128,8 @@ def test_load_data_builds_proxy_and_attaches_hydrographic_network(monkeypatch, t
     assert proxy.setup.geographic == "geographic-runtime"
     assert proxy.loaded_data is loaded_data
     assert loaded_data.loaded_by_fake_loader is True
-    assert recharge.date_start == "2021-01-01"
+    assert state.cfg.data.recharge.date_start == "2021-01-01"
+    assert state.cfg.data.recharge.date_end == "2021-01-31"
     assert captured["attached"] == ("features", "network")
     assert state.geographic_features == "features-with-network"
 

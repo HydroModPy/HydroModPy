@@ -190,10 +190,12 @@ SOLUTE_DERIVED: tuple[str, ...] = (
 # process too, but it carries pathlines, not concentrations.
 SOLUTE_CONCENTRATION_CAPABILITY = "transport:concentration"
 
-# Solvers whose seepage is an explicit surface-release flux stored in
-# ``budget/surface_excess``. On those the geometric criterion (water table at
-# or above the surface) over-reports, so the budget is what keeps the physics.
-SURFACE_EXCESS_SOLVERS: frozenset[str] = frozenset({"boussinesq"})
+# A solver whose seepage is an explicit surface-release flux stored in
+# ``budget/surface_excess`` declares it. On those the geometric criterion (water
+# table at or above the surface) over-reports, so the budget is what keeps the
+# physics. Declared rather than listed by name, like the solute check below: a
+# backend added later says what it can do instead of waiting to be added here.
+SURFACE_EXCESS_CAPABILITY = "flow:surface_excess"
 
 
 @dataclass(frozen=True, slots=True)
@@ -426,7 +428,12 @@ def _seepage_needs_surface_excess(
     the mask degrades to the geometric criterion, which over-reports. Keeping
     the physics means computing the budget, so the mask reads the flux.
     """
-    if not any(str(run.solver) in SURFACE_EXCESS_SOLVERS for run in plan.runs):
+    from hydromodpy.solver.base.registry import capabilities
+
+    if not any(
+        SURFACE_EXCESS_CAPABILITY in capabilities(run.process_type, run.solver)
+        for run in plan.runs
+    ):
         return False
     if cfg.derived.seepage_areas:
         return True

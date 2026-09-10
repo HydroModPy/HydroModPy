@@ -60,7 +60,25 @@ OutputSupport = Literal["point", "boundary", "cell", "lake", "network"]
 OutputReducer = Literal["mean", "sum", "last", "none"]
 ObjectiveTransform = Literal["identity", "log", "inverse"]
 PersistIterationDetail = Literal["none", "summary", "full"]
-MetricKind = Literal["rmse", "nse", "kge", "mae", "nse_log", "distance_gap", "distance_mean"]
+MetricKind = Literal[
+    "rmse",
+    "nse",
+    "kge",
+    "mae",
+    "nse_log",
+    "nse_delta",
+    "nse_seasonal",
+    "reservoir",
+    "distance_gap",
+    "distance_mean",
+]
+"""Metric names a TOML may select.
+
+Kept equal to the keys of ``calibration.optim.objective.METRICS`` by
+``tests/unit/calibration/test_metric_kind_matches_the_registry.py``: the engine
+computed metrics this list did not offer, so they ran in Python and were refused
+by validation.
+"""
 CalibrationMethod = NonEmptyStr
 OutputTime = Literal["all", "last", "first"] | list[str]
 
@@ -519,6 +537,14 @@ class CalibObjectiveBlockDecl(HydroModelBase):
                 "outliers than RMSE.",
                 "nse_log": "NSE on log-transformed series; weights low flows as "
                 "heavily as peaks, good for recessions.",
+                "nse_delta": "NSE on the increments of the series rather than its "
+                "level; a level is an integral and can hide flux errors that "
+                "compensate, which only its increments show.",
+                "nse_seasonal": "NSE against the seasonal cycle rather than the "
+                "overall mean; asks whether the model beats climatology.",
+                "reservoir": "Half nse_seasonal plus half nse_delta, built for an "
+                "impounded level: a plain NSE there is beaten by the seasonal cycle, "
+                "and the increments are what carry the flux errors.",
                 "distance_gap": "Balances the simulated stream network against the "
                 "mapped one; zero marks the crossing.",
                 "distance_mean": "Mean spatial offset between simulated and mapped "
@@ -637,13 +663,14 @@ class CalibPhaseDecl(HydroModelBase):
         default=None,
         description="Single-metric variable, when this phase does not use blocks.",
     )
-    objective: Annotated[str | None, Profile.USER] = Field(
+    objective: Annotated[MetricKind | None, Profile.USER] = Field(
         default=None,
-        description="Single-metric objective, when this phase does not use blocks.",
+        description="Metric scoring this phase's single simulated series, when the "
+        "phase does not use objective blocks. Same vocabulary as a block's 'metric'.",
     )
     observed_station_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Observed station the single simulated series is scored against. A run produces one discharge series, at the catchment outlet, so an upstream gauge cannot match it: when several stations are loaded, one has to be named. Optional with a single loaded station. Overrides the calibration-level value for this phase.",
+        description="Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one. Overrides the calibration-level value for this phase.",
     )
     optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
         default_factory=dict,
@@ -786,9 +813,11 @@ class CalibrationConfig(HydroModelBase):
         "read simulated series from the per-trial RAM cache instead. Only the "
         "promoted runs go through the catalog write path.",
     )
-    objective: Annotated[str, Profile.USER] = Field(
+    objective: Annotated[MetricKind, Profile.USER] = Field(
         default="nse",
-        description="Metric key used by the default ScalarObjective.",
+        description="Metric scoring the single simulated series, when no objective "
+        "block is declared. Same vocabulary as a block's 'metric'; typed here so a "
+        "bad value is reported against the key that was written.",
     )
     variable: Annotated[str, Profile.USER] = Field(
         default="head",

@@ -16,10 +16,12 @@ from typing import Any
 class VariableSpec:
     """Declarative spec for a data variable.
 
-    ``period_source`` picks how to resolve ``project_period``:
-    - ``"config"``: read ``cfg.date_start`` / ``cfg.date_end``.
-    - ``"simulation_or_overview"``: try the simulation window first, then
-      fall back to ``[overview]`` dates (water_quality).
+    ``cfg.date_start`` / ``cfg.date_end`` always resolve ``project_period``
+    when both are set. ``period_source`` picks the fallback when they are not:
+    - ``"config"``: no fallback, ``project_period`` stays ``None`` and the
+      manager uses the native coverage of its sources.
+    - ``"simulation_or_overview"``: the simulation window first, then the
+      ``[overview]`` dates (water_quality).
 
     ``export_stable_subdir`` triggers a post-load ``manager.export`` into
     ``<workspace>/<PREPROCESSING_DIR>/<subdir>/`` (currently intermittency).

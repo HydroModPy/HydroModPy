@@ -272,7 +272,13 @@ class DataOverviewLauncher:
 
     @staticmethod
     def _inject_overview_dates(state: DataOverviewState) -> None:
-        """Copy ``[overview].date_start/date_end`` into data sections missing them."""
+        """Copy ``[overview].date_start/date_end`` into data sections missing them.
+
+        Overview mode has no ``[simulation.time]``, so ``[overview]`` plays the
+        role of the single date declaration. Same rule as the runtime loader:
+        a section that declares a window keeps it, a section that declares
+        none inherits the whole pair.
+        """
         overview = state.cfg.overview
         if overview is None or not overview.date_start or not overview.date_end:
             return
@@ -281,16 +287,23 @@ class DataOverviewLauncher:
             section = getattr(state.cfg.data, type_name, None)
             if section is None or not hasattr(section, "date_start"):
                 continue
-            if not getattr(section, "date_start", None):
-                try:
-                    section.date_start = overview.date_start
-                except (AttributeError, TypeError, ValueError):
-                    pass
-            if not getattr(section, "date_end", None):
-                try:
-                    section.date_end = overview.date_end
-                except (AttributeError, TypeError, ValueError):
-                    pass
+            if getattr(section, "date_start", None) or getattr(section, "date_end", None):
+                continue
+            # Assigning the pair in one setattr makes the parent revalidate the
+            # section, so an invalid [overview] window is rejected. Setting the
+            # two attributes one by one would not: pydantic writes each value
+            # into __dict__ before the model validator raises, so a reversed
+            # window would ship silently.
+            setattr(
+                state.cfg.data,
+                type_name,
+                section.model_copy(
+                    update={
+                        "date_start": overview.date_start,
+                        "date_end": overview.date_end,
+                    }
+                ),
+            )
 
     # ------------------------------------------------------------------
     # Phase 4 - Report generation

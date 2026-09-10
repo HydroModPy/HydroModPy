@@ -21,8 +21,12 @@ from hydromodpy.core.toml_io.paths import resolve_declared_path
 class BaseVariableConfig(HydroModelBase):
     """Base for top-level variable configs (``XxxConfig``).
 
-    Provides ``date_start`` / ``date_end`` fields with ISO validation,
-    date-order checking, and ``from_toml()`` classmethod.
+    Provides an optional ``date_start`` / ``date_end`` window with ISO
+    validation, window checking, and a ``from_toml()`` classmethod.
+
+    The window is optional because the runtime loader inherits it from
+    ``[simulation.time]`` when the section declares neither bound. Declaring
+    it is an override, and it must be declared as a pair.
 
     Subclasses must set ``_TOML_SECTION`` (e.g. ``"precipitation"``).
     """
@@ -31,17 +35,38 @@ class BaseVariableConfig(HydroModelBase):
 
     date_start: Annotated[IsoDateStr, Profile.USER] = Field(
         default=None,
-        description="Project start date (ISO format, e.g. '2019-01-01').",
+        description=(
+            "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: "
+            "when neither bound is declared, the loader inherits "
+            "[simulation.time].start_datetime, or [overview].date_start in "
+            "overview mode. Declare it only to fetch a window WIDER than the "
+            "simulation, typically a cache shared by several runs. Must be "
+            "declared together with date_end."
+        ),
         examples=["2019-01-01"],
     )
     date_end: Annotated[IsoDateStr, Profile.USER] = Field(
         default=None,
-        description="Project end date (ISO format, e.g. '2025-12-31').",
+        description=(
+            "End of the data window (ISO date, e.g. '2025-12-31'). Optional: "
+            "when neither bound is declared, the loader inherits "
+            "[simulation.time].end_datetime, or [overview].date_end in "
+            "overview mode. Declare it only to fetch a window WIDER than the "
+            "simulation, typically a cache shared by several runs. Must be "
+            "declared together with date_start."
+        ),
         examples=["2025-12-31"],
     )
 
     @model_validator(mode="after")
-    def _check_date_order(self):
+    def _check_date_window(self):
+        if bool(self.date_start) != bool(self.date_end):
+            missing = "date_end" if self.date_start else "date_start"
+            where = f"data.{self._TOML_SECTION}: " if self._TOML_SECTION else ""
+            raise ValueError(
+                f"{where}{missing} is missing: declare date_start and date_end together, "
+                "or declare neither and inherit the window from [simulation.time]"
+            )
         if self.date_start and self.date_end:
             from datetime import datetime
 

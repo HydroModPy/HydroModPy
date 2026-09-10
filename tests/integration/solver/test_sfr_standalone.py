@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import _last_percent_discrepancy
+from hydromodpy.solver.modflow_common.flow_adapter_helpers import last_percent_discrepancy
 from tests._helpers.tolerances import tol
 from tests.integration.solver._sfr_models import (
     INFLOW_M3S,
@@ -46,7 +46,7 @@ def test_sfr_standalone_pure_routing_identity(tmp_path: Path) -> None:
     # Headwater inflow arrived where it was injected.
     assert obs["R0_EXT_INFLOW"] == pytest.approx(INFLOW_M3S, rel=_ROUTING_IDENTITY_RTOL)
 
-    discrepancy = _last_percent_discrepancy(tmp_path)
+    discrepancy = last_percent_discrepancy(tmp_path)
     assert discrepancy is not None
     assert abs(discrepancy) / 100.0 <= _BUDGET_CLOSURE_FRACTION
 
@@ -69,6 +69,6 @@ def test_sfr_standalone_connected_closes_mass_with_exchange(tmp_path: Path) -> N
     # The streambed exchange is a real, non-zero term in this variant.
     assert gw_loss != pytest.approx(0.0, abs=1e-12)
 
-    discrepancy = _last_percent_discrepancy(tmp_path)
+    discrepancy = last_percent_discrepancy(tmp_path)
     assert discrepancy is not None
     assert abs(discrepancy) / 100.0 <= _BUDGET_CLOSURE_FRACTION

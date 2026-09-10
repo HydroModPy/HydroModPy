@@ -17,6 +17,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import factor_to_seconds
 from hydromodpy.physics.flow.history_contract import saturated_thickness_from_head_history
@@ -103,7 +104,7 @@ def _resolve_cbc_path(output_dir: Path, model_name: str) -> Path:
     if not cbc_path.exists():
         cbc_path = output_dir / f"{model_name}.cbb"
     if not cbc_path.exists():
-        raise FileNotFoundError(f"CBC file not found for model {model_name!r} in {output_dir}")
+        raise ObservableNotAvailableError(f"CBC file not found for model {model_name!r} in {output_dir}")
     return cbc_path
 
 
@@ -244,7 +245,7 @@ def _find_drain_component(cbb: object) -> str:
         None,
     )
     if drain_key is None:
-        raise KeyError(f"No DRAIN component in CBC; components were {record_names}")
+        raise ObservableNotAvailableError(f"No DRAIN component in CBC; components were {record_names}")
     return drain_key
 
 
@@ -281,7 +282,7 @@ def _resolve_release_record(package: ReleasePackage, record_names: Sequence[str]
     for name in record_names:
         if _normalize_record_name(name) in aliases:
             return name
-    raise KeyError(
+    raise ObservableNotAvailableError(
         f"package {package.name} is active on this run but none of its budget records "
         f"{sorted(aliases)} is in the CBC, whose records are "
         f"{[_normalize_record_name(name) for name in record_names]}. "
@@ -381,7 +382,7 @@ def _refuse_sibling_budgets_the_union_cannot_read(
         sibling = Path(str(stem) + suffix)
         if not sibling.exists() or name in declared or name in present:
             continue
-        raise KeyError(
+        raise ObservableNotAvailableError(
             f"{sibling.name} sits beside the model budget and the model budget holds no "
             f"{name} record: the {name} package wrote its exchange to its own file alone, "
             f"and this union reads {sorted(declared) or 'nothing'}. Water leaving the "
@@ -427,7 +428,7 @@ def _refuse_records_the_union_misses(
     missed = sorted((present & _SURFACE_RELEASE_RECORDS) - declared - set(ruled_out))
     if not missed:
         return
-    raise KeyError(
+    raise ObservableNotAvailableError(
         f"the budget holds the release record(s) {missed} that no declared package reads "
         f"and none of which the model ruled out: the union covers {sorted(declared)} and "
         f"excludes {sorted(ruled_out) or 'nothing'}. Water leaving the aquifer through them "
@@ -507,7 +508,7 @@ def extract_release_flux_by_cell_from_cbc(
         cbb.close()
 
     if width is None:
-        raise KeyError("No readable release budget array was found in the CBC file.")
+        raise ObservableNotAvailableError("No readable release budget array was found in the CBC file.")
 
     filled_rows = [
         np.zeros(width, dtype="float64") if row is None else row / seconds_per_unit for row in rows
@@ -531,7 +532,7 @@ def extract_head_from_hds(
 
     hds_path = output_dir / f"{model_name}.hds"
     if not hds_path.exists():
-        raise FileNotFoundError(f"HDS file not found for model {model_name!r} in {output_dir}")
+        raise ObservableNotAvailableError(f"HDS file not found for model {model_name!r} in {output_dir}")
 
     hf = bf.HeadFile(str(hds_path))
     try:
@@ -588,7 +589,7 @@ def extract_saturated_thickness_by_cell_from_hds(
 
     hds_path = output_dir / f"{model_name}.hds"
     if not hds_path.exists():
-        raise FileNotFoundError(f"HDS file not found for model {model_name!r} in {output_dir}")
+        raise ObservableNotAvailableError(f"HDS file not found for model {model_name!r} in {output_dir}")
 
     top_m = np.asarray(top, dtype=float).reshape(-1)
     bottom_m = np.asarray(bottom, dtype=float).reshape(-1)

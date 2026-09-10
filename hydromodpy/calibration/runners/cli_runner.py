@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.calibration.config import CalibrationConfig, scoring_window_bounds
 from hydromodpy.calibration.metrics import build_metric_extractor
 from hydromodpy.calibration.optim.cache import ParamsHashCache
+from hydromodpy.calibration.optim.diagnostics import correlated_parameter_pairs
 from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
@@ -40,6 +41,7 @@ from hydromodpy.calibration.optim.optimizer import (
 )
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
 from hydromodpy.calibration.optim.promotion import promote_iterations
+from hydromodpy.calibration.runners.failure_watch import ConsecutiveFailureWatch
 from hydromodpy.calibration.runners.sandbox import keep_trial_scratch
 from hydromodpy.calibration.runners.state import (
     CalibrationStoreFactory,
@@ -82,12 +84,23 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     a base configuration invisible here while the pipeline resolved it, so a
     calibration overlay of two lines failed on "No [calibration] section".
     """
+    from pydantic import ValidationError
+
+    from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.core.toml_io.error_locator import format_validation_error
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
     raw = load_toml_with_base_config(path)
     if "calibration" not in raw:
         raise ValueError(f"No [calibration] section in {path}")
-    cfg = CalibrationConfig.model_validate(raw["calibration"])
+    try:
+        cfg = CalibrationConfig.model_validate(raw["calibration"])
+    except ValidationError as exc:
+        # The reader of this message writes TOML and does not read Python, so it
+        # has to name the file, the line and the key rather than the model.
+        raise ConfigError(
+            format_validation_error(exc, source_path=path, loc_prefix=("calibration",))
+        ) from None
     _resolve_stream_geometry_paths(cfg, path)
     return cfg, raw
 
@@ -468,6 +481,12 @@ def run_calibration_core(
     # are seen. Keeping them is what lets the report name the best candidate.
     values_by_trial: dict[int, dict[str, float]] = {}
 
+    # A mis-configured search fails the same way on every trial. Stopping on a
+    # streak refuses it in seconds instead of spending the whole budget and then
+    # reporting a best candidate chosen between values that all came from one
+    # error.
+    failure_watch = ConsecutiveFailureWatch()
+
     def on_iteration(sugg: ParamSuggestion, result: EvaluationResult) -> None:
         values_by_trial[sugg.trial_id] = {k: float(v) for k, v in sugg.values.items()}
         persistence.append_iteration(
@@ -475,6 +494,13 @@ def run_calibration_core(
             sugg,
             result,
             detail=cfg.persist_iteration_detail,
+        )
+        # After the trial is recorded, so a stopped search still shows what it
+        # tried, and only for trials the engine actually ran: a cache hit never
+        # reaches this callback.
+        failure_watch.record(
+            failed=result.status != "completed",
+            error=str((result.metadata or {}).get("error") or ""),
         )
 
     logger.info(
@@ -509,10 +535,12 @@ def run_calibration_core(
     best: EvaluationResult | None = None
 
     try:
-        from hydromodpy.solver.modflow6.run import api_isolation_context
+        from hydromodpy.solver.base.api_isolation import api_isolation_context
 
         # Isolate each api solve in its own process for the PARALLEL trial loop
-        # only; promotion below replays a single run and stays in-process.
+        # only; promotion below replays a single run and stays in-process. The
+        # switch is backend-neutral on purpose: this path runs for every solver,
+        # so importing it must not cost a backend.
         with api_isolation_context(use_api_isolation):
             session = engine.run()
         best = session.best
@@ -576,9 +604,28 @@ def run_calibration_core(
         if close is not None:
             close()
 
+    # Two parameters that moved together across the whole search were never told
+    # apart by the data: the search stopped on a ridge and reported that point as
+    # a minimum. Read off the trace the session already holds, so it costs nothing.
+    correlated = correlated_parameter_pairs(
+        [{**values_by_trial.get(item.trial_id, {}), "objective_total": item.objective_value}
+         for item in session.history
+         if item.trial_id in values_by_trial]
+    )
+    if correlated:
+        for first, second, coefficient in correlated:
+            logger.warning(
+                "Calibration parameters %s and %s moved together (r = %+.2f): the trace "
+                "does not tell them apart, so the reported pair is one point on a ridge.",
+                first,
+                second,
+                coefficient,
+            )
+
     return CalibrationReport(
         session_id=session_id,
         method=cfg.method,
+        extra={"correlated_parameters": correlated} if correlated else {},
         n_iterations=len(session.history),
         best_objective=best.objective_value if best else None,
         best_sim_id=best_sim_id,
