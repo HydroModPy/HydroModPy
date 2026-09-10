@@ -355,5 +355,6 @@ Read more
    regional_lab
    site_selection
    calibration
+   calibration-recipes
    stream-network-calibration
    comparison

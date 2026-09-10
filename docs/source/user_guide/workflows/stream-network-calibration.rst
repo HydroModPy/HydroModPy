@@ -121,8 +121,34 @@ comfortably inside its own. A simulated network holding its cells by
 construction never retracts, and the criterion then balances against a fixed
 skeleton.
 
-Declaring the two stages
-------------------------
+Naming the method
+-----------------
+
+The two stages, their criteria, and the regime and time-grid overrides that make
+one steady and the other transient are the method, not the site. Name it and
+they are written for you:
+
+.. code-block:: toml
+
+   [calibration]
+   protocol = "matching_hydrographic_network"
+
+What stays in the file is the two search ranges and the mapped network.
+:doc:`calibration-recipes` shows the whole thing, with every option written out
+and its default explained. The engines are free: ``steady_method`` and
+``transient_method`` take any registered optimizer, so the same two criteria can
+be walked by a bisection, by Nelder-Mead or by Optuna without changing what is
+calibrated. The run records the method and its citation, so a value that came
+out of it says what it rests on.
+
+A file cannot both name a protocol and declare its own phases or objective
+blocks. That is two answers to one question, and it is refused rather than
+silently resolved.
+
+Declaring the two stages by hand
+--------------------------------
+
+The long form, for a variant the protocol does not cover.
 
 .. code-block:: toml
 
@@ -412,7 +438,7 @@ The figures
 
 Eight figures are registered for this method: ``downslope_distance_crossing``,
 ``bisection_bracket_trace``, ``parameter_cost_profile``,
-``abherve_two_stage_card``, ``seepage_network_reference_overlay``,
+``matching_hydrographic_network_card``, ``seepage_network_reference_overlay``,
 ``seepage_network_confusion_map``, ``downslope_distance_map`` and
 ``hydrograph_log_nse``.
 
@@ -431,7 +457,7 @@ any other figure of the gallery:
        "seepage_network_confusion_map",
        "downslope_distance_map",
        "hydrograph_log_nse",
-       "abherve_two_stage_card",
+       "matching_hydrographic_network_card",
    ]
 
 The first four read the trials of the session straight off the run. The three
@@ -473,7 +499,7 @@ A ninth figure, ``roptim_validity_chart``, compares the calibrated agreement of
 SEVERAL catchments, and a run holds one. It refuses a run-driven render by name
 rather than drawing one point, and it is fed per-site records directly.
 
-``abherve_two_stage_card`` is a grid of panels and draws through ``plot()``,
+``matching_hydrographic_network_card`` is a grid of panels and draws through ``plot()``,
 not through ``render(sim, ax)``.
 
 What to publish

@@ -1,0 +1,92 @@
+# Reference calibration 2 of 3: several targets, weighted against each other.
+#
+# A catchment rarely offers one observation. Here the model is scored at once on
+# the outlet hydrograph, on a piezometer, and on a lake level, each with its own
+# metric and its own share of the cost. Two parameters move together.
+#
+# The weights are the modelling decision this file exists to make explicit: they
+# say what the calibration is for. Read them as shares of the total cost.
+
+[workspace]
+name = "calibration_multi_objective"
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2005-12-31"
+step_value = 1
+step_unit = "day"
+
+[calibration]
+method = "optuna"
+max_iter = 200
+seed = 42
+warmup_periods = 365
+save_runs = "best_n"
+save_best_n = 5
+rerun_best_with_outputs = true
+# 'full' keeps the per-block raw and normalized costs of every trial, which is
+# what makes a weighting argument checkable after the fact.
+persist_iteration_detail = "full"
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+transform = "log"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+[calibration.parameters.Sy]
+bounds = [5e-3, 0.35]
+transform = "log"
+path = "flow.param.Sy.field.value"
+units = "-"
+
+# --- What is observed -------------------------------------------------------
+
+[calibration.outputs.outlet_discharge]
+variable = "discharge"
+support = "boundary"
+boundary_id = "outlet"
+
+[calibration.outputs.piezometer_p1]
+variable = "head"
+support = "point"
+x = 348120.0
+y = 6812450.0
+observed_values = [42.1, 41.8, 41.5, 41.9, 42.4]
+
+[calibration.outputs.lake_level]
+variable = "stage"
+support = "lake"
+lake_id = "cheze"
+
+# --- How each target is scored, and for how much -----------------------------
+#
+# Three blocks summing to 1.0, so each weight reads directly as a share:
+# the hydrograph carries 65 %, the piezometer 25 %, the lake 10 %.
+#
+# normalize_cost matters here and not in the single-target file: an RMSE on
+# heads is in metres, an NSE cost is dimensionless, and summing them raw would
+# let the unit decide the weighting instead of the weight.
+
+[[calibration.objective_blocks]]
+name = "hydrograph"
+metric = "nse_log"
+weight = 0.65
+uses_outputs = ["outlet_discharge"]
+
+[[calibration.objective_blocks]]
+name = "piezometry"
+metric = "rmse"
+weight = 0.25
+uses_outputs = ["piezometer_p1"]
+normalize_cost = true
+
+[[calibration.objective_blocks]]
+name = "lake"
+# 'reservoir' is half nse_seasonal and half nse_delta: an impounded level is
+# beaten by its own seasonal cycle under a plain NSE, and its flux errors show
+# in the increments.
+metric = "reservoir"
+weight = 0.10
+uses_outputs = ["lake_level"]
+normalize_cost = true
