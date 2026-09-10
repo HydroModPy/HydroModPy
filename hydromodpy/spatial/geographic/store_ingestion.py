@@ -210,6 +210,13 @@ def _ingest_metadata(geographic: Any, store: Any, sim_id: str) -> None:
         "dem_res",
         "x_outlet",
         "y_outlet",
+        # The declared pour point is not the one the catchment came from: the
+        # snap moves it onto the strongest accumulation cell within snap_dist.
+        # Persisting both is what lets a figure mark the right star and a reader
+        # see how far the two are apart.
+        "x_outlet_snapped",
+        "y_outlet_snapped",
+        "outlet_snap_distance_m",
         "catch_def",
         "dem_correc_type",
     ):

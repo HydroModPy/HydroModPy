@@ -48,6 +48,7 @@ simulations.outlet_x / outlet_y                  declared study outlet         M
 simulations.started_at / ended_at / duration_s   reports                       P ``timing``
 geographic_metadata.catch_area                   discharge from runoff         M ``geometry.catchment``
 geographic_metadata.x_outlet / y_outlet          Run.outlet, watershed figures M ``geometry.catchment``
+geographic_metadata.*_outlet_snapped             watershed figures             M ``geometry.catchment``
 geographic_metadata.dem_res / nrow / ncol        results.grid, mf6 extractor   M ``geometry.catchment``
 geographic_metadata.crs_proj / epsg              results.grid                  M ``geometry.catchment``
 parameters.*                                     Run.params, calibration       tables.parquet/parameters; M
@@ -149,6 +150,9 @@ _GEOGRAPHIC_METADATA_TYPES: dict[str, str] = {
     "dem_res": "double",
     "x_outlet": "double",
     "y_outlet": "double",
+    "x_outlet_snapped": "double",
+    "y_outlet_snapped": "double",
+    "outlet_snap_distance_m": "double",
     "epsg": "int",
     "nrow": "int",
     "ncol": "int",
