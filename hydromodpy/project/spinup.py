@@ -13,6 +13,7 @@ only for a *later, separate* run that restarts from the converged Zarr.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -41,6 +42,7 @@ class SpinupCycle:
     zarr_path: str
     d_head: float | None  # None on cycle 0 (no prior cycle to diff against)
     d_stage: float | None
+    """None on cycle 0, and also when the two cycles shared no lake to compare."""
 
 
 @dataclass(frozen=True)
@@ -60,14 +62,50 @@ class SpinupResult:
     def n_cycles(self) -> int:
         return len(self.cycles)
 
+    def antecedent_warning(self) -> str | None:
+        """Return what to say before this state is used as an antecedent.
 
-def cycle_delta(prev_zarr: str, curr_zarr: str) -> tuple[float, float]:
+        A loop that ran out of cycles still hands back its last state, and a
+        production run seeded from it produces a result that looks exactly like
+        one seeded from a settled aquifer. Whoever uses it has to be told.
+        """
+        if self.converged:
+            return None
+        return (
+            f"the spin-up did not converge in {self.n_cycles} cycles, so this antecedent "
+            "is the last state reached and not a settled one; what the production run "
+            "carries of its own initial condition is unknown. Raise max_cycles or the "
+            "tolerances, or accept it deliberately."
+        )
+
+
+def lake_stage_delta(
+    previous: Mapping[str, float],
+    current: Mapping[str, float],
+) -> float | None:
+    """Return the largest lake-stage change between two cycles, or ``None``.
+
+    ``None`` means nothing was compared: one cycle named a lake the other did
+    not, so the stage says nothing about convergence. A model with no lake at
+    all is a genuine change of zero, and the two must not collapse onto the same
+    number, because the loop concludes on it.
+    """
+    if not previous and not current:
+        return 0.0
+    shared = set(previous) & set(current)
+    if not shared:
+        return None
+    return max(abs(float(current[key]) - float(previous[key])) for key in shared)
+
+
+def cycle_delta(prev_zarr: str, curr_zarr: str) -> tuple[float, float | None]:
     """Return ``(d_head, d_stage)``, the L-inf change (m) between two cycles.
 
-    ``d_head`` is the largest absolute head change over active cells; ``d_stage``
-    the largest absolute lake-stage change over the lakes present in both cycles
-    (0.0 when the model has no lake). Raises when the cell count changed between
-    cycles, which means the mesh was not stable.
+    ``d_head`` is the largest absolute head change over active cells.
+    ``d_stage`` is the largest absolute lake-stage change over the lakes present
+    in both cycles, ``0.0`` on a model with no lake, and ``None`` when the two
+    cycles share no lake and nothing was compared. Raises when the cell count
+    changed between cycles, which means the mesh was not stable.
     """
     h_prev = read_final_head(prev_zarr)
     h_curr = read_final_head(curr_zarr)
@@ -79,11 +117,10 @@ def cycle_delta(prev_zarr: str, curr_zarr: str) -> tuple[float, float]:
     diff = np.abs(h_curr - h_prev)
     d_head = float(np.nanmax(diff)) if np.isfinite(diff).any() else 0.0
 
-    s_prev = read_restart_lake_stages(prev_zarr)
-    s_curr = read_restart_lake_stages(curr_zarr)
-    shared = set(s_prev) & set(s_curr)
-    d_stage = max((abs(s_curr[key] - s_prev[key]) for key in shared), default=0.0)
-    return d_head, d_stage
+    return d_head, lake_stage_delta(
+        read_restart_lake_stages(prev_zarr),
+        read_restart_lake_stages(curr_zarr),
+    )
 
 
 def run_spinup(
@@ -150,14 +187,27 @@ def run_spinup(
             if prev_zarr is not None:
                 d_head, d_stage = cycle_delta(prev_zarr, zarr_path)
                 logger.info(
-                    "spin-up cycle %d: d_head=%.4g m, d_stage=%.4g m (tol %.4g / %.4g)",
+                    "spin-up cycle %d: d_head=%.4g m, d_stage=%s (tol %.4g / %.4g)",
                     index,
                     d_head,
-                    d_stage,
+                    "not compared" if d_stage is None else f"{d_stage:.4g} m",
                     settings.tol_head,
                     settings.tol_stage,
                 )
-                converged = d_head < settings.tol_head and d_stage < settings.tol_stage
+                if d_stage is None:
+                    # The two cycles name different lakes, so the stage was never
+                    # compared. Calling that convergence would be a claim about a
+                    # measurement nobody made.
+                    logger.warning(
+                        "spin-up cycle %d: the two cycles share no lake, so the stage was "
+                        "not compared and this cycle cannot converge on it.",
+                        index,
+                    )
+                converged = (
+                    d_stage is not None
+                    and d_head < settings.tol_head
+                    and d_stage < settings.tol_stage
+                )
 
             cycles.append(SpinupCycle(index, run.sim_id, zarr_path, d_head, d_stage))
             prev_zarr = zarr_path

@@ -509,6 +509,11 @@ def spinup(config: Any, **kwargs: Any) -> SpinupResult:
     # Production run: a fresh project over the full [simulation.time] window,
     # seeded from the converged state. Its mesh must reproduce the spin-up mesh,
     # so a gmsh grid needs [mesh_catchment] cache = true.
+    warning = result.antecedent_warning()
+    if warning is not None:
+        from hydromodpy.core.logging import get_logger
+
+        get_logger(__name__).warning("chaining a production run: %s", warning)
     prod_cfg.flow.restart_from = result.restart_from
     production = run(prod_cfg, headless=headless)
     return dataclasses.replace(result, production_sim_id=getattr(production, "sim_id", None))

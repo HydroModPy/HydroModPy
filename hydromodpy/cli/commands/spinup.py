@@ -79,13 +79,17 @@ def run(args: argparse.Namespace) -> None:
         if cycle.d_head is None:
             print(f"  cycle {cycle.index}: initial state", file=sys.stderr)
         else:
+            stage = "not compared" if cycle.d_stage is None else f"{cycle.d_stage:.4g} m"
             print(
-                f"  cycle {cycle.index}: d_head={cycle.d_head:.4g} m, "
-                f"d_stage={cycle.d_stage:.4g} m",
+                f"  cycle {cycle.index}: d_head={cycle.d_head:.4g} m, d_stage={stage}",
                 file=sys.stderr,
             )
     if result.restart_from:
-        print(f"Converged state: {result.restart_from}", file=sys.stderr)
+        label = "Converged state" if result.converged else "Last state reached"
+        print(f"{label}: {result.restart_from}", file=sys.stderr)
+        warning = result.antecedent_warning()
+        if warning is not None:
+            print(f"Warning: {warning}", file=sys.stderr)
         if result.production_sim_id:
             print(
                 f"Production run from converged state: {result.production_sim_id}", file=sys.stderr
