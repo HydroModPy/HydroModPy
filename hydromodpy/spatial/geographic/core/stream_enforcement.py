@@ -201,7 +201,10 @@ def streams_from_config(enforce: object, setup: object) -> list:
 
     declared = getattr(enforce, "stream_geometry_path", None)
     if declared is None:
-        raise ValueError("geographic.enforce_streams.stream_geometry_path is unset.")
+        raise ValueError(
+            "geographic.enforce_streams.stream_geometry_path is unset, and no vector "
+            "[[data.hydrography.sources]] entry was available to fill it."
+        )
     path = Path(declared)
     if not is_declared_absolute_path(path):
         logger.warning(

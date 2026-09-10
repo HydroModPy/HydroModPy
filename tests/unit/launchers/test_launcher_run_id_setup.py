@@ -203,7 +203,8 @@ def test_resolve_optional_mesh_input_resolves_relative_paths(tmp_path: Path) -> 
     }
 
 
-def test_run_setup_does_not_declare_unused_geology_zone(monkeypatch) -> None:
+def test_run_setup_declares_the_binder_zone_ids(monkeypatch) -> None:
+    """apply_geology_to_domain writes under a fixed zone id, so the runtime arms it."""
     monkeypatch.setattr(
         "hydromodpy.workflow.steps.setup.Workspace",
         _DummyWorkspace,
@@ -245,7 +246,7 @@ def test_run_setup_does_not_declare_unused_geology_zone(monkeypatch) -> None:
 
     step_setup(run_state)
 
-    assert run_state.setup.domain.config.zone_ids == ["catchment"]
+    assert run_state.setup.domain.config.zone_ids == ["catchment", "geology"]
 
 
 def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
@@ -305,7 +306,7 @@ def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
         },
     )
 
-    assert run_state.setup.domain.config.zone_ids == ["catchment", "field_geology"]
+    assert run_state.setup.domain.config.zone_ids == ["catchment", "geology", "field_geology"]
 
 
 def test_run_setup_rejects_heterogeneous_flow_when_support_is_undeclared(monkeypatch) -> None:

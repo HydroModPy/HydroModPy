@@ -43,6 +43,25 @@ def series_observable(
     )
 
 
+def scalar_observable(
+    request: ObservableRequest,
+    value: float,
+    *,
+    units: str,
+) -> ObservableResult:
+    """Wrap one time-invariant number as an observable.
+
+    ``ObservableResult`` carries the shape in the data, so a scalar is a ``()``
+    array and no consumer needs a new branch to read it.
+    """
+    return ObservableResult(
+        request_id=request.id,
+        values=np.asarray(float(value), dtype=float),
+        units=units,
+        times=None,
+    )
+
+
 def field_observable(
     request: ObservableRequest,
     frame: pd.DataFrame,
@@ -62,4 +81,4 @@ def field_observable(
     )
 
 
-__all__ = ("field_observable", "series_observable")
+__all__ = ("field_observable", "scalar_observable", "series_observable")

@@ -40,6 +40,8 @@ Fields
 
 .. rst-class:: hmp-config-fields
 
+.. index:: ! points
+
 .. container:: hmp-field hmp-field-level-user
    :name: observation-points
 
@@ -75,6 +77,8 @@ Fields
             Station id of the point. Unique within the section.
 
 
+      .. index:: ! x
+
       .. container:: hmp-field hmp-field-level-user
          :name: observation-points-x
 
@@ -88,6 +92,8 @@ Fields
 
             Easting in the project CRS (same units as the mesh).
 
+
+      .. index:: ! y
 
       .. container:: hmp-field hmp-field-level-user
          :name: observation-points-y
@@ -103,6 +109,8 @@ Fields
             Northing in the project CRS (same units as the mesh).
 
 
+      .. index:: ! layer
+
       .. container:: hmp-field hmp-field-level-user
          :name: observation-points-layer
 
@@ -117,6 +125,8 @@ Fields
             Zero-based layer index to read. Mutually exclusive with 'depth'.
 
 
+      .. index:: ! depth
+
       .. container:: hmp-field hmp-field-level-user
          :name: observation-points-depth
 
@@ -130,6 +140,8 @@ Fields
 
             Depth in metres below the local model top; picks the layer from the mesh layer thicknesses. Mutually exclusive with 'layer'.
 
+
+      .. index:: ! variables
 
       .. container:: hmp-field hmp-field-level-user
          :name: observation-points-variables

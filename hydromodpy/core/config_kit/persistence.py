@@ -42,14 +42,23 @@ class PersistenceConfig(HydroModelBase):
     )
     compression: Annotated[CompressionCodec, Profile.DEV] = Field(
         default="zstd",
-        description="Codec used for Zarr field arrays and Parquet tables. "
-        "'none' disables compression.",
+        description=(
+            "Codec DECLARED for Zarr field arrays and Parquet tables. The writers "
+            "carry their own codec (zstd) and do not read this field, so changing "
+            "it changes nothing today; it records the intent and is the field a "
+            "writer would read once the choice is threaded through."
+        ),
     )
     compression_level: Annotated[int, Profile.DEV] = Field(
-        default=3,
+        default=5,
         ge=0,
         le=22,
-        description="Compression level (codec-dependent). Ignored when compression='none'.",
+        description=(
+            "Compression level DECLARED for those writers. Same as the codec: "
+            "core/io/parquet.py and core/io/geoparquet.py hold level 5 and do not "
+            "read this field. The default says 5 rather than 3 so the declaration "
+            "at least matches the bytes actually written."
+        ),
     )
 
 

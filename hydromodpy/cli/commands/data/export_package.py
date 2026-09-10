@@ -1,4 +1,4 @@
-"""``hmp export-package`` - emit a portable ``.hmp`` archive for a simulation."""
+"""``hmp data export-package`` - emit a portable ``.hmp`` archive for a simulation."""
 
 from __future__ import annotations
 

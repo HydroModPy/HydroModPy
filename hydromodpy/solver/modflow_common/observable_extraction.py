@@ -24,7 +24,11 @@ from hydromodpy.core.contracts.observables import (
     ObservableResult,
     require_unique_request_ids,
 )
-from hydromodpy.solver.base.observables import field_observable, series_observable
+from hydromodpy.solver.base.observables import (
+    field_observable,
+    scalar_observable,
+    series_observable,
+)
 from hydromodpy.solver.modflow_common.calibration_extractors import (
     ReleasePackage,
     extract_discharge_from_cbc,
@@ -33,6 +37,12 @@ from hydromodpy.solver.modflow_common.calibration_extractors import (
     extract_saturated_thickness_by_cell_from_hds,
 )
 from hydromodpy.solver.modflow_common.catchment_support import catchment_cell_mask
+from hydromodpy.solver.modflow_common.discharge_routing import (
+    flat_cell_index,
+    route_release_to_discharge,
+    routing_graph_for_model,
+    upstream_area_m2,
+)
 
 RoutedDischargeReader = Callable[[Path, str, "pd.DatetimeIndex | None"], "pd.Series | None"]
 StationCellMapper = Callable[[Mapping[str, tuple[int, int, int]]], dict[str, tuple[int, int, int]]]
@@ -44,6 +54,8 @@ _THICKNESS_UNITS = "m"
 _DRAIN_RECORDS = ("DRN", "DRAIN", "DRAINS")
 _DRAIN_TO_MOVER_RECORDS = ("DRN-TO-MVR",)
 _STREAM_RECORDS = ("SFR",)
+_LAKE_RECORDS = ("LAK", "LAKE", "LAK-GWF")
+_SURFACE_TO_MOVER_RECORDS = ("SFR-TO-MVR", "LAK-TO-MVR")
 _CONSTANT_HEAD_RECORDS = ("CHD", "CONSTANT HEAD")
 
 
@@ -118,6 +130,11 @@ def release_packages_for_model(model: Any) -> list[ReleasePackage]:
             )
     if getattr(model, "sfr", None) is not None:
         packages.append(ReleasePackage(name="SFR", record_aliases=_STREAM_RECORDS))
+    if getattr(model, "lak", None) is not None:
+        # The model budget carries the per-cell aquifer-to-lake exchange, beside
+        # the per-lake budget the LAK builder also writes to its own file. A run
+        # with a lake used to refuse the union rather than under-count it.
+        packages.append(ReleasePackage(name="LAK", record_aliases=_LAKE_RECORDS))
     stream_cells = _stream_role_cells(model)
     if getattr(model, "chd", None) is not None and stream_cells is not None:
         packages.append(
@@ -130,7 +147,7 @@ def release_packages_for_model(model: Any) -> list[ReleasePackage]:
     if not packages:
         raise RuntimeError(
             "release_flux needs a package that releases groundwater to the surface, and "
-            "this run declares no DRN, no SFR and no stream-role CHD."
+            "this run declares no DRN, no SFR, no LAK and no stream-role CHD."
         )
     return packages
 
@@ -151,15 +168,35 @@ def excluded_release_records_for_model(model: Any) -> dict[str, str]:
     backend happens to expose: MODFLOW-NWT builds its lateral boundary without
     a ``chd`` attribute on the model, so asking for one ruled nothing out and
     refused every NWT catchment for closing on a boundary.
+
+    The surface-package mover records are ruled out unconditionally: they are a
+    property of what a mover IS, not of how this run is built.
     """
+    excluded: dict[str, str] = {}
+
+    # A mover record on a SURFACE package carries water between surface features,
+    # not across the aquifer boundary: it was already counted where it left the
+    # aquifer (DRN, SFR or LAK), and adding it would count the same water twice.
+    # DRN-TO-MVR is the opposite case and stays in the union: the drain takes it
+    # OUT of the aquifer, and MF6 makes DRN and DRN-TO-MVR disjoint halves.
+    surface_mover_reason = (
+        "a mover record on a surface package moves water between surface features and "
+        "never crosses the aquifer boundary, so it was already counted where it left "
+        "the aquifer and counting it again would double the same water"
+    )
+    for record in _SURFACE_TO_MOVER_RECORDS:
+        excluded[record] = surface_mover_reason
+
     if _stream_role_cells(model) is not None:
-        return {}
+        return excluded
     reason = (
         "no cell of the constant head carries the stream role, so it is an ocean or a "
         "lateral boundary: water crossing it leaves the domain sideways instead of "
         "surfacing, and counting it would put a stream on the model edge"
     )
-    return {"CHD": reason, "CONSTANT HEAD": reason}
+    excluded["CHD"] = reason
+    excluded["CONSTANT HEAD"] = reason
+    return excluded
 
 
 def _aquifer_bounds(model: Any) -> tuple[np.ndarray, np.ndarray]:
@@ -183,6 +220,7 @@ def extract_common_modflow_observables(
     time_index: pd.DatetimeIndex | None = None,
     station_cell_mapper: StationCellMapper | None = None,
     routed_discharge_reader: RoutedDischargeReader | None = None,
+    reach_flow_reader: Any | None = None,
 ) -> tuple[dict[str, ObservableResult], list[ObservableRequest]]:
     """Serve the shared MODFLOW observables; return the ones left unserved.
 
@@ -198,12 +236,14 @@ def extract_common_modflow_observables(
 
     head_requests = [r for r in requests if r.name == "head" and r.support == "cell"]
     discharge_requests = [r for r in requests if r.name == "discharge" and r.support == "domain"]
+    discharge_cell_requests = [r for r in requests if r.name == "discharge" and r.support == "cell"]
+    area_requests = [r for r in requests if r.name == "upstream_area" and r.support == "cell"]
     release_requests = [r for r in requests if r.name == "release_flux" and r.support == "cells"]
     thickness_requests = [
         r for r in requests if r.name == "saturated_thickness" and r.support == "cells"
     ]
-    handled = {id(r) for r in head_requests + discharge_requests}
-    handled |= {id(r) for r in release_requests + thickness_requests}
+    handled = {id(r) for r in head_requests + discharge_requests + discharge_cell_requests}
+    handled |= {id(r) for r in release_requests + thickness_requests + area_requests}
     unserved = [r for r in requests if id(r) not in handled]
 
     if discharge_requests:
@@ -247,7 +287,17 @@ def extract_common_modflow_observables(
                 raise KeyError(f"No head series extracted for station {request.id!r}") from exc
             served[request.id] = series_observable(request, series, units=_HEAD_UNITS)
 
-    if release_requests:
+    if area_requests:
+        # Static geometry, but it belongs with the discharge: the runoff a gauge
+        # sees has to be the runoff over exactly the cells whose release it sees.
+        graph = routing_graph_for_model(model)
+        areas = upstream_area_m2(model, graph, catchment_mask=catchment_cell_mask(model))
+        for request in area_requests:
+            served[request.id] = scalar_observable(
+                request, float(areas[flat_cell_index(model, request.cell)]), units="m2"
+            )
+
+    if release_requests or discharge_cell_requests:
         frame = extract_release_flux_by_cell_from_cbc(
             output_dir,
             model_name,
@@ -258,6 +308,45 @@ def extract_common_modflow_observables(
         )
         for request in release_requests:
             served[request.id] = field_observable(request, frame, units=_DISCHARGE_UNITS)
+
+        if discharge_cell_requests:
+            # A routed network needs no post-processing: MODFLOW made the water
+            # flow, movers included, so the reach under the gauge already holds
+            # the simulated discharge. Reading it is both simpler and truer than
+            # accumulating what entered the network, because it carries the
+            # channel storage and the diversions the routing applied.
+            reach_flow = reach_flow_reader(output_dir, model_name) if reach_flow_reader else None
+
+            routed = None
+            unrouted = [
+                request
+                for request in discharge_cell_requests
+                if reach_flow is None or flat_cell_index(model, request.cell) not in reach_flow
+            ]
+            if unrouted:
+                # No reach under that gauge: sum what the aquifer released above
+                # it. The release is the union of every package crossing the
+                # aquifer face, so this holds for DRN, LAK and the movers alike.
+                graph = routing_graph_for_model(model)
+                routed = route_release_to_discharge(
+                    frame.to_numpy(),
+                    graph,
+                    catchment_mask=catchment_cell_mask(model),
+                )
+
+            for request in discharge_cell_requests:
+                index = flat_cell_index(model, request.cell)
+                if reach_flow is not None and index in reach_flow:
+                    values = np.asarray(reach_flow[index], dtype=float)
+                    # The reach carries the runoff the network was fed with.
+                    includes_runoff = True
+                else:
+                    values = routed[:, index]
+                    includes_runoff = False
+                series = pd.Series(values, index=frame.index[: values.size], name="discharge")
+                served[request.id] = series_observable(
+                    request, series, units=_DISCHARGE_UNITS, includes_runoff=includes_runoff
+                )
 
     if thickness_requests:
         top, bottom = _aquifer_bounds(model)

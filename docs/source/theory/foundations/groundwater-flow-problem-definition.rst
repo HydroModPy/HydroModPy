@@ -371,8 +371,9 @@ This distinction matters for interpretation:
 - recharge describes water entering the aquifer,
 - drainage describes water leaving the aquifer because the piezometric state
   meets one release condition,
-- runoff is not the same object and does not currently live in
-  ``flow.sinks_sources``.
+- runoff is a distinct object from both: it can live in ``flow.sinks_sources``
+  as a routed SFR-reach or lake inflow, but never as a diffuse recharge or
+  drainage term.
 
 What Is Solver-Agnostic And What Is Backend-Specific
 ----------------------------------------------------

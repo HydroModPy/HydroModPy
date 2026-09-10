@@ -9,7 +9,6 @@ root = "outputs/nancon_network_physical_benchmark/workspaces/bouss_same_mesh_no_
 
 [simulation]
 name = "nancon_network_physical_benchmark__bouss_same_mesh_no_drain"
-run_id = "nancon_network_physical_benchmark__bouss_same_mesh_no_drain"
 description = "Boussinesq Nancon benchmark on the same mesh, with zero drainage conductance."
 if_exists = "replace"
 
@@ -19,8 +18,9 @@ solvers = ["boussinesq"]
 [mesh_input]
 bundle_dir = "../09_comparison_workflow/outputs/nancon_transient_seasonal_hydrography/workspace_mf6/mesh/mesh_catchment_bundle"
 
-[flow.bc.cauchy.drainage]
+[flow.bc.drainage]
 value = 0.0
+kind = "cauchy"
 
 [flow]
 runtime_backend = "petsc"

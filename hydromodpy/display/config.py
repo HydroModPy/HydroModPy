@@ -36,6 +36,15 @@ class DisplayConfig(HydroModelBase):
     preset: Annotated[Literal["default", "print", "dark"], Profile.USER] = Field(
         default="default",
         description="Named theme applied before rendering any figure.",
+        json_schema_extra={
+            "value_docs": {
+                "default": (
+                    "Uses a colorful sans-serif palette on a white background, for screen viewing."
+                ),
+                "print": ("Uses a grayscale serif palette sized for black-and-white print output."),
+                "dark": ("Uses a bright palette on a dark background, for dark-themed displays."),
+            }
+        },
     )
     show: Annotated[bool, Profile.USER] = Field(
         default=False,

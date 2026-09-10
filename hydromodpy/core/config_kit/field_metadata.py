@@ -51,6 +51,7 @@ class FieldMetadata(TypedDict, total=False):
     toml_exclude: bool
     group: str
     stability: Stability
+    value_docs: dict[str, str]
 
 
 _ALLOWED_KEYS: Final[frozenset[str]] = frozenset(FieldMetadata.__annotations__)

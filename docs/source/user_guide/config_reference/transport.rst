@@ -27,6 +27,8 @@ Fields
 
 .. rst-class:: hmp-config-fields
 
+.. index:: ! active_sinks_sources
+
 .. container:: hmp-field hmp-field-level-user
    :name: transport-active-sinks-sources
 
@@ -41,6 +43,8 @@ Fields
       Ordered list of sink/source identifiers that are explicitly activated for this process. An empty list means no sink/source is active. Concrete process configs (e.g. FlowConfig) validate the allowed values.
 
 
+.. index:: ! active_bc
+
 .. container:: hmp-field hmp-field-level-user
    :name: transport-active-bc
 
@@ -54,6 +58,8 @@ Fields
 
       Ordered list of boundary-condition identifiers that are explicitly activated for this process. An empty list means no boundary-condition package is assembled. Concrete process configs (e.g. FlowConfig) validate the allowed values.
 
+
+.. index:: ! modpath
 
 .. container:: hmp-field hmp-field-level-user
    :name: transport-modpath
@@ -97,6 +103,8 @@ Fields
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+            .. index:: ! zone_partic
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modpath-parameters-zone-partic
 
@@ -111,6 +119,8 @@ Fields
                   Particle injection zone selector: 'domain', 'seepage_clip', or a raster path.
 
 
+            .. index:: ! track_dir
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modpath-parameters-track-dir
 
@@ -120,10 +130,16 @@ Fields
                     <code class="hmp-field-name">track_dir</code>
                   </div>
 
-               :bdg-primary:`Literal['forward', 'backward', 'custom']` :bdg-secondary:`default = "forward"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L23>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "forward"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L23>`__
 
                   Particle tracking direction.
 
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"forward"`` ``"backward"`` ``"custom"``
+
+
+            .. index:: ! bore_depth
 
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modpath-parameters-bore-depth
@@ -139,6 +155,8 @@ Fields
                   Optional bore depth list used for vertical particle injection.
 
 
+            .. index:: ! cell_div
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modpath-parameters-cell-div
 
@@ -152,6 +170,8 @@ Fields
 
                   Number of particles per axis in each cell.
 
+
+            .. index:: ! zloc_div
 
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modpath-parameters-zloc-div
@@ -167,6 +187,8 @@ Fields
                   If true, apply vertical subdivision for particle injection.
 
 
+            .. index:: ! sel_random
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modpath-parameters-sel-random
 
@@ -180,6 +202,8 @@ Fields
 
                   Optional random downsampling count of injected particles.
 
+
+            .. index:: ! sel_slice
 
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modpath-parameters-sel-slice
@@ -198,6 +222,8 @@ Fields
 
 
 
+
+.. index:: ! mt3dms
 
 .. container:: hmp-field hmp-field-level-user
    :name: transport-mt3dms
@@ -241,6 +267,8 @@ Fields
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+            .. index:: ! spc_name
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-mt3dms-parameters-spc-name
 
@@ -254,6 +282,8 @@ Fields
 
                   Name of transported species.
 
+
+            .. index:: ! sconc_init
 
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-mt3dms-parameters-sconc-init
@@ -269,6 +299,8 @@ Fields
                   Initial concentration value (can be overridden at runtime).
 
 
+            .. index:: ! sconc_input
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-mt3dms-parameters-sconc-input
 
@@ -282,6 +314,8 @@ Fields
 
                   Recharge concentration input value (can be overridden at runtime).
 
+
+            .. index:: ! disp_long
 
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-mt3dms-parameters-disp-long
@@ -297,6 +331,8 @@ Fields
                   Longitudinal dispersivity [L].
 
 
+            .. index:: ! disp_transh
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-mt3dms-parameters-disp-transh
 
@@ -310,6 +346,8 @@ Fields
 
                   Horizontal transverse dispersivity ratio.
 
+
+            .. index:: ! disp_transv
 
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-mt3dms-parameters-disp-transv
@@ -325,6 +363,8 @@ Fields
                   Vertical transverse dispersivity ratio.
 
 
+            .. index:: ! diffu_coeff
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-mt3dms-parameters-diffu-coeff
 
@@ -339,6 +379,8 @@ Fields
                   Molecular diffusion coefficient in m2/s. The MODFLOW 6 GWT backend runs on the SI SECONDS clock, so this value is consumed per second (a per-day value is ~86400x too large).
 
 
+            .. index:: ! react_order
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-mt3dms-parameters-react-order
 
@@ -348,10 +390,16 @@ Fields
                     <code class="hmp-field-name">react_order</code>
                   </div>
 
-               :bdg-primary:`Literal[None, 0, 1]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L96>`__
+               :bdg-primary:`int` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L96>`__
 
                   Reaction order for MODFLOW 6 GWT and MT3DMS: None (no decay), 0 (zero-order, constant rate in mass per volume per second), or 1 (first-order, proportional to concentration, in 1/s). Rates are on the SI SECONDS clock used by the GWT backend.
 
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``0`` ``1``
+
+
+            .. index:: ! scheme
 
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-mt3dms-parameters-scheme
@@ -362,10 +410,16 @@ Fields
                     <code class="hmp-field-name">scheme</code>
                   </div>
 
-               :bdg-primary:`Literal['upstream', 'central', 'TVD']` :bdg-secondary:`default = "upstream"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L105>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "upstream"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L105>`__
 
                   Advection scheme for MODFLOW 6 GWT. upstream: robust but diffusive (default). central: least diffusive, may oscillate. TVD: accurate sharp fronts (Ogata-Banks).
 
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"upstream"`` ``"central"`` ``"TVD"``
+
+
+            .. index:: ! rate_decay
 
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-mt3dms-parameters-rate-decay
@@ -381,6 +435,8 @@ Fields
                   Decay rate on the SI SECONDS clock used by the MODFLOW 6 GWT backend: 1/s for first-order (react_order=1), mass per volume per second for zero-order (react_order=0). A per-day value is ~86400x too large and annihilates the solute. Can be overridden at runtime.
 
 
+            .. index:: ! porosity
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-mt3dms-parameters-porosity
 
@@ -394,6 +450,8 @@ Fields
 
                   Effective (total) porosity [-], the dimensionless volume of interconnected pores per bulk volume. Drives MST pore volume and pore velocity. When omitted, the flow model specific yield is used, which underestimates pore volume and biases transit times low.
 
+
+            .. index:: ! plot_conc
 
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-mt3dms-parameters-plot-conc
@@ -412,6 +470,8 @@ Fields
 
 
 
+
+.. index:: ! modflow6gwt
 
 .. container:: hmp-field hmp-field-level-user
    :name: transport-modflow6gwt
@@ -562,9 +622,13 @@ Fields
                     <code class="hmp-field-name">react_order</code>
                   </div>
 
-               :bdg-primary:`Literal[None, 0, 1]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L96>`__
+               :bdg-primary:`int` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L96>`__
 
                   Reaction order for MODFLOW 6 GWT and MT3DMS: None (no decay), 0 (zero-order, constant rate in mass per volume per second), or 1 (first-order, proportional to concentration, in 1/s). Rates are on the SI SECONDS clock used by the GWT backend.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``0`` ``1``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -576,9 +640,13 @@ Fields
                     <code class="hmp-field-name">scheme</code>
                   </div>
 
-               :bdg-primary:`Literal['upstream', 'central', 'TVD']` :bdg-secondary:`default = "upstream"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L105>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "upstream"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L105>`__
 
                   Advection scheme for MODFLOW 6 GWT. upstream: robust but diffusive (default). central: least diffusive, may oscillate. TVD: accurate sharp fronts (Ogata-Banks).
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"upstream"`` ``"central"`` ``"TVD"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -627,6 +695,8 @@ Fields
 
 
 
+.. index:: ! modflow6prt
+
 .. container:: hmp-field hmp-field-level-user
    :name: transport-modflow6prt
 
@@ -669,6 +739,8 @@ Fields
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+            .. index:: ! release_zone
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modflow6prt-parameters-release-zone
 
@@ -683,6 +755,8 @@ Fields
                   Particle release selector: 'domain', 'domain_nonriver', 'upstream', 'upstream_nonriver', 'river', 'outlet', or 'custom'.
 
 
+            .. index:: ! upstream_top_quantile
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modflow6prt-parameters-upstream-top-quantile
 
@@ -696,6 +770,8 @@ Fields
 
                   Top-elevation quantile used by upstream release zones. A value of 0.90 selects cells in the highest 10 percent of active cell-top elevations.
 
+
+            .. index:: ! outlet_bottom_quantile
 
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modflow6prt-parameters-outlet-bottom-quantile
@@ -739,6 +815,8 @@ Fields
                   Effective (total) porosity [-] for particle tracking (v = q / porosity). When omitted, the flow model specific yield is used where positive, with a warning, since specific yield underestimates pore volume.
 
 
+            .. index:: ! local_z
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modflow6prt-parameters-local-z
 
@@ -753,6 +831,8 @@ Fields
                   Local vertical release coordinate within the cell.
 
 
+            .. index:: ! particle_cell_ids
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modflow6prt-parameters-particle-cell-ids
 
@@ -766,6 +846,8 @@ Fields
 
                   Optional zero-based DISV cell2d ids for explicit particle release. Used when release_zone is 'custom'.
 
+
+            .. index:: ! max_particles
 
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modflow6prt-parameters-max-particles
@@ -795,6 +877,8 @@ Fields
                   Optional deterministic slicing step for selected release cells.
 
 
+            .. index:: ! release_times_days
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modflow6prt-parameters-release-times-days
 
@@ -808,6 +892,8 @@ Fields
 
                   Optional particle release times in days.
 
+
+            .. index:: ! track_times_days
 
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modflow6prt-parameters-track-times-days
@@ -823,6 +909,8 @@ Fields
                   Optional user tracking output times in days.
 
 
+            .. index:: ! track_time_step_days
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modflow6prt-parameters-track-time-step-days
 
@@ -836,6 +924,8 @@ Fields
 
                   Optional regular spacing, in days, for generated PRT tracking output times. Used only when track_times_days is omitted.
 
+
+            .. index:: ! stop_time_days
 
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modflow6prt-parameters-stop-time-days
@@ -851,6 +941,8 @@ Fields
                   Optional absolute particle stop time in days.
 
 
+            .. index:: ! stop_travel_time_days
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modflow6prt-parameters-stop-travel-time-days
 
@@ -864,6 +956,8 @@ Fields
 
                   Optional maximum particle travel time in days.
 
+
+            .. index:: ! extend_tracking
 
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modflow6prt-parameters-extend-tracking
@@ -879,6 +973,8 @@ Fields
                   Track particles beyond the final flow time step when MF6 permits it.
 
 
+            .. index:: ! dry_tracking_method
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modflow6prt-parameters-dry-tracking-method
 
@@ -888,10 +984,16 @@ Fields
                     <code class="hmp-field-name">dry_tracking_method</code>
                   </div>
 
-               :bdg-primary:`Literal['drop', 'stop', 'stay']` :bdg-secondary:`default = "drop"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L252>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "drop"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L252>`__
 
                   MF6 PRT behavior for dry-but-active cells.
 
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"drop"`` ``"stop"`` ``"stay"``
+
+
+            .. index:: ! exit_solve_tolerance
 
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modflow6prt-parameters-exit-solve-tolerance
@@ -907,6 +1009,8 @@ Fields
                   PRT generalized Pollock exit solve tolerance. Matches the MF6 prt-prp.dfn default (1e-5), which works well for many problems.
 
 
+            .. index:: ! write_track_csv
+
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modflow6prt-parameters-write-track-csv
 
@@ -920,6 +1024,8 @@ Fields
 
                   Write the PRT track CSV file used by the HydroModPy extractor.
 
+
+            .. index:: ! write_track_binary
 
             .. container:: hmp-field hmp-field-level-dev
                :name: transport-modflow6prt-parameters-write-track-binary

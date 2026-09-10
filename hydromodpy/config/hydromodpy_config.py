@@ -102,6 +102,34 @@ class WorkflowConfig(HydroModelBase):
     mode: Annotated[WorkflowMode, Profile.USER] = Field(
         ...,
         description="Workflow mode dispatched by `hmp run`.",
+        json_schema_extra={
+            "value_docs": {
+                "simulation": (
+                    "Runs one forward simulation and persists solver outputs, "
+                    "catalog rows, and result stores."
+                ),
+                "calibration": (
+                    "Repeatedly proposes parameters, runs candidate simulations, "
+                    "and records the calibration history."
+                ),
+                "overview": (
+                    "Loads geographic and data context and renders review maps "
+                    "without running a solver."
+                ),
+                "comparison": (
+                    "Runs several child simulations from one shared base config "
+                    "and compares their observables."
+                ),
+                "testbed": (
+                    "Expands a case matrix, delegates each case to a runner, and "
+                    "collects evidence artifacts."
+                ),
+                "site_selection": (
+                    "Selects or rejects candidate catchments and produces an "
+                    "auditable HTML review report."
+                ),
+            }
+        },
     )
     profile: Annotated[bool | str, Profile.EXPERT] = Field(
         default=False,

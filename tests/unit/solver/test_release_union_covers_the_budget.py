@@ -146,7 +146,7 @@ class TestTheModelDeclaresWhatItLeavesOut:
 
         model = SimpleNamespace(chd=object(), drn=object())
         excluded = excluded_release_records_for_model(model)
-        assert set(excluded) == {"CHD", "CONSTANT HEAD"}
+        assert {"CHD", "CONSTANT HEAD"} <= set(excluded)
         assert "stream role" in excluded["CHD"]
 
     def test_a_backend_that_exposes_no_chd_attribute_still_rules_it_out(self) -> None:
@@ -159,10 +159,9 @@ class TestTheModelDeclaresWhatItLeavesOut:
             excluded_release_records_for_model,
         )
 
-        assert set(excluded_release_records_for_model(SimpleNamespace(drn=object()))) == {
-            "CHD",
-            "CONSTANT HEAD",
-        }
+        assert {"CHD", "CONSTANT HEAD"} <= set(
+            excluded_release_records_for_model(SimpleNamespace(drn=object()))
+        )
 
     def test_a_constant_head_carrying_the_stream_role_is_not_ruled_out(self) -> None:
         from types import SimpleNamespace
@@ -176,7 +175,31 @@ class TestTheModelDeclaresWhatItLeavesOut:
             drn=object(),
             _stream_support_mask=np.array([False, True, False]),
         )
-        assert excluded_release_records_for_model(model) == {}
+        excluded = excluded_release_records_for_model(model)
+        assert "CHD" not in excluded and "CONSTANT HEAD" not in excluded
+
+    def test_a_surface_package_mover_record_is_always_ruled_out(self) -> None:
+        """SFR-TO-MVR and LAK-TO-MVR move surface water, never across the aquifer face."""
+        from types import SimpleNamespace
+
+        from hydromodpy.solver.modflow_common.observable_extraction import (
+            excluded_release_records_for_model,
+        )
+
+        excluded = excluded_release_records_for_model(SimpleNamespace(drn=object()))
+
+        assert {"SFR-TO-MVR", "LAK-TO-MVR"} <= set(excluded)
+        assert "double the same water" in excluded["SFR-TO-MVR"]
+
+    def test_the_drain_mover_record_is_never_ruled_out(self) -> None:
+        """DRN-TO-MVR takes water OUT of the aquifer, so it belongs to the union."""
+        from types import SimpleNamespace
+
+        from hydromodpy.solver.modflow_common.observable_extraction import (
+            excluded_release_records_for_model,
+        )
+
+        assert "DRN-TO-MVR" not in excluded_release_records_for_model(SimpleNamespace(drn=object()))
 
 
 class TestSiblingBudgets:

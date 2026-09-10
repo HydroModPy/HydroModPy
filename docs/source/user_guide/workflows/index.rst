@@ -327,12 +327,11 @@ Read more
       Registered ``hmp`` subcommands, workflow flags, and override
       precedence.
 
-   .. grid-item-card:: Project API
-      :link: ../project-api
+   .. grid-item-card:: Project object
+      :link: /python_api/project
       :link-type: doc
 
-      Python lifecycle for setup, data, mesh, run, comparison, and
-      calibration.
+      Python lifecycle for setup, data, mesh, run, and calibration.
 
    .. grid-item-card:: Configuration reference
       :link: ../config_reference/index

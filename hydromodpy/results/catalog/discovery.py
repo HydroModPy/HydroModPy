@@ -301,7 +301,7 @@ class DiscoveryMixin:
             tags = [str(r[0]) for r in tag_rows]
             close = difflib.get_close_matches(ref, tags, n=3, cutoff=0.4)
         suggestion = f" Closest: {', '.join(close)}." if close else ""
-        return f"Reference '{ref}' not found{context}. Run `hmp ls` to list known runs.{suggestion}"
+        return f"Reference '{ref}' not found{context}. Run `hmp catalog ls` to list known runs.{suggestion}"
 
     def __getitem__(self, ref: str | UUID) -> Run:
         from hydromodpy.results.run import Run

@@ -39,6 +39,8 @@ Fields
 
 .. rst-class:: hmp-config-fields
 
+.. index:: ! project_crs
+
 .. container:: hmp-field hmp-field-level-user
    :name: data-project-crs
 
@@ -52,6 +54,8 @@ Fields
 
       EPSG code or WKT string of the project coordinate reference system. When set, all loaded data is reprojected to this CRS. Example: 'EPSG:2154' (Lambert-93).
 
+
+.. index:: ! types
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-types
@@ -67,6 +71,8 @@ Fields
       Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
 
 
+.. index:: ! inference_mode
+
 .. container:: hmp-field hmp-field-level-dev
    :name: data-inference-mode
 
@@ -76,10 +82,16 @@ Fields
         <code class="hmp-field-name">inference_mode</code>
       </div>
 
-   :bdg-primary:`Literal['warn', 'strict']` :bdg-secondary:`default = "warn"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L119>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "warn"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L119>`__
 
       Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred type has no explicit data.<type> section (except geology, which can use its default typed config).
 
+   .. rst-class:: hmp-field-values
+
+   **One of:** ``"warn"`` ``"strict"``
+
+
+.. index:: ! dem
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-dem
@@ -113,7 +125,7 @@ Fields
               <code class="hmp-field-toml">[[data.dem.sources]]</code>
             </div>
 
-         :bdg-primary:`source = "custom" | "ign_geoplateforme_dem"` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L144>`__
+         :bdg-primary:`source = "custom" | "ign_geoplateforme_dem"` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L146>`__
 
             At least one DEM data source.
 
@@ -136,12 +148,12 @@ Fields
                           <code class="hmp-field-name">mask_path</code>
                         </div>
 
-                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L32>`__
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L34>`__
 
                         SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
 
 
-                  .. container:: hmp-field hmp-field-level-user
+                  .. container:: hmp-field hmp-field-level-dev
                      :name: data-dem-sources-extent
 
                      .. raw:: html
@@ -150,9 +162,13 @@ Fields
                           <code class="hmp-field-name">extent</code>
                         </div>
 
-                     :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L32>`__
+                     :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L34>`__
 
-                        Use project extent for bbox-based data retrieval.
+                        Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+                     .. rst-class:: hmp-field-values
+
+                     **One of:** ``"watershed"`` ``"study_area"``
 
 
                   .. container:: hmp-field hmp-field-level-dev
@@ -164,7 +180,7 @@ Fields
                           <code class="hmp-field-name">force_refresh</code>
                         </div>
 
-                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L32>`__
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L34>`__
 
                         Ignore cache and re-download from API.
 
@@ -178,7 +194,7 @@ Fields
                           <code class="hmp-field-name">path</code>
                         </div>
 
-                     :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L39>`__
+                     :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L41>`__
 
                         Path to custom DEM file or directory (TIF, ASC, NC).
 
@@ -191,7 +207,6 @@ Fields
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-dem-sources-mask-path
 
                      .. raw:: html
 
@@ -199,13 +214,12 @@ Fields
                           <code class="hmp-field-name">mask_path</code>
                         </div>
 
-                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78>`__
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L80>`__
 
                         SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
 
 
-                  .. container:: hmp-field hmp-field-level-user
-                     :name: data-dem-sources-extent
+                  .. container:: hmp-field hmp-field-level-dev
 
                      .. raw:: html
 
@@ -213,13 +227,16 @@ Fields
                           <code class="hmp-field-name">extent</code>
                         </div>
 
-                     :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78>`__
+                     :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L80>`__
 
-                        Use project extent for bbox-based data retrieval.
+                        Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+                     .. rst-class:: hmp-field-values
+
+                     **One of:** ``"watershed"`` ``"study_area"``
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: data-dem-sources-force-refresh
 
                      .. raw:: html
 
@@ -227,10 +244,12 @@ Fields
                           <code class="hmp-field-name">force_refresh</code>
                         </div>
 
-                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78>`__
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L80>`__
 
                         Ignore cache and re-download from API.
 
+
+                  .. index:: ! departments
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: data-dem-sources-departments
@@ -241,10 +260,12 @@ Fields
                           <code class="hmp-field-name">departments</code>
                         </div>
 
-                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78>`__
+                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L80>`__
 
                         Optional French department codes to fetch. When set, these codes constrain archive downloads instead of inferring departments only from the bbox.
 
+
+                  .. index:: ! country
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: data-dem-sources-country
@@ -255,10 +276,12 @@ Fields
                           <code class="hmp-field-name">country</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "FR"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "FR"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L80>`__
 
                         Country code used for administrative DEM selectors.
 
+
+                  .. index:: ! regions
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: data-dem-sources-regions
@@ -269,10 +292,12 @@ Fields
                           <code class="hmp-field-name">regions</code>
                         </div>
 
-                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78>`__
+                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L80>`__
 
                         Optional French administrative regions used to infer department downloads.
 
+
+                  .. index:: ! dataset
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: data-dem-sources-dataset
@@ -283,10 +308,12 @@ Fields
                           <code class="hmp-field-name">dataset</code>
                         </div>
 
-                     :bdg-primary:`Literal['bd-alti']` :bdg-secondary:`default = "bd-alti"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L85>`__
+                     :bdg-primary:`Literal['bd-alti']` :bdg-secondary:`default = "bd-alti"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L87>`__
 
                         IGN DEM product assembled by the data manager. Only BD ALTI 25 m is currently exposed as an assembled raster source; use the download_dem_fr helper to inspect raw RGE ALTI archives.
 
+
+                  .. index:: ! resolution_m
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: data-dem-sources-resolution-m
@@ -297,10 +324,12 @@ Fields
                           <code class="hmp-field-name">resolution_m</code>
                         </div>
 
-                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L93>`__
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L95>`__
 
                         Requested DEM resolution in metres. Defaults are resolved by the manager from the selected dataset.
 
+
+                  .. index:: ! file_format
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: data-dem-sources-file-format
@@ -311,10 +340,12 @@ Fields
                           <code class="hmp-field-name">file_format</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "ASC"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L100>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "ASC"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L102>`__
 
                         Requested archive payload format when exposed by Geoplateforme.
 
+
+                  .. index:: ! crs
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: data-dem-sources-crs
@@ -325,7 +356,7 @@ Fields
                           <code class="hmp-field-name">crs</code>
                         </div>
 
-                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L104>`__
+                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L106>`__
 
                         Optional CRS filter forwarded to Geoplateforme discovery.
 
@@ -333,6 +364,8 @@ Fields
 
 
 
+
+.. index:: ! geology
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-geology
@@ -366,7 +399,7 @@ Fields
               <code class="hmp-field-toml">[[data.geology.sources]]</code>
             </div>
 
-         :bdg-primary:`source = "custom" | "brgm_1m" | "brgm_50k"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L138>`__
+         :bdg-primary:`source = "custom" | "brgm_1m" | "brgm_50k"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L140>`__
 
             At least one geology data source. Defaults to BRGM 1:1M.
 
@@ -389,12 +422,12 @@ Fields
                           <code class="hmp-field-name">mask_path</code>
                         </div>
 
-                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L40>`__
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L42>`__
 
                         SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
 
 
-                  .. container:: hmp-field hmp-field-level-user
+                  .. container:: hmp-field hmp-field-level-dev
                      :name: data-geology-sources-extent
 
                      .. raw:: html
@@ -403,9 +436,13 @@ Fields
                           <code class="hmp-field-name">extent</code>
                         </div>
 
-                     :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L40>`__
+                     :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L42>`__
 
-                        Use project extent for bbox-based data retrieval.
+                        Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+                     .. rst-class:: hmp-field-values
+
+                     **One of:** ``"watershed"`` ``"study_area"``
 
 
                   .. container:: hmp-field hmp-field-level-dev
@@ -417,7 +454,7 @@ Fields
                           <code class="hmp-field-name">force_refresh</code>
                         </div>
 
-                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L40>`__
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L42>`__
 
                         Ignore cache and re-download from API.
 
@@ -431,10 +468,12 @@ Fields
                           <code class="hmp-field-name">path</code>
                         </div>
 
-                     :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L47>`__
+                     :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L49>`__
 
                         Path to custom geology file or directory (SHP, GPKG, TIF, CSV).
 
+
+                  .. index:: ! code_field
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: data-geology-sources-code-field
@@ -445,10 +484,12 @@ Fields
                           <code class="hmp-field-name">code_field</code>
                         </div>
 
-                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L55>`__
+                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L57>`__
 
                         Attribute column for geology codes in custom vector files (SHP/GPKG). Required for custom vector sources.
 
+
+                  .. index:: ! values_table_path
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: data-geology-sources-values-table-path
@@ -459,7 +500,7 @@ Fields
                           <code class="hmp-field-name">values_table_path</code>
                         </div>
 
-                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L62>`__
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L64>`__
 
                         Optional CSV linking geology codes to descriptions. Columns: geology_code, description.
 
@@ -473,7 +514,7 @@ Fields
                           <code class="hmp-field-name">col_x</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L69>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L71>`__
 
                         Column for X coordinate in CSV.
 
@@ -487,10 +528,12 @@ Fields
                           <code class="hmp-field-name">col_y</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L73>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L75>`__
 
                         Column for Y coordinate in CSV.
 
+
+                  .. index:: ! col_code
 
                   .. container:: hmp-field hmp-field-level-dev
                      :name: data-geology-sources-col-code
@@ -501,7 +544,7 @@ Fields
                           <code class="hmp-field-name">col_code</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "geology_code"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L77>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "geology_code"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L79>`__
 
                         Column for geology code in CSV.
 
@@ -515,7 +558,7 @@ Fields
                           <code class="hmp-field-name">default_crs</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "EPSG:2154"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L81>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "EPSG:2154"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L83>`__
 
                         Default CRS for CSV points.
 
@@ -528,7 +571,6 @@ Fields
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-geology-sources-mask-path
 
                      .. raw:: html
 
@@ -536,13 +578,12 @@ Fields
                           <code class="hmp-field-name">mask_path</code>
                         </div>
 
-                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L87>`__
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L89>`__
 
                         SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
 
 
-                  .. container:: hmp-field hmp-field-level-user
-                     :name: data-geology-sources-extent
+                  .. container:: hmp-field hmp-field-level-dev
 
                      .. raw:: html
 
@@ -550,13 +591,16 @@ Fields
                           <code class="hmp-field-name">extent</code>
                         </div>
 
-                     :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L87>`__
+                     :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L89>`__
 
-                        Use project extent for bbox-based data retrieval.
+                        Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+                     .. rst-class:: hmp-field-values
+
+                     **One of:** ``"watershed"`` ``"study_area"``
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: data-geology-sources-force-refresh
 
                      .. raw:: html
 
@@ -564,7 +608,7 @@ Fields
                           <code class="hmp-field-name">force_refresh</code>
                         </div>
 
-                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L87>`__
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L89>`__
 
                         Ignore cache and re-download from API.
 
@@ -577,7 +621,6 @@ Fields
                .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: data-geology-sources-mask-path
 
                      .. raw:: html
 
@@ -585,13 +628,12 @@ Fields
                           <code class="hmp-field-name">mask_path</code>
                         </div>
 
-                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L96>`__
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L98>`__
 
                         SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
 
 
-                  .. container:: hmp-field hmp-field-level-user
-                     :name: data-geology-sources-extent
+                  .. container:: hmp-field hmp-field-level-dev
 
                      .. raw:: html
 
@@ -599,13 +641,16 @@ Fields
                           <code class="hmp-field-name">extent</code>
                         </div>
 
-                     :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L96>`__
+                     :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L98>`__
 
-                        Use project extent for bbox-based data retrieval.
+                        Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+                     .. rst-class:: hmp-field-values
+
+                     **One of:** ``"watershed"`` ``"study_area"``
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: data-geology-sources-force-refresh
 
                      .. raw:: html
 
@@ -613,7 +658,7 @@ Fields
                           <code class="hmp-field-name">force_refresh</code>
                         </div>
 
-                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L96>`__
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L98>`__
 
                         Ignore cache and re-download from API.
 
@@ -629,10 +674,12 @@ Fields
               <code class="hmp-field-name">id</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "field_geology"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L144>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "field_geology"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L146>`__
 
             Identifier of the geology spatial field.
 
+
+      .. index:: ! cell_samples_per_axis
 
       .. container:: hmp-field hmp-field-level-dev
          :name: data-geology-cell-samples-per-axis
@@ -643,12 +690,14 @@ Fields
               <code class="hmp-field-name">cell_samples_per_axis</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 8` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L127>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 8` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L129>`__
 
             Sub-sampling density for GeologyField.on_mesh(). Higher = more precise geology interface, slower runtime.
 
 
 
+
+.. index:: ! hydrography
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-hydrography
@@ -682,7 +731,7 @@ Fields
               <code class="hmp-field-toml">[[data.hydrography.sources]]</code>
             </div>
 
-         :bdg-primary:`list[HydrographySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L89>`__
+         :bdg-primary:`list[HydrographySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L98>`__
 
             At least one hydrography data source.
 
@@ -701,9 +750,23 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'osm', 'bdtopage', 'euhydro']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L24>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L24>`__
 
                   Data provider.
+
+               .. rst-class:: hmp-field-values
+
+               ``"custom"``
+                  Loads a river network from a local vector or raster file you provide.
+
+               ``"osm"``
+                  Downloads waterway geometries from OpenStreetMap.
+
+               ``"bdtopage"``
+                  Downloads the French BD Topage reference network from the Sandre WFS.
+
+               ``"euhydro"``
+                  Downloads the EEA EU-Hydro continental-scale river network.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -715,10 +778,12 @@ Fields
                     <code class="hmp-field-name">path</code>
                   </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L29>`__
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L38>`__
 
                   Path to a vector file (SHP/GPKG/GeoJSON), raster (TIF/TIFF), or directory containing one.
 
+
+            .. index:: ! rasterize_field
 
             .. container:: hmp-field hmp-field-level-user
                :name: data-hydrography-sources-rasterize-field
@@ -729,10 +794,12 @@ Fields
                     <code class="hmp-field-name">rasterize_field</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "FID"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L37>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "FID"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L46>`__
 
                   Attribute field used when rasterising the vector layer.
 
+
+            .. index:: ! typename
 
             .. container:: hmp-field hmp-field-level-dev
                :name: data-hydrography-sources-typename
@@ -743,10 +810,12 @@ Fields
                     <code class="hmp-field-name">typename</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "sa:CoursEau_FXX_Topage2025"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L43>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "sa:CoursEau_FXX_Topage2025"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L52>`__
 
                   WFS typename for BD Topage.
 
+
+            .. index:: ! page_size
 
             .. container:: hmp-field hmp-field-level-dev
                :name: data-hydrography-sources-page-size
@@ -757,10 +826,12 @@ Fields
                     <code class="hmp-field-name">page_size</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 2000` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L47>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 2000` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L56>`__
 
                   WFS pagination page size (BD Topage).
 
+
+            .. index:: ! group_name
 
             .. container:: hmp-field hmp-field-level-dev
                :name: data-hydrography-sources-group-name
@@ -771,10 +842,12 @@ Fields
                     <code class="hmp-field-name">group_name</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "River_Net_lines"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L53>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "River_Net_lines"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L62>`__
 
                   MapServer group name for EU-Hydro layer discovery.
 
+
+            .. index:: ! euhydro_page_size
 
             .. container:: hmp-field hmp-field-level-dev
                :name: data-hydrography-sources-euhydro-page-size
@@ -785,7 +858,7 @@ Fields
                     <code class="hmp-field-name">euhydro_page_size</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 1000` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L57>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 1000` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L66>`__
 
                   Pagination page size for EU-Hydro REST queries.
 
@@ -799,10 +872,12 @@ Fields
                     <code class="hmp-field-name">force_refresh</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L63>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L72>`__
 
                   Bypass API cache and re-download data.
 
+
+            .. index:: ! waterway_types
 
             .. container:: hmp-field hmp-field-level-dev
                :name: data-hydrography-sources-waterway-types
@@ -813,7 +888,7 @@ Fields
                     <code class="hmp-field-name">waterway_types</code>
                   </div>
 
-               :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L69>`__
+               :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L78>`__
 
                   OSM waterway tag values to fetch.
 
@@ -821,6 +896,8 @@ Fields
 
 
 
+
+.. index:: ! hydrometry
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-hydrometry
@@ -852,7 +929,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L105>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L112>`__
 
             Project start date (ISO format, e.g. '2019-01-01').
 
@@ -868,7 +945,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L106>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L113>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
 
@@ -886,7 +963,7 @@ Fields
               <code class="hmp-field-toml">[[data.hydrometry.sources]]</code>
             </div>
 
-         :bdg-primary:`list[HydrometrySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L82>`__
+         :bdg-primary:`list[HydrometrySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L89>`__
 
             At least one data source.
 
@@ -895,6 +972,8 @@ Fields
             :animate: fade-in-slide-down
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. index:: ! fallback_search_radius_km
 
             .. container:: hmp-field hmp-field-level-dev
                :name: data-hydrometry-sources-fallback-search-radius-km
@@ -924,7 +1003,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-hydrometry-sources-extent
 
                .. raw:: html
@@ -933,9 +1012,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -1087,9 +1170,13 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'hubeau']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L31>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L31>`__
 
                   Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"custom"`` ``"hubeau"``
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1106,6 +1193,8 @@ Fields
                   Directory containing location file and chronicle CSVs.
 
 
+            .. index:: ! product
+
             .. container:: hmp-field hmp-field-level-user
                :name: data-hydrometry-sources-product
 
@@ -1120,6 +1209,8 @@ Fields
                   Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HmnJ').
 
 
+            .. index:: ! require_observations
+
             .. container:: hmp-field hmp-field-level-dev
                :name: data-hydrometry-sources-require-observations
 
@@ -1131,8 +1222,10 @@ Fields
 
                :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L47>`__
 
-                  Only keep stations that have observations in the period.
+                  Drop stations whose declared service period does not overlap the requested window, before downloading them. It is a metadata filter: a station that overlaps but returns nothing is dropped after its download instead, and the run says which ones.
 
+
+            .. index:: ! max_stations
 
             .. container:: hmp-field hmp-field-level-user
                :name: data-hydrometry-sources-max-stations
@@ -1143,14 +1236,16 @@ Fields
                     <code class="hmp-field-name">max_stations</code>
                   </div>
 
-               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L50>`__
+               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L56>`__
 
-                  Maximum number of Hub'Eau stations to download after discovery. Useful for fast preview runs over a larger territory.
-
-
+                  Maximum number of Hub'Eau stations to KEEP. Stations that return no observation in the window do not count against it, so a preview run over a larger territory gets this many stations carrying data, not this many tried.
 
 
 
+
+
+
+.. index:: ! intermittency
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-intermittency
@@ -1254,7 +1349,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-intermittency-sources-extent
 
                .. raw:: html
@@ -1263,9 +1358,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/intermittency/config.py#L20>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/intermittency/config.py#L20>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -1417,9 +1516,13 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'hubeau']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/intermittency/config.py#L30>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/intermittency/config.py#L30>`__
 
                   Data provider: 'custom' for user files, 'hubeau' for Hub'Eau stream-flow API.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"custom"`` ``"hubeau"``
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1435,6 +1538,8 @@ Fields
 
                   Directory containing location file and chronicle CSVs.
 
+
+            .. index:: ! code_departement
 
             .. container:: hmp-field hmp-field-level-user
                :name: data-intermittency-sources-code-departement
@@ -1467,6 +1572,8 @@ Fields
 
 
 
+
+.. index:: ! lake_abacus
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-lake-abacus
@@ -1538,6 +1645,8 @@ Fields
                   Path to a custom lake-abacus table file (CSV with stage,volume,sarea).
 
 
+            .. index:: ! lake_id
+
             .. container:: hmp-field hmp-field-level-user
                :name: data-lake-abacus-sources-lake-id
 
@@ -1569,6 +1678,8 @@ Fields
 
 
 
+
+.. index:: ! lake_bathymetry
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-lake-bathymetry
@@ -1672,6 +1783,8 @@ Fields
 
 
 
+.. index:: ! lake_geometry
+
 .. container:: hmp-field hmp-field-level-user
    :name: data-lake-geometry
 
@@ -1774,6 +1887,8 @@ Fields
 
 
 
+.. index:: ! lake_inflow
+
 .. container:: hmp-field hmp-field-level-user
    :name: data-lake-inflow
 
@@ -1862,7 +1977,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-lake-inflow-sources-extent
 
                .. raw:: html
@@ -1871,9 +1986,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -2048,6 +2167,8 @@ Fields
 
 
 
+.. index:: ! lake_levels
+
 .. container:: hmp-field hmp-field-level-user
    :name: data-lake-levels
 
@@ -2136,7 +2257,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-lake-levels-sources-extent
 
                .. raw:: html
@@ -2145,9 +2266,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -2322,6 +2447,8 @@ Fields
 
 
 
+.. index:: ! lake_outflow
+
 .. container:: hmp-field hmp-field-level-user
    :name: data-lake-outflow
 
@@ -2410,7 +2537,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-lake-outflow-sources-extent
 
                .. raw:: html
@@ -2419,9 +2546,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -2596,6 +2727,8 @@ Fields
 
 
 
+.. index:: ! lake_withdrawal
+
 .. container:: hmp-field hmp-field-level-user
    :name: data-lake-withdrawal
 
@@ -2684,7 +2817,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-lake-withdrawal-sources-extent
 
                .. raw:: html
@@ -2693,9 +2826,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -2870,6 +3007,8 @@ Fields
 
 
 
+.. index:: ! oceanic
+
 .. container:: hmp-field hmp-field-level-user
    :name: data-oceanic
 
@@ -2972,7 +3111,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-oceanic-sources-extent
 
                .. raw:: html
@@ -2981,9 +3120,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L20>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L20>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -3135,9 +3278,13 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'shom', 'constant']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L30>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L30>`__
 
                   Data provider: 'custom' for user CSV/NC/TIF files, 'shom' for SHOM API, 'constant' for fixed MSL.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"custom"`` ``"shom"`` ``"constant"``
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -3167,6 +3314,8 @@ Fields
 
                   Constant mean sea-level value in metres.
 
+
+            .. index:: ! nearest
 
             .. container:: hmp-field hmp-field-level-dev
                :name: data-oceanic-sources-nearest
@@ -3200,6 +3349,8 @@ Fields
 
 
 
+.. index:: ! piezometry
+
 .. container:: hmp-field hmp-field-level-user
    :name: data-piezometry
 
@@ -3230,7 +3381,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L66>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L75>`__
 
             Project start date (ISO format, e.g. '2019-01-01').
 
@@ -3246,7 +3397,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L66>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L75>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
 
@@ -3264,7 +3415,7 @@ Fields
               <code class="hmp-field-toml">[[data.piezometry.sources]]</code>
             </div>
 
-         :bdg-primary:`list[PiezometrySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L76>`__
+         :bdg-primary:`list[PiezometrySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L85>`__
 
             At least one data source.
 
@@ -3302,7 +3453,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-piezometry-sources-extent
 
                .. raw:: html
@@ -3311,9 +3462,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L20>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L20>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -3465,9 +3620,17 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'hubeau']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L30>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L30>`__
 
                   Data provider.
+
+               .. rst-class:: hmp-field-values
+
+               ``"custom"``
+                  Loads groundwater-level records from local station and chronicle files.
+
+               ``"hubeau"``
+                  Downloads public groundwater-level observations from the Hub'Eau API.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -3479,7 +3642,7 @@ Fields
                     <code class="hmp-field-name">path</code>
                   </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L35>`__
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L44>`__
 
                   Directory containing location file and chronicle CSVs.
 
@@ -3493,9 +3656,13 @@ Fields
                     <code class="hmp-field-name">product</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['level', 'depth']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L42>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L51>`__
 
                   Hub'Eau measurement type: 'level' or 'depth'.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"level"`` ``"depth"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -3507,7 +3674,7 @@ Fields
                     <code class="hmp-field-name">require_observations</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L45>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L54>`__
 
                   Only keep stations that have observations in the period.
 
@@ -3521,7 +3688,7 @@ Fields
                     <code class="hmp-field-name">nearest</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L48>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L57>`__
 
                   Keep only the nearest piezometer to the extent centroid.
 
@@ -3529,6 +3696,8 @@ Fields
 
 
 
+
+.. index:: ! water_quality
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-water-quality
@@ -3632,7 +3801,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-water-quality-sources-extent
 
                .. raw:: html
@@ -3641,9 +3810,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L20>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L20>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -3795,10 +3968,16 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'hubeau']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L30>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L30>`__
 
                   Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
 
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"custom"`` ``"hubeau"``
+
+
+            .. index:: ! site_type
 
             .. container:: hmp-field hmp-field-level-user
                :name: data-water-quality-sources-site-type
@@ -3809,9 +3988,13 @@ Fields
                     <code class="hmp-field-name">site_type</code>
                   </div>
 
-               :bdg-primary:`Literal['river', 'piezometer']` :bdg-secondary:`default = "river"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L35>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "river"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L35>`__
 
                   Type of site: 'river' (qualite_rivieres) or 'piezometer' (qualite_nappes).
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"river"`` ``"piezometer"``
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -3859,6 +4042,8 @@ Fields
 
 
 
+
+.. index:: ! recharge
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-recharge
@@ -3948,7 +4133,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-recharge-sources-extent
 
                .. raw:: html
@@ -3957,9 +4142,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/recharge/config.py#L19>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/recharge/config.py#L19>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -4111,9 +4300,13 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'sim2', 'synthetic']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/recharge/config.py#L28>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/recharge/config.py#L28>`__
 
                   Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'synthetic' for generated series.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"custom"`` ``"sim2"`` ``"synthetic"``
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -4130,6 +4323,8 @@ Fields
                   Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
 
 
+            .. index:: ! values
+
             .. container:: hmp-field hmp-field-level-user
                :name: data-recharge-sources-values
 
@@ -4143,6 +4338,8 @@ Fields
 
                   Recharge values in mm/day. Single value for constant, list for time-varying.
 
+
+            .. index:: ! start_date
 
             .. container:: hmp-field hmp-field-level-user
                :name: data-recharge-sources-start-date
@@ -4158,6 +4355,8 @@ Fields
                   Start date for synthetic series (ISO format, e.g. '2020-01-01').
 
 
+            .. index:: ! freq
+
             .. container:: hmp-field hmp-field-level-dev
                :name: data-recharge-sources-freq
 
@@ -4171,6 +4370,8 @@ Fields
 
                   Frequency for synthetic series (e.g. 'D', 'ME', 'YE').
 
+
+            .. index:: ! periods
 
             .. container:: hmp-field hmp-field-level-dev
                :name: data-recharge-sources-periods
@@ -4186,6 +4387,8 @@ Fields
                   Number of periods for synthetic series.
 
 
+            .. index:: ! amplitude
+
             .. container:: hmp-field hmp-field-level-expert
                :name: data-recharge-sources-amplitude
 
@@ -4199,6 +4402,8 @@ Fields
 
                   Sinusoidal amplitude in mm/day (superimposed on values).
 
+
+            .. index:: ! period_days
 
             .. container:: hmp-field hmp-field-level-expert
                :name: data-recharge-sources-period-days
@@ -4214,6 +4419,8 @@ Fields
                   Sinusoidal period in days.
 
 
+            .. index:: ! offset
+
             .. container:: hmp-field hmp-field-level-expert
                :name: data-recharge-sources-offset
 
@@ -4227,6 +4434,8 @@ Fields
 
                   Sinusoidal baseline offset in mm/day.
 
+
+            .. index:: ! runoff_ratio
 
             .. container:: hmp-field hmp-field-level-dev
                :name: data-recharge-sources-runoff-ratio
@@ -4245,6 +4454,8 @@ Fields
 
 
 
+
+.. index:: ! runoff
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-runoff
@@ -4334,7 +4545,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-runoff-sources-extent
 
                .. raw:: html
@@ -4343,9 +4554,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/runoff/config.py#L19>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/runoff/config.py#L19>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -4497,9 +4712,13 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'sim2']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/runoff/config.py#L27>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/runoff/config.py#L27>`__
 
                   Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"custom"`` ``"sim2"``
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -4519,6 +4738,8 @@ Fields
 
 
 
+
+.. index:: ! precipitation
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-precipitation
@@ -4608,7 +4829,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-precipitation-sources-extent
 
                .. raw:: html
@@ -4617,9 +4838,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L19>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L19>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -4771,10 +4996,16 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'sim2']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L27>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L27>`__
 
                   Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
 
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"custom"`` ``"sim2"``
+
+
+            .. index:: ! components
 
             .. container:: hmp-field hmp-field-level-user
                :name: data-precipitation-sources-components
@@ -4785,9 +5016,13 @@ Fields
                     <code class="hmp-field-name">components</code>
                   </div>
 
-               :bdg-primary:`list[Literal['liquid', 'solid', 'total']]` :bdg-secondary:`default = ['total']` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L33>`__
+               :bdg-primary:`list[str]` :bdg-secondary:`default = ['total']` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L33>`__
 
                   Precipitation components: 'liquid' (rain), 'solid' (snow), 'total' (sum of both).
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"liquid"`` ``"solid"`` ``"total"``
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -4807,6 +5042,8 @@ Fields
 
 
 
+
+.. index:: ! etp
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-etp
@@ -4896,7 +5133,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-etp-sources-extent
 
                .. raw:: html
@@ -4905,9 +5142,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L19>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L19>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -5059,9 +5300,13 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'sim2']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L27>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L27>`__
 
                   Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"custom"`` ``"sim2"``
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -5092,6 +5337,8 @@ Fields
                   Optional CRS fallback for custom gridded NetCDF inputs that do not declare CRS metadata.
 
 
+            .. index:: ! nodata
+
             .. container:: hmp-field hmp-field-level-user
                :name: data-etp-sources-nodata
 
@@ -5109,6 +5356,8 @@ Fields
 
 
 
+
+.. index:: ! temperature
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-temperature
@@ -5198,7 +5447,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-temperature-sources-extent
 
                .. raw:: html
@@ -5207,9 +5456,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/temperature/config.py#L19>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/temperature/config.py#L19>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -5361,9 +5614,13 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'sim2']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/temperature/config.py#L27>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/temperature/config.py#L27>`__
 
                   Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"custom"`` ``"sim2"``
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -5383,6 +5640,8 @@ Fields
 
 
 
+
+.. index:: ! wind
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-wind
@@ -5472,7 +5731,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-wind-sources-extent
 
                .. raw:: html
@@ -5481,9 +5740,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/wind/config.py#L19>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/wind/config.py#L19>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -5635,9 +5898,13 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'sim2']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/wind/config.py#L27>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/wind/config.py#L27>`__
 
                   Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"custom"`` ``"sim2"``
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -5657,6 +5924,8 @@ Fields
 
 
 
+
+.. index:: ! humidity
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-humidity
@@ -5746,7 +6015,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-humidity-sources-extent
 
                .. raw:: html
@@ -5755,9 +6024,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/humidity/config.py#L19>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/humidity/config.py#L19>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -5909,9 +6182,13 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'sim2']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/humidity/config.py#L27>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/humidity/config.py#L27>`__
 
                   Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"custom"`` ``"sim2"``
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -5931,6 +6208,8 @@ Fields
 
 
 
+
+.. index:: ! radiation
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-radiation
@@ -6020,7 +6299,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-radiation-sources-extent
 
                .. raw:: html
@@ -6029,9 +6308,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L19>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L19>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -6183,9 +6466,13 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'sim2']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L27>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L27>`__
 
                   Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"custom"`` ``"sim2"``
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -6197,9 +6484,13 @@ Fields
                     <code class="hmp-field-name">components</code>
                   </div>
 
-               :bdg-primary:`list[Literal['atmospheric', 'visible']]` :bdg-secondary:`default = ['atmospheric', 'visible']` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L33>`__
+               :bdg-primary:`list[str]` :bdg-secondary:`default = ['atmospheric', 'visible']` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L33>`__
 
                   Radiation components: 'atmospheric' (DLI_Q) and/or 'visible' (SSI_Q).
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"atmospheric"`` ``"visible"``
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -6219,6 +6510,8 @@ Fields
 
 
 
+
+.. index:: ! soil_moisture
 
 .. container:: hmp-field hmp-field-level-user
    :name: data-soil-moisture
@@ -6308,7 +6601,7 @@ Fields
                   Explicit station identifiers to load (custom source).
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: data-soil-moisture-sources-extent
 
                .. raw:: html
@@ -6317,9 +6610,13 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L19>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L19>`__
 
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+                  Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"watershed"`` ``"study_area"``
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -6471,9 +6768,13 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'sim2']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L27>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L27>`__
 
                   Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"custom"`` ``"sim2"``
 
 
             .. container:: hmp-field hmp-field-level-user

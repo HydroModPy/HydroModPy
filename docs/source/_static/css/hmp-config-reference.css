@@ -510,3 +510,161 @@ a.hmp-toml-chip:hover {
     font-style: italic;
     color: var(--pst-color-text-muted);
 }
+
+/* ---------------------------------------------------------------------------
+ * Allowed values of a Literal field.
+ *
+ * These used to live inside the type badge, which produced a single unreadable
+ * 91-character pill for `[workflow] mode`. They are their own block now: a row
+ * of chips when nothing documents the choice, a definition list when the field
+ * declares `value_docs` in json_schema_extra.
+ * ------------------------------------------------------------------------- */
+p.hmp-field-values {
+    margin: 0.35rem 0 0.6rem 0;
+    font-size: 0.85rem;
+    line-height: 2;
+}
+
+p.hmp-field-values strong {
+    color: var(--pst-color-text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.7rem;
+    margin-right: 0.35rem;
+}
+
+p.hmp-field-values code {
+    padding: 0.12rem 0.5rem;
+    margin-right: 0.25rem;
+    border: 1px solid var(--pst-color-border);
+    border-radius: 999px;
+    background-color: var(--pst-color-surface-secondary, rgba(0, 0, 0, 0.04));
+    font-size: 0.82em;
+    white-space: nowrap;
+}
+
+dl.hmp-field-values {
+    margin: 0.35rem 0 0.6rem 0;
+    font-size: 0.87rem;
+}
+
+dl.hmp-field-values > dt {
+    margin-top: 0.35rem;
+    font-weight: 600;
+}
+
+dl.hmp-field-values > dt code {
+    padding: 0.12rem 0.5rem;
+    border: 1px solid var(--pst-color-border);
+    border-radius: 999px;
+    background-color: var(--pst-color-surface-secondary, rgba(0, 0, 0, 0.04));
+    font-size: 0.85em;
+}
+
+dl.hmp-field-values > dd {
+    margin: 0.1rem 0 0 1.4rem;
+    color: var(--pst-color-text-muted);
+}
+
+@media (prefers-color-scheme: dark) {
+    p.hmp-field-values code,
+    dl.hmp-field-values > dt code {
+        background-color: rgba(255, 255, 255, 0.06);
+    }
+}
+
+/* ---------------------------------------------------------------------------
+ * Profile filter feedback.
+ *
+ * A nested block can be tagged `user` while every field inside it is `dev`, so
+ * its dropdown opens onto nothing. The count on the summary says what is being
+ * filtered before you open it, and the notice inside says it again with the
+ * level that reveals it. Both are written by hmp-config-reference.js, which is
+ * the only thing that can count visible fields.
+ * ------------------------------------------------------------------------- */
+.hmp-hidden-count {
+    margin-left: 0.6rem;
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    background-color: var(--pst-color-surface-secondary, rgba(0, 0, 0, 0.05));
+    color: var(--pst-color-text-muted);
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.hmp-level-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin: 0;
+    padding: 0.55rem 0.8rem;
+    border: 1px dashed var(--pst-color-border);
+    border-radius: 0.4rem;
+    background-color: var(--pst-color-surface-secondary, rgba(0, 0, 0, 0.03));
+    color: var(--pst-color-text-muted);
+    font-size: 0.8rem;
+}
+
+.hmp-level-notice-btn {
+    border: 1px solid var(--pst-color-border);
+    background-color: var(--pst-color-background, transparent);
+    color: var(--pst-color-primary);
+    padding: 0.2rem 0.7rem;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+    transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.hmp-level-notice-btn:hover {
+    background-color: var(--pst-color-primary);
+    color: var(--pst-color-background, #fff);
+}
+
+@media (prefers-color-scheme: dark) {
+    .hmp-hidden-count,
+    .hmp-level-notice {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+}
+
+/* ---------------------------------------------------------------------------
+ * Print.
+ *
+ * The profile toggle is an interactive filter backed by `display: none`. On
+ * paper there is no way to switch it, so a printed page or a PDF export
+ * silently dropped every dev and expert field. Print everything instead, and
+ * drop the control itself, which is dead ink. The collapsed dropdowns are
+ * opened from JS (bindPrintExpansion), because a closed <details> hides its
+ * content through the UA stylesheet and a print rule cannot reliably override
+ * that.
+ * ------------------------------------------------------------------------- */
+@media print {
+    body.hmp-show-user .hmp-field-level-dev,
+    body.hmp-show-user .hmp-field-level-expert,
+    body.hmp-show-dev .hmp-field-level-expert {
+        display: block !important;
+    }
+
+    .hmp-level-toggle,
+    .hmp-level-notice,
+    .hmp-hidden-count {
+        display: none !important;
+    }
+
+    .hmp-field {
+        break-inside: avoid;
+    }
+
+    /* The hover affordance is meaningless on paper. */
+    .hmp-field:hover::before,
+    .hmp-field::before {
+        display: none !important;
+    }
+}

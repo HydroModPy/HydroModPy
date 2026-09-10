@@ -126,8 +126,7 @@ mode = "exponential"
 characteristic_depth = "20.0 m"
 min_factor = 1e-2
 
-[flow.bc.cauchy.drainage]
-id = "drainage"
+[flow.bc.drainage]
 kind = "cauchy"
 application_domain = "top"
 description = "Cauchy drainage on the aquifer top face."

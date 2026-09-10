@@ -49,6 +49,7 @@ def migrate_config_doc(doc: Any) -> list[str]:
     has run. Returns the list of human-readable changes applied.
     """
     changes: list[str] = _drop_dead_result_options(doc)
+    changes.extend(_flatten_boundary_conditions(doc))
 
     simulation = doc.get("simulation")
     if simulation is None:
@@ -73,6 +74,41 @@ def migrate_config_doc(doc: Any) -> list[str]:
         del simulation["run_id"]
 
     changes.extend(_promote_export(doc, simulation))
+    return changes
+
+
+def _flatten_boundary_conditions(doc: Any) -> list[str]:
+    """Rewrite ``[flow.bc.<kind>.<id>]`` as ``[flow.bc.<id>]`` with a kind field.
+
+    A boundary is keyed by what it is; its kind is an attribute the registry
+    declares and the table only has to carry when it departs from that default.
+    The nested form said the same thing twice and let the two disagree.
+    """
+    changes: list[str] = []
+    flow = doc.get("flow")
+    if flow is None:
+        return changes
+    bc = flow.get("bc")
+    if bc is None:
+        return changes
+
+    for kind in ("dirichlet", "cauchy", "robin"):
+        nested = bc.get(kind)
+        if nested is None:
+            continue
+        for bc_id in list(nested):
+            entry = nested[bc_id]
+            if bc_id in bc:
+                changes.append(f"flow.bc.{kind}.{bc_id} dropped (flow.bc.{bc_id} already set)")
+                continue
+            try:
+                entry["kind"] = kind
+                entry.pop("id", None)
+            except (TypeError, AttributeError):
+                pass
+            bc[bc_id] = entry
+            changes.append(f"flow.bc.{kind}.{bc_id} -> flow.bc.{bc_id} (kind = {kind!r})")
+        del bc[kind]
     return changes
 
 

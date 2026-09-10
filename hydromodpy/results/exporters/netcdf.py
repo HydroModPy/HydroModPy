@@ -211,7 +211,7 @@ def _derive_stack(sz, sim_id: str, variable: str, timesteps, zarr_time) -> np.nd
 
     Water-table elevation/depth, seepage mask and drain outflow are computed
     on read rather than stored, so an export must rebuild them to stay
-    faithful to what ``hmp read`` returns.
+    faithful to what ``query_field()`` returns.
     """
     from hydromodpy.results.derive.virtual_fields import derive_field_stack
 

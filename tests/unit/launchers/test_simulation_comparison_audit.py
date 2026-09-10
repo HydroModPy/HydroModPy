@@ -296,25 +296,21 @@ def test_equivalence_audit_ignores_method_specific_drainage_conductance_differen
         }
 
     ref_bc = {
-        "cauchy": {
-            "drainage": {
-                "id": "drainage",
-                "kind": "cauchy",
-                "application_domain": "top",
-                "description": "MF6 active top drainage",
-                "value": "0.2 m2/s",
-            }
+        "drainage": {
+            "kind": "cauchy",
+            "id": "drainage",
+            "application_domain": "top",
+            "description": "MF6 active top drainage",
+            "value": "0.2 m2/s",
         }
     }
     candidate_bc = {
-        "cauchy": {
-            "drainage": {
-                "id": "drainage",
-                "kind": "cauchy",
-                "application_domain": "top",
-                "description": "Boussinesq obstacle case, drainage disabled",
-                "value": "0.0 m2/s",
-            }
+        "drainage": {
+            "kind": "cauchy",
+            "id": "drainage",
+            "application_domain": "top",
+            "description": "Boussinesq obstacle case, drainage disabled",
+            "value": "0.0 m2/s",
         }
     }
 

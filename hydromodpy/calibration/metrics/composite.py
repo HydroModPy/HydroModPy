@@ -40,12 +40,138 @@ logger = get_logger(__name__)
 _CATCHMENT = "_catchment"
 
 
+def _cell_id(station_id: str) -> str:
+    return f"_cell:{station_id}"
+
+
+def _area_id(station_id: str) -> str:
+    return f"_area:{station_id}"
+
+
+def _discharge_target(observed: list, declared_station_id: str | None):
+    """Return the single observed station the outlet discharge is scored against.
+
+    A gauge should be compared to the simulated discharge AT ITS OWN POSITION,
+    the way ``head`` already is: ``resolve_station_cells`` gives each piezometer
+    its own cell. Discharge cannot do that yet. No solver adapter serves it
+    anywhere but ``support="domain"``, so the only simulated series a trial can
+    read is the whole-catchment outlet.
+
+    Until a per-cell discharge observable exists, one station is scored and the
+    others are reported without scoring. Averaging them, which is what this did
+    before, compared an upstream gauge draining a smaller area against the
+    outlet series it cannot reproduce, and let that impossible fit move the
+    parameters.
+    """
+    if not observed:
+        raise ValueError("No observed discharge station is available for calibration")
+    by_id = {rec.station_id: rec for rec in observed}
+    if declared_station_id is not None:
+        target = by_id.get(str(declared_station_id))
+        if target is None:
+            raise ValueError(
+                f"calibration.observed_station_id={declared_station_id!r} is not among the "
+                f"loaded discharge stations {sorted(by_id)}. Check the id, or the "
+                "station_ids / extent of the hydrometry source that loads it."
+            )
+        return target
+    if len(observed) == 1:
+        return observed[0]
+    raise ValueError(
+        f"{len(observed)} discharge stations are loaded ({sorted(by_id)}) but a trial can only "
+        "read one simulated discharge series, the whole-catchment outlet: comparing each gauge "
+        "at its own position needs a per-cell discharge observable that no solver adapter "
+        "serves yet. Score the gauge that sits at the outlet by naming it in "
+        "calibration.observed_station_id (or on the phase), or load only that one with "
+        "station_ids on the hydrometry source. The others stay reported, unscored."
+    )
+
+
 def _series_for(results: Mapping[str, Any], request_id: str, *, name: str) -> pd.Series:
     """Read one observable out of a batch, or say which one is missing."""
     result = results.get(request_id)
     if result is None:
         raise NotImplementedError(f"Solver returned no {name} observable for {request_id!r}")
     return observable_series(result, name=name)
+
+
+def _simulated_discharge_by_station(
+    adapter: Any,
+    run_ctx: Any,
+    trial_ctx: Any,
+    observed: list,
+    *,
+    time_index: Any,
+) -> dict[str, pd.Series]:
+    """Return, per station, the simulated discharge AT THAT STATION'S cell.
+
+    A gauge away from the outlet closes a smaller catchment. It is asked for on
+    ``support="cell"``, which routes the per-cell aquifer release of every
+    package downstream of that cell, and its runoff is scaled by the area that
+    cell drains rather than by the whole basin.
+
+    A station whose cell cannot be placed on the mesh falls back to the
+    whole-catchment series, which is right for the outlet gauge and says so for
+    the others.
+    """
+    station_cells = resolve_station_cells(trial_ctx, observed, variable="discharge")
+    requests = [ObservableRequest(id=_CATCHMENT, name="discharge", support="domain")]
+    for obs_rec in observed:
+        cell = station_cells.get(obs_rec.station_id)
+        if cell is None:
+            continue
+        requests.append(
+            ObservableRequest(
+                id=_cell_id(obs_rec.station_id), name="discharge", support="cell", cell=cell
+            )
+        )
+        requests.append(
+            ObservableRequest(
+                id=_area_id(obs_rec.station_id), name="upstream_area", support="cell", cell=cell
+            )
+        )
+
+    try:
+        results = adapter.extract_observables(run_ctx, None, requests, time_index=time_index)
+    except Exception as exc:
+        if len(requests) == 1:
+            raise
+        logger.warning(
+            "Per-cell discharge is unavailable on solver %r (%s); every gauge is scored "
+            "against the catchment outlet series, which is only right for the outlet one.",
+            run_ctx.run.solver,
+            exc,
+        )
+        results = adapter.extract_observables(run_ctx, None, requests[:1], time_index=time_index)
+        station_cells = {}
+
+    catchment = _series_for(results, _CATCHMENT, name="discharge")
+    if catchment.empty:
+        raise NotImplementedError(
+            f"Solver {run_ctx.run.solver!r} returned no discharge calibration series"
+        )
+    # A routed SFR network already carries the runoff: it was injected into the
+    # reaches, so adding the forcing again would count it twice. Only a
+    # drain-budget discharge is baseflow alone.
+    if not results[_CATCHMENT].includes_runoff:
+        catchment = add_runoff_to_discharge(catchment, trial_ctx)
+
+    out: dict[str, pd.Series] = {}
+    for obs_rec in observed:
+        station_id = obs_rec.station_id
+        if station_id not in station_cells:
+            out[station_id] = catchment
+            continue
+        result = results[_cell_id(station_id)]
+        series = observable_series(result, name="discharge")
+        # Same guard as the catchment series, on the same reason: a reach the
+        # network routed already carries the runoff it was fed with, and adding
+        # the forcing again would count it twice.
+        if not result.includes_runoff:
+            area = float(np.asarray(results[_area_id(station_id)].values).reshape(-1)[0])
+            series = add_runoff_to_discharge(series, trial_ctx, area_m2=area)
+        out[station_id] = series
+    return out
 
 
 def build_metric_extractor(
@@ -57,6 +183,7 @@ def build_metric_extractor(
     objective_blocks: list[CalibObjectiveBlockDecl] | None = None,
     warmup_periods: int = 0,
     scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
+    observed_station_id: str | None = None,
 ) -> Callable[..., tuple[float, Mapping[str, float]]]:
     """Return a metric function closed over the loaded observations.
 
@@ -98,38 +225,30 @@ def build_metric_extractor(
         time_idx = resolve_time_index(trial_ctx, n_timesteps=0)
         try:
             if variable == "discharge":
-                results = adapter.extract_observables(
+                simulated_by_station = _simulated_discharge_by_station(
+                    adapter,
                     run_ctx,
-                    None,
-                    [ObservableRequest(id=_CATCHMENT, name="discharge", support="domain")],
+                    trial_ctx,
+                    observed,
                     time_index=time_idx,
                 )
-                simulated = _series_for(results, _CATCHMENT, name="discharge")
-                if simulated.empty:
-                    raise NotImplementedError(
-                        f"Solver {run_ctx.run.solver!r} returned no discharge calibration series"
-                    )
-                # A routed SFR network already carries the runoff: it was injected
-                # into the reaches, so adding the forcing again would count it
-                # twice. Only a drain-budget discharge is baseflow alone.
-                if not results[_CATCHMENT].includes_runoff:
-                    simulated = add_runoff_to_discharge(simulated, trial_ctx)
+                target = _discharge_target(observed, observed_station_id)
                 components: dict[str, float] = {}
-                costs: list[float] = []
                 for obs_rec in observed:
-                    cost = score(
+                    components[f"cost:{objective}@{obs_rec.station_id}"] = score(
                         obs_rec.series,
-                        simulated,
+                        simulated_by_station[obs_rec.station_id],
                         objective,
                         warmup_periods=warmup_periods,
                         scoring_window=scoring_window,
                     )
-                    components[f"cost:{objective}@{obs_rec.station_id}"] = cost
-                    if np.isfinite(cost):
-                        costs.append(cost)
-                if not costs:
-                    raise ValueError("No finite discharge calibration costs were produced")
-                return float(np.mean(costs)), components
+                primary = components[f"cost:{objective}@{target.station_id}"]
+                if not np.isfinite(primary):
+                    raise ValueError(
+                        f"Discharge cost at the calibration station {target.station_id!r} is "
+                        f"{primary}. Check the observed record covers the scored window."
+                    )
+                return float(primary), components
 
             elif variable == "head":
                 station_cells = resolve_station_cells(trial_ctx, observed)

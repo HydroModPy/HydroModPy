@@ -69,6 +69,8 @@ Fields
       Global end date (YYYY-MM-DD).
 
 
+.. index:: ! regional_context_label
+
 .. container:: hmp-field hmp-field-level-user
    :name: overview-regional-context-label
 
@@ -82,6 +84,8 @@ Fields
 
       Label used for the regional location figure.
 
+
+.. index:: ! panels
 
 .. container:: hmp-field hmp-field-level-user
    :name: overview-panels
@@ -104,6 +108,8 @@ Fields
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+      .. index:: ! map_dem
+
       .. container:: hmp-field hmp-field-level-user
          :name: overview-panels-map-dem
 
@@ -117,6 +123,8 @@ Fields
 
             DEM elevation map.
 
+
+      .. index:: ! map_geology
 
       .. container:: hmp-field hmp-field-level-user
          :name: overview-panels-map-geology
@@ -132,6 +140,8 @@ Fields
             Geology lithology map.
 
 
+      .. index:: ! map_hydrography
+
       .. container:: hmp-field hmp-field-level-user
          :name: overview-panels-map-hydrography
 
@@ -145,6 +155,8 @@ Fields
 
             River network map.
 
+
+      .. index:: ! stats_card
 
       .. container:: hmp-field hmp-field-level-user
          :name: overview-panels-stats-card
@@ -160,6 +172,8 @@ Fields
             Watershed metrics card.
 
 
+      .. index:: ! timeseries_discharge
+
       .. container:: hmp-field hmp-field-level-user
          :name: overview-panels-timeseries-discharge
 
@@ -173,6 +187,8 @@ Fields
 
             Observed discharge.
 
+
+      .. index:: ! timeseries_piezometry
 
       .. container:: hmp-field hmp-field-level-user
          :name: overview-panels-timeseries-piezometry
@@ -188,6 +204,8 @@ Fields
             Observed piezometry.
 
 
+      .. index:: ! climatic_summary
+
       .. container:: hmp-field hmp-field-level-user
          :name: overview-panels-climatic-summary
 
@@ -201,6 +219,8 @@ Fields
 
             P/ETP monthly bars.
 
+
+      .. index:: ! timeseries_intermittency
 
       .. container:: hmp-field hmp-field-level-user
          :name: overview-panels-timeseries-intermittency
@@ -216,6 +236,8 @@ Fields
             ONDE intermittency.
 
 
+      .. index:: ! timeseries_water_quality
+
       .. container:: hmp-field hmp-field-level-user
          :name: overview-panels-timeseries-water-quality
 
@@ -229,6 +251,8 @@ Fields
 
             Water-quality series.
 
+
+      .. index:: ! station_inventory
 
       .. container:: hmp-field hmp-field-level-user
          :name: overview-panels-station-inventory

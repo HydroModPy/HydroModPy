@@ -63,35 +63,35 @@
       "caption": "Reference versus generated hydrographic linework on the Nancon basin, used as the structural context before reading the simulated response.",
       "alt_text": "Hydrographic network comparison on the Nancon basin",
       "doc_path": "/_static/capability_gallery/simulation/nancon_transient_nwt_hydrographic_network_comparison.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_hydrographic_network_comparison.png"
+      "repo_path": "docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_hydrographic_network_comparison.png"
     },
     {
       "filename": "nancon_transient_nwt_simulated_active_network_reference_overlay.png",
       "caption": "Simulated active drainage cells overlaid with the observed reference hydrography, including cell-overlap metrics on the same map.",
       "alt_text": "Simulated active network overlay against reference hydrography on Nancon",
       "doc_path": "/_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png"
+      "repo_path": "docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png"
     },
     {
       "filename": "nancon_transient_nwt_piezometric_map.png",
       "caption": "Piezometric map from the same transient NWT run, used to read the main groundwater-state structure after the network diagnostics.",
       "alt_text": "Piezometric map for the Nancon transient NWT run",
       "doc_path": "/_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png"
+      "repo_path": "docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png"
     },
     {
       "filename": "nancon_transient_nwt_hydrograph.png",
       "caption": "Observed-versus-simulated hydrograph used to judge whether the basin-scale temporal response remains coherent over the transient window.",
       "alt_text": "Hydrograph for the Nancon transient NWT run",
       "doc_path": "/_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png"
+      "repo_path": "docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png"
     },
     {
       "filename": "nancon_transient_nwt_water_budget.png",
       "caption": "Integrated basin water-budget figure from the same run, used after the maps and hydrograph to interpret the balance of inflows and outflows.",
       "alt_text": "Water budget for the Nancon transient NWT run",
       "doc_path": "/_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png"
+      "repo_path": "docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png"
     }
   ],
   "metrics": [],
@@ -124,35 +124,35 @@
     "copied_assets": [
       {
         "source_path": "examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/hydrographic_network_comparison.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_hydrographic_network_comparison.png"
+        "copied_to": "docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_hydrographic_network_comparison.png"
       },
       {
         "source_path": "examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/simulated_active_network_reference_overlay.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png"
+        "copied_to": "docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png"
       },
       {
         "source_path": "examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/piezometric_map.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png"
+        "copied_to": "docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png"
       },
       {
         "source_path": "examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/hydrograph.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png"
+        "copied_to": "docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png"
       },
       {
         "source_path": "examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/water_budget.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png"
+        "copied_to": "docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png"
       }
     ]
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/simulation/nancon_transient_nwt_summary.json",
-    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_summary.json",
     "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_hydrographic_network_comparison.png",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png"
+      "docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_hydrographic_network_comparison.png",
+      "docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png",
+      "docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png",
+      "docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png",
+      "docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png"
     ]
   },
   "parameter_docs": {

@@ -5,7 +5,7 @@ Every :command:`hmp` verb maps its outcome to a typed exit code defined
 in ``hydromodpy/cli/helpers.py``. The same mapping powers
 ``exit_code_for(exc)``, which routes Python exceptions to the matching
 code. Scripts and CI gates can rely on the table below; new failure
-categories reuse the 10..20 band before introducing new ranges.
+categories reuse the 10..21 band before introducing new ranges.
 
 .. list-table::
    :header-rows: 1
@@ -58,6 +58,10 @@ categories reuse the 10..20 band before introducing new ranges.
      - ``EXIT_AMBIGUOUS_REFERENCE``
      - A run reference matched several runs. Lengthen the id prefix or use
        the full name.
+   * - 21
+     - ``EXIT_CALIBRATION``
+     - Calibration loop failed: objective evaluation or optimizer backend
+       raised an unrecoverable error.
    * - 130
      - ``EXIT_SIGINT``
      - Interrupted by ``Ctrl+C`` (``KeyboardInterrupt``). POSIX
@@ -74,5 +78,6 @@ reference maps to 20. Domain exceptions defined in
 ``WriteConflictError``, ``ReadOnlyError``, ``ConfigError``,
 ``ConfigMissingError``, ``SolverError``, ``DataError``,
 ``CrossProjectsError``, ``BackupFailedError``, ``MigrationFailedError``)
-map to codes 11..19 respectively. Any other exception falls back to
-``EXIT_GENERIC`` (1).
+map to codes 11..19 respectively. ``CalibrationError`` (and its
+``ObjectiveError`` / ``OptimizerError`` subclasses) maps to 21. Any other
+exception falls back to ``EXIT_GENERIC`` (1).

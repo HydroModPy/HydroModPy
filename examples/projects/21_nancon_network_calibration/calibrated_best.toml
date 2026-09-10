@@ -101,10 +101,6 @@ enabled = false
 buffer_m = 40.0 # Half-width (metres) of the carved corridor around the dam trace. Make it a bit wider than one DEM/cell size so the whole dam body is brought to the valley floor.
 
 [domain]
-zone_ids = ["geology"] # Ordered list of zone identifiers loaded in the domain registry. Keep this list for actual runtime zones (for example 'catchment', 'geology', or custom zonations). Spatial-support declarations live under domain.supports.
-
-[domain.supports] # Named spatial supports available to heterogeneous parameters. Each key is a support identifier referenced by field_spatial_id.
-
 [domain.depth_model] # Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'.
 kind = "constant_thickness" # Depth-model kind discriminator. Use 'constant_thickness' to define bottom as top-thickness.
 thickness = 30.0 # Constant aquifer thickness applied below topography (canonical metres). Accepts inline units, e.g. '0.2 km'.

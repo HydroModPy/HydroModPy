@@ -25,7 +25,8 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
                 "[flow]",
                 'active_bc = ["ocean"]',
                 "",
-                "[flow.bc.dirichlet.ocean]",
+                "[flow.bc.ocean]",
+                'kind = "dirichlet"',
                 'value = "1.0 m"',
                 "data_value = true",
             ]
@@ -40,7 +41,8 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
                 "[flow]",
                 'active_bc = ["ocean", "drainage"]',
                 "",
-                "[flow.bc.cauchy.drainage]",
+                "[flow.bc.drainage]",
+                'kind = "cauchy"',
                 'value = "0.0 m2/s"',
                 'application_domain = "top"',
             ]
@@ -52,8 +54,8 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
 
     assert payload["workspace"]["project_root"] == str(tmp_path / "demo")
     assert payload["flow"]["active_bc"] == ["ocean", "drainage"]
-    assert payload["flow"]["bc"]["dirichlet"]["ocean"]["data_value"] is True
-    assert payload["flow"]["bc"]["cauchy"]["drainage"]["application_domain"] == "top"
+    assert payload["flow"]["bc"]["ocean"]["data_value"] is True
+    assert payload["flow"]["bc"]["drainage"]["application_domain"] == "top"
 
 
 def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> None:
@@ -79,7 +81,8 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
                 "[flow]",
                 'active_bc = ["ocean"]',
                 "",
-                "[flow.bc.dirichlet.ocean]",
+                "[flow.bc.ocean]",
+                'kind = "dirichlet"',
                 'value = "1.0 m"',
                 "data_value = true",
             ]

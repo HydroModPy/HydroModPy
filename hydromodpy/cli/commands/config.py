@@ -56,11 +56,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
     chk = sub.add_parser("check", help="Validate a TOML against the Pydantic schema")
     chk.add_argument("file", help="Path to the TOML configuration")
-    chk.add_argument(
-        "--strict",
-        action="store_true",
-        help="Fail on warnings in addition to errors",
-    )
 
     sch = sub.add_parser("schema", help="Export the JSON Schema")
     sch.add_argument(

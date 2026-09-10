@@ -2,9 +2,10 @@ Site Selection Workflow
 =======================
 
 ``site_selection`` prepares a reviewed catalog of candidate catchments before
-regional-lab or simulation work. It selects or rejects basins, writes auditable
-criteria, and produces a static HTML review report. It does not expand sites
-into model recipes and it does not run groundwater solvers.
+:doc:`regional-lab <regional_lab>` or simulation work. It selects or rejects
+basins, writes auditable criteria, and produces a static HTML review report. It
+does not expand sites into model recipes and it does not run groundwater
+solvers. Run it, like any other workflow mode, with :doc:`hmp run </cli/run>`.
 
 Use it when the question is still upstream of modeling:
 
@@ -67,7 +68,11 @@ Minimal structure
    file_format = "ASC"
    regions = ["Bretagne"]
 
-The DEM is deliberately declared under ``[data.dem]``. In hydrometry mode, the
+The DEM is deliberately declared under ``[data.dem]`` (see
+:doc:`/user_guide/config_reference/data`), and stations under ``[hydrometry]``
+(see :doc:`/user_guide/config_reference/hydrometry`); the ``[site_selection]``
+section itself is documented in
+:doc:`/user_guide/config_reference/site_selection`. In hydrometry mode, the
 workflow loads the stations first. With ``site_selection.dem.request_extent =
 "outlets"``, it uses those projected station outlets to bound the DEM request
 before building flow products, delineating catchments, and handing the spatial

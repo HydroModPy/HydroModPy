@@ -371,12 +371,22 @@ def extract_outputs(
 def resolve_station_cells(
     ctx: Any,
     observed: list[ObservedSeries],
+    *,
+    variable: str = "head",
 ) -> dict[str, tuple[int, int, int]]:
-    """Resolve station ids to structured ``(layer, row, col)`` cells."""
-    piezo = getattr(ctx.loaded_data, "piezometry", None)
-    if piezo is None:
+    """Resolve station ids to structured ``(layer, row, col)`` cells.
+
+    ``variable`` names the data family the stations come from: piezometry for a
+    head calibration, hydrometry for a discharge one. A gauge needs its cell for
+    the same reason a piezometer does, and it is the same lookup.
+    """
+    family = {"head": "piezometry", "discharge": "hydrometry", "lake_level": "lake_levels"}.get(
+        variable, variable
+    )
+    records = getattr(ctx.loaded_data, family, None)
+    if records is None:
         return {}
-    points = getattr(piezo, "points", None) or []
+    points = getattr(records, "points", None) or []
     cells: dict[str, tuple[int, int, int]] = {}
     for obs_rec in observed:
         for rec in points:

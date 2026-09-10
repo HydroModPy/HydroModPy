@@ -15,6 +15,7 @@ from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.simulation import ensure_flow, ensure_transport
 from hydromodpy.spatial.domain import Domain
 from hydromodpy.spatial.domain.spatial_support import SupportBuildContext
+from hydromodpy.spatial.domain.zone_arming import arm_runtime_zone_ids
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from hydromodpy.spatial.geographic.core.derived_features import (
     coerce_geographic_derived_features,
@@ -114,6 +115,68 @@ def _cfg_declares_dem_source(cfg: object) -> bool:
     data_cfg = getattr(cfg, "data", None)
     dem_cfg = getattr(data_cfg, "dem", None)
     return bool(getattr(dem_cfg, "sources", None))
+
+
+def resolve_stream_geometry_path(cfg: object, run_state: WorkflowContext) -> None:
+    """Populate the burn network from ``[[data.hydrography.sources]]`` when absent.
+
+    Twin of :func:`resolve_dem_init_path`, and for the same reason: the stream
+    burn runs inside the geographic step, before any data manager, so the network
+    it reads has to be a file on disk. Declaring it under ``[data.hydrography]``
+    alone used to leave the burn with nothing and force the same file to be named
+    twice. An explicitly declared ``stream_geometry_path`` always wins, so burning
+    a network that differs from the one the data family loads stays possible.
+    """
+    geographic_cfg = cfg.geographic
+    uses_synthetic = getattr(geographic_cfg, "uses_synthetic_geographic", None)
+    if callable(uses_synthetic) and uses_synthetic():
+        return
+
+    enforce_cfg = getattr(geographic_cfg, "enforce_streams", None)
+    if enforce_cfg is None or not getattr(enforce_cfg, "enabled", False):
+        return
+    if getattr(enforce_cfg, "stream_geometry_path", None) is not None:
+        return
+    if not _cfg_declares_hydrography_source(cfg):
+        return
+
+    from hydromodpy.data.variables.hydrography.resolver import (
+        resolve_stream_geometry_path_from_data_sources,
+    )
+
+    config_path = run_state.config_path
+    if config_path is None:
+        raise ConfigError(
+            "geographic.enforce_streams.stream_geometry_path is missing and no config path "
+            "is available to resolve [[data.hydrography.sources]]."
+        )
+
+    cache_dir = None
+    workspace = run_state.setup.workspace
+    paths = getattr(workspace, "paths", None) if workspace is not None else None
+    data_path = getattr(paths, "data_path", None) if paths is not None else None
+    if data_path is not None:
+        cache_dir = Path(data_path) / "hydrography"
+
+    resolved = resolve_stream_geometry_path_from_data_sources(
+        cfg,
+        config_path=Path(config_path),
+        cache_dir=cache_dir,
+    )
+    if resolved is None:
+        raise ConfigError(
+            "geographic.enforce_streams is enabled without a stream_geometry_path, and "
+            "[[data.hydrography.sources]] holds no vector network to fall back on. Either "
+            "set geographic.enforce_streams.stream_geometry_path, or declare a vector "
+            "hydrography source (a raster one cannot be burned)."
+        )
+    enforce_cfg.stream_geometry_path = resolved
+
+
+def _cfg_declares_hydrography_source(cfg: object) -> bool:
+    data_cfg = getattr(cfg, "data", None)
+    hydrography_cfg = getattr(data_cfg, "hydrography", None)
+    return bool(getattr(hydrography_cfg, "sources", None))
 
 
 # ---------------------------------------------------------------------------
@@ -219,33 +282,6 @@ def flow_requires_spatial_support(flow: object | None) -> bool:
     if not isinstance(parameters, dict):
         return False
     return any(bool(getattr(param, "is_heterogeneous", False)) for param in parameters.values())
-
-
-def augment_runtime_zone_ids(
-    domain_cfg: object,
-    requested_spatial_support_ids: tuple[str, ...],
-) -> object:
-    """Ensure runtime-only zone ids required by launcher bindings are declared."""
-    zone_ids = getattr(domain_cfg, "zone_ids", None)
-    if zone_ids is None:
-        zone_ids = []
-        domain_cfg.zone_ids = zone_ids
-    if not isinstance(zone_ids, list):
-        zone_ids = list(zone_ids)
-        domain_cfg.zone_ids = zone_ids
-
-    normalized_zone_ids = {str(item).strip().lower() for item in zone_ids}
-    if "catchment" not in normalized_zone_ids:
-        zone_ids.append("catchment")
-        normalized_zone_ids.add("catchment")
-
-    for support_id in requested_spatial_support_ids:
-        normalized_support_id = str(support_id).strip().lower()
-        if normalized_support_id in normalized_zone_ids:
-            continue
-        zone_ids.append(str(support_id).strip())
-        normalized_zone_ids.add(normalized_support_id)
-    return domain_cfg
 
 
 def validate_domain_support_contract(
@@ -373,6 +409,7 @@ def run_setup(
         label=getattr(setup_state.workspace, "catch_name", None),
     )
     resolve_dem_init_path(cfg, run_state)
+    resolve_stream_geometry_path(cfg, run_state)
     setup_state.geographic = build_geographic_fn(cfg, setup_state.workspace)
     setup_state.geographic_features = coerce_geographic_derived_features(
         geographic=setup_state.geographic,
@@ -387,7 +424,7 @@ def run_setup(
     domain_cfg = cfg.domain
     if hasattr(domain_cfg, "model_copy"):
         domain_cfg = domain_cfg.model_copy(deep=True)
-    domain_cfg = augment_runtime_zone_ids(domain_cfg, requested_spatial_support_ids)
+    domain_cfg = arm_runtime_zone_ids(domain_cfg, requested_spatial_support_ids)
 
     setup_state.domain = Domain(config=domain_cfg, surface_topo=surface_topo)
     apply_catchment_zones_to_domain(

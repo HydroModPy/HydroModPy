@@ -27,6 +27,8 @@ Fields
 
 .. rst-class:: hmp-config-fields
 
+.. index:: ! runtime
+
 .. container:: hmp-field hmp-field-level-expert
    :name: modflow6-runtime
 
@@ -48,6 +50,8 @@ Fields
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+      .. index:: ! mf6_executable_name
+
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-executable-name
 
@@ -62,6 +66,8 @@ Fields
             MODFLOW 6 executable name or absolute path.
 
 
+      .. index:: ! ims_print_option
+
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-ims-print-option
 
@@ -71,10 +77,16 @@ Fields
               <code class="hmp-field-name">ims_print_option</code>
             </div>
 
-         :bdg-primary:`Literal['NONE', 'SUMMARY', 'ALL']` :bdg-secondary:`default = "NONE"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L24>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "NONE"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L24>`__
 
             IMS PRINT_OPTION. 'SUMMARY' adds one line per time step to the listing with the outer and inner iteration counts, which is the only way to tell an expensive iteration from too many of them. Deliberately NOT tied to mf_verbose: that switch also sets print_input and print_flows on the whole model, and on a run with one drain per cell those print every boundary flux at every step. 'NONE' by default; 'SUMMARY' costs a line per step.
 
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"NONE"`` ``"SUMMARY"`` ``"ALL"``
+
+
+      .. index:: ! print_head
 
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-print-head
@@ -90,6 +102,8 @@ Fields
             Re-print the whole head field, formatted as text, into the model listing at every output step. Nothing in the package reads it, and the binary head file already carries the same numbers. It costs DISK, not time: measured on the Nancon at 25 m, 243 552 cells over 1826 daily steps wrote a 2.96 GB listing, but a one-variable-at-a-time probe put its effect on the solve at -0.4 per cent, inside the noise. Default false to stop producing the file, not to go faster. The listing keeps its budget summaries and its convergence reports either way, and Mf6ListBudget reads those.
 
 
+      .. index:: ! save_specific_discharge
+
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-save-specific-discharge
 
@@ -103,6 +117,8 @@ Fields
 
             Compute and write the cell-by-cell Darcy velocity (DATA-SPDIS). Required by particle tracking and by any velocity figure. The cost is the COMPUTATION, not the write: MODFLOW interpolates a velocity vector per cell at every step. Measured on the Nancon at 25 m by changing this switch alone, 4.64 -> 3.68 s per step, 20.7 per cent of the solve. A calibration that only scores a discharge series should turn it off.
 
+
+      .. index:: ! save_saturation
 
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-save-saturation
@@ -118,6 +134,8 @@ Fields
             Compute and write the cell saturation (DATA-SAT). Measured on the Nancon at 25 m by changing this switch alone, 4.64 -> 4.13 s per step, 10.9 per cent of the solve. Same reasoning as save_specific_discharge: the cost is the per-cell computation, and the two together are worth 34.5 per cent.
 
 
+      .. index:: ! mf6_runner
+
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-runner
 
@@ -127,10 +145,16 @@ Fields
               <code class="hmp-field-name">mf6_runner</code>
             </div>
 
-         :bdg-primary:`Literal['subprocess', 'api']` :bdg-secondary:`default = "subprocess"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L72>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "subprocess"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L72>`__
 
             MODFLOW 6 solve dispatch: 'subprocess' runs the mf6 executable, 'api' drives libmf6 via the optional modflowapi package. Both write the same simulation, so output extraction is identical.
 
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"subprocess"`` ``"api"``
+
+
+      .. index:: ! mf6_api_timeout_s
 
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-api-timeout-s
@@ -146,6 +170,8 @@ Fields
             Wall-clock budget (seconds) for an isolated libmf6 ('api' runner) solve in parallel calibration; the child is killed past it so one stuck trial cannot wedge the session. None keeps the built-in default (2400 s).
 
 
+      .. index:: ! mf6_ims_complexity
+
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-ims-complexity
 
@@ -155,10 +181,16 @@ Fields
               <code class="hmp-field-name">mf6_ims_complexity</code>
             </div>
 
-         :bdg-primary:`Literal['SIMPLE', 'MODERATE', 'COMPLEX']` :bdg-secondary:`default = "COMPLEX"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L88>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "COMPLEX"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L88>`__
 
             IMS complexity preset for MODFLOW 6: SIMPLE, MODERATE, or COMPLEX.
 
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"SIMPLE"`` ``"MODERATE"`` ``"COMPLEX"``
+
+
+      .. index:: ! mf_verbose
 
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf-verbose
@@ -174,6 +206,8 @@ Fields
             Enable verbose FloPy logging for MODFLOW 6 setup and execution.
 
 
+      .. index:: ! mf6_outer_dvclose
+
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-outer-dvclose
 
@@ -187,6 +221,8 @@ Fields
 
             IMS outer-iteration head-change convergence criterion.
 
+
+      .. index:: ! mf6_inner_dvclose
 
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-inner-dvclose
@@ -202,6 +238,8 @@ Fields
             IMS inner-iteration head-change convergence criterion.
 
 
+      .. index:: ! mf6_outer_maximum
+
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-outer-maximum
 
@@ -215,6 +253,8 @@ Fields
 
             Maximum number of IMS outer iterations.
 
+
+      .. index:: ! mf6_inner_maximum
 
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-inner-maximum
@@ -230,6 +270,8 @@ Fields
             Maximum number of IMS inner iterations.
 
 
+      .. index:: ! mf6_inner_rclose
+
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-inner-rclose
 
@@ -244,6 +286,8 @@ Fields
             IMS inner-iteration flow-residual closure (L^3/T in run units). None keeps the complexity-preset default.
 
 
+      .. index:: ! mf6_linear_acceleration
+
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-linear-acceleration
 
@@ -253,10 +297,16 @@ Fields
               <code class="hmp-field-name">mf6_linear_acceleration</code>
             </div>
 
-         :bdg-primary:`Optional[Literal['CG', 'BICGSTAB']]` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L119>`__
+         :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L119>`__
 
             IMS linear acceleration: CG for symmetric matrices, BICGSTAB for the non-symmetric Newton formulation. None keeps the preset default.
 
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"CG"`` ``"BICGSTAB"``
+
+
+      .. index:: ! mf6_under_relaxation
 
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-under-relaxation
@@ -267,10 +317,16 @@ Fields
               <code class="hmp-field-name">mf6_under_relaxation</code>
             </div>
 
-         :bdg-primary:`Optional[Literal['NONE', 'SIMPLE', 'COOLEY', 'DBD']]` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L126>`__
+         :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L126>`__
 
             IMS non-linear under-relaxation scheme. DBD is recommended with Newton. None keeps the preset default.
 
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"NONE"`` ``"SIMPLE"`` ``"COOLEY"`` ``"DBD"``
+
+
+      .. index:: ! mf6_enable_rewet
 
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-enable-rewet
@@ -286,6 +342,8 @@ Fields
             Enable NPF cell rewetting. When left to None, HydroModPy keeps rewetting disabled unless explicitly enabled.
 
 
+      .. index:: ! mf6_newton
+
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-newton
 
@@ -299,6 +357,8 @@ Fields
 
             Enable the MODFLOW 6 Newton-Raphson formulation. Catchment cells are always convertible (unconfined), so Newton with under-relaxation is the robust default and matches the MODFLOW-NWT backend.
 
+
+      .. index:: ! mf6_newton_under_relaxation
 
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-newton-under-relaxation
@@ -314,6 +374,8 @@ Fields
             Enable MODFLOW 6 Newton under-relaxation when mf6_newton is true.
 
 
+      .. index:: ! mf6_ats
+
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-ats
 
@@ -327,6 +389,8 @@ Fields
 
             Enable MODFLOW 6 adaptive time stepping (ATS) on transient periods. Each stress period starts at its full length and MF6 subdivides only the periods the solver cannot converge in one step (e.g. littoral wet/dry under Newton), instead of carrying budget error at nstp=1. When on, OC saves per period end so the extraction still sees one record per period. Default off (baseline).
 
+
+      .. index:: ! mf6_ats_dtmin_s
 
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-ats-dtmin-s
@@ -342,6 +406,8 @@ Fields
             Minimum ATS time step in seconds (only used when mf6_ats is true).
 
 
+      .. index:: ! mf6_enable_xt3d
+
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-enable-xt3d
 
@@ -355,6 +421,8 @@ Fields
 
             Enable MF6 NPF XT3D terms. When left to None, XT3D is auto-enabled only when the mesh is significantly non-orthogonal or anisotropic K is configured; the default Voronoi/PEBI dual grid is near-orthogonal, so XT3D stays off there. It adds cost but improves accuracy on non-orthogonal or anisotropic grids.
 
+
+      .. index:: ! mf6_rewet_wetfct
 
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-rewet-wetfct
@@ -370,6 +438,8 @@ Fields
             MF6 NPF rewet WETFCT factor.
 
 
+      .. index:: ! mf6_rewet_iwetit
+
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-rewet-iwetit
 
@@ -384,6 +454,8 @@ Fields
             MF6 NPF rewet IWETIT interval.
 
 
+      .. index:: ! mf6_rewet_ihdwet
+
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-rewet-ihdwet
 
@@ -397,6 +469,8 @@ Fields
 
             MF6 NPF rewet IHDWET flag.
 
+
+      .. index:: ! mf6_rewet_wetdry
 
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-runtime-mf6-rewet-wetdry
@@ -413,6 +487,8 @@ Fields
 
 
 
+
+.. index:: ! process_specific
 
 .. container:: hmp-field hmp-field-level-expert
    :name: modflow6-process-specific
@@ -435,6 +511,8 @@ Fields
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+      .. index:: ! vka
+
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-process-specific-vka
 
@@ -448,6 +526,8 @@ Fields
 
             Uniform vertical anisotropy ratio kh/kv (dimensionless, > 0); k33 = k / vka. Default 1.0 is vertically isotropic. For spatial control declare a per-cell 'Kv' flow parameter instead, which is mutually exclusive with a non-unit vka and is a direct conductivity, never a mode-switched value. Vertical anisotropy is grid-aligned and needs no XT3D; a horizontal K22 field or an angle (not exposed here) would auto-activate XT3D.
 
+
+      .. index:: ! evt_extinction_depth
 
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-process-specific-evt-extinction-depth
@@ -463,6 +543,8 @@ Fields
             Meters; extinction depth for the EVT sink used when recharge negatives are routed to EVT. The routed deficit tapers linearly from the cell top to this depth and stops below it, so a sustained climatic deficit can saturate near this value.
 
 
+      .. index:: ! lak_forcing_mode
+
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-process-specific-lak-forcing-mode
 
@@ -472,10 +554,16 @@ Fields
               <code class="hmp-field-name">lak_forcing_mode</code>
             </div>
 
-         :bdg-primary:`Literal['auto', 'inline', 'ts6']` :bdg-secondary:`default = "auto"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L219>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "auto"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L219>`__
 
             How time-varying LAK forcings are written. 'inline' expands values into the LAK PERIOD block, emitting one row per stress period whenever the value changes. 'ts6' always routes non-constant forcings to external MF6 TS6 files. 'auto' keeps constant/short forcings inline and routes only genuinely long series (nper > ts6_min_periods) to TS6.
 
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"auto"`` ``"inline"`` ``"ts6"``
+
+
+      .. index:: ! ts6_min_periods
 
       .. container:: hmp-field hmp-field-level-expert
          :name: modflow6-process-specific-ts6-min-periods
@@ -492,6 +580,8 @@ Fields
 
 
 
+
+.. index:: ! sgrid
 
 .. container:: hmp-field hmp-field-level-user
    :name: modflow6-sgrid
@@ -514,6 +604,8 @@ Fields
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+      .. index:: ! planar
+
       .. container:: hmp-field hmp-field-level-user
          :name: modflow6-sgrid-planar
 
@@ -525,7 +617,7 @@ Fields
               <code class="hmp-field-toml">[modflow6.sgrid.planar]</code>
             </div>
 
-         :bdg-primary:`PlanarGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L287>`__
+         :bdg-primary:`PlanarGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L334>`__
 
             Planar discretization of the solver grid.
 
@@ -544,10 +636,20 @@ Fields
                     <code class="hmp-field-name">mode</code>
                   </div>
 
-               :bdg-primary:`Literal['keep_native', 'resample_to_shape']` :bdg-secondary:`default = "keep_native"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L145>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "keep_native"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L158>`__
 
                   Planar solver-grid mode: keep the native domain support or resample to an explicit (ny, nx) target shape.
 
+               .. rst-class:: hmp-field-values
+
+               ``"keep_native"``
+                  Keeps the top raster's native shape and resolution, no resampling.
+
+               ``"resample_to_shape"``
+                  Resamples top and bottom onto an explicit (ny, nx) grid, keeping the same extent.
+
+
+            .. index:: ! nx
 
             .. container:: hmp-field hmp-field-level-user
                :name: modflow6-sgrid-planar-nx
@@ -558,10 +660,12 @@ Fields
                     <code class="hmp-field-name">nx</code>
                   </div>
 
-               :bdg-primary:`Optional[int]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L152>`__
+               :bdg-primary:`Optional[int]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L174>`__
 
                   Target number of columns when planar mode is 'resample_to_shape'.
 
+
+            .. index:: ! ny
 
             .. container:: hmp-field hmp-field-level-user
                :name: modflow6-sgrid-planar-ny
@@ -572,10 +676,12 @@ Fields
                     <code class="hmp-field-name">ny</code>
                   </div>
 
-               :bdg-primary:`Optional[int]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L156>`__
+               :bdg-primary:`Optional[int]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L178>`__
 
                   Target number of rows when planar mode is 'resample_to_shape'.
 
+
+            .. index:: ! resampling
 
             .. container:: hmp-field hmp-field-level-dev
                :name: modflow6-sgrid-planar-resampling
@@ -586,12 +692,18 @@ Fields
                     <code class="hmp-field-name">resampling</code>
                   </div>
 
-               :bdg-primary:`Literal['bilinear', 'average', 'nearest']` :bdg-secondary:`default = "bilinear"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L160>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "bilinear"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L182>`__
 
                   Resampling rule applied when planar mode is 'resample_to_shape'.
 
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"bilinear"`` ``"average"`` ``"nearest"``
 
 
+
+
+      .. index:: ! vertical
 
       .. container:: hmp-field hmp-field-level-user
          :name: modflow6-sgrid-vertical
@@ -604,7 +716,7 @@ Fields
               <code class="hmp-field-toml">[modflow6.sgrid.vertical]</code>
             </div>
 
-         :bdg-primary:`VerticalGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L291>`__
+         :bdg-primary:`VerticalGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L338>`__
 
             Vertical layering of the solver grid.
 
@@ -613,6 +725,8 @@ Fields
             :animate: fade-in-slide-down
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. index:: ! genmtd_lay
 
             .. container:: hmp-field hmp-field-level-user
                :name: modflow6-sgrid-vertical-genmtd-lay
@@ -623,10 +737,23 @@ Fields
                     <code class="hmp-field-name">genmtd_lay</code>
                   </div>
 
-               :bdg-primary:`Literal['constant', 'decay', 'list']` :bdg-secondary:`default = "constant"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L63>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "constant"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L63>`__
 
                   Vertical-layering strategy.
 
+               .. rst-class:: hmp-field-values
+
+               ``"constant"``
+                  Splits local thickness into nlay equal-fraction layers at every cell.
+
+               ``"decay"``
+                  Grows layer thickness geometrically with depth when lay_decay is above one.
+
+               ``"list"``
+                  Uses the explicit per-layer thickness fractions given in lay_proportions.
+
+
+            .. index:: ! nlay
 
             .. container:: hmp-field hmp-field-level-user
                :name: modflow6-sgrid-vertical-nlay
@@ -637,10 +764,12 @@ Fields
                     <code class="hmp-field-name">nlay</code>
                   </div>
 
-               :bdg-primary:`int | None` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L67>`__
+               :bdg-primary:`int | None` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L80>`__
 
                   Number of layers (required for constant/decay, ignored for list).
 
+
+            .. index:: ! lay_decay
 
             .. container:: hmp-field hmp-field-level-dev
                :name: modflow6-sgrid-vertical-lay-decay
@@ -651,10 +780,12 @@ Fields
                     <code class="hmp-field-name">lay_decay</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L71>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L84>`__
 
                   Decay exponent (>1) for decay layering.
 
+
+            .. index:: ! lay_proportions
 
             .. container:: hmp-field hmp-field-level-dev
                :name: modflow6-sgrid-vertical-lay-proportions
@@ -665,10 +796,12 @@ Fields
                     <code class="hmp-field-name">lay_proportions</code>
                   </div>
 
-               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L75>`__
+               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L88>`__
 
                   Explicit layer fractions when genmtd_lay='list' (must sum to 1).
 
+
+            .. index:: ! nodata
 
             .. container:: hmp-field hmp-field-level-dev
                :name: modflow6-sgrid-vertical-nodata
@@ -679,12 +812,14 @@ Fields
                     <code class="hmp-field-name">nodata</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = -9999.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L79>`__
+               :bdg-primary:`float` :bdg-secondary:`default = -9999.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L92>`__
 
                   No-data sentinel value.
 
 
 
+
+      .. index:: ! grid_dual
 
       .. container:: hmp-field hmp-field-level-user
          :name: modflow6-sgrid-grid-dual
@@ -695,10 +830,16 @@ Fields
               <code class="hmp-field-name">grid_dual</code>
             </div>
 
-         :bdg-primary:`Literal['voronoi', 'triangle']` :bdg-secondary:`default = "voronoi"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L295>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "voronoi"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L342>`__
 
             Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the default; 'triangle' keeps the triangulation cells as the DISV grid for simplex comparison runs.
 
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"voronoi"`` ``"triangle"``
+
+
+      .. index:: ! condition_top
 
       .. container:: hmp-field hmp-field-level-user
          :name: modflow6-sgrid-condition-top
@@ -709,10 +850,12 @@ Fields
               <code class="hmp-field-name">condition_top</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L305>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L352>`__
 
             MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it holds no closed depression. Sampling the DEM at irregular Voronoi cell centroids reintroduces local minima (pits) the raster fill removed. When true, a priority-flood epsilon fill on the mesh face graph raises only pit cells to their spill level, giving every active non-lake cell a strictly descending path to the domain boundary. Lake and boundary cells are fixed base levels; the aquifer bottom is untouched. Default false keeps the raw projected top.
 
+
+      .. index:: ! condition_top_epsilon
 
       .. container:: hmp-field hmp-field-level-user
          :name: modflow6-sgrid-condition-top-epsilon
@@ -723,10 +866,12 @@ Fields
               <code class="hmp-field-name">condition_top_epsilon</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 0.001` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L318>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 0.001` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L365>`__
 
             Minimal downhill increment (m) added along each filled path so conditioned cells strictly descend instead of forming flats. Only used when condition_top is true.
 
+
+      .. index:: ! top_sampling
 
       .. container:: hmp-field hmp-field-level-user
          :name: modflow6-sgrid-top-sampling
@@ -739,7 +884,7 @@ Fields
               <code class="hmp-field-toml">[modflow6.sgrid.top_sampling]</code>
             </div>
 
-         :bdg-primary:`TopSamplingConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L327>`__
+         :bdg-primary:`TopSamplingConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L374>`__
 
             How the runtime-mesh top is sampled from the DEM before conditioning.
 
@@ -758,10 +903,16 @@ Fields
                     <code class="hmp-field-name">mode</code>
                   </div>
 
-               :bdg-primary:`Literal['centroid', 'zonal']` :bdg-secondary:`default = "centroid"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L203>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "centroid"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L225>`__
 
                   Top-sampling strategy. 'centroid' samples the DEM at each cell generator (fast, the current behaviour, byte-identical default). 'zonal' reduces every DEM pixel inside a cell with per-class stats.
 
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"centroid"`` ``"zonal"``
+
+
+            .. index:: ! hillslope_stat
 
             .. container:: hmp-field hmp-field-level-user
                :name: modflow6-sgrid-top-sampling-hillslope-stat
@@ -772,10 +923,32 @@ Fields
                     <code class="hmp-field-name">hillslope_stat</code>
                   </div>
 
-               :bdg-primary:`Literal['mean', 'median', 'min', 'max', 'p10', 'p25']` :bdg-secondary:`default = "median"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L211>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "median"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L233>`__
 
                   Zonal statistic over non-channel (hillslope) pixels inside a cell.
 
+               .. rst-class:: hmp-field-values
+
+               ``"mean"``
+                  Averages every hillslope pixel in the cell to set its top elevation.
+
+               ``"median"``
+                  Uses the median hillslope pixel elevation, robust to outlier pixels.
+
+               ``"min"``
+                  Uses the lowest hillslope pixel elevation found inside the cell.
+
+               ``"max"``
+                  Uses the highest hillslope pixel elevation found inside the cell.
+
+               ``"p10"``
+                  Uses the 10th percentile of hillslope pixel elevations inside the cell.
+
+               ``"p25"``
+                  Uses the 25th percentile of hillslope pixel elevations inside the cell.
+
+
+            .. index:: ! channel_stat
 
             .. container:: hmp-field hmp-field-level-user
                :name: modflow6-sgrid-top-sampling-channel-stat
@@ -786,10 +959,29 @@ Fields
                     <code class="hmp-field-name">channel_stat</code>
                   </div>
 
-               :bdg-primary:`Literal['min', 'p10', 'p25', 'median', 'mean']` :bdg-secondary:`default = "min"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L217>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "min"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L249>`__
 
                   Zonal statistic over channel pixels inside a cell (thalweg-preserving; 'min' keeps the incised low).
 
+               .. rst-class:: hmp-field-values
+
+               ``"min"``
+                  Uses the lowest channel pixel elevation, keeping the incised thalweg low.
+
+               ``"p10"``
+                  Uses the 10th percentile of channel pixel elevations, near the thalweg low.
+
+               ``"p25"``
+                  Uses the 25th percentile of channel pixel elevations, above the thalweg low.
+
+               ``"median"``
+                  Uses the median channel pixel elevation, less aggressive than the thalweg low.
+
+               ``"mean"``
+                  Averages channel pixel elevations, smoothing over the incised thalweg.
+
+
+            .. index:: ! channel_source
 
             .. container:: hmp-field hmp-field-level-user
                :name: modflow6-sgrid-top-sampling-channel-source
@@ -800,10 +992,16 @@ Fields
                     <code class="hmp-field-name">channel_source</code>
                   </div>
 
-               :bdg-primary:`Literal['none', 'streams_raster']` :bdg-secondary:`default = "streams_raster"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L224>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "streams_raster"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L271>`__
 
                   Where channel pixels come from when mode='zonal'. 'streams_raster' uses the delineated river-network raster reprojected onto the DEM grid; 'none' disables the channel class (every pixel is hillslope).
 
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"none"`` ``"streams_raster"``
+
+
+            .. index:: ! channel_buffer_px
 
             .. container:: hmp-field hmp-field-level-dev
                :name: modflow6-sgrid-top-sampling-channel-buffer-px
@@ -814,10 +1012,12 @@ Fields
                     <code class="hmp-field-name">channel_buffer_px</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L232>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L279>`__
 
                   Dilate the channel pixel mask by this many pixels before reducing, to capture a channel that grazes a cell without a pixel centre on it.
 
+
+            .. index:: ! spike_guard_tol_m
 
             .. container:: hmp-field hmp-field-level-dev
                :name: modflow6-sgrid-top-sampling-spike-guard-tol-m
@@ -828,10 +1028,12 @@ Fields
                     <code class="hmp-field-name">spike_guard_tol_m</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 2.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L240>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 2.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L287>`__
 
                   Revert a hillslope cell's zonal value to the centroid sample when it deviates more than this many metres (guards nodata/edge spikes); channel cells are exempt since they are lowered on purpose. 0 disables the guard.
 
+
+            .. index:: ! min_pixels
 
             .. container:: hmp-field hmp-field-level-dev
                :name: modflow6-sgrid-top-sampling-min-pixels
@@ -842,10 +1044,12 @@ Fields
                     <code class="hmp-field-name">min_pixels</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 3` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L249>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 3` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L296>`__
 
                   Minimum DEM pixels inside a cell to trust a hillslope zonal statistic; below this the cell falls back to the centroid sample. A channel cell uses its channel stat from a single thalweg pixel.
 
+
+            .. index:: ! min_thickness_m
 
             .. container:: hmp-field hmp-field-level-dev
                :name: modflow6-sgrid-top-sampling-min-thickness-m
@@ -856,10 +1060,12 @@ Fields
                     <code class="hmp-field-name">min_thickness_m</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L257>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L304>`__
 
                   Minimum layer-0 thickness (m) kept after zonal top lowering, so a carved channel top never collides with the aquifer bottom.
 
+
+            .. index:: ! network_safety_net
 
             .. container:: hmp-field hmp-field-level-user
                :name: modflow6-sgrid-top-sampling-network-safety-net
@@ -870,10 +1076,12 @@ Fields
                     <code class="hmp-field-name">network_safety_net</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L265>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L312>`__
 
                   Before the priority-flood fill, carve the channel cells into a monotone descending thalweg (lower-only) and pin them so the fill never raises them. Fixes the fill re-raising a zonal-lowered channel; needs a channel source (mode='zonal' with channel_source!='none'). Off by default.
 
+
+            .. index:: ! max_channel_lowering_m
 
             .. container:: hmp-field hmp-field-level-dev
                :name: modflow6-sgrid-top-sampling-max-channel-lowering-m
@@ -884,7 +1092,7 @@ Fields
                     <code class="hmp-field-name">max_channel_lowering_m</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 5.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L274>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 5.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L321>`__
 
                   Cap (m) on how far the network safety net may carve a single channel cell below its sampled top.
 

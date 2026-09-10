@@ -18,8 +18,8 @@ Workflow launchers
 ------------------
 
 - :func:`hydromodpy.run` -- run any workflow from a TOML file or config object;
-  dispatches on ``[workflow] mode`` (simulation, overview, comparison, mesh,
-  testbed).
+  dispatches on ``[workflow] mode`` (simulation, calibration, overview,
+  comparison, testbed, site_selection).
 - :func:`hydromodpy.calibrate` -- run a calibration workflow.
 
 Analysis and reporting
@@ -35,6 +35,12 @@ Diagnostics
 
 - :func:`hydromodpy.doctor` -- lightweight environment diagnostic.
 
+Project object
+--------------
+
+- :doc:`project` -- the setup-once, run-many ``Project`` facade, its state
+  container, its accessors, and the catalog it opens.
+
 .. toctree::
    :maxdepth: 1
    :caption: Verbs
@@ -47,3 +53,15 @@ Diagnostics
    report
    read
    doctor
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Object API
+
+   project
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Generated
+
+   Module reference </api/index>

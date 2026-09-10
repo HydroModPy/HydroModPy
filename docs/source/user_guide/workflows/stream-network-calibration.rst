@@ -28,13 +28,39 @@ network into the routing surface first:
    mode = "constant"
    depth_m = 30
 
-``stream_geometry_path`` is not optional. Without it the geographic pipeline
-stops on ``geographic.enforce_streams.stream_geometry_path is unset.`` at the
-first step, before anything is calibrated. The path is anchored once, when
-the configuration is loaded: a relative value against the directory of the TOML
-that declares it, a bare filename under ``<workspace>/data/hydrography/`` then
-``<workspace>/data/``. Nothing is probed when the file is read, so the run
-takes the same network whatever directory it was launched from.
+The burn needs a network, and it needs it as a file: it runs inside the
+geographic step, before any data manager, so it cannot read what the data
+loading step later produces. ``stream_geometry_path`` says which file, and it is
+anchored once, when the configuration is loaded: a relative value against the
+directory of the TOML that declares it, a bare filename under
+``<workspace>/data/hydrography/`` then ``<workspace>/data/``. Nothing is probed
+when the file is read, so the run takes the same network whatever directory it
+was launched from.
+
+Leave it out and the burn falls back to what ``[[data.hydrography.sources]]``
+declares, so the same file is named once:
+
+.. code-block:: toml
+
+   [[data.hydrography.sources]]
+   source = "custom"
+   path = "streams.gpkg"
+
+   [geographic.enforce_streams]
+   enabled = true
+   mode = "constant"
+   depth_m = 30
+
+A ``custom`` source hands its own file straight over, a directory yields its
+first vector layer, and a raster one yields nothing: the burn rasterizes
+geometries onto the DEM grid itself. An API source (``osm``, ``bdtopage``,
+``euhydro``) is downloaded on a box around ``x_outlet`` / ``y_outlet``, clipped
+to the DEM footprint, and cached under ``<workspace>/data/hydrography/``; the
+watershed a data manager would clip against is not delineated yet at that point,
+and the regional extent is what the burn wants anyway. Declaring
+``stream_geometry_path`` explicitly always wins, which is how you burn a network
+that differs from the one the data family loads. Declaring neither stops the
+geographic pipeline at the first step, before anything is calibrated.
 
 A project declaring that path gets the agreement measured whether or not
 ``enabled`` is set, which is how you find out that the burning is needed. It

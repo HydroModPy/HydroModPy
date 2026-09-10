@@ -29,6 +29,8 @@ Fields
 
 .. rst-class:: hmp-config-fields
 
+.. index:: ! zone_ids
+
 .. container:: hmp-field hmp-field-level-user
    :name: domain-zone-ids
 
@@ -40,8 +42,10 @@ Fields
 
    :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/domain_config.py#L24>`__
 
-      Ordered list of zone identifiers loaded in the domain registry. Keep this list for actual runtime zones (for example 'catchment', 'geology', or custom zonations). Spatial-support declarations live under domain.supports.
+      Zone identifiers Domain.set_zone is allowed to register. It is an allowlist, not a request: nothing here causes a zone to be built. 'catchment' and 'geology' are appended by the runtime because the binders write under those fixed names, and every support id is appended too, so what belongs here is a project's own zonations. Order is never read. Spatial-support declarations live under domain.supports.
 
+
+.. index:: ! supports
 
 .. container:: hmp-field hmp-field-level-user
    :name: domain-supports
@@ -54,7 +58,7 @@ Fields
         <code class="hmp-field-toml">[domain.supports.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`dict[str, GeneratedBandsSupportConfig | GeneratedRingsSupportConfig | CatchmentZonesSupportConfig | GeologySupportConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/domain_config.py#L33>`__
+   :bdg-primary:`dict[str, GeneratedBandsSupportConfig | GeneratedRingsSupportConfig | CatchmentZonesSupportConfig | GeologySupportConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/domain_config.py#L36>`__
 
       Named spatial supports available to heterogeneous parameters. Each key is a support identifier referenced by field_spatial_id.
 
@@ -76,6 +80,8 @@ Fields
          :bdg-primary:`Literal['generated_bands']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/spatial_support_config.py#L44>`__
 
 
+      .. index:: ! axis
+
       .. container:: hmp-field hmp-field-level-user
          :name: generatedbandssupportconfig-domain-supports-id-axis
 
@@ -85,8 +91,14 @@ Fields
               <code class="hmp-field-name">axis</code>
             </div>
 
-         :bdg-primary:`Literal['x', 'y']` :bdg-secondary:`default = "x"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/spatial_support_config.py#L45>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/spatial_support_config.py#L45>`__
 
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"x"`` ``"y"``
+
+
+      .. index:: ! coordinate_mode
 
       .. container:: hmp-field hmp-field-level-dev
          :name: generatedbandssupportconfig-domain-supports-id-coordinate-mode
@@ -97,8 +109,14 @@ Fields
               <code class="hmp-field-name">coordinate_mode</code>
             </div>
 
-         :bdg-primary:`Literal['relative', 'absolute']` :bdg-secondary:`default = "relative"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/spatial_support_config.py#L46>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "relative"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/spatial_support_config.py#L46>`__
 
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"relative"`` ``"absolute"``
+
+
+      .. index:: ! breaks
 
       .. container:: hmp-field hmp-field-level-user
          :name: generatedbandssupportconfig-domain-supports-id-breaks
@@ -114,6 +132,8 @@ Fields
             Ordered break coordinates delimiting consecutive bands. With coordinate_mode='relative', values are fractions in ]0,1[. With coordinate_mode='absolute', values are converted to metres.
 
 
+      .. index:: ! labels
+
       .. container:: hmp-field hmp-field-level-user
          :name: generatedbandssupportconfig-domain-supports-id-labels
 
@@ -127,6 +147,8 @@ Fields
 
             Ordered band labels. Length must be len(breaks)+1.
 
+
+      .. index:: ! default_cell_samples_per_axis
 
       .. container:: hmp-field hmp-field-level-dev
          :name: generatedbandssupportconfig-domain-supports-id-default-cell-samples-per-axis
@@ -170,8 +192,14 @@ Fields
               <code class="hmp-field-name">coordinate_mode</code>
             </div>
 
-         :bdg-primary:`Literal['relative', 'absolute']` :bdg-secondary:`default = "relative"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/spatial_support_config.py#L115>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "relative"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/spatial_support_config.py#L115>`__
 
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"relative"`` ``"absolute"``
+
+
+      .. index:: ! radii
 
       .. container:: hmp-field hmp-field-level-user
          :name: generatedringssupportconfig-domain-supports-id-radii
@@ -201,6 +229,8 @@ Fields
             Ordered ring labels. Length must be len(radii)+1.
 
 
+      .. index:: ! center_x
+
       .. container:: hmp-field hmp-field-level-dev
          :name: generatedringssupportconfig-domain-supports-id-center-x
 
@@ -214,6 +244,8 @@ Fields
 
             Optional x coordinate of the ring center (projected metres). Defaults to the domain midpoint. Accepts inline units, e.g. '500 m'.
 
+
+      .. index:: ! center_y
 
       .. container:: hmp-field hmp-field-level-dev
          :name: generatedringssupportconfig-domain-supports-id-center-y
@@ -261,6 +293,8 @@ Fields
 
          :bdg-primary:`Literal['catchment_zones']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/spatial_support_config.py#L198>`__
 
+
+      .. index:: ! source_zone_id
 
       .. container:: hmp-field hmp-field-level-user
          :name: catchmentzonessupportconfig-domain-supports-id-source-zone-id
@@ -311,6 +345,8 @@ Fields
 
 
 
+.. index:: ! depth_model
+
 .. container:: hmp-field hmp-field-level-user
    :name: domain-depth-model
 
@@ -322,7 +358,7 @@ Fields
         <code class="hmp-field-toml">[domain.depth_model]</code>
       </div>
 
-   :bdg-primary:`kind = "constant_thickness" | "flat_substratum"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/domain_config.py#L40>`__
+   :bdg-primary:`kind = "constant_thickness" | "flat_substratum"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/domain_config.py#L43>`__
 
       Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'.
 
@@ -335,6 +371,8 @@ Fields
          TOML: ``[domain.depth_model]`` with ``kind = "constant_thickness"`` -- model ``ConstantThicknessDepthModel``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. index:: ! thickness
 
             .. container:: hmp-field hmp-field-level-user
                :name: domain-depth-model-thickness
@@ -356,6 +394,8 @@ Fields
          TOML: ``[domain.depth_model]`` with ``kind = "flat_substratum"`` -- model ``FlatSubstratumDepthModel``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. index:: ! substratum_elevation
 
             .. container:: hmp-field hmp-field-level-user
                :name: domain-depth-model-substratum-elevation

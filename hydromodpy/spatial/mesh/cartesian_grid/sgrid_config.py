@@ -63,6 +63,19 @@ class VerticalGridConfig(HydroModelBase):
     genmtd_lay: Annotated[Literal["constant", "decay", "list"], Profile.USER] = Field(
         default="constant",
         description="Vertical-layering strategy.",
+        json_schema_extra={
+            "value_docs": {
+                "constant": (
+                    "Splits local thickness into nlay equal-fraction layers at every cell."
+                ),
+                "decay": (
+                    "Grows layer thickness geometrically with depth when lay_decay is above one."
+                ),
+                "list": (
+                    "Uses the explicit per-layer thickness fractions given in lay_proportions."
+                ),
+            }
+        },
     )
     nlay: Annotated[int | None, Profile.USER] = Field(
         default=1,
@@ -148,6 +161,15 @@ class PlanarGridConfig(HydroModelBase):
             "Planar solver-grid mode: keep the native domain support or "
             "resample to an explicit (ny, nx) target shape."
         ),
+        json_schema_extra={
+            "value_docs": {
+                "keep_native": "Keeps the top raster's native shape and resolution, no resampling.",
+                "resample_to_shape": (
+                    "Resamples top and bottom onto an explicit (ny, nx) grid, "
+                    "keeping the same extent."
+                ),
+            }
+        },
     )
     nx: Annotated[PositiveInt | None, Profile.USER] = Field(
         default=None,
@@ -213,6 +235,16 @@ class TopSamplingConfig(HydroModelBase):
     ] = Field(
         default="median",
         description="Zonal statistic over non-channel (hillslope) pixels inside a cell.",
+        json_schema_extra={
+            "value_docs": {
+                "mean": "Averages every hillslope pixel in the cell to set its top elevation.",
+                "median": "Uses the median hillslope pixel elevation, robust to outlier pixels.",
+                "min": "Uses the lowest hillslope pixel elevation found inside the cell.",
+                "max": "Uses the highest hillslope pixel elevation found inside the cell.",
+                "p10": "Uses the 10th percentile of hillslope pixel elevations inside the cell.",
+                "p25": "Uses the 25th percentile of hillslope pixel elevations inside the cell.",
+            }
+        },
     )
     channel_stat: Annotated[Literal["min", "p10", "p25", "median", "mean"], Profile.USER] = Field(
         default="min",
@@ -220,6 +252,21 @@ class TopSamplingConfig(HydroModelBase):
             "Zonal statistic over channel pixels inside a cell (thalweg-preserving; "
             "'min' keeps the incised low)."
         ),
+        json_schema_extra={
+            "value_docs": {
+                "min": "Uses the lowest channel pixel elevation, keeping the incised thalweg low.",
+                "p10": (
+                    "Uses the 10th percentile of channel pixel elevations, near the thalweg low."
+                ),
+                "p25": (
+                    "Uses the 25th percentile of channel pixel elevations, above the thalweg low."
+                ),
+                "median": (
+                    "Uses the median channel pixel elevation, less aggressive than the thalweg low."
+                ),
+                "mean": "Averages channel pixel elevations, smoothing over the incised thalweg.",
+            }
+        },
     )
     channel_source: Annotated[Literal["none", "streams_raster"], Profile.USER] = Field(
         default="streams_raster",

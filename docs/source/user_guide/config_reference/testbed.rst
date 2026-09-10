@@ -27,6 +27,8 @@ Fields
 
 .. rst-class:: hmp-config-fields
 
+.. index:: ! config_path
+
 .. container:: hmp-field hmp-field-level-user
    :name: testbed-config-path
 
@@ -40,6 +42,8 @@ Fields
 
       Resolved path of the TOML file that produced this config.
 
+
+.. index:: ! base_dir
 
 .. container:: hmp-field hmp-field-level-user
    :name: testbed-base-dir
@@ -69,6 +73,8 @@ Fields
       Stable testbed identifier.
 
 
+.. index:: ! profile
+
 .. container:: hmp-field hmp-field-level-user
    :name: testbed-profile
 
@@ -82,6 +88,8 @@ Fields
 
       Selected testbed profile.
 
+
+.. index:: ! subject
 
 .. container:: hmp-field hmp-field-level-user
    :name: testbed-subject
@@ -97,6 +105,8 @@ Fields
       High-level subject covered by the testbed (flow, mesh, transport).
 
 
+.. index:: ! purpose
+
 .. container:: hmp-field hmp-field-level-user
    :name: testbed-purpose
 
@@ -110,6 +120,8 @@ Fields
 
       Stated purpose of the testbed (robustness, sensitivity, ...).
 
+
+.. index:: ! output_root
 
 .. container:: hmp-field hmp-field-level-user
    :name: testbed-output-root
@@ -125,6 +137,8 @@ Fields
       Directory where testbed artifacts are written.
 
 
+.. index:: ! execute
+
 .. container:: hmp-field hmp-field-level-user
    :name: testbed-execute
 
@@ -138,6 +152,8 @@ Fields
 
       When false, child configs are materialized but not executed.
 
+
+.. index:: ! continue_on_error
 
 .. container:: hmp-field hmp-field-level-user
    :name: testbed-continue-on-error
@@ -153,6 +169,8 @@ Fields
       When false, the first failure aborts the testbed.
 
 
+.. index:: ! base_config_path
+
 .. container:: hmp-field hmp-field-level-user
    :name: testbed-base-config-path
 
@@ -166,6 +184,8 @@ Fields
 
       Optional child workflow TOML used as the case base config.
 
+
+.. index:: ! runner
 
 .. container:: hmp-field hmp-field-level-user
    :name: testbed-runner
@@ -188,6 +208,8 @@ Fields
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+      .. index:: ! type
+
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-runner-type
 
@@ -201,6 +223,8 @@ Fields
 
             Runner identifier dispatched for every case (comparison, simulation).
 
+
+      .. index:: ! no_display
 
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-runner-no-display
@@ -217,6 +241,8 @@ Fields
 
 
 
+
+.. index:: ! case
 
 .. container:: hmp-field hmp-field-level-user
    :name: testbed-case
@@ -253,6 +279,8 @@ Fields
             Stable case identifier.
 
 
+      .. index:: ! label
+
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-case-label
 
@@ -266,6 +294,8 @@ Fields
 
             Human-readable case label.
 
+
+      .. index:: ! axis
 
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-case-axis
@@ -295,6 +325,8 @@ Fields
             Toggle to skip a case without removing it from the config.
 
 
+      .. index:: ! overlay
+
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-case-overlay
 
@@ -312,6 +344,8 @@ Fields
 
 
 
+
+.. index:: ! catalog
 
 .. container:: hmp-field hmp-field-level-user
    :name: testbed-catalog
@@ -348,6 +382,8 @@ Fields
             Resolved path to the case catalog (CSV or JSONL).
 
 
+      .. index:: ! format
+
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-catalog-format
 
@@ -361,6 +397,8 @@ Fields
 
             Catalog format. 'auto' infers from the file suffix.
 
+
+      .. index:: ! id_field
 
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-catalog-id-field
@@ -376,6 +414,8 @@ Fields
             Column carrying the case identifier.
 
 
+      .. index:: ! label_field
+
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-catalog-label-field
 
@@ -389,6 +429,8 @@ Fields
 
             Column carrying a human-readable case label.
 
+
+      .. index:: ! axis_field
 
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-catalog-axis-field
@@ -404,6 +446,8 @@ Fields
             Column carrying the optional axis tag.
 
 
+      .. index:: ! enabled_field
+
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-catalog-enabled-field
 
@@ -417,6 +461,8 @@ Fields
 
             Column flagging whether a row is active.
 
+
+      .. index:: ! tags_field
 
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-catalog-tags-field
@@ -432,6 +478,8 @@ Fields
             Column carrying free-form tags joined by tag_separator.
 
 
+      .. index:: ! required_fields
+
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-catalog-required-fields
 
@@ -445,6 +493,8 @@ Fields
 
             Columns that must be present and non-empty per row.
 
+
+      .. index:: ! path_fields
 
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-catalog-path-fields
@@ -460,6 +510,8 @@ Fields
             Columns whose values are resolved as filesystem paths.
 
 
+      .. index:: ! tag_separator
+
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-catalog-tag-separator
 
@@ -473,6 +525,8 @@ Fields
 
             Separator splitting the tags column into individual tags.
 
+
+      .. index:: ! field_equals
 
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-catalog-field-equals
@@ -488,6 +542,8 @@ Fields
             Per-field equality filters applied during catalog selection.
 
 
+      .. index:: ! tags
+
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-catalog-tags
 
@@ -501,6 +557,8 @@ Fields
 
             Whitelist of tags. Empty disables the filter.
 
+
+      .. index:: ! exclude_tags
 
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-catalog-exclude-tags
@@ -516,6 +574,8 @@ Fields
             Blacklist of tags applied after the whitelist.
 
 
+      .. index:: ! include_disabled
+
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-catalog-include-disabled
 
@@ -529,6 +589,8 @@ Fields
 
             When true, rows flagged as disabled are kept.
 
+
+      .. index:: ! limit
 
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-catalog-limit
@@ -544,6 +606,8 @@ Fields
             Optional cap on the number of selected rows.
 
 
+      .. index:: ! source_manifest_path
+
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-catalog-source-manifest-path
 
@@ -557,6 +621,8 @@ Fields
 
             Optional site-selection manifest used to resolve the catalog path.
 
+
+      .. index:: ! source_manifest_output_key
 
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-catalog-source-manifest-output-key
@@ -573,6 +639,8 @@ Fields
 
 
 
+
+.. index:: ! case_from_catalog
 
 .. container:: hmp-field hmp-field-level-user
    :name: testbed-case-from-catalog
@@ -595,6 +663,8 @@ Fields
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+      .. index:: ! id_template
+
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-case-from-catalog-id-template
 
@@ -609,6 +679,8 @@ Fields
             Format string evaluated against catalog row fields to derive the case id.
 
 
+      .. index:: ! label_template
+
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-case-from-catalog-label-template
 
@@ -622,6 +694,8 @@ Fields
 
             Format string used to derive the case label.
 
+
+      .. index:: ! axis_template
 
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-case-from-catalog-axis-template
@@ -739,6 +813,8 @@ Fields
 
 
 
+.. index:: ! metrics
+
 .. container:: hmp-field hmp-field-level-user
    :name: testbed-metrics
 
@@ -787,6 +863,8 @@ Fields
 
             Dotted path into the child-runner summary.
 
+
+      .. index:: ! required
 
       .. container:: hmp-field hmp-field-level-user
          :name: testbed-metrics-required

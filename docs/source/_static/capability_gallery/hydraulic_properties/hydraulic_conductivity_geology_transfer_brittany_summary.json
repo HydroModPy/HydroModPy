@@ -55,7 +55,7 @@
       "caption": "Geology zones, zone-value mapping, and resulting conductivity field on a local mesh.",
       "alt_text": "Geology-driven conductivity transfer on the Brittany subset",
       "doc_path": "/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany.png"
+      "repo_path": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany.png"
     }
   ],
   "metrics": [
@@ -114,9 +114,9 @@
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json",
-    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json",
     "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany.png"
+      "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany.png"
     ]
   },
   "parameter_docs": {
@@ -128,25 +128,25 @@
             "field": "property_case_kind",
             "meaning": "Hydraulic-property rendering mode used to build this gallery figure.",
             "value": "geology_transfer_demo",
-            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
+            "source": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
           },
           {
             "field": "parameter_ids",
             "meaning": "Hydraulic parameters illustrated by the case.",
             "value": "K",
-            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
+            "source": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
           },
           {
             "field": "parameterization_modes",
             "meaning": "Parameterization modes intentionally demonstrated by the case.",
             "value": "csv, heterogeneous",
-            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
+            "source": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
           },
           {
             "field": "supports",
             "meaning": "Spatial supports used to render the field or compare variants.",
             "value": "vector_local, structured",
-            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
+            "source": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
           }
         ]
       },
@@ -216,25 +216,25 @@
             "field": "n_polygons",
             "meaning": "Metric displayed on this page.",
             "value": "23",
-            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
+            "source": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
           },
           {
             "field": "n_unique_zones",
             "meaning": "Metric displayed on this page.",
             "value": "13",
-            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
+            "source": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
           },
           {
             "field": "n_mesh_cells",
             "meaning": "Metric displayed on this page.",
             "value": "400",
-            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
+            "source": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
           },
           {
             "field": "property_max",
             "meaning": "Metric displayed on this page.",
             "value": "7.21e-05 m/s",
-            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
+            "source": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
           }
         ]
       }

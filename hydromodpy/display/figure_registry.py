@@ -1,7 +1,7 @@
 """Registry of named figures.
 
 Each figure class registers itself by decorating with :func:`register`. The
-registry is consumed by ``hmp display`` and by the comparison helpers.
+registry is consumed by ``hmp viz`` and by the comparison helpers.
 """
 
 from __future__ import annotations

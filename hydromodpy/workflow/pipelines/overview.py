@@ -67,6 +67,9 @@ class DataOverviewLauncher:
         # Phase 1b: DEM bootstrap (download via API if no local path)
         self._bootstrap_dem(state)
 
+        # Phase 1c: burn network bootstrap (reuse [data.hydrography] if no local path)
+        self._bootstrap_stream_geometry(state)
+
         # Phase 2: Geographic (watershed delineation)
         self._setup_geographic(state)
 
@@ -133,7 +136,57 @@ class DataOverviewLauncher:
                 '  [[data.dem.sources]]\n  source = "custom"\n  path = "..."'
             )
         logger.debug("[overview] DEM resolved from [data.dem]: %s", resolved)
-        geo_cfg.dem_init_path = resolved
+        if geo_cfg.catchment is None:
+            raise ConfigMissingError(
+                "geographic.catch_def is required when [[data.dem.sources]] is the DEM "
+                "source. Set geographic.catchment.catch_def."
+            )
+        geo_cfg.catchment.dem_init_path = resolved
+
+    # ------------------------------------------------------------------
+    # Phase 1c - Stream burn network bootstrap
+    # ------------------------------------------------------------------
+
+    def _bootstrap_stream_geometry(self, state: DataOverviewState) -> None:
+        """Resolve the burn network from ``[[data.hydrography.sources]]`` if absent.
+
+        Delegates to the shared resolver so the standard simulation pipeline and
+        the overview pipeline behave identically, exactly as ``_bootstrap_dem``
+        does for the DEM. With no hydrography source declared at all, nothing is
+        raised here: the burn names the file it could not read when it reads it.
+        """
+        from hydromodpy.data.variables.hydrography.resolver import (
+            resolve_stream_geometry_path_from_data_sources,
+        )
+
+        geo_cfg = state.cfg.geographic
+        enforce_cfg = getattr(geo_cfg, "enforce_streams", None)
+        if enforce_cfg is None or not enforce_cfg.enabled:
+            return
+        if enforce_cfg.stream_geometry_path is not None:
+            return
+        hydrography_cfg = getattr(state.cfg.data, "hydrography", None)
+        if not getattr(hydrography_cfg, "sources", None):
+            return
+
+        cache_dir = None
+        if state.workspace is not None and state.workspace.paths.data_path is not None:
+            cache_dir = state.workspace.paths.data_path / "hydrography"
+
+        resolved = resolve_stream_geometry_path_from_data_sources(
+            state.cfg,
+            config_path=self.config_path,
+            cache_dir=cache_dir,
+        )
+        if resolved is None:
+            raise ConfigMissingError(
+                "geographic.enforce_streams is enabled without a stream_geometry_path, "
+                "and [[data.hydrography.sources]] holds no vector network to fall back "
+                "on. Either set geographic.enforce_streams.stream_geometry_path, or "
+                "declare a vector hydrography source (a raster one cannot be burned)."
+            )
+        logger.debug("[overview] Burn network resolved from [data.hydrography]: %s", resolved)
+        enforce_cfg.stream_geometry_path = resolved
 
     # ------------------------------------------------------------------
     # Phase 2 - Geographic

@@ -2,7 +2,7 @@
 
 While a pipeline runs, :class:`HeartbeatPulse` emits one ``heartbeat`` row in
 ``workflow_events`` at a fixed cadence and refreshes a sidecar JSON file at
-``<workspace>/.hmp/running/<id8>.json``. ``hmp gc`` and ``hmp doctor --lifecycle``
+``<workspace>/.hmp/running/<id8>.json``. ``hmp catalog gc`` and ``hmp doctor --lifecycle``
 derive liveness from the ``v_workflow_heartbeats`` view (MAX(ts) per run);
 ``hmp catalog watch`` reads the sidecar so it stays usable even while a solve holds the
 DuckDB catalog locked. The default 30 s cadence keeps both comfortably below

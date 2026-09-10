@@ -2,8 +2,8 @@
   "schema_version": "regional_lab_report_v2",
   "generated_at_utc": "<generated_at_utc>",
   "lab_id": "headwater_100km2_lab",
-  "config_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
-  "site_catalog_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
+  "config_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
+  "site_catalog_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
   "output_root": "<regional_lab_output_root>",
   "execute": false,
   "continue_on_error": true,
@@ -45,9 +45,9 @@
       ],
       "enabled": true,
       "resolved_paths": {
-        "simulation_reference_config": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
-        "backend_comparison_config": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
-        "transient_backend_comparison_config": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json"
+        "simulation_reference_config": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
+        "backend_comparison_config": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
+        "transient_backend_comparison_config": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json"
       },
       "raw": {
         "site_id": "headwater_100km2_outlet_2",
@@ -274,13 +274,13 @@
       "recipe_id": "mf6_reference",
       "recipe_label": "MF6 reference replay",
       "launcher": "simulation",
-      "config_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
+      "config_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
       "command": [
         "/home/bb/miniforge3/envs/hmp_refact/bin/python",
         "-m",
         "launchers",
         "simulation",
-        "/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json"
+        "/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json"
       ],
       "status": "planned",
       "returncode": null,
@@ -312,14 +312,14 @@
       "recipe_id": "backend_compare",
       "recipe_label": "Backend comparison",
       "launcher": "comparison",
-      "config_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
+      "config_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
       "command": [
         "/home/bb/miniforge3/envs/hmp_refact/bin/python",
         "-m",
         "launchers",
         "comparison",
         "run",
-        "/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json"
+        "/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json"
       ],
       "status": "planned",
       "returncode": null,
@@ -351,14 +351,14 @@
       "recipe_id": "transient_backend_compare",
       "recipe_label": "Transient backend comparison",
       "launcher": "comparison",
-      "config_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
+      "config_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
       "command": [
         "/home/bb/miniforge3/envs/hmp_refact/bin/python",
         "-m",
         "launchers",
         "comparison",
         "run",
-        "/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json"
+        "/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json"
       ],
       "status": "planned",
       "returncode": null,
@@ -531,9 +531,9 @@
     "summary_markdown": "regional_lab_outputs/regional_lab_summary.md"
   },
   "source_paths": [
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json"
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json"
   ],
   "source_hashes": {
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json": "607dbd26527947d830b8093dc1046d4907fffd11582972560d2ba81ec5fe5b18"
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json": "607dbd26527947d830b8093dc1046d4907fffd11582972560d2ba81ec5fe5b18"
   }
 }

@@ -129,3 +129,14 @@ Provider replay
    The piezometry part of the Hub'Eau replay keeps groundwater-level semantics
    separate from discharge and chemistry. This matters before comparing
    observations to simulated heads.
+
+See also
+--------
+
+Piezometric chronicles become calibration targets through
+:ref:`observation.points <observation-points>`, which samples simulated head (or the
+virtual ``watertable_depth`` field) at the well coordinates, and through a calibration
+output declared with ``variable = "head"`` in
+:doc:`/user_guide/config_reference/calibration`. :doc:`/user_guide/workflows/calibration`
+walks through the full campaign that consumes that objective. The other observation
+families are :doc:`hydrometry`, :doc:`water-quality`, and :doc:`intermittency`.

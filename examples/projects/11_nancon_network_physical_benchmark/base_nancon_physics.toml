@@ -89,8 +89,7 @@ source = "mean_recharge"
 recharge_statistic = "time_mean"
 boundary_condition_policy = "first_period"
 
-[flow.bc.cauchy.drainage]
-id = "drainage"
+[flow.bc.drainage]
 kind = "cauchy"
 application_domain = "top"
 description = "Cauchy drainage on the aquifer top face."

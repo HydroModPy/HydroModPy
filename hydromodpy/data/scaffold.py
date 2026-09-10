@@ -4,7 +4,7 @@ Called by ``hmp workspace init`` to create the HydroModPy workspace: one
 ``data/<variable>/`` folder per variable, a shared cache, and a ``projects/``
 directory.
 
-Called by ``hmp new <project>`` to create a project inside the workspace.
+Called by ``hmp project new <project>`` to create a project inside the workspace.
 
 Each ``data/<variable>/`` folder is a flat drop zone. The provider is encoded
 in the file NAME, never in the directory: ``<variable>_custom_*`` for files the
@@ -324,7 +324,7 @@ _README_FOOTER = """\
 ## Validate without running a simulation
 
 - `hmp data check --variable {name}` - validate dropped files, no ingestion.
-- `hmp data list --variable {name}` - list what is indexed in the cache.
+- `hmp data ls --variable {name}` - list what is indexed in the cache.
 """
 
 _README_BODY = {

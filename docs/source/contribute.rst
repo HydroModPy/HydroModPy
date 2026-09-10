@@ -190,7 +190,7 @@ command, for example ``pip install -e ".[dev,test,docs]"``.
    * - ``[dev]``
      - ``ruff`` and ``pre-commit`` for linting and Git hooks.
    * - ``[docs]``
-     - Sphinx, the PyData theme, ``myst-parser``, ``nbsphinx``, plus
+     - Sphinx, the PyData theme, ``myst-parser``, plus
        all extensions used to build this documentation. Pure wheels,
        no system Graphviz needed.
    * - ``[docs-uml]``

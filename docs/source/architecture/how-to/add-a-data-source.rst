@@ -161,7 +161,7 @@ Tests to add
 - **Replay**: drop a static fixture under
   ``hydromodpy/data/variables/<variable>/examples/`` for the public
   source and a smoke test that loads it offline.
-- **Integration** under ``tests/integration/data/`` if the new
+- **Integration** under ``tests/integration/data_managers/`` if the new
   source changes how the planner infers active variables.
 
 Pitfalls flagged by the layer matrix

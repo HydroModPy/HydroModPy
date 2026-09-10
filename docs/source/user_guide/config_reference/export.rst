@@ -27,6 +27,8 @@ Fields
 
 .. rst-class:: hmp-config-fields
 
+.. index:: ! netcdf
+
 .. container:: hmp-field hmp-field-level-user
    :name: export-netcdf
 
@@ -40,6 +42,8 @@ Fields
 
       Export to NetCDF-4/UGRID.
 
+
+.. index:: ! csv_timeseries
 
 .. container:: hmp-field hmp-field-level-user
    :name: export-csv-timeseries
@@ -55,6 +59,8 @@ Fields
       Export time series to CSV at the end of the run. Off by default: the canonical time series lives in tables.parquet; CSV is an on-demand export.
 
 
+.. index:: ! vtu
+
 .. container:: hmp-field hmp-field-level-dev
    :name: export-vtu
 
@@ -68,6 +74,8 @@ Fields
 
       Export to VTU (ParaView).
 
+
+.. index:: ! geotiff
 
 .. container:: hmp-field hmp-field-level-dev
    :name: export-geotiff
@@ -83,6 +91,8 @@ Fields
       Export to GeoTIFF.
 
 
+.. index:: ! shapefile
+
 .. container:: hmp-field hmp-field-level-dev
    :name: export-shapefile
 
@@ -96,6 +106,8 @@ Fields
 
       Export to Shapefile.
 
+
+.. index:: ! package
 
 .. container:: hmp-field hmp-field-level-user
    :name: export-package
@@ -111,6 +123,8 @@ Fields
       Also write a portable '<run>.hmp' archive (config, provenance, fields, timeseries, RO-Crate) after the run finalizes. The one-line switch for 'this run must be shareable forever'.
 
 
+.. index:: ! output_dir
+
 .. container:: hmp-field hmp-field-level-dev
    :name: export-output-dir
 
@@ -124,6 +138,8 @@ Fields
 
       Output directory for exports. Defaults to project results folder.
 
+
+.. index:: ! variables
 
 .. container:: hmp-field hmp-field-level-user
    :name: export-variables
@@ -146,6 +162,8 @@ Fields
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+      .. index:: ! head
+
       .. container:: hmp-field hmp-field-level-user
          :name: export-variables-head
 
@@ -159,6 +177,8 @@ Fields
 
             Export head field.
 
+
+      .. index:: ! concentration
 
       .. container:: hmp-field hmp-field-level-user
          :name: export-variables-concentration
@@ -174,6 +194,8 @@ Fields
             Export concentration field.
 
 
+      .. index:: ! budget
+
       .. container:: hmp-field hmp-field-level-dev
          :name: export-variables-budget
 
@@ -188,6 +210,8 @@ Fields
             Export spatial budget fields.
 
 
+      .. index:: ! pathlines
+
       .. container:: hmp-field hmp-field-level-dev
          :name: export-variables-pathlines
 
@@ -201,6 +225,8 @@ Fields
 
             Export pathline data.
 
+
+      .. index:: ! derived
 
       .. container:: hmp-field hmp-field-level-user
          :name: export-variables-derived
@@ -218,6 +244,8 @@ Fields
 
 
 
+.. index:: ! times
+
 .. container:: hmp-field hmp-field-level-user
    :name: export-times
 
@@ -227,10 +255,16 @@ Fields
         <code class="hmp-field-name">times</code>
       </div>
 
-   :bdg-primary:`Union[int, list[int], Literal['first', 'last', 'all']]` :bdg-secondary:`default = "last"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L93>`__
+   :bdg-primary:`Union[int, list[int], str]` :bdg-secondary:`default = "last"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L93>`__
 
       Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps.
 
+   .. rst-class:: hmp-field-values
+
+   **One of:** ``"first"`` ``"last"`` ``"all"``
+
+
+.. index:: ! resolution
 
 .. container:: hmp-field hmp-field-level-dev
    :name: export-resolution
@@ -245,6 +279,8 @@ Fields
 
       GeoTIFF pixel size in CRS units for toggle exports. Auto-derived from the grid when omitted.
 
+
+.. index:: ! artifacts
 
 .. container:: hmp-field hmp-field-level-dev
    :name: export-artifacts
@@ -267,6 +303,8 @@ Fields
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+      .. index:: ! var
+
       .. container:: hmp-field hmp-field-level-user
          :name: export-artifacts-var
 
@@ -280,6 +318,8 @@ Fields
 
             Variable name, list of names, or '*' (all timeseries, csv only).
 
+
+      .. index:: ! dest
 
       .. container:: hmp-field hmp-field-level-user
          :name: export-artifacts-dest
@@ -295,6 +335,8 @@ Fields
             Output file path. Its extension can imply 'fmt'.
 
 
+      .. index:: ! fmt
+
       .. container:: hmp-field hmp-field-level-user
          :name: export-artifacts-fmt
 
@@ -309,6 +351,8 @@ Fields
             Output format. Inferred from the 'dest' extension when omitted.
 
 
+      .. index:: ! time
+
       .. container:: hmp-field hmp-field-level-user
          :name: export-artifacts-time
 
@@ -318,10 +362,16 @@ Fields
               <code class="hmp-field-name">time</code>
             </div>
 
-         :bdg-primary:`Union[int, list[int], Literal['first', 'last', 'all'], NoneType]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L84>`__
+         :bdg-primary:`Union[int, list[int], str, NoneType]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L84>`__
 
             Timestep selector: index, list of indices, 'first', 'last', 'all', or None (per-format default: all timesteps for netcdf, last for rasters).
 
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"first"`` ``"last"`` ``"all"``
+
+
+      .. index:: ! layer
 
       .. container:: hmp-field hmp-field-level-dev
          :name: export-artifacts-layer
@@ -351,6 +401,8 @@ Fields
             GeoTIFF pixel size in CRS units. Auto-derived from the grid when omitted.
 
 
+      .. index:: ! crs
+
       .. container:: hmp-field hmp-field-level-dev
          :name: export-artifacts-crs
 
@@ -364,6 +416,8 @@ Fields
 
             Output CRS (e.g. 'EPSG:2154'). Auto-filled from the simulation when omitted.
 
+
+      .. index:: ! nodata
 
       .. container:: hmp-field hmp-field-level-dev
          :name: export-artifacts-nodata

@@ -232,13 +232,13 @@ Capability and API-oriented guides
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: project-api
+      :link: /python_api/project
       :link-type: doc
 
-      **Project API**
+      **Project object**
       ^^^
       Python lifecycle for workspace setup, geographic preprocessing, data,
-      mesh, run execution, comparison, calibration, and cleanup.
+      mesh, run execution, calibration, and cleanup.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -268,7 +268,6 @@ Use these pages once you have generated or opened result pages:
    Workflow families and modes <workflows/index>
    Concepts <concepts/index>
    Cookbook <cookbook/index>
-   Theory <../theory/index>
    cli-reference
    Data loading <data/index>
    results-and-exports
@@ -276,7 +275,6 @@ Use these pages once you have generated or opened result pages:
    catalog
    figures
    catchment-report
-   project-api
    solvers
    initialization
    modflow6-prt

@@ -222,3 +222,15 @@ Some sources are local by design even when they do not read a file.
 Use constants and synthetic forcing for tests, tutorials, and controlled
 diagnostics. Use custom files when the goal is to reproduce a production data
 set.
+
+See also
+--------
+
+- :doc:`/user_guide/config_reference/data` for the full ``[data]`` schema behind
+  ``source = "custom"``, ``code_field``, and ``mask_path``.
+- :doc:`dem` and :doc:`geology` for the same ``custom`` mechanism applied to a raster family and
+  a vector family.
+- :doc:`/user_guide/troubleshooting` for the ``CSV time series not found`` and ``NetCDF file not
+  found`` errors raised when a custom path is wrong.
+- :doc:`/architecture/data_loading/data-managers-and-external-dependencies` for why custom
+  sources stay first-class inputs instead of being overwritten by cache subsumption.

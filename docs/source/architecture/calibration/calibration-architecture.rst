@@ -48,6 +48,14 @@ Companion files:
 - Case-local docstrings under ``hydromodpy/calibration/cases/`` for
   runnable examples.
 
+.. warning::
+
+   The PlantUML diagrams below were drawn against the pre-refactor
+   ``hydromodpy.analysis.calibration.core`` layout. The module paths and
+   several class names they show no longer exist; the current ones are the
+   four layers listed above. Read the diagrams for the shape of the flow,
+   not for import paths.
+
 Core classes (config)
 ---------------------
 
@@ -87,19 +95,11 @@ How one runnable calibration case plugs into the shared core.
 
 .. uml:: diagrams/reservoir_sequence.wsd
 
-Devkit sequence
----------------
-
-The developer tooling used to scaffold and validate new calibration
-cases.
-
-.. uml:: diagrams/devkit_sequence.wsd
-
 Case / core structure
 ---------------------
 
-How runnable calibration cases are organized around the shared
-calibration core: where ``core/`` ends and ``cases/`` begins.
+How runnable calibration cases are organized around the shared engine:
+where ``optim/`` ends and ``cases/`` begins.
 
 .. uml:: diagrams/case_core_structure.wsd
 

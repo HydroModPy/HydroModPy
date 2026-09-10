@@ -98,10 +98,11 @@ def test_missing_cfg_is_noop():
 class TestDrainConductanceIsProportional:
     """A network criterion needs the drain conductance to follow the conductivity.
 
-    ``C = K * cell_area / top_thickness`` is what makes K/R the calibrated
-    quantity. Both MODFLOW backends and Boussinesq apply it only when the
-    configured conductance is not strictly positive, so a fixed value in
-    ``[flow.bc.cauchy.drainage]`` silently costs the criterion its invariance.
+        ``C = K * cell_area / top_thickness`` is what makes K/R the calibrated
+        quantity. Both MODFLOW backends and Boussinesq apply it only when the
+        configured conductance is not strictly positive, so a fixed value in
+        ``[flow.bc.drainage]
+    kind = "robin"`` silently costs the criterion its invariance.
     """
 
     @staticmethod
@@ -110,7 +111,7 @@ class TestDrainConductanceIsProportional:
 
         payload: dict[str, object] = {"active_bc": ["drainage"] if active else []}
         if value is not None:
-            payload["bc"] = {kind: {"drainage": {"value": value, "application_domain": "top"}}}
+            payload["bc"] = {"drainage": {"kind": kind, "value": value}}
         return FlowConfig.model_validate(payload)
 
     @staticmethod
@@ -149,7 +150,7 @@ class TestDrainConductanceIsProportional:
         with pytest.raises(ObjectiveError) as excinfo:
             self._check(self._flow(1e-3), self._cfg())
         message = str(excinfo.value)
-        assert "flow.bc.cauchy.drainage.value" in message
+        assert "flow.bc.drainage.value" in message
         assert "0.001" in message
         assert "'net'" in message
 
@@ -159,7 +160,7 @@ class TestDrainConductanceIsProportional:
     def test_a_robin_drainage_is_named_by_its_own_family(self) -> None:
         from hydromodpy.core.exceptions import ObjectiveError
 
-        with pytest.raises(ObjectiveError, match=r"flow\.bc\.robin\.drainage\.value"):
+        with pytest.raises(ObjectiveError, match=r"flow\.bc\.drainage\.value"):
             self._check(self._flow(2.0, kind="robin"), self._cfg())
 
     def test_an_active_boundary_without_a_section_passes(self) -> None:

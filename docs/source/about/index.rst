@@ -65,7 +65,6 @@ publications that rely on HydroModPy.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: documentation_refresh
       :link-type: doc
 
       **Documentation refresh**
@@ -83,4 +82,3 @@ publications that rely on HydroModPy.
    changelog
    roadmap
    Release and versioning policy <release_policy>
-   documentation_refresh

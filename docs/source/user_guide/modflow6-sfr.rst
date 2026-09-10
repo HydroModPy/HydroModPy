@@ -10,17 +10,24 @@ splits each stream link onto the DISV mesh, and writes the MODFLOW 6 SFR
 package with downstream-increasing reach numbering.
 
 The ``sfr`` boundary is MODFLOW 6 only. Declare the flow process with
-``solvers = ["modflow6"]``.
+``solvers = ["modflow6"]`` and run it with :doc:`hmp run </cli/run>`. See
+:doc:`/theory/streams_and_seepage/conceptual-model` for the underlying
+groundwater-surface exchange picture that motivates a routed reach network
+instead of a single drain per cell.
 
 Execution Model
 ---------------
 
 A config-declared network reaches SFR through the production pipeline:
 
-1. ``flow.active_bc`` carries ``sfr``, which selects the SFR backend package;
+1. ``flow.active_bc`` carries ``sfr``, which selects the SFR backend package
+   (see :doc:`/user_guide/config_reference/flow` for ``active_bc`` and the
+   ``flow.sinks_sources.sfr`` block used below);
 2. the geographic preprocessing builds the river-network products
-   (``[geographic.river_network]`` with ``compute_stream_links = true``, and
-   ``compute_strahler_order = true`` when a width-by-order law is used);
+   (``[geographic.river_network]``, see
+   :doc:`/user_guide/config_reference/geographic`, with
+   ``compute_stream_links = true``, and ``compute_strahler_order = true`` when
+   a width-by-order law is used);
 3. the delineation turns the full-grid stream-link raster, the D8 pointer, the
    flow accumulation and the corrected DEM into an ordered reach trace
    (one polyline per link, reciprocal connectivity, monotone-downhill streambed
@@ -100,7 +107,9 @@ Feeding a Lake (SFR -> LAK through MVR)
 Set ``outflow_to_lake`` to the 1-based lake number and the terminal reach hands
 its accumulated flow to the lake through a water-mover (MVR) record. This is
 how a reservoir is fed by its catchment streamflow: the baseflow captured along
-the reaches plus the routed runoff arrive as the lake's ``from_mvr`` series.
+the reaches plus the routed runoff arrive as the lake's ``from_mvr`` series. See
+:doc:`/user_guide/modflow6-lake` for the lake package itself, its
+stage-volume-area abacus and its spillway outlets.
 
 .. code-block:: toml
 

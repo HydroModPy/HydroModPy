@@ -40,19 +40,22 @@ turned into ``LoadResult`` payloads by the data managers. From there:
 - the resulting ``Flow`` runtime is then forwarded to the solver
   adapters (MODFLOW-NWT, MODFLOW 6, Boussinesq).
 
-Runoff is **not** routed through the Flow contract: it stays an
-observation-side input that calibration and comparison consume directly.
-Simulated heads, drainage, and baseflow from the Flow runtime are
-combined with that runoff at evaluation time, where runoff may be added
-to the DRN/baseflow signal.
+Runoff is not normalized into ``FlowRechargeConfig`` as diffuse aquifer
+recharge, but it does reach the ``Flow`` runtime through
+``flow.sinks_sources`` when the run declares a stream network or a lake: it
+becomes a routed SFR-reach inflow when an SFR network is active, and a direct
+lake inflow when a lake is declared and no network routes it. Simulated heads,
+drainage, and baseflow from the Flow runtime are combined with that runoff
+at evaluation time, where runoff may be added to the DRN/baseflow signal.
 
 Diffuse forcing and boundary support share one Flow contract, but they are
 not the same physical category.
 
 This diagram highlights a central distinction in the current design:
 diffuse hydrological forcing is normalized into the ``Flow`` contract, while
-runoff mainly remains an observation-side quantity for comparison and
-calibration.
+runoff, when it enters at all, enters as a boundary-condition inflow (SFR
+reach or lake) rather than as diffuse aquifer recharge, and remains available
+for comparison and calibration.
 
 Result anchors
 --------------
@@ -141,10 +144,11 @@ different conceptual levels.
      - Atmospheric water-demand or extraction proxy
      - Diffuse sink term when explicitly bound to ``Flow``
    * - Runoff
-     - ``mm/day`` in data layer
+     - ``mm/day`` in data layer, ``m3/s`` when bound to ``sinks_sources``
      - Surface runoff component
-     - Observation-side or comparison-side quantity, not a direct
-       groundwater solver forcing today
+     - Routed SFR-reach or direct lake inflow when bound; otherwise an
+       observation-side or comparison-side quantity. Never a diffuse
+       aquifer recharge forcing
    * - Stream or ocean stage
      - ``m``
      - Boundary water level
@@ -225,9 +229,13 @@ interpret many source units themselves.
 Runoff is handled differently
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Runoff does not currently enter the ``Flow`` process as a groundwater forcing.
-Instead, it remains a loaded hydrological quantity that can be reused later for
-comparison or calibration.
+Runoff does not enter the ``Flow`` process as a diffuse groundwater recharge
+forcing; it is never normalized into ``FlowRechargeConfig``. It does reach
+``Flow`` through ``flow.sinks_sources`` when the run declares a stream network
+or a lake: a routed SFR-reach inflow when an SFR network is active, a direct
+lake inflow when a lake is declared and no network routes it. With neither, it
+stays outside ``Flow``. It also remains a loaded hydrological quantity that
+can be reused later for comparison or calibration.
 
 In calibration, the current logic can add runoff to the simulated groundwater
 release signal to compare against total observed streamflow at outlet scale.
@@ -369,20 +377,27 @@ This is useful, but it should be described honestly:
 Runoff
 ^^^^^^
 
-Runoff is not currently injected into the groundwater solver as a source or
-sink term.
+Runoff is not injected into the aquifer as a diffuse recharge or sink term.
+It can still enter ``flow.sinks_sources`` as a boundary-condition inflow: a
+routed SFR-reach inflow when an SFR network is active, or a direct lake inflow
+when a lake is declared and no network routes it. From there it reaches the
+groundwater solve only
+indirectly, through the head-dependent SFR/LAK exchange, not as a direct
+aquifer-cell term.
 
 Its main current roles are:
 
+- a routed SFR or lake inflow forcing,
 - loaded hydrological information,
 - hydrometric comparison support,
 - calibration-side complement to groundwater discharge or drainage release.
 
 That distinction matters a lot for interpretation:
 
-- recharge changes aquifer mass directly,
-- runoff currently changes mainly the observation-side interpretation of outlet
-  flow comparisons.
+- recharge changes aquifer mass directly, as a per-cell term,
+- runoff changes aquifer state only indirectly, through the SFR/LAK exchange,
+  and also feeds the observation-side interpretation of outlet flow
+  comparisons.
 
 What Counts As Surface Exchange
 -------------------------------
@@ -446,7 +461,10 @@ The current public path can be summarized as:
    -> solver adapter
    -> recharge, EVT, or related package/operator payloads
 
-The runoff path is different:
+The runoff path is different: it never reaches ``FlowRechargeConfig``, but it
+can still reach the ``Flow`` runtime through ``flow.sinks_sources``, as a
+boundary-condition inflow rather than a diffuse aquifer forcing, whenever the
+run declares a stream network or a lake.
 
 .. code-block:: text
 
@@ -454,6 +472,12 @@ The runoff path is different:
    -> loaded_data.runoff
    -> calibration / comparison logic
    -> optional combination with simulated groundwater-release signal
+
+   external runoff data
+   -> loaded_data.runoff
+   -> flow.sinks_sources["sfr"] (routed reach inflow, if an SFR network is active)
+      or flow.sinks_sources["lakes"] (direct lake inflow, if a lake is declared
+      and no network routes it)
 
 Validation And Comparison Anchors
 ---------------------------------

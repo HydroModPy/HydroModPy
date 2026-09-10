@@ -45,14 +45,21 @@ class HydrometrySourceConfig(
         description="Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HmnJ').",
     )
     require_observations: Annotated[bool, Profile.DEV] = Field(
-        default=True, description="Only keep stations that have observations in the period."
+        default=True,
+        description=(
+            "Drop stations whose declared service period does not overlap the requested "
+            "window, before downloading them. It is a metadata filter: a station that "
+            "overlaps but returns nothing is dropped after its download instead, and the "
+            "run says which ones."
+        ),
     )
     max_stations: Annotated[int | None, Profile.USER] = Field(
         default=None,
         gt=0,
         description=(
-            "Maximum number of Hub'Eau stations to download after discovery. "
-            "Useful for fast preview runs over a larger territory."
+            "Maximum number of Hub'Eau stations to KEEP. Stations that return no "
+            "observation in the window do not count against it, so a preview run over a "
+            "larger territory gets this many stations carrying data, not this many tried."
         ),
     )
 

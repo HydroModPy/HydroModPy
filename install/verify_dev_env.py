@@ -18,12 +18,9 @@ CORE_MODULES = (
 )
 
 DOC_MODULES = (
-    "nbsphinx",
     "myst_parser",
-    "sphinx_gallery",
     "sphinx_design",
     "sphinx_copybutton",
-    "sphinx_togglebutton",
     "sphinx_polyversion",
     "sphinxcontrib.autodoc_pydantic",
 )

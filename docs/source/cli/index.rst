@@ -32,9 +32,9 @@ Eleven families group their own sub-actions; six verbs sit directly under
    * - :doc:`hmp project <project>`
      - ``new``, ``list``, ``show``, ``delete``
    * - :doc:`hmp catalog <catalog>`
-     - ``ls``, ``query``, ``show``, ``gc``, ``reindex``, ``delete``,
-       ``restore``, ``trash``, ``tag``, ``note``, ``rename``, ``diff``,
-       ``watch``, ``export``, ``import``, ``rerun``
+     - ``ls``, ``query``, ``show``, ``point``, ``gc``, ``reindex``,
+       ``delete``, ``restore``, ``trash``, ``tag``, ``note``, ``rename``,
+       ``diff``, ``watch``, ``export``, ``import``, ``rerun``
    * - ``hmp data``
      - ``ls``, ``get``, ``check``, ``add``, ``remove``, ``prune``,
        ``archive``, ``restore``, ``export``, ``export-package``, ``import``
@@ -46,7 +46,7 @@ Eleven families group their own sub-actions; six verbs sit directly under
      - ``run-script``, ``completion``, ``schema``, ``lock``, ``rank``,
        ``manage``
    * - :doc:`hmp audit <audit>`
-     - ``list``, ``verify``, ``prune``
+     - ``list``, ``verify``
    * - :doc:`hmp privacy <privacy>`
      - ``purge``, ``verify``
    * - ``hmp site-selection``

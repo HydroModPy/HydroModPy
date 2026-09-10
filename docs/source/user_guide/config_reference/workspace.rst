@@ -58,6 +58,8 @@ Fields
 
 .. rst-class:: hmp-config-fields
 
+.. index:: ! project_root
+
 .. container:: hmp-field hmp-field-level-user
    :name: workspace-project-root
 
@@ -73,6 +75,8 @@ Fields
 
    **Example:** ``"."``
 
+
+.. index:: ! root
 
 .. container:: hmp-field hmp-field-level-user
    :name: workspace-root
@@ -90,6 +94,8 @@ Fields
    **Example:** ``"../.."``
 
 
+.. index:: ! catalog_path
+
 .. container:: hmp-field hmp-field-level-dev
    :name: workspace-catalog-path
 
@@ -103,6 +109,8 @@ Fields
 
       Explicit path to the project index database. Defaults to <project_root>/.hmp/index.duckdb.
 
+
+.. index:: ! data_dir
 
 .. container:: hmp-field hmp-field-level-dev
    :name: workspace-data-dir
@@ -118,6 +126,8 @@ Fields
       Explicit path to the workspace data directory. Defaults to <root>/data.
 
 
+.. index:: ! runs_dir
+
 .. container:: hmp-field hmp-field-level-dev
    :name: workspace-runs-dir
 
@@ -131,6 +141,8 @@ Fields
 
       Explicit path to the directory holding one sub-directory per run. Defaults to <project_root>/runs.
 
+
+.. index:: ! output_root
 
 .. container:: hmp-field hmp-field-level-user
    :name: workspace-output-root

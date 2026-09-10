@@ -43,14 +43,16 @@ Run the configured simulation first, then rebuild context and HTML:
    hmp report catchment path/to/catchment_report.toml --run-simulation
 
 After the simulation command completes, the report pipeline checks that the
-run named ``simulation_name`` is registered in the workspace catalog and that
-the ``figures/<simulation_name>`` directory exists under the configured
-simulation workspace. If they do not, the report TOML and the simulation TOML
-are not pointing at the same run outputs. The simulated discharge is read from
-the catalog, so no automated export has to be enabled.
+run named ``simulation_name`` is registered in the :doc:`workspace catalog
+</cli/catalog>` and that the ``figures/<simulation_name>`` directory exists
+under the configured simulation workspace. If they do not, the report TOML
+and the simulation TOML are not pointing at the same run outputs. The
+simulated discharge is read from the catalog, so no automated export has to
+be enabled; see :doc:`/user_guide/results-and-exports` for how a run
+directory and its catalog entry relate.
 
-By default, logs from these optional ``hmp run`` steps are captured so the
-report command only prints the generated report paths. Use
+By default, logs from these optional :doc:`hmp run </cli/run>` steps are
+captured so the report command only prints the generated report paths. Use
 ``--stream-run-logs`` to stream the full simulation logs to the console.
 
 Before executing the selected steps, the pipeline runs a preflight check on the
@@ -308,8 +310,9 @@ overlay needed to point the existing generic producers at the new basin.
 The expected pattern is:
 
 1. create or reuse an overview TOML for the basin outlet;
-2. create or reuse a simulation TOML whose ``[display].figures`` list includes
-   the report figures consumed by the generic preset;
+2. create or reuse a simulation TOML whose ``[display].figures`` list (see
+   :doc:`/user_guide/config_reference/display`) includes the report figures
+   consumed by the generic preset;
 3. create a ``catchment_report_*.toml`` that points to those TOMLs, declares the
    report output directory, and enables ``strict_figure_postflight``;
 4. run one command:

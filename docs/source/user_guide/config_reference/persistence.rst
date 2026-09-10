@@ -32,6 +32,8 @@ Fields
 
 .. rst-class:: hmp-config-fields
 
+.. index:: ! save_catalog
+
 .. container:: hmp-field hmp-field-level-user
    :name: persistence-save-catalog
 
@@ -45,6 +47,8 @@ Fields
 
       Persist DuckDB rows (simulations, parameters, metrics, calibration_iterations). When False, catalog writes are skipped.
 
+
+.. index:: ! save_zarr
 
 .. container:: hmp-field hmp-field-level-user
    :name: persistence-save-zarr
@@ -60,6 +64,8 @@ Fields
       Persist per-simulation field arrays (head, concentration, derived) into the Zarr store.
 
 
+.. index:: ! save_parquet
+
 .. container:: hmp-field hmp-field-level-user
    :name: persistence-save-parquet
 
@@ -74,6 +80,8 @@ Fields
       Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files.
 
 
+.. index:: ! compression
+
 .. container:: hmp-field hmp-field-level-dev
    :name: persistence-compression
 
@@ -83,10 +91,16 @@ Fields
         <code class="hmp-field-name">compression</code>
       </div>
 
-   :bdg-primary:`Literal['none', 'zstd', 'lz4', 'gzip', 'snappy']` :bdg-secondary:`default = "zstd"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "zstd"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43>`__
 
-      Codec used for Zarr field arrays and Parquet tables. 'none' disables compression.
+      Codec DECLARED for Zarr field arrays and Parquet tables. The writers carry their own codec (zstd) and do not read this field, so changing it changes nothing today; it records the intent and is the field a writer would read once the choice is threaded through.
 
+   .. rst-class:: hmp-field-values
+
+   **One of:** ``"none"`` ``"zstd"`` ``"lz4"`` ``"gzip"`` ``"snappy"``
+
+
+.. index:: ! compression_level
 
 .. container:: hmp-field hmp-field-level-dev
    :name: persistence-compression-level
@@ -97,9 +111,9 @@ Fields
         <code class="hmp-field-name">compression_level</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 3` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L48>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 5` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L52>`__
 
-      Compression level (codec-dependent). Ignored when compression='none'.
+      Compression level DECLARED for those writers. Same as the codec: core/io/parquet.py and core/io/geoparquet.py hold level 5 and do not read this field. The default says 5 rather than 3 so the declaration at least matches the bytes actually written.
 
 
 Starter TOML snippet

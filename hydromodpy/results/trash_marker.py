@@ -6,7 +6,7 @@ Why
 that lives only in SQL is lost the day it is deleted. Trashing a run is a
 status flip that moves no bytes: without a sidecar, ``hmp catalog reindex``
 silently brings every trashed run back as the completed run it was, and the
-user finds a directory they had discarded back in ``hmp catalog list``.
+user finds a directory they had discarded back in ``hmp catalog ls``.
 
 What
 ----

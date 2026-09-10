@@ -170,7 +170,7 @@ Tests to add
 - **Unit** under ``tests/unit/data/newvar/`` for the config parsers,
   the custom loader on a fixture file, and the manager's normalisation
   contract.
-- **Integration** under ``tests/integration/data/`` for one
+- **Integration** under ``tests/integration/data_managers/`` for one
   ``Project.load_data`` cycle using a stub source.
 - **Replay** under ``hydromodpy/data/examples/`` (or a dedicated
   fixtures folder) for any HTTP-backed source so smoke tests can run

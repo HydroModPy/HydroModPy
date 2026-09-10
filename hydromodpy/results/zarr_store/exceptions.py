@@ -11,6 +11,7 @@ class ZarrSchemaVersionError(RuntimeError):
         self.actual = actual
         message = (
             f"Zarr schema version mismatch: expected {expected!r}, "
-            f"found {actual!r}. Run 'hmp migrate' to upgrade the workspace."
+            f"found {actual!r}. There is no in-place upgrade for this store; "
+            "rerun the simulation to regenerate it under the current schema."
         )
         super().__init__(message)

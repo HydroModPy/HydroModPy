@@ -199,9 +199,7 @@ def test_boussinesq_flow_adapter_uses_geographic_features_for_stream_runtime_mes
                 "ic": {"type": "custom", "value": 8.0},
                 "active_bc": ["stream"],
                 "bc": {
-                    "dirichlet": {
-                        "stream": {"value": 7.0},
-                    }
+                    "stream": {"kind": "dirichlet", "value": 7.0},
                 },
             }
         )
@@ -297,9 +295,7 @@ def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(
                         "active_bc": ["west_side"],
                         "sinks_sources": {"recharge": {"values": 1.0e-7, "units": "m/s"}},
                         "bc": {
-                            "dirichlet": {
-                                "west_side": {"value": 10.0},
-                            }
+                            "west_side": {"kind": "dirichlet", "value": 10.0},
                         },
                     }
                 )
@@ -401,9 +397,7 @@ def test_boussinesq_flow_adapter_supports_stream_on_river_edges(
                         "ic": {"type": "custom", "value": 8.0},
                         "active_bc": ["stream"],
                         "bc": {
-                            "dirichlet": {
-                                "stream": {"value": 7.0},
-                            }
+                            "stream": {"kind": "dirichlet", "value": 7.0},
                         },
                     }
                 )
@@ -448,9 +442,7 @@ def test_boussinesq_flow_adapter_supports_ocean_on_coastal_edges(
                         "ic": {"type": "custom", "value": 8.0},
                         "active_bc": ["ocean"],
                         "bc": {
-                            "dirichlet": {
-                                "ocean": {"value": 10.5},
-                            }
+                            "ocean": {"kind": "dirichlet", "value": 10.5},
                         },
                     }
                 )

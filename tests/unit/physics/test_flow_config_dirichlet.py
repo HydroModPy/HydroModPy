@@ -19,10 +19,9 @@ def test_dirichlet_side_key_infers_application_domain() -> None:
     cfg = _build_flow_config(
         {
             "bc": {
-                "dirichlet": {
-                    "east_side": {
-                        "value": 102.0,
-                    }
+                "east_side": {
+                    "kind": "dirichlet",
+                    "value": 102.0,
                 }
             }
         }
@@ -38,10 +37,9 @@ def test_dirichlet_legacy_boundary_alias_is_rejected() -> None:
         _build_flow_config(
             {
                 "bc": {
-                    "dirichlet": {
-                        "west_boundary": {
-                            "value": 101.0,
-                        }
+                    "west_boundary": {
+                        "kind": "dirichlet",
+                        "value": 101.0,
                     }
                 }
             }
@@ -53,44 +51,65 @@ def test_dirichlet_mismatched_application_domain_raises() -> None:
         _build_flow_config(
             {
                 "bc": {
-                    "dirichlet": {
-                        "north_side": {
-                            "value": 100.0,
-                            "application_domain": "south side",
-                        }
+                    "north_side": {
+                        "kind": "dirichlet",
+                        "value": 100.0,
+                        "application_domain": "south side",
                     }
                 }
             }
         )
 
 
-def test_duplicate_dirichlet_entries_raise() -> None:
-    with pytest.raises(ValueError, match="Duplicate boundary condition entry"):
+def test_a_boundary_keyed_by_its_family_is_refused() -> None:
+    """[flow.bc.<kind>.<id>] said the kind twice and let the two disagree.
+
+    It replaced the duplicate-entry test: a flat mapping cannot hold the same
+    id twice, so the collision that guard watched can no longer be written.
+    """
+    with pytest.raises(ValueError, match="no longer supported"):
         _build_flow_config(
             {
                 "bc": {
-                    "dirichlet": {
-                        "south_side": {"value": 99.0},
-                    },
-                    "south_side": {"value": 98.0},
+                    "dirichlet": {"south_side": {"value": 99.0}},
                 }
             }
         )
 
 
-def test_top_level_drainage_alias_is_rejected() -> None:
-    with pytest.raises(ValueError, match="flow.bc.drainage is no longer supported"):
-        _build_flow_config(
-            {
-                "bc": {
-                    "drainage": {
-                        "value": 1e-6,
-                        "kind": "cauchy",
-                        "application_domain": "top",
-                    }
-                }
-            }
-        )
+def test_the_flat_drainage_form_is_the_supported_one() -> None:
+    """A boundary is keyed by what it is; the kind is an attribute of it."""
+    cfg = _build_flow_config(
+        {
+            "active_bc": ["drainage"],
+            "bc": {"drainage": {"value": 1e-6}},
+        }
+    )
+
+    drainage = cfg.bc["drainage"]
+    assert drainage.kind == "cauchy"
+    assert drainage.application_domain == "top"
+    assert drainage.value == 1e-6
+
+
+def test_a_drainage_needs_no_table_at_all() -> None:
+    """The registry describes it entirely, so active_bc is enough."""
+    cfg = _build_flow_config({"active_bc": ["drainage"]})
+
+    assert cfg.bc["drainage"].kind == "cauchy"
+    assert cfg.bc["drainage"].value == 0.0
+
+
+def test_a_drainage_may_be_robin_instead() -> None:
+    """cauchy and robin are two surface closures, swapped by a field."""
+    cfg = _build_flow_config({"active_bc": ["drainage"], "bc": {"drainage": {"kind": "robin"}}})
+
+    assert cfg.bc["drainage"].kind == "robin"
+
+
+def test_a_kind_from_another_family_is_refused() -> None:
+    with pytest.raises(ValueError, match="not interchangeable"):
+        _build_flow_config({"active_bc": ["drainage"], "bc": {"drainage": {"kind": "dirichlet"}}})
 
 
 def test_param_values_alias_is_rejected() -> None:
@@ -102,11 +121,10 @@ def test_boundary_value_accepts_inline_unit() -> None:
     cfg = _build_flow_config(
         {
             "bc": {
-                "cauchy": {
-                    "drainage": {
-                        "value": "10 cm2/day",
-                        "application_domain": "top",
-                    }
+                "drainage": {
+                    "kind": "cauchy",
+                    "value": "10 cm2/day",
+                    "application_domain": "top",
                 }
             }
         }
@@ -121,12 +139,10 @@ def test_cauchy_drainage_accepts_kind_key() -> None:
     cfg = _build_flow_config(
         {
             "bc": {
-                "cauchy": {
-                    "drainage": {
-                        "kind": "cauchy",
-                        "value": "10 cm2/day",
-                        "application_domain": "top",
-                    }
+                "drainage": {
+                    "kind": "cauchy",
+                    "value": "10 cm2/day",
+                    "application_domain": "top",
                 }
             }
         }
@@ -140,11 +156,10 @@ def test_boundary_value_rejects_conflicting_units() -> None:
         _build_flow_config(
             {
                 "bc": {
-                    "dirichlet": {
-                        "ocean": {
-                            "value": "1.0 m",
-                            "unit": "cm",
-                        }
+                    "ocean": {
+                        "kind": "dirichlet",
+                        "value": "1.0 m",
+                        "unit": "cm",
                     }
                 }
             }
@@ -155,13 +170,12 @@ def test_dirichlet_side_forcing_constant_is_accepted_without_value() -> None:
     cfg = _build_flow_config(
         {
             "bc": {
-                "dirichlet": {
-                    "west_side": {
-                        "forcing": {
-                            "mode": "constant",
-                            "value": 99.0,
-                        }
-                    }
+                "west_side": {
+                    "kind": "dirichlet",
+                    "forcing": {
+                        "mode": "constant",
+                        "value": 99.0,
+                    },
                 }
             }
         }
@@ -180,10 +194,9 @@ def test_dirichlet_value_is_converted_to_meters() -> None:
     cfg = _build_flow_config(
         {
             "bc": {
-                "dirichlet": {
-                    "west_side": {
-                        "value": "100 cm",
-                    }
+                "west_side": {
+                    "kind": "dirichlet",
+                    "value": "100 cm",
                 }
             }
         }
@@ -198,14 +211,13 @@ def test_dirichlet_side_forcing_preserves_normalized_source_unit() -> None:
     cfg = _build_flow_config(
         {
             "bc": {
-                "dirichlet": {
-                    "west_side": {
-                        "unit": "centimeter",
-                        "forcing": {
-                            "mode": "constant",
-                            "value": 120.0,
-                        },
-                    }
+                "west_side": {
+                    "kind": "dirichlet",
+                    "unit": "centimeter",
+                    "forcing": {
+                        "mode": "constant",
+                        "value": 120.0,
+                    },
                 }
             }
         }
@@ -223,10 +235,9 @@ def test_boundary_value_rejects_unknown_units() -> None:
         _build_flow_config(
             {
                 "bc": {
-                    "dirichlet": {
-                        "ocean": {
-                            "value": "1.0 qblorp",
-                        }
+                    "ocean": {
+                        "kind": "dirichlet",
+                        "value": "1.0 qblorp",
                     }
                 }
             }
@@ -240,13 +251,12 @@ def test_dirichlet_side_forcing_csv_resolves_relative_path(tmp_path: Path) -> No
     cfg = _build_flow_config(
         {
             "bc": {
-                "dirichlet": {
-                    "east_side": {
-                        "forcing": {
-                            "mode": "csv",
-                            "path_file": "boundary.csv",
-                        }
-                    }
+                "east_side": {
+                    "kind": "dirichlet",
+                    "forcing": {
+                        "mode": "csv",
+                        "path_file": "boundary.csv",
+                    },
                 }
             }
         },
@@ -260,19 +270,18 @@ def test_dirichlet_side_forcing_csv_resolves_relative_path(tmp_path: Path) -> No
 
 def test_dirichlet_side_forcing_rejects_value_plus_forcing() -> None:
     with pytest.raises(
-        ValueError, match="value and flow.bc.dirichlet.west_side.forcing are mutually exclusive"
+        ValueError, match="value and flow.bc.west_side.forcing are mutually exclusive"
     ):
         _build_flow_config(
             {
                 "bc": {
-                    "dirichlet": {
-                        "west_side": {
-                            "value": 100.0,
-                            "forcing": {
-                                "mode": "constant",
-                                "value": 99.0,
-                            },
-                        }
+                    "west_side": {
+                        "kind": "dirichlet",
+                        "value": 100.0,
+                        "forcing": {
+                            "mode": "constant",
+                            "value": 99.0,
+                        },
                     }
                 }
             }
@@ -284,13 +293,12 @@ def test_ocean_forcing_is_rejected() -> None:
         _build_flow_config(
             {
                 "bc": {
-                    "dirichlet": {
-                        "ocean": {
-                            "forcing": {
-                                "mode": "constant",
-                                "value": 0.0,
-                            }
-                        }
+                    "ocean": {
+                        "kind": "dirichlet",
+                        "forcing": {
+                            "mode": "constant",
+                            "value": 0.0,
+                        },
                     }
                 }
             }

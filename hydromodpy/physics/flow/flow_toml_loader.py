@@ -9,6 +9,7 @@ from typing import Any, TypeVar
 from pydantic import BaseModel
 
 from hydromodpy.core.toml_io.paths import resolve_declared_path
+from hydromodpy.physics.flow.boundary_condition_registry import boundary_definition
 from hydromodpy.physics.flow.boundary_conditions import DIRICHLET_BC_CANONICAL_DOMAINS
 
 FlowConfigT = TypeVar("FlowConfigT", bound=BaseModel)
@@ -101,6 +102,9 @@ def from_toml_section(
     )
 
 
+_BC_KINDS = frozenset({"dirichlet", "cauchy", "robin"})
+
+
 def normalize_bc_payloads(
     value: Mapping[str, object] | None,
     *,
@@ -124,107 +128,40 @@ def normalize_bc_payloads(
 
     parsed: dict[str, object] = {}
 
-    dirichlet_payload = bc_cfg.get("dirichlet")
-    if dirichlet_payload is not None:
-        if not isinstance(dirichlet_payload, Mapping):
-            raise ValueError("flow.bc.dirichlet must be a mapping when provided")
-        for raw_key, item in dirichlet_payload.items():
-            key = str(raw_key).strip()
-            if key == "":
-                raise ValueError("flow.bc.dirichlet cannot contain empty keys")
-            if item is None:
-                continue
-            if not isinstance(item, Mapping):
-                raise ValueError(f"flow.bc.dirichlet.{key} must be a mapping")
-            canonical_key = _canonicalize_dirichlet_bc_id(
-                raw_bc_id=key,
-                location_prefix=f"flow.bc.dirichlet.{key}",
-            )
-            if canonical_key in parsed:
-                raise ValueError(
-                    f"Duplicate Dirichlet entry for '{canonical_key}' in flow.bc.dirichlet"
-                )
-            parsed[canonical_key] = _prepare_bc_entry_payload(
-                bc_id=canonical_key,
-                raw_payload=item,
-                default_kind="dirichlet",
-                location_prefix=f"flow.bc.dirichlet.{key}",
-                force_dirichlet=True,
-            )
-
-    cauchy_payload = bc_cfg.get("cauchy")
-    if cauchy_payload is not None:
-        if not isinstance(cauchy_payload, Mapping):
-            raise ValueError("flow.bc.cauchy must be a mapping when provided")
-        drainage_item = cauchy_payload.get("drainage")
-        if drainage_item is not None:
-            if not isinstance(drainage_item, Mapping):
-                raise ValueError("flow.bc.cauchy.drainage must be a mapping")
-            parsed["drainage"] = _prepare_bc_entry_payload(
-                bc_id="drainage",
-                raw_payload=drainage_item,
-                default_kind="cauchy",
-                location_prefix="flow.bc.cauchy.drainage",
-            )
-
-    robin_payload = bc_cfg.get("robin")
-    if robin_payload is not None and "drainage" not in parsed:
-        if not isinstance(robin_payload, Mapping):
-            raise ValueError("flow.bc.robin must be a mapping when provided")
-        drainage_item = robin_payload.get("drainage")
-        if drainage_item is not None:
-            if not isinstance(drainage_item, Mapping):
-                raise ValueError("flow.bc.robin.drainage must be a mapping")
-            parsed["drainage"] = _prepare_bc_entry_payload(
-                bc_id="drainage",
-                raw_payload=drainage_item,
-                default_kind="robin",
-                location_prefix="flow.bc.robin.drainage",
-            )
-
     for raw_key, raw_payload in bc_cfg.items():
         key = str(raw_key).strip()
         if key == "":
             raise ValueError("flow.bc cannot contain empty keys")
         if key in {"dirichlet", "cauchy", "robin"}:
-            continue
-        if key == "drainage":
-            if (
-                isinstance(raw_payload, Mapping)
-                and str(raw_payload.get("id", "")).strip() == "drainage"
-                and str(raw_payload.get("kind", "")).strip().lower() in {"cauchy", "robin"}
-            ):
-                parsed[key] = _prepare_bc_entry_payload(
-                    bc_id=key,
-                    raw_payload=raw_payload,
-                    default_kind=str(raw_payload.get("kind")).strip().lower(),
-                    location_prefix=f"flow.bc.{key}",
-                )
-                continue
             raise ValueError(
-                "flow.bc.drainage is no longer supported. "
-                "Use flow.bc.cauchy.drainage or flow.bc.robin.drainage."
+                f"[flow.bc.{key}.<id>] is no longer supported: a boundary is keyed by what it "
+                f"IS, not by the family it belongs to, which the registry already owns. Write "
+                f"[flow.bc.<id>] and, only to depart from the registry default, kind = "
+                f"'{key}'. Run 'hmp doctor --fix-config <file>' to rewrite it."
             )
+        if raw_payload is None:
+            continue
         if not isinstance(raw_payload, Mapping):
             raise TypeError(f"flow.bc.{key} must be a mapping payload")
 
-        if key in DIRICHLET_BC_CANONICAL_DOMAINS:
-            if key in parsed:
-                raise ValueError(f"Duplicate boundary condition entry for '{key}' in flow.bc")
-            parsed[key] = _prepare_bc_entry_payload(
-                bc_id=key,
-                raw_payload=raw_payload,
-                default_kind="dirichlet",
-                location_prefix=f"flow.bc.{key}",
-                force_dirichlet=True,
-            )
-        else:
-            parsed[key] = _prepare_bc_entry_payload(
-                bc_id=key,
-                raw_payload=raw_payload,
-                default_kind="dirichlet",
+        canonical_key = key
+        default_kind = _default_kind_for(key)
+        if default_kind == "dirichlet":
+            # A prescribed head is keyed by the face it sits on, and only the
+            # canonical faces exist; anything else there is a typo, not a new
+            # boundary.
+            canonical_key = _canonicalize_dirichlet_bc_id(
+                raw_bc_id=key,
                 location_prefix=f"flow.bc.{key}",
             )
+        if canonical_key in parsed:
+            raise ValueError(f"Duplicate boundary condition entry for '{canonical_key}' in flow.bc")
+        parsed[canonical_key] = _prepare_bc_entry_payload(
+            bc_id=canonical_key,
+            raw_payload=raw_payload,
+            default_kind=default_kind,
+            location_prefix=f"flow.bc.{key}",
+        )
 
     return parsed
 
@@ -321,20 +258,40 @@ def _list_section(
     return value
 
 
+def _default_kind_for(bc_id: str) -> str:
+    """Return the kind the registry declares for a boundary, or dirichlet."""
+    definition = boundary_definition(bc_id)
+    if definition is None:
+        return "dirichlet"
+    declared = str(definition.default_type).strip().lower()
+    return declared if declared in _BC_KINDS else "dirichlet"
+
+
 def _prepare_bc_entry_payload(
     *,
     bc_id: str,
     raw_payload: Mapping[str, object],
     default_kind: str,
     location_prefix: str,
-    force_dirichlet: bool = False,
 ) -> dict[str, object]:
+    """Normalize one bc payload, with the registry supplying the kind it omits.
+
+    A boundary is keyed by what it IS. Its kind is an attribute the registry
+    already declares, so writing it is only needed to depart from that default,
+    which is how a drainage becomes a Robin one. Crossing families is refused:
+    a head-dependent exchange is not a prescribed head, and a run that swapped
+    them would solve another problem entirely.
+    """
     payload = dict(raw_payload)
     raw_kind = str(payload.get("kind", default_kind)).strip().lower() or default_kind
-    if force_dirichlet and raw_kind != "dirichlet":
-        raise ValueError(f"{location_prefix}.kind must be 'dirichlet'")
-    if raw_kind not in {"dirichlet", "cauchy", "robin"}:
-        raise ValueError(f"{location_prefix}.kind must be one of: dirichlet, cauchy, robin")
+    if raw_kind not in _BC_KINDS:
+        raise ValueError(f"{location_prefix}.kind must be one of: {', '.join(sorted(_BC_KINDS))}")
+    if (raw_kind == "dirichlet") != (default_kind == "dirichlet"):
+        raise ValueError(
+            f"{location_prefix}.kind is {raw_kind!r} but {bc_id!r} is a {default_kind!r} "
+            "boundary in the registry. A prescribed head and a head-dependent exchange are "
+            "not interchangeable; only cauchy and robin may be swapped."
+        )
     payload["id"] = bc_id
     payload["kind"] = raw_kind
     payload["_location_prefix"] = location_prefix

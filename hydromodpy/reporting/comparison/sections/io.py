@@ -209,10 +209,8 @@ def _boundary_condition_text(flow: Mapping[str, Any], *, solver: str = "") -> st
     if "east_side" in active:
         return "ancienne configuration avec charge imposee sur le bord est"
     if "drainage" in active:
-        bc = _mapping(flow.get("bc"))
-        drainage = _mapping(_mapping(bc.get("cauchy")).get("drainage"))
-        if not drainage:
-            drainage = _mapping(_mapping(bc.get("robin")).get("drainage"))
+        # A boundary is keyed by what it is; its kind is a field of it.
+        drainage = _mapping(_mapping(flow.get("bc")).get("drainage"))
         value = _format_value(drainage.get("value"))
         if _quantity_is_zero(drainage.get("value")):
             if solver.strip().lower() == "boussinesq":

@@ -71,6 +71,21 @@ threshold_area_km2 = 1.0
 compute_stream_links = true
 compute_strahler_order = true
 
+# Lake hydro-enforcement of the ROUTING DEM only (the model top stays on the raw
+# DEM): carve the two lake footprints as a gentle ramp toward the outlet + an
+# outlet notch, so D8 routes the catchment THROUGH the lakes to the below-dam
+# outlet and the streams reach the shoreline (instead of a lake-blind breach that
+# dead-ends ~930 m short). Reuses the LAK footprint gpkg, no river data source.
+[geographic.enforce_lakes]
+enabled = true
+lake_geometry_path = "lakes_cheze_preretenue.gpkg"
+slope = 0.003
+buffer_m = 15.0
+# Second pass: any stream dead-ending within 1500 m of a lake (the main Cheze stem
+# stopping ~960 m short over the flat forebay) is carved to the shoreline and
+# re-delineated, so its SFR channel reaches the pre-retenue instead of leaving unfed.
+capture_radius_m = 1500.0
+
 # ---------------------------------------------------------------------- domain
 [domain]
 # No geology zonation: a single homogeneous aquifer (35 m constant thickness).
@@ -185,7 +200,7 @@ value = "1e-5 m-1"
 [flow.ic]
 type = "top"
 
-[flow.bc.cauchy.drainage]
+[flow.bc.drainage]
 application_domain = "top"
 kind = "cauchy"
 value = "0.0 m2/s"
@@ -248,8 +263,19 @@ lakeout = 2
 # the 17.5 m top-layer thickness) and resurfaces in the downstream domain. hydchr =
 # K_barrier / thickness ~ 1e-9 1/s is quasi-impermeable.
 [flow.sinks_sources.lakes.reservoir_cheze.cutoff_wall]
-line = [[331142.0, 6780439.3], [331119.4, 6780718.7]]
-depths = [10.0]
+# Dam trace, 4 input formats (see data/cutoff_wall/README.md):
+#   auto = true                              -> auto-placed at the downstream neck
+#   line = [[x1,y1],[x2,y2],...]             -> inline vertices (multi-segment OK)
+#   line_path = "injection_cheze.gpkg" | ".csv" -> file in data/cutoff_wall/ (multi-vertex)
+# The HFB snaps the trace to a CONTINUOUS chain of mesh faces; the dam refinement
+# follows it. Surveyed grout-curtain axis (voile d'injection), EPSG:2154.
+line_path = "injection_cheze.gpkg"
+# Grout curtain (voile d'injection): bar the aquifer lateral flow ONLY over the
+# 51 -> 41 m band on the dam cell faces. Flow passes ABOVE 51 m and UNDER 41 m
+# (under the curtain), and everywhere off the dam. Barring the whole column would
+# close the sub-lake aquifer (GWF ~ 0) and make the lake level uncalibratable.
+crest_elevation = 51.0
+base_elevation = 41.0
 hydchr = 1e-9
 hydchr_unit = "1/s"
 
@@ -325,13 +351,20 @@ mf6_ims_complexity = "COMPLEX"
 # a few lake-edge cells oscillating sub-mm in the steady warm-up while the budget
 # already closes to <0.1%. 1 cm is ample for a catchment-scale reservoir model.
 mf6_outer_dvclose = 1e-2
-# XT3D is left to the auto-advisor (mf6_enable_xt3d unset). The aquifer is
-# isotropic and the Frontal-Delaunay mesh is near-orthogonal (median ~0.4 deg),
-# so the advisor logs "XT3D auto-off" and uses the conductance flux, which is
-# accurate here and converges. Set mf6_enable_xt3d = true to force it on (you get
-# a warning that the checks disagree), e.g. once you add anisotropy or geology.
+# XT3D is left to the auto-advisor (mf6_enable_xt3d unset). The solver grid is the
+# Voronoi/PEBI dual (see [modflow6.sgrid] below): exactly orthogonal (median 0.0 deg)
+# with isotropic K, so the advisor logs "XT3D auto-off" and uses the conductance
+# flux, which is accurate here and converges. Set mf6_enable_xt3d = true to force it
+# on (you get a warning that the checks disagree), e.g. once you add anisotropy or geology.
 
-# Unstructured conformal (GMSH triangular) grid: the catchment is meshed at a
+# Solver grid = the Voronoi/PEBI dual of the GMSH triangulation (grid_dual default,
+# set explicitly here). GMSH triangulates the catchment as the seed engine; the dual
+# is an exactly orthogonal CVFD grid with ~half the cells. Set grid_dual = "triangle"
+# to keep the raw triangulation cells instead (simplex comparison runs).
+[modflow6.sgrid]
+grid_dual = "voronoi"
+
+# Unstructured conformal mesh (the Voronoi seed): the catchment is meshed at a
 # ~150 m baseline, refined along the delineated Cheze river network, and (when
 # lake_refinement is on) locally refined on the reservoir footprint + the
 # under-dam outlet. Replaces the uniform [modflow6.sgrid.planar] grid that
@@ -341,8 +374,8 @@ constraints_mode = "rivers_only"
 
 [mesh_catchment.zone_meshing]
 # Frontal-Delaunay (GMSH algo 6): markedly more equilateral triangles than plain
-# Delaunay, which keeps XT3D's cross-conductance terms small and well conditioned
-# on the unstructured grid (XT3D stays ON).
+# Delaunay, which gives the Voronoi dual a well-centered, well-conditioned CVFD grid
+# (near-perfect orthogonality, so XT3D auto-off).
 algorithm = "frontal"
 global_size = 150.0
 min_size = 50.0
@@ -389,8 +422,8 @@ distance = 150.0
 river_buffer_distance = 100.0
 outer_bias_distance = 10.0
 
-# Vertical layering still comes from the backend sgrid.vertical block; only the
-# planar grid is now the GMSH unstructured mesh above.
+# Vertical layering still comes from the backend sgrid.vertical block; the planar
+# grid is the Voronoi dual of the GMSH mesh above (see [modflow6.sgrid]).
 [modflow6.sgrid.vertical]
 genmtd_lay = "constant"
 nlay = 2

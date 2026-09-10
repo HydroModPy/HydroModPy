@@ -54,8 +54,7 @@ Delivery status
        the layout entries reappears.
    * - Not in place
      - A chunk layout tuned for point reads: a series at one cell still
-       decompresses every chunk its time axis crosses. A per-run
-       replacement for the project-wide ``hydromodpy.lock``. See
+       decompresses every chunk its time axis crosses. See
        `What is not in place`_.
 
 Project layout
@@ -90,9 +89,10 @@ never on a database file: a project stays a project after its index is
 deleted. A workspace-level ``workspace.toml`` is optional metadata
 written by ``hmp workspace init``; it carries no part of this contract.
 
-``hydromodpy.lock`` is the one project-root entry the layout test does
-not cover, because it is written by a run and not by the catalog. Its
-per-run replacement does not exist yet.
+``hydromodpy.lock`` is a declared project-root entry, covered by
+``test_the_reproducibility_lock_is_a_declared_project_entry`` in
+``tests/unit/results/test_run_layout_contract.py``. It is an input of the
+project, like ``project.toml`` and ``configs/``, not an output of a run.
 
 The machine-wide ``index.duckdb`` lives at ``$XDG_STATE_HOME/hydromodpy/``
 (``~/.local/state/hydromodpy/`` on Linux) and federates registered
@@ -791,11 +791,13 @@ Stated here so that nothing above is read as a promise.
   axis crosses, so a point series pays for the neighbouring cells it
   never uses. Making that read cheap needs a cell-major layout, or a
   second copy laid out that way, and neither is written today.
-- **A per-run lockfile.** ``hydromodpy.lock`` sits at the project root
-  and describes the whole project's input cache. A run seals its own
-  inputs in ``manifest.json`` (``inputs[]``), but there is no per-run
-  lockfile, so replaying one old run still reads a project-wide file
-  that a later run may have rewritten.
+
+A per-run lockfile is not listed here: it is settled, not missing.
+``hydromodpy.lock`` pins the project's whole input cache before a run
+starts, and its only readers are ``hmp run --frozen``,
+``hmp data add --frozen`` and ``hmp dev lock verify``. The per-run input
+list lives in ``manifest.json`` (``inputs[]``), sealed when the run ends,
+so a replay never depends on the project-wide file.
 
 See also
 --------

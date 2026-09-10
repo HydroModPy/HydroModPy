@@ -107,6 +107,7 @@ class Modflow6FlowAdapter:
             time_index=time_index,
             station_cell_mapper=lambda cells: _collapse_to_disv_cells(cells, model),
             routed_discharge_reader=_routed_discharge_series,
+            reach_flow_reader=_reach_flow_by_cell,
         )
         for request in unserved:
             if request.support != "lake" or request.name not in _LAKE_STATE_UNITS:
@@ -190,6 +191,32 @@ class Modflow6FlowAdapter:
                 preprocess_options=preprocess_options,
             )
         return run_flow_model(ctx, model_modflow, preprocess_options)
+
+
+def _reach_flow_by_cell(output_dir: Path, model_name: str) -> dict[int, Any] | None:
+    """Routed streamflow per reach cell, or None when the run has no network.
+
+    Injected the same way ``_routed_discharge_series`` is, and for the same
+    reason: SFR exists only in this backend, and ``modflow_common`` must not
+    import it.
+    """
+    import flopy
+
+    from hydromodpy.solver.modflow6.extractors.sfr import reach_flow_by_cell
+    from hydromodpy.solver.modflow_common.calibration_extractors import (
+        _resolve_seconds_per_unit,
+    )
+
+    head_path = output_dir / f"{model_name}.hds"
+    if not head_path.is_file():
+        return None
+    times = flopy.utils.HeadFile(str(head_path)).get_times()
+    return reach_flow_by_cell(
+        output_dir,
+        model_name,
+        times=times,
+        seconds_per_time_unit=_resolve_seconds_per_unit(output_dir, model_name),
+    )
 
 
 def _routed_discharge_series(

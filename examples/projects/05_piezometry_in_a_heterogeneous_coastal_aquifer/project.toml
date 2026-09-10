@@ -101,15 +101,13 @@ value = 0.1
 
 # Sea boundary: hold every cell whose land surface is at or below 0 m NGF
 # (French height datum, mean sea level) at the sea level.
-[flow.bc.dirichlet.ocean]
-id = "ocean"
+[flow.bc.ocean]
 kind = "dirichlet"
 application_domain = "top"
 description = "Constant-head sea boundary at mean sea level."
 value = "0.0 m"
 
-[flow.bc.cauchy.drainage]
-id = "drainage"
+[flow.bc.drainage]
 kind = "cauchy"
 application_domain = "top"
 description = "Cauchy drainage on the aquifer top face."
