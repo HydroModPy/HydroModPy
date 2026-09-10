@@ -70,6 +70,7 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     findings.extend(_check_blocks(calibration))
     findings.extend(_check_phases(calibration))
     findings.extend(_check_engines(calibration))
+    findings.extend(_check_the_precision_can_be_honoured(calibration))
     findings.extend(_check_the_backend_can_serve_the_outputs(config, calibration))
     return findings
 
@@ -324,6 +325,66 @@ _OBSERVABLE_BY_SUPPORT: Mapping[str, str] = {
     "network": "release_flux",
 }
 """What an output's support actually asks the backend for."""
+
+
+def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFinding]:
+    """Refuse a precision the engine of that search cannot stop on.
+
+    The translation happens when the optimizer is built, which for phase two is
+    after phase one has spent its budget. A precision that was never going to be
+    readable has to be refused before the first solve, not after the last.
+    """
+    from hydromodpy.calibration.optim.optimizer import available_optimizers, engine_traits
+
+    known = set(available_optimizers())
+    findings: list[PreflightFinding] = []
+    for where, method, tolerance, kwargs in _declared_precisions(calibration):
+        if tolerance is None or method not in known:
+            continue
+        traits = engine_traits(method)
+        if traits.tolerance_option is None:
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    f"tolerance asks {method!r} to stop at a precision on the parameter, "
+                    "and that engine stops on its evaluation budget instead. Set max_iter, "
+                    "or run this search on an engine that converges on the parameter.",
+                )
+            )
+            continue
+        if traits.tolerance_option in (kwargs or {}):
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    f"tolerance and optimizer_kwargs.{traits.tolerance_option} both set "
+                    f"the stopping rule of {method!r}. Keep one.",
+                )
+            )
+    return findings
+
+
+def _declared_precisions(calibration: Any) -> list[tuple[str, str, float | None, dict]]:
+    """Return one entry per search: where it is written, its engine and its precision."""
+    if not calibration.phases:
+        return [
+            (
+                "[calibration]",
+                str(calibration.method),
+                calibration.tolerance,
+                dict(calibration.optimizer_kwargs or {}),
+            )
+        ]
+    return [
+        (
+            f"[[calibration.phases]] {phase.name!r}",
+            str(phase.method),
+            phase.tolerance,
+            dict(phase.optimizer_kwargs or {}),
+        )
+        for phase in calibration.phases
+    ]
 
 
 def _check_the_backend_can_serve_the_outputs(

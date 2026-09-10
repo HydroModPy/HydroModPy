@@ -42,6 +42,7 @@ from hydromodpy.calibration.optim.optimizer import (
 )
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
 from hydromodpy.calibration.optim.promotion import promote_iterations
+from hydromodpy.calibration.optim.stopping import stopping_kwargs
 from hydromodpy.calibration.optim.tolerance import (
     ParameterInterval,
     tolerance_intervals,
@@ -468,7 +469,12 @@ def run_calibration_core(
         cfg.method,
         space,
         seed=cfg.seed,
-        **cfg.optimizer_kwargs,
+        **stopping_kwargs(
+            cfg.method,
+            space,
+            tolerance=cfg.tolerance,
+            declared=cfg.optimizer_kwargs,
+        ),
     )
     cache_context = build_cache_context(
         cfg=cfg,

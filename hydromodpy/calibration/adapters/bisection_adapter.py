@@ -89,6 +89,8 @@ class BisectionAdapter:
         required_transform="log",
         needs_signed_residual=True,
         supports_parallel=False,
+        tolerance_option="rel_tol",
+        tolerance_reads="relative_value",
     )
     """The same three refusals the constructor makes, readable before it runs."""
 

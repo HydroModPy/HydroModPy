@@ -227,6 +227,14 @@ class ScipyDE(_ScipyAdapterBase):
 class ScipyNelderMead(_ScipyAdapterBase):
     """scipy.optimize.minimize(method='Nelder-Mead') adapter."""
 
+    # scipy's xatol is an absolute width in the variable the simplex walks, which
+    # is the transformed one here.
+    traits = EngineTraits(
+        supports_parallel=False,
+        tolerance_option="xatol",
+        tolerance_reads="search_width",
+    )
+
     name = "scipy_nelder_mead"
 
     def __init__(

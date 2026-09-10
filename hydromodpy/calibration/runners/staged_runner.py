@@ -185,6 +185,7 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
     payload = cfg.model_dump()
     payload["method"] = decl.method
     payload["max_iter"] = decl.max_iter
+    payload["tolerance"] = decl.tolerance
     payload["batch_size"] = decl.batch_size
     payload["parallel"] = decl.parallel
     payload["optimizer_kwargs"] = dict(decl.optimizer_kwargs)
