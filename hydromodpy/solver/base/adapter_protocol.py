@@ -81,4 +81,30 @@ class SolverAdapter(Protocol):
         """
 
 
-__all__ = ["RunResult", "SolverAdapter"]
+@runtime_checkable
+class CellLocator(Protocol):
+    """A backend that can turn coordinates into one of its own cell selectors.
+
+    Separate from :class:`SolverAdapter` because it is a flow-adapter capability,
+    not a property of every adapter: a transport adapter has no grid of its own
+    to look on, and folding this into the base protocol would make it fail a
+    structural check for a method it has no business having.
+
+    A gauge, a piezometer and a lake staff are given as coordinates, and only the
+    backend knows the grid it wrote: structured rows and columns, a Voronoi cell
+    list, or a flopy model grid. Answering here is what keeps a caller that must
+    serve every solver from reading the internals of one.
+    """
+
+    def locate_cell(self, ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
+        """Return the cell selector nearest to ``(x, y)``, or ``None``.
+
+        The selector is the same triple the observable extractors take:
+        ``(layer, row, col)`` on a structured grid and ``(0, 0, cell_id)`` on an
+        unstructured one. ``None`` means the run holds no grid to look on yet,
+        which a caller reports rather than replacing with a guess.
+        """
+        ...
+
+
+__all__ = ["CellLocator", "RunResult", "SolverAdapter"]

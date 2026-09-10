@@ -498,72 +498,21 @@ def _xy_from_record(record: Any) -> tuple[float, float] | None:
 
 
 def find_cell_at_point(ctx: Any, x: float, y: float) -> tuple[int, int, int] | None:
-    """Return the closest ``(layer, row, col)`` to ``(x, y)`` on layer 0.
+    """Return the cell selector nearest to ``(x, y)``, or ``None``.
 
-    The lookup runs on the mesh the solver actually wrote: the flow model's
-    ``solver_mesh`` (MODFLOW 6, structured or Voronoi), then the MODFLOW-NWT
-    structured grid. ``setup.mesh_planar`` is not used, because on a Voronoi
-    grid it holds the seed triangulation whose cell order is not the DISV one.
+    The backend answers. It is the only party that knows the grid it wrote:
+    structured rows and columns, a Voronoi cell list, or a flopy model grid.
+    Asking it, rather than reading one backend's internals here, is what lets
+    this path serve a solver added tomorrow.
     """
     resolved = resolve_flow_adapter(ctx)
     if resolved is None:
         return None
-    _adapter, run_ctx = resolved
-    cell = _find_cell_in_solver_mesh(run_ctx, x, y)
-    if cell is not None:
-        return cell
-    return _find_cell_in_modflow_grid(run_ctx, x, y)
-
-
-def _find_cell_in_solver_mesh(
-    run_ctx: RunContext, x: float, y: float
-) -> tuple[int, int, int] | None:
-    """Locate a cell on the flow model's solver mesh by nearest centroid.
-
-    Returns ``(0, row, col)`` on a structured mesh and ``(0, 0, cell_id)`` on an
-    unstructured one, which is the flat DISV selector the MODFLOW 6 head
-    extractor reads as ``head[layer, 0, cell_id]``.
-    """
-    model = run_ctx.state.execution.models_by_run_id.get(run_ctx.run.id)
-    mesh = getattr(model, "solver_mesh", None)
-    if mesh is None:
+    adapter, run_ctx = resolved
+    locate = getattr(adapter, "locate_cell", None)
+    if locate is None:
         return None
-    centroids = np.asarray(mesh.cell_centroids(), dtype=float)
-    if centroids.ndim != 2 or centroids.shape[0] == 0 or centroids.shape[1] < 2:
-        return None
-    deltas = centroids[:, :2] - np.array([x, y], dtype=float)
-    idx = int(np.argmin(np.einsum("ij,ij->i", deltas, deltas)))
-    if not mesh.is_structured:
-        return (0, 0, idx)
-    ncol = int(mesh.ncol)
-    return (0, idx // ncol, idx % ncol)
-
-
-def _find_cell_in_modflow_grid(
-    run_ctx: RunContext, x: float, y: float
-) -> tuple[int, int, int] | None:
-    """Locate ``(0, row, col)`` on a MODFLOW-NWT structured grid."""
-    model = run_ctx.state.execution.models_by_run_id.get(run_ctx.run.id)
-    if model is None:
-        return None
-    modelgrid = getattr(getattr(model, "mf", None), "modelgrid", None)
-    if modelgrid is None:
-        return None
-    xc = getattr(modelgrid, "xcellcenters", None)
-    yc = getattr(modelgrid, "ycellcenters", None)
-    if xc is None or yc is None:
-        return None
-    try:
-        xc_arr = np.asarray(xc, dtype=float)
-        yc_arr = np.asarray(yc, dtype=float)
-    except Exception:
-        return None
-    if xc_arr.shape != yc_arr.shape or xc_arr.ndim != 2:
-        return None
-    distances = (xc_arr - x) ** 2 + (yc_arr - y) ** 2
-    flat_idx = int(np.argmin(distances))
-    nrow, ncol = xc_arr.shape
-    return (0, flat_idx // ncol, flat_idx % ncol)
+    return locate(run_ctx, x, y)
 
 
 __all__ = [

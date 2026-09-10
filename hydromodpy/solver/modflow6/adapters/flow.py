@@ -71,6 +71,12 @@ class Modflow6FlowAdapter:
     def validate(self, ctx: RunContext) -> None:
         """No precondition checks for MODFLOW 6 flow runs."""
 
+    def locate_cell(self, ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
+        """Return the nearest cell on the mesh this run actually wrote."""
+        from hydromodpy.solver.base.cell_lookup import locate_cell_on_solver_mesh
+
+        return locate_cell_on_solver_mesh(ctx, x, y)
+
     def cleanup(self, ctx: RunContext) -> None:
         """Remove the scratch directory written by this run, if any."""
         solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)

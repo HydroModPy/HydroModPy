@@ -39,6 +39,32 @@ class ModflowNwtFlowAdapter:
     def validate(self, ctx: RunContext) -> None:
         """No precondition checks for MODFLOW-NWT flow runs."""
 
+    def locate_cell(self, ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
+        """Return the nearest ``(0, row, col)`` on this run's structured grid.
+
+        MODFLOW-NWT keeps its grid on the flopy model it built, so this is the
+        one backend that reads ``mf.modelgrid``. Reading it here rather than in
+        the layer that asks is the whole point: a caller that serves every solver
+        must not know which one owns what.
+        """
+        import numpy as np
+
+        model = ctx.state.execution.models_by_run_id.get(ctx.run.id)
+        if model is None:
+            return None
+        grid = getattr(getattr(model, "mf", None), "modelgrid", None)
+        if grid is None:
+            return None
+        try:
+            xc = np.asarray(getattr(grid, "xcellcenters", None), dtype=float)
+            yc = np.asarray(getattr(grid, "ycellcenters", None), dtype=float)
+        except (TypeError, ValueError):
+            return None
+        if xc.shape != yc.shape or xc.ndim != 2:
+            return None
+        flat = int(np.argmin((xc - x) ** 2 + (yc - y) ** 2))
+        return (0, flat // xc.shape[1], flat % xc.shape[1])
+
     def cleanup(self, ctx: RunContext) -> None:
         """Remove the scratch directory written by this run, if any."""
         solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
