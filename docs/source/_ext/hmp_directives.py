@@ -54,95 +54,6 @@ _REFRESH_STATUS_PATH = "_static/refresh_status/index.json"
 _GOATCOUNTER_ENV = "HMP_DOCS_GOATCOUNTER_URL"
 
 
-def _resolve_field(dotted_path: str) -> dict[str, Any] | None:
-    """Look up a Pydantic field by dotted path on HydroModPyConfig."""
-    try:
-        from hydromodpy.config import HydroModPyConfig
-    except Exception:
-        return None
-
-    parts = dotted_path.split(".")
-    model: Any = HydroModPyConfig
-    for part in parts[:-1]:
-        fields = getattr(model, "model_fields", None)
-        if not fields or part not in fields:
-            return None
-        annotation = fields[part].annotation
-        model = _unwrap_annotation(annotation)
-        if model is None:
-            return None
-
-    fields = getattr(model, "model_fields", None)
-    if not fields or parts[-1] not in fields:
-        return None
-    info = fields[parts[-1]]
-    return {
-        "annotation": str(info.annotation),
-        "default": "..." if info.is_required() else repr(info.default),
-        "description": info.description or "",
-    }
-
-
-def _unwrap_annotation(annotation: Any) -> Any:
-    origin = getattr(annotation, "__origin__", None)
-    if origin is None:
-        return annotation
-    args = getattr(annotation, "__args__", ())
-    for arg in args:
-        if hasattr(arg, "model_fields"):
-            return arg
-    return None
-
-
-class ConfigFieldDirective(SphinxDirective):
-    """Render a Pydantic Field by dotted path."""
-
-    required_arguments = 1
-    optional_arguments = 0
-    has_content = False
-    option_spec = {
-        "unit": directives.unchanged,
-        "default": directives.unchanged,
-        "see-also-cases": directives.unchanged,
-    }
-
-    def run(self) -> list[nodes.Node]:
-        dotted = self.arguments[0]
-        info = _resolve_field(dotted)
-        admon = nodes.admonition(classes=["config-field"])
-        title = nodes.title(text=f"Config field: {dotted}")
-        admon += title
-
-        if info is None:
-            para = nodes.paragraph()
-            para += nodes.Text("Field not resolvable. Check the dotted path against ")
-            para += nodes.literal(text="HydroModPyConfig.model_fields")
-            para += nodes.Text(".")
-            admon += para
-            return [admon]
-
-        rows = [
-            ("Type", info["annotation"]),
-            ("Default", self.options.get("default") or info["default"]),
-        ]
-        unit = self.options.get("unit")
-        if unit:
-            rows.append(("Unit", unit))
-        if info["description"]:
-            rows.append(("Description", info["description"]))
-        cases = self.options.get("see-also-cases")
-        if cases:
-            rows.append(("See also cases", cases))
-
-        for label, value in rows:
-            para = nodes.paragraph()
-            para += nodes.strong(text=f"{label}: ")
-            para += nodes.Text(str(value))
-            admon += para
-
-        return [admon]
-
-
 def _validation_dir(env: Any) -> Path:
     return Path(env.srcdir) / _VALIDATION_GLOB
 
@@ -317,142 +228,6 @@ def _escape_attr(value: str) -> str:
 
 def _escape_text(value: str) -> str:
     return (value or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
-def _load_refresh_status(env: Any) -> dict[str, Any]:
-    status_path = Path(env.srcdir) / _REFRESH_STATUS_PATH
-    if not status_path.exists():
-        return {"items": []}
-    return json.loads(status_path.read_text(encoding="utf-8"))
-
-
-def _refresh_items_by_id(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    items = payload.get("items", [])
-    if not isinstance(items, list):
-        return {}
-    return {
-        str(item.get("id", "")): item
-        for item in items
-        if isinstance(item, dict) and str(item.get("id", "")).strip()
-    }
-
-
-def _refresh_status_class(status: str) -> str:
-    normalized = str(status or "").strip().lower()
-    if normalized == "success":
-        return "success"
-    if normalized == "failed":
-        return "failed"
-    return "unknown"
-
-
-def _refresh_status_text(item: dict[str, Any], *, compact: bool) -> str:
-    status = _refresh_status_class(str(item.get("status", "")))
-    if status == "success":
-        return "up to date"
-    if status == "failed":
-        last_success = str(item.get("last_success") or "not recorded")
-        return f"refresh failed - last valid update: {last_success}"
-    if compact:
-        return "refresh status unknown"
-    return "unknown"
-
-
-def _refresh_status_badge(item: dict[str, Any], *, compact: bool = True) -> str:
-    status = _refresh_status_class(str(item.get("status", "")))
-    label = str(item.get("label") or item.get("id") or "Refresh status")
-    title_parts = [
-        label,
-        f"last attempt: {item.get('last_attempt') or 'not recorded'}",
-        f"last success: {item.get('last_success') or 'not recorded'}",
-    ]
-    message = str(item.get("message") or "").strip()
-    if message:
-        title_parts.append(message)
-    title = " | ".join(title_parts)
-    body = _refresh_status_text(item, compact=compact)
-    if not compact and status != "success":
-        body = f"{label}: {body}"
-    return (
-        f'<span class="hmp-refresh-status hmp-refresh-status-{status}" '
-        f'title="{_escape_attr(title)}">'
-        '<span class="hmp-refresh-status-dot" aria-hidden="true"></span>'
-        f"{_escape_text(body)}</span>"
-    )
-
-
-class RefreshStatusDirective(SphinxDirective):
-    """Render compact refresh status badges or a status table."""
-
-    required_arguments = 0
-    optional_arguments = 1
-    final_argument_whitespace = False
-    has_content = False
-    option_spec = {
-        "compact": directives.flag,
-    }
-
-    def run(self) -> list[nodes.Node]:
-        payload = _load_refresh_status(self.env)
-        items_by_id = _refresh_items_by_id(payload)
-
-        if self.arguments:
-            status_id = self.arguments[0].strip()
-            item = items_by_id.get(status_id)
-            if item is None:
-                warning = self.state.document.reporter.warning(
-                    f"refresh-status: unknown status id {status_id!r}",
-                    line=self.lineno,
-                )
-                return [warning]
-            html = (
-                '<div class="hmp-refresh-status-inline">'
-                + _refresh_status_badge(item, compact=True)
-                + "</div>"
-            )
-            return [nodes.raw("", html, format="html")]
-
-        items = list(items_by_id.values())
-        if not items:
-            html = (
-                '<div class="hmp-refresh-status-panel">'
-                + _refresh_status_badge(
-                    {
-                        "id": "unknown",
-                        "label": "Documentation refresh",
-                        "status": "unknown",
-                    },
-                    compact=False,
-                )
-                + "</div>"
-            )
-            return [nodes.raw("", html, format="html")]
-
-        rows = []
-        for item in items:
-            rows.append(
-                "<tr>"
-                f"<td>{_escape_text(str(item.get('label') or item.get('id')))}</td>"
-                f"<td>{_refresh_status_badge(item, compact=True)}</td>"
-                f"<td>{_escape_text(str(item.get('last_success') or 'not recorded'))}</td>"
-                f"<td>{_escape_text(str(item.get('last_attempt') or 'not recorded'))}</td>"
-                f"<td>{_escape_text(str(item.get('frequency') or ''))}</td>"
-                f"<td>{_escape_text(str(item.get('scope') or ''))}</td>"
-                f"<td>{_escape_text(str(item.get('message') or ''))}</td>"
-                "</tr>"
-            )
-
-        html = (
-            '<table class="hmp-refresh-status-table">'
-            "<thead><tr>"
-            "<th>Refresh family</th><th>Status</th><th>Last valid update</th>"
-            "<th>Last attempt</th><th>Frequency</th><th>Scope</th><th>Note</th>"
-            "</tr></thead>"
-            "<tbody>"
-            + "".join(rows)
-            + "</tbody></table>"
-        )
-        return [nodes.raw("", html, format="html")]
 
 
 class GalleryFigureDirective(SphinxDirective):
@@ -680,13 +455,11 @@ def _register_goatcounter(app: Sphinx) -> None:
 
 
 def setup(app: Sphinx) -> dict[str, Any]:
-    app.add_directive("config-field", ConfigFieldDirective)
     app.add_directive("validation-case-summary", ValidationCaseSummaryDirective)
     app.add_directive("solver-comparison", SolverComparisonDirective)
     app.add_directive("gallery-figure", GalleryFigureDirective)
     app.add_directive("image-comparison", ImageComparisonDirective)
     app.add_directive("page-badges", PageBadgesDirective)
-    app.add_directive("refresh-status", RefreshStatusDirective)
     app.add_role("stable", _stability_role("Stable", "api-stable"))
     app.add_role("experimental", _stability_role("Experimental", "api-experimental"))
     app.add_role("deprecated", _stability_role("Deprecated", "api-deprecated"))

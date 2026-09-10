@@ -60,7 +60,6 @@ On Windows, one wrapper can chain the common local workflow:
 - Sphinx HTML rebuild in `docs/build/html` by default
 
 ```powershell
-powershell -File tools/update_capability_gallery.ps1
 ```
 
 When one step needs the scientific stack, the wrapper auto-prefers
@@ -68,14 +67,12 @@ When one step needs the scientific stack, the wrapper auto-prefers
 explicitly when needed:
 
 ```powershell
-powershell -File tools/update_capability_gallery.ps1 `
   -CondaEnv hydromodpy-kpg
 ```
 
 For one rerun-focused refresh, keep the scope narrow:
 
 ```powershell
-powershell -File tools/update_capability_gallery.ps1 `
   -Only modflow6_irregular_tri_xt3d_method_choice `
   -OpenHtml
 ```
@@ -85,7 +82,6 @@ source. Targeting that slug now refreshes the report automatically before the
 gallery rebuild, or you can force that step explicitly:
 
 ```powershell
-powershell -File tools/update_capability_gallery.ps1 `
   -IncludeXt3dDiagnostics `
   -Only modflow6_irregular_tri_xt3d_method_choice
 ```
