@@ -145,6 +145,11 @@ class StagedCalibrationReport:
     protocol: dict[str, Any] | None = None
     """The published method that wrote these stages, when one did."""
 
+    methods_paragraph: str | None = None
+    """The prose this run writes about itself, conditioned on the stages that
+    completed. It is the only object by which someone who did not produce the
+    number can know what it rests on without reading Python."""
+
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly summary for the CLI."""
         summary: dict[str, Any] = {
@@ -154,6 +159,8 @@ class StagedCalibrationReport:
         }
         if self.protocol is not None:
             summary["protocol"] = self.protocol
+        if self.methods_paragraph is not None:
+            summary["methods_paragraph"] = self.methods_paragraph
         return summary
 
 
@@ -538,8 +545,37 @@ def run_staged_calibration(
         frozen=tuple(frozen),
         root_session_id=str(root_session_id),
         protocol=protocol_record(cfg.protocol.name) if cfg.protocol is not None else None,
+        methods_paragraph=(
+            _methods_paragraph_for(cfg, runs, frozen) if cfg.protocol is not None else None
+        ),
     )
     return staged if return_report else staged.to_dict()
+
+
+def _methods_paragraph_for(
+    cfg: CalibrationConfig,
+    runs: list[PhaseRun],
+    frozen: list[FrozenParameter],
+) -> str | None:
+    """Return the Methods prose for the stages that actually completed."""
+    from hydromodpy.calibration.protocols.boilerplate import methods_paragraph
+
+    if cfg.protocol is None:
+        return None
+    completed = [run.name for run in runs if _converged(run.report)]
+    calibrated = {item.name: float(item.value) for item in frozen}
+    chosen: dict[str, object] = {}
+    for output in (cfg.outputs or {}).values():
+        for key in ("tau_specific_ratio", "observed_position_accuracy", "weighting"):
+            value = getattr(output, key, None)
+            if value is not None:
+                chosen.setdefault(key, value)
+    return methods_paragraph(
+        cfg.protocol.name,
+        stages_that_ran=completed,
+        calibrated=calibrated or None,
+        chosen=chosen or None,
+    )
 
 
 __all__ = [
