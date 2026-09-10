@@ -162,29 +162,41 @@ def _synthetic_context_rows(payload: Mapping[str, Any]) -> list[tuple[str, str]]
     return rows
 
 
+_MM_PER_YEAR_PER_M_PER_S = 1000.0 * 365.25 * 86400.0
+
+
+def _steady_forcing_text(ic: Mapping[str, Any]) -> str:
+    """Return what the auxiliary steady solve was held at."""
+    if str(ic.get("source", "")).strip() != "prescribed":
+        return "la recharge moyenne de la chronique"
+    rate = ic.get("rate")
+    if rate is None:
+        return "une recharge imposee"
+    return f"une recharge imposee de {float(rate) * _MM_PER_YEAR_PER_M_PER_S:.0f} mm/an"
+
+
 def _initial_condition_text(flow: Mapping[str, Any]) -> str:
     ic = _mapping(flow.get("ic"))
     ic_type = str(ic.get("type", "")).strip()
     if ic_type == "steady_state":
+        forcing = _steady_forcing_text(ic)
         backend = str(flow.get("runtime_backend", "")).strip().lower()
         surface = str(flow.get("surface_interaction_model", "")).strip().lower()
         if backend == "petsc" and surface == "vi_obstacle":
             return (
-                "charge initiale issue d'un calcul permanent auxiliaire avec "
-                "la recharge moyenne; pour Boussinesq, le permanent et le "
-                "transitoire utilisent PETSc SNESVI avec la fermeture "
-                "vi_obstacle directe"
+                f"charge initiale issue d'un calcul permanent auxiliaire avec {forcing}; "
+                "pour Boussinesq, le permanent et le transitoire utilisent PETSc SNESVI "
+                "avec la fermeture vi_obstacle directe"
             )
         if backend == "petsc" and surface == "ts_vi_obstacle":
             return (
-                "charge initiale issue d'un calcul permanent auxiliaire avec "
-                "la recharge moyenne; pour Boussinesq, ce permanent utilise "
-                "PETSc SNESVI avec la fermeture vi_obstacle avant le "
-                "transitoire PETSc TS/SNESVI"
+                f"charge initiale issue d'un calcul permanent auxiliaire avec {forcing}; "
+                "pour Boussinesq, ce permanent utilise PETSc SNESVI avec la fermeture "
+                "vi_obstacle avant le transitoire PETSc TS/SNESVI"
             )
         return (
-            "charge initiale issue d'un calcul permanent auxiliaire avec la "
-            "recharge moyenne de la chronique, appliquee ensuite au transitoire"
+            f"charge initiale issue d'un calcul permanent auxiliaire avec {forcing}, "
+            "appliquee ensuite au transitoire"
         )
     if ic_type == "top_offset":
         return f"charge initiale egale au toit moins {_format_value(ic.get('value'), default='un offset')}"
