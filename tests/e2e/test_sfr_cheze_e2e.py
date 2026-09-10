@@ -303,11 +303,11 @@ def test_sfr_fed_reservoir_holds_its_level_and_control_drains(tmp_path: Path) ->
     assert max(float(v) for v in from_mvr.values) > 0.0, "lake never received MVR inflow"
 
     # The GWF budget closes on the real solver listing.
-    from hydromodpy.solver.modflow_common.flow_adapter_helpers import _last_percent_discrepancy
+    from hydromodpy.solver.modflow_common.flow_adapter_helpers import last_percent_discrepancy
 
     scratch_dirs = [path.parent for path in out_path.rglob("*.lst") if path.name != "mfsim.lst"]
     assert scratch_dirs, "solver listing not kept; set keep_solver_files"
-    discrepancy = _last_percent_discrepancy(scratch_dirs[0])
+    discrepancy = last_percent_discrepancy(scratch_dirs[0])
     assert discrepancy is not None
     assert abs(discrepancy) <= _BUDGET_PERCENT_DISCREPANCY
 

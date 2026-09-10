@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import _last_percent_discrepancy
+from hydromodpy.solver.modflow_common.flow_adapter_helpers import last_percent_discrepancy
 from tests._helpers.tolerances import tol
 from tests.integration.solver._sfr_models import (
     INFLOW_M3S,
@@ -58,7 +58,7 @@ def test_terminal_reach_feeds_the_lake_through_mvr(tmp_path: Path) -> None:
     # The lake actually received the water: its steady stage sits above the bed.
     assert lak_obs["LAC0_STAGE"] > 90.0
 
-    discrepancy = _last_percent_discrepancy(tmp_path)
+    discrepancy = last_percent_discrepancy(tmp_path)
     assert discrepancy is not None
     assert abs(discrepancy) / 100.0 <= _BUDGET_CLOSURE_FRACTION
 
@@ -89,6 +89,6 @@ def test_routed_drainage_reaches_the_lake_through_the_network(tmp_path: Path) ->
     assert lak_obs["LAC0_FROM_MVR"] == pytest.approx(to_mvr, rel=_MVR_RECIPROCITY_RTOL)
     assert lak_obs["LAC0_FROM_MVR"] > INFLOW_M3S + RUNOFF_M3S - gw_loss
 
-    discrepancy = _last_percent_discrepancy(tmp_path)
+    discrepancy = last_percent_discrepancy(tmp_path)
     assert discrepancy is not None
     assert abs(discrepancy) / 100.0 <= _BUDGET_CLOSURE_FRACTION
