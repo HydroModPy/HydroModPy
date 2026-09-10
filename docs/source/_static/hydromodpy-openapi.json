@@ -709,6 +709,9 @@
               "kge",
               "mae",
               "nse_log",
+              "nse_delta",
+              "nse_seasonal",
+              "reservoir",
               "distance_gap",
               "distance_mean"
             ],
@@ -723,7 +726,10 @@
               "kge": "Kling-Gupta efficiency; separates correlation, variability and bias when NSE alone is ambiguous.",
               "mae": "Mean absolute error, in the observed unit; less sensitive to outliers than RMSE.",
               "nse": "Nash-Sutcliffe efficiency against the observed mean; the standard choice for a level or discharge series.",
+              "nse_delta": "NSE on the increments of the series rather than its level; a level is an integral and can hide flux errors that compensate, which only its increments show.",
               "nse_log": "NSE on log-transformed series; weights low flows as heavily as peaks, good for recessions.",
+              "nse_seasonal": "NSE against the seasonal cycle rather than the overall mean; asks whether the model beats climatology.",
+              "reservoir": "Half nse_seasonal plus half nse_delta, built for an impounded level: a plain NSE there is beaten by the seasonal cycle, and the increments are what carry the flux errors.",
               "rmse": "Root-mean-square error, in the observed unit; penalizes large misfits most."
             },
             "x-hmp-profile": "user"
@@ -1763,6 +1769,18 @@
           "objective": {
             "anyOf": [
               {
+                "enum": [
+                  "rmse",
+                  "nse",
+                  "kge",
+                  "mae",
+                  "nse_log",
+                  "nse_delta",
+                  "nse_seasonal",
+                  "reservoir",
+                  "distance_gap",
+                  "distance_mean"
+                ],
                 "type": "string"
               },
               {
@@ -1770,7 +1788,7 @@
               }
             ],
             "default": null,
-            "description": "Single-metric objective, when this phase does not use blocks.",
+            "description": "Metric scoring this phase's single simulated series, when the phase does not use objective blocks. Same vocabulary as a block's 'metric'.",
             "title": "Objective",
             "x-hmp-profile": "user"
           },
@@ -2033,9 +2051,21 @@
           },
           "objective": {
             "default": "nse",
-            "description": "Metric key used by the default ScalarObjective.",
+            "description": "Metric scoring the single simulated series, when no objective block is declared. Same vocabulary as a block's 'metric'; typed here so a bad value is reported against the key that was written.",
+            "enum": [
+              "rmse",
+              "nse",
+              "kge",
+              "mae",
+              "nse_log",
+              "nse_delta",
+              "nse_seasonal",
+              "reservoir",
+              "distance_gap",
+              "distance_mean"
+            ],
             "examples": [
-              "nse"
+              "rmse"
             ],
             "title": "Objective",
             "type": "string",
@@ -4518,13 +4548,13 @@
         "properties": {
           "itmuni": {
             "default": 0,
-            "description": "DIS time unit code used by MODFLOW (ITMUNI).",
+            "description": "DIS time unit code (ITMUNI). Recorded, not obeyed: the launcher writes seconds because [simulation.time] already materializes every period length in seconds, so the run is in seconds whatever this says.",
             "examples": [
               0
             ],
             "title": "Itmuni",
             "type": "integer",
-            "x-hmp-profile": "expert"
+            "x-hmp-profile": "dev"
           }
         },
         "title": "DisConfig",
@@ -4622,7 +4652,7 @@
           },
           "cmap": {
             "default": "viridis",
-            "description": "Default sequential colormap for spatial figures.",
+            "description": "Force ONE colormap onto every spatial figure. Writing it at all is the decision, not the value: each figure otherwise picks a scale suited to what it shows, reversed for a depth, diverging for a difference, discrete for an indicator, and this replaces all of them. Writing the default spelled out is therefore NOT a no-op, unlike everywhere else. Leave it out unless one scale for everything is what you want.",
             "examples": [
               "viridis"
             ],
@@ -5157,7 +5187,7 @@
               }
             ],
             "default": "last",
-            "description": "Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps.",
+            "description": "Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps. A vtu, a geotiff and a shapefile hold ONE timestep per file, so a selector naming several collapses to the last for them and the run says so; only the NetCDF export carries the whole selection.",
             "examples": [
               "last"
             ],
@@ -5359,26 +5389,6 @@
             "title": "Concentration",
             "type": "boolean",
             "x-hmp-profile": "user"
-          },
-          "budget": {
-            "default": false,
-            "description": "Export spatial budget fields.",
-            "examples": [
-              false
-            ],
-            "title": "Budget",
-            "type": "boolean",
-            "x-hmp-profile": "dev"
-          },
-          "pathlines": {
-            "default": false,
-            "description": "Export pathline data.",
-            "examples": [
-              false
-            ],
-            "title": "Pathlines",
-            "type": "boolean",
-            "x-hmp-profile": "dev"
           },
           "derived": {
             "default": true,

@@ -376,7 +376,7 @@ Sub-models are linked back to their per-section page.
       output_dir = "figures"
       # DPI used when saving raster figures.
       dpi = 150
-      # Default sequential colormap for spatial figures.
+      # Force ONE colormap onto every spatial figure. Writing it at all is the decision, not the value: each figure otherwise picks a scale suited to what it shows, reversed for a depth, diverging for a difference, discrete for an indicator, and this replaces all of them. Writing the default spelled out is therefore NOT a no-op, unlike everywhere else. Leave it out unless one scale for everything is what you want.
       cmap = "viridis"
       # Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp viz gallery`). Every name must exist in the figure registry; list them with `hmp viz list`. A figure whose requirements the run does not meet is skipped with an explicit reason. Empty list disables auto-rendering. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.
       # figures = ...  # uses factory default
@@ -409,7 +409,7 @@ Sub-models are linked back to their per-section page.
       # output_dir = ...  # default = None
       # Which variables to include in exports.
       # variables = ...  # uses factory default
-      # Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps.
+      # Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps. A vtu, a geotiff and a shapefile hold ONE timestep per file, so a selector naming several collapses to the last for them and the run says so; only the NetCDF export carries the whole selection.
       times = "last"
       # GeoTIFF pixel size in CRS units for toggle exports. Auto-derived from the grid when omitted.
       # resolution = ...  # default = None
@@ -580,7 +580,7 @@ Sub-models are linked back to their per-section page.
       use_cache = true
       # Skip Parquet/Zarr writes for lumped models (GR4J, ...) and read simulated series from the per-trial RAM cache instead. Only the promoted runs go through the catalog write path.
       lightweight_extraction = true
-      # Metric key used by the default ScalarObjective.
+      # Metric scoring the single simulated series, when no objective block is declared. Same vocabulary as a block's 'metric'; typed here so a bad value is reported against the key that was written.
       objective = "nse"
       # Observed variable (for ObservationSet).
       variable = "head"

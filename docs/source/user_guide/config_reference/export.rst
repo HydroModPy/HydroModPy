@@ -9,7 +9,7 @@ TOML section: ``[export]``
 
 Pydantic model: ``ExportConfig`` defined in ``hydromodpy.simulation.planning.export_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L57>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L51>`__
 
 Automated export configuration loaded from the top-level ``[export]`` section.
 
@@ -38,7 +38,7 @@ Fields
         <code class="hmp-field-name">netcdf</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L60>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L54>`__
 
       Export to NetCDF-4/UGRID.
 
@@ -54,7 +54,7 @@ Fields
         <code class="hmp-field-name">csv_timeseries</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L63>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L57>`__
 
       Export time series to CSV at the end of the run. Off by default: the canonical time series lives in tables.parquet; CSV is an on-demand export.
 
@@ -70,7 +70,7 @@ Fields
         <code class="hmp-field-name">vtu</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L70>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L64>`__
 
       Export to VTU (ParaView).
 
@@ -86,7 +86,7 @@ Fields
         <code class="hmp-field-name">geotiff</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L73>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L67>`__
 
       Export to GeoTIFF.
 
@@ -102,7 +102,7 @@ Fields
         <code class="hmp-field-name">shapefile</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L74>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L68>`__
 
       Export to Shapefile.
 
@@ -118,7 +118,7 @@ Fields
         <code class="hmp-field-name">package</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L77>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L71>`__
 
       Also write a portable '<run>.hmp' archive (config, provenance, fields, timeseries, RO-Crate) after the run finalizes. The one-line switch for 'this run must be shareable forever'.
 
@@ -134,7 +134,7 @@ Fields
         <code class="hmp-field-name">output_dir</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L85>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L79>`__
 
       Output directory for exports. Defaults to project results folder.
 
@@ -152,7 +152,7 @@ Fields
         <code class="hmp-field-toml">[export.variables]</code>
       </div>
 
-   :bdg-primary:`ExportVariablesConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L89>`__
+   :bdg-primary:`ExportVariablesConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L83>`__
 
       Which variables to include in exports.
 
@@ -194,38 +194,6 @@ Fields
             Export concentration field.
 
 
-      .. index:: ! budget
-
-      .. container:: hmp-field hmp-field-level-dev
-         :name: export-variables-budget
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="export.variables.budget">
-              <code class="hmp-field-name">budget</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L34>`__
-
-            Export spatial budget fields.
-
-
-      .. index:: ! pathlines
-
-      .. container:: hmp-field hmp-field-level-dev
-         :name: export-variables-pathlines
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="export.variables.pathlines">
-              <code class="hmp-field-name">pathlines</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L37>`__
-
-            Export pathline data.
-
-
       .. index:: ! derived
 
       .. container:: hmp-field hmp-field-level-user
@@ -237,7 +205,7 @@ Fields
               <code class="hmp-field-name">derived</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L40>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L34>`__
 
             Export derived variables (watertable_depth, seepage_mask, etc.).
 
@@ -255,9 +223,9 @@ Fields
         <code class="hmp-field-name">times</code>
       </div>
 
-   :bdg-primary:`Union[int, list[int], str]` :bdg-secondary:`default = "last"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L93>`__
+   :bdg-primary:`Union[int, list[int], str]` :bdg-secondary:`default = "last"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L87>`__
 
-      Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps.
+      Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps. A vtu, a geotiff and a shapefile hold ONE timestep per file, so a selector naming several collapses to the last for them and the run says so; only the NetCDF export carries the whole selection.
 
    .. rst-class:: hmp-field-values
 
@@ -275,7 +243,7 @@ Fields
         <code class="hmp-field-name">resolution</code>
       </div>
 
-   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L100>`__
+   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L97>`__
 
       GeoTIFF pixel size in CRS units for toggle exports. Auto-derived from the grid when omitted.
 
@@ -293,7 +261,7 @@ Fields
         <code class="hmp-field-toml">[[export.artifacts]]</code>
       </div>
 
-   :bdg-primary:`list[ExportSpec]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L107>`__
+   :bdg-primary:`list[ExportSpec]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L104>`__
 
       Explicit export artifacts: full control over variable, format, timestep and destination, beyond the format toggles above.
 
