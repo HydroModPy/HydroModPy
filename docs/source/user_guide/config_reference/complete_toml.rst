@@ -566,6 +566,8 @@ Sub-models are linked back to their per-section page.
       batch_size = 1
       # Number of trials evaluated concurrently inside one batch via a thread pool. parallel=1 keeps the legacy sequential loop.
       parallel = 1
+      # Percent water-balance discrepancy past which a trial is rejected instead of scored. The solver reports the figure on every run; unset, it is recorded and nothing acts on it, so a run at twelve per cent is ranked beside one that closed even though part of the water it routed came from nowhere. There is no default because there is no universal value: a steady solve on a coarse mesh closes to a fraction of a per cent, a transient one with a lake and a routed network legitimately sits higher.
+      # reject_water_budget_above = ...  # default = None
       # Spin-up (burn-in) periods excluded from every objective block. The first warmup_periods of each observed/simulated series are dropped before the metric, so the window where the state still depends on the initial condition does not bias the calibration. Default 0 (no exclusion). Size it by increasing it until the objective stops changing (initial-condition insensitivity), not a fixed guess.
       warmup_periods = 0
       # Dates bounding the samples every metric is computed on. Mutually exclusive with warmup_periods, which counts samples instead of dates.
@@ -606,6 +608,8 @@ Sub-models are linked back to their per-section page.
       materialize_candidates = false
       # Directory for per-candidate overlay TOMLs. Required when materialize_candidates is True.
       # candidates_root = ...  # default = None
+      # How several scored targets become one cost: what made them comparable, how nested gauges are read, and what one unscorable member does.
+      # aggregate = ...  # uses factory default
       # How wide the search reports its own answer to be. The calibrated value is unaffected; this only decides the interval printed beside it.
       # uncertainty = ...  # uses factory default
       # Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for calibration outputs.

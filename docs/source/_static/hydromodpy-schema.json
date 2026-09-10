@@ -465,6 +465,67 @@
       "title": "BudgetConfig",
       "type": "object"
     },
+    "CalibAggregateDecl": {
+      "additionalProperties": false,
+      "description": "How several scored targets become one cost.\n\nTwo questions the word \"weight\" runs together. Whether an error is large for\nwhat the instrument can resolve is a property of the measurement, not a\ndecision. What matters more between the outlet and the reservoir is a\ndecision, and the modeller's. The cost is the product of both, never one of\nthem, and this section names which recipe made them addable.\n\nThe literature offers two named recipes and states they are incompatible: one\nover sigma, which makes each residual dimensionless and statistically\ndefensible, and an equal share of the initial objective, which guarantees no\ndata type is invisible to the search. There is no third to invent, only a\nchoice to name and to record.",
+      "properties": {
+        "weighting": {
+          "default": "manual",
+          "description": "How the members are made comparable before the weights apply. 'manual' takes the declared 'weight' of each block as the whole story, which is honest as long as the costs are already commensurable. 'error' divides each residual by what its instrument resolves, so the members become pure numbers first; it needs a residual criterion and an observation carrying an error model, and is refused without both.",
+          "enum": [
+            "manual",
+            "error"
+          ],
+          "examples": [
+            "manual"
+          ],
+          "title": "Weighting",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "nested_gauges": {
+          "default": "total",
+          "description": "How two gauges on imbricated catchments are read. 'total' scores each against its own full drained area, which is what a gauge measures; the residuals are then statistically dependent, and no standard correction exists for that. 'incremental' scores the downstream one on what its own reach adds, downstream minus upstream, which is the only mechanisable way to make the two independent. Neither is inferred: the overlap is measured and reported whichever is chosen.",
+          "enum": [
+            "total",
+            "incremental"
+          ],
+          "examples": [
+            "total"
+          ],
+          "title": "Nested Gauges",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "min_samples": {
+          "default": 1,
+          "description": "Fewest paired samples a member may be scored on. An alignment that collapses to three days still returns a number, and a weight of 65 per cent resting on three days is not what the file says it is.",
+          "examples": [
+            1
+          ],
+          "minimum": 1,
+          "title": "Min Samples",
+          "type": "integer",
+          "x-hmp-profile": "user"
+        },
+        "on_member_failure": {
+          "default": "veto",
+          "description": "What one unscorable member does to the total. 'veto' makes the whole trial fail, which is the default because a partial cost is not comparable to a full one. 'drop' scores the survivors and records which member was left out, which has to be asked for explicitly.",
+          "enum": [
+            "veto",
+            "drop"
+          ],
+          "examples": [
+            "veto"
+          ],
+          "title": "On Member Failure",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CalibAggregateDecl",
+      "type": "object"
+    },
     "CalibObjectiveBlockDecl": {
       "additionalProperties": false,
       "description": "Weighted metric block used by a composite objective.\n\nA block consumes one or more named outputs, applies one metric, and\ncontributes ``weight`` to the final minimization cost. Blocks make mixed\nobjectives explicit, for example combining heads, discharge, and transport\nsignals in one calibration session.",
@@ -1822,6 +1883,21 @@
           "type": "integer",
           "x-hmp-profile": "dev"
         },
+        "reject_water_budget_above": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Percent water-balance discrepancy past which a trial is rejected instead of scored. The solver reports the figure on every run; unset, it is recorded and nothing acts on it, so a run at twelve per cent is ranked beside one that closed even though part of the water it routed came from nowhere. There is no default because there is no universal value: a steady solve on a coarse mesh closes to a fraction of a per cent, a transient one with a lake and a routed network legitimately sits higher.",
+          "title": "Reject Water Budget Above",
+          "x-hmp-profile": "user"
+        },
         "warmup_periods": {
           "default": 0,
           "description": "Spin-up (burn-in) periods excluded from every objective block. The first warmup_periods of each observed/simulated series are dropped before the metric, so the window where the state still depends on the initial condition does not bias the calibration. Default 0 (no exclusion). Size it by increasing it until the objective stops changing (initial-condition insensitivity), not a fixed guess.",
@@ -2089,6 +2165,11 @@
           "description": "Directory for per-candidate overlay TOMLs. Required when materialize_candidates is True.",
           "title": "Candidates Root",
           "x-hmp-profile": "dev"
+        },
+        "aggregate": {
+          "$ref": "#/$defs/CalibAggregateDecl",
+          "description": "How several scored targets become one cost: what made them comparable, how nested gauges are read, and what one unscorable member does.",
+          "x-hmp-profile": "user"
         },
         "uncertainty": {
           "$ref": "#/$defs/CalibUncertaintyDecl",
