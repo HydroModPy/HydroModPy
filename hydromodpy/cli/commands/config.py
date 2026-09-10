@@ -70,6 +70,17 @@ def register(subparsers) -> argparse.ArgumentParser:
     )
     sch.add_argument("--list-sections", action="store_true", help="List available section names")
 
+    tgt = sub.add_parser(
+        "targets",
+        help="List what this project exposes to a calibration",
+    )
+    tgt.add_argument("file", help="Path to the TOML configuration")
+    tgt.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the catalogue as JSON instead of a table",
+    )
+
     wiz = sub.add_parser("wizard", help="Interactive stdin-based TOML wizard")
     wiz.add_argument("output", nargs="?")
     wiz.add_argument(
@@ -94,15 +105,68 @@ def run(args: argparse.Namespace) -> None:
     if sub == "schema":
         _cmd_config_schema(args)
         return
+    if sub == "targets":
+        _cmd_config_targets(args)
+        return
     if sub == "wizard":
         _cmd_config_wizard(args)
         return
 
     print(
-        "usage: hmp config {template,check,schema,wizard} ...",
+        "usage: hmp config {template,check,schema,targets,wizard} ...",
         file=sys.stderr,
     )
     sys.exit(EXIT_CONFIG)
+
+
+def _cmd_config_targets(args: argparse.Namespace) -> None:
+    """Print what this configuration exposes to a calibration.
+
+    The answer is derived from the resolved configuration, so it names the
+    parameters and boundaries this project actually declares, with the value it
+    holds today and the range the physical registry enforces where it knows one.
+    Those three columns are what a bound is written from.
+    """
+    import json
+
+    from hydromodpy.calibration.targets import calibration_targets
+    from hydromodpy.config import HydroModPyConfig
+
+    path = Path(args.file).expanduser().resolve()
+    if not path.is_file():
+        print(f"File not found: {path}", file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+
+    try:
+        cfg = HydroModPyConfig.from_toml(path)
+    except Exception as exc:
+        print(f"Config invalid: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+
+    targets = calibration_targets(cfg)
+    if getattr(args, "json", False):
+        print(json.dumps([target.to_dict() for target in targets], indent=2))
+        return
+
+    if not targets:
+        print(f"{path.name} declares nothing a calibration could move.", file=sys.stderr)
+        return
+
+    width = max(len(target.path) for target in targets)
+    print(f"{'path'.ljust(width)}  {'current':>12}  {'unit':>8}  physical range")
+    for target in targets:
+        bounds = (
+            f"{target.physical_bounds[0]:g} .. {target.physical_bounds[1]:g}"
+            if target.physical_bounds
+            else "-"
+        )
+        current = "-" if target.current is None else f"{target.current:g}"
+        print(f"{target.path.ljust(width)}  {current:>12}  {(target.units or '-'):>8}  {bounds}")
+    print(
+        f"\nWrite one under [calibration.parameters.<name>] with path = "
+        f'"{targets[0].path}" and a bounds pair.',
+        file=sys.stderr,
+    )
 
 
 def _cmd_config_template(args: argparse.Namespace) -> None:
