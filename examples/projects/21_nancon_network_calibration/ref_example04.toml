@@ -127,6 +127,11 @@ thickness = 30.0
 
 # ---------------------------------------------------------------------- data
 
+# Aucune section [data.*] ne declare de date : la fenetre vient de
+# [simulation.time], que le loader injecte dans toute section qui n'en
+# porte pas (`_apply_simulation_window_dates`). Une date locale ne sert
+# qu'a ELARGIR le fetch au-dela de la simulation, ce dont ce montage n'a
+# pas besoin. Les deux phases n'overrident donc que le pas de temps.
 [data]
 project_crs = "EPSG:2154"
 types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff"]
@@ -142,10 +147,6 @@ source = "brgm_1m"
 source = "custom"
 path = "nancon_stream_network.gpkg"
 
-[data.hydrometry]
-date_start = "1995-01-01"
-date_end = "2020-12-31"
-
 [[data.hydrometry.sources]]
 source = "custom"
 path = "hydrometry"
@@ -153,10 +154,6 @@ station_ids = ["NANCON"]
 
 # `recharge_REA` de la reference, journalier, moyenne surfacique sur les
 # mailles SIM2 du bassin. Le fichier couvre 1990-2020.
-[data.recharge]
-date_start = "1995-01-01"
-date_end = "2020-12-31"
-
 [[data.recharge.sources]]
 source = "custom"
 path = "recharge"
@@ -165,10 +162,6 @@ station_ids = ["NANCON_REA"]
 # `runoff` de la reference. Il est ajoute au drainage simule avant
 # comparaison au debit observe, exactement comme
 # `Qmod = outflow_drain * 1000 + r * 1000` du script.
-[data.runoff]
-date_start = "1995-01-01"
-date_end = "2020-12-31"
-
 [[data.runoff.sources]]
 source = "custom"
 path = "runoff"
@@ -345,8 +338,6 @@ fatol = 0.05
 
 [calibration.phases.overrides]
 "flow.flow_regime" = "steady"
-"simulation.time.start_datetime" = "1995-01-01"
-"simulation.time.end_datetime" = "2020-12-31"
 "simulation.time.step_unit" = "year"
 "simulation.time.step_value" = 26
 
@@ -386,8 +377,6 @@ fatol = 1e-5
 
 [calibration.phases.overrides]
 "flow.flow_regime" = "transient"
-"simulation.time.start_datetime" = "1995-01-01"
-"simulation.time.end_datetime" = "2020-12-31"
 "simulation.time.step_unit" = "day"
 "simulation.time.step_value" = 1
 
