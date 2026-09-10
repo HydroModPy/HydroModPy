@@ -43,16 +43,10 @@ step_unit = "month"
 use_cache = false
 
 
-# --- Etage 1 : inchange ---
-# Table vide volontaire. Les listes de tables de meme longueur fusionnent
-# terme a terme avec celles du parent : cette entree garde l'alignement de
-# position pour que la suivante tombe bien sur l'etage 2.
-[[calibration.phases]]
-
-
 # --- Etage 2 : le meme, au pas mensuel ---
-[[calibration.phases]]
-description = "NSE of log monthly discharge over 1995-2020, K frozen."
-
-[calibration.phases.overrides]
-"simulation.time.step_unit" = "month"
+# Rien a declarer. Le parent laisse le protocole ecrire ses deux etages :
+# l'etage 1 impose sa propre periode permanente unique et ne lit donc pas
+# `[simulation.time].step_unit`, et l'etage 2 n'impose que le regime
+# transitoire et herite du pas de temps ci-dessus. Le mensuel se declare
+# donc une fois, dans `[simulation.time]`, et non une seconde fois dans une
+# surcharge de phase.

@@ -33,7 +33,7 @@
 #      travaille dans l'espace TRANSFORME, ici log10. Les tolerances
 #      ci-dessous sont converties (voir chaque etage). Le pas du simplexe
 #      initial vaut 10 % de l'intervalle et n'est pas reglable : 0,60
-#      decade sur K la ou la reference en prend 0,15, et 0,39 decade sur
+#      decade sur K la ou la reference en prend 0,15, et 0,370 decade sur
 #      Sy la ou elle en prend 0,98. Le point de depart, lui, coincide :
 #      l'adaptateur part du centre des bornes en espace transforme, ce qui
 #      donne K = 1e-5 m/s exactement comme `hk` de la reference, et
@@ -67,6 +67,16 @@
 #      autres fichiers du dossier, pas parce que le critere en aurait
 #      besoin. Sur un montage AVEC des biefs SFR la question serait tout
 #      autre : la le burn oriente la descente qui construit le reseau.
+#
+# Les deux etages ne sont pas ecrits a la main : ce fichier declare la
+# methode nommee `matching_hydrographic_network` (Abherve et al., 2023 ;
+# 2024 ; 2025), et la ramene par options aux choix du script. Il quitte donc
+# les valeurs PUBLIEES sur trois points, qui sont exactement les trois ou le
+# script de reference decide autrement : estimateur `distance_mean`
+# (equation 2) au lieu de `distance_gap` (equation 1), Nelder-Mead au lieu de
+# la dichotomie, ponderation surfacique au lieu d'une voix par maille.
+# `hmp calibrate --check` sur ce fichier les imprime, un par un, avec la
+# valeur du papier en regard.
 # ======================================================================
 
 [workflow]
@@ -301,32 +311,51 @@ observed_position_accuracy = "50 m"
 # estimateur que la dichotomie des autres fichiers du dossier : rien ne
 # place le minimum interieur de cette moyenne sur le zero de l'ecart
 # signe. C'est precisement l'ecart de methode que ce fichier sert a
-# mesurer.
-[[calibration.objective_blocks]]
-name = "abherve_mean_distance"
-metric = "distance_mean"
-uses_outputs = ["seepage_network"]
-
+# mesurer, et `steady_metric` est la ou il se declare.
+#
+# Le protocole ecrit les deux etages, leur bloc d'objectif et les regimes
+# qu'ils imposent. Ce qui reste ici est ce qu'aucune methode ne peut
+# deviner : les parametres du site, leurs bornes, le reseau de reference,
+# et les tolerances du script de reference.
+[calibration.protocol]
+name = "matching_hydrographic_network"
+# Version epinglee. Un ecart entre ce que le fichier a ete ecrit contre et
+# ce que l'installation porte est refuse, pas approxime : un point de
+# comparaison qui glisse avec les versions n'en est plus un.
+version = "1.0"
 
 # --- Etage 1 : K par Nelder-Mead sur la distance moyenne, en permanent ---
 # `sim_state_steady = 'steady'` et `first_clim = 'mean'` de la reference :
 # une seule periode permanente sur toute la chronique, donc la recharge
-# moyenne 1995-2020.
+# moyenne 1995-2020. Le protocole ecrit cette periode en 9497 jours la ou
+# ce fichier ecrivait 26 ans. Les deux disent la meme chose et ne changent
+# aucun nombre : un permanent ne porte pas de stockage, la duree de la
+# periode n'entre pas dans le systeme resolu, et le cout est une mesure
+# geometrique sur le champ de charge.
+#
+# `distance_mean` et `scipy_nelder_mead` sont les deux premiers ecarts a la
+# publication, qui prend l'ecart signe et le cherche par dichotomie.
+steady_metric = "distance_mean"
+steady_method = "scipy_nelder_mead"
+steady_max_iter = 60
 
-[[calibration.phases]]
-name = "steady_k"
-description = "Minimum of (D_so + D_os) / 2 on K, steady state."
-method = "scipy_nelder_mead"
-max_iter = 60
-batch_size = 1
-parallel = 1
-parameters = ["K"]
-objective_blocks = ["abherve_mean_distance"]
-freeze_on_success = true
+# --- Etage 2 : Sy par Nelder-Mead sur le NSE des logarithmes, K gele ---
+# Ce sont les valeurs publiees ; le protocole les aurait prises seul. Elles
+# sont ecrites parce que ce fichier existe pour etre lu a cote du script.
+#
+# Aucune `scoring_window` : la reference score TOUTE la periode de calage,
+# sans annee d'amorce ecartee (`calib_start_date = f"{first_year}-01-01"`),
+# contrairement aux autres fichiers du dossier qui ecartent 2000.
+# `use_seasonal_filter = False` dans la reference, donc aucun masque
+# saisonnier non plus.
+transient_metric = "nse_log"
+transient_method = "scipy_nelder_mead"
+transient_max_iter = 120
+discharge_variable = "discharge"
 
-[calibration.phases.optimizer_kwargs]
+[calibration.protocol.steady_optimizer_kwargs]
 # `maxiter: 30` de la reference. `maxfev` n'y est pas regle, donc scipy
-# prend 200 ; le plafond reel est ici `max_iter` de la phase.
+# prend 200 ; le plafond reel est ici `steady_max_iter`.
 maxiter = 30
 maxfev = 60
 # `xatol: 0.05` de la reference, exprime dans un espace normalise sur six
@@ -336,33 +365,7 @@ xatol = 0.30
 # normalise, la valeur passe telle quelle.
 fatol = 0.05
 
-[calibration.phases.overrides]
-"flow.flow_regime" = "steady"
-"simulation.time.step_unit" = "year"
-"simulation.time.step_value" = 26
-
-
-# --- Etage 2 : Sy par Nelder-Mead sur le NSE des logarithmes, K gele ---
-# La reference score TOUTE la periode de calage, sans annee d'amorce
-# ecartee (`calib_start_date = f"{first_year}-01-01"`). Aucune
-# `scoring_window` n'est donc declaree ici, contrairement aux autres
-# fichiers du dossier qui excartent 2000.
-#
-# `use_seasonal_filter = False` dans la reference : aucun masque saisonnier.
-
-[[calibration.phases]]
-name = "transient_sy"
-description = "NSE of log daily discharge over 1995-2020, K frozen."
-method = "scipy_nelder_mead"
-max_iter = 120
-batch_size = 1
-parallel = 1
-parameters = ["Sy"]
-variable = "discharge"
-objective = "nse_log"
-depends_on = "steady_k"
-
-[calibration.phases.optimizer_kwargs]
+[calibration.protocol.transient_optimizer_kwargs]
 # `maxiter: 120` de la reference.
 maxiter = 120
 maxfev = 120
@@ -375,10 +378,25 @@ xatol = 3.7e-5
 # quelle.
 fatol = 1e-5
 
-[calibration.phases.overrides]
-"flow.flow_regime" = "transient"
-"simulation.time.step_unit" = "day"
-"simulation.time.step_value" = 1
+
+# La reference ne sort qu'un K et un Sy. `cost_profile` en donne l'intervalle
+# sans un seul run de plus : il relit la trace des essais deja faits et rend
+# la plage de valeurs que la recherche n'a pas su distinguer a 5 % du
+# meilleur cout. Le K et le Sy retenus ne bougent pas, donc ce bloc ne peut
+# pas eloigner ce fichier de sa reference ; il dit seulement ce que la
+# reference ne disait pas. Les deux couts ont un optimum non nul, une
+# distance moyenne en metres puis 1 - NSE_log, donc `relative` a un sens sur
+# les deux etages.
+[calibration.uncertainty]
+method = "cost_profile"
+tolerance = 0.05
+mode = "relative"
+
+# `reject_water_budget_above` et `[calibration.aggregate]` sont volontairement
+# ABSENTS. Le premier ecarterait un essai dont le bilan ne ferme pas, ce que la
+# reference ne fait pas, et pourrait donc retenir un autre optimum. Le second
+# pondere plusieurs blocs d'objectif ; le protocole n'en ecrit qu'un par etage,
+# il n'y a rien a ponderer.
 
 
 # ---------------------------------------------------------------------- display
@@ -389,7 +407,6 @@ preset = "default"
 show = false
 save = true
 output_dir = "figures"
-cmap = "viridis"
 on_error = "warn"
 
 figures = [
@@ -423,5 +440,5 @@ figures = [
     "parameter_cost_profile",
     "calibration_convergence",
     "calibration_trace",
-    "abherve_two_stage_card",
+    "matching_hydrographic_network_card",
 ]
