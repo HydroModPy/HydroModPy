@@ -54,6 +54,7 @@ LAZY_IMPORTS: dict[str, str] = {
     "Dimensionless": "hydromodpy.core.units.types:Dimensionless",
     "DurationSeconds": "hydromodpy.core.units.types:DurationSeconds",
     "FlowRate": "hydromodpy.core.units.types:FlowRate",
+    "FluxDensityMPerS": "hydromodpy.core.units.types:FluxDensityMPerS",
     "HydraulicConductivity": "hydromodpy.core.units.types:HydraulicConductivity",
     "HydraulicConductivityMPerS": "hydromodpy.core.units.types:HydraulicConductivityMPerS",
     "Length": "hydromodpy.core.units.types:Length",

@@ -31,7 +31,7 @@ from pydantic import Field, TypeAdapter, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.units import Length, check_unit_compatible
+from hydromodpy.core.units import FluxDensityMPerS, Length, check_unit_compatible
 from hydromodpy.physics.base import InitialCondition as BaseInitialCondition
 
 
@@ -128,17 +128,28 @@ class FlowICSteadyState(_FlowICBase):
             "a documented forcing strategy."
         ),
     )
-    source: Annotated[Literal["recharge", "mean_recharge"] | None, Profile.USER] = Field(
-        None,
-        description=(
-            "Forcing source used by the initialization solve. "
-            "'mean_recharge' is an alias for source='recharge' with "
-            "recharge_statistic='time_mean'."
-        ),
+    source: Annotated[Literal["recharge", "mean_recharge", "prescribed"] | None, Profile.USER] = (
+        Field(
+            None,
+            description=(
+                "Forcing source used by the initialization solve. "
+                "'mean_recharge' is an alias for source='recharge' with "
+                "recharge_statistic='time_mean'. 'prescribed' holds the solve at "
+                "the single rate given by `rate` instead of reading the chronicle."
+            ),
+        )
     )
     recharge_statistic: Annotated[Literal["time_mean"] | None, Profile.USER] = Field(
         None,
         description="Statistic applied to the recharge chronicle.",
+    )
+    rate: Annotated[FluxDensityMPerS | None, Profile.USER] = Field(
+        None,
+        description=(
+            "Recharge rate the initialization solve is held at, in m/s. "
+            "Carries its own unit: '500 mm/yr', '2 mm/day', 1.6e-8. "
+            "Required by source='prescribed' and refused by any other source."
+        ),
     )
     boundary_condition_policy: Annotated[Literal["first_period"] | None, Profile.USER] = Field(
         None,
@@ -147,6 +158,26 @@ class FlowICSteadyState(_FlowICBase):
             "the steady initialization solve."
         ),
     )
+
+    @model_validator(mode="after")
+    def _check_rate_matches_source(self) -> FlowICSteadyState:
+        """A prescribed rate and the source that reads it travel together."""
+        if self.source == "prescribed" and self.rate is None:
+            raise ValueError(
+                "flow.ic.rate is required when flow.ic.source='prescribed'; "
+                "write the equilibrium rate with its unit, for example rate = '500 mm/yr'"
+            )
+        if self.rate is not None and self.source != "prescribed":
+            raise ValueError(
+                "flow.ic.rate is only read when flow.ic.source='prescribed'; "
+                f"got source={self.source!r}, which reads the recharge chronicle instead"
+            )
+        if self.source == "prescribed" and self.recharge_statistic is not None:
+            raise ValueError(
+                "flow.ic.recharge_statistic describes the chronicle, which "
+                "flow.ic.source='prescribed' does not read"
+            )
+        return self
 
 
 FlowInitialCondition: TypeAlias = Annotated[
