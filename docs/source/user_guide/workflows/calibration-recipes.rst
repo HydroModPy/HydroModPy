@@ -115,6 +115,35 @@ The engines are not part of the method. ``steady_method`` and
 be walked by a bisection, by Nelder-Mead, or by Optuna without changing what is
 being calibrated.
 
+Checking before the solver starts
+---------------------------------
+
+A calibration is hours of solver time, so the last thing you want is a typo
+found at hour three. One flag runs every static check and solves nothing:
+
+.. code-block:: bash
+
+   hmp calibrate --check project.toml
+
+.. code-block:: text
+
+   ERROR   [calibration.parameters.K]: path 'flow.param.Kh.field.value' is not a
+           value this configuration carries. `hmp config targets` lists them.
+   ERROR   [[calibration.objective_blocks]] 'hydrograph': uses_outputs names ghost,
+           which [calibration.outputs] does not declare. Declared: outlet.
+   calib.toml: 2 error(s), 0 warning(s).
+
+Every check runs, so a file with three mistakes comes back with three findings
+and takes one pass to fix. It checks that each parameter path is a value the
+configuration actually carries, that the bounds are ordered and inside the
+physical range the registry enforces, that a stream geometry is where the run
+will look for it, and that every name a block or a phase uses is declared. It
+exits on the config code when anything is wrong, so a script can gate on it.
+
+What it cannot see it does not pretend to: an observed record is loaded by the
+data step, which needs a delineated catchment, so preflight checks the names a
+file declares against each other and leaves the loading to the run.
+
 Finding what a project can calibrate
 ------------------------------------
 
