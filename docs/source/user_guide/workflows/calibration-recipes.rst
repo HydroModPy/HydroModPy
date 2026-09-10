@@ -64,6 +64,19 @@ matter to the search, and summing to one is what makes them readable.
 heads is in metres, an NSE cost is dimensionless, and adding them raw lets the
 unit set the weighting instead of the weight.
 
+``observes`` is what makes the weighting mean anything. It names a station the
+project loaded; the record is aligned on the simulated timestamps, and the block
+scores that. Without it a block can only be scored against ``observed_values``,
+a positional vector transcribed into the file with no dates on it, so the one
+route that can weight several targets was also the one that could not read a
+real observation.
+
+Two consequences follow. A ``scoring_window`` becomes applicable, because the
+samples now carry dates to cut on; it is still refused for any output scored
+positionally, by name. And each block reports ``<output>.n_paired``, how many
+dated samples the alignment kept: a weight of 65 % resting on three surviving
+days is not what the file says it is, and that is where it shows.
+
 .. literalinclude:: ../recipes/calibration_multi_objective.toml
    :language: toml
 
@@ -101,6 +114,34 @@ The engines are not part of the method. ``steady_method`` and
 ``transient_method`` take any registered optimizer, so the same two criteria can
 be walked by a bisection, by Nelder-Mead, or by Optuna without changing what is
 being calibrated.
+
+Finding what a project can calibrate
+------------------------------------
+
+A parameter is declared by a dotted path into the configuration, and guessing
+one is not a workflow. Ask the project:
+
+.. code-block:: bash
+
+   hmp config targets project.toml
+
+.. code-block:: text
+
+   path                                current      unit  physical range
+   flow.bc.drainage.value                0.001      m2/s  -
+   flow.param.K.field.value              5e-05       m/s  1e-14 .. 100
+   flow.param.Ss.field.value             1e-05       m-1  1e-09 .. 0.001
+   flow.param.Sy.field.value              0.05         -  0.0001 .. 0.5
+   flow.sinks_sources.recharge.values         0    mm/day  -
+
+The list comes from the resolved configuration, so it names the parameters and
+boundaries this project actually declares, not everything the schema could hold.
+The three columns are what a bound is written from: where the value sits today,
+in what unit, and the range the physical registry will refuse outside of. A
+range shown as ``-`` means the registry does not know this identifier, so
+nothing will check the bounds for you.
+
+Add ``--json`` for the same catalogue as machine-readable records.
 
 Reading the value the search returns
 ------------------------------------

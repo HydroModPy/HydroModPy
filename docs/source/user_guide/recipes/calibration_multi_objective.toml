@@ -20,13 +20,21 @@ step_unit = "day"
 method = "optuna"
 max_iter = 200
 seed = 42
-warmup_periods = 365
+# A window in dates rather than warmup_periods in samples: it says the same
+# thing whatever the output frequency. The two are mutually exclusive.
+# Every scored output names a station, so the samples carry dates and the window
+# applies exactly. Without `observes` this would be refused: there would be no
+# time axis to cut on. 2000 is the spin-up year, simulated and not scored.
 save_runs = "best_n"
 save_best_n = 5
 rerun_best_with_outputs = true
 # 'full' keeps the per-block raw and normalized costs of every trial, which is
 # what makes a weighting argument checkable after the fact.
 persist_iteration_detail = "full"
+
+[calibration.scoring_window]
+start = "2001-01-01"
+end = "2005-12-31"
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
@@ -41,23 +49,30 @@ path = "flow.param.Sy.field.value"
 units = "-"
 
 # --- What is observed -------------------------------------------------------
+#
+# `observes` names a station the project loaded. Its record is aligned on the
+# simulated timestamps, so a block scores a real chronicle rather than a vector
+# transcribed into this file. The data family follows `variable`: discharge from
+# hydrometry, head from piezometry, stage from lake_levels.
 
 [calibration.outputs.outlet_discharge]
 variable = "discharge"
 support = "boundary"
 boundary_id = "outlet"
+observes = "J7branch"
 
 [calibration.outputs.piezometer_p1]
 variable = "head"
 support = "point"
 x = 348120.0
 y = 6812450.0
-observed_values = [42.1, 41.8, 41.5, 41.9, 42.4]
+observes = "BSS001ABCD"
 
 [calibration.outputs.lake_level]
 variable = "stage"
 support = "lake"
 lake_id = "cheze"
+observes = "cheze_staff_gauge"
 
 # --- How each target is scored, and for how much -----------------------------
 #
@@ -67,6 +82,10 @@ lake_id = "cheze"
 # normalize_cost matters here and not in the single-target file: an RMSE on
 # heads is in metres, an NSE cost is dimensionless, and summing them raw would
 # let the unit decide the weighting instead of the weight.
+#
+# Each block reports `<output>.n_paired`: how many dated samples the alignment
+# actually kept. A weight of 65 % on three surviving days is not what the file
+# says it is, and that number is where it shows.
 
 [[calibration.objective_blocks]]
 name = "hydrograph"
