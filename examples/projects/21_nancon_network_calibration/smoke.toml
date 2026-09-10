@@ -168,8 +168,7 @@ value = 1e-5
 
 # `value = 0.0` selectionne le repli proportionnel C = K * A / e. C'est
 # ce qui rend l'etage 1 valide quand les biefs sont eteints.
-[flow.bc.cauchy.drainage]
-id = "drainage"
+[flow.bc.drainage]
 kind = "cauchy"
 application_domain = "top"
 description = "Drainage de Cauchy sur la face superieure de l'aquifere."

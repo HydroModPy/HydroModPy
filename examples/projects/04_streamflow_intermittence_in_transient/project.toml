@@ -134,8 +134,7 @@ kind = "homogeneous"
 unit = "m-1"
 value = 1e-5
 
-[flow.bc.cauchy.drainage]
-id = "drainage"
+[flow.bc.drainage]
 kind = "cauchy"
 application_domain = "top"
 description = "Cauchy drainage on the aquifer top face."

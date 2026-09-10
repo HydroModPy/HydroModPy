@@ -76,7 +76,7 @@ field_spatial_id = "k_rings"
 type = "custom"
 value = "1.0 m"
 
-[flow.bc.dirichlet.ocean]
+[flow.bc.ocean]
 kind = "dirichlet"
 value = "0.0 m"
 

@@ -14,7 +14,7 @@
 #   - une seule couche de 30 m, K homogene (lay_decay = 1, donc aucune
 #     decroissance avec la profondeur), Sy homogene ;
 #   - drain sur chaque maille a conductance proportionnelle (cond_drain
-#     = None dans la reference, `value = 0.0` ici) ;
+#     = None dans la reference, `value` omis ici) ;
 #   - etage 1 : Nelder-Mead sur log10(K), en PERMANENT, cout
 #     (D_so + D_os) / 2 ;
 #   - etage 2 : Nelder-Mead sur log10(Sy), en TRANSITOIRE journalier,
@@ -149,7 +149,6 @@ date_end = "2020-12-31"
 [[data.hydrometry.sources]]
 source = "custom"
 path = "hydrometry"
-extent = "watershed"
 station_ids = ["NANCON"]
 
 # `recharge_REA` de la reference, journalier, moyenne surfacique sur les
@@ -213,18 +212,16 @@ kind = "homogeneous"
 unit = "m-1"
 value = 1e-5
 
-# `cond_drain = None` de la reference : conductance proportionnelle
-# C = K * A / e. C'est ce qui fait du rapport K/R la quantite calibree a
-# l'etage 1.
-[flow.bc.cauchy.drainage]
-id = "drainage"
-kind = "cauchy"
-application_domain = "top"
-description = "Cauchy drainage on the aquifer top face."
-value = 0.0
-
-[flow.sinks_sources.recharge]
-values = 0.0
+# `[flow.bc.cauchy.drainage]` est volontairement ABSENT. `active_bc` dit deja
+# que le drainage existe, et le registre des conditions limites porte le reste :
+# cauchy, sur le toit, en m2/s. Sans conductance declaree, elle est
+# proportionnelle, C = K * A / e_lit, qui est le `cond_drain = None` de la
+# reference et ce qui fait du rapport K/R la quantite calibree a l'etage 1.
+# Une table ne servirait qu'a IMPOSER une conductance, ce que ce montage ne
+# veut pas.
+#
+# `[flow.sinks_sources.recharge]` est absent pour la meme raison : la recharge
+# vient de `[data.recharge]`, qui ecrase de toute facon ce qui serait ecrit la.
 
 
 # ---------------------------------------------------------------------- simulation

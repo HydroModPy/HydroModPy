@@ -176,7 +176,7 @@ value = "1e-5 m-1"
 [flow.ic]
 type = "top"
 
-[flow.bc.cauchy.drainage]
+[flow.bc.drainage]
 application_domain = "top"
 kind = "cauchy"
 value = "0.0 m2/s"
@@ -231,8 +231,14 @@ lakeout = 0
 # the 17.5 m top-layer thickness) and resurfaces in the downstream domain. hydchr =
 # K_barrier / thickness ~ 1e-9 1/s is quasi-impermeable.
 [flow.sinks_sources.lakes.reservoir_cheze.cutoff_wall]
-line = [[331142.0, 6780439.3], [331119.4, 6780718.7]]
-depths = [10.0]
+# Surveyed grout-curtain axis (voile d'injection), EPSG:2154, in data/cutoff_wall/.
+# Other formats: inline line=[[x,y],...], a .csv of vertices, or auto=true (see README).
+line_path = "injection_cheze.gpkg"
+# Impervious dam body: block ALL horizontal flow across the dam from the crest down
+# to the grout-curtain foot (41 m). The DEM/bathymetry carries the concrete dam (~86 m),
+# so the whole column (concrete body + injection curtain) is barred; nothing seeps over
+# the top of the wall. Below 41 m the flow passes under the curtain.
+base_elevation = 41.0
 hydchr = 1e-9
 hydchr_unit = "1/s"
 
@@ -282,13 +288,21 @@ mf6_ims_complexity = "COMPLEX"
 # a few lake-edge cells oscillating sub-mm in the steady warm-up while the budget
 # already closes to <0.1%. 1 cm is ample for a catchment-scale reservoir model.
 mf6_outer_dvclose = 1e-2
-# XT3D is left to the auto-advisor (mf6_enable_xt3d unset). The aquifer is
-# isotropic and the Frontal-Delaunay mesh is near-orthogonal (median ~0.4 deg),
-# so the advisor logs "XT3D auto-off" and uses the conductance flux, which is
-# accurate here and converges. Set mf6_enable_xt3d = true to force it on (you get
-# a warning that the checks disagree), e.g. once you add anisotropy or geology.
+# XT3D is left to the auto-advisor (mf6_enable_xt3d unset). The solver grid is the
+# Voronoi/PEBI dual (see [modflow6.sgrid] below): exactly orthogonal (median 0.0 deg)
+# with isotropic K, so the advisor logs "XT3D auto-off" and uses the conductance
+# flux, which is accurate here and converges. Set mf6_enable_xt3d = true to force it
+# on (you get a warning that the checks disagree), e.g. once you add anisotropy or geology.
 
-# Unstructured conformal (GMSH triangular) grid: the catchment is meshed at a
+# Solver grid = the Voronoi/PEBI dual of the GMSH triangulation (grid_dual default,
+# set explicitly here). GMSH triangulates the catchment as the seed engine; the dual
+# is an exactly orthogonal CVFD grid with ~half the cells (the 2019 demo: ~9.1k
+# triangles -> 4.7k Voronoi cells). Set grid_dual = "triangle" to keep the raw
+# triangulation cells instead (simplex comparison runs).
+[modflow6.sgrid]
+grid_dual = "voronoi"
+
+# Unstructured conformal mesh (the Voronoi seed): the catchment is meshed at a
 # ~150 m baseline, refined along the delineated Cheze river network, and (when
 # lake_refinement is on) locally refined on the reservoir footprint + the
 # under-dam outlet. Replaces the uniform [modflow6.sgrid.planar] grid that
@@ -298,8 +312,8 @@ constraints_mode = "rivers_only"
 
 [mesh_catchment.zone_meshing]
 # Frontal-Delaunay (GMSH algo 6): markedly more equilateral triangles than plain
-# Delaunay, which keeps XT3D's cross-conductance terms small and well conditioned
-# on the unstructured grid (XT3D stays ON).
+# Delaunay, which gives the Voronoi dual a well-centered, well-conditioned CVFD grid
+# (near-perfect orthogonality, so XT3D auto-off).
 algorithm = "frontal"
 global_size = 150.0
 min_size = 50.0
@@ -317,8 +331,8 @@ buffer = 160.0
 dam_cell_size = 60.0
 dam_buffer = 130.0
 
-# Vertical layering still comes from the backend sgrid.vertical block; only the
-# planar grid is now the GMSH unstructured mesh above.
+# Vertical layering still comes from the backend sgrid.vertical block; the planar
+# grid is the Voronoi dual of the GMSH mesh above (see [modflow6.sgrid]).
 [modflow6.sgrid.vertical]
 genmtd_lay = "constant"
 nlay = 2

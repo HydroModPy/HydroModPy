@@ -36,5 +36,7 @@ boundary_condition_policy = "first_period"
 [flow.sinks_sources.recharge]
 first_clim = "first"
 
-[flow.bc.cauchy.drainage]
+
+[flow.bc.drainage]
 value = "1.0e-3 m2/s"
+kind = "cauchy"

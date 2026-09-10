@@ -300,13 +300,13 @@ source = "mean_recharge"
 recharge_statistic = "time_mean"
 boundary_condition_policy = "first_period"
 
-[flow.bc.cauchy.drainage]
-id = "drainage"
+[flow.bc.drainage]
 application_domain = "top"
 description = "Cauchy drainage on the aquifer top face."
 value = "0.0 m2/s"
 
 # Diffuse recharge configuration. None = zero recharge for all periods.
+kind = "cauchy"
 
 [flow.sinks_sources.recharge]
 # Period-0 policy for the transient forcing.

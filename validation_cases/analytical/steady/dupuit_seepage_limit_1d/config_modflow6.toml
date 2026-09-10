@@ -53,7 +53,7 @@ value = "2.5e-4 m/s"
 [flow.ic]
 type = "top"
 
-[flow.bc.cauchy.drainage]
+[flow.bc.drainage]
 application_domain = "top"
 kind = "cauchy"
 value = "0.0 m2/s"

@@ -146,8 +146,7 @@ value = 0.1
 
 # value = 0.0 asks the solver for the K-based drain conductance
 # (K * cell area / bed thickness) instead of a fixed one.
-[flow.bc.cauchy.drainage]
-id = "drainage"
+[flow.bc.drainage]
 kind = "cauchy"
 application_domain = "top"
 description = "Cauchy drainage on the aquifer top face."
