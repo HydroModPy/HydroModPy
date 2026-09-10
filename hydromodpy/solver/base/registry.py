@@ -77,7 +77,7 @@ _BUILTIN_PATHS: dict[AdapterKey, str] = {
 
 _BUILTIN_CAPABILITIES: dict[AdapterKey, Capabilities] = {
     ("flow", "modflow_nwt"): frozenset({"flow", "flow:heads", "flow:budget"}),
-    ("flow", "modflow6"): frozenset({"flow", "flow:heads", "flow:budget"}),
+    ("flow", "modflow6"): frozenset({"flow", "flow:heads", "flow:budget", "flow:restart"}),
     ("flow", "boussinesq"): frozenset({"flow", "flow:heads", "flow:surface_excess"}),
     ("transport", "modpath"): frozenset({"transport", "transport:particles"}),
     ("transport", "mt3dms"): frozenset({"transport", "transport:concentration"}),

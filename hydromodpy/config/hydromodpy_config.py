@@ -143,6 +143,10 @@ class WorkflowConfig(HydroModelBase):
     )
 
 
+RESTART_CAPABILITY = "flow:restart"
+"""What a backend declares when it reads ``[flow] restart_from``."""
+
+
 def _derive_name_from_filename(toml_path: Path) -> str:
     """Derive a simulation name from a TOML filename.
 
@@ -499,6 +503,20 @@ class HydroModPyConfig(HydroModelBase):
                     "not list 'sfr'; add 'sfr' to activate the SFR package, or remove the "
                     "networks. As-is the streams would be silently ignored."
                 )
+
+            # A hotstart is read by the backends that declare they can read one.
+            # Elsewhere the key was accepted and never looked at, so the run
+            # started from the declared initial condition and said nothing.
+            if getattr(flow_cfg, "restart_from", None):
+                from hydromodpy.solver.base.registry import capabilities
+
+                if RESTART_CAPABILITY not in capabilities("flow", str(engine_value)):
+                    raise IncompatibleCapabilitiesError(
+                        f"solver.backend={engine_value!r} does not read flow.restart_from; "
+                        "it would be silently ignored and the run would start from "
+                        "flow.ic instead. Use a backend that declares "
+                        f"{RESTART_CAPABILITY!r}, or drop flow.restart_from."
+                    )
 
             # Flow barriers and dam cutoff walls are a MODFLOW 6-only addon.
             barriers = getattr(sinks_sources, "flow_barriers", None) or {}
