@@ -13,6 +13,7 @@ Use it as a stable reading map once the quickstart in
 
    workspace-layout
    project-vs-run
+   where-a-transient-starts
    comparison-workflow
    comparison-output-reading-order
    reading-results-pages
