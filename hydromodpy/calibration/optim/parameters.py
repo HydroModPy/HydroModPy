@@ -15,45 +15,11 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from hydromodpy.core.config_kit.calibrable import Calibrable
+
 # ---------------------------------------------------------------------------
 # Annotation
 # ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True, slots=True)
-class Calibrable:
-    """Metadata attached to a Pydantic field to mark it calibrable.
-
-    Usage::
-
-        from hydromodpy.core.config_kit.field_metadata import field_metadata
-
-        k_aquifer: float = Field(
-            default=1e-4,
-            json_schema_extra=field_metadata(
-                calibrable=Calibrable(
-                    bounds=(1e-7, 1e-2),
-                    transform="log",
-                    prior="log_uniform",
-                ),
-            ),
-        )
-    """
-
-    bounds: tuple[float, float] | None = None
-    transform: str = "identity"  # "identity" | "log" | "logit"
-    prior: str = "uniform"  # "uniform" | "log_uniform" | "normal"
-    units: str | None = None
-    description: str = ""
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "bounds": list(self.bounds) if self.bounds else None,
-            "transform": self.transform,
-            "prior": self.prior,
-            "units": self.units,
-            "description": self.description,
-        }
 
 
 # ---------------------------------------------------------------------------
