@@ -40,6 +40,7 @@ from hydromodpy.calibration.optim.optimizer import (
 )
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
 from hydromodpy.calibration.optim.promotion import promote_iterations
+from hydromodpy.calibration.runners.failure_watch import ConsecutiveFailureWatch
 from hydromodpy.calibration.runners.sandbox import keep_trial_scratch
 from hydromodpy.calibration.runners.state import (
     CalibrationStoreFactory,
@@ -426,6 +427,12 @@ def run_calibration_core(
         materialize_root = Path(cfg.candidates_root).expanduser().resolve()
         materialize_root.mkdir(parents=True, exist_ok=True)
 
+    # A mis-configured search fails the same way on every trial. Stopping on a
+    # streak refuses it in seconds instead of spending the whole budget and
+    # reporting a best candidate chosen between values that all came from one
+    # error. A cache hit never reaches this wrapper, so it cannot count.
+    failure_watch = ConsecutiveFailureWatch()
+
     def wrapped_evaluator(sugg: ParamSuggestion) -> EvaluationResult:
         from hydromodpy.calibration.runners.trial import run_trial_light
 
@@ -444,6 +451,7 @@ def run_calibration_core(
         if result.error:
             meta["error"] = result.error
             logger.warning("Calibration trial %d %s: %s", sugg.trial_id, db_status, result.error)
+        failure_watch.record(failed=result.status != "completed", error=result.error)
         if cfg.persist_iteration_detail == "full":
             meta["block_costs"] = dict(result.metrics) if result.metrics else {}
         if materialize_root is not None and cfg_path is not None:
