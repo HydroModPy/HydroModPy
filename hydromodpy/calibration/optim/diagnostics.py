@@ -108,4 +108,42 @@ def parameter_correlation(
     return sub.corr(method="pearson")
 
 
-__all__ = ["iterations_to_dataframe", "convergence_rate", "parameter_correlation"]
+DEFAULT_CORRELATION_THRESHOLD = 0.8
+
+
+def correlated_parameter_pairs(
+    iterations: Iterable[Mapping[str, Any]] | pd.DataFrame,
+    parameters: Iterable[str] | None = None,
+    *,
+    threshold: float = DEFAULT_CORRELATION_THRESHOLD,
+) -> list[tuple[str, str, float]]:
+    """Pairs whose correlation over the trace exceeds ``threshold``, worst first.
+
+    A calibration reports one value per parameter and, on its own, says nothing
+    about whether the data could tell two of them apart. A pair that moved
+    together across the whole search to hold the same cost was not identified:
+    the search stopped on a ridge and reported that point as a minimum. The sign
+    is kept because it says which way the trade-off went.
+    """
+    matrix = parameter_correlation(iterations, parameters)
+    if matrix.empty:
+        return []
+    names = [str(n) for n in matrix.columns]
+    found: list[tuple[str, str, float]] = []
+    for i, first in enumerate(names):
+        for second in names[i + 1 :]:
+            coefficient = matrix.at[first, second]
+            if pd.isna(coefficient) or abs(float(coefficient)) < threshold:
+                continue
+            found.append((first, second, float(coefficient)))
+    found.sort(key=lambda pair: abs(pair[2]), reverse=True)
+    return found
+
+
+__all__ = [
+    "DEFAULT_CORRELATION_THRESHOLD",
+    "convergence_rate",
+    "correlated_parameter_pairs",
+    "iterations_to_dataframe",
+    "parameter_correlation",
+]
