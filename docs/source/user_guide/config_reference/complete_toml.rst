@@ -586,7 +586,7 @@ Sub-models are linked back to their per-section page.
       objective = "nse"
       # Observed variable (for ObservationSet).
       variable = "head"
-      # Observed station the single simulated series is scored against. A run produces one discharge series, at the catchment outlet, so an upstream gauge cannot match it: when several stations are loaded, one has to be named. Optional with a single loaded station.
+      # Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one.
       # observed_station_id = ...  # default = None
       # Extra keyword arguments forwarded to the optimizer adapter.
       # optimizer_kwargs = ...  # uses factory default

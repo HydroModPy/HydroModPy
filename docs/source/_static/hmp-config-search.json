@@ -17673,7 +17673,7 @@
     "anchor": "calibration-observed-station-id",
     "page": "calibration.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L922",
-    "description": "Observed station the single simulated series is scored against. A run produces one discharge series, at the catchment outlet, so an upstream gauge cannot match it: when several stations are loaded, one has to be named. Optional with a singl"
+    "description": "Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when"
   },
   {
     "path": "calibration.optimizer_kwargs",
