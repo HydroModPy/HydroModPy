@@ -17,6 +17,11 @@ from hydromodpy.core.contracts.observables import ObservableRequest, ObservableR
 from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
+from hydromodpy.solver.base.observable_support import (
+    ObservableSupport,
+    servable,
+    under_condition,
+)
 from hydromodpy.solver.base.observables import series_observable
 from hydromodpy.solver.modflow6.extractors.lake import extract_lake_series
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
@@ -61,6 +66,11 @@ def _collapse_to_disv_cells(
     return {sid: (int(k), 0, int(i) * ncol + int(j)) for sid, (k, i, j) in station_cells.items()}
 
 
+def _active_bc(config: object) -> set[str]:
+    flow = getattr(config, "flow", None)
+    return {str(name).lower() for name in (getattr(flow, "active_bc", None) or [])}
+
+
 class Modflow6FlowAdapter:
     """Bridge one planned ``flow/modflow6`` run to the ``Modflow6`` API."""
 
@@ -70,6 +80,43 @@ class Modflow6FlowAdapter:
 
     def validate(self, ctx: RunContext) -> None:
         """No precondition checks for MODFLOW 6 flow runs."""
+
+    def declared_observables(self, config: object) -> tuple[ObservableSupport, ...]:
+        """Say what this run can serve, reading the configuration it will build.
+
+        MODFLOW 6 builds LAK and SFR when the file asks for them, so a lake stage
+        and a routed reach discharge are one declaration away rather than out of
+        reach. Everything else is served from the head and budget files this
+        backend always writes.
+        """
+        active = _active_bc(config)
+        lake_declared = bool({"lake", "reservoir"} & active)
+        sfr_declared = "sfr" in active
+        return (
+            servable("head", "read at any cell from the head file"),
+            servable("discharge", "integrated over the domain from the budget file"),
+            servable("release_flux", "per-cell surface release, from the budget file"),
+            servable("water_budget_percent_discrepancy", "reported by the listing file"),
+            (
+                servable("stage", "read from the LAK observation file")
+                if lake_declared
+                else under_condition(
+                    "stage",
+                    "add 'lake' (or 'reservoir') to flow.active_bc and declare the lake "
+                    "under flow.sinks_sources.lakes; MODFLOW 6 builds LAK on that.",
+                )
+            ),
+            (
+                servable("routed_discharge", "read from the SFR reach outflow")
+                if sfr_declared
+                else under_condition(
+                    "routed_discharge",
+                    "add 'sfr' to flow.active_bc and declare the network under "
+                    "flow.sinks_sources.sfr; without it the discharge at a cell is the "
+                    "upstream accumulation of the release flux instead.",
+                )
+            ),
+        )
 
     def locate_cell(self, ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
         """Return the nearest cell on the mesh this run actually wrote."""

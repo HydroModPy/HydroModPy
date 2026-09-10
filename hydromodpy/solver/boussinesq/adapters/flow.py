@@ -29,6 +29,11 @@ from hydromodpy.core.exceptions import (
 from hydromodpy.core.state.paths import share_dir_for
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
+from hydromodpy.solver.base.observable_support import (
+    ObservableSupport,
+    servable,
+    unavailable,
+)
 from hydromodpy.solver.base.observables import series_observable
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.calibration_extractors import (
@@ -57,6 +62,34 @@ class BoussinesqFlowAdapter:
 
     def validate(self, ctx: RunContext) -> None:
         """No precondition checks for Boussinesq flow runs."""
+
+    def declared_observables(self, config: object) -> tuple[ObservableSupport, ...]:
+        """Say what this run can serve, and why two things are out of reach.
+
+        Boussinesq already computes a saturation excess per cell and its mesh
+        carries the connectivity, the areas and the elevations, so the
+        stream-network criterion is reachable here. Lakes and routed reaches are
+        not: this solver has no advanced-package concept to build them from, which
+        is a different verdict from an adapter that is merely incomplete.
+        """
+        del config
+        return (
+            servable("head", "read at any cell from the solver output"),
+            servable("discharge", "integrated over the domain"),
+            servable(
+                "release_flux",
+                "per-cell saturation excess, which the solver already computes",
+            ),
+            unavailable(
+                "stage",
+                "the Boussinesq solver has no lake package, so there is no lake state "
+                "to read. Use the modflow6 backend for a lake.",
+            ),
+            unavailable(
+                "routed_discharge",
+                "the Boussinesq solver routes no stream reaches, so no reach outflow exists.",
+            ),
+        )
 
     def locate_cell(self, ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
         """Return the nearest cell on the mesh this run actually wrote."""

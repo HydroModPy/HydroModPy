@@ -19,7 +19,7 @@ the run.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -70,6 +70,7 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     findings.extend(_check_blocks(calibration))
     findings.extend(_check_phases(calibration))
     findings.extend(_check_engines(calibration))
+    findings.extend(_check_the_backend_can_serve_the_outputs(config, calibration))
     return findings
 
 
@@ -316,6 +317,63 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                 )
             )
     return findings
+
+
+_OBSERVABLE_BY_SUPPORT: Mapping[str, str] = {
+    "lake": "stage",
+    "network": "release_flux",
+}
+"""What an output's support actually asks the backend for."""
+
+
+def _check_the_backend_can_serve_the_outputs(
+    config: Any, calibration: Any
+) -> list[PreflightFinding]:
+    """Face each declared output with what the chosen backend says it can serve.
+
+    A backend answers on the resolved configuration in three states, so this
+    separates two refusals a binary answer confuses: one declaration away, with
+    the declaration named, and out of reach on this backend whatever the file
+    says. Both used to arrive at the first extraction, hours into a search.
+    """
+    adapter = _flow_adapter_for(config)
+    if adapter is None:
+        return []
+    declared = getattr(adapter, "declared_observables", None)
+    if declared is None:
+        return []
+    support_by_name = {item.name: item for item in declared(config)}
+    findings: list[PreflightFinding] = []
+    for name, decl in (calibration.outputs or {}).items():
+        observable = _OBSERVABLE_BY_SUPPORT.get(str(getattr(decl, "support", "")))
+        if observable is None:
+            continue
+        support = support_by_name.get(observable)
+        if support is None or support.is_servable_now:
+            continue
+        findings.append(
+            PreflightFinding(
+                "error",
+                f"[calibration.outputs.{name}]",
+                f"this output reads {observable!r}, which the chosen backend does not "
+                f"serve as configured: {support.reason}",
+            )
+        )
+    return findings
+
+
+def _flow_adapter_for(config: Any) -> Any | None:
+    """Return the flow adapter this configuration selects, or ``None``."""
+    from hydromodpy.solver.base.registry import get_solver_adapter
+
+    backend = getattr(getattr(config, "solver", None), "backend_name", None)
+    backend = getattr(backend, "value", backend)
+    if not backend:
+        return None
+    try:
+        return get_solver_adapter("flow", str(backend))
+    except (KeyError, ValueError):
+        return None
 
 
 def _searches(calibration: Any) -> list[tuple[str, str, list[str], set[str], int]]:

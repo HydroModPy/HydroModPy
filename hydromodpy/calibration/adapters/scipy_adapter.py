@@ -24,6 +24,7 @@ from hydromodpy.calibration.adapters._prior_sampling import (
 )
 from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
+    EngineTraits,
     EvaluationResult,
     ParamSuggestion,
     register_optimizer,
@@ -100,6 +101,12 @@ class _AskTellBridge:
 
 class _ScipyAdapterBase:
     name = "scipy"
+
+    traits = EngineTraits(supports_parallel=False)
+    """Sequential by construction: SciPy runs with ``workers=1``, so the next
+    point exists only once the current one has been told back. Asking for
+    concurrent trials buys nothing here, and the ``ask`` above says so in its own
+    comment."""
 
     def __init__(self, space: ParameterSpace, *, seed: int | None = None):
         self.space = space
