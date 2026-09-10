@@ -776,9 +776,19 @@ def _gc_iter_project_roots(workspace: Path) -> list[Path]:
     return iter_project_catalog_roots(workspace)
 
 
+ABANDONED_SESSION_MINUTES = 24 * 60
+"""How long a session may sit ``running`` before it is treated as abandoned.
+
+A day, deliberately generous: a calibration on a daily chronicle runs for hours,
+and closing a live one would be worse than leaving a dead one listed. A session
+has no heartbeat to shorten this with.
+"""
+
+
 def _gc_collect_plan(workspace: Path, policy: RetentionPolicy) -> dict[str, list[str]]:
     plan: dict[str, list[str]] = {
         "calibration_sessions": [],
+        "abandoned_calibration_sessions": [],
         "geographic_cache": [],
         "tmp_parquet": [],
         "stale_running_sims": [],
@@ -792,6 +802,9 @@ def _gc_collect_plan(workspace: Path, policy: RetentionPolicy) -> dict[str, list
     project_roots = _gc_iter_project_roots(workspace)
     for project_root in project_roots:
         plan["calibration_sessions"].extend(_gc_orphan_calibration_sessions(project_root))
+        plan["abandoned_calibration_sessions"].extend(
+            _gc_abandoned_calibration_sessions(project_root)
+        )
         plan["stale_running_sims"].extend(_gc_stale_running_simulations(project_root))
         retention = _gc_retention_candidates(project_root, policy)
         plan["superseded_runs"].extend(retention["superseded_runs"])
@@ -1069,6 +1082,31 @@ def _gc_orphan_stores(project_root: Path) -> list[str]:
     return orphans
 
 
+def _gc_abandoned_calibration_sessions(project_root: Path) -> list[str]:
+    """Return sessions still 'running' long after they opened.
+
+    A session closes in a ``finally``; a SIGKILL or a power cut runs none, so
+    the row stays 'running' with no end date and every listing shows a
+    calibration that is not happening. Unlike a run, a session has no
+    heartbeat, so age since the start is the only signal there is.
+    """
+    catalog = _read_only_catalog(project_root)
+    if catalog is None:
+        return []
+    try:
+        sessions = catalog.sessions.abandoned(ABANDONED_SESSION_MINUTES)
+    except Exception:
+        sessions = []
+    finally:
+        catalog.close()
+    return [f"{project_root.name}:{entry['session_id']}" for entry in sessions]
+
+
+def abandoned_calibration_session_count(project_root: Path) -> int:
+    """Count calibration sessions still 'running' long after they opened."""
+    return len(_gc_abandoned_calibration_sessions(project_root))
+
+
 def _gc_orphan_calibration_sessions(project_root: Path) -> list[str]:
     catalog = _read_only_catalog(project_root)
     if catalog is None:
@@ -1244,6 +1282,10 @@ def _gc_apply_plan(workspace: Path, plan: dict[str, list[str]]) -> dict[str, int
         project_name, session_id = ref.split(":", 1)
         if _gc_delete_calibration_session(workspace, project_name, session_id):
             summary["calibration_sessions"] += 1
+    for ref in plan["abandoned_calibration_sessions"]:
+        project_name, session_id = ref.split(":", 1)
+        if _gc_close_abandoned_calibration_session(workspace, project_name, session_id):
+            summary["abandoned_calibration_sessions"] += 1
     for ref in plan["stale_running_sims"]:
         project_name, sim_id = ref.split(":", 1)
         if _gc_mark_simulation_failed(workspace, project_name, sim_id):
@@ -1366,6 +1408,20 @@ def _gc_delete_calibration_session(workspace: Path, project_name: str, session_i
         return False
     with Catalog(project_root) as catalog:
         catalog.delete_calibration_session(session_id)
+    return True
+
+
+def _gc_close_abandoned_calibration_session(
+    workspace: Path, project_name: str, session_id: str
+) -> bool:
+    """Close one session the process that opened it never closed."""
+    from hydromodpy.results.catalog import Catalog
+
+    project_root = _gc_project_root_by_name(workspace, project_name)
+    if project_root is None:
+        return False
+    with Catalog(project_root) as catalog:
+        catalog.sessions.close_abandoned(session_id)
     return True
 
 

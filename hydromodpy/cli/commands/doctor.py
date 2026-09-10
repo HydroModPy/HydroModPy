@@ -676,6 +676,8 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
         ]
 
     from hydromodpy.cli._workers.catalog import (
+        ABANDONED_SESSION_MINUTES,
+        abandoned_calibration_session_count,
         orphan_calibration_session_count,
         stale_running_sim_ids,
     )
@@ -684,6 +686,7 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
 
     stale_running = 0
     orphan_sessions = 0
+    abandoned_sessions = 0
     wf_running = 0
     wf_failed = 0
     wf_recent: list[tuple[str, str, str, str]] = []
@@ -692,6 +695,7 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
         # facade helpers (same path as gc/watch); no raw SQL, no private import.
         stale_running += len(stale_running_sim_ids(project_root))
         orphan_sessions += orphan_calibration_session_count(project_root)
+        abandoned_sessions += abandoned_calibration_session_count(project_root)
         try:
             conn = duckdb.connect(str(catalog_path_for(project_root)), read_only=True)
         except duckdb.Error:
@@ -748,6 +752,15 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
             "status": "OK" if stale_running == 0 else "WARN",
             "detail": f"{stale_running} sim(s) running >{STALE_HEARTBEAT_MINUTES} min without heartbeat",
             "hint": "Run 'hmp catalog gc -w <ws> --apply' to mark them failed",
+        },
+        {
+            "name": "lifecycle:abandoned_calibration_sessions",
+            "status": "OK" if abandoned_sessions == 0 else "WARN",
+            "detail": (
+                f"{abandoned_sessions} calibration session(s) still running after "
+                f"{ABANDONED_SESSION_MINUTES // 60} h with no outcome"
+            ),
+            "hint": "Run 'hmp catalog gc -w <ws> --apply' to close them as aborted",
         },
         {
             "name": "lifecycle:orphan_calibration_sessions",
