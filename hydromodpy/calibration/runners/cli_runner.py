@@ -343,18 +343,31 @@ def _tolerance_intervals_or_none(
     trace: list[dict[str, Any]],
     names: list[str],
     space: ParameterSpace,
+    decl: Any,
 ) -> list[ParameterInterval]:
     """Return the interval around each calibrated value, or nothing.
 
     A criterion solved at zero, such as the stream-network gap, has no fraction
-    of itself to take: there the width has to be stated in the unit of the cost,
-    which only the reader of that criterion can do. Reporting nothing is the
-    honest answer rather than a number under a rule nobody chose.
+    of itself to take, so a relative tolerance means nothing there. Reporting
+    nothing is the honest answer rather than a number under a rule nobody chose,
+    and the run says which line turns it back on.
     """
     bounds = {param.name: (param.lower, param.upper) for param in space}
     try:
-        return tolerance_intervals(trace, names, bounds=bounds)
-    except ValueError:
+        return tolerance_intervals(
+            trace,
+            names,
+            bounds=bounds,
+            tolerance=float(decl.tolerance),
+            mode=decl.mode,
+        )
+    except ValueError as exc:
+        logger.warning(
+            "No interval was reported around the calibrated values: %s Write "
+            '[calibration.uncertainty] mode = "absolute" with a tolerance in the unit '
+            "of the cost to get one.",
+            exc,
+        )
         return []
 
 
@@ -670,7 +683,7 @@ def run_calibration_core(
     trace = calibration_trace(session.history, values_by_trial)
     names = [param.name for param in space]
     correlated = correlated_parameter_pairs(trace, names)
-    intervals = _tolerance_intervals_or_none(trace, names, space)
+    intervals = _tolerance_intervals_or_none(trace, names, space, cfg.uncertainty)
     if correlated:
         for first, second, coefficient in correlated:
             logger.warning(

@@ -204,11 +204,25 @@ The run says so in one line:
    Sy = 0.35, and 31 of 120 trials scored within 0.12 of the best over
    [0.19, 0.35]; that range runs into the upper search bound.
 
+The width is a decision, so it is written in the file:
+
+.. code-block:: toml
+
+   [calibration.uncertainty]
+   method = "cost_profile"
+   mode = "relative"
+   tolerance = 0.05
+
 A criterion whose best cost is zero, such as the stream-network gap, has no
-fraction of itself to take. The intervals are then left out rather than computed
-under a rule nobody chose; ask for them in cost units with
-:func:`hydromodpy.calibration.optim.tolerance.tolerance_intervals` and
-``mode="absolute"``.
+fraction of itself to take: five per cent of zero is zero and no interval comes
+back. State the width in the unit of the cost there instead, and the run says so
+when it has to:
+
+.. code-block:: toml
+
+   [calibration.uncertainty]
+   mode = "absolute"
+   tolerance = 25.0        # metres of network offset
 
 **Whether two parameters were told apart.** ``correlated_parameters`` lists the
 pairs that moved together across the whole search to hold the same cost. Such a

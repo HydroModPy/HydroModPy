@@ -606,6 +606,8 @@ Sub-models are linked back to their per-section page.
       materialize_candidates = false
       # Directory for per-candidate overlay TOMLs. Required when materialize_candidates is True.
       # candidates_root = ...  # default = None
+      # How wide the search reports its own answer to be. The calibrated value is unaffected; this only decides the interval printed beside it.
+      # uncertainty = ...  # uses factory default
       # Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for calibration outputs.
       # persistence = ...  # uses factory default
 

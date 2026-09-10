@@ -1735,6 +1735,50 @@
       "title": "CalibScoringWindow",
       "type": "object"
     },
+    "CalibUncertaintyDecl": {
+      "additionalProperties": false,
+      "description": "How wide the search says its own answer is.\n\nThe calibrated value never moves: this block only decides what is reported\nbeside it. ``cost_profile`` reads the interval off the trials the search\nalready ran, so it costs no extra model run and rests on no error model. It\nsays what the search could not tell apart, which is a statement about the\ntrace and not a posterior.",
+      "properties": {
+        "method": {
+          "const": "cost_profile",
+          "default": "cost_profile",
+          "description": "How the interval around each calibrated value is obtained. 'cost_profile' reads the range of sampled values whose cost stayed within 'tolerance' of the best, off the trace the search already produced.",
+          "examples": [
+            "cost_profile"
+          ],
+          "title": "Method",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "tolerance": {
+          "default": 0.05,
+          "description": "Width of the interval. A fraction of the best cost when mode='relative' (0.05 = five per cent), and a number in the unit of the cost when mode='absolute'.",
+          "examples": [
+            0.05
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Tolerance",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "mode": {
+          "default": "relative",
+          "description": "How 'tolerance' is read. 'relative' is a fraction of the best cost and is the usual choice for an efficiency score. A criterion solved at zero, such as the stream-network gap, has no fraction of itself to take: state the width in the unit of the cost with 'absolute', for example 25 metres.",
+          "enum": [
+            "relative",
+            "absolute"
+          ],
+          "examples": [
+            "relative"
+          ],
+          "title": "Mode",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CalibUncertaintyDecl",
+      "type": "object"
+    },
     "CalibrationConfig": {
       "additionalProperties": false,
       "description": "Top-level ``[calibration]`` section.\n\nThe config selects the optimizer, iteration budget, candidate persistence\npolicy, parameter declarations, observable outputs, and objective blocks.\nIt is the stable user-facing schema used by CLI calibration and\n``Project.calibrate``.\n\nWhen no explicit objective block is declared, HydroModPy can synthesize one\nfrom ``objective`` and ``variable`` if the matching output exists.",
@@ -2062,6 +2106,11 @@
           "description": "Directory for per-candidate overlay TOMLs. Required when materialize_candidates is True.",
           "title": "Candidates Root",
           "x-hmp-profile": "dev"
+        },
+        "uncertainty": {
+          "$ref": "#/$defs/CalibUncertaintyDecl",
+          "description": "How wide the search reports its own answer to be. The calibrated value is unaffected; this only decides the interval printed beside it.",
+          "x-hmp-profile": "user"
         },
         "persistence": {
           "$ref": "#/$defs/PersistenceConfig",

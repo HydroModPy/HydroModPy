@@ -773,6 +773,43 @@ class CalibPhaseDecl(HydroModelBase):
         return self.variable is not None or self.objective is not None
 
 
+class CalibUncertaintyDecl(HydroModelBase):
+    """How wide the search says its own answer is.
+
+    The calibrated value never moves: this block only decides what is reported
+    beside it. ``cost_profile`` reads the interval off the trials the search
+    already ran, so it costs no extra model run and rests on no error model. It
+    says what the search could not tell apart, which is a statement about the
+    trace and not a posterior.
+    """
+
+    method: Annotated[Literal["cost_profile"], Profile.USER] = Field(
+        default="cost_profile",
+        description=(
+            "How the interval around each calibrated value is obtained. "
+            "'cost_profile' reads the range of sampled values whose cost stayed within "
+            "'tolerance' of the best, off the trace the search already produced."
+        ),
+    )
+    tolerance: Annotated[PositiveFloat, Profile.USER] = Field(
+        default=0.05,
+        description=(
+            "Width of the interval. A fraction of the best cost when mode='relative' "
+            "(0.05 = five per cent), and a number in the unit of the cost when "
+            "mode='absolute'."
+        ),
+    )
+    mode: Annotated[Literal["relative", "absolute"], Profile.USER] = Field(
+        default="relative",
+        description=(
+            "How 'tolerance' is read. 'relative' is a fraction of the best cost and is "
+            "the usual choice for an efficiency score. A criterion solved at zero, such "
+            "as the stream-network gap, has no fraction of itself to take: state the "
+            "width in the unit of the cost with 'absolute', for example 25 metres."
+        ),
+    )
+
+
 class CalibrationConfig(HydroModelBase):
     """Top-level ``[calibration]`` section.
 
@@ -941,6 +978,11 @@ class CalibrationConfig(HydroModelBase):
         default=None,
         description="Directory for per-candidate overlay TOMLs. "
         "Required when materialize_candidates is True.",
+    )
+    uncertainty: Annotated[CalibUncertaintyDecl, Profile.USER] = Field(
+        default_factory=CalibUncertaintyDecl,
+        description="How wide the search reports its own answer to be. The calibrated "
+        "value is unaffected; this only decides the interval printed beside it.",
     )
     persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
         default_factory=PersistenceConfig,

@@ -52,6 +52,16 @@ transform = "log"
 path = "flow.param.Sy.field.value"
 units = "-"
 
+# The stage-one criterion is solved at zero, so five per cent of the best cost
+# is zero and no interval would be reported. State the width in the unit of the
+# cost instead: 25 metres of network offset is the agreement this catchment can
+# claim, and the interval is the range of K the trials could not tell apart
+# inside it.
+[calibration.uncertainty]
+method = "cost_profile"
+mode = "absolute"
+tolerance = 25.0
+
 [calibration.outputs.seepage_network]
 support = "network"
 stream_geometry_path = "streams.gpkg"
