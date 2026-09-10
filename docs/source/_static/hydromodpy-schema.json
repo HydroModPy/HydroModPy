@@ -591,6 +591,20 @@
       "additionalProperties": false,
       "description": "Observable extracted from a boundary package.\n\nUse this variant for fluxes integrated over a named boundary\n(drains, rivers, GHB) referenced by ``boundary_id``.",
       "properties": {
+        "observes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'.",
+          "title": "Observes",
+          "x-hmp-profile": "user"
+        },
         "variable": {
           "description": "Simulated variable to extract (e.g. 'discharge').",
           "examples": [
@@ -674,7 +688,7 @@
             }
           ],
           "default": null,
-          "description": "Hard-coded observed values (used by twin-synthetic cases).",
+          "description": "Hard-coded observed values, positional and dateless. Name a station in 'observes' to score a record the project loaded instead.",
           "title": "Observed Values",
           "x-hmp-profile": "user"
         }
@@ -690,6 +704,20 @@
       "additionalProperties": false,
       "description": "Observable extracted at one structured cell.\n\nUse this variant for explicit ``(row, col)`` selectors on a structured\ngrid, optionally with a non-zero ``layer``. ``cell_id`` is a flat index\naccepted on backends that expose one.",
       "properties": {
+        "observes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'.",
+          "title": "Observes",
+          "x-hmp-profile": "user"
+        },
         "variable": {
           "description": "Simulated variable to extract (e.g. 'head').",
           "examples": [
@@ -823,7 +851,7 @@
             }
           ],
           "default": null,
-          "description": "Hard-coded observed values (used by twin-synthetic cases).",
+          "description": "Hard-coded observed values, positional and dateless. Name a station in 'observes' to score a record the project loaded instead.",
           "title": "Observed Values",
           "x-hmp-profile": "user"
         }
@@ -838,6 +866,20 @@
       "additionalProperties": false,
       "description": "Observable extracted from a MODFLOW 6 LAK lake state.\n\nUse this variant to score a lake water level, stored volume or free surface\ninside a composite objective. ``lake_id`` matches the lake declared under\n``flow.sinks_sources.lakes.<lake_id>``.\n\nFor calibration against a real observed chronicle, prefer the top-level\n``variable = \"lake_level\"`` path: it loads the ``lake_levels`` data family\nand time-aligns the simulated stage to the observations. This output\nvariant scores positionally against ``observed_values``, like the other\ncomposite outputs.",
       "properties": {
+        "observes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'.",
+          "title": "Observes",
+          "x-hmp-profile": "user"
+        },
         "variable": {
           "default": "stage",
           "description": "Simulated lake quantity: 'stage' (water level, m), 'volume' (m3) or 'surface_area' (m2). All three are LAK observation states, read in native units and never time-scaled.",
@@ -927,7 +969,7 @@
             }
           ],
           "default": null,
-          "description": "Hard-coded observed values (used by twin-synthetic cases).",
+          "description": "Hard-coded observed values, positional and dateless. Name a station in 'observes' to score a record the project loaded instead.",
           "title": "Observed Values",
           "x-hmp-profile": "user"
         }
@@ -1163,6 +1205,20 @@
       "additionalProperties": false,
       "description": "Observable extracted at a planar ``(x, y)`` point.\n\nUse this variant for piezometric heads sampled at a single coordinate.\nProvide either ``x`` and ``y`` or a GeoJSON ``geometry`` block.",
       "properties": {
+        "observes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'.",
+          "title": "Observes",
+          "x-hmp-profile": "user"
+        },
         "variable": {
           "description": "Simulated variable to extract (e.g. 'head', 'outlet_discharge').",
           "examples": [
@@ -1312,7 +1368,7 @@
             }
           ],
           "default": null,
-          "description": "Hard-coded observed values (used by twin-synthetic cases).",
+          "description": "Hard-coded observed values, positional and dateless. Name a station in 'observes' to score a record the project loaded instead.",
           "title": "Observed Values",
           "x-hmp-profile": "user"
         }
