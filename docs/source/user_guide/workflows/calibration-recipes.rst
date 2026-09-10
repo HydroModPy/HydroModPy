@@ -6,9 +6,17 @@ that a copy is a copy and not a transcription. Each one loads: a unit test
 validates all three on every commit, which is what keeps them true after a key
 is renamed.
 
+Each is an overlay. It carries the search and inherits the catchment, the data
+and the solver from the project it points at, so the model that is calibrated
+and the model that is run are one description. The project has to declare the
+parameters the overlay moves, in ``[flow] param_list`` and ``[flow.param.<id>]``;
+a calibration cannot search over a property the model does not have. Copy one
+next to your ``project.toml`` and run it:
+
 .. code-block:: bash
 
-   hmp calibrate docs/source/user_guide/recipes/calibration_single_gauge.toml
+   hmp calibrate --check calibration_single_gauge.toml   # nothing solves
+   hmp calibrate calibration_single_gauge.toml
 
 Pick by what the site actually offers.
 

@@ -7,8 +7,14 @@
 # The weights are the modelling decision this file exists to make explicit: they
 # say what the calibration is for. Read them as shares of the total cost.
 
-[workspace]
-name = "calibration_multi_objective"
+# This file is an overlay: it carries the calibration and inherits the
+# catchment, the data and the solver from the project it points at. Every
+# calibration in the repository is written this way, so the same model is
+# run and calibrated from one description.
+base_config = "project.toml"
+
+[workflow]
+mode = "calibration"
 
 [simulation.time]
 start_datetime = "2000-01-01"

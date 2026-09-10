@@ -69,6 +69,7 @@ def _check_only(target: Path) -> None:
         # finding would be about a configuration that does not exist.
         findings = [PreflightFinding("error", target.name, f"the file does not load: {exc}")]
     else:
+        _announce_the_protocol(cfg)
         findings = preflight_calibration(cfg, source=target)
     if not findings:
         print(f"{target.name}: ready to run.", file=sys.stderr)
@@ -82,6 +83,26 @@ def _check_only(target: Path) -> None:
     )
     if errors:
         sys.exit(EXIT_CONFIG)
+
+
+def _announce_the_protocol(cfg) -> None:
+    """Say which published method this file runs, and what it rests on.
+
+    A calibrated value that came out of a named method carries the method with
+    it. Printing it here is where the reader is already looking, before an
+    overnight run rather than after.
+    """
+    declared = getattr(getattr(cfg, "calibration", None), "protocol", None)
+    if declared is None:
+        return
+    from hydromodpy.calibration.protocols import protocol_record
+
+    record = protocol_record(declared.name)
+    print(f"protocol: {record['name']} - {record['title']}", file=sys.stderr)
+    for index, stage in enumerate(record["stages"], start=1):
+        print(f"  stage {index}: {stage}", file=sys.stderr)
+    for reference in record["references"]:
+        print(f"  cite: {reference}", file=sys.stderr)
 
 
 def run(args: argparse.Namespace) -> None:

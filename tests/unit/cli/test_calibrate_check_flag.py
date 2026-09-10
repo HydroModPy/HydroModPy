@@ -86,3 +86,66 @@ def test_the_summary_counts_what_it_found(tmp_path, capsys) -> None:
         _check(_write(tmp_path, param_path="flow.param.Kh.field.value"))
 
     assert "1 error(s)" in capsys.readouterr().err
+
+
+_PROTOCOL = textwrap.dedent(
+    """
+    [workspace]
+    project_root = "PROJECT_ROOT"
+
+    [workflow]
+    mode = "calibration"
+
+    [simulation.time]
+    start_datetime = "2000-01-01"
+    end_datetime = "2000-12-31"
+    step_value = 1
+    step_unit = "day"
+
+    [geographic]
+    source_mode = "synthetic"
+
+    [flow.param.K.field]
+    id = "K"
+    kind = "homogeneous"
+    unit = "m/s"
+    value = 6.4e-5
+
+    [flow.param.Sy.field]
+    id = "Sy"
+    kind = "homogeneous"
+    unit = "-"
+    value = 0.05
+
+    [calibration]
+    protocol = "matching_hydrographic_network"
+
+    [calibration.parameters.K]
+    bounds = [1e-7, 1e-3]
+    transform = "log"
+    path = "flow.param.K.field.value"
+
+    [calibration.parameters.Sy]
+    bounds = [5e-3, 0.35]
+    transform = "log"
+    path = "flow.param.Sy.field.value"
+    units = "-"
+
+    [calibration.outputs.seepage_network]
+    support = "network"
+    stream_geometry_path = "streams.gpkg"
+    """
+)
+
+
+def test_a_named_method_is_announced_with_what_to_cite(tmp_path, capsys) -> None:
+    path = tmp_path / "calib.toml"
+    path.write_text(_PROTOCOL.replace("PROJECT_ROOT", str(tmp_path)), encoding="utf-8")
+    (tmp_path / "streams.gpkg").write_bytes(b"")
+
+    _check(path)
+
+    printed = capsys.readouterr().err
+    assert "matching_hydrographic_network" in printed
+    assert "10.5194/hess-27-3221-2023" in printed
+    assert "ready to run" in printed

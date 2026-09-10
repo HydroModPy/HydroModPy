@@ -10,8 +10,14 @@
 #
 # `hmp calibrate --list-phases <this file>` prints the assembly before running it.
 
-[workspace]
-name = "calibration_matching_hydrographic_network"
+# This file is an overlay: it carries the calibration and inherits the
+# catchment, the data and the solver from the project it points at. Every
+# calibration in the repository is written this way, so the same model is
+# run and calibrated from one description.
+base_config = "project.toml"
+
+[workflow]
+mode = "calibration"
 
 [simulation.time]
 start_datetime = "1995-01-01"
