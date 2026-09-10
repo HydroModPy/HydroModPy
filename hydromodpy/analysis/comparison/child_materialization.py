@@ -33,6 +33,15 @@ ALLOWED_TOP_LEVEL_OVERLAY_KEYS = {
     "modflownwt",
     "display",
     "flow",
+    # A cell may be a whole calibration rather than a single run, which is how a
+    # structural sweep is expressed: one complete calibration per mesh, each with
+    # its own plan, reported side by side and read for convergence. Refining a
+    # mesh and keeping the conductivity that scored best would be circular,
+    # because the stream-network criterion is normalised by cell size. The child
+    # is materialised the same way and dispatched by `hmp run` on its
+    # `[workflow] mode`, so nothing here has to know which kind of cell it built.
+    "calibration",
+    "workflow",
 }
 OVERLAY_DIRECTIVE_SUFFIXES = ("__append", "__delete")
 

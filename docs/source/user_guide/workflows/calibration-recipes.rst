@@ -336,6 +336,24 @@ run per mesh, compared, and read for convergence rather than for a best score.
 
    hmp compare mesh_sweep.toml
 
+A cell may be a whole calibration rather than a single run, which is what a
+structural sweep actually is: one complete calibration per mesh, each with its own
+plan. Declare it in the cell's overlay:
+
+.. code-block:: toml
+
+   [comparison.simulation.overlay.workflow]
+   mode = "calibration"
+
+   [comparison.simulation.overlay.calibration]
+   protocol = "matching_hydrographic_network"
+
+The child is materialised the same way and dispatched by ``hmp run`` on its own
+``[workflow] mode``, so the cohort machinery does not need to know which kind of
+cell it built. What it must not do is rank them: the criterion is normalised by
+cell size, so the cheapest cost belongs to the finest mesh whatever the
+hydrogeology.
+
 Read the spread across the three as the numerical error on whatever you report,
 and refine until it stops moving. Calibrate on the coarsest mesh whose answer no
 longer changes: a finer one buys solve time, not information. Running the
