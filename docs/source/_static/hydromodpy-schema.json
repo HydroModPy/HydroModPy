@@ -5547,6 +5547,13 @@
               "type": "null"
             }
           ],
+          "calibrable": {
+            "bounds": null,
+            "description": "Scalar value of a homogeneous field parameter. The target every calibration in the repository writes to.",
+            "prior": "log_uniform",
+            "transform": "log",
+            "units": null
+          },
           "default": null,
           "description": "Scalar surface value used when kind='homogeneous'.",
           "title": "Value",
