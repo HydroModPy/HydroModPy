@@ -75,26 +75,33 @@ class TestEarliestAffectedStep:
 
         The matcher uses ``path.startswith(section + ".")`` so that
         sibling names that share a prefix (``flow`` vs ``flow_rate``)
-        never spuriously match.
+        never spuriously match. A path that matches nothing is refused, which
+        is how the near-miss is told apart from a hit.
         """
         steps = (_StubStep("a", ("flow",)),)
-        # Should not match: "flow_rate" is not a descendant of "flow"
-        assert earliest_affected_step({"flow_rate.value"}, steps) == 1
+        with pytest.raises(ConfigError, match="no pipeline step reads"):
+            earliest_affected_step({"flow_rate.value"}, steps)
 
     def test_exact_section_match_returns_step_index(self) -> None:
         steps = (_StubStep("a", ("flow",)),)
         assert earliest_affected_step({"flow"}, steps) == 0
 
-    def test_no_match_returns_len_steps(self) -> None:
+    def test_a_path_no_step_reads_is_refused(self) -> None:
+        """Nothing would re-run, so every trial would score the same model."""
         steps = _toy_pipeline()
-        # "nonexistent" doesn't match any section in the toy pipeline
-        idx = earliest_affected_step({"nonexistent.path"}, steps)
-        assert idx == len(steps)
+        with pytest.raises(ConfigError, match="nonexistent.path"):
+            earliest_affected_step({"nonexistent.path"}, steps)
+
+    def test_the_refusal_lists_what_a_step_does_read(self) -> None:
+        steps = (_StubStep("a", ("flow",)),)
+        with pytest.raises(ConfigError, match="flow"):
+            earliest_affected_step({"nowhere"}, steps)
 
     def test_empty_section_never_matches(self) -> None:
         steps = (_StubStep("a", ("", "flow")),)
         # Only "flow" section can ever match
-        assert earliest_affected_step({"nothing"}, steps) == 1
+        with pytest.raises(ConfigError, match="no pipeline step reads"):
+            earliest_affected_step({"nothing"}, steps)
         assert earliest_affected_step({"flow.k"}, steps) == 0
 
     def test_empty_override_paths_raises(self) -> None:

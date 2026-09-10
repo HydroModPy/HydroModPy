@@ -288,7 +288,7 @@ Fields
         <code class="hmp-field-name">param_list</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L128>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L135>`__
 
       Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).
 
@@ -308,7 +308,7 @@ Fields
         <code class="hmp-field-toml">[flow.param.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`dict[str, FlowParam]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L136>`__
+   :bdg-primary:`dict[str, FlowParam]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L143>`__
 
       Mapping of flow-parameter identifiers to native FieldParamConfig payloads.
 
@@ -668,7 +668,7 @@ Fields
         <code class="hmp-field-toml">[flow.ic]</code>
       </div>
 
-   :bdg-primary:`FlowInitialConditions` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L176>`__
+   :bdg-primary:`FlowInitialConditions` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L183>`__
 
       Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition).
 
@@ -1082,7 +1082,7 @@ Fields
         <code class="hmp-field-toml">[flow.bc.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`kind = "dirichlet" | "cauchy" | "robin"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L140>`__
+   :bdg-primary:`kind = "dirichlet" | "cauchy" | "robin"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L147>`__
 
       Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.
 
@@ -1611,7 +1611,7 @@ Fields
         <code class="hmp-field-toml">[flow.sinks_sources]</code>
       </div>
 
-   :bdg-primary:`FlowSinksSourcesConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L183>`__
+   :bdg-primary:`FlowSinksSourcesConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L190>`__
 
       Typed sinks/sources payload (for example pumping wells).
 
@@ -6518,7 +6518,7 @@ Fields
         <code class="hmp-field-name">active_sinks_sources</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L187>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L194>`__
 
       Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells', 'etp'. Boussinesq currently rejects 'etp' at solver-contract validation. An empty list means no sink/source package is assembled by the solver.
 
@@ -6541,7 +6541,7 @@ Fields
         <code class="hmp-field-name">active_bc</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L197>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L204>`__
 
       Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage', 'lake', 'reservoir'. 'lake'/'reservoir' build a MODFLOW 6 LAK advanced package and are only supported by the modflow6 backend. An empty list means no boundary-condition package is assembled by the solver.
 
@@ -6613,7 +6613,7 @@ Fields
 
    :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L119>`__
 
-      Optional hotstart: path to a prior simulation Zarr store whose last time step seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior run must share this run's mesh, so enable [mesh_catchment] cache = true; otherwise the cell count differs and restart is refused. None keeps [flow.ic].
+      Optional hotstart: path to a prior simulation Zarr store whose last time step seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior run must share this run's mesh, so enable [mesh_catchment] cache = true; otherwise the cell count differs and restart is refused. None keeps [flow.ic]. Read only by a backend that declares it can: elsewhere the run is refused rather than started from [flow.ic] without a word. This is one of the four ways to say where a transient starts, next to [flow.ic] type='steady_state' (equilibrium under the mean recharge, or under a rate you state with source='prescribed'), type='custom'/'top'/'bottom' (a level you write), and `hmp spinup` (repeat a representative window until the state stops moving, then point this key at its result).
 
 
 Starter TOML snippet

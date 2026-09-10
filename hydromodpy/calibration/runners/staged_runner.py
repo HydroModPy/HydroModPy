@@ -42,6 +42,7 @@ from hydromodpy.calibration.optim.parameters import (
     ParameterSpace,
     apply_parameter_to_config,
 )
+from hydromodpy.calibration.protocols import protocol_record
 from hydromodpy.calibration.runners.cli_runner import (
     load_toml_calibration,
     run_calibration_core,
@@ -141,14 +142,19 @@ class StagedCalibrationReport:
     phases: tuple[PhaseRun, ...]
     frozen: tuple[FrozenParameter, ...]
     root_session_id: str
+    protocol: dict[str, Any] | None = None
+    """The published method that wrote these stages, when one did."""
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly summary for the CLI."""
-        return {
+        summary: dict[str, Any] = {
             "root_session_id": self.root_session_id,
             "phases": [phase.to_dict() for phase in self.phases],
             "frozen": [item.to_dict() for item in self.frozen],
         }
+        if self.protocol is not None:
+            summary["protocol"] = self.protocol
+        return summary
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +202,10 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
                 block for block in payload["objective_blocks"] if block["name"] in selected
             ]
     payload["phases"] = None
+    # The protocol wrote these phases; a single phase of it is an ordinary
+    # calibration and would otherwise be refused for carrying a method whose
+    # stages it no longer declares.
+    payload["protocol"] = None
     try:
         return CalibrationConfig.model_validate(payload)
     except ValidationError as exc:
@@ -527,6 +537,7 @@ def run_staged_calibration(
         phases=tuple(runs),
         frozen=tuple(frozen),
         root_session_id=str(root_session_id),
+        protocol=protocol_record(cfg.protocol.name) if cfg.protocol is not None else None,
     )
     return staged if return_report else staged.to_dict()
 

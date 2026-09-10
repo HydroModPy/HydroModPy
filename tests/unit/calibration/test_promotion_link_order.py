@@ -32,7 +32,7 @@ SESSION_FIGURES = (
     "downslope_distance_crossing",
     "bisection_bracket_trace",
     "parameter_cost_profile",
-    "abherve_two_stage_card",
+    "matching_hydrographic_network_card",
 )
 
 MISSING_TABLE_REASON = "missing catalog table(s): calibration_iterations"

@@ -234,7 +234,7 @@ Sub-models are linked back to their per-section page.
       # example: first_period_steady = true
       # example: first_period_steady = false
       first_period_steady = true
-      # Optional hotstart: path to a prior simulation Zarr store whose last time step seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior run must share this run's mesh, so enable [mesh_catchment] cache = true; otherwise the cell count differs and restart is refused. None keeps [flow.ic].
+      # Optional hotstart: path to a prior simulation Zarr store whose last time step seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior run must share this run's mesh, so enable [mesh_catchment] cache = true; otherwise the cell count differs and restart is refused. None keeps [flow.ic]. Read only by a backend that declares it can: elsewhere the run is refused rather than started from [flow.ic] without a word. This is one of the four ways to say where a transient starts, next to [flow.ic] type='steady_state' (equilibrium under the mean recharge, or under a rate you state with source='prescribed'), type='custom'/'top'/'bottom' (a level you write), and `hmp spinup` (repeat a representative window until the state stops moving, then point this key at its result).
       # restart_from = ...  # default = None
 
 .. dropdown:: ``[transport]`` (TransportConfig)
@@ -556,6 +556,8 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [calibration]
+      # Published calibration method this file runs, named instead of retyped. A protocol writes the stages, their criteria and the model regimes they need, so the file states only what belongs to the site. Write the name alone, or a table carrying it plus the names this file uses for the parameters and outputs the method moves. Registered: 'matching_hydrographic_network' (Abherve et al., 2023, doi:10.5194/hess-27-3221-2023). A file that declares its own phases or objective blocks cannot also name a protocol.
+      # protocol = ...  # default = None
       # Optimization method. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.
       method = "grid"
       # Maximum number of calibration iterations.

@@ -60,6 +60,15 @@ class FigureSpec:
 
     name: str
     title: str
+    former_names: tuple[str, ...] = ()
+    """What this figure used to be called.
+
+    A figure name is written in ``[display].figures`` and checked against the
+    registry, so a rename refuses every project file that already lists it.
+    Declaring the old spelling here keeps those files loading and warns with
+    both names, which is the only way a reader learns what to write.
+    """
+
     kind: FigureKind = "spatial"
     required_fields: tuple[str, ...] = ()
     optional_fields: tuple[str, ...] = ()

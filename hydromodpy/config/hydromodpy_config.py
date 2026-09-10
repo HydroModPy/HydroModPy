@@ -36,6 +36,7 @@ from pydantic import Field, ValidationError, ValidationInfo, model_validator
 from hydromodpy.analysis.config import AnalysisConfig
 from hydromodpy.analysis.testbed.config import TestbedConfig
 from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.config.toml_section_loader import (
     _deep_merge,
     _load_data_section,
@@ -140,6 +141,10 @@ class WorkflowConfig(HydroModelBase):
             "HTML report path."
         ),
     )
+
+
+RESTART_CAPABILITY = "flow:restart"
+"""What a backend declares when it reads ``[flow] restart_from``."""
 
 
 def _derive_name_from_filename(toml_path: Path) -> str:
@@ -499,6 +504,20 @@ class HydroModPyConfig(HydroModelBase):
                     "networks. As-is the streams would be silently ignored."
                 )
 
+            # A hotstart is read by the backends that declare they can read one.
+            # Elsewhere the key was accepted and never looked at, so the run
+            # started from the declared initial condition and said nothing.
+            if getattr(flow_cfg, "restart_from", None):
+                from hydromodpy.solver.base.registry import capabilities
+
+                if RESTART_CAPABILITY not in capabilities("flow", str(engine_value)):
+                    raise IncompatibleCapabilitiesError(
+                        f"solver.backend={engine_value!r} does not read flow.restart_from; "
+                        "it would be silently ignored and the run would start from "
+                        "flow.ic instead. Use a backend that declares "
+                        f"{RESTART_CAPABILITY!r}, or drop flow.restart_from."
+                    )
+
             # Flow barriers and dam cutoff walls are a MODFLOW 6-only addon.
             barriers = getattr(sinks_sources, "flow_barriers", None) or {}
             has_cutoff = any(
@@ -613,7 +632,7 @@ class HydroModPyConfig(HydroModelBase):
         context: ValidationContext = "api",
     ) -> HydroModPyConfig:
         """Normalize one raw config payload and validate the root model."""
-        raw = copy.deepcopy(dict(payload))
+        raw = expand_calibration_protocol(copy.deepcopy(dict(payload)))
         if "initializing" in raw:
             raise ValueError(
                 "Section [initializing] is no longer supported. Use [workspace] instead."

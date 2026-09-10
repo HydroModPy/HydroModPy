@@ -47,6 +47,9 @@ from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import Field, TypeAdapter, field_validator, model_validator
 
+from hydromodpy.calibration.protocols.matching_hydrographic_network import (
+    MatchingHydrographicNetworkOptions,
+)
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile
@@ -81,6 +84,15 @@ by validation.
 """
 CalibrationMethod = NonEmptyStr
 OutputTime = Literal["all", "last", "first"] | list[str]
+
+CalibrationProtocolDecl: TypeAlias = MatchingHydrographicNetworkOptions
+"""What ``[calibration].protocol`` validates against.
+
+One registered protocol today, so the alias names it directly. A second one
+turns this into a union discriminated on ``name``; the registry and this alias
+are kept in step by
+``tests/unit/calibration/test_calibration_protocols.py``.
+"""
 
 
 class CalibParameterDecl(HydroModelBase):
@@ -723,6 +735,19 @@ class CalibrationConfig(HydroModelBase):
     from ``objective`` and ``variable`` if the matching output exists.
     """
 
+    protocol: Annotated[CalibrationProtocolDecl | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Published calibration method this file runs, named instead of retyped. "
+            "A protocol writes the stages, their criteria and the model regimes they "
+            "need, so the file states only what belongs to the site. Write the name "
+            "alone, or a table carrying it plus the names this file uses for the "
+            "parameters and outputs the method moves. Registered: "
+            "'matching_hydrographic_network' (Abherve et al., 2023, "
+            "doi:10.5194/hess-27-3221-2023). A file that declares its own phases or "
+            "objective blocks cannot also name a protocol."
+        ),
+    )
     method: Annotated[CalibrationMethod, Profile.USER] = Field(
         default="grid",
         description=(
@@ -872,6 +897,26 @@ class CalibrationConfig(HydroModelBase):
         description="Single switch governing every persistence sink "
         "(catalog, Zarr, Parquet, lockfile) for calibration outputs.",
     )
+
+    @model_validator(mode="after")
+    def _check_the_protocol_was_expanded(self) -> CalibrationConfig:
+        """Refuse a protocol whose stages nobody wrote.
+
+        The expansion reads the whole configuration document, because the stages
+        it writes carry regime and time-grid overrides. Validating
+        ``[calibration]`` on its own cannot see it, and a protocol left
+        unexpanded would calibrate nothing while the file says it runs a
+        published method.
+        """
+        if self.protocol is not None and not self.phases:
+            raise ValueError(
+                f"[calibration].protocol = {self.protocol.name!r} declares a method whose "
+                "stages were never written. The protocol is read from the whole "
+                "configuration document, so load the file through "
+                "HydroModPyConfig.from_toml or `hmp calibrate`, not by validating "
+                "[calibration] alone."
+            )
+        return self
 
     def validate_registry(self) -> None:
         """Verify the selected method is registered and its kwargs validate.

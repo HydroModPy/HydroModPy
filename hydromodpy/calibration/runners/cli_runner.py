@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -41,6 +42,11 @@ from hydromodpy.calibration.optim.optimizer import (
 )
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
 from hydromodpy.calibration.optim.promotion import promote_iterations
+from hydromodpy.calibration.optim.tolerance import (
+    ParameterInterval,
+    tolerance_intervals,
+)
+from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.calibration.runners.failure_watch import ConsecutiveFailureWatch
 from hydromodpy.calibration.runners.sandbox import keep_trial_scratch
 from hydromodpy.calibration.runners.state import (
@@ -93,6 +99,10 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     raw = load_toml_with_base_config(path)
     if "calibration" not in raw:
         raise ValueError(f"No [calibration] section in {path}")
+    try:
+        raw = expand_calibration_protocol(raw)
+    except ValueError as exc:
+        raise ConfigError(f"{path}: {exc}") from None
     try:
         cfg = CalibrationConfig.model_validate(raw["calibration"])
     except ValidationError as exc:
@@ -305,6 +315,46 @@ def _release_session_scratch(trial_ctx: TrialContext) -> None:
         cleanup_stable_folder(geographic, keep=keep)
     except Exception:  # noqa: BLE001 - cleanup never decides the session outcome
         logger.warning("Could not remove the calibration session scratch", exc_info=True)
+
+
+def calibration_trace(
+    history: Iterable[Any],
+    values_by_trial: Mapping[int, Mapping[str, float]],
+) -> list[dict[str, Any]]:
+    """Return the session history in the shape the diagnostics read.
+
+    The cost travels under ``objective_value``, which the diagnostics know as a
+    meta column. Under any other name it is taken for one more calibrated
+    parameter, and a single-parameter search then reports the parameter as
+    correlated with its own cost.
+    """
+    return [
+        {
+            "parameters": dict(values_by_trial[item.trial_id]),
+            "objective_value": item.objective_value,
+        }
+        for item in history
+        if item.trial_id in values_by_trial
+    ]
+
+
+def _tolerance_intervals_or_none(
+    trace: list[dict[str, Any]],
+    names: list[str],
+    space: ParameterSpace,
+) -> list[ParameterInterval]:
+    """Return the interval around each calibrated value, or nothing.
+
+    A criterion solved at zero, such as the stream-network gap, has no fraction
+    of itself to take: there the width has to be stated in the unit of the cost,
+    which only the reader of that criterion can do. Reporting nothing is the
+    honest answer rather than a number under a rule nobody chose.
+    """
+    bounds = {param.name: (param.lower, param.upper) for param in space}
+    try:
+        return tolerance_intervals(trace, names, bounds=bounds)
+    except ValueError:
+        return []
 
 
 def run_calibration_core(
@@ -607,13 +657,10 @@ def run_calibration_core(
     # Two parameters that moved together across the whole search were never told
     # apart by the data: the search stopped on a ridge and reported that point as
     # a minimum. Read off the trace the session already holds, so it costs nothing.
-    correlated = correlated_parameter_pairs(
-        [
-            {**values_by_trial.get(item.trial_id, {}), "objective_total": item.objective_value}
-            for item in session.history
-            if item.trial_id in values_by_trial
-        ]
-    )
+    trace = calibration_trace(session.history, values_by_trial)
+    names = [param.name for param in space]
+    correlated = correlated_parameter_pairs(trace, names)
+    intervals = _tolerance_intervals_or_none(trace, names, space)
     if correlated:
         for first, second, coefficient in correlated:
             logger.warning(
@@ -624,10 +671,37 @@ def run_calibration_core(
                 coefficient,
             )
 
+    for interval in intervals:
+        reach = [
+            side
+            for side, hit in (
+                ("lower", interval.reaches_lower_bound),
+                ("upper", interval.reaches_upper_bound),
+            )
+            if hit
+        ]
+        logger.info(
+            "%s = %.4g, and %d of %d trials scored within %.3g of the best over [%.4g, %.4g]%s.",
+            interval.name,
+            interval.best,
+            interval.n_within,
+            interval.n_trials,
+            interval.threshold,
+            interval.lower,
+            interval.upper,
+            f"; that range runs into the {' and '.join(reach)} search bound" if reach else "",
+        )
+
+    extra: dict[str, Any] = {}
+    if correlated:
+        extra["correlated_parameters"] = correlated
+    if intervals:
+        extra["parameter_intervals"] = [interval.to_dict() for interval in intervals]
+
     return CalibrationReport(
         session_id=session_id,
         method=cfg.method,
-        extra={"correlated_parameters": correlated} if correlated else {},
+        extra=extra,
         n_iterations=len(session.history),
         best_objective=best.objective_value if best else None,
         best_sim_id=best_sim_id,

@@ -72,7 +72,7 @@ Time series (11): ``bisection_bracket_trace``,
 
 Balance (2): ``flux_timeseries``, ``water_budget``.
 
-Comparison (27): ``abherve_two_stage_card``,
+Comparison (27): ``matching_hydrographic_network_card``,
 ``calibration_landscape``,
 ``calibration_objective_surface``, ``calibration_pairplot``,
 ``calibration_posterior``, ``conditioning_impact_map``,

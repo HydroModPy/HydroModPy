@@ -130,6 +130,37 @@ class CalibParameter:
         return self.target if self.target is not None else self.path
 
 
+_MESH_SECTIONS: tuple[str, ...] = ("mesh_catchment", "mesh_catchment_batch", "mesh_input")
+
+
+def _assert_path_is_not_the_mesh(name: str, path: str | None) -> None:
+    """Refuse a parameter that would search over the mesh itself.
+
+    Two reasons, and either one is enough. The stream-network criterion is
+    normalised by cell size, so refining the mesh moves the yardstick and a
+    search that optimises it is circular. And the mesh step reads the mesh
+    sections resolved once from the raw file rather than the per-trial
+    configuration, so the value would never reach the mesh: every trial would
+    score the same model under a different number.
+
+    A mesh question is answered by a sweep, not by a search: one run per mesh,
+    compared, and read for convergence.
+    """
+    if not path:
+        return
+    head = str(path).split(".", 1)[0]
+    if head not in _MESH_SECTIONS:
+        return
+    raise ValueError(
+        f"[calibration.parameters.{name}] points at {path!r}, and the mesh is not a "
+        "parameter a search may move: the stream-network criterion is normalised by "
+        "cell size, so refining the mesh moves the yardstick the search is scored "
+        "against. Run one simulation per mesh and compare them instead "
+        '(workflow mode = "comparison", `hmp compare`), which reads them for '
+        "convergence rather than for a best score."
+    )
+
+
 def _assert_bounds_are_physical(name: str, low: float, high: float, unit: object) -> None:
     """Face a declared bound with the ceiling a literal value already faces.
 
@@ -279,6 +310,8 @@ class ParameterSpace:
             units = decl.get("units", ann.units if ann else None)
             path = decl.get("path")
             target = decl.get("target")
+            _assert_path_is_not_the_mesh(name, path)
+            _assert_path_is_not_the_mesh(name, target)
             mode = str(decl.get("mode", "replace")).strip().lower()
             if mode not in {"replace", "scale"}:
                 raise ValueError(
