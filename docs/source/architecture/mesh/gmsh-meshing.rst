@@ -200,7 +200,7 @@ Non-regression tests:
 - ``tests/regression/extensive/`` for end-to-end cases.
 
 Deterministic helper:
-``tests/support/whitebox.py::configure_whitebox_single_thread`` to
+``tests/_helpers/whitebox.py::configure_whitebox_single_thread`` to
 stabilise CI runs.
 
 8. Structuring decisions

@@ -138,7 +138,7 @@ Add a new figure if your method has unusual diagnostics; see
 Tests to add
 ------------
 
-- **Unit** under ``tests/unit/calibration/adapters/`` for
+- **Unit** under ``tests/unit/calibration/`` for
   ``configure`` (option parsing), ``ask`` (point generation),
   ``tell`` (state update), ``best`` (post-loop selection).
 - **Synthetic benchmark** under
@@ -146,7 +146,7 @@ Tests to add
   ``recession_brutsaert`` or ``groundwater_1d``: assert the method
   recovers the truth within a method-specific
   ``METHOD_ABS_TOL`` tolerance.
-- **Integration** under ``tests/integration/calibration/`` for a
+- **Integration** under ``tests/integration/`` for a
   short ``hmp run`` calibration on a tiny case.
 
 Pitfalls flagged by the layer matrix

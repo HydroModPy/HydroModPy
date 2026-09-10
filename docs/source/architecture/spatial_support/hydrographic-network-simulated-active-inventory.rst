@@ -193,8 +193,8 @@ The comparison stack already knows a lot about those simulated flux outputs:
 - ``hydromodpy/analysis/comparison/visuals.py`` already produces maps and
   other figures for those fields.
 - example scripts such as
-  ``examples/projects/02_nancon_watershed/run_transient_prototype.py`` already
-  use:
+  ``examples/projects/02_nancon_watershed/run_transient_prototype.py.draft``
+  already use:
 
   - ``run.fields("accumulation_flux")``
   - ``run.fields("outflow_drain")``

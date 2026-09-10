@@ -179,8 +179,8 @@ with an active surface-contact zone and surface reaction.
 Related Developer Notes
 -----------------------
 
-- ``docs/developers/boussinesq_petsc_vi_hillslope_interception_analysis.md``
+- ``docs/_dev_notes/diagnostics/boussinesq_petsc_vi_hillslope_interception_analysis.md``
   documents the detailed hillslope interpretation.
-- ``docs/developers/boussinesq_petsc_complementarity_nancon_diagnostic.md``
+- ``docs/_dev_notes/diagnostics/boussinesq_petsc_complementarity_nancon_diagnostic.md``
   documents earlier PETSc complementarity diagnostics on a larger numerical
   scenario.

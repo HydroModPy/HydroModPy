@@ -24,10 +24,16 @@ Top-level facade
        |-- facade.py           ``Project`` class.
        |-- accessors.py        Read-only accessors on Project.
        |-- catalog.py          Project-level catalog binding.
+       |-- lockfile.py         Writes the reproducibility lockfile from a
+                               resolved config.
        |-- phases.py           Lazy-phase Project orchestration.
        |-- runner.py           Project execution wrapper.
+       |-- spinup.py           Cyclic spin-up driver: repeats a forcing
+                               window until the state stabilises.
+       |-- state.py            Mutable state container for ``Project``.
        `-- dispatch/           Workflow / calibration adapters bound to
-                               ``Project`` (workflow.py, calibration.py).
+                               ``Project`` (workflow.py, calibration.py,
+                               rerun.py).
 
 The :class:`hydromodpy.project.Project` facade composes setup, data
 loading, mesh construction, solver execution, and result ingestion.
@@ -80,12 +86,12 @@ Subpackages
        registry (``data/sources.py``), planner
        (``data/planner.py``), DuckDB cache
        (``data/registry/catalog_duckdb.py``), and load contracts
-       (``data/contracts/``). 17 variables, several public APIs
+       (``data/contracts/``). 24 variables, several public APIs
        (Hub'Eau, BD TOPAGE, BRGM, IGN BD Alti, SHOM, SIM2). See
        :doc:`packages/data`.
    * - ``display/``
      - Solver-agnostic figures registered through
-       ``display/figure_registry.py``. 45 named figures under
+       ``display/figure_registry.py``. 58 named figures under
        ``display/figures/``, plus geographic helpers (``display/geo``)
        and overview rendering (``display/overview``). See
        :doc:`packages/display`.
@@ -140,11 +146,6 @@ Subpackages
        workflow and calibration launchers to ``Project`` without
        making lower layers depend on the facade. Entry:
        ``project/facade.py``. See :doc:`packages/project`.
-   * - ``validity_frame/``
-     - Experimental observability tooling for runtime capture and
-       JSONL-to-DuckDB ingestion. It is isolated from modeling layers
-       and is not a stable V1 public API. See
-       :doc:`packages/validity_frame`.
 
 Repository folders outside the package
 --------------------------------------
@@ -161,7 +162,14 @@ Repository folders outside the package
    |-- tests/                 Five-tier test tree (unit, integration,
    |                          e2e, regression, validation).
    |-- tools/                 Doc-gallery, PlantUML setup, CI helpers.
-   `-- validation_cases/      Reusable scientific benchmark inventory.
+   |-- validation_cases/      Reusable scientific benchmark inventory.
+   `-- validity_frame/        Standalone observability sub-project with its
+                              own pyproject.toml (runtime capture and
+                              JSONL-to-DuckDB ingestion).
+
+``validity_frame/`` is packaged separately, is not installed with the
+core wheel, and is not a stable V1 public API. See
+:doc:`packages/validity_frame`.
 
 Dependency direction is one-way: ``hydromodpy_annex/`` and ``tools/``
 may import the core package, but the package itself must not import

@@ -458,7 +458,8 @@ exactly where distances are smallest, so an unweighted mean over-samples the
 river corridor. HydroModPy reports both weightings at every trial, as
 ``D_so_cell`` and ``D_so_area`` beside ``D_os_cell`` and ``D_os_area``, and
 their gap measures the effect of the refinement directly. Which pair enters the
-criterion is what ``weighting`` selects, one cell one vote by default.
+criterion is what ``weighting`` selects; see
+:doc:`/user_guide/config_reference/calibration` for its default.
 
 :math:`L_{ref}` is the square root of the **median** cell area over the
 catchment, not the mean. On a mesh refined along the streams a handful of large
