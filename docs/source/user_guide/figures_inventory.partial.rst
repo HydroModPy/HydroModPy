@@ -163,9 +163,6 @@ Multi-panel views combining one or several runs, observed data, or calibration t
    * - Figure name
      - Title
      - Required inputs
-   * - ``abherve_two_stage_card``
-     - Two-stage calibration card
-     - tables ``calibration_iterations``
    * - ``calibration_landscape``
      - Calibration objective landscape
      - tables ``calibration_iterations``
@@ -217,6 +214,9 @@ Multi-panel views combining one or several runs, observed data, or calibration t
    * - ``lake_volume_sim_obs``
      - Lake storage (sim vs obs)
      - tables ``timeseries``
+   * - ``matching_hydrographic_network_card``
+     - Matching the hydrographic network: two-stage card
+     - tables ``calibration_iterations``
    * - ``piezo_timeseries_sim_obs``
      - Piezometric head (sim vs obs)
      - tables ``timeseries``

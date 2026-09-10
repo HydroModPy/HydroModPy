@@ -119,10 +119,20 @@ class DisplayConfig(HydroModelBase):
         from hydromodpy.display import figure_registry
 
         known = set(figure_registry.names())
-        unknown = sorted(name for name in value if name not in known)
+        current: dict[str, str] = {}
+        unknown: list[str] = []
+        for name in value:
+            try:
+                # A name a figure used to carry resolves to the current one and
+                # warns; downstream then only ever sees one spelling.
+                current[name] = figure_registry.resolve(name)
+            except KeyError:
+                unknown.append(name)
         if unknown:
             raise ValueError(
                 f"display.{info.field_name} references unknown figure(s): "
-                f"{', '.join(unknown)}. Registered figures: {', '.join(sorted(known))}"
+                f"{', '.join(sorted(unknown))}. Registered figures: {', '.join(sorted(known))}"
             )
-        return value
+        if isinstance(value, dict):
+            return {current[name]: options for name, options in value.items()}
+        return [current[name] for name in value]

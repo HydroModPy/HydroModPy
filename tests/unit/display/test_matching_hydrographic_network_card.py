@@ -16,7 +16,9 @@ import pytest
 
 from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
 from hydromodpy.display.figure_registry import get as get_figure
-from hydromodpy.display.figures.abherve_two_stage_card import AbherveTwoStageCard
+from hydromodpy.display.figures.matching_hydrographic_network_card import (
+    MatchingHydrographicNetworkCard,
+)
 
 OUTPUT = "net"
 ROOT_ID = "s-root"
@@ -243,7 +245,7 @@ def _relative_luminance(color: str) -> float:
 
 
 def test_the_card_lays_out_the_four_panels_of_the_method(mpl) -> None:
-    fig = AbherveTwoStageCard().plot(_staged_run())
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run())
 
     try:
         titles = [str(ax.get_title()) for ax in fig.axes]
@@ -263,7 +265,7 @@ def test_the_card_lays_out_the_four_panels_of_the_method(mpl) -> None:
 
 
 def test_stage_one_reports_the_value_it_closed_on_and_the_bracket(mpl) -> None:
-    fig = AbherveTwoStageCard().plot(_staged_run())
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run())
 
     try:
         ax = _panel(fig, "Stage 1")
@@ -286,7 +288,7 @@ def test_stage_one_reports_the_value_it_closed_on_and_the_bracket(mpl) -> None:
 
 
 def test_stage_one_keeps_every_evaluation_it_walked(mpl) -> None:
-    fig = AbherveTwoStageCard().plot(_staged_run())
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run())
 
     try:
         ax = _panel(fig, "Stage 1")
@@ -299,7 +301,7 @@ def test_stage_one_keeps_every_evaluation_it_walked(mpl) -> None:
 def test_stage_one_says_so_when_no_sign_change_was_sampled(mpl) -> None:
     run = _staged_run(residuals=[300.0, 120.0, 80.0, 40.0])
 
-    fig = AbherveTwoStageCard().plot(run)
+    fig = MatchingHydrographicNetworkCard().plot(run)
 
     try:
         ax = _panel(fig, "Stage 1")
@@ -315,7 +317,7 @@ def test_a_point_with_no_root_reports_no_calibrated_diagnostics(mpl) -> None:
     # distance in disguise, so its roptim and its counts are not the card's.
     run = _staged_run(residuals=[300.0, 120.0, 80.0, 40.0])
 
-    fig = AbherveTwoStageCard().plot(run)
+    fig = MatchingHydrographicNetworkCard().plot(run)
 
     try:
         assert "no root was closed" in _texts(_panel(fig, "Validity"))
@@ -329,7 +331,7 @@ def test_stage_one_refuses_a_non_positive_ratio(mpl) -> None:
     run = _staged_run(values=[0.0, 1e-3, 1e-4, 3.2e-5])
 
     with pytest.raises(ValueError, match="non-positive"):
-        AbherveTwoStageCard().plot(run)
+        MatchingHydrographicNetworkCard().plot(run)
 
 
 # --------------------------------------------------------------------------- #
@@ -338,7 +340,7 @@ def test_stage_one_refuses_a_non_positive_ratio(mpl) -> None:
 
 
 def test_stage_two_reports_the_storage_value_and_its_metric(mpl) -> None:
-    fig = AbherveTwoStageCard().plot(_staged_run())
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run())
 
     try:
         ax = _panel(fig, "Stage 2")
@@ -356,7 +358,7 @@ def test_stage_two_reports_the_storage_value_and_its_metric(mpl) -> None:
 
 
 def test_a_single_phase_session_still_draws_with_stage_two_marked_not_run(mpl) -> None:
-    fig = AbherveTwoStageCard().plot(_single_phase_run())
+    fig = MatchingHydrographicNetworkCard().plot(_single_phase_run())
 
     try:
         assert len(fig.axes) == 4
@@ -375,7 +377,7 @@ def test_a_single_phase_session_still_draws_with_stage_two_marked_not_run(mpl) -
 def test_a_failed_storage_trial_is_counted_and_never_drawn_as_zero(mpl) -> None:
     run = _run(_root_rows() + _storage_rows(objectives=[0.42, 0.11, None]), _sessions())
 
-    fig = AbherveTwoStageCard().plot(run)
+    fig = MatchingHydrographicNetworkCard().plot(run)
 
     try:
         ax = _panel(fig, "Stage 2")
@@ -393,7 +395,7 @@ def test_a_failed_storage_trial_is_counted_and_never_drawn_as_zero(mpl) -> None:
 
 
 def test_the_validity_panel_shows_the_value_against_its_bound(mpl) -> None:
-    fig = AbherveTwoStageCard().plot(_staged_run())
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run())
 
     try:
         ax = _panel(fig, "Validity")
@@ -421,7 +423,7 @@ def test_a_breach_qualifies_the_value_and_never_withholds_it(mpl) -> None:
         }
     )
 
-    fig = AbherveTwoStageCard().plot(run)
+    fig = MatchingHydrographicNetworkCard().plot(run)
 
     try:
         validity = _panel(fig, "Validity")
@@ -442,7 +444,7 @@ def test_a_breach_qualifies_the_value_and_never_withholds_it(mpl) -> None:
 def test_a_bound_the_session_did_not_apply_is_named_as_such(mpl) -> None:
     # The session published roptim_valid = 1 and the card is drawn against 0.5:
     # the two disagree, and the card may not pass that off as its own verdict.
-    fig = AbherveTwoStageCard().plot(_staged_run(), roptim_max=0.5)
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(), roptim_max=0.5)
 
     try:
         note = _texts(_panel(fig, "Validity"))
@@ -457,7 +459,7 @@ def test_an_unpublished_roptim_is_drawn_as_absent_never_as_zero(mpl) -> None:
         diagnostics={"n_valid": 120.0, "n_excess": 30.0, "n_missing": 18.0},
     )
 
-    fig = AbherveTwoStageCard().plot(run)
+    fig = MatchingHydrographicNetworkCard().plot(run)
 
     try:
         ax = _panel(fig, "Validity")
@@ -473,7 +475,7 @@ def test_an_unpublished_roptim_is_drawn_as_absent_never_as_zero(mpl) -> None:
 
 
 def test_the_three_counts_are_drawn_apart_so_they_cannot_cancel(mpl) -> None:
-    fig = AbherveTwoStageCard().plot(_staged_run())
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run())
 
     try:
         ax = _panel(fig, "Cells at the calibrated point")
@@ -496,7 +498,7 @@ def test_an_absent_count_is_named_absent_and_gets_no_bar(mpl) -> None:
         diagnostics={"roptim": 0.87, "roptim_valid": 1.0, "n_valid": 120.0, "n_missing": 18.0},
     )
 
-    fig = AbherveTwoStageCard().plot(run)
+    fig = MatchingHydrographicNetworkCard().plot(run)
 
     try:
         ax = _panel(fig, "Cells at the calibrated point")
@@ -520,7 +522,7 @@ def test_the_three_classes_stay_apart_in_greyscale() -> None:
 
 
 def test_the_mean_recharge_is_carried_on_the_card(mpl) -> None:
-    fig = AbherveTwoStageCard().plot(_staged_run(), mean_recharge=3.2e-8)
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(), mean_recharge=3.2e-8)
 
     try:
         note = _texts(_panel(fig, "Stage 1"))
@@ -536,7 +538,7 @@ def test_a_recharge_the_session_published_is_read_from_the_trials(mpl) -> None:
     published = {**PUBLISHED, **_criterion_diagnostics(4.5e-8)}
     assert 4.5e-8 in published.values()
 
-    fig = AbherveTwoStageCard().plot(_staged_run(diagnostics=published))
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(diagnostics=published))
 
     try:
         assert "4.5e-08" in _texts(_panel(fig, "Stage 1"))
@@ -545,7 +547,7 @@ def test_a_recharge_the_session_published_is_read_from_the_trials(mpl) -> None:
 
 
 def test_an_undeclared_recharge_says_the_ratio_is_not_a_conductivity(mpl) -> None:
-    fig = AbherveTwoStageCard().plot(_staged_run())
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run())
 
     try:
         note = _texts(_panel(fig, "Stage 1"))
@@ -564,7 +566,7 @@ def test_the_phases_are_ordered_by_the_chain_not_by_the_table(mpl) -> None:
     # root search on stage one.
     run = _run(_storage_rows() + _root_rows(), _sessions())
 
-    fig = AbherveTwoStageCard().plot(run)
+    fig = MatchingHydrographicNetworkCard().plot(run)
 
     try:
         assert "root search" in _panel(fig, "Stage 1").get_title()
@@ -576,7 +578,7 @@ def test_the_phases_are_ordered_by_the_chain_not_by_the_table(mpl) -> None:
 def test_a_run_without_a_session_table_reads_its_trials_as_one_phase(mpl) -> None:
     run = _run(_root_rows(session_id=None), None)
 
-    fig = AbherveTwoStageCard().plot(run)
+    fig = MatchingHydrographicNetworkCard().plot(run)
 
     try:
         assert _line(_panel(fig, "Stage 1"), "K_over_R =").get_xdata()[0] == pytest.approx(
@@ -596,7 +598,7 @@ def test_a_chain_longer_than_two_phases_says_which_one_is_drawn(mpl) -> None:
         pd.concat([sessions, pd.DataFrame([third])], ignore_index=True),
     )
 
-    fig = AbherveTwoStageCard().plot(run)
+    fig = MatchingHydrographicNetworkCard().plot(run)
 
     try:
         assert "2 of 3" in _panel(fig, "Stage 2").get_title()
@@ -610,7 +612,7 @@ def test_the_card_reads_the_json_blocks_the_index_hands_back(mpl) -> None:
     frame["parameters"] = [json.dumps(block) for block in frame["parameters"]]
     frame["metrics"] = [json.dumps(block) for block in frame["metrics"]]
 
-    fig = AbherveTwoStageCard().plot(run)
+    fig = MatchingHydrographicNetworkCard().plot(run)
 
     try:
         assert _line(_panel(fig, "Stage 1"), "K_over_R =").get_xdata()[0] == pytest.approx(
@@ -633,15 +635,15 @@ def test_a_run_that_never_calibrated_is_skipped_with_its_reason() -> None:
         has_table=lambda table: False,
     )
 
-    reason = AbherveTwoStageCard().unavailable_reason(barren)
+    reason = MatchingHydrographicNetworkCard().unavailable_reason(barren)
 
     assert reason is not None
     assert "calibration_iterations" in reason
 
 
 def test_the_card_is_registered_under_its_own_name() -> None:
-    figure = get_figure("abherve_two_stage_card")
+    figure = get_figure("matching_hydrographic_network_card")
 
-    assert isinstance(figure, AbherveTwoStageCard)
-    assert figure.spec.name == "abherve_two_stage_card"
+    assert isinstance(figure, MatchingHydrographicNetworkCard)
+    assert figure.spec.name == "matching_hydrographic_network_card"
     assert figure.spec.kind == "comparison"

@@ -121,7 +121,7 @@ class _StorageFit:
 
 
 @register
-class AbherveTwoStageCard(BaseFigure):
+class MatchingHydrographicNetworkCard(BaseFigure):
     """A four-panel synthesis of one staged downslope-distance calibration.
 
     ``mean_recharge`` is the only quantity the card cannot reach on its own
@@ -130,8 +130,9 @@ class AbherveTwoStageCard(BaseFigure):
     """
 
     spec = FigureSpec(
-        name="abherve_two_stage_card",
-        title="Two-stage calibration card",
+        name="matching_hydrographic_network_card",
+        former_names=("abherve_two_stage_card",),
+        title="Matching the hydrographic network: two-stage card",
         kind="comparison",
         required_tables=("calibration_iterations",),
         default_figsize=(11.5, 7.5),
@@ -142,7 +143,7 @@ class AbherveTwoStageCard(BaseFigure):
         ax.text(
             0.5,
             0.5,
-            "abherve_two_stage_card is a grid of panels: call plot()",
+            "matching_hydrographic_network_card is a grid of panels: call plot()",
             ha="center",
             va="center",
         )
