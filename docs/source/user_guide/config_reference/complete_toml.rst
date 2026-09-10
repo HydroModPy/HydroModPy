@@ -562,6 +562,8 @@ Sub-models are linked back to their per-section page.
       method = "grid"
       # Maximum number of calibration iterations.
       max_iter = 100
+      # How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a log-transformed parameter that is a ratio, which is how a conductivity is known in the first place, and it holds wherever the value sits; on any other transform there is no scale on the value to be relative to before the search has one, so it reads as a fraction of the declared interval. Each engine's own stopping option is written from it, so the same number survives a change of engine, and the engine's own option stays available for reproducing a published call verbatim. Unset, the engine's default applies. An engine that stops on its budget rather than on a precision refuses this rather than ignore it.
+      # tolerance = ...  # default = None
       # Number of suggestions drawn per ask (for parallel optimizers).
       batch_size = 1
       # Number of trials evaluated concurrently inside one batch via a thread pool. parallel=1 keeps the legacy sequential loop.

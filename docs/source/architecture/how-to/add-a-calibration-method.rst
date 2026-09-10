@@ -95,6 +95,58 @@ the wiring required.
 Third-party methods shipped outside the repository register through the
 ``hydromodpy.optimizer`` entry-point group instead.
 
+Saying what the engine can be handed
+------------------------------------
+
+An engine refuses an impossible pairing in its constructor, which is right but
+late: a staged calibration builds phase two's optimizer only when phase two
+starts, after phase one has spent its whole solve budget. A class attribute
+``traits = EngineTraits(...)`` states the same facts where a check can read them
+before anything solves.
+
+.. code-block:: python
+
+   from hydromodpy.calibration.optim.optimizer import EngineTraits
+
+
+   @register_optimizer("mymethod")
+   class MyMethodOptimizer:
+       traits = EngineTraits(
+           max_parameters=1,            # None means any number
+           required_transform="log",    # the variable the stopping rule is written in
+           needs_signed_residual=True,  # the criterion has to publish one
+           supports_parallel=False,
+           tolerance_option="rel_tol",       # this engine's own stopping option
+           tolerance_reads="relative_value",  # how that option reads its number
+       )
+
+The last two are what lets a file state its precision once. ``calibration.tolerance``
+is a relative precision on the parameter, and it is translated into whichever
+option the engine names:
+
+``tolerance_reads="relative_value"``
+   the option is already a relative width on the parameter's own value, so the
+   number passes through unconverted. Declare it only on an engine that also
+   declares ``required_transform="log"``, where a ratio and a width in the search
+   variable are the same statement.
+
+``tolerance_reads="search_width"``
+   the option is an absolute width in the variable the search walks, so the
+   precision is converted into that variable: ``log10(1 + tolerance)`` decades on
+   a log-transformed parameter, a fraction of the declared interval on any other,
+   and the strictest of them when the search moves several.
+
+An engine that stops on its evaluation budget, or on the spread of its own
+population, declares neither and leaves them ``None``. A precision handed to it
+is then refused with a message naming what does bound it, rather than accepted
+and dropped: a run reporting that it honoured a request it never read is worse
+than a run refusing the request.
+
+Everything a stopping rule needs beyond that precision stays in
+``optimizer_kwargs``, in the engine's own units, which is how a published call is
+reproduced verbatim. Stating both the precision and the option it writes is
+refused, before the first solve.
+
 Optional dependencies
 ---------------------
 

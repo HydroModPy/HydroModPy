@@ -1802,6 +1802,22 @@
             "type": "integer",
             "x-hmp-profile": "user"
           },
+          "tolerance": {
+            "anyOf": [
+              {
+                "description": "Positive floating-point value.",
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a log-transformed parameter that is a ratio, which is how a conductivity is known in the first place, and it holds wherever the value sits; on any other transform there is no scale on the value to be relative to before the search has one, so it reads as a fraction of the declared interval. Each engine's own stopping option is written from it, so the same number survives a change of engine, and the engine's own option stays available for reproducing a published call verbatim. Unset, the engine's default applies. An engine that stops on its budget rather than on a precision refuses this rather than ignore it.",
+            "title": "Tolerance",
+            "x-hmp-profile": "user"
+          },
           "batch_size": {
             "default": 1,
             "description": "Suggestions drawn per ask. A root search returns one point at a time during its refinement, whatever this asks for.",
@@ -2081,6 +2097,22 @@
             "minimum": 1,
             "title": "Max Iter",
             "type": "integer",
+            "x-hmp-profile": "user"
+          },
+          "tolerance": {
+            "anyOf": [
+              {
+                "description": "Positive floating-point value.",
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a log-transformed parameter that is a ratio, which is how a conductivity is known in the first place, and it holds wherever the value sits; on any other transform there is no scale on the value to be relative to before the search has one, so it reads as a fraction of the declared interval. Each engine's own stopping option is written from it, so the same number survives a change of engine, and the engine's own option stays available for reproducing a published call verbatim. Unset, the engine's default applies. An engine that stops on its budget rather than on a precision refuses this rather than ignore it.",
+            "title": "Tolerance",
             "x-hmp-profile": "user"
           },
           "batch_size": {
@@ -13293,9 +13325,25 @@
             "type": "integer",
             "x-hmp-profile": "user"
           },
+          "steady_tolerance": {
+            "anyOf": [
+              {
+                "description": "Positive floating-point value.",
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How precisely stage one has to pin the conductivity before it stops, as a relative precision on the conductivity: 0.01 is the paper's one per cent. Unset takes the engine's default, which for the bisection is that same one per cent.",
+            "title": "Steady Tolerance",
+            "x-hmp-profile": "user"
+          },
           "steady_optimizer_kwargs": {
             "additionalProperties": true,
-            "description": "Extra arguments forwarded to the stage-one engine.",
+            "description": "Extra arguments forwarded to the stage-one engine, in that engine's own units. The escape hatch for reproducing a published call; a precision is said once, in steady_tolerance.",
             "title": "Steady Optimizer Kwargs",
             "type": "object",
             "x-hmp-profile": "dev"
@@ -13348,9 +13396,25 @@
             "type": "integer",
             "x-hmp-profile": "user"
           },
+          "transient_tolerance": {
+            "anyOf": [
+              {
+                "description": "Positive floating-point value.",
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How precisely stage two has to pin the storage before it stops, as a relative precision on the storage coefficient.",
+            "title": "Transient Tolerance",
+            "x-hmp-profile": "user"
+          },
           "transient_optimizer_kwargs": {
             "additionalProperties": true,
-            "description": "Extra arguments forwarded to the stage-two engine.",
+            "description": "Extra arguments forwarded to the stage-two engine, in that engine's own units.",
             "title": "Transient Optimizer Kwargs",
             "type": "object",
             "x-hmp-profile": "dev"

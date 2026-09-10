@@ -249,6 +249,10 @@ steady_metric = "distance_mean"
 steady_method = "scipy_nelder_mead"
 steady_max_iter = 60
 
+# Les deux blocs ci-dessous sont en unites scipy parce que ce fichier reproduit
+# un appel publie. Un calage ordinaire ne les ecrit pas : il dit sa precision
+# une fois, `steady_tolerance` / `transient_tolerance`, relative au parametre.
+#
 # `maxiter: 30` de la reference. `maxfev` n'y est pas reglee, donc scipy prend
 # 200 ; elle est ecrite ici au budget de la phase, sinon l'adaptateur la
 # ramene a `maxiter`.
