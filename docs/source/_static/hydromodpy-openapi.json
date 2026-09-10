@@ -578,13 +578,9 @@
               }
             ],
             "default": null,
-            "description": "Use project extent for bbox-based data retrieval.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "value_docs": {
-              "study_area": "Turns on bbox retrieval on the project extent; today no separate study-area window is resolved.",
-              "watershed": "Turns on bbox retrieval on the project extent; today no code reads which of the two values was set."
-            },
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -644,13 +640,9 @@
               }
             ],
             "default": null,
-            "description": "Use project extent for bbox-based data retrieval.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "value_docs": {
-              "study_area": "Turns on bbox retrieval on the project extent; today no separate study-area window is resolved.",
-              "watershed": "Turns on bbox retrieval on the project extent; today no code reads which of the two values was set."
-            },
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -2332,7 +2324,7 @@
               }
             ],
             "default": null,
-            "description": "Boundary-condition value, scalar or one value per stress period.",
+            "description": "Boundary-condition value, scalar or one value per stress period. On a drainage boundary it is a conductance in m2/s, and it may be left out: the run then derives it from the conductivity, C = K * cell_area / solver.drain_bed_thickness_m, which keeps the drain proportional to K and makes K/R the quantity a network calibration searches. A zero or negative number selects that same derivation, so it does NOT mean a closed boundary; write a positive conductance to impose one.",
             "title": "Value",
             "x-hmp-profile": "user"
           },
@@ -3441,13 +3433,9 @@
               }
             ],
             "default": null,
-            "description": "Use project extent for bbox-based data retrieval.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "value_docs": {
-              "study_area": "Turns on bbox retrieval on the project extent; today no separate study-area window is resolved.",
-              "watershed": "Turns on bbox retrieval on the project extent; today no code reads which of the two values was set."
-            },
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -3520,13 +3508,9 @@
               }
             ],
             "default": null,
-            "description": "Use project extent for bbox-based data retrieval.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "value_docs": {
-              "study_area": "Turns on bbox retrieval on the project extent; today no separate study-area window is resolved.",
-              "watershed": "Turns on bbox retrieval on the project extent; today no code reads which of the two values was set."
-            },
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -4419,7 +4403,7 @@
               }
             ],
             "default": null,
-            "description": "Boundary-condition value, scalar or one value per stress period.",
+            "description": "Boundary-condition value, scalar or one value per stress period. On a drainage boundary it is a conductance in m2/s, and it may be left out: the run then derives it from the conductivity, C = K * cell_area / solver.drain_bed_thickness_m, which keeps the drain proportional to K and makes K/R the quantity a network calibration searches. A zero or negative number selects that same derivation, so it does NOT mean a closed boundary; write a positive conductance to impose one.",
             "title": "Value",
             "x-hmp-profile": "user"
           },
@@ -4849,9 +4833,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -6365,7 +6349,7 @@
                 }
               ]
             },
-            "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.\n\n**Supported TOML sections**\n\n- ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``\n- ``[flow.bc.cauchy.drainage]``\n- ``[flow.bc.robin.drainage]``\n- ``[flow.bc.<custom_id>]`` for generic payloads\n\n**Common keys**\n\n- ``value`` (required): numeric or ``'<value> <unit>'``\n- ``application_domain``: optional for dirichlet when ``<id>`` implies it (e.g. ``west_side`` -> ``'west side'``); required for ``cauchy`` and ``robin`` drainage\n\n**Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.\n\n**Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin.\n\n**Cauchy vs Robin:** both map to the same MODFLOW ``DRN`` package; the distinction only matters for the Boussinesq solver, which uses two different surface-interaction closures (``cauchy`` for the linear formulation ``q = C(h - h_ref)``, ``robin`` for the regularized partition / complementarity variants selected by ``flow.surface_interaction_model``).",
+            "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.\n\n**Supported TOML sections**\n\n- ``[flow.bc.<id>]``, one block per boundary, keyed by what it is. Canonical ids: ``drainage``, ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``\n- a boundary the registry describes entirely needs NO block: listing it in ``flow.active_bc`` is enough\n\n**Common keys**\n\n- ``kind``: optional, the registry supplies it; write it only to depart from the default, and only within a family (``cauchy`` and ``robin`` may be swapped, a prescribed head may not)\n- ``value``: optional on a drainage, where leaving it out derives the conductance from K; required for a prescribed head\n- ``application_domain``: optional, the registry supplies it, and a value contradicting it is refused\n\n**Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.\n\n**Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin.\n\n**Cauchy vs Robin:** both map to the same MODFLOW ``DRN`` package; the distinction only matters for the Boussinesq solver, which uses two different surface-interaction closures (``cauchy`` for the linear formulation ``q = C(h - h_ref)``, ``robin`` for the regularized partition / complementarity variants selected by ``flow.surface_interaction_model``).",
             "title": "Bc",
             "type": "object",
             "x-hmp-profile": "user"
@@ -10332,9 +10316,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -10793,9 +10777,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -11013,13 +10997,9 @@
               }
             ],
             "default": null,
-            "description": "Use project extent for bbox-based data retrieval.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "value_docs": {
-              "study_area": "Turns on bbox retrieval on the project extent; today no separate study-area window is resolved.",
-              "watershed": "Turns on bbox retrieval on the project extent; today no code reads which of the two values was set."
-            },
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -11412,9 +11392,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -11862,9 +11842,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -12097,9 +12077,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -12332,9 +12312,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -12688,9 +12668,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -15409,9 +15389,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -16188,7 +16168,7 @@
           },
           "compression": {
             "default": "zstd",
-            "description": "Codec used for Zarr field arrays and Parquet tables. 'none' disables compression.",
+            "description": "Codec DECLARED for Zarr field arrays and Parquet tables. The writers carry their own codec (zstd) and do not read this field, so changing it changes nothing today; it records the intent and is the field a writer would read once the choice is threaded through.",
             "enum": [
               "none",
               "zstd",
@@ -16204,10 +16184,10 @@
             "x-hmp-profile": "dev"
           },
           "compression_level": {
-            "default": 3,
-            "description": "Compression level (codec-dependent). Ignored when compression='none'.",
+            "default": 5,
+            "description": "Compression level DECLARED for those writers. Same as the codec: core/io/parquet.py and core/io/geoparquet.py hold level 5 and do not read this field. The default says 5 rather than 3 so the declaration at least matches the bytes actually written.",
             "examples": [
-              3
+              5
             ],
             "maximum": 22,
             "minimum": 0,
@@ -16412,9 +16392,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -16826,9 +16806,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -17168,9 +17148,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -17430,9 +17410,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -18753,7 +18733,7 @@
               }
             ],
             "default": null,
-            "description": "Boundary-condition value, scalar or one value per stress period.",
+            "description": "Boundary-condition value, scalar or one value per stress period. On a drainage boundary it is a conductance in m2/s, and it may be left out: the run then derives it from the conductivity, C = K * cell_area / solver.drain_bed_thickness_m, which keeps the drain proportional to K and makes K/R the quantity a network calibration searches. A zero or negative number selects that same derivation, so it does NOT mean a closed boundary; write a positive conductance to impose one.",
             "title": "Value",
             "x-hmp-profile": "user"
           },
@@ -18930,9 +18910,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -19093,7 +19073,7 @@
             "x-hmp-profile": "user"
           },
           "tags": {
-            "description": "Free-text tags attached at registration; editable later via 'hmp tag'.",
+            "description": "Free-text tags attached at registration; editable later via 'hmp catalog tag'.",
             "items": {
               "type": "string"
             },
@@ -19690,9 +19670,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -21006,9 +20986,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -22542,9 +22522,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,
@@ -22839,9 +22819,9 @@
               }
             ],
             "default": null,
-            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
             "title": "Extent",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "force_refresh": {
             "default": false,

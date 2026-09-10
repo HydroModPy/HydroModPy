@@ -114,7 +114,7 @@ Fields
             Explicit station identifiers to load (custom source).
 
 
-      .. container:: hmp-field hmp-field-level-user
+      .. container:: hmp-field hmp-field-level-dev
          :name: hydrometry-sources-extent
 
          .. raw:: html
@@ -123,9 +123,9 @@ Fields
               <code class="hmp-field-name">extent</code>
             </div>
 
-         :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20>`__
+         :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20>`__
 
-            Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+            Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
 
          .. rst-class:: hmp-field-values
 
@@ -373,7 +373,6 @@ Starter TOML snippet
 
       [[hydrometry.sources]]
       # station_ids = ...  # default = None
-      # extent = ...  # default = None
       # mask_path = ...  # default = None
       # source_unit = ...  # default = None
       # source = ""  # REQUIRED

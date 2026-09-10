@@ -613,79 +613,79 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-dem-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L156>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L146>`__
    * - ``data.dem.sources.mask_path``
      - ``Path | None``
      - user
      - -
      - `data <data.html#data-dem-sources-mask-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L44>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L34>`__
    * - ``data.dem.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-dem-sources-extent>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L44>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L34>`__
    * - ``data.dem.sources.force_refresh``
      - ``bool``
      - dev
      - -
      - `data <data.html#data-dem-sources-force-refresh>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L44>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L34>`__
    * - ``data.dem.sources.source``
      - ``Literal['custom']``
      - user
      - -
      - `data <data.html#data-dem-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L47>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L37>`__
    * - ``data.dem.sources.path``
      - ``Path``
      - user
      - -
      - `data <data.html#data-dem-sources-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L51>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L41>`__
    * - ``data.dem.sources.departments``
      - ``list[str]``
      - user
      - -
      - `data <data.html#data-dem-sources-departments>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L80>`__
    * - ``data.dem.sources.country``
      - ``str``
      - user
      - -
      - `data <data.html#data-dem-sources-country>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L80>`__
    * - ``data.dem.sources.regions``
      - ``list[str]``
      - user
      - -
      - `data <data.html#data-dem-sources-regions>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L80>`__
    * - ``data.dem.sources.dataset``
      - ``Literal['bd-alti']``
      - user
      - -
      - `data <data.html#data-dem-sources-dataset>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L97>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L87>`__
    * - ``data.dem.sources.resolution_m``
      - ``float | None``
      - user
      - -
      - `data <data.html#data-dem-sources-resolution-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L105>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L95>`__
    * - ``data.dem.sources.file_format``
      - ``str``
      - user
      - -
      - `data <data.html#data-dem-sources-file-format>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L112>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L102>`__
    * - ``data.dem.sources.crs``
      - ``str | None``
      - user
      - -
      - `data <data.html#data-dem-sources-crs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L116>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L106>`__
    * - ``data.geology``
      - ``GeologyConfig | None``
      - user
@@ -697,85 +697,85 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-geology-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L150>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L140>`__
    * - ``data.geology.sources.mask_path``
      - ``Path | None``
      - user
      - -
      - `data <data.html#data-geology-sources-mask-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L52>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L42>`__
    * - ``data.geology.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-geology-sources-extent>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L52>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L42>`__
    * - ``data.geology.sources.force_refresh``
      - ``bool``
      - dev
      - -
      - `data <data.html#data-geology-sources-force-refresh>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L52>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L42>`__
    * - ``data.geology.sources.source``
      - ``Literal['custom']``
      - user
      - -
      - `data <data.html#data-geology-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L55>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L45>`__
    * - ``data.geology.sources.path``
      - ``Path``
      - user
      - -
      - `data <data.html#data-geology-sources-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L59>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L49>`__
    * - ``data.geology.sources.code_field``
      - ``str | None``
      - user
      - -
      - `data <data.html#data-geology-sources-code-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L67>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L57>`__
    * - ``data.geology.sources.values_table_path``
      - ``Path | None``
      - user
      - -
      - `data <data.html#data-geology-sources-values-table-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L64>`__
    * - ``data.geology.sources.col_x``
      - ``str``
      - dev
      - -
      - `data <data.html#data-geology-sources-col-x>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L81>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L71>`__
    * - ``data.geology.sources.col_y``
      - ``str``
      - dev
      - -
      - `data <data.html#data-geology-sources-col-y>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L85>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L75>`__
    * - ``data.geology.sources.col_code``
      - ``str``
      - dev
      - -
      - `data <data.html#data-geology-sources-col-code>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L89>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L79>`__
    * - ``data.geology.sources.default_crs``
      - ``str``
      - dev
      - -
      - `data <data.html#data-geology-sources-default-crs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L93>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L83>`__
    * - ``data.geology.id``
      - ``str``
      - user
      - -
      - `data <data.html#data-geology-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L156>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L146>`__
    * - ``data.geology.cell_samples_per_axis``
      - ``int``
      - dev
      - -
      - `data <data.html#data-geology-cell-samples-per-axis>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L139>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L129>`__
    * - ``data.hydrography``
      - ``HydrographyConfig | None``
      - user
@@ -880,7 +880,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20>`__
    * - ``data.hydrometry.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-hydrometry-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20>`__
@@ -1012,7 +1012,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/intermittency/config.py#L20>`__
    * - ``data.intermittency.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-intermittency-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/intermittency/config.py#L20>`__
@@ -1240,7 +1240,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19>`__
    * - ``data.lake_inflow.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-lake-inflow-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19>`__
@@ -1348,7 +1348,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
    * - ``data.lake_levels.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-lake-levels-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
@@ -1456,7 +1456,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19>`__
    * - ``data.lake_outflow.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-lake-outflow-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19>`__
@@ -1564,7 +1564,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19>`__
    * - ``data.lake_withdrawal.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-lake-withdrawal-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19>`__
@@ -1678,7 +1678,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L20>`__
    * - ``data.oceanic.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-oceanic-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L20>`__
@@ -1810,7 +1810,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L20>`__
    * - ``data.piezometry.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-piezometry-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L20>`__
@@ -1942,7 +1942,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L20>`__
    * - ``data.water_quality.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-water-quality-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L20>`__
@@ -2068,7 +2068,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/recharge/config.py#L19>`__
    * - ``data.recharge.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-recharge-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/recharge/config.py#L19>`__
@@ -2224,7 +2224,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/runoff/config.py#L19>`__
    * - ``data.runoff.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-runoff-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/runoff/config.py#L19>`__
@@ -2332,7 +2332,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L19>`__
    * - ``data.precipitation.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-precipitation-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L19>`__
@@ -2446,7 +2446,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L19>`__
    * - ``data.etp.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-etp-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L19>`__
@@ -2566,7 +2566,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/temperature/config.py#L19>`__
    * - ``data.temperature.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-temperature-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/temperature/config.py#L19>`__
@@ -2674,7 +2674,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/wind/config.py#L19>`__
    * - ``data.wind.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-wind-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/wind/config.py#L19>`__
@@ -2782,7 +2782,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/humidity/config.py#L19>`__
    * - ``data.humidity.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-humidity-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/humidity/config.py#L19>`__
@@ -2890,7 +2890,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L19>`__
    * - ``data.radiation.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-radiation-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L19>`__
@@ -3004,7 +3004,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L19>`__
    * - ``data.soil_moisture.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `data <data.html#data-soil-moisture-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L19>`__
@@ -3085,97 +3085,97 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - experimental
      - `flow <flow.html#flow-runtime-backend>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76>`__
    * - ``flow.surface_interaction_model``
      - ``Literal['auto', 'regularized_partition', 'complementarity', 'vi_obstacle', 'ts_vi_obstacle']``
      - dev
      - experimental
      - `flow <flow.html#flow-surface-interaction-model>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76>`__
    * - ``flow.runtime_max_iterations``
      - ``int | None``
      - dev
      - -
      - `flow <flow.html#flow-runtime-max-iterations>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76>`__
    * - ``flow.runtime_tol_residual_inf``
      - ``float | None``
      - dev
      - -
      - `flow <flow.html#flow-runtime-tol-residual-inf>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76>`__
    * - ``flow.runtime_tol_state_update_inf``
      - ``float | None``
      - dev
      - -
      - `flow <flow.html#flow-runtime-tol-state-update-inf>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76>`__
    * - ``flow.vi_substeps_per_period``
      - ``int``
      - dev
      - -
      - `flow <flow.html#flow-vi-substeps-per-period>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76>`__
    * - ``flow.vi_substep_on_failure``
      - ``bool``
      - dev
      - -
      - `flow <flow.html#flow-vi-substep-on-failure>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76>`__
    * - ``flow.vi_max_adaptive_substeps``
      - ``int | None``
      - dev
      - -
      - `flow <flow.html#flow-vi-max-adaptive-substeps>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76>`__
    * - ``flow.ts_vi_steps_per_period``
      - ``int``
      - dev
      - -
      - `flow <flow.html#flow-ts-vi-steps-per-period>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76>`__
    * - ``flow.ts_vi_adapt``
      - ``bool``
      - dev
      - -
      - `flow <flow.html#flow-ts-vi-adapt>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76>`__
    * - ``flow.ts_vi_dt_min_fraction``
      - ``float``
      - dev
      - -
      - `flow <flow.html#flow-ts-vi-dt-min-fraction>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76>`__
    * - ``flow.ts_vi_dt_max_fraction``
      - ``float``
      - dev
      - -
      - `flow <flow.html#flow-ts-vi-dt-max-fraction>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76>`__
    * - ``flow.ts_vi_type``
      - ``str``
      - dev
      - -
      - `flow <flow.html#flow-ts-vi-type>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76>`__
    * - ``flow.ts_vi_snes_type``
      - ``str``
      - dev
      - -
      - `flow <flow.html#flow-ts-vi-snes-type>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76>`__
    * - ``flow.param_list``
      - ``list[str]``
      - user
      - -
      - `flow <flow.html#flow-param-list>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L126>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L128>`__
    * - ``flow.param``
      - ``dict[str, FlowParam]``
      - user
      - -
      - `flow <flow.html#flow-param>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L134>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L136>`__
    * - ``flow.param.<id>.field``
      - ``FieldHomogeneousSection | FieldHeterogeneousSection``
      - user
@@ -3289,7 +3289,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-ic>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L172>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L176>`__
    * - ``flow.ic.h``
      - ``FlowICTop | FlowICTopOffset | FlowICBottom | FlowICCustom | FlowICSteadyState``
      - user
@@ -3349,49 +3349,49 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-bc>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L138>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L140>`__
    * - ``flow.bc.<id>.id``
      - ``str``
      - user
      - -
      - `flow <flow.html#flow-bc-id-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L405>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L413>`__
    * - ``flow.bc.<id>.value``
      - ``float | list[float] | None``
      - user
      - -
      - `flow <flow.html#flow-bc-id-value>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L405>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L413>`__
    * - ``flow.bc.<id>.description``
      - ``str``
      - user
      - -
      - `flow <flow.html#flow-bc-id-description>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L410>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L418>`__
    * - ``flow.bc.<id>.units``
      - ``str``
      - dev
      - -
      - `flow <flow.html#flow-bc-id-units>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L405>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L413>`__
    * - ``flow.bc.<id>.kind``
      - ``Literal['dirichlet']``
      - user
      - -
      - `flow <flow.html#flow-bc>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L408>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L416>`__
    * - ``flow.bc.<id>.data_value``
      - ``bool``
      - dev
      - -
      - `flow <flow.html#flow-bc-id-data-value>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L405>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L413>`__
    * - ``flow.bc.<id>.forcing``
      - ``Optional[FlowBoundaryForcingConstantConfig | FlowBoundaryForcingCsvConfig]``
      - dev
      - -
      - `flow <flow.html#flow-bc-id-forcing>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L443>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L451>`__
    * - ``flow.bc.<id>.forcing.mode``
      - ``Literal['constant']``
      - user
@@ -3457,19 +3457,19 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-bc-id-application-domain>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L468>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L476>`__
    * - ``flow.bc.<id>.support_label``
      - ``Optional[str]``
      - user
      - -
      - `flow <flow.html#flow-bc-id-support-label>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L405>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L413>`__
    * - ``flow.sinks_sources``
      - ``FlowSinksSourcesConfig``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L179>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L183>`__
    * - ``flow.sinks_sources.wells``
      - ``dict[str, FlowWellConfig]``
      - user
@@ -5047,31 +5047,31 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-active-sinks-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L183>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L187>`__
    * - ``flow.active_bc``
      - ``list[str]``
      - user
      - -
      - `flow <flow.html#flow-active-bc>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L193>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L197>`__
    * - ``flow.flow_regime``
      - ``Literal['steady', 'transient']``
      - user
      - -
      - `flow <flow.html#flow-flow-regime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L84>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L86>`__
    * - ``flow.first_period_steady``
      - ``bool``
      - user
      - -
      - `flow <flow.html#flow-first-period-steady>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L100>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L102>`__
    * - ``flow.restart_from``
      - ``str | None``
      - user
      - -
      - `flow <flow.html#flow-restart-from>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L117>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L119>`__
    * - ``transport.active_sinks_sources``
      - ``list[str]``
      - user
@@ -5605,7 +5605,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `simulation <simulation.html#simulation-results-persistence-compression-level>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L48>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L52>`__
    * - ``simulation.results.keep_solver_files``
      - ``bool``
      - dev
@@ -6799,7 +6799,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `persistence <persistence.html#persistence-compression-level>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L48>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L52>`__
    * - ``observation.points``
      - ``list[ObservationPointConfig]``
      - user
@@ -8995,7 +8995,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `calibration <calibration.html#calibration-persistence-compression-level>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L48>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L52>`__
    * - ``spinup.max_cycles``
      - ``int``
      - user
@@ -10312,7 +10312,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20>`__
    * - ``hydrometry.sources.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
-     - user
+     - dev
      - -
      - `hydrometry <hydrometry.html#hydrometry-sources-extent>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20>`__

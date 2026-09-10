@@ -1193,7 +1193,7 @@
     "section": "data",
     "anchor": "data-dem-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L156",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L146",
     "description": "At least one DEM data source."
   },
   {
@@ -1205,20 +1205,20 @@
     "section": "data",
     "anchor": "data-dem-sources-mask-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L44",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L34",
     "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping."
   },
   {
     "path": "data.dem.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-dem-sources-extent",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L44",
-    "description": "Use project extent for bbox-based data retrieval."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L34",
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.dem.sources.force_refresh",
@@ -1229,7 +1229,7 @@
     "section": "data",
     "anchor": "data-dem-sources-force-refresh",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L44",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L34",
     "description": "Ignore cache and re-download from API."
   },
   {
@@ -1241,7 +1241,7 @@
     "section": "data",
     "anchor": "data-dem-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L47",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L37",
     "description": "Discriminator tag selecting the 'custom' DEM provider."
   },
   {
@@ -1253,7 +1253,7 @@
     "section": "data",
     "anchor": "data-dem-sources-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L51",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L41",
     "description": "Path to custom DEM file or directory (TIF, ASC, NC)."
   },
   {
@@ -1265,7 +1265,7 @@
     "section": "data",
     "anchor": "data-dem-sources-departments",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L80",
     "description": "Optional French department codes to fetch. When set, these codes constrain archive downloads instead of inferring departments only from the bbox."
   },
   {
@@ -1277,7 +1277,7 @@
     "section": "data",
     "anchor": "data-dem-sources-country",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L80",
     "description": "Country code used for administrative DEM selectors."
   },
   {
@@ -1289,7 +1289,7 @@
     "section": "data",
     "anchor": "data-dem-sources-regions",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L80",
     "description": "Optional French administrative regions used to infer department downloads."
   },
   {
@@ -1301,7 +1301,7 @@
     "section": "data",
     "anchor": "data-dem-sources-dataset",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L97",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L87",
     "description": "IGN DEM product assembled by the data manager. Only BD ALTI 25 m is currently exposed as an assembled raster source; use the download_dem_fr helper to inspect raw RGE ALTI archives."
   },
   {
@@ -1313,7 +1313,7 @@
     "section": "data",
     "anchor": "data-dem-sources-resolution-m",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L105",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L95",
     "description": "Requested DEM resolution in metres. Defaults are resolved by the manager from the selected dataset."
   },
   {
@@ -1325,7 +1325,7 @@
     "section": "data",
     "anchor": "data-dem-sources-file-format",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L112",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L102",
     "description": "Requested archive payload format when exposed by Geoplateforme."
   },
   {
@@ -1337,7 +1337,7 @@
     "section": "data",
     "anchor": "data-dem-sources-crs",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L116",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L106",
     "description": "Optional CRS filter forwarded to Geoplateforme discovery."
   },
   {
@@ -1361,7 +1361,7 @@
     "section": "data",
     "anchor": "data-geology-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L150",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L140",
     "description": "At least one geology data source. Defaults to BRGM 1:1M."
   },
   {
@@ -1373,20 +1373,20 @@
     "section": "data",
     "anchor": "data-geology-sources-mask-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L52",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L42",
     "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping."
   },
   {
     "path": "data.geology.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-geology-sources-extent",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L52",
-    "description": "Use project extent for bbox-based data retrieval."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L42",
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.geology.sources.force_refresh",
@@ -1397,7 +1397,7 @@
     "section": "data",
     "anchor": "data-geology-sources-force-refresh",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L52",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L42",
     "description": "Ignore cache and re-download from API."
   },
   {
@@ -1409,7 +1409,7 @@
     "section": "data",
     "anchor": "data-geology-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L55",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L45",
     "description": "Discriminator tag selecting the 'custom' geology provider."
   },
   {
@@ -1421,7 +1421,7 @@
     "section": "data",
     "anchor": "data-geology-sources-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L59",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L49",
     "description": "Path to custom geology file or directory (SHP, GPKG, TIF, CSV)."
   },
   {
@@ -1433,7 +1433,7 @@
     "section": "data",
     "anchor": "data-geology-sources-code-field",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L67",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L57",
     "description": "Attribute column for geology codes in custom vector files (SHP/GPKG). Required for custom vector sources."
   },
   {
@@ -1445,7 +1445,7 @@
     "section": "data",
     "anchor": "data-geology-sources-values-table-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L64",
     "description": "Optional CSV linking geology codes to descriptions. Columns: geology_code, description."
   },
   {
@@ -1457,7 +1457,7 @@
     "section": "data",
     "anchor": "data-geology-sources-col-x",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L81",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L71",
     "description": "Column for X coordinate in CSV."
   },
   {
@@ -1469,7 +1469,7 @@
     "section": "data",
     "anchor": "data-geology-sources-col-y",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L85",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L75",
     "description": "Column for Y coordinate in CSV."
   },
   {
@@ -1481,7 +1481,7 @@
     "section": "data",
     "anchor": "data-geology-sources-col-code",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L89",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L79",
     "description": "Column for geology code in CSV."
   },
   {
@@ -1493,7 +1493,7 @@
     "section": "data",
     "anchor": "data-geology-sources-default-crs",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L93",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L83",
     "description": "Default CRS for CSV points."
   },
   {
@@ -1505,7 +1505,7 @@
     "section": "data",
     "anchor": "data-geology-id",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L156",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L146",
     "description": "Identifier of the geology spatial field."
   },
   {
@@ -1517,7 +1517,7 @@
     "section": "data",
     "anchor": "data-geology-cell-samples-per-axis",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L139",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/geology/config.py#L129",
     "description": "Sub-sampling density for GeologyField.on_mesh(). Higher = more precise geology interface, slower runtime."
   },
   {
@@ -1734,13 +1734,13 @@
     "path": "data.hydrometry.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-hydrometry-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.hydrometry.sources.force_refresh",
@@ -2004,13 +2004,13 @@
     "path": "data.intermittency.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-intermittency-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/intermittency/config.py#L20",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.intermittency.sources.force_refresh",
@@ -2466,13 +2466,13 @@
     "path": "data.lake_inflow.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-lake-inflow-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.lake_inflow.sources.force_refresh",
@@ -2688,13 +2688,13 @@
     "path": "data.lake_levels.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-lake-levels-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.lake_levels.sources.force_refresh",
@@ -2910,13 +2910,13 @@
     "path": "data.lake_outflow.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-lake-outflow-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.lake_outflow.sources.force_refresh",
@@ -3132,13 +3132,13 @@
     "path": "data.lake_withdrawal.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-lake-withdrawal-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.lake_withdrawal.sources.force_refresh",
@@ -3366,13 +3366,13 @@
     "path": "data.oceanic.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-oceanic-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L20",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.oceanic.sources.force_refresh",
@@ -3636,13 +3636,13 @@
     "path": "data.piezometry.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-piezometry-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L20",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.piezometry.sources.force_refresh",
@@ -3906,13 +3906,13 @@
     "path": "data.water_quality.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-water-quality-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L20",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.water_quality.sources.force_refresh",
@@ -4164,13 +4164,13 @@
     "path": "data.recharge.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-recharge-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/recharge/config.py#L19",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.recharge.sources.force_refresh",
@@ -4482,13 +4482,13 @@
     "path": "data.runoff.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-runoff-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/runoff/config.py#L19",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.runoff.sources.force_refresh",
@@ -4704,13 +4704,13 @@
     "path": "data.precipitation.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-precipitation-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L19",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.precipitation.sources.force_refresh",
@@ -4938,13 +4938,13 @@
     "path": "data.etp.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-etp-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L19",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.etp.sources.force_refresh",
@@ -5184,13 +5184,13 @@
     "path": "data.temperature.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-temperature-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/temperature/config.py#L19",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.temperature.sources.force_refresh",
@@ -5406,13 +5406,13 @@
     "path": "data.wind.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-wind-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/wind/config.py#L19",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.wind.sources.force_refresh",
@@ -5628,13 +5628,13 @@
     "path": "data.humidity.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-humidity-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/humidity/config.py#L19",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.humidity.sources.force_refresh",
@@ -5850,13 +5850,13 @@
     "path": "data.radiation.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-radiation-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L19",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.radiation.sources.force_refresh",
@@ -6084,13 +6084,13 @@
     "path": "data.soil_moisture.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-soil-moisture-sources-extent",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L19",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "data.soil_moisture.sources.force_refresh",
@@ -6245,7 +6245,7 @@
     "section": "flow",
     "anchor": "flow-runtime-backend",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76",
     "description": "Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field.",
     "examples": [
       "\"local\"",
@@ -6261,7 +6261,7 @@
     "section": "flow",
     "anchor": "flow-surface-interaction-model",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76",
     "description": "Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the experi",
     "examples": [
       "\"auto\"",
@@ -6277,7 +6277,7 @@
     "section": "flow",
     "anchor": "flow-runtime-max-iterations",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76",
     "description": "Optional override for the nonlinear iteration budget used by the Boussinesq runtime backend."
   },
   {
@@ -6289,7 +6289,7 @@
     "section": "flow",
     "anchor": "flow-runtime-tol-residual-inf",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76",
     "description": "Optional override for the infinity-norm residual tolerance used by the Boussinesq runtime backend."
   },
   {
@@ -6301,7 +6301,7 @@
     "section": "flow",
     "anchor": "flow-runtime-tol-state-update-inf",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76",
     "description": "Optional override for the infinity-norm state-update tolerance used by Boussinesq backends that track it."
   },
   {
@@ -6313,7 +6313,7 @@
     "section": "flow",
     "anchor": "flow-vi-substeps-per-period",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76",
     "description": "Fixed number of Backward-Euler substeps per stress period for the experimental PETSc VI obstacle runtime. Rate-based forcing values are kept unchanged on each substep."
   },
   {
@@ -6325,7 +6325,7 @@
     "section": "flow",
     "anchor": "flow-vi-substep-on-failure",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76",
     "description": "When true, retry a failed PETSc VI obstacle stress period with increasing substep counts."
   },
   {
@@ -6337,7 +6337,7 @@
     "section": "flow",
     "anchor": "flow-vi-max-adaptive-substeps",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76",
     "description": "Maximum number of PETSc VI obstacle substeps allowed for adaptive failure retries."
   },
   {
@@ -6349,7 +6349,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-steps-per-period",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76",
     "description": "Fixed PETSc TS Backward-Euler steps per stress period for the experimental TS VI obstacle runtime."
   },
   {
@@ -6361,7 +6361,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-adapt",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76",
     "description": "Enable experimental PETSc TS adaptivity for the TS VI obstacle runtime."
   },
   {
@@ -6373,7 +6373,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-dt-min-fraction",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76",
     "description": "Minimum TS VI time-step as a fraction of the stress-period length."
   },
   {
@@ -6385,7 +6385,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-dt-max-fraction",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76",
     "description": "Maximum TS VI time-step as a fraction of the stress-period length."
   },
   {
@@ -6397,7 +6397,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-type",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76",
     "description": "PETSc TS type for the experimental TS VI obstacle runtime."
   },
   {
@@ -6409,7 +6409,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-snes-type",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L76",
     "description": "PETSc SNES type for the experimental TS VI obstacle runtime."
   },
   {
@@ -6421,7 +6421,7 @@
     "section": "flow",
     "anchor": "flow-param-list",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L126",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L128",
     "description": "Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).",
     "examples": [
       "[\"K\", \"Sy\", \"Ss\"]"
@@ -6436,7 +6436,7 @@
     "section": "flow",
     "anchor": "flow-param",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L134",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L136",
     "description": "Mapping of flow-parameter identifiers to native FieldParamConfig payloads."
   },
   {
@@ -6664,7 +6664,7 @@
     "section": "flow",
     "anchor": "flow-ic",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L172",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L176",
     "description": "Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition)."
   },
   {
@@ -6784,8 +6784,8 @@
     "section": "flow",
     "anchor": "flow-bc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L138",
-    "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.  **Supported TOML sections**  - ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``"
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L140",
+    "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.  **Supported TOML sections**  - ``[flow.bc.<id>]``, one block per boundary, keyed by what it is. Canonical ids: ``drainage``, ``ocean``, ``stream``, ``north_side``, ``so"
   },
   {
     "path": "flow.bc.<id>.id",
@@ -6796,7 +6796,7 @@
     "section": "flow",
     "anchor": "flow-bc-id-id",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L405",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L413",
     "description": ""
   },
   {
@@ -6808,7 +6808,7 @@
     "section": "flow",
     "anchor": "flow-bc-id-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L405",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L413",
     "description": ""
   },
   {
@@ -6820,7 +6820,7 @@
     "section": "flow",
     "anchor": "flow-bc-id-description",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L410",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L418",
     "description": ""
   },
   {
@@ -6832,7 +6832,7 @@
     "section": "flow",
     "anchor": "flow-bc-id-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L405",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L413",
     "description": ""
   },
   {
@@ -6844,7 +6844,7 @@
     "section": "flow",
     "anchor": "flow-bc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L408",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L416",
     "description": ""
   },
   {
@@ -6856,7 +6856,7 @@
     "section": "flow",
     "anchor": "flow-bc-id-data-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L405",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L413",
     "description": ""
   },
   {
@@ -6868,7 +6868,7 @@
     "section": "flow",
     "anchor": "flow-bc-id-forcing",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L443",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L451",
     "description": ""
   },
   {
@@ -7000,7 +7000,7 @@
     "section": "flow",
     "anchor": "flow-bc-id-application-domain",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L468",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L476",
     "description": ""
   },
   {
@@ -7012,7 +7012,7 @@
     "section": "flow",
     "anchor": "flow-bc-id-support-label",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L405",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L413",
     "description": ""
   },
   {
@@ -7024,7 +7024,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L179",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L183",
     "description": "Typed sinks/sources payload (for example pumping wells)."
   },
   {
@@ -10180,7 +10180,7 @@
     "section": "flow",
     "anchor": "flow-active-sinks-sources",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L183",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L187",
     "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells', 'etp'. Boussinesq currently rejects 'etp' at solver-contract validation. An empty list means no sink/source package is assembled by the solver.",
     "examples": [
       "[\"recharge\"]",
@@ -10197,7 +10197,7 @@
     "section": "flow",
     "anchor": "flow-active-bc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L193",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L197",
     "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage', 'lake",
     "examples": [
       "[\"ocean\"]",
@@ -10213,7 +10213,7 @@
     "section": "flow",
     "anchor": "flow-flow-regime",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L84",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L86",
     "description": "Global flow simulation regime used by solvers consuming [flow] (steady or transient).",
     "examples": [
       "\"steady\"",
@@ -10229,7 +10229,7 @@
     "section": "flow",
     "anchor": "flow-first-period-steady",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L100",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L102",
     "description": "For transient flow, mark the first solver stress period as steady-state. Ignored for steady flow, where all solver periods are steady.",
     "examples": [
       "true",
@@ -10245,7 +10245,7 @@
     "section": "flow",
     "anchor": "flow-restart-from",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L117",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L119",
     "description": "Optional hotstart: path to a prior simulation Zarr store whose last time step seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior run must share this run's mesh, so enable [mesh_catchment] cache = true; otherwise t"
   },
   {
@@ -10993,7 +10993,7 @@
     "anchor": "simulation-tags",
     "page": "simulation.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L375",
-    "description": "Free-text tags attached at registration; editable later via 'hmp tag'."
+    "description": "Free-text tags attached at registration; editable later via 'hmp catalog tag'."
   },
   {
     "path": "simulation.if_exists",
@@ -11318,7 +11318,7 @@
     "anchor": "simulation-results-persistence-compression",
     "page": "simulation.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43",
-    "description": "Codec used for Zarr field arrays and Parquet tables. 'none' disables compression."
+    "description": "Codec DECLARED for Zarr field arrays and Parquet tables. The writers carry their own codec (zstd) and do not read this field, so changing it changes nothing today; it records the intent and is the field a writer would read once the choice i"
   },
   {
     "path": "simulation.results.persistence.compression_level",
@@ -11329,8 +11329,8 @@
     "section": "simulation",
     "anchor": "simulation-results-persistence-compression-level",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L48",
-    "description": "Compression level (codec-dependent). Ignored when compression='none'."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L52",
+    "description": "Compression level DECLARED for those writers. Same as the codec: core/io/parquet.py and core/io/geoparquet.py hold level 5 and do not read this field. The default says 5 rather than 3 so the declaration at least matches the bytes actually w"
   },
   {
     "path": "simulation.results.keep_solver_files",
@@ -13719,7 +13719,7 @@
     "anchor": "persistence-compression",
     "page": "persistence.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43",
-    "description": "Codec used for Zarr field arrays and Parquet tables. 'none' disables compression."
+    "description": "Codec DECLARED for Zarr field arrays and Parquet tables. The writers carry their own codec (zstd) and do not read this field, so changing it changes nothing today; it records the intent and is the field a writer would read once the choice i"
   },
   {
     "path": "persistence.compression_level",
@@ -13730,8 +13730,8 @@
     "section": "persistence",
     "anchor": "persistence-compression-level",
     "page": "persistence.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L48",
-    "description": "Compression level (codec-dependent). Ignored when compression='none'."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L52",
+    "description": "Compression level DECLARED for those writers. Same as the codec: core/io/parquet.py and core/io/geoparquet.py hold level 5 and do not read this field. The default says 5 rather than 3 so the declaration at least matches the bytes actually w"
   },
   {
     "path": "observation.points",
@@ -18111,7 +18111,7 @@
     "anchor": "calibration-persistence-compression",
     "page": "calibration.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43",
-    "description": "Codec used for Zarr field arrays and Parquet tables. 'none' disables compression."
+    "description": "Codec DECLARED for Zarr field arrays and Parquet tables. The writers carry their own codec (zstd) and do not read this field, so changing it changes nothing today; it records the intent and is the field a writer would read once the choice i"
   },
   {
     "path": "calibration.persistence.compression_level",
@@ -18122,8 +18122,8 @@
     "section": "calibration",
     "anchor": "calibration-persistence-compression-level",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L48",
-    "description": "Compression level (codec-dependent). Ignored when compression='none'."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L52",
+    "description": "Compression level DECLARED for those writers. Same as the codec: core/io/parquet.py and core/io/geoparquet.py hold level 5 and do not read this field. The default says 5 rather than 3 so the declaration at least matches the bytes actually w"
   },
   {
     "path": "spinup.max_cycles",
@@ -20763,13 +20763,13 @@
     "path": "hydrometry.sources.extent",
     "name": "extent",
     "type": "Optional[Literal['watershed', 'study_area']]",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "hydrometry",
     "anchor": "hydrometry-sources-extent",
     "page": "hydrometry.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20",
-    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+    "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
     "path": "hydrometry.sources.force_refresh",

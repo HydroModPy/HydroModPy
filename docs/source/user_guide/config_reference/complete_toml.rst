@@ -213,7 +213,7 @@ Sub-models are linked back to their per-section page.
       # param = ...  # uses factory default
       # Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition).
       # ic = ...  # uses factory default
-      # Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.  **Supported TOML sections**  - ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side`` - ``[flow.bc.cauchy.drainage]`` - ``[flow.bc.robin.drainage]`` - ``[flow.bc.<custom_id>]`` for generic payloads  **Common keys**  - ``value`` (required): numeric or ``'<value> <unit>'`` - ``application_domain``: optional for dirichlet when ``<id>`` implies it (e.g. ``west_side`` -> ``'west side'``); required for ``cauchy`` and ``robin`` drainage  **Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.  **Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin.  **Cauchy vs Robin:** both map to the same MODFLOW ``DRN`` package; the distinction only matters for the Boussinesq solver, which uses two different surface-interaction closures (``cauchy`` for the linear formulation ``q = C(h - h_ref)``, ``robin`` for the regularized partition / complementarity variants selected by ``flow.surface_interaction_model``).
+      # Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.  **Supported TOML sections**  - ``[flow.bc.<id>]``, one block per boundary, keyed by what it is. Canonical ids: ``drainage``, ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side`` - a boundary the registry describes entirely needs NO block: listing it in ``flow.active_bc`` is enough  **Common keys**  - ``kind``: optional, the registry supplies it; write it only to depart from the default, and only within a family (``cauchy`` and ``robin`` may be swapped, a prescribed head may not) - ``value``: optional on a drainage, where leaving it out derives the conductance from K; required for a prescribed head - ``application_domain``: optional, the registry supplies it, and a value contradicting it is refused  **Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.  **Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin.  **Cauchy vs Robin:** both map to the same MODFLOW ``DRN`` package; the distinction only matters for the Boussinesq solver, which uses two different surface-interaction closures (``cauchy`` for the linear formulation ``q = C(h - h_ref)``, ``robin`` for the regularized partition / complementarity variants selected by ``flow.surface_interaction_model``).
       # bc = ...  # uses factory default
       # Typed sinks/sources payload (for example pumping wells).
       # sinks_sources = ...  # uses factory default
@@ -269,7 +269,7 @@ Sub-models are linked back to their per-section page.
       # Human-readable simulation name and the run's identity. When empty, derived from the TOML filename at load time (run_steady_nwt.toml -> steady_nwt); a programmatic run without a name gets a deterministic memorable slug.
       # example: name = "cheze_baseline"
       name = ""
-      # Free-text tags attached at registration; editable later via 'hmp tag'.
+      # Free-text tags attached at registration; editable later via 'hmp catalog tag'.
       # tags = ...  # uses factory default
       # Behavior when registering a simulation whose ``name`` already exists in this project. ``version`` (default) mints the next ``stem.vN`` and keeps every run addressable; ``replace`` trashes the predecessor (restorable) and takes the name; ``fail`` raises an error.
       if_exists = "version"
@@ -430,10 +430,10 @@ Sub-models are linked back to their per-section page.
       save_zarr = true
       # Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files.
       save_parquet = true
-      # Codec used for Zarr field arrays and Parquet tables. 'none' disables compression.
+      # Codec DECLARED for Zarr field arrays and Parquet tables. The writers carry their own codec (zstd) and do not read this field, so changing it changes nothing today; it records the intent and is the field a writer would read once the choice is threaded through.
       compression = "zstd"
-      # Compression level (codec-dependent). Ignored when compression='none'.
-      compression_level = 3
+      # Compression level DECLARED for those writers. Same as the codec: core/io/parquet.py and core/io/geoparquet.py hold level 5 and do not read this field. The default says 5 rather than 3 so the declaration at least matches the bytes actually written.
+      compression_level = 5
 
 .. dropdown:: ``[observation]`` (ObservationConfig)
    :icon: gear
