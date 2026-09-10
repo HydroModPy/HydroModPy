@@ -122,6 +122,28 @@ its last state, and the run says so: only a converged loop tags its last cycle
 ``spinup-converged``, and chaining a production run from a state that did not
 settle is reported rather than assumed.
 
+Inside a calibration
+--------------------
+
+A search changes the conductivity and the storage at every trial, and the state
+the aquifer starts from depends on both of them. ``steady_state`` follows: its
+initialisation solve runs at that trial's own parameters, so each trial starts
+from its own equilibrium. That is why the two-stage stream-network method uses
+it, and it is what makes the comparison between trials mean anything.
+
+``restart_from`` does not follow. It reads a state computed once, under one
+parameter set, so every trial of a search that moves the conductivity would
+start from the antecedent of a different aquifer. The key is for chaining
+production runs, not for scoring trials.
+
+One case therefore has no answer today: a system whose memory is longer than a
+single steady solve carries *and* whose properties are being calibrated. Cyclic
+spin-up is what that case wants, and ``hmp spinup`` runs before the search rather
+than inside it, so it cannot be redone per trial. What is available is to cycle
+outside the search and say so, which means the reported parameters carry the
+antecedent of whatever parameter set the spin-up used. Treat it as part of the
+result and test it the way the last paragraph of this page says.
+
 Choosing
 --------
 
@@ -147,6 +169,10 @@ Choosing
    * - The same antecedent is reused by many runs
      - ``restart_from``
      - It is computed once and read from disk after that.
+   * - The parameters are being calibrated
+     - ``steady_state``
+     - It re-solves at each trial's own parameters; a state read from disk
+       belongs to one parameter set only.
    * - A long burn-in is affordable and will be excluded from the score
      - ``top`` / ``top_offset``
      - Simplest to state, and the burn-in absorbs the error.
