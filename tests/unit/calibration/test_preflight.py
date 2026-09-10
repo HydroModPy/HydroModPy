@@ -220,16 +220,12 @@ class TestPhases:
     """
 
     def test_a_phase_moving_a_parameter_nobody_declared_is_named(self, tmp_path) -> None:
-        findings = _preflight(
-            _write(tmp_path, self._PHASES.format(first="ghost", depends="one"))
-        )
+        findings = _preflight(_write(tmp_path, self._PHASES.format(first="ghost", depends="one")))
 
         assert "ghost" in _messages(findings)
 
     def test_a_dependency_that_does_not_exist_is_named(self, tmp_path) -> None:
-        findings = _preflight(
-            _write(tmp_path, self._PHASES.format(first="K", depends="nowhere"))
-        )
+        findings = _preflight(_write(tmp_path, self._PHASES.format(first="K", depends="nowhere")))
 
         assert "nowhere" in _messages(findings)
 

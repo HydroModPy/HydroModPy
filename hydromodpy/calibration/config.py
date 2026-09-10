@@ -636,6 +636,21 @@ class CalibObjectiveBlockDecl(HydroModelBase):
         ),
     )
 
+    @model_validator(mode="after")
+    def _check_the_normalisation_means_something(self) -> CalibObjectiveBlockDecl:
+        """Refuse here what the objective would refuse at the first trial.
+
+        The reader of this message writes TOML, so the refusal belongs where the
+        file is read rather than hours later inside a search.
+        """
+        if self.normalize_cost:
+            from hydromodpy.calibration.optim.objective import (
+                refuse_a_normalisation_that_means_nothing,
+            )
+
+            refuse_a_normalisation_that_means_nothing(self.name, str(self.metric).lower())
+        return self
+
 
 class CalibPhaseDecl(HydroModelBase):
     """One stage of a calibration that runs in several.

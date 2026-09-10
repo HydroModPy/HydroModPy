@@ -81,7 +81,9 @@ observes = "cheze_staff_gauge"
 #
 # normalize_cost matters here and not in the single-target file: an RMSE on
 # heads is in metres, an NSE cost is dimensionless, and summing them raw would
-# let the unit decide the weighting instead of the weight.
+# let the unit decide the weighting instead of the weight. It applies to the
+# piezometer block alone, because that is the only cost carrying a unit; on an
+# efficiency score it is refused rather than silently reweighting the block.
 #
 # Each block reports `<output>.n_paired`: how many dated samples the alignment
 # actually kept. A weight of 65 % on three surviving days is not what the file
@@ -104,8 +106,8 @@ normalize_cost = true
 name = "lake"
 # 'reservoir' is half nse_seasonal and half nse_delta: an impounded level is
 # beaten by its own seasonal cycle under a plain NSE, and its flux errors show
-# in the increments.
+# in the increments. Both halves are efficiency scores, so there is no unit in
+# the cost to remove and normalize_cost is refused here: the share is the weight.
 metric = "reservoir"
 weight = 0.10
 uses_outputs = ["lake_level"]
-normalize_cost = true
