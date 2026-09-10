@@ -81,7 +81,7 @@
       "caption": "Late-Time Unconfined Pumping 2D rendered with MODFLOW-NWT for the analytical gallery.",
       "alt_text": "Late-Time Unconfined Pumping 2D validation figure for MODFLOW-NWT",
       "doc_path": "/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png"
+      "repo_path": "docs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png"
     }
   ],
   "metrics": [],
@@ -141,12 +141,12 @@
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/validation/late_time_unconfined_pumping_2d_summary.json",
-    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d_summary.json",
     "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png",
-      "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6.png",
-      "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6_irregular_tri.png",
-      "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__boussinesq.png"
+      "docs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png",
+      "docs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6.png",
+      "docs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6_irregular_tri.png",
+      "docs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__boussinesq.png"
     ]
   },
   "solver_runs": [
@@ -169,7 +169,7 @@
         "caption": "Late-Time Unconfined Pumping 2D rendered with MODFLOW-NWT for the analytical gallery.",
         "alt_text": "Late-Time Unconfined Pumping 2D validation figure for MODFLOW-NWT",
         "doc_path": "/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png",
-        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png"
+        "repo_path": "docs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png"
       },
       "metadata": {
         "observable_name": "watertable_elevation",
@@ -258,7 +258,7 @@
         "caption": "Late-Time Unconfined Pumping 2D rendered with MODFLOW 6 for the analytical gallery.",
         "alt_text": "Late-Time Unconfined Pumping 2D validation figure for MODFLOW 6",
         "doc_path": "/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6.png",
-        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6.png"
+        "repo_path": "docs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6.png"
       },
       "metadata": {
         "observable_name": "watertable_elevation",
@@ -347,7 +347,7 @@
         "caption": "Late-Time Unconfined Pumping 2D rendered with MODFLOW 6 irregular triangles for the analytical gallery.",
         "alt_text": "Late-Time Unconfined Pumping 2D validation figure for MODFLOW 6 irregular triangles",
         "doc_path": "/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6_irregular_tri.png",
-        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6_irregular_tri.png"
+        "repo_path": "docs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6_irregular_tri.png"
       },
       "metadata": {
         "observable_name": "watertable_elevation",
@@ -436,7 +436,7 @@
         "caption": "Late-Time Unconfined Pumping 2D rendered with Boussinesq for the analytical gallery.",
         "alt_text": "Late-Time Unconfined Pumping 2D validation figure for Boussinesq",
         "doc_path": "/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__boussinesq.png",
-        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__boussinesq.png"
+        "repo_path": "docs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__boussinesq.png"
       },
       "metadata": {
         "observable_name": "watertable_elevation",

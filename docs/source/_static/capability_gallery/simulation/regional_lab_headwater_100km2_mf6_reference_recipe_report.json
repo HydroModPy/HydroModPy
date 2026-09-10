@@ -2,8 +2,8 @@
   "schema_version": "regional_lab_report_v2",
   "generated_at_utc": "<generated_at_utc>",
   "lab_id": "headwater_100km2_lab_mf6_reference",
-  "config_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
-  "site_catalog_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
+  "config_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
+  "site_catalog_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
   "output_root": "<regional_lab_output_root>",
   "execute": false,
   "continue_on_error": true,
@@ -45,9 +45,9 @@
       ],
       "enabled": true,
       "resolved_paths": {
-        "simulation_reference_config": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
-        "backend_comparison_config": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
-        "transient_backend_comparison_config": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json"
+        "simulation_reference_config": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
+        "backend_comparison_config": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
+        "transient_backend_comparison_config": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json"
       },
       "raw": {
         "site_id": "headwater_100km2_outlet_2",
@@ -274,13 +274,13 @@
       "recipe_id": "mf6_reference",
       "recipe_label": "MF6 reference replay",
       "launcher": "simulation",
-      "config_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
+      "config_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
       "command": [
         "/home/bb/miniforge3/envs/hmp_refact/bin/python",
         "-m",
         "launchers",
         "simulation",
-        "/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json"
+        "/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json"
       ],
       "status": "planned",
       "returncode": null,
@@ -353,9 +353,9 @@
     "summary_markdown": "regional_lab_outputs/regional_lab_summary.md"
   },
   "source_paths": [
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json"
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json"
   ],
   "source_hashes": {
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json": "c416f394e9b5c46bad2c23bba6c0fb1f9ff3fff6d360c607bb0b90283999c97b"
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json": "c416f394e9b5c46bad2c23bba6c0fb1f9ff3fff6d360c607bb0b90283999c97b"
   }
 }

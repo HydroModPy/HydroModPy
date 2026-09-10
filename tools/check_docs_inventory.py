@@ -68,6 +68,46 @@ DATA_TEMPLATE_ALLOWLIST = ROOT / "tools" / "docs_data_template_allowlist.txt"
 # Python object, and those empty pages owned the search index: searchtools.js
 # scores a matching py:module at 26 against 15 for a page title and 5 for body
 # text. Re-adding :recursive: silently undoes that.
+# --- CLI literals, anywhere ---------------------------------------------------
+#
+# A dead "hmp <verb>" is worse inside the package than inside a page: a Pydantic
+# Field description is republished verbatim into the generated configuration
+# reference, so one wrong string ships on several pages. That is how
+# "editable later via 'hmp tag'" reached two generated pages while the verb had
+# never existed under that name.
+#
+# The lookbehind excludes ".hmp archive", ".hmp packaging" and the rest of the
+# noun phrases built on the portable ".hmp" file format, which is what the
+# format is called and not a command.
+# Only a delimited literal or the start of a code-block line counts as a
+# command. Bare mid-sentence text is prose: "conda create -n hmp python=3.12"
+# names an environment, not a verb.
+HMP_COMMAND_RE = re.compile(
+    r"(?:[`'\"]|^[ \t]*\$?[ \t]*)hmp[ \t]+([a-z][a-z0-9-]{1,30})(?:[ \t]+([a-z][a-z0-9-]{1,30}))?",
+    re.M,
+)
+HMP_SCAN_ROOTS = ("hydromodpy", "docs/source")
+HMP_SCAN_SUFFIXES = (".py", ".rst", ".md")
+CLI_LITERAL_ALLOWLIST = ROOT / "tools" / "docs_cli_literal_allowlist.txt"
+
+# --- gallery artifacts ---------------------------------------------------------
+GALLERY_JSON_DIR = DOC_SOURCE / "_static" / "capability_gallery"
+REPO_PATH_RE = re.compile(r'"((?:docs|tools|tests|hydromodpy|examples)/[^"]+)"')
+GALLERY_PATH_ALLOWLIST = ROOT / "tools" / "docs_gallery_path_allowlist.txt"
+
+# --- parser floors -------------------------------------------------------------
+#
+# Every check here works by matching a pattern. A pattern that stops matching
+# reports success, so a reformat, a renamed directory or a broken glob silently
+# disables the check instead of failing it. These floors are the tripwire: they
+# are set well below today's counts and only fire when a scan collapses.
+PARSER_FLOORS = {
+    "authored user_guide pages": 40,
+    "hmp command literals": 200,
+    "gallery json files": 90,
+    "config_reference pages": 20,
+}
+
 RECURSIVE_BANNED_IN = (
     DOC_SOURCE / "api" / "index.rst",
     DOC_SOURCE / "_templates" / "autosummary" / "module.rst",
@@ -250,6 +290,106 @@ def check_api_reference_is_not_recursive() -> list[str]:
     return errors
 
 
+def _scan_hmp_literals() -> list[tuple[str, str, str | None]]:
+    """Every "hmp <verb> [<action>]" literal in the package and the docs."""
+    found: list[tuple[str, str, str | None]] = []
+    for root in HMP_SCAN_ROOTS:
+        base = ROOT / root
+        if not base.exists():
+            continue
+        for path in sorted(base.rglob("*")):
+            if path.suffix not in HMP_SCAN_SUFFIXES or not path.is_file():
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for match in HMP_COMMAND_RE.finditer(text):
+                found.append((path.relative_to(ROOT).as_posix(), match.group(1), match.group(2)))
+    return found
+
+
+def _registered_actions() -> dict[str, set[str]]:
+    from hydromodpy.cli.commands import ALL_COMMANDS
+
+    families: dict[str, set[str]] = {}
+    for module in ALL_COMMANDS:
+        name = getattr(module, "NAME", module.__name__.rsplit(".", 1)[-1])
+        actions = getattr(module, "ACTIONS", ())
+        families[name] = {
+            getattr(action, "NAME", action.__name__.rsplit(".", 1)[-1]) for action in actions
+        }
+    return families
+
+
+def check_cli_literals_resolve() -> list[str]:
+    """No text anywhere may name a command the argparse tree does not register."""
+    families = _registered_actions()
+    literals = _scan_hmp_literals()
+
+    errors: list[str] = []
+    if len(literals) < PARSER_FLOORS["hmp command literals"]:
+        errors.append(
+            f"the hmp literal scan matched only {len(literals)} times, below the floor of "
+            f"{PARSER_FLOORS['hmp command literals']}. The pattern has probably stopped matching."
+        )
+
+    violations: set[str] = set()
+    for rel, verb, action in literals:
+        if verb not in families:
+            violations.add(f"{rel}: 'hmp {verb}' is not a registered verb")
+        elif action and families[verb] and action not in families[verb]:
+            violations.add(f"{rel}: 'hmp {verb} {action}' is not an action of the {verb} family")
+
+    return errors + _check_against_allowlist(
+        violations,
+        CLI_LITERAL_ALLOWLIST,
+        "names a command the CLI does not register.",
+    )
+
+
+def check_gallery_paths_exist() -> list[str]:
+    """Every repository path inside a generated gallery summary must exist."""
+    if not GALLERY_JSON_DIR.exists():
+        return [f"{GALLERY_JSON_DIR.relative_to(ROOT).as_posix()} is missing"]
+
+    files = sorted(GALLERY_JSON_DIR.rglob("*.json"))
+    errors: list[str] = []
+    if len(files) < PARSER_FLOORS["gallery json files"]:
+        errors.append(
+            f"found only {len(files)} gallery summaries, below the floor of "
+            f"{PARSER_FLOORS['gallery json files']}. The directory has probably moved."
+        )
+
+    violations: set[str] = set()
+    for path in files:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for match in REPO_PATH_RE.finditer(text):
+            if not (ROOT / match.group(1)).exists():
+                violations.add(f"{path.relative_to(ROOT).as_posix()}: {match.group(1)}")
+
+    return errors + _check_against_allowlist(
+        violations,
+        GALLERY_PATH_ALLOWLIST,
+        "points at a repository path that does not exist.",
+    )
+
+
+def check_parser_floors() -> list[str]:
+    """The scans that back the other checks must still be matching something."""
+    errors: list[str] = []
+    counts = {
+        "authored user_guide pages": len(_authored_user_guide_pages()),
+        "config_reference pages": len(
+            list((USER_GUIDE_DIR / "config_reference").glob("*.rst"))
+        ),
+    }
+    for label, count in counts.items():
+        floor = PARSER_FLOORS[label]
+        if count < floor:
+            errors.append(
+                f"{label}: found {count}, below the floor of {floor}. A check is scanning nothing."
+            )
+    return errors
+
+
 def run_checks() -> list[str]:
     errors: list[str] = []
     errors.extend(check_cli_reference())
@@ -259,6 +399,9 @@ def run_checks() -> list[str]:
     errors.extend(check_user_guide_crossrefs())
     errors.extend(check_data_pages_follow_template())
     errors.extend(check_api_reference_is_not_recursive())
+    errors.extend(check_cli_literals_resolve())
+    errors.extend(check_gallery_paths_exist())
+    errors.extend(check_parser_floors())
     return errors
 
 

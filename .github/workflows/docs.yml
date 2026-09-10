@@ -64,6 +64,15 @@ jobs:
       - name: Build Sphinx html-strict
         run: make -C docs html-strict
 
+      # conf.py regenerates config_reference/ on builder-inited, so the build
+      # above has already written the truth. 130 committed files under
+      # docs/source carry an auto-generated header and until now exactly one
+      # artifact had a freshness test: CI never looked at the rest.
+      - name: Generated documentation must match its source
+        run: |
+          git diff --exit-code -- docs/source \
+            || { echo "::error::A generated file is stale. Run 'make -C docs html' and commit the result."; exit 1; }
+
       - name: Upload built HTML
         if: always()
         uses: actions/upload-artifact@v4
