@@ -82,7 +82,31 @@ def expand_calibration_protocol(document: Mapping[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def protocol_record(name: str) -> dict[str, Any]:
+def protocol_options_away_from_the_recipe(
+    name: str, declared: object
+) -> tuple[dict[str, Any], ...]:
+    """Return every adjustable option a file set to something other than the recipe's value.
+
+    A protocol keeps its identity when an option moves, and the reader comparing a
+    number to the publication is exactly the one who has to know that it moved.
+    Nothing else records it: the recipe describes its own defaults, and the
+    declaration describes only what the file wrote.
+    """
+    protocol = get_protocol(name)
+    recipe = type(declared).model_validate({"name": protocol.name})
+    changed: list[dict[str, Any]] = []
+    for key in sorted(protocol.adjustable):
+        if not hasattr(recipe, key):
+            continue
+        here = getattr(declared, key)
+        published = getattr(recipe, key)
+        if here == published:
+            continue
+        changed.append({"key": key, "here": here, "recipe": published})
+    return tuple(changed)
+
+
+def protocol_record(name: str, declared: object | None = None) -> dict[str, Any]:
     """Return what a run persists about the protocol it followed.
 
     A calibrated value that came out of a published method carries the method
@@ -92,7 +116,7 @@ def protocol_record(name: str) -> dict[str, Any]:
     its era, not with whatever the recipe became.
     """
     protocol = get_protocol(name)
-    return {
+    record: dict[str, Any] = {
         "name": protocol.name,
         "version": protocol.version,
         "title": protocol.title,
@@ -111,6 +135,11 @@ def protocol_record(name: str) -> dict[str, Any]:
         ],
         "reference_values": dict(protocol.reference_values),
     }
+    if declared is not None:
+        record["options_away_from_the_recipe"] = [
+            dict(item) for item in protocol_options_away_from_the_recipe(name, declared)
+        ]
+    return record
 
 
 def assert_version_is_available(name: str, version: str | None) -> None:
@@ -137,5 +166,6 @@ __all__ = [
     "available_protocols",
     "expand_calibration_protocol",
     "get_protocol",
+    "protocol_options_away_from_the_recipe",
     "protocol_record",
 ]

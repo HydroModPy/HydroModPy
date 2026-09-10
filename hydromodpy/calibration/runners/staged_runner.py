@@ -42,7 +42,10 @@ from hydromodpy.calibration.optim.parameters import (
     ParameterSpace,
     apply_parameter_to_config,
 )
-from hydromodpy.calibration.protocols import protocol_record
+from hydromodpy.calibration.protocols import (
+    protocol_options_away_from_the_recipe,
+    protocol_record,
+)
 from hydromodpy.calibration.runners.cli_runner import (
     load_toml_calibration,
     run_calibration_core,
@@ -544,7 +547,9 @@ def run_staged_calibration(
         phases=tuple(runs),
         frozen=tuple(frozen),
         root_session_id=str(root_session_id),
-        protocol=protocol_record(cfg.protocol.name) if cfg.protocol is not None else None,
+        protocol=(
+            protocol_record(cfg.protocol.name, cfg.protocol) if cfg.protocol is not None else None
+        ),
         methods_paragraph=(
             _methods_paragraph_for(cfg, runs, frozen) if cfg.protocol is not None else None
         ),
@@ -575,6 +580,7 @@ def _methods_paragraph_for(
         stages_that_ran=completed,
         calibrated=calibrated or None,
         chosen=chosen or None,
+        options=protocol_options_away_from_the_recipe(cfg.protocol.name, cfg.protocol) or None,
     )
 
 

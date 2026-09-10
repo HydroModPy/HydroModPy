@@ -97,7 +97,7 @@ def _announce_the_protocol(cfg) -> None:
         return
     from hydromodpy.calibration.protocols import protocol_record
 
-    record = protocol_record(declared.name)
+    record = protocol_record(declared.name, declared)
     print(
         f"protocol: {record['name']}@{record['version']} - {record['title']}",
         file=sys.stderr,
@@ -115,8 +115,16 @@ def _announce_the_protocol(cfg) -> None:
             f"(paper: {deviation['paper']})"
         )
         if deviation["key"] in chosen:
-            line += f" - this file sets {chosen[deviation['key']]!r}"
+            line += f" - this file sets {_rendered(chosen[deviation['key']])}"
         print(line, file=sys.stderr)
+    # An option moved off the recipe keeps the method but changes what the number
+    # rests on, and only the file knows it moved.
+    for option in record.get("options_away_from_the_recipe", ()):
+        print(
+            f"  option away from the recipe: {option['key']} = "
+            f"{_rendered(option['here'])} (recipe: {_rendered(option['recipe'])})",
+            file=sys.stderr,
+        )
     backend = getattr(getattr(cfg, "solver", None), "backend_name", None)
     backend = str(getattr(backend, "value", backend) or "")
     verdict = record["support"].get(backend)
@@ -126,6 +134,17 @@ def _announce_the_protocol(cfg) -> None:
             "runs the protocol on that backend.",
             file=sys.stderr,
         )
+
+
+def _rendered(value: object) -> str:
+    """Return a value as a reader of a terminal would want to see it.
+
+    A quantity reprs as ``<Quantity(50, 'meter')>``, which is the object and not
+    the number the file wrote.
+    """
+    if hasattr(value, "magnitude") and hasattr(value, "units"):
+        return f"'{value:~P}'"
+    return repr(value)
 
 
 def _values_this_file_set(cfg, keys: list[str]) -> dict[str, object]:

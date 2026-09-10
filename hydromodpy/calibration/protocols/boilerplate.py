@@ -26,6 +26,7 @@ def methods_paragraph(
     stages_that_ran: Sequence[str] = (),
     calibrated: Mapping[str, float] | None = None,
     chosen: Mapping[str, object] | None = None,
+    options: Sequence[Mapping[str, object]] | None = None,
     backend: str | None = None,
 ) -> str:
     """Return the Methods prose for one calibration that ran.
@@ -33,8 +34,9 @@ def methods_paragraph(
     ``stages_that_ran`` names the stages that completed, so the sentence
     describes the run rather than the plan. ``calibrated`` carries the values the
     search returned, ``chosen`` the settings this file set on keys the protocol
-    departs from its publication on, and ``backend`` the solver, whose support
-    status is stated when it is not one this repository tests.
+    departs from its publication on, ``options`` the protocol options it moved off
+    the recipe, and ``backend`` the solver, whose support status is stated when it
+    is not one this repository tests.
     """
     protocol = get_protocol(name)
     parts: list[str] = []
@@ -82,6 +84,12 @@ def methods_paragraph(
             if chosen is not None
         )
         parts.append(f"This run departs from the published method as follows: {listed}.")
+
+    if options:
+        listed = ", ".join(
+            f"{item['key']} = {item['here']!r} instead of {item['recipe']!r}" for item in options
+        )
+        parts.append(f"Protocol options were moved off the recipe: {listed}.")
 
     if backend:
         verdict = protocol.support.get(str(backend))

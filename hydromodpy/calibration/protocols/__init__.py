@@ -15,6 +15,7 @@ from hydromodpy.calibration.protocols.registry import (
     available_protocols,
     expand_calibration_protocol,
     get_protocol,
+    protocol_options_away_from_the_recipe,
     protocol_record,
 )
 
@@ -26,5 +27,6 @@ __all__ = [
     "available_protocols",
     "expand_calibration_protocol",
     "get_protocol",
+    "protocol_options_away_from_the_recipe",
     "protocol_record",
 ]
