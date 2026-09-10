@@ -19,8 +19,8 @@ import numpy as np
 import pytest
 
 from hydromodpy.calibration.config import CalibOutputNetwork, validate_calib_output
+from hydromodpy.calibration.criteria.registry import NETWORK_ESTIMATORS
 from hydromodpy.calibration.optim.objective import (
-    CRITERION_METRICS,
     ConfigBlockObjective,
     build_objective_from_config,
 )
@@ -46,8 +46,8 @@ class TestTheDeclaration:
 
 
 class TestTheMetrics:
-    def test_the_distances_are_listed_as_criterion_metrics(self) -> None:
-        assert {"distance_gap", "distance_mean"} == CRITERION_METRICS
+    def test_the_distances_are_the_network_estimators(self) -> None:
+        assert {"distance_gap", "distance_mean"} == NETWORK_ESTIMATORS
 
     def test_a_block_on_a_criterion_metric_needs_no_observed_vector(self) -> None:
         block = ConfigBlockObjective(

@@ -14,6 +14,11 @@ from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
+from hydromodpy.calibration.criteria.series import (
+    HIGHER_IS_BETTER,
+    LOG_METRICS,
+    clip_negatives_for_log_metric,
+)
 from hydromodpy.core.metrics import (
     kge,
     log_nse,
@@ -181,63 +186,11 @@ METRICS: dict[str, Callable[..., float]] = {
     "reservoir": _reservoir_score,
 }
 
-HIGHER_IS_BETTER: frozenset[str] = frozenset(
-    {"nse", "kge", "nse_delta", "nse_seasonal", "nse_log", "reservoir"}
-)
-
-# Metrics whose cost is a function of the simulated values alone. A criterion
-# that balances two simulated quantities has no observed series anywhere in it,
-# so a block scored on one asks for none: fabricating a vector of zeros to pair
-# against told a reader that a network output has observations, drove the
-# reference scale and the length check, and meant "there is nothing here" in the
-# one notation that cannot say so.
-CRITERION_METRICS: frozenset[str] = frozenset({"distance_gap", "distance_mean"})
-
-# Metrics whose cost is already a pure number, so there is no unit in it to
-# remove. ``normalize_cost`` exists to stop a unit deciding the weighting of a
-# composite; dividing an efficiency score by the standard deviation of its own
-# observations does the opposite, multiplying that block's weight by a number
-# that belongs to its data and saying nothing about it.
-DIMENSIONLESS_METRICS: frozenset[str] = frozenset(
-    {"nse", "kge", "nse_delta", "nse_seasonal", "nse_log", "reservoir"}
-)
-
-# Metrics scored on a criterion that produces no observed vector. Their cost has
-# a unit, metres, but the reference scale would be read off a pair of zeros and
-# collapse to one, so normalising them is a no-op wearing the name of a
-# correction.
-UNNORMALISABLE_METRICS: frozenset[str] = frozenset({"distance_gap", "distance_mean"})
-
-# Metrics that take the logarithm of the series and therefore refuse a negative
-# value. Do not confuse ``nse_log``, an NSE computed on log-transformed series,
-# with ``transform = "log"``, which takes the log of an already-computed cost:
-# the two names look alike and mean unrelated things.
-LOG_METRICS: frozenset[str] = frozenset({"nse_log"})
-
 # Output supports whose values carry no time axis. A ``network`` output produces the
 # pair (D_so, D_os), two distances in metres, so nothing in it can be read as "the
 # first periods of the run". Compared as strings because this layer must not import
 # the config layer.
 TIMELESS_SUPPORTS: frozenset[str] = frozenset({"network"})
-
-
-def clip_negatives_for_log_metric(
-    simulated: np.ndarray,
-    observed: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray, int]:
-    """Clip negatives to zero for a log metric and count what was clipped.
-
-    ``log_nse`` refuses a negative value, and a discharge series reconstructed
-    below a dam with releases legitimately holds a few. Clipping keeps the
-    series scorable; returning the count is what stops the clipping from
-    passing unnoticed, which would hide a sign error in the reconstruction.
-    """
-    sim = np.asarray(simulated, dtype=float)
-    obs = np.asarray(observed, dtype=float)
-    n_clipped = int(np.count_nonzero(sim < 0.0) + np.count_nonzero(obs < 0.0))
-    if n_clipped == 0:
-        return sim, obs, 0
-    return np.maximum(sim, 0.0), np.maximum(obs, 0.0), n_clipped
 
 
 class ScalarObjective:
@@ -452,8 +405,17 @@ class CompositeObjective:
 
 
 def refuse_a_normalisation_that_means_nothing(block: str, metric: str) -> None:
-    """Refuse ``normalize_cost`` where dividing by a reference scale says nothing."""
-    if metric in DIMENSIONLESS_METRICS:
+    """Refuse ``normalize_cost`` where dividing by a reference scale says nothing.
+
+    The verdict comes from the criterion itself: it declares whether its cost is
+    already a pure number, and whether it fits observations at all. Reading those
+    two answers rather than two lists held here is what stops the lists from
+    drifting away from the kernels they describe.
+    """
+    from hydromodpy.calibration.criteria import criterion_for
+
+    needs = criterion_for(metric).requirements()
+    if needs.cost_is_dimensionless:
         raise ValueError(
             f"Block {block!r}: normalize_cost = true divides the cost by the standard "
             f"deviation of the observations, and {metric!r} is already a pure number. "
@@ -461,7 +423,7 @@ def refuse_a_normalisation_that_means_nothing(block: str, metric: str) -> None:
             "this one's weight by a figure that belongs to its data. Set the share you "
             "want in 'weight' and leave normalize_cost off."
         )
-    if metric in UNNORMALISABLE_METRICS:
+    if not needs.needs_observations:
         raise ValueError(
             f"Block {block!r}: normalize_cost = true has nothing to read a scale from "
             f"for {metric!r}. That criterion balances two simulated quantities, so its "
@@ -494,15 +456,22 @@ class ConfigBlockObjective:
         warmup: int = 0,
         timeless_outputs: Iterable[str] = (),
     ) -> None:
+        from hydromodpy.calibration.criteria import criterion_for
+
         metric_key = str(metric).strip().lower()
         if metric_key not in METRICS:
             raise ValueError(
                 f"Block {name!r}: unknown metric {metric!r}. Choices: {sorted(METRICS)}"
             )
+        # The criterion owns the sign convention and the clipping, and declares
+        # whether it fits observations at all. The block asks it rather than
+        # re-deriving both from two frozensets held beside the registry.
+        criterion = criterion_for(metric_key)
+        needs = criterion.requirements()
         outputs = tuple(str(output) for output in uses_outputs)
         if not outputs:
             raise ValueError(f"Block {name!r}: uses_outputs must not be empty")
-        scores_a_criterion = metric_key in CRITERION_METRICS
+        scores_a_criterion = not needs.needs_observations
         observed_parts: list[np.ndarray] = []
         if not scores_a_criterion:
             for output_name in outputs:
@@ -517,8 +486,7 @@ class ConfigBlockObjective:
         self.name = str(name)
         self._scores_a_criterion = scores_a_criterion
         self._metric = metric_key
-        self._metric_fn = METRICS[metric_key]
-        self._higher_is_better = metric_key in HIGHER_IS_BETTER
+        self._criterion = criterion
         self._outputs = outputs
         self._observed = observed
         self._observed_parts = observed_parts
@@ -588,8 +556,7 @@ class ConfigBlockObjective:
         if simulated.size == 0:
             return ObjectiveValue(total=float("inf"), components={})
         if self._scores_a_criterion:
-            raw = float(self._metric_fn(simulated))
-            n_clipped = 0
+            scored = self._criterion.score(simulated)
             observed = simulated
         else:
             if observed.size == 0:
@@ -599,16 +566,14 @@ class ConfigBlockObjective:
                     f"Block {self.name!r}: simulated length {simulated.size} does not "
                     f"match observed length {observed.size}"
                 )
-            n_clipped = 0
-            if self._metric in LOG_METRICS:
-                simulated, observed, n_clipped = clip_negatives_for_log_metric(simulated, observed)
-            raw = float(self._metric_fn(simulated, observed))
-        if not np.isfinite(raw):
+            scored = self._criterion.score(simulated, observed)
+        cost = scored.cost
+        n_clipped = int(scored.diagnostics.get("n_clipped", 0))
+        if not np.isfinite(cost):
             return ObjectiveValue(
                 total=float("inf"),
                 components={f"{self.name}.raw_cost": float("inf")},
             )
-        cost = (1.0 - raw) if self._higher_is_better else raw
         normalized = cost / self._reference_scale if self._normalize_cost else cost
         transformed = float(self._transform_fn(normalized))
         components = {
@@ -706,13 +671,10 @@ __all__ = [
     "CompositeObjective",
     "ConfigBlockObjective",
     "build_objective_from_config",
-    "CRITERION_METRICS",
-    "DIMENSIONLESS_METRICS",
     "METRICS",
     "HIGHER_IS_BETTER",
     "LOG_METRICS",
     "TIMELESS_SUPPORTS",
-    "UNNORMALISABLE_METRICS",
     "distance_gap",
     "distance_mean",
     "clip_negatives_for_log_metric",

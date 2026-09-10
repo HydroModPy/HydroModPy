@@ -21,10 +21,8 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.calibration.optim.objective import (
-    DIMENSIONLESS_METRICS,
-    ConfigBlockObjective,
-)
+from hydromodpy.calibration.criteria.series import DIMENSIONLESS
+from hydromodpy.calibration.optim.objective import ConfigBlockObjective
 
 _OBSERVED = {"q": (1.0, 2.0, 3.0)}
 
@@ -40,14 +38,16 @@ def _block(metric: str, *, normalize: bool) -> ConfigBlockObjective:
 
 
 class TestWhichMetricsHaveNoUnit:
+    """The list lives with the kernels it describes, not beside them."""
+
     def test_the_efficiency_scores_are_listed(self) -> None:
         assert {"nse", "kge", "nse_log", "nse_delta", "nse_seasonal", "reservoir"} <= (
-            DIMENSIONLESS_METRICS
+            DIMENSIONLESS
         )
 
     def test_a_residual_metric_is_not(self) -> None:
-        assert "rmse" not in DIMENSIONLESS_METRICS
-        assert "mae" not in DIMENSIONLESS_METRICS
+        assert "rmse" not in DIMENSIONLESS
+        assert "mae" not in DIMENSIONLESS
 
 
 class TestWhatIsRefused:

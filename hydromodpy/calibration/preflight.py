@@ -217,17 +217,30 @@ def _check_phases(calibration: Any) -> list[PreflightFinding]:
     return findings
 
 
-_SIGNED_RESIDUAL_METRICS: frozenset[str] = frozenset({"distance_gap"})
-"""Metrics whose cost IS the absolute signed residual a root search closes on.
+def _publishes_a_signed_residual(metric: str) -> bool:
+    """Whether this criterion's cost IS the absolute residual a root search closes on.
 
-The network criterion publishes ``J_signed`` beside every cost, so a metric that
-merely reads that output is not enough. A bisection reports as its best the
-trial whose cost is smallest, and it can only do that because ``distance_gap``
-makes the cost ``abs(J_signed)``: the two agree by construction.
-``distance_mean`` averages the two distances instead, so its minimum sits
-nowhere near the zero the bracket closed on and the reported best would be a
-different trial from the one the search converged to, silently.
-"""
+    The answer comes from the criterion, not from a list held here. The network
+    criterion publishes ``J_signed`` beside every cost, so merely reading that
+    output is not enough: a bisection reports as its best the trial whose cost is
+    smallest, and it can only do that when the cost IS that residual, which is
+    true of ``distance_gap`` and false of ``distance_mean``. The estimator is
+    what knows the difference, so the estimator is what declares it.
+    """
+    from hydromodpy.calibration.criteria import criterion_for
+
+    try:
+        return criterion_for(metric).requirements().signed
+    except ValueError:
+        # An unknown metric is refused elsewhere, by name; nothing to add here.
+        return False
+
+
+def _signed_residual_metrics() -> list[str]:
+    """Return every registered criterion a root search may be pointed at."""
+    from hydromodpy.calibration.criteria import available_criteria
+
+    return sorted(name for name in available_criteria() if _publishes_a_signed_residual(name))
 
 
 def _check_engines(calibration: Any) -> list[PreflightFinding]:
@@ -278,7 +291,9 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                         f"declare(s) another transform.",
                     )
                 )
-        if traits.needs_signed_residual and not (metrics & _SIGNED_RESIDUAL_METRICS):
+        if traits.needs_signed_residual and not any(
+            _publishes_a_signed_residual(metric) for metric in metrics
+        ):
             named = ", ".join(sorted(metrics)) or "nothing"
             findings.append(
                 PreflightFinding(
@@ -287,7 +302,7 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                     f"{method!r} closes a bracket on a signed residual and reports the "
                     f"trial with the smallest cost as its best, which only agree when "
                     f"the cost IS that residual. This search is scored on {named}. "
-                    f"Score it on {', '.join(sorted(_SIGNED_RESIDUAL_METRICS))}, or "
+                    f"Score it on {', '.join(_signed_residual_metrics())}, or "
                     "search it with a minimiser.",
                 )
             )
