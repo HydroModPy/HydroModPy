@@ -130,6 +130,30 @@ class CalibParameter:
         return self.target if self.target is not None else self.path
 
 
+def _assert_bounds_are_physical(name: str, low: float, high: float, unit: object) -> None:
+    """Face a declared bound with the ceiling a literal value already faces.
+
+    The registry refuses a specific yield of 0.8 written in ``[flow.param]`` and
+    never saw the bounds a calibration searches between, so the same value passed
+    unnoticed there. Checking the bounds rather than each sample refuses the whole
+    impossible region once, before the first solve. An id the registry does not
+    know is left alone, exactly as it is everywhere else.
+    """
+    from hydromodpy.spatial.field.core.physical_bounds import (
+        PhysicalBoundsError,
+        validate_physical_value,
+    )
+
+    unit_text = str(unit) if unit is not None else None
+    for edge, value in (("lower", low), ("upper", high)):
+        try:
+            validate_physical_value(param_id=name, value=value, unit=unit_text)
+        except PhysicalBoundsError as exc:
+            raise ValueError(
+                f"[calibration.parameters.{name}] {edge} bound {value!r}: {exc}"
+            ) from None
+
+
 class ParameterSpace:
     """Ordered collection of calibrated parameters.
 
@@ -247,6 +271,7 @@ class ParameterSpace:
                 raise ValueError(
                     f"Parameter {name!r}: logit transform requires 0 < lower < upper < 1"
                 )
+            _assert_bounds_are_physical(name, low, high, decl.get("units"))
             if prior not in {"uniform", "log_uniform", "normal"}:
                 raise ValueError(f"Parameter {name!r}: unknown prior {prior!r}")
             if prior == "log_uniform" and low <= 0.0:
