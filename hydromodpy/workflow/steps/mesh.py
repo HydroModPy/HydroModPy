@@ -382,7 +382,11 @@ class BuildMeshStep:
     name = "build_mesh"
     tin: ClassVar[type] = LoadedState
     tout: ClassVar[type] = MeshedState
-    config_sections: ClassVar[tuple[str, ...]] = ("domain.supports",)
+    config_sections: ClassVar[tuple[str, ...]] = (
+        "domain.supports",
+        "mesh_catchment",
+        "mesh_input",
+    )
 
     def depends_on(self) -> tuple[str, ...]:
         return ("load_data",)
