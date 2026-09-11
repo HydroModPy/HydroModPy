@@ -11,10 +11,11 @@ import rasterio
 
 from hydromodpy.spatial.geographic.cases import run_geographic_case_from_toml
 from tests._helpers.whitebox import configure_whitebox_single_thread
+from tests.regression.golden_utils import REPO_ROOT, resolve_tiered_golden_file
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-GOLDEN_FILE = (
-    Path(__file__).resolve().parent / "golden" / "run_geographic_dem_processing_golden.json"
+GOLDEN_FILE = resolve_tiered_golden_file(
+    test_file=__file__,
+    filename="run_geographic_dem_processing_golden.json",
 )
 DEM_CORRECTION_TYPES = ["breach", "fill"]
 
@@ -165,7 +166,8 @@ def _assert_raster_sig_close(actual: dict, expected: dict) -> None:
     assert float(actual["sum"]) == pytest.approx(float(expected["sum"]), abs=sum_tol, rel=0.0)
 
 
-@pytest.mark.slow
+@pytest.mark.regression
+@pytest.mark.fast
 def test_run_geographic_dem_processing_golden(
     update_goldens: bool,
     tmp_path: Path,

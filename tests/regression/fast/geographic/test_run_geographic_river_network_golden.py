@@ -12,10 +12,11 @@ import rasterio
 
 from hydromodpy.spatial.geographic.cases import run_geographic_case_from_toml
 from tests._helpers.whitebox import configure_whitebox_single_thread
+from tests.regression.golden_utils import REPO_ROOT, resolve_tiered_golden_file
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-GOLDEN_FILE = (
-    Path(__file__).resolve().parent / "golden" / "run_geographic_river_network_golden.json"
+GOLDEN_FILE = resolve_tiered_golden_file(
+    test_file=__file__,
+    filename="run_geographic_river_network_golden.json",
 )
 
 ABS_TOL_FLOAT = 1e-3
@@ -144,7 +145,8 @@ def _river_network_signature(tmp_path: Path) -> dict:
     return payload
 
 
-@pytest.mark.slow
+@pytest.mark.regression
+@pytest.mark.fast
 def test_run_geographic_river_network_golden(
     update_goldens: bool,
     tmp_path: Path,

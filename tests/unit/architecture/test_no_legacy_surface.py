@@ -72,7 +72,7 @@ def _iter_candidate_files(repo_root: Path):
 
 
 def test_legacy_regression_vocabulary_stays_out_of_active_surface() -> None:
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(__file__).resolve().parents[3]
     legacy_name = "_".join(("launcher", "simulation"))
     offenders: list[str] = []
 
@@ -98,7 +98,7 @@ def _iter_mapping_keys(value):
 
 
 def test_public_simulation_comparison_manifests_hide_workspace_paths() -> None:
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(__file__).resolve().parents[3]
     manifest_root = (
         repo_root / "docs" / "source" / "_static" / "capability_gallery" / "simulation_comparison"
     )
