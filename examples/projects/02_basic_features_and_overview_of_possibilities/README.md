@@ -1,69 +1,68 @@
 # 02 - Basic features and overview of possibilities
 
-Petit bassin conceptuel de démonstration, délimité depuis son exutoire sur
-un MNT de teaching, résolu en **régime stationnaire** avec **MODFLOW 6**.
-C'est le cas « toute la chaîne sur un domaine jouet », entièrement
-hors-ligne, qui exerce l'ensemble des figures standard.
+Small conceptual demo catchment, delineated from its outlet on a teaching
+DEM, solved in **steady state** with **MODFLOW 6**. This is the "whole
+chain on a toy domain" case, fully offline, which exercises the full set of
+standard figures.
 
-## Lancer
+## Run
 
 ```bash
 hmp run examples/projects/02_basic_features_and_overview_of_possibilities/project.toml
 
-# run + inspection + figures, via l'API Python
+# run + inspection + figures, via the Python API
 python examples/projects/02_basic_features_and_overview_of_possibilities/run_manual.py
 
 hmp viz gallery examples/projects/02_basic_features_and_overview_of_possibilities/project.toml
 ```
 
-Durée : moins de 1 s (bassin conceptuel ~60 mailles).
+Runtime: under 1 s (conceptual catchment ~60 cells).
 
-## Données
+## Data
 
-| Fichier | Famille | Rôle |
+| File | Family | Role |
 |---|---|---|
-| `dem/conceptual_dem.tif` | dem | MNT conceptuel 75 m (topographie de teaching) |
-| recharge synthétique | recharge | recharge moyenne stationnaire, 1.5 mm/j |
+| `dem/conceptual_dem.tif` | dem | conceptual 75 m DEM (teaching topography) |
+| synthetic recharge | recharge | steady-state average recharge, 1.5 mm/d |
 
-## Les cas de recharge
+## Recharge scenarios
 
-Pour explorer les scénarios sec / normal / humide, changer la valeur
-`values` de `[[data.recharge.sources]]` dans `project.toml` et relancer :
-une recharge plus forte remonte la nappe, donc plus de mailles affleurent en
-suintement.
+To explore dry / normal / wet scenarios, change the `values` field of
+`[[data.recharge.sources]]` in `project.toml` and rerun: higher recharge
+raises the watertable, so more cells outcrop as seepage.
 
 ## Figures
 
-| Figure | Ce qu'elle montre |
+| Figure | What it shows |
 |---|---|
-| `mesh_map` | grille du solveur |
-| `recharge_map` | recharge par maille |
-| `piezometric_map` | altitude de la nappe |
-| `watertable_depth_map` | profondeur de nappe + suintement |
-| `seepage_map` | zones de suintement |
-| `cross_section` | coupe topographie / nappe / base d'aquifère |
-| `water_budget` | bilan par composante (recharge = drainage en stationnaire) |
+| `mesh_map` | solver grid |
+| `recharge_map` | recharge per cell |
+| `piezometric_map` | watertable elevation |
+| `watertable_depth_map` | watertable depth + seepage |
+| `seepage_map` | seepage zones |
+| `cross_section` | topography / watertable / aquifer base cross section |
+| `water_budget` | budget per component (recharge = drainage at steady state) |
 
-## Modes de définition du domaine
+## Domain definition modes
 
-Le script legacy montrait quatre façons de définir un bassin. Elles existent
-toutes en v1, via `[geographic.catchment].catch_def` :
+The legacy script showed four ways to define a catchment. All of them exist
+in v1, via `[geographic.catchment].catch_def`:
 
-| Mode | `catch_def` | Exemple |
+| Mode | `catch_def` | Example |
 |---|---|---|
-| depuis un exutoire | `from_outlet_coord` | ici, 00, 01, 03, 04 |
-| depuis un polygone | `from_polyg_shp` | - |
-| grille XYZ texte | `txt` | - |
-| domaine analytique | `source_mode = "synthetic"` | 00_getting_started |
+| from an outlet | `from_outlet_coord` | here, 00, 01, 03, 04 |
+| from a polygon | `from_polyg_shp` | - |
+| XYZ text grid | `txt` | - |
+| analytical domain | `source_mode = "synthetic"` | 00_getting_started |
 
-## Dette technique
+## Technical debt
 
-- Le mode `catch_def = "dem"` (le MNT EST le domaine, sans délimitation) ne
-  masque pas le nodata du raster : les cellules nodata entrent dans le
-  domaine actif et ruinent les figures. On délimite donc depuis l'exutoire,
-  qui masque proprement. Un masquage nodata en mode `dem` serait le correctif.
-- Un balayage de scénarios dans un même process Python bute sur la connexion
-  DuckDB (`hmp.run` rouvre le catalogue à chaque appel). Le pattern propre
-  multi-run est `hmp.Project` + `project.simulate(...)` (voir l'exemple 03),
-  qui ne surcharge que les paramètres flow ; varier la recharge se fait donc
-  en éditant le TOML.
+- The `catch_def = "dem"` mode (the DEM IS the domain, no delineation) does
+  not mask the raster's nodata: nodata cells enter the active domain and
+  ruin the figures. Delineating from the outlet is used instead, since it
+  masks properly. A nodata mask in `dem` mode would be the fix.
+- Sweeping scenarios in a single Python process hits the DuckDB connection
+  (`hmp.run` reopens the catalog on every call). The clean multi-run
+  pattern is `hmp.Project` + `project.simulate(...)` (see example 03), which
+  only overrides flow parameters; varying recharge is therefore done by
+  editing the TOML.

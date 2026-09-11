@@ -1,150 +1,78 @@
-# 19 - Reservoir de la Cheze (EBR), MODFLOW 6 LAK + SFR
+# 19 - Cheze reservoir
 
-Portage du modele historique EBR du reservoir de la Cheze (Plelan-le-Grand,
-Bretagne) vers l'architecture MODFLOW 6. Le reservoir est un package **LAK
-natif** (selection des cellules par le polygone, relation hauteur-volume-surface
-par l'abaque, echange nappe-lac par la CONNECTIONDATA, surverse par un exutoire
-WEIR), **alimente par le debit de son bassin via un reseau SFR** : les biefs
-captent le flux de nappe par leur lit, le ruissellement SIM2 est route le long
-du reseau, le drainage de versant converge vers le bief le plus proche
-(`route_drainage`), et les biefs terminaux (tronques a la rive) livrent le debit
-accumule au lac par des enregistrements MVR.
+The Cheze reservoir (Plelan-le-Grand, Brittany, EPSG:2154), a managed dam on a
+1.58 km2 lake. The reservoir is a native MODFLOW 6 **LAK** package (abacus
+stage-volume-area, bathymetry-carved bed, WEIR spillway, dam cutoff wall as an
+HFB barrier), fed by its own catchment through a delineated **SFR** network:
+reaches capture aquifer baseflow, hillslope drainage converges to the nearest
+reach, and the terminal reaches hand the accumulated flow to the lake through
+MVR. Four calibration configs fit the aquifer and lake parameters against the
+observed reservoir level.
 
-## Ce que fait l'exemple
-
-- Delimitation du bassin de la Cheze depuis le DEM regional partage et l'exutoire
-  aval du barrage ; produits reseau hydrographique (liens + ordre de Strahler)
-  pour la delineation SFR.
-- Recharge depuis l'**API SIM2 Meteo-France** (`source = "sim2"`), recuperee au
-  run (connexion reseau ou cache SIM2 requis).
-- Reservoir LAK : geometrie + abaque (donnees reelles 2025), niveau initial
-  observe maintenu pendant le warm-up stationnaire (`steady_stage_hold`),
-  exutoire WEIR a la crete du barrage (87.3 m), flux geres (transferts
-  Meu/Canut en entree, prelevement + restitution en sortie), pluie et
-  evaporation eau-libre SIM2 sur le plan d'eau.
-- Riviere Cheze SFR : reseau delinee au seuil 1 km2, tronque a la rive du
-  reservoir, parametres de lit du modele historique (hcond 0.08 m/j, lit
-  0.1 m, Manning 0.03), ruissellement SIM2 route + convergence du drainage de
-  versant, couplage MVR vers le lac (`outflow_to_lake = 1`).
-- Transitoire hebdomadaire sur 2019 (demo) et journalier 2007-2025 (chronique).
-
-## Donnees
-
-Tout ce qui est meteo vient de l'**API SIM2 Meteo-France** (recupere au run) :
-
-| Variable | Source | Cible |
-|---|---|---|
-| recharge | SIM2 | nappe (recharge au toit de l'aquifere) |
-| precipitation | SIM2 | pluie sur le plan d'eau (taux) |
-| etp | SIM2 | evaporation eau-libre du lac (taux) |
-| runoff | SIM2 | ruissellement de bassin -> route par le reseau SFR (taux x aire bassin, reparti par longueur de bief) |
-
-Donnees lac locales (sous `examples/data/`) :
-
-| Famille | Fichier | Contenu |
-|---|---|---|
-| `lake_geometry` | `lake_geometry/reservoir_cheze.gpkg` | polygone du reservoir (EPSG:2154, 1.58 km2) |
-| `lake_abacus` | `lake_abacus/reservoir_cheze.csv` | abaque `stage,volume,sarea` (54.45 -> 87.58 m, jusqu'a 13.5 Mm3) |
-| `lake_inflow` | `lake_inflow/` | transferts Meu + Canut vers le lac (m3/j, 2007-2026) |
-| `lake_withdrawal` | `lake_withdrawal/` | prelevement + restitution quittant le lac (m3/j, 2007-2026) |
-| `lake_levels` | `lake_levels/` | niveau observe du reservoir (m NGF, 2007-2026) pour la comparaison |
-
-Les chroniques `lake_inflow`, `lake_withdrawal` et `lake_levels` derivent toutes du
-meme fichier source `data_cheze_corrige.csv` (2007-2026) : `inflow = meu + canut`,
-`withdrawal = restitution + prelevement`, `niveau = cheze_cote_mNGF`.
-
-## Lancer
+## Run
 
 ```bash
-mamba activate hmp_refact
-# Demo court : 2019 hebdomadaire (figures lac + figures SFR)
+# Weekly 2019 demo: LAK with active-littoral marnage (bathymetry-carved bed,
+# exposed shoreline runoff) + the SFR feed. Needs the mf6api extra, below.
 hmp run examples/projects/19_cheze_reservoir/project.toml
 python examples/projects/19_cheze_reservoir/run_cheze_reservoir.py
 
-# Chronique complete : journalier 2007-2025 + comparaison simule/observe
-python examples/projects/19_cheze_reservoir/compare_chronicle.py
+# Full daily chronicle 2007-2025, fixed-area lake (no marnage, no mf6api).
+hmp run examples/projects/19_cheze_reservoir/project_chronicle.toml
+python examples/projects/19_cheze_reservoir/compare_chronicle.py   # obs-vs-sim scores + figure
+
+# Two-lake variant: reservoir + Pont Musard forebay, reciprocal sill weirs.
+hmp run examples/projects/19_cheze_reservoir/project_preretenue.toml
+
+# Lake-level calibration (KGE on bedleak / K / Sy against the observed level).
+hmp calibrate examples/projects/19_cheze_reservoir/cheze_calibration_level.toml
+hmp report render -w examples/projects/19_cheze_reservoir --open
 ```
 
-## Comment l'eau arrive au reservoir
+`project.toml` and `project_preretenue.toml` carve an active-littoral lake bed
+(`exposed_band_runoff = true`), which runs on the in-process MF6 BMI API and
+needs `pip install hydromodpy[mf6api]` (modflowapi + xmipy). Without it, the
+mesh and model build in about 55 s and the run stops at `run_solver` with
+`ImportError: run_mf6_api requires the optional 'modflowapi' package`.
+`project_chronicle.toml` and the four calibration configs use the plain
+subprocess mf6 runner and do not need that extra; their SIM2 fetch and solve
+are network- and duration-dependent (the chronicle run is ~6940 daily stress
+periods), unmeasured here.
 
-Trois chemins, tous dans le bilan MF6 (fermes, traces dans le store) :
+## Data
 
-1. **Baseflow des biefs** : les biefs SFR posent sur des cellules actives et
-   captent le flux de nappe par la conductance de leur lit ; les entrees DRN
-   coincidant avec un bief sont supprimees (de-confliction).
-2. **Convergence du drainage de versant** (`route_drainage = true`) : chaque
-   cellule DRN restante livre son debit au bief le plus proche par MVR. Sans
-   cette convergence, l'essentiel de la decharge du bassin sortait du modele
-   par DRN et le reservoir se vidait (l'echec du portage v1).
-3. **Ruissellement route** : la famille `runoff` SIM2 est automatiquement liee
-   au forcage `runoff` du reseau SFR (reparti par longueur de bief) et n'est
-   PLUS versee directement au lac (pas de double comptage).
+| Family | File | Content |
+|---|---|---|
+| `dem` | `dem/DEM_armorican_massif.tif` | shared regional DEM |
+| `lake_geometry` | `lake_geometry/reservoir_cheze.gpkg`, `lakes_cheze_preretenue.gpkg` | reservoir / two-lake footprint polygons |
+| `lake_abacus` | `lake_abacus/reservoir_cheze.csv`, `preretenue_cheze.csv` | stage-volume-area table, one per lake |
+| `lake_bathymetry` | `lake_bathymetry/reservoir_cheze.tif`, `bathy_preretenue_cheze.tif` | bed raster carved into the LAK bed |
+| `lake_inflow` | `lake_inflow/` | managed transfers into the lake (Meu + Canut), m3/day, 2007-2026 |
+| `lake_withdrawal` | `lake_withdrawal/` | managed abstraction + restitution leaving the lake, m3/day, 2007-2026 |
+| `lake_levels` | `lake_levels/` | observed reservoir level, m NGF, 2007-2026; the calibration target |
+| `cutoff_wall` | `cutoff_wall/injection_cheze.gpkg` | grout-curtain axis under the dam, modeled as an HFB barrier |
 
-Les biefs terminaux (le reseau est tronque a la rive du polygone) remettent le
-debit accumule au lac : serie `from_mvr` du lac dans le store, et `to_mvr` par
-bief cote SFR.
+`recharge`, `precipitation`, `etp` and `runoff` are fetched live from the SIM2
+Meteo-France API (`source = "sim2"`); a network connection or a warm SIM2
+cache is required.
 
-## SFR seul (sans lac)
+## What it shows
 
-Le reseau SFR est independant du lac : pour une etude de debits / intermittence,
-garder `[geographic.river_network]` + `[flow.sinks_sources.sfr.<id>]` (sans
-`outflow_to_lake`) et `active_bc = ["sfr", "drainage"]`. Le debit simule par
-bief est la serie `downstream_flow` (`station_id = sfr:<reseau>:<bief>`), et
-`route_drainage = true` donne des chroniques de debit realistes (toute la
-decharge du bassin converge au reseau). Voir le guide utilisateur
-`modflow6-sfr` dans la documentation.
-
-## Chronique complete et comparaison simule/observe
-
-`project_chronicle.toml` rejoue le reservoir en **pas journalier sur 2007-2025**
-(~6940 stress periods). Les forcages varient chaque jour : ils sont deportes en
-fichiers MF6 TS6 (`lak_forcing_mode = "ts6"`). Premiere execution : gros fetch
-SIM2 (19 ans x 4 variables) puis solve de plusieurs minutes.
-
-La comparaison simule/observe est faite par script, `compare_chronicle.py`, a
-partir des briques existantes : `query_timeseries` pour la serie stage simulee,
-le CSV observe (`data/lake_levels`), l'abaque pour convertir le niveau observe
-en volume, et `core.metrics.goodness_of_fit`. Sorties dans `figures/` : overlay
-niveau + volume (`cheze_chronicle_obs_vs_sim.png`) et la table de scores
-NSE / RMSE / MAE / bias / R2 (`cheze_chronicle_metrics.csv`). Le warm-up
-stationnaire (periode 0) est exclu du calcul.
-
-### Etat des performances (parametres legacy, AUCUNE recalibration)
-
-| Fenetre | NSE | RMSE | biais |
-|---|---|---|---|
-| 2019 hebdomadaire (demo) | 0.30 | 1.17 m | -0.01 m |
-| 2007-2025 journalier | -1.72 | 2.58 m | -0.73 m |
-
-L'annee 2019 est equilibree (biais nul) : les trois chemins d'alimentation
-ferment le bilan. Sur 19 ans la structure d'erreur est un sous-remplissage
-persistant de 2008-2011 et 2020+ (deficit de volume du forcage et/ou
-prelevements, pas un probleme de routage : un test de sensibilite Sy 0.001 ->
-0.01 ne change presque rien) et l'ecretage du simule a la crete 87.3 m alors
-que l'observe monte a 87.98 m. Les leviers de calibration sont en config :
-`bedleak`, `streambed_k`, K/Sy, le seuil de drainage, et la correction du
-forcage SIM2. La calibration multi-annees (Optuna) est l'etape suivante,
-hors du perimetre de cet exemple.
-
-## Choix de portage et hypotheses
-
-- **bedleak** : l'ancien `1e-6 m/s` est une vitesse ; le champ v1 est une leakance
-  [1/T] = K_lit / epaisseur_lit. Valeur retenue `1e-6 1/s` en supposant un lit de
-  1 m. C'est un levier de calibration (fuite sous barrage).
-- **Exutoire WEIR** : crete a 87.3 m (ancien `stagemax`), largeur 35 m (crete beton).
-- **Warm-up** : la periode 1 est stationnaire ; `steady_stage_hold` maintient le
-  lac au niveau observe initial (status CONSTANT) pendant que la nappe
-  s'equilibre, puis le lac redevient libre (ACTIVE). Sans cela l'equilibre
-  naturel stationnaire (lac plein au deversoir) ecraserait le niveau initial
-  observe d'un reservoir gere.
-- **Seuil de drainage** : 1 km2 (reseau de la Cheze et affluents principaux en
-  amont du reservoir). L'ancien masque 0.7 x acc_max ne gardait que le bief sous
-  le barrage, inutile une fois le reseau tronque a la rive.
-- **Lit des biefs** : parametres du modele historique (`hcond = 0.08 m/j`,
-  `thickm = 0.1 m`, `roughch = 0.03`) ; levier de calibration de la capture de
-  baseflow.
-- **Parametres aquifere** : valeurs legacy non recalibrees (K = 1e-4 m/s,
-  Sy = 0.001, Ss = 1e-5). La dynamique de recession (vidange automnale,
-  remontee hivernale) est le premier candidat de calibration.
-- **bathymetrie** : non utilisee (l'abaque porte le stockage ; le branchement
-  bathymetrie -> cote du lit est differe). Le raster 1 m n'est pas commite.
+- The reservoir's water balance closes through three paths, all inside the
+  MF6 budget: SFR baseflow capture on the reach beds, hillslope DRN discharge
+  converging to the nearest reach (`route_drainage`), and SIM2 catchment
+  runoff routed along the network. All three arrive at the lake through MVR,
+  not as a direct forcing.
+- `project.toml` carves the real lake bed from bathymetry: cells stay active
+  in the marnage band, MF6 toggles recharge/ET per cell as the shoreline
+  moves, and the exposed band sheds its own runoff to the lake.
+- `project_preretenue.toml` adds a second LAK lake (Pont Musard forebay)
+  linked to the reservoir by a pair of reciprocal sill weirs at the same
+  crest, so the two levels equalize above the sill and stay independent
+  below it.
+- The four calibration configs span one smoke test
+  (`cheze_calib_apitest.toml`, 4 trials), two single-lake production runs on
+  the chronicle base (`cheze_calibration_level.toml`, one year;
+  `cheze_calibration_chronicle.toml`, 2010-2020 on 10-12 cores), and one
+  two-lake production run (`cheze_calibration_preretenue.toml`, 2010-2020,
+  API-parallel). All target `lake_level` with KGE.

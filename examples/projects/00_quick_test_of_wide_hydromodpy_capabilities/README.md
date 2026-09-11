@@ -1,41 +1,41 @@
 # 00 - Quick test of wide HydroModPy capabilities
 
-Portage sur l'architecture v1 de
+Port to the v1 architecture of
 `examples/old/00_quick_test_of_wide_hydromodpy_capabilities/example_00.py`,
-résolu avec **MODFLOW 6** au lieu de MODFLOW-NWT.
+solved with **MODFLOW 6** instead of MODFLOW-NWT.
 
-Bassin de l'Aber (Bretagne, EPSG:2154) extrait d'un MNT régional 75 m par
-accrochage d'exutoire. Une année transitoire mensuelle (2017) sur la boîte
-rectangulaire tamponnée, une couche d'aquifère de 50 m, deux puits de
-pompage, un drainage de versant, et un suivi de particules.
+Aber catchment (Brittany, EPSG:2154), extracted from a regional 75 m DEM by
+outlet snapping. One monthly transient year (2017) on the buffered
+rectangular box, one 50 m aquifer layer, two pumping wells, hillslope
+drainage, and particle tracking.
 
-## Lancer
+## Run
 
 ```bash
-# via le TOML
+# via the TOML
 hmp run examples/projects/00_quick_test_of_wide_hydromodpy_capabilities/project.toml
 
-# via l'API Python (même config, mêmes résultats)
+# via the Python API (same config, same results)
 python examples/projects/00_quick_test_of_wide_hydromodpy_capabilities/run_manual.py
 
-# re-rendre les figures sans re-simuler
+# re-render the figures without re-simulating
 hmp viz gallery examples/projects/00_quick_test_of_wide_hydromodpy_capabilities/project.toml
 ```
 
-Durée : environ 5 s (980 mailles, 12 périodes de contrainte).
+Runtime: about 5 s (980 cells, 12 stress periods).
 
-## Données
+## Data
 
-Toutes partagées sous `examples/data/`, résolues par nom de fichier nu :
+All shared under `examples/data/`, resolved by bare file name:
 
-| Fichier | Famille | Rôle |
+| File | Family | Role |
 |---|---|---|
-| `dem/regional_dem_aber.tif` | dem | MNT régional 75 m (legacy `regional dem.tif`) |
-| `hydrography/regional_stream_network.shp` | hydrography | réseau de référence |
-| `recharge/recharge_custom_00_*.csv` | recharge | recharge mensuelle, mm/j |
-| `wells/wells_custom_00_*.csv` | (forçage puits) | débits mensuels, m3/j |
+| `dem/regional_dem_aber.tif` | dem | regional 75 m DEM (legacy `regional dem.tif`) |
+| `hydrography/regional_stream_network.shp` | hydrography | reference network |
+| `recharge/recharge_custom_00_*.csv` | recharge | monthly recharge, mm/d |
+| `wells/wells_custom_00_*.csv` | (well forcing) | monthly rates, m3/d |
 
-## Correspondance avec le script legacy
+## Mapping to the legacy script
 
 | Legacy | v1 |
 |---|---|
@@ -47,49 +47,48 @@ Toutes partagées sous `examples/data/`, résolues par nom de fichier nu :
 | `update_hk/sy/ss` | `[flow.param.K/Sy/Ss.field]` |
 | `update_well_pumping(...)` | `[flow.sinks_sources.wells.W1/W2]` |
 | `update_first_clim('mean')` | `flow.first_period_steady = true` |
-| MODPATH backward depuis les zones de suintement | MODFLOW 6 PRT forward (voir ci-dessous) |
-| tracés matplotlib du script | `[display].figures` |
+| MODPATH backward from the seepage zones | MODFLOW 6 PRT forward (see below) |
+| matplotlib plots in the script | `[display].figures` |
 
-### Suivi de particules : pourquoi forward
+### Particle tracking: why forward
 
-Le script legacy lançait MODPATH en **backward** depuis les zones de
-suintement pour montrer quelle recharge les alimente. MODFLOW 6 PRT ne
-suit que vers l'aval : la même physique s'écrit dans l'autre sens, les
-particules sont relâchées sur le domaine et se terminent là où la nappe
-affleure. La figure se lit à l'identique.
+The legacy script ran MODPATH **backward** from the seepage zones to show
+which recharge feeds them. MODFLOW 6 PRT only tracks downstream: the same
+physics is written the other way round, particles are released over the
+domain and end where the watertable outcrops. The figure reads the same way.
 
 ## Figures
 
-Toutes viennent du registre HydroModPy, aucune n'est codée dans un `.py`.
+All come from the HydroModPy registry, none is hardcoded in a `.py`.
 
-| Figure | Ce qu'elle montre | Équivalent legacy |
+| Figure | What it shows | Legacy equivalent |
 |---|---|---|
-| `watershed_id_card` | carte d'identité du bassin | `watershed_local` |
-| `mesh_map` | grille du solveur colorée par la topographie | `visual2D(['grid'])` |
-| `recharge_map` | recharge par maille | - |
-| `piezometric_map` | altitude de la nappe | `visual2D(['watertable'])` |
-| `watertable_depth_map` | profondeur de nappe + suintement + trajectoires + puits | la carte composite du script |
-| `seepage_map` | zones de suintement | - |
-| `particle_tracks` | trajectoires colorées par temps de transit | `pathlines` |
-| `cross_section` | coupe topographie / nappe / base d'aquifère | la coupe fixe du script |
-| `flux_timeseries` | bilan hydrique par pas de temps, mm/période | le graphe recharge / drain / puits |
-| `water_budget` | bilan cumulé par composante | - |
+| `watershed_id_card` | catchment identity card | `watershed_local` |
+| `mesh_map` | solver grid colored by topography | `visual2D(['grid'])` |
+| `recharge_map` | recharge per cell | - |
+| `piezometric_map` | watertable elevation | `visual2D(['watertable'])` |
+| `watertable_depth_map` | watertable depth + seepage + tracks + wells | the script's composite map |
+| `seepage_map` | seepage zones | - |
+| `particle_tracks` | tracks colored by travel time | `pathlines` |
+| `cross_section` | topography / watertable / aquifer base cross section | the script's fixed cross section |
+| `flux_timeseries` | water budget per timestep, mm/period | the recharge / drain / well plot |
+| `water_budget` | cumulative budget per component | - |
 
-La carte composite est déclarative, pas codée :
+The composite map is declarative, not hardcoded:
 
 ```toml
 [display.overrides.watertable_depth_map]
 overlays = ["watershed", "seepage", "particles", "wells", "outlet"]
 ```
 
-`on_error = "raise"` : une figure qui s'applique mais échoue fait échouer le
-run. Une figure qui ne s'applique pas à ce run est passée avec un motif
-explicite dans le log.
+`on_error = "raise"`: a figure that applies but fails makes the run fail. A
+figure that does not apply to this run is skipped, with an explicit reason
+in the log.
 
-## Basculer vers MODFLOW-NWT
+## Switching to MODFLOW-NWT
 
-Seuls le nom du solveur et le préfixe de section changent. Le suivi de
-particules passe alors de PRT à MODPATH, qui accepte le backward :
+Only the solver name and the section prefix change. Particle tracking then
+switches from PRT to MODPATH, which supports backward tracking:
 
 ```toml
 [[simulation.process]]

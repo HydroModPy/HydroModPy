@@ -1,65 +1,64 @@
 # 04 - Streamflow intermittence in transient
 
-Bassin du Nançon (Bretagne, EPSG:2154) extrait du MNT régional 75 m par
-accrochage d'exutoire. Écoulement souterrain **transitoire mensuel** sur
-trois ans (2000-2002), résolu avec **MODFLOW 6**, forcé par une recharge et
-un ruissellement mensuels observés.
+Nancon catchment (Brittany, EPSG:2154), extracted from the regional 75 m
+DEM by outlet snapping. **Monthly transient** groundwater flow over three
+years (2000-2002), solved with **MODFLOW 6**, forced by observed monthly
+recharge and runoff.
 
-Le thème est l'intermittence : quand la recharge oscille entre hivers
-humides et étés secs, la nappe monte et descend, donc les mailles de
-suintement et le réseau actif simulé s'étendent et se contractent au fil de
-l'année.
+The theme is intermittence: as recharge oscillates between wet winters and
+dry summers, the watertable rises and falls, so the seepage cells and the
+simulated active network expand and contract over the year.
 
-## Lancer
+## Run
 
 ```bash
 hmp run examples/projects/04_streamflow_intermittence_in_transient/project.toml
 
-# intermittence saisonnière : suintement aux mois extrêmes, via l'API Python
+# seasonal intermittence: seepage at the extreme months, via the Python API
 python examples/projects/04_streamflow_intermittence_in_transient/run_manual.py
 
 hmp viz gallery examples/projects/04_streamflow_intermittence_in_transient/project.toml
 ```
 
-Durée : environ 15 s (36 pas de temps, solveur COMPLEX).
+Runtime: about 15 s (36 timesteps, COMPLEX solver).
 
-## Données
+## Data
 
-| Fichier | Famille | Rôle |
+| File | Family | Role |
 |---|---|---|
-| `dem/DEM_armorican_massif.tif` | dem | MNT régional 75 m (couvre le Nançon) |
-| `recharge/recharge_custom_NANCON_*.csv` | recharge | recharge mensuelle observée (mm/j) |
-| `runoff/runoff_custom_NANCON_*.csv` | runoff | ruissellement mensuel, ajouté au débit de base |
+| `dem/DEM_armorican_massif.tif` | dem | regional 75 m DEM (covers the Nancon) |
+| `recharge/recharge_custom_NANCON_*.csv` | recharge | observed monthly recharge (mm/d) |
+| `runoff/runoff_custom_NANCON_*.csv` | runoff | monthly runoff, added to baseflow |
 
 ## Intermittence
 
-`run_manual.py` compte les mailles de suintement à chaque mois. Sur cette
-période, le réseau humide passe de ~450 mailles (mois sec) à ~1670 (mois
-humide) : environ **1200 mailles s'allument et s'éteignent** au fil du
-temps. Ce sont les tronçons intermittents ; le cœur qui reste actif tout du
-long est le réseau pérenne. Le script rend `seepage_map` au mois le plus
-humide et au plus sec (même figure, deux `timestep`).
+`run_manual.py` counts seepage cells for each month. Over this period, the
+wet network goes from ~450 cells (dry month) to ~1670 (wet month): about
+**1200 cells switch on and off** over time. These are the intermittent
+reaches; the core that stays active throughout is the perennial network.
+The script renders `seepage_map` for the wettest and the driest month (same
+figure, two `timestep` values).
 
 ## Figures
 
-| Figure | Ce qu'elle montre |
+| Figure | What it shows |
 |---|---|
-| `watershed_id_card` | carte d'identité du bassin |
-| `mesh_map` | grille du solveur |
-| `piezometric_map` | altitude de la nappe (dernier pas) |
-| `watertable_depth_map` | profondeur de nappe + suintement |
-| `seepage_map` | zones de suintement (variables dans le temps) |
-| `simulated_active_network` | réseau drainant actif |
-| `hydrograph` | débit simulé au cours du temps |
-| `flux_timeseries` | bilan hydrique par pas de temps |
-| `cross_section` | coupe topographie / nappe |
-| `water_budget` | bilan cumulé par composante |
+| `watershed_id_card` | catchment identity card |
+| `mesh_map` | solver grid |
+| `piezometric_map` | watertable elevation (last timestep) |
+| `watertable_depth_map` | watertable depth + seepage |
+| `seepage_map` | seepage zones (time-varying) |
+| `simulated_active_network` | active draining network |
+| `hydrograph` | simulated discharge over time |
+| `flux_timeseries` | water budget per timestep |
+| `cross_section` | topography / watertable cross section |
+| `water_budget` | cumulative budget per component |
 
-## Dette technique
+## Technical debt
 
-Le script legacy calculait un `persistency_index` (fraction du temps où une
-maille est active) et des cartes d'intermittence mensuelle/hebdomadaire/
-quotidienne. Ces **champs agrégés dans le temps n'existent pas encore** comme
-champs canoniques v1. En attendant, l'intermittence se lit via la dynamique
-saisonnière du suintement (ci-dessus) plutôt que via un indice unique. Un
-champ `persistency_index` agrégé serait le complément naturel.
+The legacy script computed a `persistency_index` (fraction of time a cell
+is active) and monthly/weekly/daily intermittence maps. These
+**time-aggregated fields do not exist yet** as canonical v1 fields. In the
+meantime, intermittence is read through the seasonal seepage dynamics
+above rather than through a single index. An aggregated `persistency_index`
+field would be the natural addition.
