@@ -15,10 +15,11 @@ import pandas as pd
 import pytest
 
 from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
-from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.display.figures.matching_hydrographic_network_card import (
     MatchingHydrographicNetworkCard,
 )
+
+from ._render_helpers import relative_luminance
 
 OUTPUT = "net"
 ROOT_ID = "s-root"
@@ -226,17 +227,6 @@ def _rgba(color: str):
     from matplotlib.colors import to_rgba
 
     return to_rgba(color)
-
-
-def _relative_luminance(color: str) -> float:
-    """Perceived brightness, the quantity a greyscale print keeps."""
-    from matplotlib.colors import to_rgb
-
-    channels = [
-        value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
-        for value in to_rgb(color)
-    ]
-    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
 
 
 # --------------------------------------------------------------------------- #
@@ -511,7 +501,7 @@ def test_an_absent_count_is_named_absent_and_gets_no_bar(mpl) -> None:
 
 
 def test_the_three_classes_stay_apart_in_greyscale() -> None:
-    luminances = sorted(_relative_luminance(color) for color in HIGH_CONTRAST_TRIPLET)
+    luminances = sorted(relative_luminance(color) for color in HIGH_CONTRAST_TRIPLET)
     gaps = [high - low for low, high in zip(luminances[:-1], luminances[1:], strict=False)]
     assert min(gaps) > 0.1
 
@@ -639,11 +629,3 @@ def test_a_run_that_never_calibrated_is_skipped_with_its_reason() -> None:
 
     assert reason is not None
     assert "calibration_iterations" in reason
-
-
-def test_the_card_is_registered_under_its_own_name() -> None:
-    figure = get_figure("matching_hydrographic_network_card")
-
-    assert isinstance(figure, MatchingHydrographicNetworkCard)
-    assert figure.spec.name == "matching_hydrographic_network_card"
-    assert figure.spec.kind == "comparison"

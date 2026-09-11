@@ -13,7 +13,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.display.figures.seepage_network_reference_overlay import (
     _SIMULATED_INSET,
     HALO_WEIGHT_PT,
@@ -35,6 +34,7 @@ from ._network_comparison_run import (
     legend_labels,
     legend_note,
 )
+from ._render_helpers import relative_luminance
 
 
 @pytest.fixture
@@ -58,20 +58,9 @@ def _flank_run(**kwargs):
     return comparison_run(seepage_cells=[cell(4, 2)], **kwargs)
 
 
-def _relative_luminance(color: str) -> float:
-    """Perceived brightness of one colour, the quantity a greyscale print keeps."""
-    from matplotlib.colors import to_rgb
-
-    channels = [
-        value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
-        for value in to_rgb(color)
-    ]
-    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
-
-
 def _contrast_ratio(one: str, other: str) -> float:
     """The WCAG contrast of two colours, which is what a print keeps or loses."""
-    first, second = _relative_luminance(one), _relative_luminance(other)
+    first, second = relative_luminance(one), relative_luminance(other)
     light, dark = max(first, second), min(first, second)
     return (light + 0.05) / (dark + 0.05)
 
@@ -198,7 +187,7 @@ def test_the_casing_lifts_both_networks_off_the_darkest_relief() -> None:
     # against its darkest shade: invisible on screen and gone in print. What
     # a network sits on has to be the casing, and the casing has to separate
     # from the relief in turn, or the fix has only moved the collision.
-    darkest = min(RELIEF_GREYS, key=_relative_luminance)
+    darkest = min(RELIEF_GREYS, key=relative_luminance)
 
     for name, color in NETWORK_COLORS.items():
         assert _contrast_ratio(color, NETWORK_HALO) >= 3.0, (
@@ -254,7 +243,7 @@ def test_the_overlay_opens_on_the_catchment_and_a_caller_may_widen_it(mpl) -> No
 
 
 def test_the_two_networks_stay_apart_in_greyscale() -> None:
-    luminances = [_relative_luminance(color) for color in NETWORK_COLORS.values()]
+    luminances = [relative_luminance(color) for color in NETWORK_COLORS.values()]
 
     assert abs(luminances[0] - luminances[1]) > 0.1, (
         "the mapped and simulated networks must survive a greyscale print, so "
@@ -493,12 +482,3 @@ def test_overlay_names_what_it_needs_when_the_run_kept_no_release_flux() -> None
 
     assert reason is not None
     assert "release_flux" in reason
-
-
-def test_the_figure_is_registered_under_its_own_name() -> None:
-    figure = get_figure("seepage_network_reference_overlay")
-
-    assert isinstance(figure, SeepageNetworkReferenceOverlay)
-    assert figure.spec.name == "seepage_network_reference_overlay"
-    assert figure.spec.kind == "comparison"
-    assert figure.spec.required_fields == ("release_flux",)

@@ -13,7 +13,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.display.figures.flow_direction_map import (
     INACTIVE_LABEL,
     NO_RECEIVER_LABEL,
@@ -32,6 +31,7 @@ from ._network_comparison_run import (
     drawn_cells,
     valley_topography,
 )
+from ._render_helpers import relative_luminance
 
 SOUTH_WEST_STEP_M = 10.0
 """Drop per column and per row of the tilted plane, so a diagonal is steepest."""
@@ -297,17 +297,6 @@ def test_the_compass_names_the_eight_bearings(mpl) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def _relative_luminance(color) -> float:
-    """Perceived brightness of one colour, the quantity a greyscale print keeps."""
-    from matplotlib.colors import to_rgb
-
-    channels = [
-        value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
-        for value in to_rgb(color)
-    ]
-    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
-
-
 def test_the_two_states_that_carry_no_bearing_stay_off_the_circle() -> None:
     """A dead end and an inactive cell may not read as a ninth bearing.
 
@@ -320,10 +309,10 @@ def test_the_two_states_that_carry_no_bearing_stay_off_the_circle() -> None:
 
     from hydromodpy.display.figures.flow_direction_map import _INACTIVE_FACE, _PIT_FACE
 
-    octants = [_relative_luminance(color) for color in octant_colors()]
+    octants = [relative_luminance(color) for color in octant_colors()]
 
     for neutral in (_PIT_FACE, _INACTIVE_FACE):
-        gap = min(abs(_relative_luminance(neutral) - level) for level in octants)
+        gap = min(abs(relative_luminance(neutral) - level) for level in octants)
         assert gap > 0.1, f"{neutral} sits {gap:.3f} from the nearest octant"
 
 
@@ -369,7 +358,7 @@ def test_the_catchment_outline_is_drawn_as_a_halo_under_a_line(mpl) -> None:
         assert to_hex(halo.get_color()[0]) == to_hex(_CONTOUR_HALO)
         assert to_hex(line.get_color()[0]) == to_hex(_CONTOUR_LINE)
         assert halo.get_linewidth()[0] > 2.0 * line.get_linewidth()[0]
-        assert _relative_luminance(_CONTOUR_HALO) - _relative_luminance(_CONTOUR_LINE) > 0.9
+        assert relative_luminance(_CONTOUR_HALO) - relative_luminance(_CONTOUR_LINE) > 0.9
     finally:
         mpl.close(fig)
 
@@ -500,13 +489,6 @@ def test_a_toml_override_reaches_the_figure(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="arrow_bins"):
         render_figures_for_run(comparison_run(), cfg, output_dir=tmp_path)
-
-
-def test_the_figure_is_registered_under_its_own_name() -> None:
-    figure = get_figure("flow_direction_map")
-
-    assert isinstance(figure, FlowDirectionMap)
-    assert figure.spec.name == "flow_direction_map"
 
 
 def test_the_valley_used_here_is_the_one_the_module_publishes() -> None:

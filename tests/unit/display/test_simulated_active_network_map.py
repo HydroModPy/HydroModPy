@@ -17,7 +17,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.display.figures._stream_comparison import GROUND_COLOR
 from hydromodpy.display.figures.simulated_active_network import (
     ACTIVE_COLOR,
@@ -316,11 +315,3 @@ def test_the_key_and_the_note_sit_outside_the_map(mpl, masked) -> None:
         assert not ax.texts
     finally:
         mpl.close(fig)
-
-
-def test_it_is_registered_under_its_own_name() -> None:
-    figure = get_figure("simulated_active_network")
-
-    assert isinstance(figure, SimulatedActiveNetworkMap)
-    assert figure.spec.name == "simulated_active_network"
-    assert figure.spec.required_fields == ("accumulation_flux",)

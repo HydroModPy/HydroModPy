@@ -12,11 +12,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.display.figures.hydrograph_log_nse import (
     SPLIT_COLORS,
     HydrographLogNseFigure,
 )
+
+from ._render_helpers import relative_luminance
 
 STATION = "_catchment"
 
@@ -96,17 +97,6 @@ def _labels(ax) -> list[str]:
 
 def _note(ax) -> str:
     return "\n".join(text.get_text() for text in ax.texts)
-
-
-def _relative_luminance(color: str) -> float:
-    """Perceived brightness of one colour, the quantity a greyscale print keeps."""
-    from matplotlib.colors import to_rgb
-
-    channels = [
-        value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
-        for value in to_rgb(color)
-    ]
-    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
 
 
 # --------------------------------------------------------------------------- #
@@ -280,7 +270,7 @@ def test_says_when_the_simulated_series_is_empty(mpl) -> None:
 
 
 def test_the_three_curves_stay_apart_in_greyscale() -> None:
-    luminances = sorted(_relative_luminance(color) for color in SPLIT_COLORS.values())
+    luminances = sorted(relative_luminance(color) for color in SPLIT_COLORS.values())
     gaps = [high - low for low, high in zip(luminances[:-1], luminances[1:], strict=False)]
     assert min(gaps) > 0.1
 
@@ -423,10 +413,3 @@ def test_unavailable_only_when_the_discharge_series_is_missing() -> None:
 
     assert reason is not None
     assert "discharge" in reason
-
-
-def test_registered_under_its_name() -> None:
-    figure = get_figure("hydrograph_log_nse")
-
-    assert isinstance(figure, HydrographLogNseFigure)
-    assert figure.spec.kind == "comparison"

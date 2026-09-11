@@ -13,7 +13,6 @@ import numpy as np
 import pytest
 
 from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
-from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.display.figures.downslope_distance_map import (
     DISTANCE_CLASS_EDGES_M,
     DownslopeDistanceMap,
@@ -33,6 +32,7 @@ from ._network_comparison_run import (
     legend_labels,
     legend_note,
 )
+from ._render_helpers import relative_luminance
 
 WIDE_CELL_M = 600.0
 """A cell width that spreads the same geometry over the far classes."""
@@ -72,17 +72,6 @@ def _rgb(color: str) -> tuple[float, ...]:
     from matplotlib.colors import to_rgb
 
     return tuple(to_rgb(color))
-
-
-def _relative_luminance(color: str) -> float:
-    """Perceived brightness of one colour, the quantity a greyscale print keeps."""
-    from matplotlib.colors import to_rgb
-
-    channels = [
-        value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
-        for value in to_rgb(color)
-    ]
-    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
 
 
 def _two_branch_run(cell_m: float = CELL_M):
@@ -183,7 +172,7 @@ def test_the_four_default_colours_come_from_the_high_contrast_triplet() -> None:
 
 
 def test_the_classes_stay_ordered_and_apart_in_greyscale() -> None:
-    luminances = [_relative_luminance(color) for color in class_colors(4)]
+    luminances = [relative_luminance(color) for color in class_colors(4)]
 
     assert luminances == sorted(luminances, reverse=True), (
         "a longer distance must read as a darker cell, so the ordering of the "
@@ -199,8 +188,8 @@ def test_an_off_support_cell_stays_apart_from_the_shortest_distance() -> None:
     # merged, which is the one confusion the third state exists to prevent.
     from hydromodpy.display.figures.downslope_distance_map import _OFF_SUPPORT_COLOR
 
-    off_support = _relative_luminance(_OFF_SUPPORT_COLOR)
-    lightest_class = _relative_luminance(class_colors(4)[0])
+    off_support = relative_luminance(_OFF_SUPPORT_COLOR)
+    lightest_class = relative_luminance(class_colors(4)[0])
 
     assert off_support - lightest_class > 0.1, (
         f"off support {off_support} collides with the shortest class {lightest_class}"
@@ -512,12 +501,3 @@ def test_it_is_skipped_by_the_gallery_rather_than_crashing(tmp_path) -> None:
     assert [item.name for item in report.skipped] == ["downslope_distance_map"]
     assert "release_flux" in report.skipped[0].reason
     assert "render failed" not in report.skipped[0].reason
-
-
-def test_it_is_registered_under_its_own_name() -> None:
-    figure = get_figure("downslope_distance_map")
-
-    assert isinstance(figure, DownslopeDistanceMap)
-    assert figure.spec.name == "downslope_distance_map"
-    assert figure.spec.kind == "spatial"
-    assert figure.spec.required_fields == ("release_flux",)

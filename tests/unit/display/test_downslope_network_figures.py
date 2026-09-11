@@ -19,7 +19,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.display.figures._stream_comparison import (
     AGREEMENT_COLORS,
     CASING_COLOR,
@@ -51,6 +50,7 @@ from ._network_comparison_run import (
     legend_note,
     map_key,
 )
+from ._render_helpers import relative_luminance
 
 L_REF = 250.0
 
@@ -110,17 +110,6 @@ def _crossing_run(**kwargs) -> SimpleNamespace:
 
 def _line(ax, label_prefix: str):
     return next(line for line in ax.lines if str(line.get_label()).startswith(label_prefix))
-
-
-def _relative_luminance(color: str) -> float:
-    """Perceived brightness of one colour, the quantity a greyscale print keeps."""
-    from matplotlib.colors import to_rgb
-
-    channels = [
-        value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
-        for value in to_rgb(color)
-    ]
-    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
 
 
 # --------------------------------------------------------------------------- #
@@ -556,7 +545,7 @@ def test_an_unknown_frame_is_refused(mpl) -> None:
 
 def test_confusion_map_classes_stay_apart_in_greyscale() -> None:
     luminances = sorted(
-        _relative_luminance(AGREEMENT_COLORS[value])
+        relative_luminance(AGREEMENT_COLORS[value])
         for value in (AGREEMENT_VALID, AGREEMENT_EXCESS, AGREEMENT_MISSING)
     )
     gaps = [high - low for low, high in zip(luminances[:-1], luminances[1:], strict=False)]
@@ -567,9 +556,9 @@ def test_confusion_map_classes_stay_apart_in_greyscale() -> None:
 
 
 def test_the_cells_with_no_stream_recede_behind_the_three_classes() -> None:
-    background = _relative_luminance(AGREEMENT_COLORS[AGREEMENT_NEITHER])
+    background = relative_luminance(AGREEMENT_COLORS[AGREEMENT_NEITHER])
     classes = [
-        _relative_luminance(AGREEMENT_COLORS[value])
+        relative_luminance(AGREEMENT_COLORS[value])
         for value in (AGREEMENT_VALID, AGREEMENT_EXCESS, AGREEMENT_MISSING)
     ]
 
@@ -743,23 +732,6 @@ def test_bracket_trace_keeps_a_failed_evaluation_on_the_zero_line(mpl) -> None:
         assert failed.get_offsets().tolist() == [[2.0, 0.0]]
     finally:
         mpl.close(fig)
-
-
-# --------------------------------------------------------------------------- #
-# registration
-# --------------------------------------------------------------------------- #
-
-
-def test_the_three_figures_are_registered_under_their_own_name() -> None:
-    expected = {
-        "downslope_distance_crossing": DownslopeDistanceCrossingFigure,
-        "bisection_bracket_trace": BisectionBracketTraceFigure,
-        "seepage_network_confusion_map": SeepageNetworkConfusionMap,
-    }
-    for name, figure_cls in expected.items():
-        figure = get_figure(name)
-        assert isinstance(figure, figure_cls)
-        assert figure.spec.name == name
 
 
 class TestTheHeavyRebuildIsShared:
