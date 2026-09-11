@@ -147,6 +147,36 @@ Everything a stopping rule needs beyond that precision stays in
 reproduced verbatim. Stating both the precision and the option it writes is
 refused, before the first solve.
 
+What a restart-based uncertainty would need from an engine
+---------------------------------------------------------
+
+``[calibration.uncertainty]`` declares ``cost_profile`` only. A restart-based
+method, running the search several times and reporting the spread of the optima it
+reaches, is the obvious next one and it is not implemented, for a reason that
+belongs here rather than in a changelog: **no engine lets a caller say where the
+search starts**.
+
+- ``scipy_nelder_mead`` builds its simplex around ``transformed_prior_center(space)``,
+  a constant. Its seed is accepted and discarded, so repeating the search returns
+  the same answer however the seed moves.
+- ``bisection`` and ``grid`` are deterministic by construction: a root search and
+  an exhaustive sweep have nothing to restart.
+- ``cma_es`` does perturb its ``x0`` between its own ``restarts``, but those serve
+  its convergence and it still reports one best, not a distribution.
+
+So a seed-only implementation would refuse on ``scipy_nelder_mead``, which is the
+engine the ``matching_hydrographic_network`` protocol uses for its second stage:
+it would decline exactly the calibration it exists for. Doing it properly means
+one more axis, an initial point an engine may be given, declared in
+:class:`EngineTraits` alongside the stopping rule and honoured by every engine
+that has a start. Two mechanisms, a varied seed and a varied start, are what a
+half-version ends up carrying; one explicit start is what makes it uniform.
+
+The constraint the method has to respect is stated by the project: a calibration
+always reports one manipulable value, and an interval sits beside it, never in its
+place. So the best of the restarts stays the answer, and the spread is reported
+next to it.
+
 Optional dependencies
 ---------------------
 
