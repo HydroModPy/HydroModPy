@@ -29,13 +29,21 @@ def test_should_rasterize_custom_threshold() -> None:
     assert scalable.should_rasterize(100, threshold=500) is False
 
 
-def test_rasterize_field_mesh_1M_cells_to_1200x800() -> None:
+def test_rasterize_field_downsamples_dense_grid_to_target_px() -> None:
+    """rasterize_field must reduce a grid coarser than the target and keep it finite.
+
+    ``rasterize_field`` never consults ``DEFAULT_CELL_THRESHOLD`` itself (that
+    threshold only gates the caller's decision to rasterize at all, via
+    ``should_rasterize``), so the input only needs to be larger than
+    ``target_px`` on both axes to exercise the datashader downsampling path.
+    A 100x100 grid downsampled to 50x30 is enough and runs in milliseconds,
+    against ~3s for the previous 1000x1000 grid.
+    """
     pytest.importorskip("datashader")
     pytest.importorskip("xarray")
     import xarray as xr
 
-    # Synthesize a 1000 x 1000 = 1M-cell regular grid.
-    side = 1000
+    side = 100
     rng = np.random.default_rng(seed=42)
     data = rng.random((side, side)).astype("float32")
     da = xr.DataArray(
@@ -44,9 +52,13 @@ def test_rasterize_field_mesh_1M_cells_to_1200x800() -> None:
         dims=("y", "x"),
         name="head",
     )
-    out = scalable.rasterize_field(da, target_px=(1200, 800))
-    assert tuple(out.shape) == (800, 1200)
-    assert np.isfinite(out.values).any()
+    out = scalable.rasterize_field(da, target_px=(50, 30))
+    assert tuple(out.shape) == (30, 50)
+    values = out.values
+    assert np.isfinite(values).all(), "downsampled raster must have no NaN pixel"
+    # Mean aggregation of source data in [0, 1) cannot produce values outside it.
+    assert values.min() >= 0.0
+    assert values.max() < 1.0
 
 
 def test_rasterize_field_below_threshold_no_downsample() -> None:
