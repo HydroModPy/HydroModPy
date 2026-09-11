@@ -36,5 +36,3 @@ vka = 1.0
 [modflow6.sgrid.vertical]
 nlay = 1
 
-[modflow6.tgrid]
-firstpersteady = false

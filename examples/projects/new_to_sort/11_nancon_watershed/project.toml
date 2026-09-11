@@ -385,7 +385,6 @@ show = false
 # Save to disk under <project_root>/<output_dir>/<run_name>/.
 save = true
 output_dir = "figures"
-cmap = "viridis"
 
 # Figures rendered automatically. Comment any out to skip rendering.
 # Disable globally with `hmp run --no-display` or
