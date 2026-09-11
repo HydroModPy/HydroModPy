@@ -101,10 +101,6 @@ Selected Parameters
      - Extra area kept around the watershed to preserve regional context in overview figures.
      - 20%
      - ``examples/projects/04_data_overview/project.toml``
-   * - ``[domain] zone_ids``
-     - Domain layers kept on the spatial support before any meshing or solving stage.
-     - geology
-     - ``examples/projects/04_data_overview/project.toml``
    * - ``[domain.depth_model] thickness``
      - Constant basin thickness assigned by the depth model when that mode is selected.
      - 50.0 m
