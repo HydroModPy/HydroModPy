@@ -1102,7 +1102,7 @@
         },
         "diagonal_neighbors": {
           "default": false,
-          "description": "Route over shared nodes rather than shared edges, which recovers the diagonal descents of a D8 grid. Only meaningful on a structured quad mesh.",
+          "description": "Route over shared nodes rather than shared edges, which recovers the diagonal descents of a D8 grid. Only meaningful on a structured quad mesh. The default is the literal reading of the paper and it is not a second-decimal choice: on a synthetic valley whose talweg runs along the grid diagonal, the most accumulated cell collects 6.6 per cent of the domain over shared edges and 100 per cent over shared nodes, and the delineation that produced the catchment itself uses a D8 pointer. Set it to true wherever the talwegs are not axis-aligned, which on real topography is most of them.",
           "examples": [
             false
           ],

@@ -404,7 +404,11 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
             gauge_comparable[name] = area_id
             requests.append(
                 ObservableRequest(
-                    id=area_id, name="upstream_area", support="cell", cell=request.cell
+                    id=area_id,
+                    name="upstream_area",
+                    support="cell",
+                    cell=request.cell,
+                    diagonal_neighbors=request.diagonal_neighbors,
                 )
             )
 
