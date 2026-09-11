@@ -143,12 +143,23 @@ it is not the number of backends.
 
 ``hmp spinup`` is orchestration, not solver code: each cycle is a full run, and the
 next one reads the previous cycle's heads through ``[flow] restart_from``, which
-takes the path of a Zarr store. A calibration trial runs in lightweight mode
-precisely so it writes no Zarr, no Parquet and no provenance, which is what makes a
-hundred-evaluation phase affordable. So a cycle inside a trial would have to be a
-full store-writing run, several per trial, which inverts the design that makes the
-trial path usable. Seeding a cycle from heads held in memory instead of from a store
-is the capability that is missing, and it is a capability rather than a wiring.
+takes the path of a Zarr store. A calibration trial writes no Zarr, so that path is
+closed to it. What the restart actually consumes, though, is two small things: a
+``(nlay, ncpl)`` head array and a mapping of final lake stages. The solver writes
+its own head file whether or not the store is written, so a cycle inside a trial is
+not blocked on producing a store.
+
+What it is blocked on is that nobody has built it, and the shape of the work is
+worth stating so the next person does not re-derive it. It needs an in-memory seed
+beside ``read_restart_heads``, a loop in the trial execution path that re-enters the
+pipeline once per cycle with the previous cycle's heads, the between-cycle
+convergence measure ``hmp spinup`` already owns, and a typed refusal on a backend
+that has no in-memory seed.
+
+And it needs something the two restart-based uncertainty methods did not: a real
+model to be believed. Their correctness could be held against a closed form or a
+stub. "The state stops moving" cannot; it is a claim about a particular aquifer's
+memory, and it has to be run on one.
 
 What is available is to cycle outside the search and say so, which means the
 reported parameters carry the antecedent of whatever parameter set the spin-up used.
