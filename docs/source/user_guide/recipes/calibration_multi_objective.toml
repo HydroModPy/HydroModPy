@@ -117,3 +117,30 @@ name = "lake"
 metric = "reservoir"
 weight = 0.10
 uses_outputs = ["lake_level"]
+
+
+# ---------------------------------------------------------------------------
+# How wide the answer is
+# ---------------------------------------------------------------------------
+# `multistart` runs the whole search `restarts` times from `restarts` different
+# starting points and reports the spread of the optima it reaches. It is the only
+# declared method that can see a second basin: `cost_profile` reads one search's
+# own trace, so it says what that search could not tell apart and never what it
+# never visited.
+#
+# What it costs is not hidden: four restarts of a two-hundred-evaluation search is
+# eight hundred model runs. Start from `cost_profile`, which is free, and pay for
+# this one when a parameter matters enough that you need to know whether another
+# optimum exists.
+#
+# The calibrated value does not move: it is the best of the restarts, still one
+# number you can write into a report. The spread sits beside it, and a parameter
+# whose restarts landed more than a factor ten apart is flagged as not identified
+# by this calibration, however tight any single restart looked.
+#
+# Refused on `grid` and `bisection`: an exhaustive sweep and a root search return
+# the same answer every time, so their spread would state a certainty nothing
+# established.
+[calibration.uncertainty]
+method = "multistart"
+restarts = 4

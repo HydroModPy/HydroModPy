@@ -147,35 +147,39 @@ Everything a stopping rule needs beyond that precision stays in
 reproduced verbatim. Stating both the precision and the option it writes is
 refused, before the first solve.
 
-What a restart-based uncertainty would need from an engine
----------------------------------------------------------
+What a restart-based uncertainty asks of an engine
+--------------------------------------------------
 
-``[calibration.uncertainty]`` declares ``cost_profile`` only. A restart-based
-method, running the search several times and reporting the spread of the optima it
-reaches, is the obvious next one and it is not implemented, for a reason that
-belongs here rather than in a changelog: **no engine lets a caller say where the
-search starts**.
+``[calibration.uncertainty] method = "multistart"`` runs the whole search several
+times and reports the spread of the optima it reaches. Two traits decide what an
+engine may be handed.
 
-- ``scipy_nelder_mead`` builds its simplex around ``transformed_prior_center(space)``,
-  a constant. Its seed is accepted and discarded, so repeating the search returns
-  the same answer however the seed moves.
-- ``bisection`` and ``grid`` are deterministic by construction: a root search and
-  an exhaustive sweep have nothing to restart.
-- ``cma_es`` does perturb its ``x0`` between its own ``restarts``, but those serve
-  its convergence and it still reports one best, not a distribution.
+``restarts_explore_differently``
+   whether repeating this engine can land anywhere else. Permissive by default: a
+   stochastic sampler explores differently on a new seed and declares nothing.
+   ``grid`` and ``bisection`` declare ``False``, because an exhaustive sweep and a
+   root search are the same computation twice, and reporting the spread of
+   identical runs as an uncertainty states a certainty nothing established. A file
+   asking for restarts on one of them is refused, in the preflight, before the
+   first solve.
 
-So a seed-only implementation would refuse on ``scipy_nelder_mead``, which is the
-engine the ``matching_hydrographic_network`` protocol uses for its second stage:
-it would decline exactly the calibration it exists for. Doing it properly means
-one more axis, an initial point an engine may be given, declared in
-:class:`EngineTraits` alongside the stopping rule and honoured by every engine
-that has a start. Two mechanisms, a varied seed and a varied start, are what a
-half-version ends up carrying; one explicit start is what makes it uniform.
+``accepts_a_start_point``
+   whether the engine takes ``start_at``, a coordinate per calibrated parameter in
+   transformed space. Only ``scipy_nelder_mead`` and ``cma_es`` do, and they are
+   exactly the engines a new seed cannot move: the simplex is built around
+   ``transformed_prior_center(space)`` and would otherwise return the same answer
+   every time. Accept the keyword and begin there instead of at your own default.
 
-The constraint the method has to respect is stated by the project: a calibration
-always reports one manipulable value, and an interval sits beside it, never in its
-place. So the best of the restarts stays the answer, and the spread is reported
-next to it.
+The first restart is left with the engine's own start and the file's own seed, so
+it is the single search it replaces: the answer a file already published stays in
+the set and the others are added around it. The remaining starts are drawn from the
+declared priors with a seeded generator, so a rerun draws the same set.
+
+The constraint the method obeys is stated by the project: a calibration always
+reports one manipulable value, and an interval sits beside it, never in its place.
+So the best restart IS the answer, unchanged in kind from a single search, and the
+spread is reported next to it, with a parameter whose optima span more than a
+factor ten flagged as not identified by that calibration.
 
 Optional dependencies
 ---------------------

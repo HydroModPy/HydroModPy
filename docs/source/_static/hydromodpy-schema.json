@@ -1800,14 +1800,32 @@
       "description": "How wide the search says its own answer is.\n\nThe calibrated value never moves: this block only decides what is reported\nbeside it. ``cost_profile`` reads the interval off the trials the search\nalready ran, so it costs no extra model run and rests on no error model. It\nsays what the search could not tell apart, which is a statement about the\ntrace and not a posterior.",
       "properties": {
         "method": {
-          "const": "cost_profile",
           "default": "cost_profile",
-          "description": "How the interval around each calibrated value is obtained. 'cost_profile' reads the range of sampled values whose cost stayed within 'tolerance' of the best, off the trace the search already produced.",
+          "description": "How the interval around each calibrated value is obtained. 'cost_profile' reads the range of sampled values whose cost stayed within 'tolerance' of the best, off the trace the search already produced, and costs no extra model run. 'multistart' runs the whole search 'restarts' times from 'restarts' different starting points and reports the spread of the optima it reaches, which is the only one of the two that can see a second basin; it costs that many times the runs. The calibrated value never moves either way: with 'multistart' it is the best of the restarts.",
+          "enum": [
+            "cost_profile",
+            "multistart"
+          ],
           "examples": [
             "cost_profile"
           ],
           "title": "Method",
           "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "restarts": {
+          "anyOf": [
+            {
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How many times the search is repeated by method='multistart'. Required by it and refused by any other method, because a number of restarts that nothing restarts is a statement about a run that did not happen. Each one is a full search: eight restarts of a hundred-evaluation phase is eight hundred model runs.",
+          "title": "Restarts",
           "x-hmp-profile": "user"
         },
         "tolerance": {
