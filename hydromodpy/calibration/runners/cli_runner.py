@@ -39,6 +39,7 @@ from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     ParamSuggestion,
     build_optimizer,
+    engine_traits,
 )
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
 from hydromodpy.calibration.optim.promotion import promote_iterations
@@ -49,6 +50,7 @@ from hydromodpy.calibration.optim.tolerance import (
 )
 from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.calibration.runners.failure_watch import ConsecutiveFailureWatch
+from hydromodpy.calibration.runners.restarts import run_restarts
 from hydromodpy.calibration.runners.sandbox import keep_trial_scratch
 from hydromodpy.calibration.runners.state import (
     CalibrationStoreFactory,
@@ -372,6 +374,16 @@ def _tolerance_intervals_or_none(
         return []
 
 
+def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: Any) -> dict:
+    """Return everything the engine is constructed with beyond the space and the seed."""
+    kwargs = stopping_kwargs(
+        cfg.method, space, tolerance=cfg.tolerance, declared=cfg.optimizer_kwargs
+    )
+    if start_at is not None and engine_traits(cfg.method).accepts_a_start_point:
+        kwargs["start_at"] = start_at
+    return kwargs
+
+
 def run_calibration_core(
     cfg: CalibrationConfig,
     trial_ctx: TrialContext,
@@ -384,8 +396,14 @@ def run_calibration_core(
     objective: str | None = None,
     store_factory: CalibrationStoreFactory | None = None,
     chain: SessionChain | None = None,
+    start_at: Any | None = None,
 ) -> CalibrationReport:
     """Heart of the calibration loop. Caller-agnostic.
+
+    ``start_at`` is where the search begins, in transformed space, and is how a
+    restart-based uncertainty makes one repetition differ from the next. It is
+    handed to the engine only when the engine declares it accepts one; on any
+    other engine a new seed is the whole of the difference.
 
     The caller is responsible for:
 
@@ -469,12 +487,7 @@ def run_calibration_core(
         cfg.method,
         space,
         seed=cfg.seed,
-        **stopping_kwargs(
-            cfg.method,
-            space,
-            tolerance=cfg.tolerance,
-            declared=cfg.optimizer_kwargs,
-        ),
+        **_engine_kwargs(cfg, space, start_at=start_at),
     )
     cache_context = build_cache_context(
         cfg=cfg,
@@ -797,17 +810,50 @@ def run_calibration_cli(
     else:
         ws_root = trial_ctx.workspace
 
-    report = run_calibration_core(
-        cfg,
-        trial_ctx,
-        workspace=ws_root,
-        space=space,
-        project_label=project,
-        cfg_path=cfg_path,
-        metric_fn=metric_fn,
-        objective=objective,
-        store_factory=store_factory,
-    )
+    def _one_search(restart_seed: int, start_at):
+        return run_calibration_core(
+            cfg
+            if restart_seed == (cfg.seed or 0)
+            else cfg.model_copy(update={"seed": restart_seed}),
+            trial_ctx,
+            workspace=ws_root,
+            space=space,
+            project_label=project,
+            cfg_path=cfg_path,
+            metric_fn=metric_fn,
+            objective=objective,
+            store_factory=store_factory,
+            start_at=start_at,
+        )
+
+    uncertainty = getattr(cfg, "uncertainty", None)
+    if getattr(uncertainty, "method", None) == "multistart":
+        logger.info(
+            "Running %d restarts: the answer is the best of them, the spread is reported "
+            "beside it, and each restart is a full search.",
+            int(uncertainty.restarts),
+        )
+        report, spread = run_restarts(
+            _one_search,
+            method=cfg.method,
+            space=space,
+            restarts=int(uncertainty.restarts),
+            seed=cfg.seed,
+        )
+        for item in spread:
+            logger.info(
+                "%s: best %.4g, restarts spanned %.4g to %.4g over %d searches%s.",
+                item.parameter,
+                item.best,
+                item.lowest,
+                item.highest,
+                len(item.values),
+                " - more than a factor ten, so this calibration did not identify it"
+                if item.spans_a_decade
+                else "",
+            )
+    else:
+        report = _one_search(cfg.seed or 0, None)
     if return_report:
         return report
     return report.to_dict()

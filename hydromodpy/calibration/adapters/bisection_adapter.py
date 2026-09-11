@@ -89,6 +89,7 @@ class BisectionAdapter:
         required_transform="log",
         needs_signed_residual=True,
         supports_parallel=False,
+        restarts_explore_differently=False,
         tolerance_option="rel_tol",
         tolerance_reads="relative_value",
     )

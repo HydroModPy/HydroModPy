@@ -50,6 +50,7 @@ from hydromodpy.calibration.runners.cli_runner import (
     load_toml_calibration,
     run_calibration_core,
 )
+from hydromodpy.calibration.runners.restarts import RestartSpread, run_restarts
 from hydromodpy.calibration.runners.state import (
     CalibrationStoreFactory,
     SessionChain,
@@ -153,6 +154,13 @@ class StagedCalibrationReport:
     completed. It is the only object by which someone who did not produce the
     number can know what it rests on without reading Python."""
 
+    restart_spreads: tuple[RestartSpread, ...] = ()
+    """Where the restarts of each phase landed, when the file asked for restarts.
+
+    The calibrated value is untouched: it is the best of them. This says how far
+    apart the others finished, which is the one thing a single search cannot
+    report about itself."""
+
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly summary for the CLI."""
         summary: dict[str, Any] = {
@@ -164,12 +172,26 @@ class StagedCalibrationReport:
             summary["protocol"] = self.protocol
         if self.methods_paragraph is not None:
             summary["methods_paragraph"] = self.methods_paragraph
+        if self.restart_spreads:
+            summary["restart_spreads"] = [item.to_dict() for item in self.restart_spreads]
         return summary
 
 
 # ---------------------------------------------------------------------------
 # Phase configuration
 # ---------------------------------------------------------------------------
+
+
+def _seed_of(cfg: CalibrationConfig) -> int:
+    return 0 if cfg.seed is None else int(cfg.seed)
+
+
+def _declared_restarts(cfg: CalibrationConfig) -> int | None:
+    """Return how many times each phase repeats its search, or None for one pass."""
+    uncertainty = getattr(cfg, "uncertainty", None)
+    if uncertainty is None or getattr(uncertainty, "method", None) != "multistart":
+        return None
+    return int(uncertainty.restarts)
 
 
 def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationConfig:
@@ -471,6 +493,7 @@ def run_staged_calibration(
 
     frozen: list[FrozenParameter] = []
     runs: list[PhaseRun] = []
+    restart_spreads: list[RestartSpread] = []
     ran: set[str] = set()
     parent_session_id: str | None = None
     root_session_id: str | None = None
@@ -514,18 +537,51 @@ def run_staged_calibration(
             decl.method,
             list(decl.parameters),
         )
-        report = run_calibration_core(
-            phase_cfg,
-            trial_ctx,
-            workspace=ws_root,
-            space=space,
-            project_label=project,
-            cfg_path=cfg_path,
-            metric_fn=metric_fn,
-            objective=objective,
-            store_factory=store_factory,
-            chain=chain,
-        )
+
+        def _one_search(
+            restart_seed: int,
+            start_at,
+            _cfg=phase_cfg,
+            _chain=chain,
+            _ctx=trial_ctx,
+            _space=space,
+            _ws=ws_root,
+        ):
+            return run_calibration_core(
+                _cfg
+                if restart_seed == _seed_of(_cfg)
+                else _cfg.model_copy(update={"seed": restart_seed}),
+                _ctx,
+                workspace=_ws,
+                space=_space,
+                project_label=project,
+                cfg_path=cfg_path,
+                metric_fn=metric_fn,
+                objective=objective,
+                store_factory=store_factory,
+                chain=_chain,
+                start_at=start_at,
+            )
+
+        restarts = _declared_restarts(cfg)
+        if restarts is None:
+            report = _one_search(_seed_of(phase_cfg), None)
+            spread: tuple = ()
+        else:
+            logger.info(
+                "Phase %s runs %d restarts: the answer is the best of them, the spread "
+                "is reported beside it, and each restart is a full search.",
+                decl.name,
+                restarts,
+            )
+            report, spread = run_restarts(
+                _one_search,
+                method=phase_cfg.method,
+                space=space,
+                restarts=restarts,
+                seed=phase_cfg.seed,
+            )
+        restart_spreads.extend(spread)
 
         _require_result_for_dependents(decl, report, plans[position + 1 :])
         froze = _frozen_by(decl, report, declared)
@@ -554,6 +610,7 @@ def run_staged_calibration(
         methods_paragraph=(
             _methods_paragraph_for(cfg, runs, frozen) if cfg.protocol is not None else None
         ),
+        restart_spreads=tuple(restart_spreads),
     )
     return staged if return_report else staged.to_dict()
 

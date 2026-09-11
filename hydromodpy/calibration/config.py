@@ -852,14 +852,46 @@ class CalibUncertaintyDecl(HydroModelBase):
     trace and not a posterior.
     """
 
-    method: Annotated[Literal["cost_profile"], Profile.USER] = Field(
+    method: Annotated[Literal["cost_profile", "multistart"], Profile.USER] = Field(
         default="cost_profile",
         description=(
             "How the interval around each calibrated value is obtained. "
             "'cost_profile' reads the range of sampled values whose cost stayed within "
-            "'tolerance' of the best, off the trace the search already produced."
+            "'tolerance' of the best, off the trace the search already produced, and "
+            "costs no extra model run. 'multistart' runs the whole search 'restarts' "
+            "times from 'restarts' different starting points and reports the spread of "
+            "the optima it reaches, which is the only one of the two that can see a "
+            "second basin; it costs that many times the runs. The calibrated value "
+            "never moves either way: with 'multistart' it is the best of the restarts."
         ),
     )
+    restarts: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        ge=2,
+        description=(
+            "How many times the search is repeated by method='multistart'. Required by "
+            "it and refused by any other method, because a number of restarts that "
+            "nothing restarts is a statement about a run that did not happen. Each one "
+            "is a full search: eight restarts of a hundred-evaluation phase is eight "
+            "hundred model runs."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _check_the_restarts_have_something_to_restart(self) -> CalibUncertaintyDecl:
+        if self.method == "multistart" and self.restarts is None:
+            raise ValueError(
+                "[calibration.uncertainty] method='multistart' needs 'restarts': it says "
+                "how many times the whole search is repeated, and each one costs a full "
+                "search."
+            )
+        if self.method != "multistart" and self.restarts is not None:
+            raise ValueError(
+                f"[calibration.uncertainty] restarts={self.restarts!r} is only read by "
+                f"method='multistart'; got method={self.method!r}, which reads the trace "
+                "the single search already produced."
+            )
+        return self
     tolerance: Annotated[PositiveFloat, Profile.USER] = Field(
         default=0.05,
         description=(
