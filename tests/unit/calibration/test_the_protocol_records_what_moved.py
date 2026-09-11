@@ -9,6 +9,8 @@ looks, so all three are gated here.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from hydromodpy.calibration.config import CalibrationProtocolDecl
 from hydromodpy.calibration.protocols import (
     protocol_options_away_from_the_recipe,
@@ -72,3 +74,35 @@ def test_the_methods_prose_says_the_engine_was_swapped() -> None:
 def test_the_prose_stays_silent_when_nothing_moved() -> None:
     prose = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"])
     assert "moved off the recipe" not in prose
+
+
+def test_the_descent_rule_is_declared_as_a_departure_from_the_paper() -> None:
+    """The paper's own tool traces D8; HydroModPy descends D4 by default.
+
+    That is a deviation from the publication the protocol cites, not a setting, so
+    it belongs in the table that exists for exactly that and is printed before every
+    run. The default has not been moved, because moving it changes every result
+    obtained without it; what has been removed is the silence.
+    """
+    record = protocol_record(NAME)
+    deviations = {item["key"]: item for item in record["deviations"]}
+    assert "diagonal_neighbors" in deviations
+    assert "D8" in deviations["diagonal_neighbors"]["paper"]
+    assert "D4" in deviations["diagonal_neighbors"]["here"]
+    # The why carries both measurements, so a reader does not have to find them.
+    why = deviations["diagonal_neighbors"]["why"]
+    assert "6.6 per cent" in why
+    assert "64.631" in why
+
+
+def test_the_value_a_file_actually_set_is_reported_even_when_it_is_false() -> None:
+    # A boolean default is the case a "skip what is None" reader gets wrong, and it
+    # is the one that matters here: false IS the departure.
+    from hydromodpy.cli.commands.calibrate import _values_this_file_set
+
+    cfg = SimpleNamespace(
+        calibration=SimpleNamespace(
+            outputs={"net": SimpleNamespace(diagonal_neighbors=False)}
+        )
+    )
+    assert _values_this_file_set(cfg, ["diagonal_neighbors"]) == {"diagonal_neighbors": False}
