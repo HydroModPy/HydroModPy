@@ -160,7 +160,11 @@ class ScoresAnObservedRecord:
         "record is aligned on the simulated timestamps, so a weighted block scores "
         "dated observations rather than a vector typed into the file. The data family "
         "follows 'variable': discharge from hydrometry, head from piezometry, stage "
-        "from lake_levels. Mutually exclusive with 'observed_values'.",
+        "from lake_levels. Mutually exclusive with 'observed_values'. The station is "
+        "located by its own record and not by coordinates written beside it, so this "
+        "output and the single-metric route read the same cell and their costs are "
+        "comparable; a station the project cannot locate is refused by name rather "
+        "than scored on another quantity.",
     )
 
     @model_validator(mode="after")
