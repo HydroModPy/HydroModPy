@@ -138,11 +138,22 @@ production runs, not for scoring trials.
 
 One case therefore has no answer today: a system whose memory is longer than a
 single steady solve carries *and* whose properties are being calibrated. Cyclic
-spin-up is what that case wants, and ``hmp spinup`` runs before the search rather
-than inside it, so it cannot be redone per trial. What is available is to cycle
-outside the search and say so, which means the reported parameters carry the
-antecedent of whatever parameter set the spin-up used. Treat it as part of the
-result and test it the way the last paragraph of this page says.
+spin-up is what that case wants, and the obstacle is worth naming precisely, because
+it is not the number of backends.
+
+``hmp spinup`` is orchestration, not solver code: each cycle is a full run, and the
+next one reads the previous cycle's heads through ``[flow] restart_from``, which
+takes the path of a Zarr store. A calibration trial runs in lightweight mode
+precisely so it writes no Zarr, no Parquet and no provenance, which is what makes a
+hundred-evaluation phase affordable. So a cycle inside a trial would have to be a
+full store-writing run, several per trial, which inverts the design that makes the
+trial path usable. Seeding a cycle from heads held in memory instead of from a store
+is the capability that is missing, and it is a capability rather than a wiring.
+
+What is available is to cycle outside the search and say so, which means the
+reported parameters carry the antecedent of whatever parameter set the spin-up used.
+Treat it as part of the result and test it the way the last paragraph of this page
+says.
 
 Choosing
 --------
