@@ -209,9 +209,7 @@ def _authored_user_guide_pages() -> list[Path]:
     return pages
 
 
-def _check_against_allowlist(
-    violations: set[str], allowlist_path: Path, what: str
-) -> list[str]:
+def _check_against_allowlist(violations: set[str], allowlist_path: Path, what: str) -> list[str]:
     """Ratchet: no new violation, and a fixed page must leave the allowlist."""
     errors: list[str] = []
     allowed = set(_read_allowlist(allowlist_path))
@@ -377,9 +375,7 @@ def check_parser_floors() -> list[str]:
     errors: list[str] = []
     counts = {
         "authored user_guide pages": len(_authored_user_guide_pages()),
-        "config_reference pages": len(
-            list((USER_GUIDE_DIR / "config_reference").glob("*.rst"))
-        ),
+        "config_reference pages": len(list((USER_GUIDE_DIR / "config_reference").glob("*.rst"))),
     }
     for label, count in counts.items():
         floor = PARSER_FLOORS[label]
