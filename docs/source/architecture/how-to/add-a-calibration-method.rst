@@ -181,6 +181,25 @@ So the best restart IS the answer, unchanged in kind from a single search, and t
 spread is reported next to it, with a parameter whose optima span more than a
 factor ten flagged as not identified by that calibration.
 
+Why a linearized covariance is not declared beside it
+-----------------------------------------------------
+
+FOSM would give standard deviations *and* correlations for the price of one run
+per parameter, which is cheaper than restarting the whole search. It is not
+declared, and the obstacle is one line of the contract rather than the arithmetic:
+:class:`EvaluationResult` carries ``objective_value``, a scalar, and ``components``,
+a mapping of scalar diagnostics. A Jacobian is built from the simulated value *at
+each observation*, and no trial returns that vector.
+
+So the first change is to the objective's return contract and its callers, which is
+the same axis the ``observes`` bridge cost, and only then the perturbation loop and
+its validation. Two shortcuts look tempting and are not honest ones. Approximating
+the cost's Hessian instead of the observation Jacobian is a coarser method and must
+not be published under the same name. And a residual variance only exists where the
+cost is built from residuals: ``cost_is_dimensionless`` on the criterion contract
+already marks the scores where it does not, and a linearized method has to refuse
+those the way ``weighting = "error"`` already does.
+
 Optional dependencies
 ---------------------
 
