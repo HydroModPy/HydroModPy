@@ -42,6 +42,7 @@ Enriched TOML (twin-benchmark style)::
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Any, Literal, TypeAlias
 
@@ -891,6 +892,33 @@ class CalibUncertaintyDecl(HydroModelBase):
             "approximate in proportion to the curvature, and not a posterior."
         ),
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _say_why_a_posterior_is_not_one_of_these(cls, data: Any) -> Any:
+        """Answer the word an operator will reasonably type, instead of an enum error.
+
+        'posterior' is the obvious name for anyone who has read PEST or pyEMU, and
+        the reason it is not offered is a position rather than an omission. Leaving
+        them a bare list of three literals sends them looking for a bug.
+        """
+        if isinstance(data, Mapping) and str(data.get("method", "")).strip() == "posterior":
+            raise ValueError(
+                "[calibration.uncertainty] method='posterior' is not offered, and the "
+                "reason is worth stating rather than hiding behind a list. A posterior "
+                "is a statement about probability, so it needs a likelihood, and a "
+                "likelihood needs a criterion built from residuals with an error model "
+                "on each observation. An efficiency score is not one: NSE, KGE and "
+                "nse_log are aggregates already stripped of their units, and a "
+                "posterior computed from one would carry a precision nothing "
+                "established. Sampling it also costs thousands of model runs, not the "
+                "one per parameter that 'linearized' costs. Use 'linearized', which "
+                "reports a first-order width and the parameter tradeoffs from "
+                "residuals, or 'multistart', which reports the spread of restarted "
+                "searches, and say in the write-up which of the two the number rests "
+                "on."
+            )
+        return data
 
     @model_validator(mode="after")
     def _check_the_restarts_have_something_to_restart(self) -> CalibUncertaintyDecl:

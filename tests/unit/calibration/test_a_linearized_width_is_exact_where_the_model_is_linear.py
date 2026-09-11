@@ -253,3 +253,27 @@ class TestThePassOverAReport:
             )
             is empty
         )
+
+
+def test_the_word_an_operator_will_type_gets_an_answer() -> None:
+    """'posterior' is the obvious name; a bare enum error sends them hunting a bug.
+
+    It is a position rather than an omission, so the position is what the message
+    carries: a posterior needs a likelihood, a likelihood needs residuals with an
+    error model, and an efficiency score is an aggregate stripped of its units.
+    """
+    from hydromodpy.calibration.config import CalibUncertaintyDecl
+
+    with pytest.raises(ValueError, match="needs a likelihood"):
+        CalibUncertaintyDecl.model_validate({"method": "posterior"})
+
+
+def test_the_refusal_names_the_two_that_are_offered() -> None:
+    from hydromodpy.calibration.config import CalibUncertaintyDecl
+
+    try:
+        CalibUncertaintyDecl.model_validate({"method": "posterior"})
+    except ValueError as exc:
+        message = str(exc)
+    assert "linearized" in message
+    assert "multistart" in message
