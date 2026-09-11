@@ -50,7 +50,7 @@
   ],
   "source_hashes": {
     "tools/doc_gallery/manifests/geographic_cases.json": "3d532bf067bf5461b29113e32e59e8fea7f91b62de236b6daae14f8b99909c48",
-    "examples/projects/05_nancon_data_overview/README.md": "13e8270f6f109c7a14ff9464abb088632cb972968eb8453a346f4f6490faca64",
+    "examples/projects/05_nancon_data_overview/README.md": "8a62dc5a0e0c764c0beac872851478a8a4f0ff3247567c7beb931957c0bb6968",
     "examples/projects/05_nancon_data_overview/config_overview.toml": "0551d77cceb72bfd689364c6fcfa6491288399805548ac1a015c0f572d25bdfd",
     "examples/projects/09_capability_gallery/geographic/README.md": "50e3977c73fbb56834de76bfb9a3e7db805b18a676547c4d695d22f1ce871572",
     "examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_dem.png": "ec51960426ffc4ffeea30afc31ed99844b48a08e05bcdf0308ddc2c3b2e0653d",
