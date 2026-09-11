@@ -78,7 +78,7 @@ def export_geotiff(
     --------
     >>> export_geotiff(
     ...     run_zarr, run.sim_id, "head", -1, "head.tif", resolution=25, crs="EPSG:2154"
-    ... )
+    ... )  # doctest: +SKIP
     """
     import rasterio
     import rasterio.shutil

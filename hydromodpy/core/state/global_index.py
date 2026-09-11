@@ -147,9 +147,9 @@ class GlobalIndex:
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> idx = hmp.index()
-    >>> idx.register("~/hmp_workspace", label="default")
-    >>> idx.find(solver="modflow_nwt")
+    >>> idx = hmp.index()  # doctest: +SKIP
+    >>> idx.register("~/hmp_workspace", label="default")  # doctest: +SKIP
+    >>> idx.find(solver="modflow_nwt")  # doctest: +SKIP
     """
 
     def __init__(

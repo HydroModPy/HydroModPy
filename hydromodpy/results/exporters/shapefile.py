@@ -123,7 +123,7 @@ def export_shapefile(
     --------
     >>> export_shapefile(
     ...     run_zarr, run.sim_id, "head", -1, "head_cells.shp", crs="EPSG:2154"
-    ... )
+    ... )  # doctest: +SKIP
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)

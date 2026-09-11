@@ -77,9 +77,9 @@ class RunSet:
 
     Examples
     --------
-    >>> group = catalog.find(project="nancon")
-    >>> group.count
-    >>> group.best("nse").summary()
+    >>> group = catalog.find(project="nancon")  # doctest: +SKIP
+    >>> group.count  # doctest: +SKIP
+    >>> group.best("nse").summary()  # doctest: +SKIP
 
     See Also
     --------

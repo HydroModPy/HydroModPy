@@ -130,10 +130,10 @@ class Run(
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> catalog = hmp.open("~/hmp_workspace")
-    >>> run = catalog.latest()
-    >>> run.summary()
-    >>> run.field("head", timestep=-1)
+    >>> catalog = hmp.open("~/hmp_workspace")  # doctest: +SKIP
+    >>> run = catalog.latest()  # doctest: +SKIP
+    >>> run.summary()  # doctest: +SKIP
+    >>> run.field("head", timestep=-1)  # doctest: +SKIP
 
     See Also
     --------
@@ -206,9 +206,11 @@ class Run(
 
         Examples
         --------
-        >>> run.export("head", "head.tif", time="last", resolution=50)
-        >>> run.export(["head", "watertable_depth"], "fields.nc", time="all")
-        >>> run.export("*", "timeseries.csv")
+        >>> run.export("head", "head.tif", time="last", resolution=50)  # doctest: +SKIP
+        >>> run.export(
+        ...     ["head", "watertable_depth"], "fields.nc", time="all"
+        ... )  # doctest: +SKIP
+        >>> run.export("*", "timeseries.csv")  # doctest: +SKIP
         """
         from hydromodpy.core.config_kit.export_spec import ExportSpec
 

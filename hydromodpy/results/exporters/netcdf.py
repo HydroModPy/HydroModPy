@@ -55,7 +55,9 @@ def export_netcdf(
 
     Examples
     --------
-    >>> export_netcdf(run_zarr, run.sim_id, ["head", "watertable_depth"], "fields.nc")
+    >>> export_netcdf(
+    ...     run_zarr, run.sim_id, ["head", "watertable_depth"], "fields.nc"
+    ... )  # doctest: +SKIP
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
