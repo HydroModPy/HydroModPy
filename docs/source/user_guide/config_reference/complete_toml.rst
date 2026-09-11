@@ -562,10 +562,14 @@ Sub-models are linked back to their per-section page.
       method = "grid"
       # Maximum number of calibration iterations.
       max_iter = 100
+      # How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a log-transformed parameter that is a ratio, which is how a conductivity is known in the first place, and it holds wherever the value sits; on any other transform there is no scale on the value to be relative to before the search has one, so it reads as a fraction of the declared interval. Each engine's own stopping option is written from it, so the same number survives a change of engine, and the engine's own option stays available for reproducing a published call verbatim. Unset, the engine's default applies. An engine that stops on its budget rather than on a precision refuses this rather than ignore it.
+      # tolerance = ...  # default = None
       # Number of suggestions drawn per ask (for parallel optimizers).
       batch_size = 1
       # Number of trials evaluated concurrently inside one batch via a thread pool. parallel=1 keeps the legacy sequential loop.
       parallel = 1
+      # Percent water-balance discrepancy past which a trial is rejected instead of scored. The solver reports the figure on every run; unset, it is recorded and nothing acts on it, so a run at twelve per cent is ranked beside one that closed even though part of the water it routed came from nowhere. There is no default because there is no universal value: a steady solve on a coarse mesh closes to a fraction of a per cent, a transient one with a lake and a routed network legitimately sits higher.
+      # reject_water_budget_above = ...  # default = None
       # Spin-up (burn-in) periods excluded from every objective block. The first warmup_periods of each observed/simulated series are dropped before the metric, so the window where the state still depends on the initial condition does not bias the calibration. Default 0 (no exclusion). Size it by increasing it until the objective stops changing (initial-condition insensitivity), not a fixed guess.
       warmup_periods = 0
       # Dates bounding the samples every metric is computed on. Mutually exclusive with warmup_periods, which counts samples instead of dates.
@@ -586,7 +590,7 @@ Sub-models are linked back to their per-section page.
       objective = "nse"
       # Observed variable (for ObservationSet).
       variable = "head"
-      # Observed station the single simulated series is scored against. A run produces one discharge series, at the catchment outlet, so an upstream gauge cannot match it: when several stations are loaded, one has to be named. Optional with a single loaded station.
+      # Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one.
       # observed_station_id = ...  # default = None
       # Extra keyword arguments forwarded to the optimizer adapter.
       # optimizer_kwargs = ...  # uses factory default
@@ -606,6 +610,8 @@ Sub-models are linked back to their per-section page.
       materialize_candidates = false
       # Directory for per-candidate overlay TOMLs. Required when materialize_candidates is True.
       # candidates_root = ...  # default = None
+      # How several scored targets become one cost: what made them comparable, how nested gauges are read, and what one unscorable member does.
+      # aggregate = ...  # uses factory default
       # How wide the search reports its own answer to be. The calibrated value is unaffected; this only decides the interval printed beside it.
       # uncertainty = ...  # uses factory default
       # Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for calibration outputs.

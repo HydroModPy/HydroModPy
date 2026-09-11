@@ -190,6 +190,7 @@ def build_metric_extractor(
     warmup_periods: int = 0,
     scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
     observed_station_id: str | None = None,
+    min_samples: int = 1,
 ) -> Callable[..., tuple[float, Mapping[str, float]]]:
     """Return a metric function closed over the loaded observations.
 
@@ -215,6 +216,7 @@ def build_metric_extractor(
             ctx=ctx,
             warmup_periods=warmup_periods,
             scoring_window=scoring_window,
+            min_samples=min_samples,
         )
 
     observed = load_observed(ctx, variable) if variable else []
@@ -394,6 +396,7 @@ def _build_composite_metric_extractor(
     ctx: Any = None,
     warmup_periods: int = 0,
     scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
+    min_samples: int = 1,
 ) -> Callable[..., tuple[float, Mapping[str, float]]]:
     """Build a metric_fn that routes through ``build_objective_from_config``."""
     observing = observing_outputs(outputs)
@@ -433,6 +436,7 @@ def _build_composite_metric_extractor(
                     if name in extracted.series
                 },
                 scoring_window=scoring_window,
+                min_samples=min_samples,
             )
             simulated_by_output.update(paired.simulated)
             paired_counts = dict(paired.n_paired)

@@ -82,26 +82,90 @@ def expand_calibration_protocol(document: Mapping[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def protocol_record(name: str) -> dict[str, Any]:
+def protocol_options_away_from_the_recipe(
+    name: str, declared: object
+) -> tuple[dict[str, Any], ...]:
+    """Return every adjustable option a file set to something other than the recipe's value.
+
+    A protocol keeps its identity when an option moves, and the reader comparing a
+    number to the publication is exactly the one who has to know that it moved.
+    Nothing else records it: the recipe describes its own defaults, and the
+    declaration describes only what the file wrote.
+    """
+    protocol = get_protocol(name)
+    recipe = type(declared).model_validate({"name": protocol.name})
+    changed: list[dict[str, Any]] = []
+    for key in sorted(protocol.adjustable):
+        if not hasattr(recipe, key):
+            continue
+        here = getattr(declared, key)
+        published = getattr(recipe, key)
+        if here == published:
+            continue
+        changed.append({"key": key, "here": here, "recipe": published})
+    return tuple(changed)
+
+
+def protocol_record(name: str, declared: object | None = None) -> dict[str, Any]:
     """Return what a run persists about the protocol it followed.
 
     A calibrated value that came out of a published method carries the method
     with it: the report, the session and anyone reading either can then say what
-    the number rests on without going back to the file.
+    the number rests on without going back to the file. The version is part of
+    that: a number which informed a decision must be replayable with the recipe of
+    its era, not with whatever the recipe became.
     """
     protocol = get_protocol(name)
-    return {
+    record: dict[str, Any] = {
         "name": protocol.name,
+        "version": protocol.version,
         "title": protocol.title,
         "summary": protocol.summary,
         "stages": list(protocol.stages),
         "references": [reference.cite() for reference in protocol.references],
+        "support": dict(protocol.support),
+        "deviations": [
+            {
+                "key": deviation.key,
+                "paper": deviation.paper,
+                "here": deviation.here,
+                "why": deviation.why,
+            }
+            for deviation in protocol.deviations
+        ],
+        "reference_values": dict(protocol.reference_values),
     }
+    if declared is not None:
+        record["options_away_from_the_recipe"] = [
+            dict(item) for item in protocol_options_away_from_the_recipe(name, declared)
+        ]
+    return record
+
+
+def assert_version_is_available(name: str, version: str | None) -> None:
+    """Refuse a pinned version this registry does not hold.
+
+    Approximating it with the current recipe is the one thing a pin exists to
+    prevent: a file that pins 1.0 and silently gets 1.1 has lost the guarantee it
+    asked for.
+    """
+    if version is None:
+        return
+    protocol = get_protocol(name)
+    if str(version) != str(protocol.version):
+        raise ValueError(
+            f"[calibration.protocol] pins {name!r} at version {version!r}, and this "
+            f"installation carries {protocol.version!r}. A pin exists so a result stays "
+            "replayable, so it is refused rather than approximated: install the version "
+            "this file was written against, or drop the pin to run the one that is here."
+        )
 
 
 __all__ = [
+    "assert_version_is_available",
     "available_protocols",
     "expand_calibration_protocol",
     "get_protocol",
+    "protocol_options_away_from_the_recipe",
     "protocol_record",
 ]

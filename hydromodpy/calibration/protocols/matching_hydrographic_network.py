@@ -28,9 +28,10 @@ from typing import Annotated, Any, Literal
 import pandas as pd
 from pydantic import Field, model_validator
 
-from hydromodpy.calibration.protocols.base import Reference
+from hydromodpy.calibration.protocols.base import Deviation, Reference
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import PositiveFloat
 
 STEADY_STAGE = "steady_conductivity"
 TRANSIENT_STAGE = "transient_storage"
@@ -48,6 +49,14 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
 
     name: Annotated[Literal["matching_hydrographic_network"], Profile.USER] = Field(
         description="Protocol identifier.",
+    )
+    version: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Recipe version this file was written against. Unset runs the version this "
+            "installation carries; pinned, a mismatch is refused rather than "
+            "approximated, so a result that informed a decision stays replayable."
+        ),
     )
     conductivity: Annotated[str, Profile.USER] = Field(
         default="K",
@@ -83,9 +92,18 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         ge=1,
         description="Evaluation budget of stage one.",
     )
+    steady_tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
+        default=None,
+        description="How precisely stage one has to pin the conductivity before it "
+        "stops, as a relative precision on the conductivity: 0.01 is the paper's one "
+        "per cent. Unset takes the engine's default, which for the bisection is that "
+        "same one per cent.",
+    )
     steady_optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
         default_factory=dict,
-        description="Extra arguments forwarded to the stage-one engine.",
+        description="Extra arguments forwarded to the stage-one engine, in that "
+        "engine's own units. The escape hatch for reproducing a published call; a "
+        "precision is said once, in steady_tolerance.",
     )
     steady_window: Annotated[dict[str, str] | None, Profile.USER] = Field(
         default=None,
@@ -106,9 +124,15 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         ge=1,
         description="Evaluation budget of stage two.",
     )
+    transient_tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
+        default=None,
+        description="How precisely stage two has to pin the storage before it stops, "
+        "as a relative precision on the storage coefficient.",
+    )
     transient_optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
         default_factory=dict,
-        description="Extra arguments forwarded to the stage-two engine.",
+        description="Extra arguments forwarded to the stage-two engine, in that "
+        "engine's own units.",
     )
     discharge_variable: Annotated[str, Profile.USER] = Field(
         default="discharge",
@@ -137,6 +161,7 @@ class MatchingHydrographicNetwork:
     """Conductivity from the mapped stream network, storage from the hydrograph."""
 
     name = "matching_hydrographic_network"
+    version = "1.0"
     title = "Matching the hydrographic network"
     summary = (
         "Two stages. The mapped stream network constrains the hydraulic conductivity "
@@ -184,11 +209,95 @@ class MatchingHydrographicNetwork:
         ),
     )
 
+    support: Mapping[str, str] = {
+        # A case in this repository runs the two stages on MODFLOW 6, DIS and DISV.
+        "modflow6": "tested",
+        # Nothing structural forbids it: NWT serves a head at a cell and a per-cell
+        # release flux, which is all stage one reads. Nobody has run it.
+        "modflow_nwt": "expected_untested",
+        # Boussinesq computes a saturation excess per cell and its mesh carries the
+        # connectivity, the areas and the elevations, so the criterion is reachable.
+        # Nobody has run the two stages end to end.
+        "boussinesq": "expected_untested",
+    }
+
+    deviations = (
+        Deviation(
+            key="tau_specific_ratio",
+            paper="zero: a cell is a seepage face on the purely geometric test",
+            here="1e-4 of the cell's own recharge by default; 0 reproduces the paper",
+            why=(
+                "a strictly geometric test counts a cell releasing a negligible "
+                "trickle, which on a fine mesh inflates the simulated network; the "
+                "paper's own value reproduces the publication exactly."
+            ),
+        ),
+        Deviation(
+            key="observed_position_accuracy",
+            paper="the validity length is the DEM resolution and nothing else",
+            here="unset, so the paper's reading holds unless a file states it",
+            why=(
+                "the positional accuracy of the mapped network does not improve "
+                "because the mesh is refined, so without a floor the validity ratio "
+                "follows the mesh; declaring it is a departure and is left to the file."
+            ),
+        ),
+        Deviation(
+            key="weighting",
+            paper="one cell one vote",
+            here="'cell' by default, the paper's value; 'area' is offered and departs",
+            why=(
+                "'area' exists because a mesh refined along the streams has its highest "
+                "cell density exactly where distances are smallest, so one vote per cell "
+                "over-weights the refined reaches. Choosing it leaves the publication."
+            ),
+        ),
+    )
+
+    reference_values: Mapping[str, str] = {
+        "roptim_max": "2, the validity bound of Eq. 4",
+        "criterion": "J = D_so - D_os, Eq. 1, whose zero is the balance",
+        "r_optim": "D_optim / L_ref, Eq. 3",
+        "catchments": "Abherve et al. (2023) report the method on 45 Brittany catchments",
+    }
+
+    adjustable = frozenset(
+        {
+            "conductivity",
+            "storage",
+            "network_output",
+            "steady_metric",
+            "steady_method",
+            "steady_max_iter",
+            "steady_tolerance",
+            "steady_optimizer_kwargs",
+            "steady_window",
+            "transient_metric",
+            "transient_method",
+            "transient_max_iter",
+            "transient_tolerance",
+            "transient_optimizer_kwargs",
+            "discharge_variable",
+            "observed_station_id",
+            "scoring_window",
+        }
+    )
+    """Everything the options model exposes. Changing one keeps the method; the
+    record still says which values were used, because a reader comparing to the
+    publication needs to know that the engine was swapped."""
+
     def expand(self, options: Mapping[str, Any], document: Mapping[str, Any]) -> dict[str, Any]:
         """Return the document with the two stages and their objective block written."""
         opts = MatchingHydrographicNetworkOptions.model_validate(
             {"name": self.name, **dict(options)}
         )
+        if opts.version is not None and str(opts.version) != self.version:
+            raise ValueError(
+                f"[calibration.protocol] pins {self.name!r} at version "
+                f"{opts.version!r}, and this installation carries {self.version!r}. A "
+                "pin exists so a result stays replayable, so it is refused rather than "
+                "approximated."
+            )
         expanded = copy.deepcopy(dict(document))
         calibration = dict(expanded.get("calibration") or {})
 
@@ -312,6 +421,8 @@ def _phases(
             "simulation.time.step_value": span_days,
         },
     }
+    if opts.steady_tolerance is not None:
+        steady["tolerance"] = float(opts.steady_tolerance)
     if opts.steady_optimizer_kwargs:
         steady["optimizer_kwargs"] = dict(opts.steady_optimizer_kwargs)
     if opts.storage is None:
@@ -331,6 +442,8 @@ def _phases(
         "depends_on": STEADY_STAGE,
         "overrides": {"flow.flow_regime": "transient"},
     }
+    if opts.transient_tolerance is not None:
+        transient["tolerance"] = float(opts.transient_tolerance)
     if opts.transient_optimizer_kwargs:
         transient["optimizer_kwargs"] = dict(opts.transient_optimizer_kwargs)
     if opts.observed_station_id is not None:

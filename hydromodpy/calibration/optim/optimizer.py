@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from importlib.metadata import entry_points
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 
 FAILED_EVAL_COST: float = 1e12
 """Sentinel cost used when an evaluation fails or returns NaN.
@@ -117,6 +117,20 @@ class EngineTraits:
 
     supports_parallel: bool = True
     """Whether several trials of one batch can be evaluated at once."""
+
+    tolerance_option: str | None = None
+    """Name of this engine's own option that a user-level precision writes.
+
+    ``None`` says the engine has no parameter-side stopping rule at all, and a
+    declared precision is then refused rather than quietly dropped: a search that
+    stops on its budget cannot honour a precision, and saying so is the only
+    honest answer."""
+
+    tolerance_reads: Literal["search_width", "relative_value"] | None = None
+    """How that option reads its number. ``search_width`` is an absolute width in
+    the space the search walks, so the precision is converted into that space.
+    ``relative_value`` is already a relative width on the parameter's own value,
+    so the number passes through."""
 
 
 DEFAULT_ENGINE_TRAITS = EngineTraits()

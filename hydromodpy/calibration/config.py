@@ -160,7 +160,11 @@ class ScoresAnObservedRecord:
         "record is aligned on the simulated timestamps, so a weighted block scores "
         "dated observations rather than a vector typed into the file. The data family "
         "follows 'variable': discharge from hydrometry, head from piezometry, stage "
-        "from lake_levels. Mutually exclusive with 'observed_values'.",
+        "from lake_levels. Mutually exclusive with 'observed_values'. The station is "
+        "located by its own record and not by coordinates written beside it, so this "
+        "output and the single-metric route read the same cell and their costs are "
+        "comparable; a station the project cannot locate is refused by name rather "
+        "than scored on another quantity.",
     )
 
     @model_validator(mode="after")
@@ -679,6 +683,22 @@ class CalibPhaseDecl(HydroModelBase):
         ge=1,
         description="Maximum number of evaluations for this phase.",
     )
+    tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "How precisely the search has to pin a parameter before it stops, as a "
+            "relative precision on the parameter itself: 0.01 asks for one per cent, "
+            "0.1 for ten. On a log-transformed parameter that is a ratio, which is "
+            "how a conductivity is known in the first place, and it holds wherever the "
+            "value sits; on any other transform there is no scale on the value to be "
+            "relative to before the search has one, so it reads as a fraction of the "
+            "declared interval. Each engine's own stopping option is written from it, "
+            "so the same number survives a change of engine, and the engine's own "
+            "option stays available for reproducing a published call verbatim. Unset, "
+            "the engine's default applies. An engine that stops on its budget rather "
+            "than on a precision refuses this rather than ignore it."
+        ),
+    )
     batch_size: Annotated[int, Profile.DEV] = Field(
         default=1,
         ge=1,
@@ -755,6 +775,65 @@ class CalibPhaseDecl(HydroModelBase):
         and score it on a criterion it never asked for.
         """
         return self.variable is not None or self.objective is not None
+
+
+class CalibAggregateDecl(HydroModelBase):
+    """How several scored targets become one cost.
+
+    Two questions the word "weight" runs together. Whether an error is large for
+    what the instrument can resolve is a property of the measurement, not a
+    decision. What matters more between the outlet and the reservoir is a
+    decision, and the modeller's. The cost is the product of both, never one of
+    them, and this section names which recipe made them addable.
+
+    The literature offers two named recipes and states they are incompatible: one
+    over sigma, which makes each residual dimensionless and statistically
+    defensible, and an equal share of the initial objective, which guarantees no
+    data type is invisible to the search. There is no third to invent, only a
+    choice to name and to record.
+    """
+
+    weighting: Annotated[Literal["manual", "error"], Profile.USER] = Field(
+        default="manual",
+        description=(
+            "How the members are made comparable before the weights apply. "
+            "'manual' takes the declared 'weight' of each block as the whole story, "
+            "which is honest as long as the costs are already commensurable. "
+            "'error' divides each residual by what its instrument resolves, so the "
+            "members become pure numbers first; it needs a residual criterion and an "
+            "observation carrying an error model, and is refused without both."
+        ),
+    )
+    nested_gauges: Annotated[Literal["total", "incremental"], Profile.USER] = Field(
+        default="total",
+        description=(
+            "How two gauges on imbricated catchments are read. 'total' scores each "
+            "against its own full drained area, which is what a gauge measures; the "
+            "residuals are then statistically dependent, and no standard correction "
+            "exists for that. 'incremental' scores the downstream one on what its own "
+            "reach adds, downstream minus upstream, which is the only mechanisable way "
+            "to make the two independent. Neither is inferred: the overlap is measured "
+            "and reported whichever is chosen."
+        ),
+    )
+    min_samples: Annotated[int, Profile.USER] = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Fewest paired samples a member may be scored on. An alignment that "
+            "collapses to three days still returns a number, and a weight of 65 per "
+            "cent resting on three days is not what the file says it is."
+        ),
+    )
+    on_member_failure: Annotated[Literal["veto", "drop"], Profile.USER] = Field(
+        default="veto",
+        description=(
+            "What one unscorable member does to the total. 'veto' makes the whole "
+            "trial fail, which is the default because a partial cost is not "
+            "comparable to a full one. 'drop' scores the survivors and records which "
+            "member was left out, which has to be asked for explicitly."
+        ),
+    )
 
 
 class CalibUncertaintyDecl(HydroModelBase):
@@ -838,6 +917,22 @@ class CalibrationConfig(HydroModelBase):
         ge=1,
         description="Maximum number of calibration iterations.",
     )
+    tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "How precisely the search has to pin a parameter before it stops, as a "
+            "relative precision on the parameter itself: 0.01 asks for one per cent, "
+            "0.1 for ten. On a log-transformed parameter that is a ratio, which is "
+            "how a conductivity is known in the first place, and it holds wherever the "
+            "value sits; on any other transform there is no scale on the value to be "
+            "relative to before the search has one, so it reads as a fraction of the "
+            "declared interval. Each engine's own stopping option is written from it, "
+            "so the same number survives a change of engine, and the engine's own "
+            "option stays available for reproducing a published call verbatim. Unset, "
+            "the engine's default applies. An engine that stops on its budget rather "
+            "than on a precision refuses this rather than ignore it."
+        ),
+    )
     batch_size: Annotated[int, Profile.DEV] = Field(
         default=1,
         ge=1,
@@ -849,6 +944,19 @@ class CalibrationConfig(HydroModelBase):
         description=(
             "Number of trials evaluated concurrently inside one batch via a "
             "thread pool. parallel=1 keeps the legacy sequential loop."
+        ),
+    )
+    reject_water_budget_above: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        ge=0.0,
+        description=(
+            "Percent water-balance discrepancy past which a trial is rejected instead "
+            "of scored. The solver reports the figure on every run; unset, it is "
+            "recorded and nothing acts on it, so a run at twelve per cent is ranked "
+            "beside one that closed even though part of the water it routed came from "
+            "nowhere. There is no default because there is no universal value: a steady "
+            "solve on a coarse mesh closes to a fraction of a per cent, a transient one "
+            "with a lake and a routed network legitimately sits higher."
         ),
     )
     warmup_periods: Annotated[int, Profile.USER] = Field(
@@ -921,7 +1029,7 @@ class CalibrationConfig(HydroModelBase):
     )
     observed_station_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Observed station the single simulated series is scored against. A run produces one discharge series, at the catchment outlet, so an upstream gauge cannot match it: when several stations are loaded, one has to be named. Optional with a single loaded station.",
+        description="Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one.",
     )
     optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
         default_factory=dict,
@@ -963,6 +1071,11 @@ class CalibrationConfig(HydroModelBase):
         description="Directory for per-candidate overlay TOMLs. "
         "Required when materialize_candidates is True.",
     )
+    aggregate: Annotated[CalibAggregateDecl, Profile.USER] = Field(
+        default_factory=CalibAggregateDecl,
+        description="How several scored targets become one cost: what made them "
+        "comparable, how nested gauges are read, and what one unscorable member does.",
+    )
     uncertainty: Annotated[CalibUncertaintyDecl, Profile.USER] = Field(
         default_factory=CalibUncertaintyDecl,
         description="How wide the search reports its own answer to be. The calibrated "
@@ -973,6 +1086,95 @@ class CalibrationConfig(HydroModelBase):
         description="Single switch governing every persistence sink "
         "(catalog, Zarr, Parquet, lockfile) for calibration outputs.",
     )
+
+    @model_validator(mode="after")
+    def _check_the_error_weighting_has_something_to_divide_by(self) -> CalibrationConfig:
+        """Refuse ``weighting = "error"`` where there is no residual, or no sigma.
+
+        One over sigma divides a residual by what its instrument resolves. An
+        efficiency score is not a residual: it is an aggregate already without a
+        unit, so there is nothing to divide. And sigma comes from an observation,
+        which means a loaded record: a vector typed into the file carries no error
+        model and never will.
+        """
+        if self.aggregate.weighting != "error":
+            return self
+        from hydromodpy.calibration.criteria import criterion_for
+
+        for block in self.objective_blocks:
+            try:
+                needs = criterion_for(str(block.metric)).requirements()
+            except ValueError:
+                continue
+            if needs.cost_is_dimensionless:
+                raise ValueError(
+                    f'[calibration.aggregate].weighting = "error" divides a residual by '
+                    f"what its instrument resolves, and block {block.name!r} is scored on "
+                    f"{block.metric!r}, an aggregate that is already a pure number. Score "
+                    'it on a residual metric, or set weighting = "manual" and say the '
+                    "shares in 'weight'."
+                )
+        if self.outputs and not any(
+            getattr(decl, "observes", None) for decl in self.outputs.values()
+        ):
+            raise ValueError(
+                '[calibration.aggregate].weighting = "error" needs an error model, which '
+                "comes from a loaded record: name a station in an output's 'observes'. A "
+                "vector written as 'observed_values' carries none."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _check_the_costs_can_be_added(self) -> CalibrationConfig:
+        """Refuse a weighted sum whose members are not in the same unit.
+
+        ``normalize_cost`` exists for exactly this: it divides a block's cost by a
+        reference scale so two blocks become comparable. Nothing enforced it, so a
+        file could weight a head RMSE in metres at 0.5 and a discharge RMSE in
+        m3/s at 0.5, believe it had split the cost evenly, and hand the metres
+        whatever share their own magnitude happened to buy.
+
+        The criterion declares whether its cost carries a unit; the outputs a
+        block reads say which unit that is. A member is addable when it is
+        dimensionless or normalised, and a sum of two that are neither, in
+        different families, is refused.
+        """
+        from hydromodpy.calibration.criteria import criterion_for
+
+        if len(self.objective_blocks) < 2:
+            return self
+        raw: dict[str, tuple[str, ...]] = {}
+        for block in self.objective_blocks:
+            if block.normalize_cost:
+                continue
+            try:
+                needs = criterion_for(str(block.metric)).requirements()
+            except ValueError:
+                continue
+            if needs.cost_is_dimensionless:
+                continue
+            families = tuple(
+                sorted(
+                    {
+                        str(getattr(self.outputs[name], "variable", ""))
+                        for name in block.uses_outputs
+                        if name in self.outputs
+                    }
+                )
+            )
+            raw[str(block.name)] = families
+        distinct = {families for families in raw.values() if families}
+        if len(distinct) > 1:
+            listed = "; ".join(
+                f"{name!r} on {', '.join(families)}" for name, families in sorted(raw.items())
+            )
+            raise ValueError(
+                f"these blocks add costs that carry different units: {listed}. The sum "
+                "would let the unit set the weighting instead of 'weight'. Declare "
+                "normalize_cost = true on each of them, or score them on a metric whose "
+                "cost is already a pure number."
+            )
+        return self
 
     @model_validator(mode="after")
     def _check_the_protocol_was_expanded(self) -> CalibrationConfig:

@@ -94,14 +94,21 @@ storage = "Sy"
 steady_metric = "distance_gap"
 steady_method = "bisection"
 steady_max_iter = 20
+# How precisely each stage has to pin its parameter before it stops, as a
+# relative precision on that parameter: the paper's one per cent on the
+# conductivity, five on the storage. One number per stage, whatever engine walks
+# it: each engine's own stopping option is written from it.
+steady_tolerance = 0.01
 # Stage two. Any registered engine works here: the method is the pair of
 # criteria and the order they run in, not the optimizer that walks them.
 transient_metric = "nse_log"
 transient_method = "scipy_nelder_mead"
 transient_max_iter = 120
+transient_tolerance = 0.05
 
+# The coarse log sweep the paper runs before bisecting. It checks the
+# monotonicity the method assumes instead of supposing it.
 [calibration.protocol.steady_optimizer_kwargs]
-rel_tol = 0.01
 sweep_points = 7
 
 # The transient stage still has to simulate 1995 to reach 1996 with a state it

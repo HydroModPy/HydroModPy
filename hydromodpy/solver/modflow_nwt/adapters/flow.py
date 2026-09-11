@@ -16,6 +16,11 @@ from hydromodpy.core.contracts.observables import ObservableRequest, ObservableR
 from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
+from hydromodpy.solver.base.observable_support import (
+    ObservableSupport,
+    servable,
+    unavailable,
+)
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     build_preprocess_options,
     nwt_safe_name,
@@ -38,6 +43,57 @@ class ModflowNwtFlowAdapter:
 
     def validate(self, ctx: RunContext) -> None:
         """No precondition checks for MODFLOW-NWT flow runs."""
+
+    def declared_observables(self, config: object) -> tuple[ObservableSupport, ...]:
+        """Say what this run can serve, and what this backend never will.
+
+        MODFLOW-NWT builds no LAK and no SFR package, so a lake stage and a routed
+        reach discharge are not one declaration away: no configuration reaches
+        them. Saying so here, rather than at the first extraction, is the point.
+        """
+        del config  # nothing here depends on it: the answer is the backend's
+        return (
+            servable("head", "read at any cell from the head file"),
+            servable("discharge", "integrated over the domain from the budget file"),
+            servable("release_flux", "per-cell surface release, from the budget file"),
+            servable("water_budget_percent_discrepancy", "reported by the listing file"),
+            unavailable(
+                "stage",
+                "MODFLOW-NWT builds no LAK package, so there is no lake state to read. "
+                "Use the modflow6 backend for a lake.",
+            ),
+            unavailable(
+                "routed_discharge",
+                "MODFLOW-NWT builds no SFR package, so no reach outflow exists. The "
+                "discharge at a cell is the upstream accumulation of the release flux.",
+            ),
+        )
+
+    def locate_cell(self, ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
+        """Return the nearest ``(0, row, col)`` on this run's structured grid.
+
+        MODFLOW-NWT keeps its grid on the flopy model it built, so this is the
+        one backend that reads ``mf.modelgrid``. Reading it here rather than in
+        the layer that asks is the whole point: a caller that serves every solver
+        must not know which one owns what.
+        """
+        import numpy as np
+
+        model = ctx.state.execution.models_by_run_id.get(ctx.run.id)
+        if model is None:
+            return None
+        grid = getattr(getattr(model, "mf", None), "modelgrid", None)
+        if grid is None:
+            return None
+        try:
+            xc = np.asarray(getattr(grid, "xcellcenters", None), dtype=float)
+            yc = np.asarray(getattr(grid, "ycellcenters", None), dtype=float)
+        except (TypeError, ValueError):
+            return None
+        if xc.shape != yc.shape or xc.ndim != 2:
+            return None
+        flat = int(np.argmin((xc - x) ** 2 + (yc - y) ** 2))
+        return (0, flat // xc.shape[1], flat % xc.shape[1])
 
     def cleanup(self, ctx: RunContext) -> None:
         """Remove the scratch directory written by this run, if any."""

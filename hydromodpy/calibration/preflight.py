@@ -19,7 +19,7 @@ the run.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -70,6 +70,8 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     findings.extend(_check_blocks(calibration))
     findings.extend(_check_phases(calibration))
     findings.extend(_check_engines(calibration))
+    findings.extend(_check_the_precision_can_be_honoured(calibration))
+    findings.extend(_check_the_backend_can_serve_the_outputs(config, calibration))
     return findings
 
 
@@ -217,17 +219,30 @@ def _check_phases(calibration: Any) -> list[PreflightFinding]:
     return findings
 
 
-_SIGNED_RESIDUAL_METRICS: frozenset[str] = frozenset({"distance_gap"})
-"""Metrics whose cost IS the absolute signed residual a root search closes on.
+def _publishes_a_signed_residual(metric: str) -> bool:
+    """Whether this criterion's cost IS the absolute residual a root search closes on.
 
-The network criterion publishes ``J_signed`` beside every cost, so a metric that
-merely reads that output is not enough. A bisection reports as its best the
-trial whose cost is smallest, and it can only do that because ``distance_gap``
-makes the cost ``abs(J_signed)``: the two agree by construction.
-``distance_mean`` averages the two distances instead, so its minimum sits
-nowhere near the zero the bracket closed on and the reported best would be a
-different trial from the one the search converged to, silently.
-"""
+    The answer comes from the criterion, not from a list held here. The network
+    criterion publishes ``J_signed`` beside every cost, so merely reading that
+    output is not enough: a bisection reports as its best the trial whose cost is
+    smallest, and it can only do that when the cost IS that residual, which is
+    true of ``distance_gap`` and false of ``distance_mean``. The estimator is
+    what knows the difference, so the estimator is what declares it.
+    """
+    from hydromodpy.calibration.criteria import criterion_for
+
+    try:
+        return criterion_for(metric).requirements().signed
+    except ValueError:
+        # An unknown metric is refused elsewhere, by name; nothing to add here.
+        return False
+
+
+def _signed_residual_metrics() -> list[str]:
+    """Return every registered criterion a root search may be pointed at."""
+    from hydromodpy.calibration.criteria import available_criteria
+
+    return sorted(name for name in available_criteria() if _publishes_a_signed_residual(name))
 
 
 def _check_engines(calibration: Any) -> list[PreflightFinding]:
@@ -278,7 +293,9 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                         f"declare(s) another transform.",
                     )
                 )
-        if traits.needs_signed_residual and not (metrics & _SIGNED_RESIDUAL_METRICS):
+        if traits.needs_signed_residual and not any(
+            _publishes_a_signed_residual(metric) for metric in metrics
+        ):
             named = ", ".join(sorted(metrics)) or "nothing"
             findings.append(
                 PreflightFinding(
@@ -287,7 +304,7 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                     f"{method!r} closes a bracket on a signed residual and reports the "
                     f"trial with the smallest cost as its best, which only agree when "
                     f"the cost IS that residual. This search is scored on {named}. "
-                    f"Score it on {', '.join(sorted(_SIGNED_RESIDUAL_METRICS))}, or "
+                    f"Score it on {', '.join(_signed_residual_metrics())}, or "
                     "search it with a minimiser.",
                 )
             )
@@ -301,6 +318,123 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                 )
             )
     return findings
+
+
+_OBSERVABLE_BY_SUPPORT: Mapping[str, str] = {
+    "lake": "stage",
+    "network": "release_flux",
+}
+"""What an output's support actually asks the backend for."""
+
+
+def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFinding]:
+    """Refuse a precision the engine of that search cannot stop on.
+
+    The translation happens when the optimizer is built, which for phase two is
+    after phase one has spent its budget. A precision that was never going to be
+    readable has to be refused before the first solve, not after the last.
+    """
+    from hydromodpy.calibration.optim.optimizer import available_optimizers, engine_traits
+
+    known = set(available_optimizers())
+    findings: list[PreflightFinding] = []
+    for where, method, tolerance, kwargs in _declared_precisions(calibration):
+        if tolerance is None or method not in known:
+            continue
+        traits = engine_traits(method)
+        if traits.tolerance_option is None:
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    f"tolerance asks {method!r} to stop at a precision on the parameter, "
+                    "and that engine stops on its evaluation budget instead. Set max_iter, "
+                    "or run this search on an engine that converges on the parameter.",
+                )
+            )
+            continue
+        if traits.tolerance_option in (kwargs or {}):
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    f"tolerance and optimizer_kwargs.{traits.tolerance_option} both set "
+                    f"the stopping rule of {method!r}. Keep one.",
+                )
+            )
+    return findings
+
+
+def _declared_precisions(calibration: Any) -> list[tuple[str, str, float | None, dict]]:
+    """Return one entry per search: where it is written, its engine and its precision."""
+    if not calibration.phases:
+        return [
+            (
+                "[calibration]",
+                str(calibration.method),
+                calibration.tolerance,
+                dict(calibration.optimizer_kwargs or {}),
+            )
+        ]
+    return [
+        (
+            f"[[calibration.phases]] {phase.name!r}",
+            str(phase.method),
+            phase.tolerance,
+            dict(phase.optimizer_kwargs or {}),
+        )
+        for phase in calibration.phases
+    ]
+
+
+def _check_the_backend_can_serve_the_outputs(
+    config: Any, calibration: Any
+) -> list[PreflightFinding]:
+    """Face each declared output with what the chosen backend says it can serve.
+
+    A backend answers on the resolved configuration in three states, so this
+    separates two refusals a binary answer confuses: one declaration away, with
+    the declaration named, and out of reach on this backend whatever the file
+    says. Both used to arrive at the first extraction, hours into a search.
+    """
+    adapter = _flow_adapter_for(config)
+    if adapter is None:
+        return []
+    declared = getattr(adapter, "declared_observables", None)
+    if declared is None:
+        return []
+    support_by_name = {item.name: item for item in declared(config)}
+    findings: list[PreflightFinding] = []
+    for name, decl in (calibration.outputs or {}).items():
+        observable = _OBSERVABLE_BY_SUPPORT.get(str(getattr(decl, "support", "")))
+        if observable is None:
+            continue
+        support = support_by_name.get(observable)
+        if support is None or support.is_servable_now:
+            continue
+        findings.append(
+            PreflightFinding(
+                "error",
+                f"[calibration.outputs.{name}]",
+                f"this output reads {observable!r}, which the chosen backend does not "
+                f"serve as configured: {support.reason}",
+            )
+        )
+    return findings
+
+
+def _flow_adapter_for(config: Any) -> Any | None:
+    """Return the flow adapter this configuration selects, or ``None``."""
+    from hydromodpy.solver.base.registry import get_solver_adapter
+
+    backend = getattr(getattr(config, "solver", None), "backend_name", None)
+    backend = getattr(backend, "value", backend)
+    if not backend:
+        return None
+    try:
+        return get_solver_adapter("flow", str(backend))
+    except (KeyError, ValueError):
+        return None
 
 
 def _searches(calibration: Any) -> list[tuple[str, str, list[str], set[str], int]]:

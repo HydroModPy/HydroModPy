@@ -47,6 +47,7 @@ from hydromodpy.calibration.runners.contracts import (
     get_trial_promotion_provider,
 )
 from hydromodpy.calibration.runners.sandbox import TrialSandbox
+from hydromodpy.calibration.runners.verdict import water_budget_verdict
 from hydromodpy.core import progress
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.exceptions import ConfigValidationError
@@ -400,6 +401,7 @@ def run_trial_light(
     variable: str = "head",
     metric_fn: TrialMetricFn | None = None,
     trial_id: int | None = None,
+    reject_water_budget_above: float | None = None,
 ) -> TrialResult:
     """Execute one lightweight trial and return its :class:`TrialResult`.
 
@@ -513,6 +515,20 @@ def run_trial_light(
                 duration_s=time.monotonic() - t0,
                 error="metric_fn returned a non-finite objective",
             )
+
+    # A run whose water balance does not close routed water that came from
+    # nowhere, so its cost is not comparable to a run that closed. Rejecting it
+    # here, before it is scored, is what stops it being ranked and promoted.
+    verdict = water_budget_verdict(metrics, threshold=reject_water_budget_above)
+    if verdict is not None and not verdict.passed:
+        return TrialResult(
+            values=dict(values),
+            metrics=dict(metrics),
+            primary_metric=float("nan"),
+            status="failed",
+            duration_s=time.monotonic() - t0,
+            error=verdict.message,
+        )
 
     return TrialResult(
         values=dict(values),

@@ -9,7 +9,7 @@ TOML section: ``[calibration]``
 
 Pydantic model: ``CalibrationConfig`` defined in ``hydromodpy.calibration.config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L797>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L876>`__
 
 Top-level ``[calibration]`` section.
 
@@ -48,7 +48,7 @@ Fields
         <code class="hmp-field-toml">[calibration.protocol]</code>
       </div>
 
-   :bdg-primary:`MatchingHydrographicNetworkOptions | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L809>`__
+   :bdg-primary:`MatchingHydrographicNetworkOptions | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L888>`__
 
       Published calibration method this file runs, named instead of retyped. A protocol writes the stages, their criteria and the model regimes they need, so the file states only what belongs to the site. Write the name alone, or a table carrying it plus the names this file uses for the parameters and outputs the method moves. Registered: 'matching_hydrographic_network' (Abherve et al., 2023, doi:10.5194/hess-27-3221-2023). A file that declares its own phases or objective blocks cannot also name a protocol.
 
@@ -67,9 +67,25 @@ Fields
               <code class="hmp-field-name">name</code>
             </div>
 
-         :bdg-primary:`Literal['matching_hydrographic_network']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L49>`__
+         :bdg-primary:`Literal['matching_hydrographic_network']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L50>`__
 
             Protocol identifier.
+
+
+      .. index:: ! version
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: calibration-protocol-version
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="calibration.protocol.version">
+              <code class="hmp-field-name">version</code>
+            </div>
+
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L53>`__
+
+            Recipe version this file was written against. Unset runs the version this installation carries; pinned, a mismatch is refused rather than approximated, so a result that informed a decision stays replayable.
 
 
       .. index:: ! conductivity
@@ -83,7 +99,7 @@ Fields
               <code class="hmp-field-name">conductivity</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "K"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L52>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "K"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L61>`__
 
             Name of the calibration parameter stage one moves, as the file declares it under [calibration.parameters].
 
@@ -99,7 +115,7 @@ Fields
               <code class="hmp-field-name">storage</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = "Sy"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L57>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = "Sy"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L66>`__
 
             Name of the calibration parameter stage two moves. Null runs the network stage alone, which is a method in its own right: it identifies the conductivity without any discharge record.
 
@@ -115,7 +131,7 @@ Fields
               <code class="hmp-field-name">network_output</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L63>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L72>`__
 
             Name of the network output stage one is scored on. Unset picks the single output declared with support='network'.
 
@@ -131,7 +147,7 @@ Fields
               <code class="hmp-field-name">steady_metric</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "distance_gap"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L68>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "distance_gap"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L77>`__
 
             Criterion of stage one. 'distance_gap' is the signed difference of Eq. 1, whose zero is the balance the paper solves for. 'distance_mean' is the mean offset: a diagnostic, and the estimator of the reference script, whose interior minimum sits nowhere in particular.
 
@@ -151,7 +167,7 @@ Fields
               <code class="hmp-field-name">steady_method</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "bisection"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L75>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "bisection"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L84>`__
 
             Engine of stage one. The signed criterion crosses zero once over several decades, which is what a root search wants; any registered engine is accepted.
 
@@ -167,9 +183,25 @@ Fields
               <code class="hmp-field-name">steady_max_iter</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 20` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L81>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 20` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L90>`__
 
             Evaluation budget of stage one.
+
+
+      .. index:: ! steady_tolerance
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: calibration-protocol-steady-tolerance
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="calibration.protocol.steady_tolerance">
+              <code class="hmp-field-name">steady_tolerance</code>
+            </div>
+
+         :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L95>`__
+
+            How precisely stage one has to pin the conductivity before it stops, as a relative precision on the conductivity: 0.01 is the paper's one per cent. Unset takes the engine's default, which for the bisection is that same one per cent.
 
 
       .. index:: ! steady_optimizer_kwargs
@@ -185,9 +217,9 @@ Fields
               <code class="hmp-field-toml">[calibration.protocol.steady_optimizer_kwargs.&lt;id&gt;]</code>
             </div>
 
-         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L86>`__
+         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L102>`__
 
-            Extra arguments forwarded to the stage-one engine.
+            Extra arguments forwarded to the stage-one engine, in that engine's own units. The escape hatch for reproducing a published call; a precision is said once, in steady_tolerance.
 
 
       .. index:: ! steady_window
@@ -203,7 +235,7 @@ Fields
               <code class="hmp-field-toml">[calibration.protocol.steady_window.&lt;id&gt;]</code>
             </div>
 
-         :bdg-primary:`dict[str, str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L90>`__
+         :bdg-primary:`dict[str, str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L108>`__
 
             Dates the steady stage averages, as {start, end}. Unset takes the whole [simulation.time] window.
 
@@ -219,7 +251,7 @@ Fields
               <code class="hmp-field-name">transient_metric</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "nse_log"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L95>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "nse_log"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L113>`__
 
             Criterion of stage two. The default weights recessions as heavily as peaks, which is where storage shows.
 
@@ -235,7 +267,7 @@ Fields
               <code class="hmp-field-name">transient_method</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "scipy_nelder_mead"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L100>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "scipy_nelder_mead"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L118>`__
 
             Engine of stage two.
 
@@ -251,9 +283,25 @@ Fields
               <code class="hmp-field-name">transient_max_iter</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 120` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L104>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 120` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L122>`__
 
             Evaluation budget of stage two.
+
+
+      .. index:: ! transient_tolerance
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: calibration-protocol-transient-tolerance
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="calibration.protocol.transient_tolerance">
+              <code class="hmp-field-name">transient_tolerance</code>
+            </div>
+
+         :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L127>`__
+
+            How precisely stage two has to pin the storage before it stops, as a relative precision on the storage coefficient.
 
 
       .. index:: ! transient_optimizer_kwargs
@@ -269,9 +317,9 @@ Fields
               <code class="hmp-field-toml">[calibration.protocol.transient_optimizer_kwargs.&lt;id&gt;]</code>
             </div>
 
-         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L109>`__
+         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L132>`__
 
-            Extra arguments forwarded to the stage-two engine.
+            Extra arguments forwarded to the stage-two engine, in that engine's own units.
 
 
       .. index:: ! discharge_variable
@@ -285,7 +333,7 @@ Fields
               <code class="hmp-field-name">discharge_variable</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "discharge"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L113>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "discharge"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L137>`__
 
             Observed variable stage two is scored on.
 
@@ -301,7 +349,7 @@ Fields
               <code class="hmp-field-name">observed_station_id</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L117>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L141>`__
 
             Gauge whose cost drives stage two. Required when several stations are loaded.
 
@@ -319,7 +367,7 @@ Fields
               <code class="hmp-field-toml">[calibration.protocol.scoring_window.&lt;id&gt;]</code>
             </div>
 
-         :bdg-primary:`dict[str, str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L121>`__
+         :bdg-primary:`dict[str, str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L145>`__
 
             Dates bounding the samples stage two scores on, as {start, end}. Use it to drop the spin-up year the transient stage still has to simulate.
 
@@ -337,7 +385,7 @@ Fields
         <code class="hmp-field-name">method</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "grid"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L822>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "grid"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L901>`__
 
       Optimization method. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.
 
@@ -353,9 +401,25 @@ Fields
         <code class="hmp-field-name">max_iter</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 100` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L836>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 100` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L915>`__
 
       Maximum number of calibration iterations.
+
+
+.. index:: ! tolerance
+
+.. container:: hmp-field hmp-field-level-user
+   :name: calibration-tolerance
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="calibration.tolerance">
+        <code class="hmp-field-name">tolerance</code>
+      </div>
+
+   :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L920>`__
+
+      How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a log-transformed parameter that is a ratio, which is how a conductivity is known in the first place, and it holds wherever the value sits; on any other transform there is no scale on the value to be relative to before the search has one, so it reads as a fraction of the declared interval. Each engine's own stopping option is written from it, so the same number survives a change of engine, and the engine's own option stays available for reproducing a published call verbatim. Unset, the engine's default applies. An engine that stops on its budget rather than on a precision refuses this rather than ignore it.
 
 
 .. index:: ! batch_size
@@ -369,7 +433,7 @@ Fields
         <code class="hmp-field-name">batch_size</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L841>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L936>`__
 
       Number of suggestions drawn per ask (for parallel optimizers).
 
@@ -385,9 +449,25 @@ Fields
         <code class="hmp-field-name">parallel</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L846>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L941>`__
 
       Number of trials evaluated concurrently inside one batch via a thread pool. parallel=1 keeps the legacy sequential loop.
+
+
+.. index:: ! reject_water_budget_above
+
+.. container:: hmp-field hmp-field-level-user
+   :name: calibration-reject-water-budget-above
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="calibration.reject_water_budget_above">
+        <code class="hmp-field-name">reject_water_budget_above</code>
+      </div>
+
+   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L949>`__
+
+      Percent water-balance discrepancy past which a trial is rejected instead of scored. The solver reports the figure on every run; unset, it is recorded and nothing acts on it, so a run at twelve per cent is ranked beside one that closed even though part of the water it routed came from nowhere. There is no default because there is no universal value: a steady solve on a coarse mesh closes to a fraction of a per cent, a transient one with a lake and a routed network legitimately sits higher.
 
 
 .. index:: ! warmup_periods
@@ -401,7 +481,7 @@ Fields
         <code class="hmp-field-name">warmup_periods</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L854>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L962>`__
 
       Spin-up (burn-in) periods excluded from every objective block. The first warmup_periods of each observed/simulated series are dropped before the metric, so the window where the state still depends on the initial condition does not bias the calibration. Default 0 (no exclusion). Size it by increasing it until the objective stops changing (initial-condition insensitivity), not a fixed guess.
 
@@ -417,7 +497,7 @@ Fields
         <code class="hmp-field-toml">[calibration.scoring_window]</code>
       </div>
 
-   :bdg-primary:`CalibScoringWindow | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L866>`__
+   :bdg-primary:`CalibScoringWindow | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L974>`__
 
       Dates bounding the samples every metric is computed on. Mutually exclusive with warmup_periods, which counts samples instead of dates.
 
@@ -438,7 +518,7 @@ Fields
               <code class="hmp-field-name">start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L504>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L508>`__
 
             First date scored, ISO 8601. Unset means from the first sample.
 
@@ -454,7 +534,7 @@ Fields
               <code class="hmp-field-name">end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L508>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L512>`__
 
             Last date scored, ISO 8601. Unset means up to the last sample.
 
@@ -474,7 +554,7 @@ Fields
         <code class="hmp-field-toml">[[calibration.phases]]</code>
       </div>
 
-   :bdg-primary:`list[CalibPhaseDecl] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L873>`__
+   :bdg-primary:`list[CalibPhaseDecl] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L981>`__
 
       Stages run one after the other, each calibrating its own parameters and freezing them for the next. Declaring this table is what switches the runner to staged mode; without it nothing changes for an existing configuration. The default is None and not an empty list on purpose: the resume lock hashes the configuration with exclude_none, so an absent table leaves that hash untouched and checkpoints stay resumable.
 
@@ -493,7 +573,7 @@ Fields
               <code class="hmp-field-name">name</code>
             </div>
 
-         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L657>`__
+         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L661>`__
 
             Phase identifier, unique in the calibration and used in the session directory and in the report.
 
@@ -509,7 +589,7 @@ Fields
               <code class="hmp-field-name">description</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L658>`__
+         :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L662>`__
 
             What this phase calibrates and against what, in one sentence.
 
@@ -523,7 +603,7 @@ Fields
               <code class="hmp-field-name">method</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "grid"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L665>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "grid"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L669>`__
 
             Optimization method for this phase only. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.
 
@@ -537,9 +617,23 @@ Fields
               <code class="hmp-field-name">max_iter</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 100` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L677>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 100` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L681>`__
 
             Maximum number of evaluations for this phase.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: calibration-phases-tolerance
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="calibration.phases.tolerance">
+              <code class="hmp-field-name">tolerance</code>
+            </div>
+
+         :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L686>`__
+
+            How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a log-transformed parameter that is a ratio, which is how a conductivity is known in the first place, and it holds wherever the value sits; on any other transform there is no scale on the value to be relative to before the search has one, so it reads as a fraction of the declared interval. Each engine's own stopping option is written from it, so the same number survives a change of engine, and the engine's own option stays available for reproducing a published call verbatim. Unset, the engine's default applies. An engine that stops on its budget rather than on a precision refuses this rather than ignore it.
 
 
       .. container:: hmp-field hmp-field-level-dev
@@ -551,7 +645,7 @@ Fields
               <code class="hmp-field-name">batch_size</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L682>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L702>`__
 
             Suggestions drawn per ask. A root search returns one point at a time during its refinement, whatever this asks for.
 
@@ -565,7 +659,7 @@ Fields
               <code class="hmp-field-name">parallel</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L688>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L708>`__
 
             Trials evaluated concurrently inside one batch.
 
@@ -579,7 +673,7 @@ Fields
               <code class="hmp-field-name">parameters</code>
             </div>
 
-         :bdg-primary:`list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L693>`__
+         :bdg-primary:`list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L713>`__
 
             Names of the calibration parameters this phase may move. Every other parameter keeps the value it entered the phase with.
 
@@ -595,7 +689,7 @@ Fields
               <code class="hmp-field-name">outputs</code>
             </div>
 
-         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L698>`__
+         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L718>`__
 
             Names of the calibration outputs this phase scores on. Empty means every declared output.
 
@@ -611,7 +705,7 @@ Fields
               <code class="hmp-field-name">objective_blocks</code>
             </div>
 
-         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L703>`__
+         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L723>`__
 
             Names of the objective blocks this phase evaluates. Empty means every declared block.
 
@@ -627,7 +721,7 @@ Fields
               <code class="hmp-field-name">variable</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L708>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L728>`__
 
             Single-metric variable, when this phase does not use blocks.
 
@@ -643,7 +737,7 @@ Fields
               <code class="hmp-field-name">objective</code>
             </div>
 
-         :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L712>`__
+         :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L732>`__
 
             Metric scoring this phase's single simulated series, when the phase does not use objective blocks. Same vocabulary as a block's 'metric'.
 
@@ -661,7 +755,7 @@ Fields
               <code class="hmp-field-name">observed_station_id</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L717>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L737>`__
 
             Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one. Overrides the calibration-level value for this phase.
 
@@ -679,7 +773,7 @@ Fields
               <code class="hmp-field-toml">[calibration.phases.optimizer_kwargs.&lt;id&gt;]</code>
             </div>
 
-         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L721>`__
+         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L741>`__
 
             Extra keyword arguments forwarded to this phase's optimizer.
 
@@ -697,7 +791,7 @@ Fields
               <code class="hmp-field-toml">[calibration.phases.overrides.&lt;id&gt;]</code>
             </div>
 
-         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L725>`__
+         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L745>`__
 
             Configuration values this phase runs with, as dotted paths into the project configuration. The two stages of a stream-network calibration are one steady and one transient, which is a property of the model and not of the search, so a phase has to be able to say it.
 
@@ -713,7 +807,7 @@ Fields
               <code class="hmp-field-toml">[calibration.phases.scoring_window]</code>
             </div>
 
-         :bdg-primary:`CalibScoringWindow | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L732>`__
+         :bdg-primary:`CalibScoringWindow | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L752>`__
 
             Dates bounding the samples this phase scores on.
 
@@ -732,7 +826,7 @@ Fields
                     <code class="hmp-field-name">start</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L504>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L508>`__
 
                   First date scored, ISO 8601. Unset means from the first sample.
 
@@ -746,7 +840,7 @@ Fields
                     <code class="hmp-field-name">end</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L508>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L512>`__
 
                   Last date scored, ISO 8601. Unset means up to the last sample.
 
@@ -764,7 +858,7 @@ Fields
               <code class="hmp-field-name">depends_on</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L736>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L756>`__
 
             Name of the phase that must run first. Its frozen parameters enter this one as fixed values.
 
@@ -780,7 +874,7 @@ Fields
               <code class="hmp-field-name">freeze_on_success</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L741>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L761>`__
 
             Hold the parameters this phase calibrated fixed for the phases that depend on it. Success means the phase converged, not that its validity indicator is good.
 
@@ -798,7 +892,7 @@ Fields
         <code class="hmp-field-name">seed</code>
       </div>
 
-   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L884>`__
+   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L992>`__
 
       Random seed for reproducibility.
 
@@ -814,7 +908,7 @@ Fields
         <code class="hmp-field-name">save_runs</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "none"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L888>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "none"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L996>`__
 
       How much to persist per iteration:
       - 'none': 1 DuckDB row per iteration, no Zarr.
@@ -837,7 +931,7 @@ Fields
         <code class="hmp-field-name">save_best_n</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 10` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L897>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 10` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1005>`__
 
       Number of top iterations to promote when save_runs='best_n'.
 
@@ -853,7 +947,7 @@ Fields
         <code class="hmp-field-name">use_cache</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L902>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1010>`__
 
       Enable params_hash content-addressable cache.
 
@@ -869,7 +963,7 @@ Fields
         <code class="hmp-field-name">lightweight_extraction</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L906>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1014>`__
 
       Skip Parquet/Zarr writes for lumped models (GR4J, ...) and read simulated series from the per-trial RAM cache instead. Only the promoted runs go through the catalog write path.
 
@@ -883,7 +977,7 @@ Fields
         <code class="hmp-field-name">objective</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "nse"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L912>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "nse"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1020>`__
 
       Metric scoring the single simulated series, when no objective block is declared. Same vocabulary as a block's 'metric'; typed here so a bad value is reported against the key that was written.
 
@@ -901,7 +995,7 @@ Fields
         <code class="hmp-field-name">variable</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "head"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L918>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "head"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1026>`__
 
       Observed variable (for ObservationSet).
 
@@ -915,9 +1009,9 @@ Fields
         <code class="hmp-field-name">observed_station_id</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L922>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1030>`__
 
-      Observed station the single simulated series is scored against. A run produces one discharge series, at the catchment outlet, so an upstream gauge cannot match it: when several stations are loaded, one has to be named. Optional with a single loaded station.
+      Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one.
 
 
 .. container:: hmp-field hmp-field-level-dev
@@ -931,7 +1025,7 @@ Fields
         <code class="hmp-field-toml">[calibration.optimizer_kwargs.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L926>`__
+   :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1034>`__
 
       Extra keyword arguments forwarded to the optimizer adapter.
 
@@ -947,7 +1041,7 @@ Fields
         <code class="hmp-field-toml">[calibration.parameters.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`dict[str, CalibParameterDecl]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L930>`__
+   :bdg-primary:`dict[str, CalibParameterDecl]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1038>`__
 
       Per-parameter declarations (bounds, transform, prior, path).
 
@@ -1088,7 +1182,7 @@ Fields
         <code class="hmp-field-toml">[calibration.outputs.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`support = "point" | "boundary" | "cell" | "lake" | "network"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L934>`__
+   :bdg-primary:`support = "point" | "boundary" | "cell" | "lake" | "network"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1042>`__
 
       Named observables extracted from each candidate run.
 
@@ -1113,9 +1207,9 @@ Fields
                     <code class="hmp-field-name">observes</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L178>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L182>`__
 
-                  Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'.
+                  Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'. The station is located by its own record and not by coordinates written beside it, so this output and the single-metric route read the same cell and their costs are comparable; a station the project cannot locate is refused by name rather than scored on another quantity.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1127,7 +1221,7 @@ Fields
                     <code class="hmp-field-name">variable</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L185>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L189>`__
 
                   Simulated variable to extract (e.g. 'head', 'outlet_discharge').
 
@@ -1145,7 +1239,7 @@ Fields
                     <code class="hmp-field-toml">[calibration.outputs.&lt;id&gt;.geometry.&lt;id&gt;]</code>
                   </div>
 
-               :bdg-primary:`dict[str, Any] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L192>`__
+               :bdg-primary:`dict[str, Any] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L196>`__
 
                   GeoJSON point geometry. Coordinates are in metres.
 
@@ -1161,7 +1255,7 @@ Fields
                     <code class="hmp-field-name">x</code>
                   </div>
 
-               :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L196>`__
+               :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L200>`__
 
                   X coordinate. Accepts a bare number (metres) or a pint string like '100 m'.
 
@@ -1177,7 +1271,7 @@ Fields
                     <code class="hmp-field-name">y</code>
                   </div>
 
-               :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L200>`__
+               :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L204>`__
 
                   Y coordinate. Accepts a bare number (metres) or a pint string like '100 m'.
 
@@ -1193,7 +1287,7 @@ Fields
                     <code class="hmp-field-name">time</code>
                   </div>
 
-               :bdg-primary:`Union[str, list[str]]` :bdg-secondary:`default = "all"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L204>`__
+               :bdg-primary:`Union[str, list[str]]` :bdg-secondary:`default = "all"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L208>`__
 
                   'all' keeps every time step; 'last' / 'first' selects one; a list of ISO timestamps selects specific steps.
 
@@ -1213,7 +1307,7 @@ Fields
                     <code class="hmp-field-name">reducer</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "none"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L209>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "none"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L213>`__
 
                   Aggregation over the retained time slice.
 
@@ -1233,7 +1327,7 @@ Fields
                     <code class="hmp-field-name">observed_values</code>
                   </div>
 
-               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L213>`__
+               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L217>`__
 
                   Hard-coded observed values, positional and dateless. Name a station in 'observes' to score a record the project loaded instead.
 
@@ -1253,9 +1347,9 @@ Fields
                     <code class="hmp-field-name">observes</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L226>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L230>`__
 
-                  Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'.
+                  Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'. The station is located by its own record and not by coordinates written beside it, so this output and the single-metric route read the same cell and their costs are comparable; a station the project cannot locate is refused by name rather than scored on another quantity.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1266,7 +1360,7 @@ Fields
                     <code class="hmp-field-name">variable</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L233>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L237>`__
 
                   Simulated variable to extract (e.g. 'discharge').
 
@@ -1282,7 +1376,7 @@ Fields
                     <code class="hmp-field-name">boundary_id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L240>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L244>`__
 
                   Boundary package identifier.
 
@@ -1295,7 +1389,7 @@ Fields
                     <code class="hmp-field-name">time</code>
                   </div>
 
-               :bdg-primary:`Union[str, list[str]]` :bdg-secondary:`default = "all"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L243>`__
+               :bdg-primary:`Union[str, list[str]]` :bdg-secondary:`default = "all"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L247>`__
 
                   'all' keeps every time step; 'last' / 'first' selects one; a list of ISO timestamps selects specific steps.
 
@@ -1312,7 +1406,7 @@ Fields
                     <code class="hmp-field-name">reducer</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "none"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L248>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "none"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L252>`__
 
                   Aggregation over the retained time slice.
 
@@ -1329,7 +1423,7 @@ Fields
                     <code class="hmp-field-name">observed_values</code>
                   </div>
 
-               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L252>`__
+               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L256>`__
 
                   Hard-coded observed values, positional and dateless. Name a station in 'observes' to score a record the project loaded instead.
 
@@ -1349,9 +1443,9 @@ Fields
                     <code class="hmp-field-name">observes</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L259>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L263>`__
 
-                  Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'.
+                  Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'. The station is located by its own record and not by coordinates written beside it, so this output and the single-metric route read the same cell and their costs are comparable; a station the project cannot locate is refused by name rather than scored on another quantity.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1362,7 +1456,7 @@ Fields
                     <code class="hmp-field-name">variable</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L267>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L271>`__
 
                   Simulated variable to extract (e.g. 'head').
 
@@ -1378,7 +1472,7 @@ Fields
                     <code class="hmp-field-name">cell_id</code>
                   </div>
 
-               :bdg-primary:`Optional[int]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L274>`__
+               :bdg-primary:`Optional[int]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L278>`__
 
                   Flat cell index when the backend exposes one.
 
@@ -1394,7 +1488,7 @@ Fields
                     <code class="hmp-field-name">row</code>
                   </div>
 
-               :bdg-primary:`Optional[int]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L278>`__
+               :bdg-primary:`Optional[int]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L282>`__
 
                   Structured row index.
 
@@ -1410,7 +1504,7 @@ Fields
                     <code class="hmp-field-name">col</code>
                   </div>
 
-               :bdg-primary:`Optional[int]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L282>`__
+               :bdg-primary:`Optional[int]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L286>`__
 
                   Structured column index.
 
@@ -1426,7 +1520,7 @@ Fields
                     <code class="hmp-field-name">layer</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L286>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L290>`__
 
                   Structured layer index.
 
@@ -1439,7 +1533,7 @@ Fields
                     <code class="hmp-field-name">time</code>
                   </div>
 
-               :bdg-primary:`Union[str, list[str]]` :bdg-secondary:`default = "all"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L290>`__
+               :bdg-primary:`Union[str, list[str]]` :bdg-secondary:`default = "all"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L294>`__
 
                   'all' keeps every time step; 'last' / 'first' selects one; a list of ISO timestamps selects specific steps.
 
@@ -1456,7 +1550,7 @@ Fields
                     <code class="hmp-field-name">reducer</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "none"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L295>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "none"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L299>`__
 
                   Aggregation over the retained time slice.
 
@@ -1473,7 +1567,7 @@ Fields
                     <code class="hmp-field-name">observed_values</code>
                   </div>
 
-               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L299>`__
+               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L303>`__
 
                   Hard-coded observed values, positional and dateless. Name a station in 'observes' to score a record the project loaded instead.
 
@@ -1493,9 +1587,9 @@ Fields
                     <code class="hmp-field-name">observes</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L312>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L316>`__
 
-                  Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'.
+                  Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'. The station is located by its own record and not by coordinates written beside it, so this output and the single-metric route read the same cell and their costs are comparable; a station the project cannot locate is refused by name rather than scored on another quantity.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1506,7 +1600,7 @@ Fields
                     <code class="hmp-field-name">variable</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "stage"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L326>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "stage"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L330>`__
 
                   Simulated lake quantity: 'stage' (water level, m), 'volume' (m3) or 'surface_area' (m2). All three are LAK observation states, read in native units and never time-scaled.
 
@@ -1526,7 +1620,7 @@ Fields
                     <code class="hmp-field-name">lake_id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L338>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L342>`__
 
                   Lake identifier, matching flow.sinks_sources.lakes.<lake_id>.
 
@@ -1539,7 +1633,7 @@ Fields
                     <code class="hmp-field-name">time</code>
                   </div>
 
-               :bdg-primary:`Union[str, list[str]]` :bdg-secondary:`default = "all"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L341>`__
+               :bdg-primary:`Union[str, list[str]]` :bdg-secondary:`default = "all"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L345>`__
 
                   'all' keeps every time step; 'last' / 'first' selects one; a list of ISO timestamps selects specific steps.
 
@@ -1556,7 +1650,7 @@ Fields
                     <code class="hmp-field-name">reducer</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "none"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L346>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "none"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L350>`__
 
                   Aggregation over the retained time slice.
 
@@ -1573,7 +1667,7 @@ Fields
                     <code class="hmp-field-name">observed_values</code>
                   </div>
 
-               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L350>`__
+               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L354>`__
 
                   Hard-coded observed values, positional and dateless. Name a station in 'observes' to score a record the project loaded instead.
 
@@ -1593,7 +1687,7 @@ Fields
                     <code class="hmp-field-name">variable</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "release_flux"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L373>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "release_flux"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L377>`__
 
                   Per-cell observable read from the solver, in m3/s, positive when the aquifer feeds the surface.
 
@@ -1609,7 +1703,7 @@ Fields
                     <code class="hmp-field-name">stream_geometry_path</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L382>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L386>`__
 
                   Vector file holding the mapped stream network. Required, and read only from here: the criterion resolves no geometry of its own and does not reuse the one the hydrography data family loaded.
 
@@ -1625,7 +1719,7 @@ Fields
                     <code class="hmp-field-name">tau_specific_ratio</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0001` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L387>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0001` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L391>`__
 
                   A cell releasing less than this fraction of its own recharge is not a seepage face. Zero reproduces the purely geometric criterion of the paper. Frozen over the whole search: a threshold moving with the trial would cost the criterion its monotonicity.
 
@@ -1641,7 +1735,7 @@ Fields
                     <code class="hmp-field-name">weighting</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "cell"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L395>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "cell"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L399>`__
 
                   Average one cell one vote (the paper) or weighted by cell area. Both values are always reported; use 'area' on a mesh refined along the streams, where cell density is highest exactly where distances are smallest.
 
@@ -1661,7 +1755,7 @@ Fields
                     <code class="hmp-field-name">diagonal_neighbors</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L401>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L405>`__
 
                   Route over shared nodes rather than shared edges, which recovers the diagonal descents of a D8 grid. Only meaningful on a structured quad mesh.
 
@@ -1677,7 +1771,7 @@ Fields
                     <code class="hmp-field-name">observed_position_accuracy</code>
                   </div>
 
-               :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L406>`__
+               :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L410>`__
 
                   Positional accuracy of the mapped network. The validity ratio is normalised by max(cell size, this), because the error floor is set by the network's own precision and not by the model resolution. Unset is the literal reading of the paper.
 
@@ -1693,7 +1787,7 @@ Fields
                     <code class="hmp-field-name">roptim_max</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 2.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L413>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 2.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L417>`__
 
                   Validity bound of Eq. 4. It qualifies the result and never penalises the cost: a bad ratio says the agreement is coarse, not that the calibrated value should be discarded.
 
@@ -1709,7 +1803,7 @@ Fields
                     <code class="hmp-field-name">on_roptim_violation</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "warn"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L419>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "warn"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L423>`__
 
                   What a violation of the validity bound does. Default warns and returns the value, because a calibration is asked for a number.
 
@@ -1729,7 +1823,7 @@ Fields
                     <code class="hmp-field-name">max_unreachable_fraction</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.05` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L424>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.05` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L428>`__
 
                   Bound on 'frac_unreachable_so' alone: the share of the simulated network whose descent never meets the mapped one, whose target does not move between trials. Beyond a few per cent the routing surface is not conditioned and D_so would be a fiction. The reciprocal share, 'frac_unreachable_os', is reported and deliberately left unbounded: its target is the simulated network, which the search itself retracts.
 
@@ -1745,7 +1839,7 @@ Fields
                     <code class="hmp-field-name">alpha_warning_threshold</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.9` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L435>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.9` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L439>`__
 
                   Below this value of 'alpha_obs_closure_catchment' the run warns that its distances carry a top-versus-map disagreement on top of the hydrogeology. alpha is the share of the downstream closure of the mapped network the network itself covers, measured on the MODEL TOP and on the catchment. It changes nothing that is computed: the criterion is scored the same way above and below it.
 
@@ -1761,7 +1855,7 @@ Fields
                     <code class="hmp-field-name">clipping_warning_share</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L446>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L450>`__
 
                   Share of the mapped stream cells lying outside the delineated catchment above which the whole-mesh alpha is reported as unreadable. Those reaches trace through the buffer, where no cell is required to descend into the network, so they inflate the closure without adding to the numerator. Reported together with clipping_warning_gap, never alone.
 
@@ -1777,7 +1871,7 @@ Fields
                     <code class="hmp-field-name">clipping_warning_gap</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.05` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L456>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.05` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L460>`__
 
                   Minimum absolute gap between the whole-mesh and the catchment alpha for the clipping report to fire. A linework spilling out of the catchment over ground that routes the same way leaves the two ratios equal, and reporting it there would be noise on every ordinary project.
 
@@ -1790,7 +1884,7 @@ Fields
                     <code class="hmp-field-name">time</code>
                   </div>
 
-               :bdg-primary:`Union[str, list[str]]` :bdg-secondary:`default = "last"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L465>`__
+               :bdg-primary:`Union[str, list[str]]` :bdg-secondary:`default = "last"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L469>`__
 
                   Which timesteps the release flux is read at. Phase one runs a single steady period, so 'last' is the whole run.
 
@@ -1812,7 +1906,7 @@ Fields
         <code class="hmp-field-toml">[[calibration.objective_blocks]]</code>
       </div>
 
-   :bdg-primary:`list[CalibObjectiveBlockDecl]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L938>`__
+   :bdg-primary:`list[CalibObjectiveBlockDecl]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1046>`__
 
       Weighted blocks making up a composite objective. When empty, a single implicit block is built from 'objective' and 'variable'.
 
@@ -1831,7 +1925,7 @@ Fields
               <code class="hmp-field-name">name</code>
             </div>
 
-         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L553>`__
+         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L557>`__
 
             Unique block identifier used in logs and persistence.
 
@@ -1847,7 +1941,7 @@ Fields
               <code class="hmp-field-name">metric</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "rmse"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L556>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "rmse"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L560>`__
 
             Metric key. One of rmse, nse, kge, mae, nse_log.
 
@@ -1895,7 +1989,7 @@ Fields
               <code class="hmp-field-name">weight</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L586>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L590>`__
 
             Relative weight of this block in the composite sum.
 
@@ -1911,7 +2005,7 @@ Fields
               <code class="hmp-field-name">uses_outputs</code>
             </div>
 
-         :bdg-primary:`list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L590>`__
+         :bdg-primary:`list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L594>`__
 
             Outputs (by name) consumed by this block.
 
@@ -1927,7 +2021,7 @@ Fields
               <code class="hmp-field-name">normalize_cost</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L594>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L598>`__
 
             When True, divide the block cost by a reference scale (observed std fallback mean absolute value).
 
@@ -1941,7 +2035,7 @@ Fields
               <code class="hmp-field-name">transform</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "identity"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L599>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "identity"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L603>`__
 
             Per-block cost transform applied before weighting. Note that transform='log' takes the logarithm of the cost, which is not the same thing as metric='nse_log', an NSE computed on log-transformed series.
 
@@ -1968,7 +2062,7 @@ Fields
               <code class="hmp-field-name">warmup</code>
             </div>
 
-         :bdg-primary:`Optional[int]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L614>`__
+         :bdg-primary:`Optional[int]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L618>`__
 
             Burn-in periods dropped from this block only, overriding [calibration].warmup_periods. Leave unset to inherit it; set it to 0 to switch the burn-in off for this block.
 
@@ -1986,7 +2080,7 @@ Fields
         <code class="hmp-field-name">persist_iteration_detail</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "summary"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L943>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "summary"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1051>`__
 
       'none' skips component metrics; 'summary' keeps block totals; 'full' also stores per-block raw and normalized costs.
 
@@ -2006,7 +2100,7 @@ Fields
         <code class="hmp-field-name">persist_model_distribution</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L948>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1056>`__
 
       Persist the candidate distribution alongside the session.
 
@@ -2022,7 +2116,7 @@ Fields
         <code class="hmp-field-name">rerun_best_with_outputs</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L952>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1060>`__
 
       Replay the best candidate with full outputs after the loop.
 
@@ -2038,7 +2132,7 @@ Fields
         <code class="hmp-field-name">materialize_candidates</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L956>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1064>`__
 
       Write a standalone override TOML for each candidate under 'candidates_root' so runs can be replayed later.
 
@@ -2054,9 +2148,106 @@ Fields
         <code class="hmp-field-name">candidates_root</code>
       </div>
 
-   :bdg-primary:`PurePosixPath | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L961>`__
+   :bdg-primary:`PurePosixPath | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1069>`__
 
       Directory for per-candidate overlay TOMLs. Required when materialize_candidates is True.
+
+
+.. container:: hmp-field hmp-field-level-user
+   :name: calibration-aggregate
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="calibration.aggregate">
+        <code class="hmp-field-name">aggregate</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">[calibration.aggregate]</code>
+      </div>
+
+   :bdg-primary:`CalibAggregateDecl` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1074>`__
+
+      How several scored targets become one cost: what made them comparable, how nested gauges are read, and what one unscorable member does.
+
+   .. dropdown:: Fields of ``CalibAggregateDecl``
+      :icon: list-unordered
+      :animate: fade-in-slide-down
+
+      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: calibration-aggregate-weighting
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="calibration.aggregate.weighting">
+              <code class="hmp-field-name">weighting</code>
+            </div>
+
+         :bdg-primary:`str` :bdg-secondary:`default = "manual"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L796>`__
+
+            How the members are made comparable before the weights apply. 'manual' takes the declared 'weight' of each block as the whole story, which is honest as long as the costs are already commensurable. 'error' divides each residual by what its instrument resolves, so the members become pure numbers first; it needs a residual criterion and an observation carrying an error model, and is refused without both.
+
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"manual"`` ``"error"``
+
+
+      .. index:: ! nested_gauges
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: calibration-aggregate-nested-gauges
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="calibration.aggregate.nested_gauges">
+              <code class="hmp-field-name">nested_gauges</code>
+            </div>
+
+         :bdg-primary:`str` :bdg-secondary:`default = "total"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L807>`__
+
+            How two gauges on imbricated catchments are read. 'total' scores each against its own full drained area, which is what a gauge measures; the residuals are then statistically dependent, and no standard correction exists for that. 'incremental' scores the downstream one on what its own reach adds, downstream minus upstream, which is the only mechanisable way to make the two independent. Neither is inferred: the overlap is measured and reported whichever is chosen.
+
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"total"`` ``"incremental"``
+
+
+      .. index:: ! min_samples
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: calibration-aggregate-min-samples
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="calibration.aggregate.min_samples">
+              <code class="hmp-field-name">min_samples</code>
+            </div>
+
+         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L819>`__
+
+            Fewest paired samples a member may be scored on. An alignment that collapses to three days still returns a number, and a weight of 65 per cent resting on three days is not what the file says it is.
+
+
+      .. index:: ! on_member_failure
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: calibration-aggregate-on-member-failure
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="calibration.aggregate.on_member_failure">
+              <code class="hmp-field-name">on_member_failure</code>
+            </div>
+
+         :bdg-primary:`str` :bdg-secondary:`default = "veto"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L828>`__
+
+            What one unscorable member does to the total. 'veto' makes the whole trial fail, which is the default because a partial cost is not comparable to a full one. 'drop' scores the survivors and records which member was left out, which has to be asked for explicitly.
+
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"veto"`` ``"drop"``
+
+
 
 
 .. index:: ! uncertainty
@@ -2072,7 +2263,7 @@ Fields
         <code class="hmp-field-toml">[calibration.uncertainty]</code>
       </div>
 
-   :bdg-primary:`CalibUncertaintyDecl` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L966>`__
+   :bdg-primary:`CalibUncertaintyDecl` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1079>`__
 
       How wide the search reports its own answer to be. The calibrated value is unaffected; this only decides the interval printed beside it.
 
@@ -2091,12 +2282,10 @@ Fields
               <code class="hmp-field-name">method</code>
             </div>
 
-         :bdg-primary:`Literal['cost_profile']` :bdg-secondary:`default = "cost_profile"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L770>`__
+         :bdg-primary:`Literal['cost_profile']` :bdg-secondary:`default = "cost_profile"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L849>`__
 
             How the interval around each calibrated value is obtained. 'cost_profile' reads the range of sampled values whose cost stayed within 'tolerance' of the best, off the trace the search already produced.
 
-
-      .. index:: ! tolerance
 
       .. container:: hmp-field hmp-field-level-user
          :name: calibration-uncertainty-tolerance
@@ -2107,7 +2296,7 @@ Fields
               <code class="hmp-field-name">tolerance</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 0.05` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L778>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 0.05` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L857>`__
 
             Width of the interval. A fraction of the best cost when mode='relative' (0.05 = five per cent), and a number in the unit of the cost when mode='absolute'.
 
@@ -2121,7 +2310,7 @@ Fields
               <code class="hmp-field-name">mode</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "relative"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L786>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "relative"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L865>`__
 
             How 'tolerance' is read. 'relative' is a fraction of the best cost and is the usual choice for an efficiency score. A criterion solved at zero, such as the stream-network gap, has no fraction of itself to take: state the width in the unit of the cost with 'absolute', for example 25 metres.
 
@@ -2145,7 +2334,7 @@ Fields
         <code class="hmp-field-toml">[calibration.persistence]</code>
       </div>
 
-   :bdg-primary:`PersistenceConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L971>`__
+   :bdg-primary:`PersistenceConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1084>`__
 
       Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for calibration outputs.
 
@@ -2257,6 +2446,8 @@ Starter TOML snippet
       [calibration]
       # method = "grid"
       # max_iter = 100
+      # tolerance = ...  # default = None
+      # reject_water_budget_above = ...  # default = None
       # warmup_periods = 0
       # seed = ...  # default = None
       # save_runs = "none"
@@ -2270,16 +2461,19 @@ Starter TOML snippet
 
       [calibration.protocol]
       # name = ""  # REQUIRED
+      # version = ...  # default = None
       # conductivity = "K"
       # storage = "Sy"
       # network_output = ...  # default = None
       # steady_metric = "distance_gap"
       # steady_method = "bisection"
       # steady_max_iter = 20
+      # steady_tolerance = ...  # default = None
       # steady_window = ...  # default = None
       # transient_metric = "nse_log"
       # transient_method = "scipy_nelder_mead"
       # transient_max_iter = 120
+      # transient_tolerance = ...  # default = None
       # discharge_variable = "discharge"
       # observed_station_id = ...  # default = None
       # scoring_window = ...  # default = None
@@ -2293,6 +2487,7 @@ Starter TOML snippet
       # description = ""
       # method = "grid"
       # max_iter = 100
+      # tolerance = ...  # default = None
       # parameters = []  # REQUIRED
       # outputs = ...  # factory default
       # objective_blocks = ...  # factory default
@@ -2312,6 +2507,12 @@ Starter TOML snippet
       # normalize_cost = false
       # transform = "identity"
       # warmup = ...  # default = None
+
+      [calibration.aggregate]
+      # weighting = "manual"
+      # nested_gauges = "total"
+      # min_samples = 1
+      # on_member_failure = "veto"
 
       [calibration.uncertainty]
       # method = "cost_profile"

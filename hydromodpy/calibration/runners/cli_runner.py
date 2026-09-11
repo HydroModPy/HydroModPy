@@ -42,6 +42,7 @@ from hydromodpy.calibration.optim.optimizer import (
 )
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
 from hydromodpy.calibration.optim.promotion import promote_iterations
+from hydromodpy.calibration.optim.stopping import stopping_kwargs
 from hydromodpy.calibration.optim.tolerance import (
     ParameterInterval,
     tolerance_intervals,
@@ -443,6 +444,7 @@ def run_calibration_core(
                 warmup_periods=int(cfg.warmup_periods),
                 scoring_window=scoring_window_bounds(cfg.scoring_window),
                 observed_station_id=cfg.observed_station_id,
+                min_samples=int(cfg.aggregate.min_samples),
             )
 
     use_api_isolation = _api_isolation_needed(cfg.parallel)
@@ -467,7 +469,12 @@ def run_calibration_core(
         cfg.method,
         space,
         seed=cfg.seed,
-        **cfg.optimizer_kwargs,
+        **stopping_kwargs(
+            cfg.method,
+            space,
+            tolerance=cfg.tolerance,
+            declared=cfg.optimizer_kwargs,
+        ),
     )
     cache_context = build_cache_context(
         cfg=cfg,
@@ -502,6 +509,7 @@ def run_calibration_core(
             variable=cfg.variable,
             metric_fn=metric_fn,
             trial_id=sugg.trial_id,
+            reject_water_budget_above=cfg.reject_water_budget_above,
         )
         # calibration_iterations CHECK accepts only finite lifecycle states.
         # Map "failed" metric errors onto "crashed" for persistence.

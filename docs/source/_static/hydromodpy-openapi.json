@@ -687,6 +687,67 @@
         "title": "BudgetConfig",
         "type": "object"
       },
+      "CalibAggregateDecl": {
+        "additionalProperties": false,
+        "description": "How several scored targets become one cost.\n\nTwo questions the word \"weight\" runs together. Whether an error is large for\nwhat the instrument can resolve is a property of the measurement, not a\ndecision. What matters more between the outlet and the reservoir is a\ndecision, and the modeller's. The cost is the product of both, never one of\nthem, and this section names which recipe made them addable.\n\nThe literature offers two named recipes and states they are incompatible: one\nover sigma, which makes each residual dimensionless and statistically\ndefensible, and an equal share of the initial objective, which guarantees no\ndata type is invisible to the search. There is no third to invent, only a\nchoice to name and to record.",
+        "properties": {
+          "weighting": {
+            "default": "manual",
+            "description": "How the members are made comparable before the weights apply. 'manual' takes the declared 'weight' of each block as the whole story, which is honest as long as the costs are already commensurable. 'error' divides each residual by what its instrument resolves, so the members become pure numbers first; it needs a residual criterion and an observation carrying an error model, and is refused without both.",
+            "enum": [
+              "manual",
+              "error"
+            ],
+            "examples": [
+              "manual"
+            ],
+            "title": "Weighting",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "nested_gauges": {
+            "default": "total",
+            "description": "How two gauges on imbricated catchments are read. 'total' scores each against its own full drained area, which is what a gauge measures; the residuals are then statistically dependent, and no standard correction exists for that. 'incremental' scores the downstream one on what its own reach adds, downstream minus upstream, which is the only mechanisable way to make the two independent. Neither is inferred: the overlap is measured and reported whichever is chosen.",
+            "enum": [
+              "total",
+              "incremental"
+            ],
+            "examples": [
+              "total"
+            ],
+            "title": "Nested Gauges",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "min_samples": {
+            "default": 1,
+            "description": "Fewest paired samples a member may be scored on. An alignment that collapses to three days still returns a number, and a weight of 65 per cent resting on three days is not what the file says it is.",
+            "examples": [
+              1
+            ],
+            "minimum": 1,
+            "title": "Min Samples",
+            "type": "integer",
+            "x-hmp-profile": "user"
+          },
+          "on_member_failure": {
+            "default": "veto",
+            "description": "What one unscorable member does to the total. 'veto' makes the whole trial fail, which is the default because a partial cost is not comparable to a full one. 'drop' scores the survivors and records which member was left out, which has to be asked for explicitly.",
+            "enum": [
+              "veto",
+              "drop"
+            ],
+            "examples": [
+              "veto"
+            ],
+            "title": "On Member Failure",
+            "type": "string",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "CalibAggregateDecl",
+        "type": "object"
+      },
       "CalibObjectiveBlockDecl": {
         "additionalProperties": false,
         "description": "Weighted metric block used by a composite objective.\n\nA block consumes one or more named outputs, applies one metric, and\ncontributes ``weight`` to the final minimization cost. Blocks make mixed\nobjectives explicit, for example combining heads, discharge, and transport\nsignals in one calibration session.",
@@ -823,7 +884,7 @@
               }
             ],
             "default": null,
-            "description": "Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'.",
+            "description": "Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'. The station is located by its own record and not by coordinates written beside it, so this output and the single-metric route read the same cell and their costs are comparable; a station the project cannot locate is refused by name rather than scored on another quantity.",
             "title": "Observes",
             "x-hmp-profile": "user"
           },
@@ -936,7 +997,7 @@
               }
             ],
             "default": null,
-            "description": "Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'.",
+            "description": "Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'. The station is located by its own record and not by coordinates written beside it, so this output and the single-metric route read the same cell and their costs are comparable; a station the project cannot locate is refused by name rather than scored on another quantity.",
             "title": "Observes",
             "x-hmp-profile": "user"
           },
@@ -1098,7 +1159,7 @@
               }
             ],
             "default": null,
-            "description": "Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'.",
+            "description": "Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'. The station is located by its own record and not by coordinates written beside it, so this output and the single-metric route read the same cell and their costs are comparable; a station the project cannot locate is refused by name rather than scored on another quantity.",
             "title": "Observes",
             "x-hmp-profile": "user"
           },
@@ -1420,7 +1481,7 @@
               }
             ],
             "default": null,
-            "description": "Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'.",
+            "description": "Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'. The station is located by its own record and not by coordinates written beside it, so this output and the single-metric route read the same cell and their costs are comparable; a station the project cannot locate is refused by name rather than scored on another quantity.",
             "title": "Observes",
             "x-hmp-profile": "user"
           },
@@ -1741,6 +1802,22 @@
             "type": "integer",
             "x-hmp-profile": "user"
           },
+          "tolerance": {
+            "anyOf": [
+              {
+                "description": "Positive floating-point value.",
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a log-transformed parameter that is a ratio, which is how a conductivity is known in the first place, and it holds wherever the value sits; on any other transform there is no scale on the value to be relative to before the search has one, so it reads as a fraction of the declared interval. Each engine's own stopping option is written from it, so the same number survives a change of engine, and the engine's own option stays available for reproducing a published call verbatim. Unset, the engine's default applies. An engine that stops on its budget rather than on a precision refuses this rather than ignore it.",
+            "title": "Tolerance",
+            "x-hmp-profile": "user"
+          },
           "batch_size": {
             "default": 1,
             "description": "Suggestions drawn per ask. A root search returns one point at a time during its refinement, whatever this asks for.",
@@ -2022,6 +2099,22 @@
             "type": "integer",
             "x-hmp-profile": "user"
           },
+          "tolerance": {
+            "anyOf": [
+              {
+                "description": "Positive floating-point value.",
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a log-transformed parameter that is a ratio, which is how a conductivity is known in the first place, and it holds wherever the value sits; on any other transform there is no scale on the value to be relative to before the search has one, so it reads as a fraction of the declared interval. Each engine's own stopping option is written from it, so the same number survives a change of engine, and the engine's own option stays available for reproducing a published call verbatim. Unset, the engine's default applies. An engine that stops on its budget rather than on a precision refuses this rather than ignore it.",
+            "title": "Tolerance",
+            "x-hmp-profile": "user"
+          },
           "batch_size": {
             "default": 1,
             "description": "Number of suggestions drawn per ask (for parallel optimizers).",
@@ -2043,6 +2136,21 @@
             "title": "Parallel",
             "type": "integer",
             "x-hmp-profile": "dev"
+          },
+          "reject_water_budget_above": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Percent water-balance discrepancy past which a trial is rejected instead of scored. The solver reports the figure on every run; unset, it is recorded and nothing acts on it, so a run at twelve per cent is ranked beside one that closed even though part of the water it routed came from nowhere. There is no default because there is no universal value: a steady solve on a coarse mesh closes to a fraction of a per cent, a transient one with a lake and a routed network legitimately sits higher.",
+            "title": "Reject Water Budget Above",
+            "x-hmp-profile": "user"
           },
           "warmup_periods": {
             "default": 0,
@@ -2187,7 +2295,7 @@
               }
             ],
             "default": null,
-            "description": "Observed station the single simulated series is scored against. A run produces one discharge series, at the catchment outlet, so an upstream gauge cannot match it: when several stations are loaded, one has to be named. Optional with a single loaded station.",
+            "description": "Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one.",
             "title": "Observed Station Id",
             "x-hmp-profile": "user"
           },
@@ -2311,6 +2419,11 @@
             "description": "Directory for per-candidate overlay TOMLs. Required when materialize_candidates is True.",
             "title": "Candidates Root",
             "x-hmp-profile": "dev"
+          },
+          "aggregate": {
+            "$ref": "#/components/schemas/CalibAggregateDecl",
+            "description": "How several scored targets become one cost: what made them comparable, how nested gauges are read, and what one unscorable member does.",
+            "x-hmp-profile": "user"
           },
           "uncertainty": {
             "$ref": "#/components/schemas/CalibUncertaintyDecl",
@@ -5688,6 +5801,13 @@
                 "type": "null"
               }
             ],
+            "calibrable": {
+              "bounds": null,
+              "description": "Scalar value of a homogeneous field parameter. The target every calibration in the repository writes to.",
+              "prior": "log_uniform",
+              "transform": "log",
+              "units": null
+            },
             "default": null,
             "description": "Scalar surface value used when kind='homogeneous'.",
             "title": "Value",
@@ -13115,6 +13235,20 @@
             "type": "string",
             "x-hmp-profile": "user"
           },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Recipe version this file was written against. Unset runs the version this installation carries; pinned, a mismatch is refused rather than approximated, so a result that informed a decision stays replayable.",
+            "title": "Version",
+            "x-hmp-profile": "user"
+          },
           "conductivity": {
             "default": "K",
             "description": "Name of the calibration parameter stage one moves, as the file declares it under [calibration.parameters].",
@@ -13191,9 +13325,25 @@
             "type": "integer",
             "x-hmp-profile": "user"
           },
+          "steady_tolerance": {
+            "anyOf": [
+              {
+                "description": "Positive floating-point value.",
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How precisely stage one has to pin the conductivity before it stops, as a relative precision on the conductivity: 0.01 is the paper's one per cent. Unset takes the engine's default, which for the bisection is that same one per cent.",
+            "title": "Steady Tolerance",
+            "x-hmp-profile": "user"
+          },
           "steady_optimizer_kwargs": {
             "additionalProperties": true,
-            "description": "Extra arguments forwarded to the stage-one engine.",
+            "description": "Extra arguments forwarded to the stage-one engine, in that engine's own units. The escape hatch for reproducing a published call; a precision is said once, in steady_tolerance.",
             "title": "Steady Optimizer Kwargs",
             "type": "object",
             "x-hmp-profile": "dev"
@@ -13246,9 +13396,25 @@
             "type": "integer",
             "x-hmp-profile": "user"
           },
+          "transient_tolerance": {
+            "anyOf": [
+              {
+                "description": "Positive floating-point value.",
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How precisely stage two has to pin the storage before it stops, as a relative precision on the storage coefficient.",
+            "title": "Transient Tolerance",
+            "x-hmp-profile": "user"
+          },
           "transient_optimizer_kwargs": {
             "additionalProperties": true,
-            "description": "Extra arguments forwarded to the stage-two engine.",
+            "description": "Extra arguments forwarded to the stage-two engine, in that engine's own units.",
             "title": "Transient Optimizer Kwargs",
             "type": "object",
             "x-hmp-profile": "dev"
