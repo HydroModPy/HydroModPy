@@ -295,7 +295,9 @@ def extract_common_modflow_observables(
     if area_requests:
         # Static geometry, but it belongs with the discharge: the runoff a gauge
         # sees has to be the runoff over exactly the cells whose release it sees.
-        graph = routing_graph_for_model(model)
+        graph = routing_graph_for_model(
+            model, diagonal_neighbors=any(r.diagonal_neighbors for r in area_requests)
+        )
         areas = upstream_area_m2(model, graph, catchment_mask=catchment_cell_mask(model))
         for request in area_requests:
             served[request.id] = scalar_observable(
@@ -332,7 +334,9 @@ def extract_common_modflow_observables(
                 # No reach under that gauge: sum what the aquifer released above
                 # it. The release is the union of every package crossing the
                 # aquifer face, so this holds for DRN, LAK and the movers alike.
-                graph = routing_graph_for_model(model)
+                graph = routing_graph_for_model(
+                    model, diagonal_neighbors=any(r.diagonal_neighbors for r in unrouted)
+                )
                 routed = route_release_to_discharge(
                     frame.to_numpy(),
                     graph,

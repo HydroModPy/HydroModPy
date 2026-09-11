@@ -217,6 +217,7 @@ class FakeRunner:
         objective=None,
         store_factory=None,
         chain=None,
+        start_at=None,
     ) -> CalibrationReport:
         self.calls.append(
             SimpleNamespace(
@@ -226,6 +227,8 @@ class FakeRunner:
                 space=space,
                 workspace=workspace,
                 chain=chain,
+                start_at=start_at,
+                seed=cfg.seed,
             )
         )
         best = {name: self.values[name] for name in cfg.parameters}
@@ -549,3 +552,77 @@ def test_a_single_selected_phase_is_the_root_of_its_own_chain(tmp_path, runner) 
     chain = runner.calls[0].chain
     assert chain.parent_session_id is None
     assert chain.root_session_id == chain.session_id == report.root_session_id
+
+
+# -- restart-based uncertainty ------------------------------------------------
+
+MULTISTART = """
+[calibration.uncertainty]
+method = "multistart"
+restarts = 3
+"""
+
+NELDER_PHASES = """
+[[calibration.phases]]
+name = "steady_k"
+method = "scipy_nelder_mead"
+max_iter = 12
+parameters = ["K"]
+objective_blocks = ["q_block"]
+outputs = ["q"]
+"""
+
+
+def _write_multistart(tmp_path: Path) -> Path:
+    path = tmp_path / "calibration.toml"
+    path.write_text(BASE + MULTISTART + NELDER_PHASES, encoding="utf-8")
+    return path
+
+
+def test_without_restarts_one_phase_is_one_search(tmp_path, runner) -> None:
+    run_staged_calibration(_write(tmp_path))
+
+    assert len(runner.calls) == 2
+    assert all(call.start_at is None for call in runner.calls)
+
+
+def test_restarts_run_the_phase_that_many_times(tmp_path, runner) -> None:
+    report = run_staged_calibration(_write_multistart(tmp_path))
+
+    assert len(runner.calls) == 3
+    assert [phase.name for phase in report.phases] == ["steady_k"]
+
+
+def test_the_first_restart_is_the_search_that_would_have_run_alone(tmp_path, runner) -> None:
+    # The answer a file already published stays in the set: the engine keeps its
+    # own start and the declared seed for restart one.
+    run_staged_calibration(_write_multistart(tmp_path))
+
+    assert runner.calls[0].start_at is None
+    assert all(call.start_at is not None for call in runner.calls[1:])
+
+
+def test_each_restart_carries_its_own_seed(tmp_path, runner) -> None:
+    run_staged_calibration(_write_multistart(tmp_path))
+
+    assert len({call.seed for call in runner.calls}) == 3
+
+
+def test_the_report_publishes_the_spread_beside_the_value(tmp_path, runner) -> None:
+    report = run_staged_calibration(_write_multistart(tmp_path))
+
+    spread = {item.parameter: item for item in report.restart_spreads}
+    assert "K" in spread
+    # The fake returns the same optimum every time, so the spread is degenerate
+    # and says so rather than inventing a width.
+    assert spread["K"].lowest == pytest.approx(spread["K"].highest)
+    assert spread["K"].best == pytest.approx(spread["K"].lowest)
+    assert report.to_dict()["restart_spreads"][0]["n_restarts"] == 3
+
+
+def test_restarts_on_an_exhaustive_sweep_are_refused(tmp_path, runner) -> None:
+    path = tmp_path / "calibration.toml"
+    path.write_text(BASE + MULTISTART + TWO_PHASES, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="same answer every time"):
+        run_staged_calibration(path)

@@ -338,7 +338,15 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
 
     known = set(available_optimizers())
     findings: list[PreflightFinding] = []
+    restarts = getattr(getattr(calibration, "uncertainty", None), "restarts", None)
     for where, method, tolerance, kwargs in _declared_precisions(calibration):
+        if restarts is not None and method in known:
+            from hydromodpy.calibration.runners.restarts import assert_restarts_can_explore
+
+            try:
+                assert_restarts_can_explore(method, int(restarts))
+            except ValueError as exc:
+                findings.append(PreflightFinding("error", where, str(exc)))
         if tolerance is None or method not in known:
             continue
         traits = engine_traits(method)

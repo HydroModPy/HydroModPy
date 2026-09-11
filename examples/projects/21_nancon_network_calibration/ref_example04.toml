@@ -12,7 +12,8 @@
 # lieu de la dichotomie, ponderation surfacique au lieu d'une voix par
 # maille. `hmp calibrate --check` imprime les trois.
 #
-# Quatre ecarts au script, tous mesures :
+# Cinq ecarts au script. Les quatre premiers sont mesures, le cinquieme est
+# lu dans le script et son ampleur ici n'est PAS mesuree :
 #
 #   1. 1995-2020 et non 1995-2024 : la recharge et le ruissellement REA du
 #      Nancon s'arretent au 31/12/2020. 9497 jours. Le debit observe couvre
@@ -37,6 +38,27 @@
 #      burn n'entre que par le masque du bassin, 64,603 km2 sans contre
 #      64,614 avec. Il est garde pour que la delimitation coincide avec les
 #      autres fichiers du dossier.
+#
+#   5. DESCENTE D4 CONTRE D8, ecart LU et non mesure ici. La reference
+#      calcule ses distances avec `wbt.downslope_distance_to_stream` sur le
+#      MNT rempli (lignes 928, 932, 954, 957 du script), donc le long de
+#      chemins D8. Le critere de HydroModPy descend son propre graphe sur le
+#      maillage et `diagonal_neighbors` vaut false par defaut, donc D4, les
+#      aretes partagees seulement.
+#
+#      Une descente D4 ne peut pas suivre un talweg diagonal sur une grille
+#      carree. Mesure sur une vallee synthetique dont le talweg suit la
+#      diagonale : la maille la plus accumulee collecte 6,6 % du domaine en
+#      D4 contre 100 % en D8
+#      (`tests/unit/core/test_a_diagonal_talweg_needs_diagonal_neighbours.py`).
+#
+#      Ce que ce chiffre ne dit PAS : de combien le cout de CE montage bouge
+#      entre les deux. Le declarer a true changerait les neuf essais et le
+#      `best_objective 185.7234104098768` de l'ecart 4, obtenus en D4. Le
+#      fichier le laisse donc tel quel et nomme l'ecart au lieu de le
+#      corriger en silence. Chaque run imprime desormais ce que son graphe
+#      peut drainer contre l'aire du bassin, donc le symptome se lit sans
+#      relire ce commentaire.
 # ======================================================================
 
 [workflow]

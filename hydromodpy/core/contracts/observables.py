@@ -66,6 +66,18 @@ class ObservableRequest:
     cell: tuple[int, int, int] | None = None
     times: TimeSelector = "all"
 
+    diagonal_neighbors: bool = False
+    """Route this observable's accumulation over shared nodes, not shared edges.
+
+    It only reaches an observable the solver has to ROUTE, the discharge at a
+    cell and the area it drains. A descent restricted to shared edges cannot
+    follow a talweg that runs diagonally across a square grid: measured on a
+    synthetic diagonal valley, the most accumulated cell collects 6.6 per cent of
+    the domain under shared edges and 100 per cent under shared nodes. It is a
+    field on the request rather than a constant in the solver so that the rule the
+    stream-network criterion is given and the rule the discharge is routed on
+    cannot drift apart."""
+
     def __post_init__(self) -> None:
         if not self.id:
             raise ValueError("an observable request needs a non-empty id.")

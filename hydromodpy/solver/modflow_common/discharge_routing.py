@@ -149,13 +149,47 @@ def upstream_area_m2(model: Any, graph: Any, *, catchment_mask: np.ndarray) -> n
     Accumulating the cell areas on the same graph as the release is what keeps
     the two consistent: the runoff a gauge sees is the runoff over exactly the
     cells whose release it also sees.
+
+    The largest accumulation is reported against the catchment it should equal.
+    A delineated basin has one cell every drop leaves by, so that ratio is one on
+    a graph that drains the basin; far below one, the graph the model routes on
+    and the catchment the delineation produced describe different drainage, and
+    every routed quantity read from it is a fraction of what it claims. That is
+    the D4 symptom: a descent over shared edges cannot follow a talweg running
+    diagonally across a square grid, and ``diagonal_neighbors`` is the knob.
     """
     areas = np.asarray(model.solver_mesh.cell_areas(), dtype=float).reshape(-1)
-    return route_release_to_discharge(areas, graph, catchment_mask=catchment_mask)
+    accumulated = route_release_to_discharge(areas, graph, catchment_mask=catchment_mask)
+    largest_drainable_share(areas, accumulated, catchment_mask)
+    return accumulated
+
+
+def largest_drainable_share(
+    areas: np.ndarray, accumulated: np.ndarray, catchment_mask: np.ndarray
+) -> float | None:
+    """State the largest accumulation against the catchment it should equal."""
+    mask = np.asarray(catchment_mask, dtype=bool).reshape(-1)
+    catchment_m2 = float(areas[mask].sum()) if mask.any() else 0.0
+    largest_m2 = float(np.nanmax(accumulated)) if accumulated.size else 0.0
+    if catchment_m2 <= 0.0:
+        return None
+    ratio = largest_m2 / catchment_m2
+    logger.info(
+        "Routing graph: the most accumulated cell drains %.3f km2 of the %.3f km2 "
+        "catchment (%.1f%%). One means the graph drains the basin; far below it, this "
+        "graph and the delineation describe different drainage, and "
+        "[calibration.outputs.<name>] diagonal_neighbors = true is what recovers a "
+        "diagonal talweg on a square grid.",
+        largest_m2 / 1e6,
+        catchment_m2 / 1e6,
+        100.0 * ratio,
+    )
+    return ratio
 
 
 __all__ = [
     "flat_cell_index",
+    "largest_drainable_share",
     "route_release_to_discharge",
     "routing_graph_for_model",
     "upstream_area_m2",

@@ -8,6 +8,7 @@ from collections.abc import Iterator
 import numpy as np
 
 from hydromodpy.calibration.optim.optimizer import (
+    EngineTraits,
     EvaluationResult,
     ParamSuggestion,
     register_optimizer,
@@ -18,6 +19,10 @@ from hydromodpy.calibration.optim.parameters import ParameterSpace
 @register_optimizer("grid")
 class GridAdapter:
     """Regular grid over transformed bounds."""
+
+    # An exhaustive sweep visits the same points in the same order whatever the
+    # seed, so repeating it is the same computation twice.
+    traits = EngineTraits(restarts_explore_differently=False)
 
     name = "grid"
 

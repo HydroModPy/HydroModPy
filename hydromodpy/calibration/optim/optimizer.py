@@ -126,6 +126,21 @@ class EngineTraits:
     stops on its budget cannot honour a precision, and saying so is the only
     honest answer."""
 
+    accepts_a_start_point: bool = False
+    """Whether the engine can be told where to begin, in transformed space.
+
+    Only two do, and it is what a restart-based uncertainty needs: repeating a
+    search that always begins at the same point returns the same answer, so the
+    spread it would report would be zero by construction."""
+
+    restarts_explore_differently: bool = True
+    """Whether repeating this engine can land anywhere else.
+
+    Permissive by default, like every trait here: a stochastic sampler explores
+    differently on a new seed and says nothing. An exhaustive sweep and a root
+    search declare ``False``, because repeating them is the same computation twice
+    and reporting its spread as an uncertainty would be a lie about a certainty."""
+
     tolerance_reads: Literal["search_width", "relative_value"] | None = None
     """How that option reads its number. ``search_width`` is an absolute width in
     the space the search walks, so the precision is converted into that space.
