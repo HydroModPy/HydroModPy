@@ -24,7 +24,10 @@ from hydromodpy.core.field_routing import (
     cell_adjacency_from_face_connectivity,
 )
 from hydromodpy.core.topographic_distance import shared_node_adjacency
-from hydromodpy.solver.modflow_common.discharge_routing import route_release_to_discharge
+from hydromodpy.solver.modflow_common.discharge_routing import (
+    largest_drainable_share,
+    route_release_to_discharge,
+)
 from tests._helpers.ugrid_meshes import quad_mesh
 
 N = 30
@@ -70,3 +73,44 @@ def test_the_two_rules_differ_by_more_than_an_order_of_magnitude() -> None:
     with_nodes = _largest_accumulated_share(diagonal_neighbors=True)
     with_edges = _largest_accumulated_share(diagonal_neighbors=False)
     assert with_nodes / with_edges > 10.0
+
+
+def test_the_run_states_what_its_graph_can_actually_drain(caplog) -> None:
+    """A ratio far below one is an internal disagreement, not a preference.
+
+    The delineation produces a basin every drop leaves by one cell, so the largest
+    accumulation on a graph that drains that basin equals its area. The run says
+    the ratio out loud, which is what turns the D4 default from a silent error into
+    a reported one: no threshold is involved, the two numbers are simply printed
+    next to each other.
+    """
+    import logging
+
+    vertices, connectivity, top = _diagonal_valley()
+    areas = np.full(top.size, CELL_SIZE * CELL_SIZE)
+    mask = np.ones(top.size, dtype=bool)
+    adjacency = cell_adjacency_from_face_connectivity(connectivity, n_cells=top.size)
+    graph = build_downhill_graph(top, connectivity, vertices=vertices, adjacency=adjacency)
+    accumulated = route_release_to_discharge(areas, graph, catchment_mask=mask)
+
+    with caplog.at_level(logging.INFO):
+        ratio = largest_drainable_share(areas, accumulated, mask)
+
+    assert ratio == pytest.approx(0.066, abs=0.005)
+    assert "different drainage" in caplog.text
+    assert "diagonal_neighbors" in caplog.text
+
+
+def test_a_graph_that_drains_the_basin_reports_one() -> None:
+    vertices, connectivity, top = _diagonal_valley()
+    areas = np.full(top.size, CELL_SIZE * CELL_SIZE)
+    mask = np.ones(top.size, dtype=bool)
+    graph = build_downhill_graph(
+        top,
+        connectivity,
+        vertices=vertices,
+        adjacency=shared_node_adjacency(connectivity, n_cells=top.size),
+    )
+    accumulated = route_release_to_discharge(areas, graph, catchment_mask=mask)
+
+    assert largest_drainable_share(areas, accumulated, mask) == pytest.approx(1.0)
