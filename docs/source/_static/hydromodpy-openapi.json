@@ -2026,7 +2026,8 @@
             "description": "How the interval around each calibrated value is obtained. 'cost_profile' reads the range of sampled values whose cost stayed within 'tolerance' of the best, off the trace the search already produced, and costs no extra model run. 'multistart' runs the whole search 'restarts' times from 'restarts' different starting points and reports the spread of the optima it reaches, which is the only one of the two that can see a second basin; it costs that many times the runs. The calibrated value never moves either way: with 'multistart' it is the best of the restarts.",
             "enum": [
               "cost_profile",
-              "multistart"
+              "multistart",
+              "linearized"
             ],
             "examples": [
               "cost_profile"
@@ -2048,6 +2049,22 @@
             "default": null,
             "description": "How many times the search is repeated by method='multistart'. Required by it and refused by any other method, because a number of restarts that nothing restarts is a statement about a run that did not happen. Each one is a full search: eight restarts of a hundred-evaluation phase is eight hundred model runs.",
             "title": "Restarts",
+            "x-hmp-profile": "user"
+          },
+          "perturbation": {
+            "anyOf": [
+              {
+                "description": "Positive floating-point value.",
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Relative step the derivatives of method='linearized' are taken with, as a fraction of each calibrated value: 0.01 moves it by one per cent. Required by it and refused by any other method. Too small and the difference is solver noise; too large and it is no longer a derivative. One per cent is the usual starting point, and the honest check is to move it and see whether the reported width moves with it. 'linearized' costs one model run per parameter, reads derivatives around the answer instead of searching again, and is the only declared method that also reports which parameters trade off against which. It is first-order: exact where the model is linear about the optimum, approximate in proportion to the curvature, and not a posterior.",
+            "title": "Perturbation",
             "x-hmp-profile": "user"
           },
           "tolerance": {

@@ -181,26 +181,37 @@ So the best restart IS the answer, unchanged in kind from a single search, and t
 spread is reported next to it, with a parameter whose optima span more than a
 factor ten flagged as not identified by that calibration.
 
-Why a linearized covariance is not declared beside it
------------------------------------------------------
+The linearized width beside it
+------------------------------
 
-FOSM would give standard deviations *and* correlations for the price of one run
-per parameter, which is cheaper than restarting the whole search. It is not
-declared, and the obstacle is one signature rather than the arithmetic. The metric
-function a trial is scored through returns ``(float, dict[str, float])``: a cost and
-scalar diagnostics. The paired simulated vectors exist in its own scope and are
-dropped on the way out, and ``components`` cannot carry them, being written a column
-at a time into the iteration table. A Jacobian is built from the simulated value *at
-each observation*.
+``method = "linearized"`` reads derivatives around the answer instead of searching
+again: one model run per parameter, and it is the only declared method that also
+says which parameters trade off against which. Two parameters correlated at 0.99
+were not identified separately, whatever their individual widths look like, and a
+spread of optima cannot tell you that.
 
-So the first change is to the objective's return contract and its callers, which is
-the same axis the ``observes`` bridge cost, and only then the perturbation loop and
-its validation. Two shortcuts look tempting and are not honest ones. Approximating
-the cost's Hessian instead of the observation Jacobian is a coarser method and must
-not be published under the same name. And a residual variance only exists where the
-cost is built from residuals: ``cost_is_dimensionless`` on the criterion contract
-already marks the scores where it does not, and a linearized method has to refuse
-those the way ``weighting = "error"`` already does.
+It asks nothing of an engine. What it needs is the simulated value *at each
+observation*, and it reads that through ``build_paired_vector_capture``, a second
+reader over the same two public steps the scoring path uses,
+``extract_outputs`` and ``pair_outputs_with_observations``. The metric function's
+return stays ``(float, dict[str, float])``: nothing widened to make room for a
+vector.
+
+Three refusals carry the method's honesty, and a new one should follow the same
+rule of saying which:
+
+- an output that names no station: there are no residuals, refused in the
+  preflight before the search runs;
+- fewer observations than parameters: no degrees of freedom, so no residual
+  variance to give the covariance its scale;
+- a singular ``J'J``: the data cannot separate the parameters, so the value is
+  reported and no width is.
+
+The first-order caveat is stated rather than buried. The covariance is exact where
+the model is linear about the optimum and approximate in proportion to the
+curvature, and it is not a posterior: it carries no prior. The unit test holds it
+against the closed form on a linear model, which is the only place the two must
+agree exactly.
 
 Optional dependencies
 ---------------------
