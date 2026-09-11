@@ -1,54 +1,38 @@
-# Mesh Gallery Inputs
+# 07 - Mesh gallery bundles
 
-This directory is the canonical repository location for future mesh-gallery
-cases used by the documentation capability gallery.
-
-The goal is to keep the documentation reproducible from versioned bundle
-artifacts, instead of pointing the docs at private `C:/results/...` folders.
+This is not a runnable catchment. It is the canonical repository of mesh
+bundles behind the documentation capability gallery, so the gallery pages
+build from versioned artifacts instead of private local result folders.
+It holds 24 imported cases across three scale buckets (10, 100, 1000 km2),
+each a Gmsh triangular mesh in EPSG:2154.
 
 ## Layout
 
-Each imported case lives under one scale bucket:
+Each case lives under its scale bucket (`10km2/`, `100km2/`, `1000km2/`) and
+contains:
 
-- `10km2/`
-- `100km2/`
-- `1000km2/`
+- `case.json`: gallery metadata consumed by `tools.doc_gallery`
+- `viewer_config.toml`: standalone mesh-viewer config (`tools.mesh_bundle_viewer`
+  contract, not a `HydroModPyConfig`)
+- `README.md`: case-level description
+- `figures/`: copied mesh figures reused on the doc page
+- `bundle/`: the mesh export (`mesh_2d.msh`, `nodes.csv`, `cells.csv`,
+  `edges.csv`, `cell_geology_fractions.csv`, `metadata.json`,
+  `mesh_summary.json`)
 
-Each case directory should contain:
+Two canonical variants recur per scale:
 
-- `case.json`
-- `viewer_config.toml`
-- `README.md`
-- `bundle/`
+- `geology_rivers_buffer30`: geology interfaces and rivers both constrain the
+  mesh, watershed boundary and outside coarsening active, 30% buffer
+- `rivers_only_buffer30`: only river traces constrain the mesh, same boundary
+  and buffer settings
 
-The `bundle/` directory follows the standard catchment mesh bundle contract:
+A case is discovered automatically by `tools.doc_gallery` as soon as its
+`case.json` is present under this tree.
 
-- `mesh_2d.msh`
-- `nodes.csv`
-- `cells.csv`
-- `edges.csv`
-- `cell_geology_fractions.csv`
-- `metadata.json`
-- `mesh_summary.json`
+## Import
 
-## Canonical Variants
-
-The gallery is currently organized around two mesh variants per scale:
-
-- `geology_rivers_buffer30`
-  - geology interfaces and rivers both constrain the mesh
-  - watershed boundary remains active
-  - outside coarsening remains active
-  - the geographic support uses a `30%` buffer
-- `rivers_only_buffer30`
-  - only river traces constrain the internal mesh
-  - watershed boundary remains active
-  - outside coarsening remains active
-  - the geographic support uses a `30%` buffer
-
-## Import Workflow
-
-Import one local bundle into this canonical layout with:
+Import one local bundle into the canonical layout:
 
 ```bash
 python -m tools.doc_gallery.import_mesh_bundle \
@@ -58,18 +42,13 @@ python -m tools.doc_gallery.import_mesh_bundle \
   --outlet-id 27
 ```
 
-After import:
-
-1. review `case.json` and `viewer_config.toml`
-2. run `python -m tools.doc_gallery`
-3. rebuild the docs
-
-For the repeated batch-backed mesh cases committed in this repository, refresh
-the whole imported tree directly from the existing batch outputs with:
+Refresh the repeated batch-backed cases already committed here, straight from
+the existing batch outputs, and rebuild the gallery pages in one step:
 
 ```bash
 python -m tools.doc_gallery.sync_mesh_catchment_runs --update-gallery
 ```
 
-Imported cases are discovered automatically by `tools.doc_gallery` as soon as
-their `case.json` file is present under this tree.
+After a manual import, review `case.json` and `viewer_config.toml`, then run
+`python -m tools.doc_gallery` to regenerate the gallery pages. Runtime depends
+on the local batch outputs available; unmeasured here.

@@ -1,68 +1,56 @@
-# Vire / Selune outlets
+# 06 - Vire and Selune watersheds
 
-This example shows how to start from two outlet coordinates in EPSG:2154 and
-build:
+Two Normandy/Brittany catchments delineated from outlet coordinates in
+EPSG:2154, on the shared `DEM_armorican_massif.tif` (75 m). Vire (~1258 km2,
+outlet `x=400866.1983 y=6923974.693`) and Selune (~367 km2, outlet
+`x=379541.3716 y=6845659.878`) share the same config layering: a common
+`project_simulation*.toml` base, and a `run_*.toml` overlay per solver and
+regime. Transient runs use homogeneous K/Ss/Sy with a top drainage boundary
+and SIM2 recharge; steady runs use geology-zoned K from a CSV transfer table
+and a constant synthetic recharge.
 
-1. A light watershed overview to confirm the available data.
-2. Simple transient reference runs.
-3. A first steady-state MODFLOW 6 irregular setup with conformal
-   geology+rivers meshes.
-
-Validated outlets:
-
-- `Vire`: `x=400866.1983`, `y=6923974.693`
-- `Selune`: `x=379541.3716`, `y=6845659.878`
-
-Quick checks done from this repository:
-
-- both outlets are covered by `examples/data/dem/DEM_armorican_massif.tif`
-- both watersheds can be delineated with `catch_def = "from_outlet_coord"`
-- indicative delineated areas are about `1258 km2` for Vire and `367 km2`
-  for Selune
-
-The example mixes local and API-backed inputs:
-
-- local DEM: `examples/data/dem/DEM_armorican_massif.tif`
-- local geology: BRGM 1:1M map bundled in `examples/data/geology/`
-- API hydrography: `bdtopage`
-- API hydrometry: `hubeau` in overview configs
-- API recharge: `sim2` in transient simulation configs
-- synthetic recharge: constant annual placeholder in the steady configs
-  (`220 mm/an`, injected internally as annual-average `mm/day`)
-
-## Run the watershed overview
+## Run
 
 ```bash
-hmp run overview_vire.toml
-hmp run overview_selune.toml
+hmp run examples/projects/06_vire_selune/overview_vire.toml                       # watershed overview, hubeau gauges
+hmp run examples/projects/06_vire_selune/overview_selune.toml
+hmp run examples/projects/06_vire_selune/run_vire_nwt.toml                        # transient, MODFLOW-NWT, structured grid
+hmp run examples/projects/06_vire_selune/run_selune_nwt.toml
+hmp run examples/projects/06_vire_selune/run_vire_mf6_irregular_steady.toml       # steady, MODFLOW 6, geology+river conformal mesh
+hmp run examples/projects/06_vire_selune/run_selune_mf6_irregular_steady.toml
+hmp report catchment examples/projects/06_vire_selune/catchment_report_vire.toml  # overview + run + HTML report, one command
 ```
 
-## Run the simplified transient flow simulations
+Unmeasured: the first run of any config downloads DEM-derived delineation,
+BD Topage hydrography, Hub'Eau gauging stations, and SIM2 recharge over the
+network, and the mf6 irregular runs need a Gmsh-backed mesh build plus the
+MODFLOW 6 binary.
 
-```bash
-hmp run run_vire_nwt.toml
-hmp run run_selune_nwt.toml
-```
+Also present: `run_vire_mf6_regular.toml`, `run_vire_mf6_irregular.toml`,
+`run_vire_nwt_steady.toml`, `run_vire_nwt_report.toml` (and the matching
+Selune files) for the other solver/regime/grid combinations.
 
-## Run the steady conformal irregular simulations
+## Data
 
-```bash
-hmp run run_vire_mf6_irregular_steady.toml
-hmp run run_selune_mf6_irregular_steady.toml
-```
+| Source | Family | Role |
+|---|---|---|
+| `dem/DEM_armorican_massif.tif` | dem | regional 75 m DEM, covers both outlets |
+| `geology/GEO1M.shp`, provider `brgm_1m` | geology | BRGM 1:1,000,000 map, context and zoning |
+| `geology/geology_K_dummy_demo.csv` | geology | demonstration K transfer table, `dummy_demo_not_for_scientific_use` |
+| BD Topage, provider `bdtopage` | hydrography | river network |
+| Hub'Eau, provider `hubeau` | hydrometry | gauging stations, in the overview configs |
+| SIM2, provider `sim2` | recharge | transient recharge, in the transient configs |
+| synthetic recharge | recharge | constant annual average, `220 mm/an`, in the steady configs |
 
-Notes:
+## What it shows
 
-- the first run may download data from BD Topage, Hub'Eau, and SIM2
-- the simulation setup is intentionally simple: homogeneous parameters,
-  drainage top boundary, constant aquifer thickness, transient recharge
-- the steady runs use a constant synthetic recharge of `220 mm/an`
-- the permanent `K` field is heterogeneous by geology and read from
-  `examples/data/geology/geology_K_dummy_demo.csv`
-- this CSV is the repository demonstration transfer table bundled with the
-  BRGM 1M geology and is explicitly marked `dummy_demo_not_for_scientific_use`
-- the steady irregular runs activate `mesh_catchment` with
-  `constraints_mode = "geology_rivers"` so the generated mesh follows both
-  river lines and geology interfaces
-- if you want gauging constraints, start from the overview outputs and then
-  pin the preferred hydrometry station ids in a derived config
+`project_simulation.toml` and `project_simulation_steady.toml` hold everything
+shared: geographic setup, domain, flow physics. Each `run_*.toml` overlays
+only what changes: solver (`modflow_nwt` or `modflow6`), grid (regular or
+irregular/Gmsh), and regime (steady or transient). The steady irregular runs
+set `constraints_mode = "geology_rivers"` under `[mesh_catchment]` so the
+generated mesh follows both river lines and geology interfaces.
+
+`catchment_report_vire.toml` and `catchment_report_selune.toml` drive
+`hmp report catchment`: run the overview, run the transient simulation, then
+build one HTML report from both.

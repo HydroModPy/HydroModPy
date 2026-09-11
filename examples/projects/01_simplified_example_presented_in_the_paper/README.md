@@ -1,71 +1,71 @@
 # 01 - Simplified example presented in the paper
 
-Bassin du Canut (Bretagne, EPSG:2154) extrait du MNT régional 75 m par
-accrochage d'exutoire. Écoulement souterrain **stationnaire**, cinq couches
-qui s'épaississent avec la profondeur, conductivité hydraulique et
-emmagasinement **décroissant exponentiellement avec la profondeur**, résolu
-avec **MODFLOW 6**, suivi d'un suivi de particules.
+Canut catchment (Brittany, EPSG:2154), extracted from the regional 75 m DEM
+by outlet snapping. **Steady-state** groundwater flow, five layers that
+thicken with depth, hydraulic conductivity and storage **decaying
+exponentially with depth**, solved with **MODFLOW 6**, followed by particle
+tracking.
 
-C'est le fil conducteur du papier : délimitation, aquifère stratifié avec
-profil de profondeur, et trajectoires de temps de résidence.
+This is the paper's running example: delineation, a layered aquifer with a
+depth profile, and residence-time trajectories.
 
-## Lancer
+## Run
 
 ```bash
 hmp run examples/projects/01_simplified_example_presented_in_the_paper/project.toml
 
-# temps de résidence depuis les trajectoires, via l'API Python
+# residence times from the trajectories, via the Python API
 python examples/projects/01_simplified_example_presented_in_the_paper/run_manual.py
 
 hmp viz gallery examples/projects/01_simplified_example_presented_in_the_paper/project.toml
 ```
 
-Durée : environ 4 s (bassin ~9300 mailles, 5 couches, 300 particules).
+Runtime: about 4 s (catchment ~9300 cells, 5 layers, 300 particles).
 
-## Données
+## Data
 
-| Fichier | Famille | Rôle |
+| File | Family | Role |
 |---|---|---|
-| `dem/DEM_armorican_massif.tif` | dem | MNT régional 75 m (couvre le Canut) |
-| recharge synthétique | recharge | recharge moyenne stationnaire, 0.96 mm/j (350 mm/an) |
+| `dem/DEM_armorican_massif.tif` | dem | regional 75 m DEM (covers the Canut) |
+| synthetic recharge | recharge | steady-state average recharge, 0.96 mm/d (350 mm/year) |
 
-## Profil de profondeur
+## Depth profile
 
-La conductivité de surface (2e-5 m/s) décroît en `exp(-profondeur / 20 m)` :
-environ la moitié à 14 m, un plancher à 1e-3 de la valeur de surface. C'est
-la signature d'un aquifère de socle fracturé (zone altérée conductrice en
-surface, socle sain imperméable en profondeur). Exprimé par
+Surface conductivity (2e-5 m/s) decays as `exp(-depth / 20 m)`: about half
+at 14 m, a floor at 1e-3 of the surface value. This is the signature of a
+fractured bedrock aquifer (conductive weathered zone at the surface,
+impermeable sound bedrock at depth). Expressed with
 `[flow.param.K.field_vertical_profile]` mode `exponential`.
 
 ## Figures
 
-| Figure | Ce qu'elle montre |
+| Figure | What it shows |
 |---|---|
-| `watershed_id_card` | carte d'identité du bassin |
-| `mesh_map` | grille du solveur colorée par la topographie |
-| `piezometric_map` | altitude de la nappe |
-| `watertable_depth_map` | profondeur de nappe + suintement |
-| `seepage_map` | zones de suintement |
-| `particle_tracks` | trajectoires colorées par temps de transit |
-| `cross_section` | coupe topographie / nappe / 5 couches épaississantes |
-| `simulated_active_network` | mailles drainantes actives |
-| `water_budget` | bilan par composante |
+| `watershed_id_card` | catchment identity card |
+| `mesh_map` | solver grid colored by topography |
+| `piezometric_map` | watertable elevation |
+| `watertable_depth_map` | watertable depth + seepage |
+| `seepage_map` | seepage zones |
+| `particle_tracks` | tracks colored by travel time |
+| `cross_section` | topography / watertable / 5 thickening layers cross section |
+| `simulated_active_network` | active draining cells |
+| `water_budget` | budget per component |
 
-## Suivi de particules : forward
+## Particle tracking: forward
 
-MODFLOW 6 PRT ne suit les particules que vers l'aval : elles sont relâchées
-sur le domaine et se terminent là où la nappe affleure, ce qui donne les
-temps de résidence recharge -> suintement. Le script legacy faisait du
-backward depuis les zones de suintement ; voir l'exemple 00 pour la bascule
-vers NWT + MODPATH si le backward est nécessaire.
+MODFLOW 6 PRT only tracks particles downstream: they are released over the
+domain and end where the watertable outcrops, which gives recharge to
+seepage residence times. The legacy script tracked backward from the
+seepage zones; see example 00 for the switch to NWT + MODPATH if backward
+tracking is needed.
 
-`run_manual.py` lit les trajectoires et résume la distribution des temps de
-résidence (médiane ~1 an, p90 ~7 ans sur ce jeu de paramètres).
+`run_manual.py` reads the trajectories and summarizes the residence-time
+distribution (median ~1 year, p90 ~7 years for this parameter set).
 
-## Non porté depuis le script legacy
+## Not ported from the legacy script
 
-La visualisation 3D interactive et la coupe cliquable du script d'origine
-sont par nature interactives ; elles ne font pas partie des figures
-statiques du registre. La signature de débit observée (Q/A interannuel) et
-les cartes de géologie relèvent du workflow `overview` (voir les exemples
-04 et 05 de données).
+The interactive 3D visualization and the clickable cross section from the
+original script are inherently interactive; they are not part of the
+registry's static figures. The observed discharge signature (interannual
+Q/A) and the geology maps belong to the `overview` workflow (see examples
+04 and 05 for data).

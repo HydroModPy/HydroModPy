@@ -1,65 +1,66 @@
 # 05 - Piezometry in a coastal aquifer
 
-Bande côtière de Gouville (Normandie, EPSG:2154). Le domaine est un polygone
-(`model_area`) sur un MNT côtier 25 m. Écoulement souterrain **stationnaire**
-résolu avec **MODFLOW 6**, avec une **frontière marine** : toute maille dont
-la surface est sous le niveau marin moyen est maintenue à ce niveau (charge
-imposée). La nappe descend donc de la butte de recharge intérieure vers le
-rivage.
+Gouville coastal strip (Normandy, EPSG:2154). The domain is a polygon
+(`model_area`) on a 25 m coastal DEM. **Steady-state** groundwater flow
+solved with **MODFLOW 6**, with a **marine boundary**: any cell whose
+surface is below mean sea level is held at that level (fixed head). The
+watertable therefore drops from the inland recharge mound toward the shore.
 
-## Lancer
+## Run
 
 ```bash
 hmp run examples/projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/project.toml
 
-# gradient côtier de la nappe, via l'API Python
+# coastal watertable gradient, via the Python API
 python examples/projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/run_manual.py
 
 hmp viz gallery examples/projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/project.toml
 ```
 
-Durée : environ 1 s (bande côtière ~5200 mailles à 25 m).
+Runtime: about 1 s (coastal strip ~5200 cells at 25 m).
 
-## Données
+## Data
 
-| Fichier | Famille | Rôle |
+| File | Family | Role |
 |---|---|---|
-| `dem/DEM_gouville_25m.tif` | dem | MNT côtier 25 m (NGF ; la mer est sous 0 m) |
-| `watershed_polygon/gouville_model_area.shp` | polygone | emprise du modèle côtier |
-| recharge synthétique | recharge | recharge moyenne stationnaire, 1.0 mm/j |
+| `dem/DEM_gouville_25m.tif` | dem | 25 m coastal DEM (NGF; the sea is below 0 m) |
+| `watershed_polygon/gouville_model_area.shp` | polygon | coastal model extent |
+| synthetic recharge | recharge | steady-state average recharge, 1.0 mm/d |
 
-## La frontière marine
+## The marine boundary
 
-La BC `ocean` applique une charge constante au niveau marin (`value = "0 m"`
-NGF) sur toutes les mailles dont le MNT est sous ce seuil. Aucun trait de
-côte n'est requis : le MNT côtier suffit, la mer est identifiée par
-l'altitude. Le résultat (voir `piezometric_map`) est la forme côtière
-classique de la nappe : 0 m au rivage, remontant vers l'intérieur (~16 m ici).
+The `ocean` BC applies a constant head at sea level (`value = "0 m"` NGF) on
+every cell whose DEM is below that threshold. No coastline is required: the
+coastal DEM is enough, the sea is identified by elevation. The result (see
+`piezometric_map`) is the classic coastal watertable shape: 0 m at the
+shore, rising inland (~16 m here).
 
 ## Figures
 
-| Figure | Ce qu'elle montre |
+| Figure | What it shows |
 |---|---|
-| `mesh_map` | grille du solveur |
-| `piezometric_map` | altitude de la nappe (0 au rivage, remontant à l'intérieur) |
-| `watertable_depth_map` | profondeur de nappe + suintement |
-| `seepage_map` | zones de suintement (dont la frange littorale) |
-| `cross_section` | coupe ouest-est de la mer vers l'aquifère |
-| `water_budget` | bilan par composante (recharge vs mer + drainage) |
+| `mesh_map` | solver grid |
+| `piezometric_map` | watertable elevation (0 at the shore, rising inland) |
+| `watertable_depth_map` | watertable depth + seepage |
+| `seepage_map` | seepage zones (including the coastal fringe) |
+| `cross_section` | west-east cross section from the sea into the aquifer |
+| `water_budget` | budget per component (recharge vs. sea + drainage) |
 
-## Non porté depuis le script legacy
+## Not ported from the legacy script
 
-Le cas legacy avait plusieurs raffinements que ce portage laisse de côté
-pour un premier cas côtier propre, et qui sont la dette naturelle :
+The legacy case had several refinements that this port leaves out for a
+first clean coastal case, and which are the natural technical debt:
 
-- **Conductivité hétérogène par zones** (`param_zones.shp`) : ici K est
-  homogène. La v1 gère l'hétérogène par support spatial + table de valeurs,
-  mais le câblage zones-shapefile -> champ K reste à faire proprement.
-- **Comparaison à la piézométrie observée** : le cas d'origine calait sur
-  des piézomètres. Les données et les figures sim/obs existent (voir la
-  famille `piezometry` et `piezo_timeseries_sim_obs`), mais le calage côtier
-  n'est pas monté ici.
-- **Dynamique de marée** : la BC marine est fixée au niveau moyen (0 m). Une
-  série temporelle de marée (`[flow.bc.dirichlet.ocean.forcing]`) et un run
-  transitoire donneraient la respiration tidale de la nappe.
-- **MNT 5 m** : le portage utilise le 25 m ; le 5 m affine le littoral.
+- **Zoned heterogeneous conductivity** (`param_zones.shp`): here K is
+  homogeneous. v1 handles heterogeneity through a spatial support + value
+  table, but wiring zones-shapefile to a K field properly is still to be
+  done.
+- **Comparison to observed piezometry**: the original case calibrated
+  against piezometers. The data and the sim/obs figures exist (see the
+  `piezometry` family and `piezo_timeseries_sim_obs`), but the coastal
+  calibration is not set up here.
+- **Tidal dynamics**: the marine BC is fixed at mean sea level (0 m). A
+  tide time series (`[flow.bc.dirichlet.ocean.forcing]`) and a transient
+  run would give the watertable's tidal response.
+- **5 m DEM**: the port uses the 25 m DEM; the 5 m one refines the
+  shoreline.

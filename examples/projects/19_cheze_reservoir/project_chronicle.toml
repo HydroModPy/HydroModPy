@@ -145,15 +145,18 @@ first_period_steady = true
 
 [flow.param.K.field]
 kind = "homogeneous"
-value = "1e-4 m/s"
+unit = "m/s"
+value = 1e-4
 
 [flow.param.Sy.field]
 kind = "homogeneous"
-value = "0.0001 -"
+unit = "-"
+value = 0.0001
 
 [flow.param.Ss.field]
 kind = "homogeneous"
-value = "1e-5 m-1"
+unit = "m-1"
+value = 1e-5
 
 [flow.ic]
 type = "top"

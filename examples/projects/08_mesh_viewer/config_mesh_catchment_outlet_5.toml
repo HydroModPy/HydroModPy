@@ -4,10 +4,10 @@
 bundle_dir = "./mesh_catchment_outlet_5_bundle"
 
 # Optional output PNG written under the repository outputs directory.
-figure_output_path = "../../outputs/mesh_viewer/mesh_catchment_outlet_5_overview.png"
+figure_output_path = "../../../outputs/mesh_viewer/mesh_catchment_outlet_5_overview.png"
 
 # Optional JSON summary written under the repository outputs directory.
-summary_output_path = "../../outputs/mesh_viewer/mesh_catchment_outlet_5_summary.json"
+summary_output_path = "../../../outputs/mesh_viewer/mesh_catchment_outlet_5_summary.json"
 
 # Open or not an interactive matplotlib window at the end of the run.
 show_window = false

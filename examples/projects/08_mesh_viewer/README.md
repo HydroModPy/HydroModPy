@@ -1,44 +1,44 @@
 # 08 - Mesh viewer
 
-Inspection visuelle de bundles de maillage pré-exportés (Gmsh + CSV +
-JSON sidecars). Aucun solveur n'est lancé : on relit le bundle et on
-le rend en PNG + JSON résumé.
+Visual inspection of pre-exported mesh bundles (Gmsh + CSV + JSON sidecars). No
+solver runs here: the viewer reloads a bundle and renders it as a PNG overview
+plus a JSON summary. CRS is EPSG:2154.
 
-## Schéma spécialisé : pas de `hmp run`
+The TOML files in this project are not `HydroModPyConfig`. They use the
+`[mesh_distribution]` schema consumed by `tools/mesh_bundle_viewer/`, a
+standalone package with its own CLI. `hmp run` and `hmp config check` do not
+apply to them.
 
-Les TOML de ce projet ne sont pas du `HydroModPyConfig`. Leur schéma
-dédié est consommé par le runner `tools/mesh_bundle_viewer/`, **pas
-par `hmp run`** :
+## Run
 
 ```bash
-python -m mesh_bundle_viewer \
-    --config examples/projects/08_mesh_viewer/config_example.toml
+python -m tools.mesh_bundle_viewer --config examples/projects/08_mesh_viewer/config_example.toml
+python -m tools.mesh_bundle_viewer --config examples/projects/08_mesh_viewer/config_mesh_catchment_outlet_5.toml
 ```
 
-Conséquence : `hmp config check` rejette ces fichiers (champs
-inconnus). C'est attendu.
+Run from the repository root. Each command prints the computed summary as
+JSON and, since `show_window = false` in both configs, writes a PNG and a
+JSON summary under `outputs/mesh_viewer/`. Measured runtime: about 1.7 s for
+the default bundle (2 cells), a few seconds for the catchment bundle (3760
+cells).
 
-## Contenu
+## Data
 
-| Fichier / dossier | Rôle |
+| File / folder | Role |
 |---|---|
-| `config_example.toml` | Configuration de référence pointant `default_bundle/`. |
-| `config_mesh_catchment_outlet_5.toml` | Configuration pour le bundle headwater 100 km² (`mesh_catchment_outlet_5_bundle/`). |
-| `default_bundle/` | Bundle minimal 2 cellules (placeholder Gmsh). |
-| `sample_bundle/` | Bundle complet pour un workflow externe. |
-| `mesh_catchment_outlet_5_bundle/` | Bundle réel issu d'un run `mesh_catchment`. |
+| `config_example.toml` | Reference configuration, points at `default_bundle/`. |
+| `config_mesh_catchment_outlet_5.toml` | Configuration for the headwater 100 km² bundle (`mesh_catchment_outlet_5_bundle/`). |
+| `default_bundle/` | Minimal 2-cell bundle (placeholder Gmsh mesh). |
+| `sample_bundle/` | Full bundle for an external workflow, not referenced by either config. |
+| `mesh_catchment_outlet_5_bundle/` | Real bundle exported from a `mesh_catchment` run. |
 
-Chaque sous-dossier `*_bundle/` porte son propre README détaillant les
-CSV (`nodes`, `cells`, `edges`, `cell_geology_fractions`) et le JSON
-de métadonnées (`metadata.json`, `mesh_summary.json`).
+Each `*_bundle/` folder has its own README describing its CSV files
+(`nodes`, `cells`, `edges`, `cell_geology_fractions`) and its JSON sidecars
+(`metadata.json`, `mesh_summary.json`).
 
-## Sorties
+## What it shows
 
-Quand `show_window = false`, le runner écrit :
-
-- un PNG d'aperçu (panneau structurel + panneau hydraulique) sous le
-  chemin `figure_output_path`,
-- un JSON résumé sous le chemin `summary_output_path`.
-
-Quand `show_window = true`, une fenêtre matplotlib interactive
-s'ouvre à la fin.
+- How the standalone viewer turns one exported mesh bundle into a figure with
+  a structural panel (geology, rivers, edges) and a topography panel.
+- The difference between a small placeholder bundle and a real catchment mesh
+  with hydraulic properties attached to each cell.
