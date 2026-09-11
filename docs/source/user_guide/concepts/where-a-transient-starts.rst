@@ -136,30 +136,37 @@ parameter set, so every trial of a search that moves the conductivity would
 start from the antecedent of a different aquifer. The key is for chaining
 production runs, not for scoring trials.
 
-One case therefore has no answer today: a system whose memory is longer than a
-single steady solve carries *and* whose properties are being calibrated. Cyclic
-spin-up is what that case wants, and the obstacle is worth naming precisely, because
-it is not the number of backends.
+That case has an answer: ``flow.ic.type = "spinup_cyclic"``.
 
-``hmp spinup`` is orchestration, not solver code: each cycle is a full run, and the
-next one reads the previous cycle's heads through ``[flow] restart_from``, which
-takes the path of a Zarr store. A calibration trial writes no Zarr, so that path is
-closed to it. What the restart actually consumes, though, is two small things: a
-``(nlay, ncpl)`` head array and a mapping of final lake stages. The solver writes
-its own head file whether or not the store is written, so a cycle inside a trial is
-not blocked on producing a store.
+.. code-block:: toml
 
-What it is blocked on is that nobody has built it, and the shape of the work is
-worth stating so the next person does not re-derive it. It needs an in-memory seed
-beside ``read_restart_heads``, a loop in the trial execution path that re-enters the
-pipeline once per cycle with the previous cycle's heads, the between-cycle
-convergence measure ``hmp spinup`` already owns, and a typed refusal on a backend
-that has no in-memory seed.
+   [flow.ic]
+   type = "spinup_cyclic"
+   max_cycles = 4
+   tol_head = "0.01 m"
+   first_cycle_from = "top"
 
-And it needs something the two restart-based uncertainty methods did not: a real
-model to be believed. Their correctness could be held against a closed form or a
-stub. "The state stops moving" cannot; it is a claim about a particular aquifer's
-memory, and it has to be run on one.
+The simulated period is repeated, each cycle starting from the head field the
+previous one ended on, until the largest change anywhere falls below ``tol_head``.
+The cycle is the simulated period itself rather than a window chosen separately,
+which is what makes the antecedent consistent with the forcing that is scored, and
+what lets a calibration trial use it: the cycles are auxiliary solves inside one
+run, exactly as ``steady_state`` already is, and they never touch the run's store.
+
+Two things it says out loud. The measure is the *largest* change, not the mean: a
+basin settled on average while one compartment still drifts has not settled, and
+averaging is how that gets missed. And a loop that runs out of cycles hands back its
+last state with a warning naming ``max_cycles`` and ``tol_head``, rather than
+reporting a convergence that did not happen.
+
+What it costs is one extra solve per cycle, per run. Inside a calibration that is
+per trial, so a four-cycle spin-up multiplies a hundred-evaluation phase by five.
+Start from ``steady_state``, and pay for this when moving it changes what you
+report.
+
+It is MODFLOW 6 only today. A backend that cannot repeat its own period declares so,
+and a file asking for it there is refused by name rather than started from the
+declared initial condition in silence.
 
 What is available is to cycle outside the search and say so, which means the
 reported parameters carry the antecedent of whatever parameter set the spin-up used.
@@ -186,8 +193,12 @@ Choosing
      - ``steady_state`` with ``source = "prescribed"``
      - Their windows differ, so their means differ, and their starts would too.
    * - The system's memory is longer than one steady solve carries
+     - ``spinup_cyclic``
+     - Cycling reaches the state the forcing actually produces, inside the run, so
+       a calibration trial gets it at its own parameters.
+   * - The same memory, outside a search, reused by many runs
      - ``hmp spinup`` then ``restart_from``
-     - Cycling reaches the state the forcing actually produces.
+     - Computed once and read from disk after that.
    * - The same antecedent is reused by many runs
      - ``restart_from``
      - It is computed once and read from disk after that.

@@ -3291,11 +3291,11 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `flow <flow.html#flow-ic>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L183>`__
    * - ``flow.ic.h``
-     - ``FlowICTop | FlowICTopOffset | FlowICBottom | FlowICCustom | FlowICSteadyState``
+     - ``FlowICTop | FlowICTopOffset | FlowICBottom | FlowICCustom | FlowICSteadyState | FlowICSpinupCyclic``
      - user
      - -
      - `flow <flow.html#flow-ic-h>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L205>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L269>`__
    * - ``flow.ic.h.id``
      - ``str``
      - dev
@@ -3350,6 +3350,24 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `flow <flow.html#flow-ic-h-boundary-condition-policy>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L154>`__
+   * - ``flow.ic.h.max_cycles``
+     - ``int``
+     - user
+     - -
+     - `flow <flow.html#flow-ic-h-max-cycles>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L214>`__
+   * - ``flow.ic.h.tol_head``
+     - ``Any``
+     - user
+     - -
+     - `flow <flow.html#flow-ic-h-tol-head>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L224>`__
+   * - ``flow.ic.h.first_cycle_from``
+     - ``Literal['top', 'steady_state']``
+     - user
+     - -
+     - `flow <flow.html#flow-ic-h-first-cycle-from>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L232>`__
    * - ``flow.bc``
      - ``dict[str, DirichletBC | CauchyBC | RobinBC]``
      - user

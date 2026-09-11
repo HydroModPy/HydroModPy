@@ -6781,6 +6781,125 @@
       "title": "FlowICCustom",
       "type": "object"
     },
+    "FlowICSpinupCyclic": {
+      "additionalProperties": false,
+      "description": "Initialize a transient run by repeating it until the state stops moving.\n\nA steady solve carries the forcing's mean and nothing of its history, which is\nthe right start for an aquifer whose response time is short against the record.\nIt is the wrong one for a deep aquifer, or a lake whose storage integrates\nseveral seasons: the state those reach depends on the sequence, not the average.\n\nSo the run's own period is repeated, each cycle starting from the head field the\nprevious one ended on, until the largest change between two cycles falls below\n``tol_head``. The cycle is the simulated period itself rather than a window\nchosen separately, which is what makes the antecedent consistent with the\nforcing that is scored, and what lets a calibration trial use it: the cycles are\nauxiliary solves inside one run, exactly as ``steady_state`` already is.\n\nIt costs one extra solve per cycle, per run. Inside a calibration that is per\ntrial, so a five-cycle spin-up multiplies a hundred-evaluation phase by six.",
+      "properties": {
+        "id": {
+          "default": "h",
+          "description": "id of the initial condition (forced to 'h' for flow)",
+          "examples": [
+            "h"
+          ],
+          "title": "Id",
+          "toml_exclude": true,
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "value": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Process-specific initial-condition value payload.",
+          "title": "Value",
+          "x-hmp-profile": "user"
+        },
+        "description": {
+          "default": "",
+          "description": "Description of the initial condition",
+          "examples": [
+            ""
+          ],
+          "title": "Description",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "units": {
+          "default": "m",
+          "description": "Runtime unit for the initial hydraulic-head field.",
+          "examples": [
+            "m"
+          ],
+          "title": "Units",
+          "toml_exclude": true,
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "type": {
+          "const": "spinup_cyclic",
+          "default": "spinup_cyclic",
+          "description": "Repeat the simulated period, each cycle starting from the state the previous one ended on, until the head field stops moving.",
+          "examples": [
+            "spinup_cyclic"
+          ],
+          "title": "Type",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "max_cycles": {
+          "default": 4,
+          "description": "Most cycles the loop may run. A loop that runs out of cycles still hands back its last state and says so, rather than reporting a convergence that did not happen.",
+          "examples": [
+            4
+          ],
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Max Cycles",
+          "type": "integer",
+          "x-hmp-profile": "user"
+        },
+        "tol_head": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "properties": {
+                "magnitude": {
+                  "title": "Magnitude",
+                  "type": "string"
+                },
+                "units": {
+                  "title": "Units",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "magnitude"
+              ],
+              "type": "object"
+            }
+          ],
+          "default": "0.01 m",
+          "description": "Largest head change between two cycles that counts as settled, anywhere in the domain. One centimetre is a starting point; the honest check is to loosen it and see whether what you report moves.",
+          "examples": [
+            "0.01 m"
+          ],
+          "title": "Tol Head",
+          "x-hmp-profile": "user"
+        },
+        "first_cycle_from": {
+          "default": "top",
+          "description": "Where cycle one starts. 'top' is the water table at the surface, which the cycling then drains. 'steady_state' starts from the equilibrium under the mean forcing, which is closer and usually saves a cycle.",
+          "enum": [
+            "top",
+            "steady_state"
+          ],
+          "examples": [
+            "top"
+          ],
+          "title": "First Cycle From",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FlowICSpinupCyclic",
+      "type": "object"
+    },
     "FlowICSteadyState": {
       "additionalProperties": false,
       "description": "Initialize a transient run from a same-solver steady solve.",
@@ -7059,6 +7178,7 @@
             "mapping": {
               "bottom": "#/$defs/FlowICBottom",
               "custom": "#/$defs/FlowICCustom",
+              "spinup_cyclic": "#/$defs/FlowICSpinupCyclic",
               "steady_state": "#/$defs/FlowICSteadyState",
               "top": "#/$defs/FlowICTop",
               "top_offset": "#/$defs/FlowICTopOffset"
@@ -7080,6 +7200,9 @@
             },
             {
               "$ref": "#/$defs/FlowICSteadyState"
+            },
+            {
+              "$ref": "#/$defs/FlowICSpinupCyclic"
             }
           ],
           "title": "H",

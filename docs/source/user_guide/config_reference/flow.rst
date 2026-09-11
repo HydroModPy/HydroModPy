@@ -691,7 +691,7 @@ Fields
               <code class="hmp-field-toml">[flow.ic.h]</code>
             </div>
 
-         :bdg-primary:`type = "top" | "top_offset" | "bottom" | "custom" | "steady_state"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L205>`__
+         :bdg-primary:`type = "top" | "top_offset" | "bottom" | "custom" | "steady_state" | "spinup_cyclic"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L269>`__
 
             Hydraulic-head initial condition payload.
 
@@ -1063,6 +1063,117 @@ Fields
                      :bdg-primary:`Optional[Literal['first_period']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L154>`__
 
                         Policy used for transient boundary-condition chronicles during the steady initialization solve.
+
+
+
+            .. tab-item:: spinup_cyclic
+
+               TOML: ``[flow.ic.h]`` with ``type = "spinup_cyclic"`` -- model ``FlowICSpinupCyclic``.
+
+               .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                  .. container:: hmp-field hmp-field-level-dev
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.id">
+                          <code class="hmp-field-name">id</code>
+                        </div>
+
+                     :bdg-primary:`str` :bdg-secondary:`default = "h"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L183>`__
+
+                        id of the initial condition (forced to 'h' for flow)
+
+
+                  .. container:: hmp-field hmp-field-level-user
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.value">
+                          <code class="hmp-field-name">value</code>
+                        </div>
+
+                     :bdg-primary:`object | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L183>`__
+
+                        Process-specific initial-condition value payload.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.description">
+                          <code class="hmp-field-name">description</code>
+                        </div>
+
+                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L204>`__
+
+                        Description of the initial condition
+
+
+                  .. container:: hmp-field hmp-field-level-dev
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.units">
+                          <code class="hmp-field-name">units</code>
+                        </div>
+
+                     :bdg-primary:`str` :bdg-secondary:`default = "m"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L202>`__
+
+                        Runtime unit for the initial hydraulic-head field.
+
+
+                  .. index:: ! max_cycles
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: flow-ic-h-max-cycles
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.max_cycles">
+                          <code class="hmp-field-name">max_cycles</code>
+                        </div>
+
+                     :bdg-primary:`int` :bdg-secondary:`default = 4` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L214>`__
+
+                        Most cycles the loop may run. A loop that runs out of cycles still hands back its last state and says so, rather than reporting a convergence that did not happen.
+
+
+                  .. index:: ! tol_head
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: flow-ic-h-tol-head
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.tol_head">
+                          <code class="hmp-field-name">tol_head</code>
+                        </div>
+
+                     :bdg-primary:`Any` :bdg-secondary:`default = "0.01 m"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L224>`__
+
+                        Largest head change between two cycles that counts as settled, anywhere in the domain. One centimetre is a starting point; the honest check is to loosen it and see whether what you report moves.
+
+
+                  .. index:: ! first_cycle_from
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: flow-ic-h-first-cycle-from
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.ic.h.first_cycle_from">
+                          <code class="hmp-field-name">first_cycle_from</code>
+                        </div>
+
+                     :bdg-primary:`str` :bdg-secondary:`default = "top"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/initial_conditions.py#L232>`__
+
+                        Where cycle one starts. 'top' is the water table at the surface, which the cycling then drains. 'steady_state' starts from the equilibrium under the mean forcing, which is closer and usually saves a cycle.
+
+                     .. rst-class:: hmp-field-values
+
+                     **One of:** ``"top"`` ``"steady_state"``
 
 
 
