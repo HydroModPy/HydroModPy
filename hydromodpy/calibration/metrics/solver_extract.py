@@ -18,7 +18,11 @@ from hydromodpy.calibration.metrics.downslope_network import (
     DISTANCE_METHOD,
     seepage_distance_cost,
 )
-from hydromodpy.calibration.metrics.series import ObservedSeries, resolve_time_index
+from hydromodpy.calibration.metrics.series import (
+    ObservedSeries,
+    add_runoff_to_discharge,
+    resolve_time_index,
+)
 from hydromodpy.calibration.observations.network_geometry import geometry_from_run
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
@@ -33,6 +37,13 @@ from hydromodpy.simulation.planning.plan import RunContext
 from hydromodpy.solver.base.registry import get_solver_adapter
 
 logger = get_logger(__name__)
+
+OBSERVED_FAMILIES = {
+    "head": "piezometry",
+    "discharge": "hydrometry",
+    "lake_level": "lake_levels",
+}
+"""Which loaded data family a calibration variable is observed in."""
 
 RELEASE_FLUX_UNIT = "m3/s"
 """The one unit the network criterion can threshold a release field in."""
@@ -163,17 +174,36 @@ def observable_request_for_output(
     times = _request_times(output.time)
     support = output.support
     if support == "point":
-        xy = point_xy_from_output(output)
-        if xy is None:
-            raise ValueError(f"Point calibration output {name!r} requires x/y or geometry")
-        cell = find_cell_at_point(ctx, xy[0], xy[1])
+        station = getattr(output, "observes", None)
+        if station is not None:
+            cell = cell_for_station(ctx, str(station), variable=str(output.variable))
+            if cell is None:
+                raise NotImplementedError(
+                    f"Output {name!r} is scored against station {station!r}, whose cell "
+                    "the project could not resolve. A named station is located by its own "
+                    "record, not by the coordinates written here, so that this output and "
+                    "the single-metric route read the same cell."
+                )
+        else:
+            xy = point_xy_from_output(output)
+            if xy is None:
+                raise ValueError(f"Point calibration output {name!r} requires x/y or geometry")
+            cell = find_cell_at_point(ctx, xy[0], xy[1])
         if cell is None:
             raise NotImplementedError(
                 f"Could not map point calibration output {name!r} to a solver cell"
             )
-        # The declared variable is not read on this path: a point target is a
-        # head target, as it already was before the contract changed.
-        return ObservableRequest(id=name, name="head", support="cell", cell=cell, times=times)
+        # The declared variable is honoured. Coercing it to a head meant a block
+        # asking for the discharge at a gauge was silently scored on a head, and a
+        # gauge is the commonest calibration target there is. A backend that cannot
+        # serve the named variable at a cell refuses it by name.
+        return ObservableRequest(
+            id=name,
+            name=str(output.variable),
+            support="cell",
+            cell=cell,
+            times=times,
+        )
     if support == "boundary":
         return ObservableRequest(
             id=name,
@@ -356,13 +386,27 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
     adapter, run_ctx = resolved
 
     requests: list[ObservableRequest] = []
+    gauge_comparable: dict[str, str] = {}
     for name, output in outputs.items():
         try:
-            requests.append(observable_request_for_output(name, output, ctx))
+            request = observable_request_for_output(name, output, ctx)
         except Exception as exc:
             raise RuntimeError(
                 f"Output {name!r} extraction failed: {type(exc).__name__}: {exc}"
             ) from exc
+        requests.append(request)
+        if _is_a_gauge_comparable_discharge(output, request):
+            # A gauge measures the whole streamflow; a drain budget is baseflow
+            # alone. The runoff forcing is what makes the two comparable, scaled
+            # by the area this cell drains, exactly as the single-metric route
+            # does it. Without this the two routes score different quantities.
+            area_id = f"_area:{name}"
+            gauge_comparable[name] = area_id
+            requests.append(
+                ObservableRequest(
+                    id=area_id, name="upstream_area", support="cell", cell=request.cell
+                )
+            )
 
     # The time grid is passed so a dated output comes back dated. An output
     # scored against a loaded record has to align on those timestamps, and the
@@ -382,11 +426,38 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
             simulated[name], scored = score_network_output(run_ctx, name, output, result)
             diagnostics.update(scored)
             continue
-        simulated[name] = slice_time(result.values, output.time, output.reducer)
+        values = result.values
         dated = _dated_series(result)
+        if name in gauge_comparable and not getattr(result, "includes_runoff", False):
+            if dated is None:
+                raise NotImplementedError(
+                    f"Output {name!r} scores a gauge record on the simulated discharge, "
+                    "which needs the runoff forcing added on a time axis, and the solver "
+                    "returned the values without one."
+                )
+            area = float(
+                np.asarray(results[gauge_comparable[name]].values, dtype=float).reshape(-1)[0]
+            )
+            dated = add_runoff_to_discharge(dated, ctx, area_m2=area)
+            values = dated.to_numpy()
+        simulated[name] = slice_time(values, output.time, output.reducer)
         if dated is not None:
             series[name] = dated
     return ExtractedOutputs(values=simulated, series=series, diagnostics=diagnostics)
+
+
+def _is_a_gauge_comparable_discharge(output: Any, request: ObservableRequest) -> bool:
+    """Tell whether this output is a discharge that a gauge record will be fitted to.
+
+    Only then is the runoff term owed. A boundary's flux is that boundary's flux,
+    and an output scored on a vector typed into the file is not being compared to
+    what a gauge measures.
+    """
+    return (
+        request.name == "discharge"
+        and request.support == "cell"
+        and getattr(output, "observes", None) is not None
+    )
 
 
 def _dated_series(result: Any) -> pd.Series | None:
@@ -418,33 +489,50 @@ def resolve_station_cells(
     head calibration, hydrometry for a discharge one. A gauge needs its cell for
     the same reason a piezometer does, and it is the same lookup.
     """
-    family = {"head": "piezometry", "discharge": "hydrometry", "lake_level": "lake_levels"}.get(
-        variable, variable
-    )
-    records = getattr(ctx.loaded_data, family, None)
+    records = getattr(ctx.loaded_data, OBSERVED_FAMILIES.get(variable, variable), None)
     if records is None:
         return {}
-    points = getattr(records, "points", None) or []
     cells: dict[str, tuple[int, int, int]] = {}
     for obs_rec in observed:
-        for rec in points:
-            if str(rec.station_id) == obs_rec.station_id:
-                cell_ij = getattr(rec, "cell_ij", None)
-                cell = (
-                    _coerce_cell_ij(cell_ij)
-                    if cell_ij is not None
-                    else _coerce_structured_cell(
-                        getattr(rec, "cell", None) or getattr(rec, "station_cell", None)
-                    )
-                )
-                if cell is None:
-                    xy = _xy_from_record(rec)
-                    if xy is not None:
-                        cell = find_cell_at_point(ctx, xy[0], xy[1])
-                if cell is not None:
-                    cells[obs_rec.station_id] = cell
-                break
+        cell = _cell_of_one_station(ctx, records, obs_rec.station_id)
+        if cell is not None:
+            cells[obs_rec.station_id] = cell
     return cells
+
+
+def cell_for_station(ctx: Any, station_id: str, *, variable: str) -> tuple[int, int, int] | None:
+    """Resolve one station to its cell, by the one lookup every route uses.
+
+    A gauge coordinate is never exactly on the cell the model routes through:
+    the record carries the position the loader already reconciled with the mesh,
+    and a coordinate retyped in a configuration does not. Two routes scoring the
+    same station have to ask the solver about the same cell, or their costs are
+    not comparable, which is measurable and was measured.
+    """
+    records = getattr(ctx.loaded_data, OBSERVED_FAMILIES.get(variable, variable), None)
+    if records is None:
+        return None
+    return _cell_of_one_station(ctx, records, str(station_id))
+
+
+def _cell_of_one_station(ctx: Any, records: Any, station_id: str) -> tuple[int, int, int] | None:
+    for rec in getattr(records, "points", None) or []:
+        if str(rec.station_id) != station_id:
+            continue
+        cell_ij = getattr(rec, "cell_ij", None)
+        cell = (
+            _coerce_cell_ij(cell_ij)
+            if cell_ij is not None
+            else _coerce_structured_cell(
+                getattr(rec, "cell", None) or getattr(rec, "station_cell", None)
+            )
+        )
+        if cell is None:
+            xy = _xy_from_record(rec)
+            if xy is not None:
+                cell = find_cell_at_point(ctx, xy[0], xy[1])
+        return cell
+    return None
 
 
 def _coerce_cell_ij(value: Any) -> tuple[int, int, int] | None:
@@ -483,7 +571,20 @@ def _coerce_structured_cell(value: Any) -> tuple[int, int, int] | None:
 
 
 def _xy_from_record(record: Any) -> tuple[float, float] | None:
-    """Extract planar x/y coordinates from an observation record."""
+    """Extract planar x/y coordinates from an observation record.
+
+    ``PointRecord.location`` is where every loader puts the station's position,
+    and it was the one place this function did not look. The consequence was
+    silent and large: no station ever resolved to a cell, so a gauge was scored
+    on the whole-catchment discharge whatever its position, which is right only
+    for a gauge at the outlet.
+    """
+    location = getattr(record, "location", None)
+    if location is not None:
+        x_val = getattr(location, "x", None)
+        y_val = getattr(location, "y", None)
+        if x_val is not None and y_val is not None:
+            return float(x_val), float(y_val)
     for x_name, y_name in (("x", "y"), ("easting", "northing"), ("longitude", "latitude")):
         x_val = getattr(record, x_name, None)
         y_val = getattr(record, y_name, None)
