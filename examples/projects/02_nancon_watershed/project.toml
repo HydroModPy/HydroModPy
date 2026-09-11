@@ -105,12 +105,10 @@ project_crs = "EPSG:2154"
 #   recharge     : drainage forcing on the aquifer top
 #   runoff       : surface-runoff forcing added to the simulated DRN
 #                  baseflow before comparing against streamflow obs.
-#   etp          : potential evapotranspiration. Loaded as input data
-#                  (catalog + figures); not yet wired to a flow EVT
-#                  package, so it does not feed back into the solver
-#                  budget. Available for future calibration of an
-#                  evapotranspiration sink.
-types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff", "etp"]
+# ETP is not loaded here: the shipped SIM2 sample for this window
+# (2000-2002) was removed from the repo. See run_overview_all_apis.toml
+# for ETP pulled live from the SIM2 API instead.
+types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff"]
 
 
 # DEM source. `custom` points to the same file as [geographic]. The
@@ -183,24 +181,6 @@ path = "runoff"
 station_ids = ["EX04"]
 
 
-# ETP time-series (potential evapotranspiration). Read from the
-# example SIM2 NetCDF shipped with the repo so the runs stay offline.
-# Consumed by the catalog AND fed into the MODFLOW-NWT EVT package
-# (legacy behaviour) when 'etp' is listed in flow.active_sinks_sources.
-
-[data.etp]
-date_start = "2000-01-01"
-date_end = "2002-12-31"
-
-[[data.etp.sources]]
-source = "custom"
-# Bare filename resolved under `<workspace>/data/etp/`.
-path = "etp_sim2_5347fa22_20000101_20251231.nc"
-# The shipped NetCDF exposes Lambert-93 x/y coordinates but no CRS/nodata attrs.
-crs = "EPSG:2154"
-nodata = -9999.0
-
-
 # ----------------------------------------------------------------------
 # Flow - groundwater process
 # ----------------------------------------------------------------------
@@ -211,10 +191,9 @@ nodata = -9999.0
 # the base TOML keeps a sensible default.
 param_list = ["K", "Sy", "Ss"]
 
-# Diffuse recharge applied at the top of the aquifer; ETP applied
-# as an EVT package (legacy behaviour, restored under the new
-# typed-config pipeline). Drop "etp" here to disable EVT entirely.
-active_sinks_sources = ["recharge", "etp"]
+# Diffuse recharge applied at the top of the aquifer. Add "etp" here
+# (plus a [data.etp] source) to also drive a MODFLOW-NWT EVT package.
+active_sinks_sources = ["recharge"]
 
 # `drainage` lets water leave the aquifer when the watertable reaches
 # the surface (Cauchy boundary on the top face).
@@ -309,16 +288,16 @@ show = false
 # Save to disk under <project_root>/<output_dir>/<run_name>/.
 save = true
 output_dir = "figures"
-cmap = "viridis"
 
 # Figures rendered automatically. Comment any out to skip rendering.
 # Disable globally with `hmp run --no-display` or
 # `Project(..., no_display=True)`.
+# water_budget, hydrograph and recharge_map are left out: they need the
+# per-cell RCH/DRN budget, and the modflow_nwt backend does not save it
+# (ipakcb is never set on those two packages), so they fail on every run
+# regardless of [simulation.results.budget] spatial_fields.
 figures = [
     "watershed_id_card",
     "piezometric_map",
-    "water_budget",
-    "hydrograph",
-    "recharge_map",
     "seepage_map",
 ]

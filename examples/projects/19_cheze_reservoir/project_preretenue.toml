@@ -187,15 +187,18 @@ first_period_steady = true
 
 [flow.param.K.field]
 kind = "homogeneous"
-value = "1e-4 m/s"     # legacy hk = 1e-4 m/s (8.64 m/day)
+unit = "m/s"
+value = 1e-4     # legacy hk = 1e-4 m/s (8.64 m/day)
 
 [flow.param.Sy.field]
 kind = "homogeneous"
-value = "0.001 -"      # legacy sy = 0.1 %
+unit = "-"
+value = 0.001    # legacy sy = 0.1 %
 
 [flow.param.Ss.field]
 kind = "homogeneous"
-value = "1e-5 m-1"
+unit = "m-1"
+value = 1e-5
 
 [flow.ic]
 type = "top"

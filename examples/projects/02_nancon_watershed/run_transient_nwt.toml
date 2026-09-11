@@ -54,16 +54,12 @@ compute_stream_links = true
 figures = [
   "watershed_id_card",
   "piezometric_map",
-  "water_budget",
-  "hydrograph",
-  "recharge_map",
   "seepage_map",
   "hydrographic_network_reference",
   "hydrographic_network_generated",
   "hydrographic_network_comparison",
   "hydrographic_network_reference_missing_only",
   "hydrographic_network_generated_extra_only",
-  "simulated_active_network_reference_overlay",
 ]
 
 [domain.depth_model]
