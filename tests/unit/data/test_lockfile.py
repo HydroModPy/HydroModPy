@@ -1,9 +1,9 @@
 """P9 lockfile contract tests.
 
 Cover the four mandatory sections, atomicity, and the strict verify path that
-``hmp dev lock verify --strict`` relies on. ``test_no_lock_option_skips_write``
-checks the wiring inside ``hmp run`` (only the helper is exercised so that
-the test stays fast and offline). The last section pins the one address of
+``hmp dev lock verify --strict`` relies on. The two ``--no-lock`` tests
+drive the real ``hmp run`` code path with only the workflow engine stubbed,
+and assert on the file on disk. The last section pins the one address of
 ``hydromodpy.lock``: the project root a run wrote it to.
 """
 
@@ -166,34 +166,73 @@ def test_verify_strict_fails_on_changed_input(tmp_path: Path) -> None:
     assert m.expected != m.observed
 
 
-def test_no_lock_option_skips_write(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``hmp run --no-lock`` short-circuits the post-run helper."""
+def _run_cli_workflow(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    no_lock: bool,
+) -> Path:
+    """Drive the real ``hmp run`` code path and return the project root.
+
+    Only the workflow engine is stubbed. Everything the CLI itself decides -
+    including the ``if not no_lock`` guard at the end of ``_run_toml`` - runs
+    for real, so the lockfile either lands on disk or it does not.
+    """
+    import argparse
+
+    import hydromodpy
     from hydromodpy.cli.commands import run as run_cmd
 
-    # Build the minimal config dict the helper reads from raw_toml.
-    config_path = tmp_path / "fake.toml"
-    config_path.write_text("# placeholder\n")
-    raw_toml = {"workspace": {"project_root": str(tmp_path)}}
+    catalog, workspace, _ = _seed_workspace(tmp_path)
+    catalog.close()
 
-    # Sentinel to capture whether the helper was called.
-    called = {"hit": False}
+    config_path = workspace / "overview.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "[workflow]",
+                'mode = "overview"',
+                "",
+                "[workspace]",
+                f'project_root = "{workspace.as_posix()}"',
+                f'root = "{workspace.as_posix()}"',
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
 
-    def fake_helper(path: Path, raw: dict[str, object]) -> None:
-        called["hit"] = True
+    monkeypatch.setattr(hydromodpy, "run", lambda path: {"sim_id": "stub", "name": "stub"})
+    monkeypatch.chdir(workspace)
 
-    monkeypatch.setattr(run_cmd, "_post_run_lockfile_write", fake_helper)
+    args = argparse.Namespace(config=str(config_path), no_lock=no_lock)
+    run_cmd.run(args)
+    return workspace
 
-    # Simulate the conditional check inside the runner.
-    no_lock = True
-    if not no_lock:
-        run_cmd._post_run_lockfile_write(config_path, raw_toml)
-    assert called["hit"] is False
 
-    # Default path (no_lock = False) does invoke the helper.
-    no_lock = False
-    if not no_lock:
-        run_cmd._post_run_lockfile_write(config_path, raw_toml)
-    assert called["hit"] is True
+def test_no_lock_leaves_no_lockfile_on_disk(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``hmp run --no-lock`` must not write the provenance record.
+
+    Asserts the absence of the file, not the absence of a helper call: the
+    lockfile is what ``hmp lock verify --strict`` reads, so disk is the
+    contract.
+    """
+    workspace = _run_cli_workflow(tmp_path, monkeypatch, no_lock=True)
+
+    assert not (workspace / LOCKFILE_NAME).exists()
+
+
+def test_default_run_writes_the_lockfile_to_the_project_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without ``--no-lock`` the same path writes a readable lockfile."""
+    workspace = _run_cli_workflow(tmp_path, monkeypatch, no_lock=False)
+
+    dest = workspace / LOCKFILE_NAME
+    assert dest.is_file()
+    assert read_lockfile_meta(dest)["version"] == LOCKFILE_VERSION
 
 
 # Bonus coverage --------------------------------------------------------------
