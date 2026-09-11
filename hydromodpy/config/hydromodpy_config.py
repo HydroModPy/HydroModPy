@@ -146,6 +146,9 @@ class WorkflowConfig(HydroModelBase):
 RESTART_CAPABILITY = "flow:restart"
 """What a backend declares when it reads ``[flow] restart_from``."""
 
+CYCLIC_SPINUP_CAPABILITY = "flow:spinup_cyclic"
+"""What a backend declares when it can repeat its own period to settle a state."""
+
 
 def _derive_name_from_filename(toml_path: Path) -> str:
     """Derive a simulation name from a TOML filename.
@@ -516,6 +519,23 @@ class HydroModPyConfig(HydroModelBase):
                         "it would be silently ignored and the run would start from "
                         "flow.ic instead. Use a backend that declares "
                         f"{RESTART_CAPABILITY!r}, or drop flow.restart_from."
+                    )
+
+            # A cyclic spin-up repeats the run's own period inside the run. A
+            # backend that cannot do that would start from flow.ic and report a
+            # settled antecedent it never computed.
+            head_ic = getattr(getattr(flow_cfg, "ic", None), "h", None)
+            if str(getattr(head_ic, "type", "")) == "spinup_cyclic":
+                from hydromodpy.solver.base.registry import capabilities
+
+                if CYCLIC_SPINUP_CAPABILITY not in capabilities("flow", str(engine_value)):
+                    raise IncompatibleCapabilitiesError(
+                        f"flow.ic.type='spinup_cyclic' repeats the simulated period until "
+                        f"the state settles, and solver.backend={engine_value!r} cannot: it "
+                        "would start from the declared initial condition and say nothing. "
+                        f"Use a backend that declares {CYCLIC_SPINUP_CAPABILITY!r}, or run "
+                        "the cycling outside the run with `hmp spinup` and point "
+                        "flow.restart_from at its result."
                     )
 
             # Flow barriers and dam cutoff walls are a MODFLOW 6-only addon.

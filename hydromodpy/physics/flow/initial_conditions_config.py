@@ -17,6 +17,7 @@ from hydromodpy.physics.flow.initial_conditions import (
     _FLOW_IC_ADAPTER,
     FlowICBottom,
     FlowICCustom,
+    FlowICSpinupCyclic,
     FlowICSteadyState,
     FlowICTop,
     FlowICTopOffset,
@@ -28,6 +29,7 @@ _FLOW_IC_VARIANT_TYPES = (
     FlowICTopOffset,
     FlowICBottom,
     FlowICCustom,
+    FlowICSpinupCyclic,
     FlowICSteadyState,
 )
 
@@ -68,30 +70,53 @@ def normalize_flow_initial_conditions(
     if set(payload) == {"h"} and isinstance(payload["h"], Mapping):
         return FlowInitialConditions.model_validate(payload)
 
-    # Flow IC is intentionally kept flat in TOML (`[flow.ic]`), hence only
-    # direct keys are accepted here.
-    direct_keys = {
-        "type",
-        "value",
-        "unit",
-        "units",
-        "description",
-        "source",
-        "recharge_statistic",
-        "rate",
-        "boundary_condition_policy",
-    }
+    # Flow IC is intentionally kept flat in TOML (`[flow.ic]`), hence only direct
+    # keys are accepted here. The set is DERIVED from the variants of the union,
+    # not retyped: a hand-written list is an assertion about the models rather
+    # than a fact about them, and it silently refused a new variant's own fields
+    # the first time one was added.
+    direct_keys = _direct_ic_keys()
     unknown_keys = [str(key).strip() for key in payload if str(key).strip() not in direct_keys]
     if unknown_keys:
         unknown_text = ", ".join(unknown_keys)
+        accepted = ", ".join(sorted(direct_keys))
         raise ValueError(
-            f"{location_prefix} accepts only direct keys "
-            "[type, value, unit, units, description, source, "
-            f"recharge_statistic, rate, boundary_condition_policy]. Unknown keys: {unknown_text}"
+            f"{location_prefix} accepts only direct keys [{accepted}]. Unknown keys: {unknown_text}"
         )
 
     normalized = _normalize_single_ic_payload(payload, location_prefix=location_prefix)
     return FlowInitialConditions(h=_FLOW_IC_ADAPTER.validate_python(normalized))
+
+
+_IC_VARIANTS = (
+    FlowICTop,
+    FlowICTopOffset,
+    FlowICBottom,
+    FlowICCustom,
+    FlowICSteadyState,
+    FlowICSpinupCyclic,
+)
+"""Every variant of the flow initial-condition union, in declaration order."""
+
+
+def known_ic_types() -> frozenset[str]:
+    """Return every ``type`` discriminator the union declares.
+
+    Derived for the same reason the key set is: the hand-written list refused a
+    variant that had just been added to the union, which is a contradiction a reader
+    cannot see.
+    """
+    return frozenset(str(variant.model_fields["type"].default) for variant in _IC_VARIANTS)
+
+
+def _direct_ic_keys() -> frozenset[str]:
+    """Return every field any initial-condition variant declares."""
+    keys: set[str] = set()
+    for variant in _IC_VARIANTS:
+        keys.update(variant.model_fields)
+    # `unit` is the singular spelling the normaliser folds into `units`; it is not a
+    # field on any variant, so deriving the set would silently stop accepting it.
+    return frozenset(keys | {"unit"})
 
 
 def _normalize_single_ic_payload(
@@ -110,10 +135,10 @@ def _normalize_single_ic_payload(
         raise ValueError(f"{location_prefix}.type is required when {location_prefix} is not empty")
     raw_type = payload_dict.get("type")
     ic_type = str(raw_type).strip().lower()
-    if ic_type not in {"top", "top_offset", "bottom", "custom", "steady_state"}:
+    if ic_type not in known_ic_types():
         raise ValueError(
-            f"{location_prefix}.type must be one of: 'top', 'top_offset', 'bottom', "
-            "'custom', 'steady_state'"
+            f"{location_prefix}.type must be one of: "
+            + ", ".join(repr(name) for name in sorted(known_ic_types()))
         )
 
     explicit_units = _extract_explicit_units(payload_dict)

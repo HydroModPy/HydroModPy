@@ -3,16 +3,21 @@
 from __future__ import annotations
 
 import time
+import warnings
 
 from hydromodpy.core import progress
+from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.base.api_isolation import (
     api_isolation_enabled,
     api_isolation_timeout_s,
 )
 from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
 from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
+    apply_modflow6_cyclic_spinup_heads,
     apply_modflow6_steady_state_initial_heads,
+    flow_uses_cyclic_spinup,
     flow_uses_steady_state_initial_condition,
+    run_modflow6_cyclic_spinup,
     run_modflow6_steady_state_initialization,
 )
 from hydromodpy.solver.modflow_common import ModflowRunOptions
@@ -20,6 +25,8 @@ from hydromodpy.solver.modflow_common.progress import (
     run_simulation_with_progress,
     write_listing_status,
 )
+
+logger = get_logger(__name__)
 
 
 def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
@@ -43,6 +50,29 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
             )
         apply_modflow6_steady_state_initial_heads(model, steady_heads)
         steady_initial_heads_applied = True
+
+    if (
+        options.run_model
+        and getattr(model, "flow_regime", None) == "transient"
+        and flow_uses_cyclic_spinup(getattr(model, "flow", None))
+    ):
+        with progress.status("Cyclic spin-up"):
+            heads, cycles, settled = run_modflow6_cyclic_spinup(
+                model, verbose=bool(options.verbose)
+            )
+        apply_modflow6_cyclic_spinup_heads(model, heads)
+        steady_initial_heads_applied = True
+        if settled:
+            logger.info("Cyclic spin-up settled after %d cycle(s).", cycles)
+        else:
+            warnings.warn(
+                f"the cyclic spin-up ran its {cycles} allowed cycle(s) without the head "
+                "field settling, and the run starts from the last one anyway. Raise "
+                "flow.ic.max_cycles, or loosen flow.ic.tol_head, and say in the write-up "
+                "that the antecedent state did not converge.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
     if options.write_model:
         dirty_packages = tuple(getattr(model, "_runtime_dirty_packages", ()) or ())
