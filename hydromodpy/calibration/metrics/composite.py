@@ -29,6 +29,7 @@ from hydromodpy.calibration.metrics.series import (
 from hydromodpy.calibration.metrics.solver_extract import (
     extract_outputs,
     observable_series,
+    report_the_area_a_gauge_drains,
     resolve_flow_adapter,
     resolve_station_cells,
 )
@@ -175,6 +176,7 @@ def _simulated_discharge_by_station(
         # the forcing again would count it twice.
         if not result.includes_runoff:
             area = float(np.asarray(results[_area_id(station_id)].values).reshape(-1)[0])
+            report_the_area_a_gauge_drains(station_id, trial_ctx, area_m2=area)
             series = add_runoff_to_discharge(series, trial_ctx, area_m2=area)
         out[station_id] = series
     return out

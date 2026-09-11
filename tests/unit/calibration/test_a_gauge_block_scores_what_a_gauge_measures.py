@@ -10,6 +10,8 @@ is owed on both routes or neither.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -24,6 +26,7 @@ AREA_M2 = 6.4e7
 TIMES = pd.date_range("2015-01-31", periods=3, freq="ME")
 BASEFLOW = np.array([1.0, 2.0, 3.0])
 RUNOFF_ADDED = 0.5
+CATCHMENT_KM2 = 64.6
 
 
 class _Adapter:
@@ -73,7 +76,10 @@ def wired(monkeypatch):
         if observes is not None:
             declaration["observes"] = observes
         outputs = {"gauge": CalibOutputPoint.model_validate(declaration)}
-        return adapter, seen, extract_outputs(object(), outputs)
+        ctx = SimpleNamespace(
+            setup=SimpleNamespace(geographic=SimpleNamespace(catch_area=CATCHMENT_KM2))
+        )
+        return adapter, seen, extract_outputs(ctx, outputs)
 
     return _wire
 
@@ -97,6 +103,15 @@ def test_a_routed_discharge_is_left_alone(wired) -> None:
     _adapter, seen, extracted = wired(includes_runoff=True, observes="NANCON")
     assert "area_m2" not in seen
     assert extracted.series["gauge"].to_numpy() == pytest.approx(BASEFLOW)
+
+
+def test_the_share_of_the_catchment_the_gauge_cell_drains_is_published(wired) -> None:
+    # No universal threshold exists to veto on, so the number is stated beside the
+    # cost on every run: a station two cells off the talweg is then visible.
+    _adapter, _seen, extracted = wired(includes_runoff=False, observes="NANCON")
+    assert extracted.diagnostics["gauge.drained_fraction"] == pytest.approx(
+        (AREA_M2 / 1e6) / CATCHMENT_KM2
+    )
 
 
 def test_an_output_fitted_to_no_record_is_left_alone(wired) -> None:

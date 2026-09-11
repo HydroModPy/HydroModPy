@@ -438,12 +438,47 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
             area = float(
                 np.asarray(results[gauge_comparable[name]].values, dtype=float).reshape(-1)[0]
             )
+            fraction = report_the_area_a_gauge_drains(
+                str(getattr(output, "observes", "?")), ctx, area_m2=area, where=name
+            )
+            if fraction is not None:
+                diagnostics[f"{name}.drained_fraction"] = fraction
             dated = add_runoff_to_discharge(dated, ctx, area_m2=area)
             values = dated.to_numpy()
         simulated[name] = slice_time(values, output.time, output.reducer)
         if dated is not None:
             series[name] = dated
     return ExtractedOutputs(values=simulated, series=series, diagnostics=diagnostics)
+
+
+def report_the_area_a_gauge_drains(
+    station: str, ctx: Any, *, area_m2: float, where: str | None = None
+) -> float | None:
+    """State what share of the delineated catchment this gauge's cell drains.
+
+    A gauge coordinate is not on the flow path the DEM produced, and the
+    delineation says so for the outlet: it reports the distance its snap moved
+    the point. Nothing said it for a gauge, so a station landing two cells off
+    the talweg was scored on a fraction of the basin with no trace. There is no
+    universal threshold to veto on, so the number is stated on every run and
+    published beside the cost, the way the catchment coverage already is.
+    """
+    geo = getattr(getattr(ctx, "setup", None), "geographic", None)
+    catchment_km2 = float(getattr(geo, "catch_area", 0.0) or 0.0)
+    if catchment_km2 <= 0.0 or area_m2 <= 0.0:
+        return None
+    fraction = (area_m2 / 1e6) / catchment_km2
+    logger.info(
+        "Gauge %s%s sits on a cell draining %.3f km2, %.1f%% of the %.3f km2 delineated "
+        "catchment. A share far from the one the gauge really commands means the station did "
+        "not land on the routed talweg.",
+        station,
+        f" (output {where!r})" if where else "",
+        area_m2 / 1e6,
+        100.0 * fraction,
+        catchment_km2,
+    )
+    return fraction
 
 
 def _is_a_gauge_comparable_discharge(output: Any, request: ObservableRequest) -> bool:
@@ -494,7 +529,7 @@ def resolve_station_cells(
         return {}
     cells: dict[str, tuple[int, int, int]] = {}
     for obs_rec in observed:
-        cell = _cell_of_one_station(ctx, records, obs_rec.station_id)
+        cell = _cell_of_one_station(ctx, records, obs_rec.station_id, variable=variable)
         if cell is not None:
             cells[obs_rec.station_id] = cell
     return cells
@@ -512,10 +547,12 @@ def cell_for_station(ctx: Any, station_id: str, *, variable: str) -> tuple[int, 
     records = getattr(ctx.loaded_data, OBSERVED_FAMILIES.get(variable, variable), None)
     if records is None:
         return None
-    return _cell_of_one_station(ctx, records, str(station_id))
+    return _cell_of_one_station(ctx, records, str(station_id), variable=variable)
 
 
-def _cell_of_one_station(ctx: Any, records: Any, station_id: str) -> tuple[int, int, int] | None:
+def _cell_of_one_station(
+    ctx: Any, records: Any, station_id: str, *, variable: str = "head"
+) -> tuple[int, int, int] | None:
     for rec in getattr(records, "points", None) or []:
         if str(rec.station_id) != station_id:
             continue
@@ -527,12 +564,28 @@ def _cell_of_one_station(ctx: Any, records: Any, station_id: str) -> tuple[int, 
                 getattr(rec, "cell", None) or getattr(rec, "station_cell", None)
             )
         )
-        if cell is None:
+        if cell is None and _a_coordinate_locates_this_variable(variable):
             xy = _xy_from_record(rec)
             if xy is not None:
                 cell = find_cell_at_point(ctx, xy[0], xy[1])
         return cell
     return None
+
+
+def _a_coordinate_locates_this_variable(variable: str) -> bool:
+    """Tell whether a coordinate is enough to say which cell a variable is read at.
+
+    A head is read at the cell the point falls in, and nothing upstream enters it.
+    A discharge is not: it is the flow accumulated over everything that drains to
+    that cell, so the cell has to be the one the routing actually passes through.
+    Measured on Nancon at the basin outlet, both the gauge's own coordinate and
+    the snapped outlet resolve to cells the solver reports as draining 0.107 and
+    0.022 km2 of a 64.631 km2 catchment, two tenths and three hundredths of a per
+    cent. Until that is reconciled, a discharge station is not located by its
+    coordinate and the catchment total is used, which is the quantity an outlet
+    gauge measures and what this route has always returned.
+    """
+    return str(variable) != "discharge"
 
 
 def _coerce_cell_ij(value: Any) -> tuple[int, int, int] | None:
@@ -622,6 +675,7 @@ __all__ = [
     "score_network_output",
     "find_cell_at_point",
     "observable_request_for_output",
+    "report_the_area_a_gauge_drains",
     "observable_series",
     "point_xy_from_output",
     "require_release_flux_unit",

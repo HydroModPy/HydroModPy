@@ -56,40 +56,49 @@ def ctx(monkeypatch):
     return seen
 
 
-def _ctx_with(record: PointRecord) -> SimpleNamespace:
-    return SimpleNamespace(loaded_data=SimpleNamespace(hydrometry=SimpleNamespace(points=[record])))
-
-
-def test_a_gauge_is_located_at_the_coordinates_its_record_carries(ctx) -> None:
-    cell = cell_for_station(
-        _ctx_with(_record("NANCON", located=True)), "NANCON", variable="discharge"
+def _ctx_with(record: PointRecord, *, geographic: SimpleNamespace | None = None) -> SimpleNamespace:
+    return SimpleNamespace(
+        loaded_data=SimpleNamespace(
+            hydrometry=SimpleNamespace(points=[record]),
+            piezometry=SimpleNamespace(points=[record]),
+        ),
+        setup=SimpleNamespace(geographic=geographic),
     )
+
+
+def test_a_piezometer_is_located_at_the_coordinates_its_record_carries(ctx) -> None:
+    cell = cell_for_station(_ctx_with(_record("P1", located=True)), "P1", variable="head")
     assert cell == CELL
     assert ctx["xy"] == pytest.approx(GAUGE_XY)
+
+
+def test_a_gauge_is_not_located_by_a_coordinate_at_all(ctx) -> None:
+    # A head is read at the cell the point falls in; a discharge is the flow
+    # accumulated over everything draining to it, and the cell a coordinate lands
+    # in was measured on Nancon to drain two tenths of a per cent of the basin.
+    assert (
+        cell_for_station(_ctx_with(_record("NANCON", located=True)), "NANCON", variable="discharge")
+        is None
+    )
+    assert "xy" not in ctx
 
 
 def test_a_record_with_no_location_resolves_to_nothing(ctx) -> None:
     # Refusing to guess is the point: the caller then says so instead of
     # substituting a different quantity without a word.
-    assert (
-        cell_for_station(
-            _ctx_with(_record("NANCON", located=False)), "NANCON", variable="discharge"
-        )
-        is None
-    )
+    assert cell_for_station(_ctx_with(_record("P1", located=False)), "P1", variable="head") is None
 
 
 def test_the_batch_resolver_uses_the_same_lookup(ctx) -> None:
     cells = resolve_station_cells(
-        _ctx_with(_record("NANCON", located=True)),
-        [ObservedSeries(station_id="NANCON", variable="discharge", series=pd.Series(dtype=float))],
-        variable="discharge",
+        _ctx_with(_record("P1", located=True)),
+        [ObservedSeries(station_id="P1", variable="head", series=pd.Series(dtype=float))],
+        variable="head",
     )
-    assert cells == {"NANCON": CELL}
+    assert cells == {"P1": CELL}
 
 
 def test_an_unknown_station_resolves_to_nothing(ctx) -> None:
     assert (
-        cell_for_station(_ctx_with(_record("OTHER", located=True)), "NANCON", variable="discharge")
-        is None
+        cell_for_station(_ctx_with(_record("OTHER", located=True)), "P1", variable="head") is None
     )
