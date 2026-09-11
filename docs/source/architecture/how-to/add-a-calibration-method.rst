@@ -186,10 +186,12 @@ Why a linearized covariance is not declared beside it
 
 FOSM would give standard deviations *and* correlations for the price of one run
 per parameter, which is cheaper than restarting the whole search. It is not
-declared, and the obstacle is one line of the contract rather than the arithmetic:
-:class:`EvaluationResult` carries ``objective_value``, a scalar, and ``components``,
-a mapping of scalar diagnostics. A Jacobian is built from the simulated value *at
-each observation*, and no trial returns that vector.
+declared, and the obstacle is one signature rather than the arithmetic. The metric
+function a trial is scored through returns ``(float, dict[str, float])``: a cost and
+scalar diagnostics. The paired simulated vectors exist in its own scope and are
+dropped on the way out, and ``components`` cannot carry them, being written a column
+at a time into the iteration table. A Jacobian is built from the simulated value *at
+each observation*.
 
 So the first change is to the objective's return contract and its callers, which is
 the same axis the ``observes`` bridge cost, and only then the perturbation loop and
