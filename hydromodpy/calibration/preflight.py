@@ -338,6 +338,24 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
 
     known = set(available_optimizers())
     findings: list[PreflightFinding] = []
+    uncertainty = getattr(calibration, "uncertainty", None)
+    if getattr(uncertainty, "method", None) == "linearized":
+        observing = [
+            name
+            for name, decl in (calibration.outputs or {}).items()
+            if getattr(decl, "observes", None) is not None
+        ]
+        if not observing:
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    "[calibration.uncertainty]",
+                    "method='linearized' is built from residuals, and no output names a "
+                    'station to be compared against. Declare observes = "<station>" on the '
+                    "outputs this calibration is fitted to, or use method='cost_profile', "
+                    "which reads the trace instead.",
+                )
+            )
     restarts = getattr(getattr(calibration, "uncertainty", None), "restarts", None)
     for where, method, tolerance, kwargs in _declared_precisions(calibration):
         if restarts is not None and method in known:

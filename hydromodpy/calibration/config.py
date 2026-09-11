@@ -852,7 +852,7 @@ class CalibUncertaintyDecl(HydroModelBase):
     trace and not a posterior.
     """
 
-    method: Annotated[Literal["cost_profile", "multistart"], Profile.USER] = Field(
+    method: Annotated[Literal["cost_profile", "multistart", "linearized"], Profile.USER] = Field(
         default="cost_profile",
         description=(
             "How the interval around each calibrated value is obtained. "
@@ -876,6 +876,21 @@ class CalibUncertaintyDecl(HydroModelBase):
             "hundred model runs."
         ),
     )
+    perturbation: Annotated[PositiveFloat | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Relative step the derivatives of method='linearized' are taken with, as a "
+            "fraction of each calibrated value: 0.01 moves it by one per cent. Required by "
+            "it and refused by any other method. Too small and the difference is solver "
+            "noise; too large and it is no longer a derivative. One per cent is the usual "
+            "starting point, and the honest check is to move it and see whether the "
+            "reported width moves with it. 'linearized' costs one model run per parameter, "
+            "reads derivatives around the answer instead of searching again, and is the "
+            "only declared method that also reports which parameters trade off against "
+            "which. It is first-order: exact where the model is linear about the optimum, "
+            "approximate in proportion to the curvature, and not a posterior."
+        ),
+    )
 
     @model_validator(mode="after")
     def _check_the_restarts_have_something_to_restart(self) -> CalibUncertaintyDecl:
@@ -884,6 +899,18 @@ class CalibUncertaintyDecl(HydroModelBase):
                 "[calibration.uncertainty] method='multistart' needs 'restarts': it says "
                 "how many times the whole search is repeated, and each one costs a full "
                 "search."
+            )
+        if self.method == "linearized" and self.perturbation is None:
+            raise ValueError(
+                "[calibration.uncertainty] method='linearized' needs 'perturbation': it "
+                "is the relative step its derivatives are taken with, and there is no "
+                "universal value because it trades solver noise against curvature."
+            )
+        if self.method != "linearized" and self.perturbation is not None:
+            raise ValueError(
+                f"[calibration.uncertainty] perturbation={self.perturbation!r} is only "
+                f"read by method='linearized'; got method={self.method!r}, which takes no "
+                "derivatives."
             )
         if self.method != "multistart" and self.restarts is not None:
             raise ValueError(

@@ -81,6 +81,11 @@ class CalibrationReport:
     save_runs: str
     promoted: int
     best_parameters: dict[str, float] | None = None
+    parameter_uncertainty: tuple[Any, ...] = ()
+    """Width beside each calibrated value, when the file asked for one.
+
+    Empty unless ``[calibration.uncertainty]`` declared a method that produces it.
+    The values themselves are in ``best_parameters`` and are never touched by it."""
     workspace: Path | None = None
     extra: dict[str, Any] = field(default_factory=dict)
     store_factory: Callable[[Path], Any] | None = field(
@@ -142,6 +147,10 @@ class CalibrationReport:
         }
         if self.best_parameters is not None:
             payload["best_parameters"] = dict(self.best_parameters)
+        if self.parameter_uncertainty:
+            payload["parameter_uncertainty"] = [
+                item.to_dict() for item in self.parameter_uncertainty
+            ]
         if self.workspace is not None:
             payload["workspace"] = str(self.workspace)
         if self.extra:
