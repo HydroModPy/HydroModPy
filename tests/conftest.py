@@ -330,7 +330,11 @@ def pytest_collection_modifyitems(config, items):
         # 1) Auto-tag layer marker by path + default timeout.
         for layer in _LAYER_DIR_NAMES:
             if layer in parts:
-                if layer not in item.keywords:
+                # Test `iter_markers`, not `keywords`: pytest already seeds
+                # `keywords` with every ancestor directory name, so `unit` is
+                # always in there for `tests/unit/...` and the marker would
+                # never be added. `-m unit` then selects nothing.
+                if not any(mark.name == layer for mark in item.iter_markers()):
                     item.add_marker(getattr(pytest.mark, layer))
                 if not any(mark.name == "timeout" for mark in item.iter_markers()):
                     item.add_marker(pytest.mark.timeout(_LAYER_TIMEOUTS_SECONDS[layer]))
@@ -349,15 +353,18 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.xdist_group(name=_WHITEBOX_XDIST_GROUP))
 
         # 2) Regression tier default markers (fast vs extensive).
-        is_regression_file = "regression" in parts
-        is_regression_test = "regression" in item.keywords
-        if is_regression_file and is_regression_test:
-            if "fast" in item.keywords or "extensive" in item.keywords:
-                continue
-            if "extensive" in parts:
-                item.add_marker(pytest.mark.extensive)
-            else:
-                item.add_marker(pytest.mark.fast)
+        # Same trap as the layer marker above: `keywords` carries every ancestor
+        # directory name, so "fast" and "extensive" are always in there for a
+        # test living under tests/regression/fast/ or /extensive/. Reading
+        # keywords here made the guard always fire, the marker was never added,
+        # and `pytest -m "regression and fast"` selected nothing.
+        if "regression" in parts:
+            tier = "extensive" if "extensive" in parts else "fast"
+            own = {mark.name for mark in item.iter_markers()}
+            if "regression" not in own:
+                item.add_marker(pytest.mark.regression)
+            if not own & {"fast", "extensive"}:
+                item.add_marker(getattr(pytest.mark, tier))
 
 
 def pytest_runtest_setup(item):
