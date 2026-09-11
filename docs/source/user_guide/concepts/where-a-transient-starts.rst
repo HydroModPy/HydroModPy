@@ -136,13 +136,42 @@ parameter set, so every trial of a search that moves the conductivity would
 start from the antecedent of a different aquifer. The key is for chaining
 production runs, not for scoring trials.
 
-One case therefore has no answer today: a system whose memory is longer than a
-single steady solve carries *and* whose properties are being calibrated. Cyclic
-spin-up is what that case wants, and ``hmp spinup`` runs before the search rather
-than inside it, so it cannot be redone per trial. What is available is to cycle
-outside the search and say so, which means the reported parameters carry the
-antecedent of whatever parameter set the spin-up used. Treat it as part of the
-result and test it the way the last paragraph of this page says.
+That case has an answer: ``flow.ic.type = "spinup_cyclic"``.
+
+.. code-block:: toml
+
+   [flow.ic]
+   type = "spinup_cyclic"
+   max_cycles = 4
+   tol_head = "0.01 m"
+   first_cycle_from = "top"
+
+The simulated period is repeated, each cycle starting from the head field the
+previous one ended on, until the largest change anywhere falls below ``tol_head``.
+The cycle is the simulated period itself rather than a window chosen separately,
+which is what makes the antecedent consistent with the forcing that is scored, and
+what lets a calibration trial use it: the cycles are auxiliary solves inside one
+run, exactly as ``steady_state`` already is, and they never touch the run's store.
+
+Two things it says out loud. The measure is the *largest* change, not the mean: a
+basin settled on average while one compartment still drifts has not settled, and
+averaging is how that gets missed. And a loop that runs out of cycles hands back its
+last state with a warning naming ``max_cycles`` and ``tol_head``, rather than
+reporting a convergence that did not happen.
+
+What it costs is one extra solve per cycle, per run. Inside a calibration that is
+per trial, so a four-cycle spin-up multiplies a hundred-evaluation phase by five.
+Start from ``steady_state``, and pay for this when moving it changes what you
+report.
+
+It is MODFLOW 6 only today. A backend that cannot repeat its own period declares so,
+and a file asking for it there is refused by name rather than started from the
+declared initial condition in silence.
+
+What is available is to cycle outside the search and say so, which means the
+reported parameters carry the antecedent of whatever parameter set the spin-up used.
+Treat it as part of the result and test it the way the last paragraph of this page
+says.
 
 Choosing
 --------
@@ -164,8 +193,12 @@ Choosing
      - ``steady_state`` with ``source = "prescribed"``
      - Their windows differ, so their means differ, and their starts would too.
    * - The system's memory is longer than one steady solve carries
+     - ``spinup_cyclic``
+     - Cycling reaches the state the forcing actually produces, inside the run, so
+       a calibration trial gets it at its own parameters.
+   * - The same memory, outside a search, reused by many runs
      - ``hmp spinup`` then ``restart_from``
-     - Cycling reaches the state the forcing actually produces.
+     - Computed once and read from disk after that.
    * - The same antecedent is reused by many runs
      - ``restart_from``
      - It is computed once and read from disk after that.

@@ -27,6 +27,7 @@ from __future__ import annotations
 import time
 import uuid
 from collections.abc import Iterable, Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -372,6 +373,87 @@ def _tolerance_intervals_or_none(
             exc,
         )
         return []
+
+
+def attach_a_linearized_width(
+    report: CalibrationReport,
+    *,
+    cfg: CalibrationConfig,
+    trial_ctx: TrialContext,
+    space: ParameterSpace,
+    perturbation: float,
+) -> CalibrationReport:
+    """Attach a first-order width to the answer the search returned.
+
+    One model run per parameter, around the optimum, and the optimum itself is not
+    re-run: the derivatives are taken from the reference the caller already paid for.
+    A calibration whose parameters the data cannot separate is refused a width rather
+    than given a fabricated one, and the failure says which.
+    """
+    import numpy as np
+
+    from hydromodpy.calibration.metrics.composite import build_paired_vector_capture
+    from hydromodpy.calibration.optim.fosm import (
+        forward_difference_jacobian,
+        linearized_covariance,
+        uncertainty_from_covariance,
+    )
+    from hydromodpy.calibration.runners.trial import run_trial_light
+
+    if not report.best_parameters:
+        logger.warning("No candidate was scored, so there is no answer to put a width beside.")
+        return report
+
+    capture_fn, captured = build_paired_vector_capture(
+        cfg.outputs or {},
+        ctx=trial_ctx.ctx,
+        scoring_window=scoring_window_bounds(cfg.scoring_window),
+        min_samples=int(cfg.aggregate.min_samples),
+    )
+
+    def _simulate(values):
+        run_trial_light(
+            trial_ctx,
+            dict(values),
+            objective=cfg.objective,
+            variable=cfg.variable,
+            metric_fn=capture_fn,
+            trial_id=-1,
+            reject_water_budget_above=cfg.reject_water_budget_above,
+        )
+        return np.asarray(captured["simulated"], dtype=float)
+
+    names = [name for name in space.names if name in report.best_parameters]
+    logger.info(
+        "Taking %d derivative(s) around the answer at a %.3g relative step; the calibrated "
+        "values do not move.",
+        len(names),
+        perturbation,
+    )
+    jacobian = forward_difference_jacobian(
+        names, report.best_parameters, _simulate, relative_step=perturbation
+    )
+    residuals = np.asarray(captured["simulated"], dtype=float) - np.asarray(
+        captured["observed"], dtype=float
+    )
+    try:
+        covariance = linearized_covariance(jacobian, residuals)
+    except ValueError as exc:
+        logger.warning("No width is reported: %s", exc)
+        return report
+    widths = uncertainty_from_covariance(names, report.best_parameters, covariance)
+    for item in widths:
+        tradeoff = item.strongest_tradeoff()
+        logger.info(
+            "%s = %.4g +- %.4g%s",
+            item.parameter,
+            item.value,
+            item.sigma,
+            ""
+            if tradeoff is None
+            else f", correlated {tradeoff[1]:+.2f} with {tradeoff[0]}",
+        )
+    return replace(report, parameter_uncertainty=widths)
 
 
 def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: Any) -> dict:
@@ -852,6 +934,15 @@ def run_calibration_cli(
                 if item.spans_a_decade
                 else "",
             )
+    elif getattr(uncertainty, "method", None) == "linearized":
+        report = _one_search(cfg.seed or 0, None)
+        report = attach_a_linearized_width(
+            report,
+            cfg=cfg,
+            trial_ctx=trial_ctx,
+            space=space,
+            perturbation=float(uncertainty.perturbation),
+        )
     else:
         report = _one_search(cfg.seed or 0, None)
     if return_report:
@@ -859,4 +950,9 @@ def run_calibration_cli(
     return report.to_dict()
 
 
-__all__ = ["load_toml_calibration", "run_calibration_cli", "run_calibration_core"]
+__all__ = [
+    "attach_a_linearized_width",
+    "load_toml_calibration",
+    "run_calibration_cli",
+    "run_calibration_core",
+]

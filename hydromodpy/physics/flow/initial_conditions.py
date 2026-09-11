@@ -180,8 +180,72 @@ class FlowICSteadyState(_FlowICBase):
         return self
 
 
+class FlowICSpinupCyclic(_FlowICBase):
+    """Initialize a transient run by repeating it until the state stops moving.
+
+    A steady solve carries the forcing's mean and nothing of its history, which is
+    the right start for an aquifer whose response time is short against the record.
+    It is the wrong one for a deep aquifer, or a lake whose storage integrates
+    several seasons: the state those reach depends on the sequence, not the average.
+
+    So the run's own period is repeated, each cycle starting from the head field the
+    previous one ended on, until the largest change between two cycles falls below
+    ``tol_head``. The cycle is the simulated period itself rather than a window
+    chosen separately, which is what makes the antecedent consistent with the
+    forcing that is scored, and what lets a calibration trial use it: the cycles are
+    auxiliary solves inside one run, exactly as ``steady_state`` already is.
+
+    It costs one extra solve per cycle, per run. Inside a calibration that is per
+    trial, so a five-cycle spin-up multiplies a hundred-evaluation phase by six.
+    """
+
+    units: Annotated[str, Profile.DEV] = Field(
+        "m",
+        description="Runtime unit for the initial hydraulic-head field.",
+        json_schema_extra=field_metadata(toml_exclude=True),
+    )
+    type: Annotated[Literal["spinup_cyclic"], Profile.USER] = Field(
+        "spinup_cyclic",
+        description=(
+            "Repeat the simulated period, each cycle starting from the state the "
+            "previous one ended on, until the head field stops moving."
+        ),
+    )
+    max_cycles: Annotated[int, Profile.USER] = Field(
+        4,
+        ge=1,
+        le=50,
+        description=(
+            "Most cycles the loop may run. A loop that runs out of cycles still hands "
+            "back its last state and says so, rather than reporting a convergence that "
+            "did not happen."
+        ),
+    )
+    tol_head: Annotated[Length, Profile.USER] = Field(
+        "0.01 m",
+        description=(
+            "Largest head change between two cycles that counts as settled, anywhere in "
+            "the domain. One centimetre is a starting point; the honest check is to "
+            "loosen it and see whether what you report moves."
+        ),
+    )
+    first_cycle_from: Annotated[Literal["top", "steady_state"], Profile.USER] = Field(
+        "top",
+        description=(
+            "Where cycle one starts. 'top' is the water table at the surface, which the "
+            "cycling then drains. 'steady_state' starts from the equilibrium under the "
+            "mean forcing, which is closer and usually saves a cycle."
+        ),
+    )
+
+
 FlowInitialCondition: TypeAlias = Annotated[
-    FlowICTop | FlowICTopOffset | FlowICBottom | FlowICCustom | FlowICSteadyState,
+    FlowICTop
+    | FlowICTopOffset
+    | FlowICBottom
+    | FlowICCustom
+    | FlowICSteadyState
+    | FlowICSpinupCyclic,
     Field(discriminator="type", description="Flow initial-condition type discriminator."),
 ]
 """Discriminated union of flow initial-condition variants."""
@@ -224,6 +288,7 @@ class FlowInitialConditions(HydroModelBase):
 __all__ = [
     "FlowICBottom",
     "FlowICCustom",
+    "FlowICSpinupCyclic",
     "FlowICSteadyState",
     "FlowICTop",
     "FlowICTopOffset",

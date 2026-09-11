@@ -181,6 +181,38 @@ So the best restart IS the answer, unchanged in kind from a single search, and t
 spread is reported next to it, with a parameter whose optima span more than a
 factor ten flagged as not identified by that calibration.
 
+The linearized width beside it
+------------------------------
+
+``method = "linearized"`` reads derivatives around the answer instead of searching
+again: one model run per parameter, and it is the only declared method that also
+says which parameters trade off against which. Two parameters correlated at 0.99
+were not identified separately, whatever their individual widths look like, and a
+spread of optima cannot tell you that.
+
+It asks nothing of an engine. What it needs is the simulated value *at each
+observation*, and it reads that through ``build_paired_vector_capture``, a second
+reader over the same two public steps the scoring path uses,
+``extract_outputs`` and ``pair_outputs_with_observations``. The metric function's
+return stays ``(float, dict[str, float])``: nothing widened to make room for a
+vector.
+
+Three refusals carry the method's honesty, and a new one should follow the same
+rule of saying which:
+
+- an output that names no station: there are no residuals, refused in the
+  preflight before the search runs;
+- fewer observations than parameters: no degrees of freedom, so no residual
+  variance to give the covariance its scale;
+- a singular ``J'J``: the data cannot separate the parameters, so the value is
+  reported and no width is.
+
+The first-order caveat is stated rather than buried. The covariance is exact where
+the model is linear about the optimum and approximate in proportion to the
+curvature, and it is not a posterior: it carries no prior. The unit test holds it
+against the closed form on a linear model, which is the only place the two must
+agree exactly.
+
 Optional dependencies
 ---------------------
 

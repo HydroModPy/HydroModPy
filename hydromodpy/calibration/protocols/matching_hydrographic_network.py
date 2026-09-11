@@ -243,6 +243,23 @@ class MatchingHydrographicNetwork:
             ),
         ),
         Deviation(
+            key="diagonal_neighbors",
+            paper="the descent follows a D8 flowpath, which is what "
+            "wbt.downslope_distance_to_stream traces",
+            here="false by default, a descent over shared edges only, which is D4",
+            why=(
+                "a D4 descent cannot follow a talweg that runs diagonally across a "
+                "square grid, and the delineation that produces the catchment uses a D8 "
+                "pointer, so the criterion and the basin it is masked to do not descend "
+                "the same way. Measured on a synthetic diagonal valley, the most "
+                "accumulated cell collects 6.6 per cent of the domain under shared edges "
+                "and 100 per cent under shared nodes; measured on Nancon, the cell at the "
+                "basin outlet drains 0.107 of 64.631 km2. Setting it true returns to the "
+                "publication and changes every result obtained without it, which is why "
+                "the default has not been moved."
+            ),
+        ),
+        Deviation(
             key="weighting",
             paper="one cell one vote",
             here="'cell' by default, the paper's value; 'area' is offered and departs",

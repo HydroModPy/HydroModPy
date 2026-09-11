@@ -42,6 +42,7 @@ Enriched TOML (twin-benchmark style)::
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Any, Literal, TypeAlias
 
@@ -852,7 +853,7 @@ class CalibUncertaintyDecl(HydroModelBase):
     trace and not a posterior.
     """
 
-    method: Annotated[Literal["cost_profile", "multistart"], Profile.USER] = Field(
+    method: Annotated[Literal["cost_profile", "multistart", "linearized"], Profile.USER] = Field(
         default="cost_profile",
         description=(
             "How the interval around each calibrated value is obtained. "
@@ -876,6 +877,48 @@ class CalibUncertaintyDecl(HydroModelBase):
             "hundred model runs."
         ),
     )
+    perturbation: Annotated[PositiveFloat | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Relative step the derivatives of method='linearized' are taken with, as a "
+            "fraction of each calibrated value: 0.01 moves it by one per cent. Required by "
+            "it and refused by any other method. Too small and the difference is solver "
+            "noise; too large and it is no longer a derivative. One per cent is the usual "
+            "starting point, and the honest check is to move it and see whether the "
+            "reported width moves with it. 'linearized' costs one model run per parameter, "
+            "reads derivatives around the answer instead of searching again, and is the "
+            "only declared method that also reports which parameters trade off against "
+            "which. It is first-order: exact where the model is linear about the optimum, "
+            "approximate in proportion to the curvature, and not a posterior."
+        ),
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _say_why_a_posterior_is_not_one_of_these(cls, data: Any) -> Any:
+        """Answer the word an operator will reasonably type, instead of an enum error.
+
+        'posterior' is the obvious name for anyone who has read PEST or pyEMU, and
+        the reason it is not offered is a position rather than an omission. Leaving
+        them a bare list of three literals sends them looking for a bug.
+        """
+        if isinstance(data, Mapping) and str(data.get("method", "")).strip() == "posterior":
+            raise ValueError(
+                "[calibration.uncertainty] method='posterior' is not offered, and the "
+                "reason is worth stating rather than hiding behind a list. A posterior "
+                "is a statement about probability, so it needs a likelihood, and a "
+                "likelihood needs a criterion built from residuals with an error model "
+                "on each observation. An efficiency score is not one: NSE, KGE and "
+                "nse_log are aggregates already stripped of their units, and a "
+                "posterior computed from one would carry a precision nothing "
+                "established. Sampling it also costs thousands of model runs, not the "
+                "one per parameter that 'linearized' costs. Use 'linearized', which "
+                "reports a first-order width and the parameter tradeoffs from "
+                "residuals, or 'multistart', which reports the spread of restarted "
+                "searches, and say in the write-up which of the two the number rests "
+                "on."
+            )
+        return data
 
     @model_validator(mode="after")
     def _check_the_restarts_have_something_to_restart(self) -> CalibUncertaintyDecl:
@@ -884,6 +927,18 @@ class CalibUncertaintyDecl(HydroModelBase):
                 "[calibration.uncertainty] method='multistart' needs 'restarts': it says "
                 "how many times the whole search is repeated, and each one costs a full "
                 "search."
+            )
+        if self.method == "linearized" and self.perturbation is None:
+            raise ValueError(
+                "[calibration.uncertainty] method='linearized' needs 'perturbation': it "
+                "is the relative step its derivatives are taken with, and there is no "
+                "universal value because it trades solver noise against curvature."
+            )
+        if self.method != "linearized" and self.perturbation is not None:
+            raise ValueError(
+                f"[calibration.uncertainty] perturbation={self.perturbation!r} is only "
+                f"read by method='linearized'; got method={self.method!r}, which takes no "
+                "derivatives."
             )
         if self.method != "multistart" and self.restarts is not None:
             raise ValueError(

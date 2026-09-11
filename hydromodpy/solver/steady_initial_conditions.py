@@ -9,6 +9,7 @@ from pydantic import TypeAdapter
 
 from hydromodpy.core.units import FluxDensityMPerS
 from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+from hydromodpy.core.units.types import LengthMeters
 from hydromodpy.physics.flow.initial_conditions import (
     FlowICTop,
     FlowICTopOffset,
@@ -22,6 +23,7 @@ from hydromodpy.solver.initial_conditions import (
 )
 
 _RATE_ADAPTER: TypeAdapter[float] = TypeAdapter(FluxDensityMPerS)
+_LENGTH_ADAPTER: TypeAdapter[float] = TypeAdapter(LengthMeters)
 
 
 @dataclass(frozen=True)
@@ -33,6 +35,101 @@ class SteadyStateInitialConditionStrategy:
     boundary_condition_policy: str = "first_period"
     rate_m_s: float | None = None
     """Rate the steady solve is held at, set only by ``source='prescribed'``."""
+
+
+@dataclass(frozen=True)
+class CyclicSpinupStrategy:
+    """Validated payload for ``flow.ic.type='spinup_cyclic'``."""
+
+    max_cycles: int = 4
+    tol_head_m: float = 0.01
+    first_cycle_from: str = "top"
+
+
+def flow_uses_cyclic_spinup(flow: object) -> bool:
+    """Return whether the flow IC asks for the run's period to be repeated."""
+    head_ic = resolve_head_initial_condition(flow)
+    return head_initial_condition_type(head_ic) == "spinup_cyclic"
+
+
+def cyclic_spinup_strategy(flow: object) -> CyclicSpinupStrategy | None:
+    """Return the validated cyclic-spinup strategy, or ``None`` if unused."""
+    head_ic = resolve_head_initial_condition(flow)
+    if head_initial_condition_type(head_ic) != "spinup_cyclic":
+        return None
+    max_cycles = int(initial_condition_field(head_ic, "max_cycles", 4) or 4)
+    if max_cycles < 1:
+        raise ValueError("flow.ic.max_cycles has to be at least one cycle.")
+    raw_tol = initial_condition_field(head_ic, "tol_head", 0.01)
+    tol = _LENGTH_ADAPTER.validate_python(raw_tol if raw_tol is not None else 0.01)
+    if tol <= 0.0:
+        raise ValueError(
+            "flow.ic.tol_head has to be strictly positive: it is the head change below "
+            "which two cycles count as the same state."
+        )
+    first = str(initial_condition_field(head_ic, "first_cycle_from", "top") or "top").strip()
+    if first not in {"top", "steady_state"}:
+        raise ValueError("flow.ic.first_cycle_from must be 'top' or 'steady_state'")
+    return CyclicSpinupStrategy(
+        max_cycles=max_cycles, tol_head_m=float(tol), first_cycle_from=first
+    )
+
+
+def cycles_have_settled(previous: object, current: object, *, tol_head_m: float) -> bool:
+    """Tell whether two consecutive cycles ended on the same state.
+
+    The measure is the largest change anywhere, not a mean: a basin settled on
+    average while one compartment still drifts has not settled, and averaging is how
+    that gets missed. Cells that are inactive in either cycle are left out; a cell
+    that is dry in one and wet in the other is a change and counts.
+    """
+    import numpy as np
+
+    if previous is None or current is None:
+        return False
+    before = np.asarray(previous, dtype=float).ravel()
+    after = np.asarray(current, dtype=float).ravel()
+    if before.shape != after.shape:
+        raise ValueError(
+            f"two cycles returned {before.size} and {after.size} head value(s); they have "
+            "to be the same mesh."
+        )
+    both_finite = np.isfinite(before) & np.isfinite(after)
+    if not both_finite.any():
+        return False
+    if np.any(np.isfinite(before) != np.isfinite(after)):
+        return False
+    return bool(np.max(np.abs(after[both_finite] - before[both_finite])) <= float(tol_head_m))
+
+
+def cyclic_flow_copy_for_initialization(flow: object) -> object:
+    """Return a flow copy for one spin-up cycle, with the cycling REMOVED.
+
+    This is the whole reason the function exists. A cycle runs an auxiliary model
+    built from a copy of the real flow, and that copy still asked for a cyclic
+    spin-up, so the auxiliary model re-entered the same hook and spun up cycles of
+    its own. Measured before it was fixed: a three-cycle spin-up ran 143 solves and
+    was stopped by the machine, not by the loop. The copy therefore starts from the
+    top surface, exactly as the steady initialization's copy does, and the caller
+    overwrites that with the previous cycle's heads.
+    """
+    cycle_flow = copy.deepcopy(flow)
+    cycle_ic = FlowInitialConditions(
+        h=FlowICTop(id="h", units="m", description="Start of one cyclic spin-up cycle")
+    )
+    flow_config = getattr(cycle_flow, "config", None)
+    if flow_config is not None and hasattr(flow_config, "model_copy"):
+        cycle_flow.config = flow_config.model_copy(update={"ic": cycle_ic})
+    if hasattr(cycle_flow, "set_initial_conditions"):
+        cycle_flow.set_initial_conditions(cycle_ic)
+    else:
+        cycle_flow.initial_conditions = cycle_ic
+        cycle_flow.initial_condition_types = {"h": "top"}
+    if flow_uses_cyclic_spinup(cycle_flow):
+        raise AssertionError(
+            "a spin-up cycle's flow still asks for a cyclic spin-up; it would recurse."
+        )
+    return cycle_flow
 
 
 def flow_uses_steady_state_initial_condition(flow: object) -> bool:
@@ -188,8 +285,13 @@ def steady_flow_copy_for_initialization(flow: object) -> object:
 
 
 __all__ = [
+    "CyclicSpinupStrategy",
     "SteadyStateInitialConditionStrategy",
     "apply_steady_state_initial_condition_strategy",
+    "cycles_have_settled",
+    "cyclic_flow_copy_for_initialization",
+    "cyclic_spinup_strategy",
+    "flow_uses_cyclic_spinup",
     "flow_uses_steady_state_initial_condition",
     "steady_flow_copy_for_initialization",
     "steady_state_initialization_surface_interaction_model",

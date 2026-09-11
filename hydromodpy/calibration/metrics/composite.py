@@ -471,4 +471,59 @@ def _build_composite_metric_extractor(
     return metric_fn
 
 
-__all__ = ["build_metric_extractor"]
+def build_paired_vector_capture(
+    outputs: Mapping[str, CalibOutputDecl],
+    *,
+    ctx: Any,
+    scoring_window: tuple[Any, Any] | None = None,
+    min_samples: int = 1,
+) -> tuple[Callable[..., tuple[float, dict[str, float]]], dict[str, Any]]:
+    """Return a metric function that keeps the paired vectors instead of a cost.
+
+    A linearized covariance needs the simulated value AT EACH OBSERVATION, which the
+    scoring path computes and then reduces to a cost. Rather than widen that return,
+    this builds a second reader over the same two public steps, ``extract_outputs``
+    and ``pair_outputs_with_observations``, and stashes the vectors it aligned. It
+    returns a cost of zero because nothing scores it: the caller is taking
+    derivatives, not ranking trials.
+
+    The order is fixed by sorting the output names, so the observations line up
+    between the reference run and every perturbed one. A run that pairs a different
+    number of samples is caught by the Jacobian, which refuses a ragged column.
+    """
+    observed_records = observed_series_for_outputs(outputs, ctx)
+    if not observed_records:
+        raise ValueError(
+            "a linearized covariance is built from residuals, and no calibration output "
+            "names a station to be compared against. Declare observes = \"<station>\" on "
+            "the outputs this calibration is fitted to."
+        )
+    captured: dict[str, Any] = {}
+
+    def metric_fn(trial_ctx: Any, *, objective: Any = None, variable: Any = None):
+        del objective, variable
+        extracted = extract_outputs(trial_ctx, outputs)
+        paired = pair_outputs_with_observations(
+            observed=observed_records,
+            simulated={
+                name: extracted.series[name]
+                for name in observed_records
+                if name in extracted.series
+            },
+            scoring_window=scoring_window,
+            min_samples=min_samples,
+        )
+        order = sorted(paired.simulated)
+        captured["simulated"] = np.concatenate(
+            [np.asarray(paired.simulated[name], dtype=float).ravel() for name in order]
+        )
+        captured["observed"] = np.concatenate(
+            [np.asarray(paired.observed[name], dtype=float).ravel() for name in order]
+        )
+        captured["order"] = tuple(order)
+        return 0.0, {}
+
+    return metric_fn, captured
+
+
+__all__ = ["build_metric_extractor", "build_paired_vector_capture"]
