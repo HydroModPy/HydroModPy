@@ -39,46 +39,66 @@ pytestmark = pytest.mark.fast
 
 
 class TestDataSourceUnion:
-    def test_dem_custom_variant_dispatch(self, tmp_path) -> None:
-        ta = TypeAdapter(DemSourceConfig)
-        instance = ta.validate_python({"source": "custom", "path": str(tmp_path / "x.tif")})
-        assert isinstance(instance, CustomDemSource)
-        assert instance.source == "custom"
+    DISPATCH_CASES = [
+        pytest.param(
+            DemSourceConfig,
+            {"source": "custom", "path": "dem.tif"},
+            CustomDemSource,
+            {"source": "custom"},
+            id="dem_custom",
+        ),
+        pytest.param(
+            DemSourceConfig,
+            {"source": "ign_geoplateforme_dem", "dataset": "bd-alti", "resolution_m": 25.0},
+            IgnGeoplateformeDemSource,
+            {"source": "ign_geoplateforme_dem", "dataset": "bd-alti"},
+            id="dem_ign_geoplateforme",
+        ),
+        pytest.param(
+            GeologySourceConfig,
+            {"source": "brgm_1m"},
+            BrgmGeology1mSource,
+            {},
+            id="geology_brgm_1m",
+        ),
+        pytest.param(
+            GeologySourceConfig,
+            {"source": "brgm_50k"},
+            BrgmGeology50kSource,
+            {},
+            id="geology_brgm_50k",
+        ),
+    ]
 
-    def test_dem_ign_geoplateforme_variant_dispatch(self) -> None:
-        ta = TypeAdapter(DemSourceConfig)
-        instance = ta.validate_python(
-            {
-                "source": "ign_geoplateforme_dem",
-                "dataset": "bd-alti",
-                "resolution_m": 25.0,
-            }
-        )
-        assert isinstance(instance, IgnGeoplateformeDemSource)
-        assert instance.source == "ign_geoplateforme_dem"
-        assert instance.dataset == "bd-alti"
+    @pytest.mark.parametrize(
+        ("union", "payload", "expected_type", "expected_attrs"), DISPATCH_CASES
+    )
+    def test_variant_dispatch(self, union, payload, expected_type, expected_attrs) -> None:
+        ta = TypeAdapter(union)
+        instance = ta.validate_python(payload)
+        assert isinstance(instance, expected_type)
+        for attr, value in expected_attrs.items():
+            assert getattr(instance, attr) == value
 
-    def test_geology_brgm_variant_dispatch(self) -> None:
-        ta = TypeAdapter(GeologySourceConfig)
-        c1 = ta.validate_python({"source": "brgm_1m"})
-        c2 = ta.validate_python({"source": "brgm_50k"})
-        assert isinstance(c1, BrgmGeology1mSource)
-        assert isinstance(c2, BrgmGeology50kSource)
+    REJECT_CASES = [
+        pytest.param(DemSourceConfig, {"source": "missing"}, id="dem_unknown_source"),
+        pytest.param(
+            DemSourceConfig,
+            {"source": "ign_bdalti", "resolution_m": 25.0},
+            id="dem_ign_bdalti_legacy_source_rejected",
+        ),
+        pytest.param(
+            DemSourceConfig,
+            {"source": "ign_geoplateforme_dem", "dataset": "rge-alti"},
+            id="dem_geoplateforme_rge_alti_dataset_rejected",
+        ),
+    ]
 
-    def test_unknown_source_rejected(self) -> None:
-        ta = TypeAdapter(DemSourceConfig)
+    @pytest.mark.parametrize(("union", "payload"), REJECT_CASES)
+    def test_variant_rejected(self, union, payload) -> None:
+        ta = TypeAdapter(union)
         with pytest.raises(ValidationError):
-            ta.validate_python({"source": "missing"})
-
-    def test_dem_ign_bdalti_source_rejected(self) -> None:
-        ta = TypeAdapter(DemSourceConfig)
-        with pytest.raises(ValidationError):
-            ta.validate_python({"source": "ign_bdalti", "resolution_m": 25.0})
-
-    def test_dem_geoplateforme_rge_alti_dataset_rejected(self) -> None:
-        ta = TypeAdapter(DemSourceConfig)
-        with pytest.raises(ValidationError):
-            ta.validate_python({"source": "ign_geoplateforme_dem", "dataset": "rge-alti"})
+            ta.validate_python(payload)
 
     def test_dem_custom_requires_path(self) -> None:
         with pytest.raises(ValidationError):
@@ -96,29 +116,38 @@ class TestDataSourceUnion:
 
 
 class TestSolverConfigUnion:
-    def test_modflow6_backend(self) -> None:
-        cfg = SolverConfig(backend={"backend": "modflow6"})
-        assert isinstance(cfg.backend, Modflow6Backend)
-        assert cfg.backend_name == "modflow6"
+    # expected_backend_name of None means the original test only checked the
+    # dispatched type, not SolverConfig.backend_name.
+    BACKEND_CASES = [
+        pytest.param({"backend": "modflow6"}, Modflow6Backend, "modflow6", id="modflow6_backend"),
+        pytest.param(
+            {"backend": "modflow_nwt"}, ModflowNwtBackend, "modflow_nwt", id="modflow_nwt_backend"
+        ),
+        pytest.param(
+            {"backend": "boussinesq"}, BoussinesqBackend, "boussinesq", id="boussinesq_backend"
+        ),
+        pytest.param(
+            {"backend": "custom", "name": "pluginsolver"},
+            CustomBackend,
+            "pluginsolver",
+            id="plugin_backend_via_custom",
+        ),
+        pytest.param(
+            {"backend": "modflow_nwt"},
+            ModflowNwtBackend,
+            None,
+            id="discriminated_payload_form",
+        ),
+    ]
 
-    def test_modflow_nwt_backend(self) -> None:
-        cfg = SolverConfig(backend={"backend": "modflow_nwt"})
-        assert isinstance(cfg.backend, ModflowNwtBackend)
-        assert cfg.backend_name == "modflow_nwt"
-
-    def test_boussinesq_backend(self) -> None:
-        cfg = SolverConfig(backend={"backend": "boussinesq"})
-        assert isinstance(cfg.backend, BoussinesqBackend)
-        assert cfg.backend_name == "boussinesq"
-
-    def test_plugin_backend_via_custom(self) -> None:
-        cfg = SolverConfig(backend={"backend": "custom", "name": "pluginsolver"})
-        assert isinstance(cfg.backend, CustomBackend)
-        assert cfg.backend_name == "pluginsolver"
-
-    def test_discriminated_payload_form(self) -> None:
-        cfg = SolverConfig(backend={"backend": "modflow_nwt"})
-        assert isinstance(cfg.backend, ModflowNwtBackend)
+    @pytest.mark.parametrize(
+        ("backend_payload", "expected_type", "expected_backend_name"), BACKEND_CASES
+    )
+    def test_backend_dispatch(self, backend_payload, expected_type, expected_backend_name) -> None:
+        cfg = SolverConfig(backend=backend_payload)
+        assert isinstance(cfg.backend, expected_type)
+        if expected_backend_name is not None:
+            assert cfg.backend_name == expected_backend_name
 
     def test_legacy_solver_engine_rejected(self) -> None:
         with pytest.raises(ValidationError):
@@ -131,35 +160,43 @@ class TestSolverConfigUnion:
 
 
 class TestSimulationProcessUnion:
-    def test_flow_variant_dispatch(self) -> None:
-        ta = TypeAdapter(SimulationProcessConfig)
-        instance = ta.validate_python({"id": "flow_main", "type": "flow", "solvers": ["modflow6"]})
-        assert isinstance(instance, FlowProcessConfig)
-        assert instance.solvers == ["modflow6"]
+    DISPATCH_CASES = [
+        pytest.param(
+            {"id": "flow_main", "type": "flow", "solvers": ["modflow6"]},
+            FlowProcessConfig,
+            {"solvers": ["modflow6"]},
+            id="flow_variant",
+        ),
+        pytest.param(
+            {"id": "tr1", "type": "transport", "solvers": ["mt3dms"]},
+            TransportProcessConfig,
+            {},
+            id="transport_variant",
+        ),
+        pytest.param(
+            {"id": "mesh_main", "type": "mesh"},
+            MeshProcessConfig,
+            {"backend": "catchment", "solvers": []},
+            id="mesh_variant_default_backend",
+        ),
+    ]
 
-    def test_transport_variant_dispatch(self) -> None:
+    @pytest.mark.parametrize(("payload", "expected_type", "expected_attrs"), DISPATCH_CASES)
+    def test_variant_dispatch(self, payload, expected_type, expected_attrs) -> None:
         ta = TypeAdapter(SimulationProcessConfig)
-        instance = ta.validate_python({"id": "tr1", "type": "transport", "solvers": ["mt3dms"]})
-        assert isinstance(instance, TransportProcessConfig)
+        instance = ta.validate_python(payload)
+        assert isinstance(instance, expected_type)
+        for attr, value in expected_attrs.items():
+            assert getattr(instance, attr) == value
 
-    def test_mesh_variant_default_backend(self) -> None:
-        ta = TypeAdapter(SimulationProcessConfig)
-        instance = ta.validate_python({"id": "mesh_main", "type": "mesh"})
-        assert isinstance(instance, MeshProcessConfig)
-        assert instance.backend == "catchment"
-        assert instance.solvers == []
+    REJECT_CASES = [
+        pytest.param({"id": "x", "type": "unknown"}, id="unknown_type_rejected"),
+        pytest.param({"id": "x", "type": "mesh", "solvers": ["a"]}, id="mesh_rejects_solvers"),
+        pytest.param({"id": "x", "type": "flow", "solvers": []}, id="flow_requires_solvers"),
+    ]
 
-    def test_unknown_type_rejected(self) -> None:
+    @pytest.mark.parametrize("payload", REJECT_CASES)
+    def test_variant_rejected(self, payload) -> None:
         ta = TypeAdapter(SimulationProcessConfig)
         with pytest.raises(ValidationError):
-            ta.validate_python({"id": "x", "type": "unknown"})
-
-    def test_mesh_rejects_solvers(self) -> None:
-        ta = TypeAdapter(SimulationProcessConfig)
-        with pytest.raises(ValidationError):
-            ta.validate_python({"id": "x", "type": "mesh", "solvers": ["a"]})
-
-    def test_flow_requires_solvers(self) -> None:
-        ta = TypeAdapter(SimulationProcessConfig)
-        with pytest.raises(ValidationError):
-            ta.validate_python({"id": "x", "type": "flow", "solvers": []})
+            ta.validate_python(payload)

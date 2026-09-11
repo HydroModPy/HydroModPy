@@ -333,28 +333,6 @@ class TestRadiationSpecific:
 
 
 @pytest.mark.fast
-class TestRechargeSpecific:
-    def test_valid_synthetic_source(self):
-        cfg = RechargeSourceConfig(source="synthetic", values=[0.5])
-        assert cfg.source == "synthetic"
-        assert cfg.values == [0.5]
-
-    def test_synthetic_requires_values(self):
-        with pytest.raises(ValueError, match="values"):
-            RechargeSourceConfig(source="synthetic")
-
-    def test_synthetic_with_amplitude(self):
-        cfg = RechargeSourceConfig(
-            source="synthetic",
-            values=[1.0],
-            amplitude=0.5,
-            period_days=365,
-        )
-        assert cfg.amplitude == 0.5
-        assert cfg.period_days == 365
-
-
-@pytest.mark.fast
 class TestRunoffSpecific:
     def test_two_stations(self, tmp_path):
         d = _make_custom_csv_dir(

@@ -1,4 +1,4 @@
-"""Tests for RechargeSourceConfig validation (representative climatic variable)."""
+"""Tests for RechargeSourceConfig validation."""
 
 from __future__ import annotations
 
@@ -11,9 +11,17 @@ from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
 
 @pytest.mark.fast
 class TestRechargeSourceConfigValidation:
-    def test_custom_requires_path(self):
-        with pytest.raises(ValueError, match="path"):
-            RechargeSourceConfig(source="custom")
+    @pytest.mark.parametrize(
+        ("source", "match"),
+        [
+            ("custom", "path"),
+            ("synthetic", "values"),
+        ],
+        ids=["custom_requires_path", "synthetic_requires_values"],
+    )
+    def test_requires_field(self, source, match):
+        with pytest.raises(ValueError, match=match):
+            RechargeSourceConfig(source=source)
 
     def test_custom_with_path_ok(self, tmp_path):
         cfg = RechargeSourceConfig(source="custom", path=tmp_path)
@@ -29,14 +37,21 @@ class TestRechargeSourceConfigValidation:
         assert cfg.source == "sim2"
         assert cfg.path is None
 
-    def test_synthetic_requires_values(self):
-        with pytest.raises(ValueError, match="values"):
-            RechargeSourceConfig(source="synthetic")
-
     def test_synthetic_with_values_ok(self):
         cfg = RechargeSourceConfig(source="synthetic", values=[1.5, 2.0])
         assert cfg.source == "synthetic"
         assert cfg.values == [1.5, 2.0]
+
+    def test_synthetic_with_amplitude(self):
+        """Amplitude and period_days drive the seasonal synthetic recharge signal."""
+        cfg = RechargeSourceConfig(
+            source="synthetic",
+            values=[1.0],
+            amplitude=0.5,
+            period_days=365,
+        )
+        assert cfg.amplitude == 0.5
+        assert cfg.period_days == 365
 
     def test_invalid_source_rejected(self):
         with pytest.raises(Exception):
