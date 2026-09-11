@@ -29,7 +29,7 @@ from hydromodpy.solver.modflow6.builders.mvr import (
     mover_package_count,
 )
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import _last_percent_discrepancy
+from hydromodpy.solver.modflow_common.flow_adapter_helpers import last_percent_discrepancy
 
 _CASE_DIR = Path(__file__).parent
 _SIM_NAME = "lakp02"
@@ -310,7 +310,7 @@ def run_sfr_lak_mvr_scenario(*, workspace: Path) -> SfrLakMvrScenario:
     with (workspace / f"{_SIM_NAME}.sfr.obs.csv").open(encoding="utf-8") as fh:
         sfr_last = {k.upper(): float(v) for k, v in list(csv.DictReader(fh))[-1].items()}
 
-    discrepancy = _last_percent_discrepancy(workspace)
+    discrepancy = last_percent_discrepancy(workspace)
     if discrepancy is None:
         # A missing/unparseable budget listing must fail loudly, not report a
         # perfect 0.0 closure that passes the discrepancy assertion vacuously.
