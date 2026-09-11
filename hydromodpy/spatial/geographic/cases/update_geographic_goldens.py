@@ -1,4 +1,4 @@
-"""Regenerate geographic unit-test golden references in one command.
+"""Regenerate every geographic golden reference in one command.
 
 Usage
 -----
@@ -11,6 +11,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+# The geographic tests that own a committed golden reference. Two of these moved
+# to the regression tier; the previous hardcoded list still pointed at
+# tests/unit/geographic/ and at two files that never existed in this checkout,
+# so the command regenerated nothing and said so with an exit code nobody read.
+# tests/unit/geographic/test_golden_regeneration_paths.py keeps this list honest.
+GOLDEN_TEST_PATHS = (
+    "tests/regression/fast/geographic/test_run_geographic_dem_processing_golden.py",
+    "tests/regression/fast/geographic/test_run_geographic_river_network_golden.py",
+    "tests/unit/geographic/test_catchment_delineation_outlet.py",
+    "tests/unit/geographic/test_catchment_delineation_polygon.py",
+)
+
 
 def main(argv: list[str] | None = None) -> int:
     """Run pytest on geographic golden tests with ``--update-goldens``."""
@@ -20,9 +32,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.executable,
         "-m",
         "pytest",
-        "tests/unit/geographic/test_catchment_delineation_contract.py",
-        "tests/unit/geographic/test_run_geographic_case_golden.py",
-        "tests/unit/geographic/test_run_geographic_dem_processing_golden.py",
+        *GOLDEN_TEST_PATHS,
         "-q",
         "--update-goldens",
         *extra_args,

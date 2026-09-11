@@ -48,7 +48,7 @@ def export_csv(
     --------
     >>> export_csv(
     ...     catalog.connection, run.sim_id, "discharge.csv", variable="discharge"
-    ... )
+    ... )  # doctest: +SKIP
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -100,9 +100,3 @@ def test_lak_p01_signature_matches_committed_reference(
     assert act["final_stage_m"] == pytest.approx(exp["final_stage_m"], abs=1e-2)
     assert act["lake_gwf_in_m3_s"] == pytest.approx(exp["lake_gwf_in_m3_s"], rel=1e-3, abs=1e-6)
     assert act["lake_gwf_out_m3_s"] == pytest.approx(exp["lake_gwf_out_m3_s"], rel=1e-3, abs=1e-6)
-
-
-def test_update_or_assert_goldens_is_importable() -> None:
-    # Guards the shared golden plumbing this test relies on stays importable
-    # (the regression harness rejects stale schema versions through it).
-    assert callable(update_or_assert_goldens)

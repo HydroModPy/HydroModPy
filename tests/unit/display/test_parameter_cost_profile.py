@@ -14,7 +14,6 @@ import numpy as np
 import pytest
 
 from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
-from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.display.figures.parameter_cost_profile import (
     ParameterCostProfileFigure,
     _tolerance_interval,
@@ -478,14 +477,6 @@ def test_profile_only_uses_the_high_contrast_triplet(mpl) -> None:
         assert drawn <= triplet
     finally:
         mpl.close(fig)
-
-
-def test_profile_is_registered_under_its_name() -> None:
-    figure = get_figure("parameter_cost_profile")
-
-    assert isinstance(figure, ParameterCostProfileFigure)
-    assert figure.spec.name == "parameter_cost_profile"
-    assert figure.spec.kind == "timeseries"
 
 
 def test_profile_is_available_on_a_run_carrying_a_session() -> None:

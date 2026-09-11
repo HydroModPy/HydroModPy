@@ -322,9 +322,11 @@ class RunPointProvider:
 
         Examples
         --------
-        >>> run.probe.series("head", x=352000.0, y=6789000.0)
-        >>> run.probe.series("watertable_depth", cell=1204, timestep=-1)
-        >>> group.probe.series("head", x=352000.0, y=6789000.0, depth=12.5)
+        >>> run.probe.series("head", x=352000.0, y=6789000.0)  # doctest: +SKIP
+        >>> run.probe.series("watertable_depth", cell=1204, timestep=-1)  # doctest: +SKIP
+        >>> group.probe.series(
+        ...     "head", x=352000.0, y=6789000.0, depth=12.5
+        ... )  # doctest: +SKIP
         """
         request = PointRequest(x=x, y=y, cell=cell, layer=layer, depth=depth, label=label)
         frame = read_points(self._owner._iter_runs(), variable, request, timestep=timestep)

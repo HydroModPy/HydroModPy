@@ -303,11 +303,14 @@ def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path)
         errors="replace",
         timeout=900,
     )
-    if completed.returncode != 0:
-        pytest.skip(
-            "hmp run on simulation_regression fixture did not complete (likely needs network "
-            f"data or extra binaries). Stderr tail:\n{completed.stderr[-2000:]}"
-        )
+    # The binary gate above already skipped when a solver was missing, and CI
+    # installs mfnwt/mp6/mt3dusgs before this tier runs. A non-zero exit past
+    # that point is a real pipeline failure, not an environment gap: skipping
+    # here turned every `hmp run` crash into a green tick.
+    assert completed.returncode == 0, (
+        "hmp run on the simulation_regression fixture failed with exit code "
+        f"{completed.returncode}.\nStderr tail:\n{completed.stderr[-2000:]}"
+    )
 
     catalog_db = catalog_path_for(out_path)
     assert catalog_db.is_file(), f"{CATALOG_FILENAME} missing after hmp run"

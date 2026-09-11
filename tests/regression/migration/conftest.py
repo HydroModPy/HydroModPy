@@ -101,27 +101,6 @@ def _seed_fixture(db_path: Path, recipe: dict) -> None:
         conn.close()
 
 
-@pytest.fixture
-def v1_fixture_path(tmp_path: Path, request: pytest.FixtureRequest) -> Path:
-    """Materialise a v1 DuckDB catalog from a fixture recipe.
-
-    Parametrise the test with the recipe stem (without the ``.recipe.json``
-    suffix) and call ``request.param`` to pick it up.
-    """
-    stem = request.param
-    recipe_file = FIXTURES_DIR / f"{stem}.recipe.json"
-    recipe = json.loads(recipe_file.read_text(encoding="utf-8"))
-    db_path = tmp_path / f"{stem}.duckdb"
-    _apply_v1_schema(db_path)
-    _seed_fixture(db_path, recipe)
-    return db_path
-
-
-@pytest.fixture
-def fixtures_dir() -> Path:
-    return FIXTURES_DIR
-
-
 def discover_fixture_stems() -> list[str]:
     return sorted(p.stem.replace(".recipe", "") for p in FIXTURES_DIR.glob("*.recipe.json"))
 
@@ -148,7 +127,5 @@ __all__ = [
     "FIXTURES_DIR",
     "copy_fixture",
     "discover_fixture_stems",
-    "fixtures_dir",
     "materialise_v1_db",
-    "v1_fixture_path",
 ]

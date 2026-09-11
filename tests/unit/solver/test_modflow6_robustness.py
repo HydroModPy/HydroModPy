@@ -19,6 +19,10 @@ from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
     _modflow_config_for_steady_initialization,
 )
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import last_percent_discrepancy
+from tests._helpers.tolerances import tol
+
+# tests/TOLERANCES.md row 2 (fraction; the MF6 listing reports percent).
+_BUDGET_CLOSURE_FRACTION = tol("global_water_budget_closure")
 
 
 def _runtime(**overrides) -> Modflow6RuntimeConfig:
@@ -193,5 +197,7 @@ def test_modflow6_newton_unconfined_converges_with_default_solver(tmp_path) -> N
     success, _ = sim.run_simulation(silent=True)
     # Newton converges this convertible (unconfined) problem with the default solver.
     assert success
-    # The listing is readable and reports a water-budget discrepancy.
-    assert last_percent_discrepancy(tmp_path) is not None
+    # Convergence alone does not prove a closed budget: bound the actual discrepancy.
+    discrepancy = last_percent_discrepancy(tmp_path)
+    assert discrepancy is not None
+    assert abs(discrepancy) / 100.0 <= _BUDGET_CLOSURE_FRACTION

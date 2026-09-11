@@ -28,7 +28,7 @@ Example
 0.0001
 >>> Aquifer(k=1e-4).k.to("m/s").magnitude  # bare number, fallback m/s
 0.0001
->>> Aquifer(k="0.36 m/h").k.to("m/s").magnitude  # auto-convert
+>>> round(Aquifer(k="0.36 m/h").k.to("m/s").magnitude, 8)  # auto-convert
 0.0001
 
 Design notes

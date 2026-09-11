@@ -32,7 +32,7 @@ from tools.doc_config.generate import (
     export_search_index,
 )
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 REFERENCE_DIR = ROOT / "docs" / "source" / "user_guide" / "config_reference"
 SCHEMA_PATH = ROOT / "docs" / "source" / "_static" / "hydromodpy-schema.json"
 SEARCH_INDEX_PATH = ROOT / "docs" / "source" / "_static" / "hmp-config-search.json"

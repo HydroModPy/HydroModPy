@@ -26,8 +26,11 @@ class TestPlotCellValues:
             cell_blocks=(CellBlock(CellType.TRIANGLE, conn),),
         )
         fig, ax = plt.subplots()
-        mappable = plot_cell_values(ax, mesh, np.array([1.0, 2.0]))
-        assert mappable is not None
+        values = np.array([1.0, 2.0])
+        mappable = plot_cell_values(ax, mesh, values)
+        # A dropped or reordered cell value would still return a mappable;
+        # only comparing the drawn array against the input catches it.
+        np.testing.assert_allclose(np.asarray(mappable.get_array()).ravel(), values)
         plt.close(fig)
 
     def test_plot_structured_quads(self) -> None:
@@ -42,8 +45,9 @@ class TestPlotCellValues:
             structured_shape=(1, 2),
         )
         fig, ax = plt.subplots()
-        mappable = plot_cell_values(ax, mesh, np.array([1.0, 2.0]))
-        assert mappable is not None
+        values = np.array([1.0, 2.0])
+        mappable = plot_cell_values(ax, mesh, values)
+        np.testing.assert_allclose(np.asarray(mappable.get_array()).ravel(), values)
         plt.close(fig)
 
     def test_wrong_size_raises(self) -> None:

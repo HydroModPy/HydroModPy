@@ -129,8 +129,3 @@ def test_lak_pleasant_transient_signature_matches_committed_reference(
     exp_budget = cast("list[float]", exp["period_budget_percent"])
     for got, want in zip(act_budget, exp_budget, strict=True):
         assert got == pytest.approx(want, abs=1e-2)
-
-
-def test_update_or_assert_goldens_is_importable() -> None:
-    # Guards the shared golden plumbing this test relies on stays importable.
-    assert callable(update_or_assert_goldens)

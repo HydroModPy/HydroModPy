@@ -12,39 +12,45 @@ from hydromodpy.data.common.unit_helpers import (
 
 
 class TestUnitConversion:
-    def test_identity(self):
-        assert convert_value(5.0, "m3/s", "m3/s") == 5.0
+    @pytest.mark.parametrize(
+        ("value", "from_unit", "to_unit", "expected"),
+        [
+            (5.0, "m3/s", "m3/s", 5.0),
+            (1000.0, "L/s", "m3/s", 1.0),
+            (1000.0, "l/s", "m3/s", 1.0),  # lowercase unit alias
+            (1.0, "m3/s", "L/s", 1000.0),
+            (100.0, "cm", "m", 1.0),
+            (12.5, "C", "degC", 12.5),  # bare "C" alias
+            (2500.0, "ug/l", "mg/L", 2.5),
+        ],
+        ids=[
+            "identity",
+            "ls_to_m3s",
+            "lowercase_ls_to_m3s",
+            "m3s_to_ls",
+            "cm_to_m",
+            "c_alias_to_degc",
+            "ug_l_alias_to_mg_l",
+        ],
+    )
+    def test_value_conversions(self, value, from_unit, to_unit, expected):
+        assert convert_value(value, from_unit, to_unit) == pytest.approx(expected)
 
-    def test_ls_to_m3s(self):
-        assert convert_value(1000.0, "L/s", "m3/s") == pytest.approx(1.0)
-
-    def test_lowercase_ls_to_m3s(self):
-        assert convert_value(1000.0, "l/s", "m3/s") == pytest.approx(1.0)
-
-    def test_m3s_to_ls(self):
-        assert convert_value(1.0, "m3/s", "L/s") == pytest.approx(1000.0)
-
-    def test_cm_to_m(self):
-        assert convert_value(100.0, "cm", "m") == pytest.approx(1.0)
-
-    def test_mm_d_alias_to_mm_day(self):
-        assert get_conversion_factor("mm/d", "mm/day") == pytest.approx(1.0)
-
-    def test_c_alias_to_degc(self):
-        assert convert_value(12.5, "C", "degC") == pytest.approx(12.5)
-
-    def test_ug_l_alias_to_mg_l(self):
-        assert convert_value(2500.0, "ug/l", "mg/L") == pytest.approx(2.5)
-
-    def test_radiation_day_alias_to_j(self):
-        assert get_conversion_factor("MJ/m2/day", "MJ/m2/j") == pytest.approx(1.0)
+    @pytest.mark.parametrize(
+        ("from_unit", "to_unit", "expected"),
+        [
+            ("mm/d", "mm/day", 1.0),  # alias, same unit
+            ("MJ/m2/day", "MJ/m2/j", 1.0),  # alias, same unit
+            ("m", "m", 1.0),
+        ],
+        ids=["mm_d_alias_to_mm_day", "radiation_day_alias_to_j", "factor_identity"],
+    )
+    def test_factor_conversions(self, from_unit, to_unit, expected):
+        assert get_conversion_factor(from_unit, to_unit) == pytest.approx(expected)
 
     def test_unknown_raises(self):
         with pytest.raises(ValueError, match="Unknown unit"):
             convert_value(1.0, "gallons", "m3/s")
-
-    def test_factor_identity(self):
-        assert get_conversion_factor("m", "m") == 1.0
 
 
 # ------------------------------------------------------------------
@@ -53,26 +59,29 @@ class TestUnitConversion:
 
 
 class TestTemperatureConversion:
-    def test_kelvin_to_degc(self):
-        assert convert_value(273.15, "K", "degC") == pytest.approx(0.0)
-
-    def test_degc_to_kelvin(self):
-        assert convert_value(0.0, "degC", "K") == pytest.approx(273.15)
-
-    def test_kelvin_to_degc_boiling(self):
-        assert convert_value(373.15, "K", "degC") == pytest.approx(100.0)
-
-    def test_fahrenheit_to_degc_freezing(self):
-        assert convert_value(32.0, "degF", "degC") == pytest.approx(0.0)
-
-    def test_fahrenheit_to_degc_boiling(self):
-        assert convert_value(212.0, "degF", "degC") == pytest.approx(100.0)
-
-    def test_degc_to_fahrenheit(self):
-        assert convert_value(100.0, "degC", "degF") == pytest.approx(212.0)
-
-    def test_kelvin_to_fahrenheit(self):
-        assert convert_value(273.15, "K", "degF") == pytest.approx(32.0)
+    @pytest.mark.parametrize(
+        ("value", "from_unit", "to_unit", "expected"),
+        [
+            (273.15, "K", "degC", 0.0),
+            (0.0, "degC", "K", 273.15),
+            (373.15, "K", "degC", 100.0),
+            (32.0, "degF", "degC", 0.0),
+            (212.0, "degF", "degC", 100.0),
+            (100.0, "degC", "degF", 212.0),
+            (273.15, "K", "degF", 32.0),
+        ],
+        ids=[
+            "kelvin_to_degc",
+            "degc_to_kelvin",
+            "kelvin_to_degc_boiling",
+            "fahrenheit_to_degc_freezing",
+            "fahrenheit_to_degc_boiling",
+            "degc_to_fahrenheit",
+            "kelvin_to_fahrenheit",
+        ],
+    )
+    def test_temperature_conversions(self, value, from_unit, to_unit, expected):
+        assert convert_value(value, from_unit, to_unit) == pytest.approx(expected)
 
     def test_factor_raises_for_offset(self):
         with pytest.raises(TypeError, match="offset"):
@@ -85,37 +94,32 @@ class TestTemperatureConversion:
 
 
 class TestRadiationConversion:
-    def test_mj_m2_day_to_w_m2(self):
-        # 1 MJ/m2/day = 1e6 / 86400 W/m2 ≈ 11.5741
-        assert convert_value(1.0, "MJ/m2/day", "W/m2") == pytest.approx(
-            1.0e6 / 86400.0,
-        )
-
-    def test_w_m2_to_mj_m2_day(self):
-        assert convert_value(1.0e6 / 86400.0, "W/m2", "MJ/m2/day") == pytest.approx(1.0)
-
-    def test_j_cm2_day_to_w_m2(self):
-        # 1 J/cm2/day = 1e4 / 86400 W/m2 ≈ 0.115741
-        assert convert_value(1.0, "J/cm2/day", "W/m2") == pytest.approx(
-            1.0e4 / 86400.0,
-        )
-
-    def test_cal_cm2_day_to_w_m2(self):
-        # 1 cal/cm2/day = 4.184e4 / 86400 W/m2 ≈ 0.484259
-        assert convert_value(1.0, "cal/cm2/day", "W/m2") == pytest.approx(
-            4.184e4 / 86400.0,
-        )
-
-    def test_kwh_m2_day_to_w_m2(self):
-        assert convert_value(1.0, "kWh/m2/day", "W/m2") == pytest.approx(
-            3.6e6 / 86400.0,
-        )
-
-    def test_radiation_alias_wm2(self):
-        assert convert_value(10.0, "W/m^2", "W/m2") == pytest.approx(10.0)
-
-    def test_radiation_alias_langley(self):
-        assert convert_value(1.0, "ly/day", "cal/cm2/day") == pytest.approx(1.0)
+    @pytest.mark.parametrize(
+        ("value", "from_unit", "to_unit", "expected"),
+        [
+            # 1 MJ/m2/day = 1e6 / 86400 W/m2 ~= 11.5741
+            (1.0, "MJ/m2/day", "W/m2", 1.0e6 / 86400.0),
+            (1.0e6 / 86400.0, "W/m2", "MJ/m2/day", 1.0),
+            # 1 J/cm2/day = 1e4 / 86400 W/m2 ~= 0.115741
+            (1.0, "J/cm2/day", "W/m2", 1.0e4 / 86400.0),
+            # 1 cal/cm2/day = 4.184e4 / 86400 W/m2 ~= 0.484259
+            (1.0, "cal/cm2/day", "W/m2", 4.184e4 / 86400.0),
+            (1.0, "kWh/m2/day", "W/m2", 3.6e6 / 86400.0),
+            (10.0, "W/m^2", "W/m2", 10.0),  # caret alias
+            (1.0, "ly/day", "cal/cm2/day", 1.0),  # langley alias
+        ],
+        ids=[
+            "mj_m2_day_to_w_m2",
+            "w_m2_to_mj_m2_day",
+            "j_cm2_day_to_w_m2",
+            "cal_cm2_day_to_w_m2",
+            "kwh_m2_day_to_w_m2",
+            "radiation_alias_wm2",
+            "radiation_alias_langley",
+        ],
+    )
+    def test_radiation_conversions(self, value, from_unit, to_unit, expected):
+        assert convert_value(value, from_unit, to_unit) == pytest.approx(expected)
 
 
 # ------------------------------------------------------------------
@@ -124,14 +128,17 @@ class TestRadiationConversion:
 
 
 class TestPercentConversion:
-    def test_fraction_to_percent(self):
-        assert convert_value(0.5, "fraction", "%") == pytest.approx(50.0)
-
-    def test_percent_to_fraction(self):
-        assert convert_value(75.0, "%", "fraction") == pytest.approx(0.75)
-
-    def test_ratio_to_percent(self):
-        assert convert_value(1.0, "ratio", "%") == pytest.approx(100.0)
+    @pytest.mark.parametrize(
+        ("value", "from_unit", "to_unit", "expected"),
+        [
+            (0.5, "fraction", "%", 50.0),
+            (75.0, "%", "fraction", 0.75),
+            (1.0, "ratio", "%", 100.0),
+        ],
+        ids=["fraction_to_percent", "percent_to_fraction", "ratio_to_percent"],
+    )
+    def test_percent_conversions(self, value, from_unit, to_unit, expected):
+        assert convert_value(value, from_unit, to_unit) == pytest.approx(expected)
 
 
 # ------------------------------------------------------------------
@@ -140,14 +147,17 @@ class TestPercentConversion:
 
 
 class TestConcentrationConversion:
-    def test_g_l_to_mg_l(self):
-        assert convert_value(1.0, "g/L", "mg/L") == pytest.approx(1000.0)
-
-    def test_ng_l_to_mg_l(self):
-        assert convert_value(1.0e6, "ng/L", "mg/L") == pytest.approx(1.0)
-
-    def test_ug_l_to_g_l(self):
-        assert convert_value(1.0e6, "ug/L", "g/L") == pytest.approx(1.0)
+    @pytest.mark.parametrize(
+        ("value", "from_unit", "to_unit", "expected"),
+        [
+            (1.0, "g/L", "mg/L", 1000.0),
+            (1.0e6, "ng/L", "mg/L", 1.0),
+            (1.0e6, "ug/L", "g/L", 1.0),
+        ],
+        ids=["g_l_to_mg_l", "ng_l_to_mg_l", "ug_l_to_g_l"],
+    )
+    def test_concentration_conversions(self, value, from_unit, to_unit, expected):
+        assert convert_value(value, from_unit, to_unit) == pytest.approx(expected)
 
 
 # ------------------------------------------------------------------
@@ -156,15 +166,18 @@ class TestConcentrationConversion:
 
 
 class TestCFConventionUnits:
-    def test_kgm2s_to_mm_s(self):
-        # "kg m-2 s-1" is CF precip mass flux, remapped to mm/s
-        assert convert_value(1.0, "kg m-2 s-1", "mm/s") == pytest.approx(1.0)
-
-    def test_kgkg_to_fraction(self):
-        assert convert_value(0.01, "kg/kg", "fraction") == pytest.approx(0.01)
-
-    def test_kgkg_to_percent(self):
-        assert convert_value(0.5, "kg/kg", "%") == pytest.approx(50.0)
+    @pytest.mark.parametrize(
+        ("value", "from_unit", "to_unit", "expected"),
+        [
+            # "kg m-2 s-1" is CF precip mass flux, remapped to mm/s
+            (1.0, "kg m-2 s-1", "mm/s", 1.0),
+            (0.01, "kg/kg", "fraction", 0.01),
+            (0.5, "kg/kg", "%", 50.0),
+        ],
+        ids=["kgm2s_to_mm_s", "kgkg_to_fraction", "kgkg_to_percent"],
+    )
+    def test_cf_conversions(self, value, from_unit, to_unit, expected):
+        assert convert_value(value, from_unit, to_unit) == pytest.approx(expected)
 
 
 # ------------------------------------------------------------------
@@ -173,13 +186,14 @@ class TestCFConventionUnits:
 
 
 class TestCrossFamilyRejection:
-    def test_length_vs_flow(self):
+    @pytest.mark.parametrize(
+        ("from_unit", "to_unit"),
+        [("m", "m3/s"), ("degC", "%")],
+        ids=["length_vs_flow", "temperature_vs_percent"],
+    )
+    def test_incompatible_families_raise(self, from_unit, to_unit):
         with pytest.raises(ValueError, match="Incompatible"):
-            convert_value(1.0, "m", "m3/s")
-
-    def test_temperature_vs_percent(self):
-        with pytest.raises(ValueError, match="Incompatible"):
-            convert_value(1.0, "degC", "%")
+            convert_value(1.0, from_unit, to_unit)
 
 
 # ------------------------------------------------------------------

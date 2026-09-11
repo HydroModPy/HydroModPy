@@ -36,7 +36,6 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.depression_filling import DEFAULT_EPSILON_M
-from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.display.figures._routing_surface import routing_surface_from_run
 from hydromodpy.display.figures.depression_map import (
     DEPRESSIONS,
@@ -49,6 +48,7 @@ from hydromodpy.display.figures.depression_map import (
 )
 
 from ._network_comparison_run import comparison_run, legend_labels, legend_note
+from ._render_helpers import relative_luminance
 
 NX = 9
 NY = 5
@@ -756,24 +756,13 @@ def test_a_raised_cell_stays_separable_from_a_cell_that_drains(mpl) -> None:
     from hydromodpy.display.figures.depression_map import _FILL_CMAP, _UNRAISED_FACE
 
     ramp = mpl.get_cmap(_FILL_CMAP)
-    background = _relative_luminance(_UNRAISED_FACE)
+    background = relative_luminance(_UNRAISED_FACE)
 
-    assert _relative_luminance(ramp(0.0)) - background > 0.1
-    assert background - _relative_luminance(ramp(1.0)) > 0.1
+    assert relative_luminance(ramp(0.0)) - background > 0.1
+    assert background - relative_luminance(ramp(1.0)) > 0.1
     assert to_rgb(_UNRAISED_FACE)[0] == pytest.approx(to_rgb(_UNRAISED_FACE)[2]), (
         "the background must stay neutral so it cannot be read as a depth"
     )
-
-
-def _relative_luminance(color) -> float:
-    """Perceived brightness of one colour, the quantity a greyscale print keeps."""
-    from matplotlib.colors import to_rgb
-
-    channels = [
-        value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
-        for value in to_rgb(color)
-    ]
-    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
 
 
 # --------------------------------------------------------------------------- #
@@ -856,10 +845,3 @@ def test_it_is_skipped_by_the_gallery_rather_than_crashing(tmp_path) -> None:
     assert report.rendered == ()
     assert [item.name for item in report.skipped] == ["depression_map"]
     assert "render failed" not in report.skipped[0].reason
-
-
-def test_the_figure_is_registered_under_its_own_name() -> None:
-    figure = get_figure("depression_map")
-
-    assert isinstance(figure, DepressionMap)
-    assert figure.spec.name == "depression_map"

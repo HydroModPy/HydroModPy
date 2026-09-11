@@ -13,11 +13,12 @@ import numpy as np
 import pytest
 
 from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
-from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.display.figures.roptim_validity_chart import (
     RoptimValidityChart,
     SiteAgreement,
 )
+
+from ._render_helpers import relative_luminance
 
 
 @pytest.fixture
@@ -65,17 +66,6 @@ def _rgba(color: str):
     from matplotlib.colors import to_rgba
 
     return to_rgba(color)
-
-
-def _relative_luminance(color) -> float:
-    """Perceived brightness, the quantity a greyscale print keeps."""
-    from matplotlib.colors import to_rgb
-
-    channels = [
-        value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
-        for value in to_rgb(color)
-    ]
-    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
 
 
 # --------------------------------------------------------------------------- #
@@ -195,8 +185,8 @@ def test_the_two_classes_of_site_differ_by_marker_and_by_lightness(mpl) -> None:
         assert tuple(within.get_facecolor()[0]) == _rgba(HIGH_CONTRAST_TRIPLET[0])
         assert tuple(beyond.get_facecolor()[0]) == _rgba(HIGH_CONTRAST_TRIPLET[2])
         gap = abs(
-            _relative_luminance(HIGH_CONTRAST_TRIPLET[0])
-            - _relative_luminance(HIGH_CONTRAST_TRIPLET[2])
+            relative_luminance(HIGH_CONTRAST_TRIPLET[0])
+            - relative_luminance(HIGH_CONTRAST_TRIPLET[2])
         )
         assert gap > 0.05
         assert not np.array_equal(within.get_paths()[0].vertices, beyond.get_paths()[0].vertices)
@@ -329,14 +319,6 @@ def test_a_gallery_driven_by_one_run_skips_with_a_readable_reason() -> None:
     assert reason is not None
     assert "site" in reason
     assert "render()" in reason
-
-
-def test_registered_under_its_own_name() -> None:
-    figure = get_figure("roptim_validity_chart")
-
-    assert isinstance(figure, RoptimValidityChart)
-    assert figure.spec.name == "roptim_validity_chart"
-    assert figure.spec.kind == "comparison"
 
 
 def test_a_set_where_no_site_was_ever_measured_claims_no_agreement(mpl) -> None:

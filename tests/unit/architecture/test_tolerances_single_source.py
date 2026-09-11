@@ -33,7 +33,7 @@ import pytest
 
 from tests._helpers.tolerances import TOLERANCES, tol
 
-_TESTS_ROOT = Path(__file__).resolve().parents[1]
+_TESTS_ROOT = Path(__file__).resolve().parents[2]
 
 # These two files exercise the tol() machinery itself (including negative-path
 # arguments such as a deliberately-unknown key), so their tol() calls are not

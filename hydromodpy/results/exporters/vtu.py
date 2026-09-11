@@ -56,7 +56,7 @@ def export_vtu(
 
     Examples
     --------
-    >>> export_vtu(run_zarr, run.sim_id, "head", -1, "head.vtu")
+    >>> export_vtu(run_zarr, run.sim_id, "head", -1, "head.vtu")  # doctest: +SKIP
     """
     try:
         import meshio

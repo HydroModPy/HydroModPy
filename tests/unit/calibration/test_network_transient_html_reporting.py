@@ -143,6 +143,32 @@ def test_network_transient_html_writes_reference_manifest(tmp_path: Path) -> Non
     assert manifest["grid"]["completed"] == 1
     assert manifest["best_global"]["candidate_id"] == "truth_mK_0p65_Sy_0p05"
 
+    # Page structure. These assertions used to live in a smoke test gated on
+    # examples/**/outputs/, which .gitignore excludes, so they never ran in CI.
+    text = out.read_text(encoding="utf-8")
+    for marker in (
+        "Probleme de calibration",
+        "Configuration spatiale et temporelle",
+        "Fonction objectif dans l'espace des parametres",
+        "Cartes de drainage vis-a-vis de la cible",
+        "Chroniques de flux",
+    ):
+        assert marker in text, f"missing section: {marker}"
+
+    # The four remaining figures of the full report need a reference run and a
+    # steady summary; this fixture deliberately points both at missing paths.
+    for figure_name in (
+        "objective_parameter_maps.png",
+        "q_total_release_timeseries.png",
+        "watershed_id_card.png",
+    ):
+        assert (tmp_path / "web" / "figures" / figure_name).is_file(), figure_name
+
+    artifact_report = json.loads(
+        (tmp_path / "web" / "network_transient_html_artifacts.json").read_text(encoding="utf-8")
+    )
+    assert artifact_report["ok"] is True
+
 
 def test_network_transient_html_uses_truth_mesh_when_reference_run_is_empty(
     tmp_path: Path,
@@ -256,50 +282,6 @@ def test_workflow_step_delegates_network_transient_html_builder(
     assert captured["real_root"] == tmp_path / "real_runs"
     assert captured["web_root"] == tmp_path / "web"
     assert captured["page_title"] == "Synthetic calibration"
-
-
-@pytest.mark.slow
-def test_network_transient_html_smoke_on_existing_example_outputs(tmp_path: Path) -> None:
-    repo_root = Path(__file__).resolve().parents[3]
-    example_root = repo_root / "examples" / "projects" / "12_calibration_network_transient_b0"
-    real_root = example_root / "outputs" / "real_runs"
-    truth = real_root / "site_01_truth_package_mK_0p65"
-    score = real_root / "site_01_parameter_grid_scores_mK_0p65.csv"
-    if not truth.is_dir() or not score.is_file():
-        pytest.skip("network/transient example outputs are not available")
-
-    out = build_network_transient_html(
-        real_root=real_root,
-        web_root=tmp_path / "web",
-        path_base=example_root,
-        page_title="Smoke calibration reseau",
-        truth_packages=[truth],
-        score_tables=[score],
-    )
-
-    text = out.read_text(encoding="utf-8")
-    for marker in (
-        "Probleme de calibration",
-        "Configuration spatiale et temporelle",
-        "Fonction objectif dans l'espace des parametres",
-        "Cartes de drainage vis-a-vis de la cible",
-        "Chroniques de flux",
-    ):
-        assert marker in text
-    for figure_name in (
-        "objective_parameter_maps.png",
-        "objective_profile_cuts.png",
-        "outflow_drain_maps.png",
-        "q_total_release_timeseries.png",
-        "recharge_chronicle.png",
-        "steady_balance_didactic.png",
-        "watershed_id_card.png",
-    ):
-        assert (tmp_path / "web" / "figures" / figure_name).is_file()
-    artifact_report = json.loads(
-        (tmp_path / "web" / "network_transient_html_artifacts.json").read_text(encoding="utf-8")
-    )
-    assert artifact_report["ok"] is True
 
 
 def _write_line_mesh_bundle(bundle_dir: Path, *, n_cells: int) -> None:

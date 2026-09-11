@@ -647,7 +647,7 @@ def export_hmp_package(
 
     Examples
     --------
-    >>> export_hmp_package(catalog, run.sim_id, "baseline.hmp")
+    >>> export_hmp_package(catalog, run.sim_id, "baseline.hmp")  # doctest: +SKIP
     """
     sid = str(sim_id)
     output = Path(output_path)

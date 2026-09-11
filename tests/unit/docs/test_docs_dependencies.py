@@ -4,7 +4,7 @@ import re
 import tomllib
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 PYPROJECT_PATH = ROOT / "pyproject.toml"
 RTD_REQUIREMENTS_PATH = ROOT / "docs" / "readthedocs_requirements.txt"
 EDITABLE_ENVIRONMENT_PATHS = [

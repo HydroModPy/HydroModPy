@@ -167,6 +167,128 @@ def _sample_trace(_simulator, _chronicle, _golden) -> list[dict]:
     )
 
 
+def _trace_arrays(trace: list[dict]) -> dict[str, np.ndarray]:
+    """Flatten a trace into the arrays a figure's drawn data is checked against."""
+    return {
+        "K": np.array([row["K"] for row in trace], dtype=float),
+        "Sy": np.array([row["Sy"] for row in trace], dtype=float),
+        "objective_value": np.array([row["objective_value"] for row in trace], dtype=float),
+        "objective": np.array([row["objective"] for row in trace], dtype=float),
+    }
+
+
+def _series(ax, index: int = 0) -> np.ndarray:
+    """Return the y-data of the ``index``-th line drawn on ``ax``."""
+    return np.asarray(ax.get_lines()[index].get_ydata(), dtype=float)
+
+
+def _scatter(ax, size: int):
+    """Return the PathCollection on ``ax`` whose point count is ``size``.
+
+    An axis can carry several collections (a colorbar's QuadMesh, a
+    single-point "best" marker); the trials scatter is the PathCollection
+    whose offsets count matches the number of trials fed in.
+    """
+    for collection in ax.collections:
+        if type(collection).__name__ != "PathCollection":
+            continue
+        if np.asarray(collection.get_offsets()).shape[0] == size:
+            return collection
+    raise AssertionError(f"no PathCollection with {size} points found on {ax}")
+
+
+def _check_convergence_figure(fig, arrays: dict[str, np.ndarray]) -> None:
+    """calibration_convergence: raw + best-so-far series must match the trace."""
+    ax = fig.axes[0]
+    lines = ax.get_lines()
+    assert len(lines) == 2, "expected a raw objective series and a best-so-far series"
+    np.testing.assert_allclose(_series(ax, 0), arrays["objective"])
+    np.testing.assert_allclose(_series(ax, 1), np.minimum.accumulate(arrays["objective"]))
+    assert ax.get_xlabel() == "Iteration"
+    assert ax.get_ylabel() == "objective"
+
+
+def _check_trace_figure(fig, arrays: dict[str, np.ndarray]) -> None:
+    """calibration_trace: one panel per parameter plus the objective, in order."""
+    axes = fig.axes
+    assert len(axes) == 3, "expected a K panel, a Sy panel and an objective panel"
+    for ax, key in zip(axes, ("K", "Sy", "objective_value"), strict=True):
+        np.testing.assert_allclose(_series(ax), arrays[key])
+        assert ax.get_ylabel() == key
+    assert axes[-1].get_xlabel() == "Iteration"
+
+
+def _check_landscape_figure(fig, arrays: dict[str, np.ndarray]) -> None:
+    """calibration_landscape (2 params): scatter of (K, Sy) colored by objective."""
+    ax = fig.axes[0]
+    scatter = _scatter(ax, arrays["K"].size)
+    offsets = np.asarray(scatter.get_offsets())
+    np.testing.assert_allclose(offsets[:, 0], arrays["K"])
+    np.testing.assert_allclose(offsets[:, 1], arrays["Sy"])
+    np.testing.assert_allclose(np.asarray(scatter.get_array()), arrays["objective_value"])
+    assert ax.get_xlabel() == "K"
+    assert ax.get_ylabel() == "Sy"
+
+
+def _check_posterior_figure(fig, arrays: dict[str, np.ndarray]) -> None:
+    """calibration_posterior: one histogram per parameter, spanning its values."""
+    checked = 0
+    for ax in fig.axes:
+        key = ax.get_xlabel()
+        if key not in ("K", "Sy"):
+            continue
+        checked += 1
+        assert sum(patch.get_height() for patch in ax.patches) == pytest.approx(arrays[key].size)
+        lo = min(patch.get_x() for patch in ax.patches)
+        hi = max(patch.get_x() + patch.get_width() for patch in ax.patches)
+        assert lo <= arrays[key].min() and hi >= arrays[key].max()
+    assert checked == 2, "expected a K histogram and a Sy histogram"
+
+
+def _check_pairplot_figure(fig, arrays: dict[str, np.ndarray]) -> None:
+    """calibration_pairplot: 2x2 grid, diagonal histograms and off-diagonal scatters."""
+    names = ("K", "Sy")
+    axes = np.asarray(fig.axes).reshape(2, 2)
+    for i, pi in enumerate(names):
+        for j, pj in enumerate(names):
+            ax = axes[i, j]
+            if i == j:
+                heights = sum(patch.get_height() for patch in ax.patches)
+                assert heights == pytest.approx(arrays[pi].size)
+                continue
+            scatter = _scatter(ax, arrays["K"].size)
+            offsets = np.asarray(scatter.get_offsets())
+            np.testing.assert_allclose(offsets[:, 0], arrays[pj])
+            np.testing.assert_allclose(offsets[:, 1], arrays[pi])
+            np.testing.assert_allclose(np.asarray(scatter.get_array()), arrays["objective_value"])
+
+
+def _check_objective_surface_figure(fig, arrays: dict[str, np.ndarray]) -> None:
+    """calibration_objective_surface: evaluated points and the best marker."""
+    ax = fig.axes[0]
+    scatter = _scatter(ax, arrays["K"].size)
+    offsets = np.asarray(scatter.get_offsets())
+    np.testing.assert_allclose(offsets[:, 0], arrays["K"])
+    np.testing.assert_allclose(offsets[:, 1], arrays["Sy"])
+    np.testing.assert_allclose(np.asarray(scatter.get_array()), arrays["objective_value"])
+    best = int(np.argmin(arrays["objective_value"]))
+    marker = _scatter(ax, 1)
+    marker_xy = np.asarray(marker.get_offsets())[0]
+    assert marker_xy == pytest.approx((arrays["K"][best], arrays["Sy"][best]))
+    assert ax.get_xlabel() == "K"
+    assert ax.get_ylabel() == "Sy"
+
+
+_FIGURE_CHECKS = {
+    "calibration_convergence": _check_convergence_figure,
+    "calibration_trace": _check_trace_figure,
+    "calibration_landscape": _check_landscape_figure,
+    "calibration_posterior": _check_posterior_figure,
+    "calibration_pairplot": _check_pairplot_figure,
+    "calibration_objective_surface": _check_objective_surface_figure,
+}
+
+
 # ---------------------------------------------------------------------------
 # Regression: diagnostics on each method's trace
 # ---------------------------------------------------------------------------
@@ -222,13 +344,15 @@ def test_calibration_figure_renders_png(
     stub = _RunStub(session_id="grid_search-session", iterations=_sample_trace)
     out_path = tmp_path / f"{figure_name}.png"
     try:
-        get_figure(figure_name).plot(
+        fig = get_figure(figure_name).plot(
             stub, save_path=out_path, **_FIGURE_KWARGS.get(figure_name, {})
         )
+        # A blank axes with only a title would also write a PNG, so the real
+        # check is on the Figure's data, not on the file it was saved to.
+        _FIGURE_CHECKS[figure_name](fig, _trace_arrays(_sample_trace))
     finally:
         plt.close("all")
     assert out_path.exists(), f"{figure_name} did not write {out_path}"
-    assert out_path.stat().st_size > 1000, f"{figure_name} PNG is suspiciously small"
 
 
 def test_iterations_dataframe_roundtrip(_sample_trace: list[dict]) -> None:
