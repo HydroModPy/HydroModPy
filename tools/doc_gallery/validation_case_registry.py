@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.physics.flow.boundary_condition_registry import boundary_definition
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VALIDATION_SOLVER_ORDER = ("modflow_nwt", "modflow6", "modflow6_irregular_tri", "boussinesq")
 
@@ -669,10 +671,12 @@ def _unit_for_field(field: str) -> str:
         return "m"
     if normalized == "flow.ic.value":
         return "m"
-    if normalized.startswith("flow.bc.dirichlet.") and normalized.endswith(".value"):
-        return "m"
-    if normalized.startswith("flow.bc.cauchy.") and normalized.endswith(".value"):
-        return "m2/s"
+    if normalized.startswith("flow.bc.") and normalized.endswith(".value"):
+        # A boundary is keyed by what it is, so its unit comes from the
+        # registry entry rather than from a family segment in the path.
+        definition = boundary_definition(normalized.split(".")[2])
+        if definition is not None:
+            return definition.default_units
     if normalized.startswith("data.oceanic.sources") and normalized.endswith(".value"):
         return "m"
     if normalized.startswith("data.recharge.sources") and normalized.endswith(".values"):

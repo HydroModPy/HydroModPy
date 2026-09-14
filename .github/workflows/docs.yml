@@ -44,7 +44,11 @@ jobs:
     timeout-minutes: 40
 
     steps:
+      # sphinx-last-updated-by-git needs the full history: on a shallow
+      # clone it warns once per page, and -W turns that into 465 errors.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -114,6 +118,10 @@ jobs:
         run: |
           base="${GITHUB_BASE_REF:-${GITHUB_REF_NAME}}"
           git fetch --no-tags origin "${base}"
+          # numfig=0: the checkdiff builder reads no source, so it writes no
+          # doctree, and the figure numbering collector then dies looking for
+          # index.doctree. Nothing here renders a figure number anyway.
           python -m sphinx -j auto -b rediraffecheckdiff \
+            -D numfig=0 \
             -D rediraffe_branch="origin/${base}" \
             docs/source docs/build/rediraffe

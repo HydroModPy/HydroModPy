@@ -212,29 +212,30 @@ def _drain_outflow_on_mask(arr: object, mask: np.ndarray) -> float:
 
 
 def open_cell_budget(cbc_path: object) -> object:
-    """Open a MODFLOW budget file, trying both precisions in the right order.
+    """Open a MODFLOW budget file at the precision it was written in.
 
-    FloPy guesses the precision by reading a header and seeking past the
-    record. On a MODFLOW 6 budget, which is written in DOUBLE precision, the
-    single-precision guess computes a nonsense offset and ``file.seek`` raises
-    ``OSError(EINVAL)``, which FloPy's own fallback does not catch: the guess
-    never gets to fail cleanly and try the other width. MODFLOW-NWT writes
-    single precision, so the same call worked for years and only broke when
-    this project moved a calibration from NWT to MF6.
+    FloPy's own detection is asked first because it is the only step here that
+    reads the file to decide. It gets MODFLOW-NWT right, and on a MODFLOW 6
+    budget its single-precision guess computes a nonsense offset whose
+    ``file.seek`` raises ``OSError(EINVAL)``, which FloPy does not catch: the
+    guess never fails cleanly enough to try the other width. That errno is
+    what the explicit widths below are for.
 
-    Double is tried first because MODFLOW 6 is the default backend here, and a
-    single-precision NWT file simply fails the double attempt on its header
-    rather than on a seek. When neither width opens the file, the failure names
-    both attempts instead of surfacing an errno from deep inside FloPy.
+    A forced width is never the first attempt, because the wrong one does not
+    raise. Opening a single-precision NWT budget as double yields a file
+    carrying one nonsense record instead of the eight it holds, and the DRAINS
+    record every derived field needs vanishes without a word.
     """
     import flopy.utils.binaryfile as bf
 
     errors: list[str] = []
-    for precision in ("double", "single"):
+    for precision in (None, "double", "single"):
         try:
+            if precision is None:
+                return bf.CellBudgetFile(str(cbc_path))
             return bf.CellBudgetFile(str(cbc_path), precision=precision)
         except Exception as exc:  # noqa: BLE001 - the width that fails is data, not a bug
-            errors.append(f"{precision}: {type(exc).__name__}: {exc}")
+            errors.append(f"{precision or 'auto'}: {type(exc).__name__}: {exc}")
     raise ValueError(
         f"the budget file {cbc_path} could not be read at either precision. " + "; ".join(errors)
     )

@@ -55,10 +55,8 @@ def run_boussinesq_dupuit_uniform_recharge_case(
                 }
             },
             "bc": {
-                "dirichlet": {
-                    "west_side": {"value": constant_head_m},
-                    "east_side": {"value": float(reference_cfg["east_head"])},
-                }
+                "west_side": {"value": constant_head_m},
+                "east_side": {"value": float(reference_cfg["east_head"])},
             },
         },
         plan_name="Boussinesq Dupuit recharge validation",

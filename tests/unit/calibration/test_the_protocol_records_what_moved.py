@@ -101,8 +101,6 @@ def test_the_value_a_file_actually_set_is_reported_even_when_it_is_false() -> No
     from hydromodpy.cli.commands.calibrate import _values_this_file_set
 
     cfg = SimpleNamespace(
-        calibration=SimpleNamespace(
-            outputs={"net": SimpleNamespace(diagonal_neighbors=False)}
-        )
+        calibration=SimpleNamespace(outputs={"net": SimpleNamespace(diagonal_neighbors=False)})
     )
     assert _values_this_file_set(cfg, ["diagonal_neighbors"]) == {"diagonal_neighbors": False}

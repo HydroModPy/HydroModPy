@@ -177,10 +177,10 @@ def test_simulation_comparison_rejects_physical_overlay_changes(tmp_path: Path) 
         pytest.param(
             "drainage_high",
             [
-                "[comparison.simulation.overlay.flow.bc.cauchy.drainage]",
+                "[comparison.simulation.overlay.flow.bc.drainage]",
                 'value = "3e-3 m2/s"',
             ],
-            ("flow", "bc", "cauchy", "drainage", "value"),
+            ("flow", "bc", "drainage", "value"),
             "3e-3 m2/s",
             id="test_simulation_comparison_allows_flow_boundary_sweep_overlay",
         ),

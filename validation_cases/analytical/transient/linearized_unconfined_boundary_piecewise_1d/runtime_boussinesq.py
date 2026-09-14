@@ -52,10 +52,8 @@ def run_boussinesq_linearized_unconfined_boundary_piecewise_case(
             "active_sinks_sources": [],
             "active_bc": ["west_side", "east_side"],
             "bc": {
-                "dirichlet": {
-                    "west_side": {"value": list(reference_cfg["west_head_levels_m"])},
-                    "east_side": {"value": base_head_m},
-                }
+                "west_side": {"value": list(reference_cfg["west_head_levels_m"])},
+                "east_side": {"value": base_head_m},
             },
         },
         plan_name="Boussinesq boundary-piecewise validation",

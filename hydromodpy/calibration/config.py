@@ -947,6 +947,7 @@ class CalibUncertaintyDecl(HydroModelBase):
                 "the single search already produced."
             )
         return self
+
     tolerance: Annotated[PositiveFloat, Profile.USER] = Field(
         default=0.05,
         description=(

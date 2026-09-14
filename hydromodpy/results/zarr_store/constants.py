@@ -9,7 +9,7 @@ import zarr.codecs
 BLOSC_ZSTD = zarr.codecs.BloscCodec(
     cname="zstd",
     clevel=5,
-    shuffle=zarr.codecs.BloscShuffle.bitshuffle,
+    shuffle="bitshuffle",
 )
 
 # CF + ACDD + UGRID conventions advertised at the root of every store.

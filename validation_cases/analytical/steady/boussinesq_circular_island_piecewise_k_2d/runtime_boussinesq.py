@@ -422,9 +422,7 @@ def run_boussinesq_circular_island_piecewise_k_case(
                                 "wells": wells_payload,
                             },
                             "bc": {
-                                "dirichlet": {
-                                    "ocean": {"value": float(reference_cfg["sea_level_m"])},
-                                }
+                                "ocean": {"value": float(reference_cfg["sea_level_m"])},
                             },
                         },
                         flow_regime="steady",

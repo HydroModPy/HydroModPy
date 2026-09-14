@@ -144,7 +144,7 @@ station_ids = ["NANCON_REA"]
 
 
 # ---------------------------------------------------------------------- flow
-# `[flow.bc.cauchy.drainage]` est volontairement ABSENT : sans conductance
+# `[flow.bc.drainage]` est volontairement ABSENT : sans conductance
 # declaree elle est proportionnelle, C = K * A / e_lit, qui est le
 # `cond_drain = None` de la reference et ce qui fait du rapport K/R la
 # quantite calibree a l'etage 1.

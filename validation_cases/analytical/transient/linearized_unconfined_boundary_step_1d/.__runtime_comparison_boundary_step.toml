@@ -25,9 +25,10 @@ output_root = "C:/codes/HydroModPy/tmp/lu_boundary_step_same_support_workspace"
 
 [comparison.simulation.overlay.flow]
 [comparison.simulation.overlay.flow.bc]
-[comparison.simulation.overlay.flow.bc.dirichlet]
-[comparison.simulation.overlay.flow.bc.dirichlet.west_side]
-[comparison.simulation.overlay.flow.bc.dirichlet.west_side.forcing]
+[comparison.simulation.overlay.flow.bc.west_side]
+kind = "dirichlet"
+
+[comparison.simulation.overlay.flow.bc.west_side.forcing]
 path_file = "C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/west_head_step.csv"
 
 [[comparison.simulation]]
@@ -44,9 +45,10 @@ output_root = "C:/codes/HydroModPy/tmp/lu_boundary_step_same_support_workspace"
 
 [comparison.simulation.overlay.flow]
 [comparison.simulation.overlay.flow.bc]
-[comparison.simulation.overlay.flow.bc.dirichlet]
-[comparison.simulation.overlay.flow.bc.dirichlet.west_side]
-[comparison.simulation.overlay.flow.bc.dirichlet.west_side.forcing]
+[comparison.simulation.overlay.flow.bc.west_side]
+kind = "dirichlet"
+
+[comparison.simulation.overlay.flow.bc.west_side.forcing]
 path_file = "C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/west_head_step.csv"
 
 [comparison.simulation.overlay.modflow6]

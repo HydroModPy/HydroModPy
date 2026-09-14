@@ -576,13 +576,11 @@ def _run_boussinesq_irregular(*, timeout: int) -> ValidationRunResult:
             }
         },
         "bc": {
-            "dirichlet": {"east_side": {"type": "dirichlet", "value": EAST_HEAD_M}},
-            "cauchy": {
-                "drainage": {
-                    "application_domain": "top",
-                    "kind": "cauchy",
-                    "value": DRAINAGE_CONDUCTANCE_M2_S,
-                }
+            "east_side": {"value": EAST_HEAD_M},
+            "drainage": {
+                "application_domain": "top",
+                "kind": "cauchy",
+                "value": DRAINAGE_CONDUCTANCE_M2_S,
             },
         },
     }

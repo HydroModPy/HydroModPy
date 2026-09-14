@@ -63,10 +63,8 @@ def run_boussinesq_linearized_unconfined_recharge_step_deep_case(
                 }
             },
             "bc": {
-                "dirichlet": {
-                    "west_side": {"value": base_head_m},
-                    "east_side": {"value": base_head_m},
-                }
+                "west_side": {"value": base_head_m},
+                "east_side": {"value": base_head_m},
             },
         },
         plan_name="Boussinesq recharge-step deep validation",

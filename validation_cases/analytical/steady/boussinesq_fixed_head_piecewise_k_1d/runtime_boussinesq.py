@@ -106,10 +106,8 @@ def run_boussinesq_fixed_head_piecewise_k_case(
                             "ic": {"type": "custom", "value": 7.5},
                             "active_bc": ["west_side", "east_side"],
                             "bc": {
-                                "dirichlet": {
-                                    "west_side": {"value": WEST_HEAD_M},
-                                    "east_side": {"value": EAST_HEAD_M},
-                                }
+                                "west_side": {"value": WEST_HEAD_M},
+                                "east_side": {"value": EAST_HEAD_M},
                             },
                         },
                         flow_regime="steady",
