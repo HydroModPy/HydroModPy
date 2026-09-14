@@ -134,9 +134,13 @@ architecture/overview/hydrographic-network-simulated-active-inventory architectu
 architecture/overview/testbed-workflow-architecture architecture/simulation/testbed-workflow-architecture
 architecture/overview/data-managers-and-external-dependencies architecture/data_loading/data-managers-and-external-dependencies
 architecture/process/index architecture/process/process-architecture
-oo/index python_api/project
-oo/project python_api/project
-oo/state python_api/project
-oo/catalog python_api/project
-oo/accessors python_api/project
-user_guide/project-api python_api/project
+# Pages removed after the v2 line diverged from main. Keep the .rst suffix on
+# the left side: the rediraffecheckdiff builder matches deleted files with
+# their extension, the html builder accepts both forms.
+oo/index.rst python_api/project
+oo/project.rst python_api/project
+oo/state.rst python_api/project
+oo/catalog.rst python_api/project
+oo/accessors.rst python_api/project
+user_guide/project-api.rst python_api/project
+about/documentation_refresh.rst about/index
