@@ -73,10 +73,16 @@ runoff_ratio = 0.0
 [modflow6.runtime]
 mf_verbose = false
 mf6_ims_complexity = "COMPLEX"
-mf6_outer_dvclose = 1e-6
-mf6_inner_dvclose = 1e-7
-mf6_inner_rclose = 1e-9
-mf6_outer_maximum = 500
+mf6_outer_dvclose = 1e-8
+mf6_inner_dvclose = 1e-9
+mf6_inner_rclose = 1e-11
+# The k_only scenario doubles K, which deepens the water table and takes the
+# Picard sweeps past 500 before the head stops moving: measured, it closes
+# between 600 and 800 outer iterations, and every setting from 800 up returns
+# the identical profile. 1500 is twice what it needs. Closing looser instead
+# would also have run, and returns the same answer to 1e-4 m, but it would hide
+# that the limit was the iteration count and not the tolerance.
+mf6_outer_maximum = 1500
 mf6_inner_maximum = 500
 
 [modflow6.sgrid.planar]
