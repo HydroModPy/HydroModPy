@@ -65,17 +65,32 @@ class TestTheBudgetOpensAtEitherPrecision:
     never gets to try the other width. The call worked for years on NWT and
     broke the moment a calibration moved to MF6: seven trials crashed after
     their solve with ``OSError: [Errno 22] Invalid argument``.
+
+    Forcing a width instead of asking is worse than it looks, because the wrong
+    one does not raise: opening a single-precision NWT budget as double yields
+    a file carrying one nonsense record in place of the eight it holds, and the
+    DRAINS record every derived field needs disappears without a word. So the
+    detection comes first and a forced width is only the fallback.
     """
 
-    def test_double_is_tried_before_single(self) -> None:
-        # Order matters: MF6 is the default backend, and a single-precision NWT
-        # file fails the double attempt on its header rather than on a seek.
-        import inspect
-
+    def test_flopy_detection_is_asked_before_a_forced_width(self, monkeypatch) -> None:
         from hydromodpy.solver.modflow_common import calibration_extractors as cal
 
-        source = inspect.getsource(cal.open_cell_budget)
-        assert 'for precision in ("double", "single")' in source
+        attempts: list[str] = []
+
+        class _Budget:
+            pass
+
+        def _fake(path, precision=None):
+            del path
+            attempts.append(precision or "auto")
+            return _Budget()
+
+        monkeypatch.setattr("flopy.utils.binaryfile.CellBudgetFile", _fake, raising=True)
+        result = cal.open_cell_budget("whatever.cbc")
+
+        assert isinstance(result, _Budget)
+        assert attempts == ["auto"], "a forced width must never be the first attempt"
 
     def test_an_oserror_on_one_width_does_not_escape(self, monkeypatch) -> None:
         from hydromodpy.solver.modflow_common import calibration_extractors as cal
@@ -115,8 +130,12 @@ class TestTheBudgetOpensAtEitherPrecision:
         import re
 
         root = pathlib.Path(cal_root := "hydromodpy/solver")
+        helper_module = root / "modflow_common" / "calibration_extractors.py"
         offenders = []
         for path in root.rglob("*.py"):
+            if path == helper_module:
+                # The helper is where the widths are tried; that is its job.
+                continue
             text = path.read_text(encoding="utf-8")
             for line in text.splitlines():
                 stripped = line.strip()
