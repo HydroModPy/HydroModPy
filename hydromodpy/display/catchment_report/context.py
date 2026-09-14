@@ -17,6 +17,11 @@ import pandas as pd
 
 from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
 from hydromodpy.display.catchment_report.resources import REPO_ROOT
+from hydromodpy.display.catchment_report.simulation_source import (
+    open_simulation_run,
+    read_simulated_discharge,
+    simulation_parquet_dir,
+)
 
 
 @dataclass(frozen=True)
@@ -58,7 +63,9 @@ def build_context(inputs: CatchmentReportInputs) -> Path:
     assets_dir.mkdir(parents=True, exist_ok=True)
 
     config = _load_resolved_toml(inputs.transient_config)
-    simulated = _read_series(inputs.simulation_export)
+    with open_simulation_run(inputs) as run:
+        simulated = read_simulated_discharge(run)
+        parquet_dir = simulation_parquet_dir(run)
     observed = (
         _read_series(inputs.observed_discharge_path)
         if inputs.observed_discharge_path is not None and inputs.observed_discharge_path.exists()
@@ -83,10 +90,9 @@ def build_context(inputs: CatchmentReportInputs) -> Path:
         title=f"{inputs.site_label} - debit simule de reference",
     )
     network_assets = _copy_network_assets(inputs.simulation_figures, assets_dir)
-    parquet_dir = _simulation_parquet_dir(inputs)
 
     baseline = {
-        "source_export": _rel(inputs.simulation_export),
+        "source_export": _rel(parquet_dir / "timeseries.parquet") if parquet_dir else None,
         "simulation_name": inputs.simulation_name,
         "simulation_parquet": _rel(parquet_dir) if parquet_dir else None,
         "n_cells": _grid_cell_count(config),
@@ -211,6 +217,7 @@ def _grid_cell_count(config: Mapping[str, Any]) -> int | None:
 
 
 def _read_series(path: Path) -> pd.DataFrame:
+    """Read an observed discharge CSV (``datetime`` / ``value`` columns)."""
     frame = pd.read_csv(path)
     frame["datetime"] = pd.to_datetime(
         frame["datetime"],
@@ -292,17 +299,6 @@ def _copy_network_assets(source_dir: Path, assets_dir: Path) -> dict[str, str]:
         shutil.copy2(source, target)
         copied[name.removesuffix(".png")] = f"assets/{name}"
     return copied
-
-
-def _simulation_parquet_dir(inputs: CatchmentReportInputs) -> Path | None:
-    candidates = [
-        path
-        for path in inputs.generated_network_root.glob(f"*__{inputs.simulation_name}__*.parquet")
-        if path.is_dir() and (path / "timeseries.parquet").exists()
-    ]
-    if not candidates:
-        return None
-    return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
 def _read_parquet_count(parquet_dir: Path | None, file_name: str) -> int | None:

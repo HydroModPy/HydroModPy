@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString
 
+from hydromodpy.display import get as get_figure
 from hydromodpy.results.run import Run
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
@@ -85,7 +86,7 @@ class TestSimulationData:
         assert sim.has_hydrographic_network("reference") is True
         assert sim.has_hydrographic_network("generated") is False
         assert sim.available_hydrographic_network_roles() == ["reference"]
-        assert "hydrographic_network_reference" in sim.display_capabilities
+        assert get_figure("hydrographic_network_reference").unavailable_reason(sim) is None
         contract = sim.hydrographic_network_naming("reference")
         assert contract["canonical_feature_name"] == HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME
         assert contract["default_vector_filename"] == "streams.shp"
@@ -134,11 +135,16 @@ class TestSimulationData:
         assert metrics["comparison_id"] == "demo"
         assert metrics["reference_total_length_m"] == pytest.approx(1000.0)
         assert metrics["candidate_total_length_m"] == pytest.approx(800.0)
-        assert "hydrographic_network_reference" in sim.display_capabilities
-        assert "hydrographic_network_generated" in sim.display_capabilities
-        assert "hydrographic_network_comparison" in sim.display_capabilities
-        assert "hydrographic_network_reference_missing_only" in sim.display_capabilities
-        assert "hydrographic_network_generated_extra_only" in sim.display_capabilities
+        assert get_figure("hydrographic_network_reference").unavailable_reason(sim) is None
+        assert get_figure("hydrographic_network_generated").unavailable_reason(sim) is None
+        assert get_figure("hydrographic_network_comparison").unavailable_reason(sim) is None
+        assert (
+            get_figure("hydrographic_network_reference_missing_only").unavailable_reason(sim)
+            is None
+        )
+        assert (
+            get_figure("hydrographic_network_generated_extra_only").unavailable_reason(sim) is None
+        )
         generated_contract = sim.hydrographic_network_naming("generated")
         assert (
             generated_contract["canonical_feature_name"]

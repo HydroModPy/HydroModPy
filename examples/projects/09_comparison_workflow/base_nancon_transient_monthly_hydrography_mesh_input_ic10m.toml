@@ -18,7 +18,7 @@ root = "../../"
 [simulation]
 name = "nancon_transient_monthly_hydrography_mesh_input_ic10m_shared_case"
 description = "Nancon monthly transient diagnostic with observed hydrography, same recharge, and initial head 10 m below top."
-on_collision = "replace"
+if_exists = "replace"
 
 [flow.ic]
 type = "top_offset"

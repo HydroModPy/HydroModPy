@@ -106,9 +106,7 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
                                 "wells": wells_payload,
                             },
                             "bc": {
-                                "dirichlet": {
-                                    "ocean": {"value": float(reference_cfg["sea_level_m"])},
-                                }
+                                "ocean": {"value": float(reference_cfg["sea_level_m"])},
                             },
                         },
                         flow_regime="steady",

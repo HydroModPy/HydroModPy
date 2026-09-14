@@ -50,7 +50,10 @@ def _stac_license(url: str) -> str:
 
 
 STAC_VERSION = "1.0.0"
-STAC_EXTENSIONS = ("https://stac-extensions.github.io/projection/v1.1.0/schema.json",)
+STAC_EXTENSIONS = (
+    "https://stac-extensions.github.io/projection/v1.1.0/schema.json",
+    "https://stac-extensions.github.io/file/v2.1.0/schema.json",
+)
 
 
 def _bbox_to_polygon(bbox: tuple[float, float, float, float]) -> dict[str, Any]:
@@ -101,26 +104,23 @@ def _midpoint(start: str | None, end: str | None) -> str:
 
 
 def _asset_dict(asset: AssetEntry) -> dict[str, Any]:
-    media_type = asset.media_type
-    if media_type == "application/zip" and asset.relative_path.endswith(".zarr.zip"):
-        media_type = "application/zip; application=zarr"
     payload: dict[str, Any] = {
         "href": asset.relative_path,
-        "type": media_type,
+        "type": asset.media_type,
         "roles": list(asset.roles),
     }
     if asset.description:
         payload["title"] = asset.description
-    extra: dict[str, Any] = {}
+    # STAC 1.0 assets are flat key/value; the file extension (declared in
+    # STAC_EXTENSIONS) covers file:size and file:checksum. The checksum is a
+    # self-describing multihash, not a bare hex string: sha2-256 = 0x12 0x20
+    # (code + 32-byte length) followed by the digest.
     if asset.sha256:
-        extra["sha256"] = asset.sha256
+        payload["file:checksum"] = "1220" + asset.sha256
     if asset.size_bytes is not None:
-        extra["file:size"] = int(asset.size_bytes)
+        payload["file:size"] = int(asset.size_bytes)
     if asset.key:
-        extra["hydromodpy:assetKey"] = asset.key
-    if extra:
-        payload["extra_fields"] = extra
-        payload.update(extra)
+        payload["hydromodpy:assetKey"] = asset.key
     return payload
 
 

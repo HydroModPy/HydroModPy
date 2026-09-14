@@ -122,8 +122,10 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(
     import rasterio
     from rasterio.transform import from_origin
 
+    from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+
     project_root = tmp_path / "structured_project"
-    geographic_dir = project_root / "results_stable" / "geographic"
+    geographic_dir = project_root / PREPROCESSING_DIR / "geographic"
     geographic_dir.mkdir(parents=True, exist_ok=True)
     raster_path = geographic_dir / "watershed_box_buff_dem.tif"
     with rasterio.open(

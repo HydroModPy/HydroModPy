@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure_registry import register
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

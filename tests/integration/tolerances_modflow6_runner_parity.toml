@@ -1,0 +1,26 @@
+# Tolerances for the MF6 subprocess-vs-api runner parity test (see
+# tests/TOLERANCES.md row 43). The SAME written single-lake DISV simulation is
+# solved twice: once through the mf6 executable (subprocess) and once through
+# the libmf6 shared library driven by modflowapi (api). The two engines are
+# different MODFLOW 6 builds (exe 6.6.3 vs libmf6 6.7.0), so the residual is
+# cross-version numerical drift, NOT bit-equivalence.
+
+[stage]
+# Max relative / absolute lake-stage difference between the two engines. The
+# same rtol/atol the sibling api-runner e2e test documents (test_modflow6_api
+# _runner.py); cross-version drift on a stage near 90 m stays in the cm range.
+rtol = 1e-2
+atol = 0.05
+
+[volume]
+# Lake volume is a derived state from the laktab and stage, so it inherits a
+# slightly larger envelope than stage. A diverging solve would move volume by
+# far more than 2 %.
+rtol = 2e-2
+atol = 1.0
+
+[heads]
+# GWF heads read back from {model_name}.hds. Same envelope as stage: the two
+# engines agree to the cm on this draining single-lake problem.
+rtol = 1e-2
+atol = 0.05

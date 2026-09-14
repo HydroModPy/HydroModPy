@@ -2,23 +2,28 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.results import views
+from hydromodpy.results.derive import views
 
 
 class _FakeZarr:
-    def __init__(self, n_cells: int) -> None:
+    def __init__(self, n_cells: int, stack: np.ndarray) -> None:
         self.root = {"mesh": {"topography": np.ones(n_cells, dtype="float64")}}
+        self._stack = stack
+
+    def read_field(self, _variable: str, timestep: int, *, layer: int | None = None) -> np.ndarray:
+        return self._stack[timestep]
 
     def close(self) -> None:
         return None
 
 
 class _FakeCatalog:
-    def __init__(self, n_cells: int) -> None:
+    def __init__(self, n_cells: int, stack: np.ndarray) -> None:
         self._n_cells = n_cells
+        self._stack = stack
 
     def open_zarr(self, _sim_id: str) -> _FakeZarr:
-        return _FakeZarr(self._n_cells)
+        return _FakeZarr(self._n_cells, self._stack)
 
 
 class _FakeRun:
@@ -27,13 +32,10 @@ class _FakeRun:
         self.n_timesteps = stack.shape[0]
         self._stack = stack
         self._sim_id = "fake"
-        self._catalog = _FakeCatalog(stack.shape[1])
+        self._catalog = _FakeCatalog(stack.shape[1], stack)
 
     def _load_row(self) -> dict[str, str]:
         return {"flow_regime": self.flow_regime}
-
-    def field(self, _variable: str, *, timestep: int) -> np.ndarray:
-        return self._stack[timestep]
 
 
 def _fake_run(flow_regime: str) -> _FakeRun:

@@ -11,8 +11,8 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli._conventions import add_sim_ref, format_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_catalog_root
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for
+from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
 
 NAME: str = "show"
 HELP: str = "Show simulation metadata, metrics, parameters, and storage layout"
@@ -40,25 +40,24 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.catalog import show_simulation
     from hydromodpy.results.catalog import (
         AmbiguousReferenceError,
-        SimulationCatalog,
+        Catalog,
         SimulationNotFoundError,
     )
 
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
-    if not (workspace_root / CATALOG_FILENAME).exists():
+    if not (catalog_path_for(workspace_root)).exists():
         print(f"No catalog at {workspace_root}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 
     try:
         payload = show_simulation(args.sim_ref, workspace=workspace_root, detail=args.detail)
-    except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
+    except (AmbiguousReferenceError, SimulationNotFoundError, FileNotFoundError) as exc:
+        # Route through exit_code_for so an ambiguous ref exits 20 like the
+        # mutating verbs (tag/delete/...), not 10 as if it were simply absent.
         print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-    except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        sys.exit(exit_code_for(exc))
 
     if args.format == "json":
         print(json.dumps(payload, indent=2, default=str))
@@ -86,9 +85,37 @@ def run(args: argparse.Namespace) -> None:
             for group in groups:
                 print(f"    - {group}")
 
-    # Metrics / parameters tables still require a direct catalog read.
-    with SimulationCatalog(workspace_root) as catalog:
+    exports = payload.get("exports") or []
+    if exports:
+        print(f"Exports ({len(exports)}):")
+        for art in exports:
+            size = art.get("bytes")
+            size_str = f" ({size} B)" if size is not None else ""
+            print(f"  - {art['kind']}: {art['rel_path']}{size_str}")
+
+    # Tags, notes, metrics and parameters require a direct catalog read.
+    with Catalog(workspace_root, read_only=True) as catalog:
         sim = catalog[payload["sim_id"]]
+        ident = catalog.backend.fetch_one(
+            "SELECT version_int, config_hash FROM simulations WHERE sim_id = ?",
+            [payload["sim_id"]],
+        )
+        if ident is not None:
+            if ident[0] is not None:
+                print(f"  version   : v{ident[0]}")
+            if ident[1]:
+                print(f"  config    : {ident[1][:12]}")
+        tags = sim.tags or []
+        if tags:
+            print(f"  tags      : {', '.join(tags)}")
+        note_rows = catalog.backend.fetch_all(
+            "SELECT note FROM sim_notes WHERE sim_id = ? ORDER BY added_at",
+            [payload["sim_id"]],
+        )
+        if note_rows:
+            print("Notes:")
+            for (note,) in note_rows:
+                print(f"  - {note}")
         metrics = sim.metrics
         if not metrics.empty:
             print("Metrics:")
@@ -96,4 +123,12 @@ def run(args: argparse.Namespace) -> None:
         params = sim.parameters
         if not params.empty:
             print("Parameters:")
-            print(params.to_string(index=False))
+            # parameters is indexed by param_name; keep the index so the
+            # parameter names are not dropped (audit P14).
+            print(params.to_string())
+
+    ref = payload.get("name") or payload["sim_id"][:8]
+    print(
+        f"next: hmp catalog tag {ref} +pinned | "
+        f"hmp catalog diff {ref} <other> | hmp catalog rename {ref} <new>"
+    )

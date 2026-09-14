@@ -60,11 +60,11 @@ field_spatial_id = "k_bands"
 type = "custom"
 value = "6.0 m"
 
-[flow.bc.dirichlet.west_side]
+[flow.bc.west_side]
 kind = "dirichlet"
 value = "5.0 m"
 
-[flow.bc.dirichlet.east_side]
+[flow.bc.east_side]
 kind = "dirichlet"
 value = "5.0 m"
 

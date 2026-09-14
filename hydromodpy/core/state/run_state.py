@@ -54,8 +54,18 @@ class WorkflowContext:
     store: Any = field(default=None, repr=False)
     sim_id: str | None = None
     parent_sim_id: str | None = None
+
+    # Run id minted by the caller before the pipeline starts, consumed once by
+    # the store-opening step. Calibration promotion reserves it so the row
+    # linking the run to its session exists before the run draws its figures.
+    reserved_sim_id: str | None = None
     postprocess_runner: Any = field(default=None, repr=False)
     effective_results_config: Any = field(default=None, repr=False)
+
+    # Dotted results-config paths the planning reconciliation turned on by
+    # itself (never a user choice). Finalization reads them to tell a computed
+    # intermediate apart from a requested output.
+    forced_results_flags: tuple[str, ...] = ()
 
     def get_model(self, run_id: str) -> Any:
         """Return the exact model produced by a concrete process run."""

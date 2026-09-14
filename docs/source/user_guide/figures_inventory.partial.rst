@@ -14,21 +14,45 @@ Mesh- or raster-backed scalar maps of one persisted field.
    * - Figure name
      - Title
      - Required inputs
+   * - ``accumulation_map``
+     - Accumulated drainage flux
+     - fields ``accumulation_flux``
+   * - ``boundary_package_map``
+     - Boundary packages
+     - (no fixed input)
    * - ``concentration_map``
      - Concentration
      - fields ``concentration``
+   * - ``depression_map``
+     - Closed depressions of the routing surface
+     - (no fixed input)
+   * - ``downslope_distance_map``
+     - Downslope distance
+     - fields ``release_flux``
+   * - ``flow_direction_map``
+     - Flow direction
+     - (no fixed input)
+   * - ``mesh_map``
+     - Solver mesh
+     - fields ``topography``
    * - ``piezometric_map``
      - Water-table elevation
      - fields ``watertable_elevation``
    * - ``recharge_map``
-     - Recharge map
+     - Recharge
      - fields ``recharge``
    * - ``seepage_map``
      - Seepage areas
      - fields ``seepage_mask``
+   * - ``sfr_reach_network``
+     - SFR reach network
+     - tables ``timeseries``
    * - ``simulated_active_network``
      - Simulated active network
      - fields ``accumulation_flux``
+   * - ``watertable_depth_map``
+     - Water-table depth
+     - fields ``watertable_depth``
 
 Cross-sections
 ~~~~~~~~~~~~~~
@@ -43,8 +67,8 @@ Vertical or transverse cuts through a persisted field.
      - Title
      - Required inputs
    * - ``cross_section``
-     - Head cross-section
-     - fields ``head``
+     - Cross-section
+     - fields ``watertable_elevation``, ``topography``
 
 Time series
 ~~~~~~~~~~~
@@ -58,11 +82,17 @@ Chronicles read from the catalog ``timeseries`` table.
    * - Figure name
      - Title
      - Required inputs
+   * - ``bisection_bracket_trace``
+     - Bisection bracket trace
+     - tables ``calibration_iterations``
    * - ``calibration_convergence``
      - Calibration convergence
      - tables ``calibration_iterations``
    * - ``calibration_trace``
      - Calibration parameter trace
+     - tables ``calibration_iterations``
+   * - ``downslope_distance_crossing``
+     - Downslope distance crossing
      - tables ``calibration_iterations``
    * - ``duration_curve``
      - Flow-duration curve
@@ -70,11 +100,20 @@ Chronicles read from the catalog ``timeseries`` table.
    * - ``hydrograph``
      - Discharge hydrograph
      - tables ``timeseries``
+   * - ``parameter_cost_profile``
+     - Parameter cost profile
+     - tables ``calibration_iterations``
    * - ``recession``
      - Recession analysis
      - tables ``timeseries``
    * - ``seasonal_boxplot``
      - Seasonal box-plot
+     - tables ``timeseries``
+   * - ``sfr_longitudinal_profile``
+     - SFR longitudinal profile
+     - tables ``timeseries``
+   * - ``sfr_reach_timeseries``
+     - SFR reach time series
      - tables ``timeseries``
 
 Budgets and balances
@@ -89,6 +128,9 @@ Integrated budget or mass-balance summaries.
    * - Figure name
      - Title
      - Required inputs
+   * - ``flux_timeseries``
+     - Water-balance components
+     - tables ``budgets``
    * - ``water_budget``
      - Water budget
      - tables ``budgets``
@@ -133,11 +175,17 @@ Multi-panel views combining one or several runs, observed data, or calibration t
    * - ``calibration_posterior``
      - Calibration parameter posteriors
      - tables ``calibration_iterations``
+   * - ``conditioning_impact_map``
+     - Conditioning impact on the DEM
+     - (no fixed input)
    * - ``difference_map``
      - Difference map
      - (no fixed input)
    * - ``ensemble_band``
      - Ensemble envelope
+     - tables ``timeseries``
+   * - ``hydrograph_log_nse``
+     - Hydrograph on a log axis with NSElog
      - tables ``timeseries``
    * - ``hydrograph_sim_obs``
      - Discharge hydrograph (sim vs obs)
@@ -157,15 +205,36 @@ Multi-panel views combining one or several runs, observed data, or calibration t
    * - ``hydrographic_network_reference_missing_only``
      - Reference missing-only view
      - (no fixed input)
+   * - ``lake_abacus_comparison``
+     - Lake abacus comparison
+     - (no fixed input)
+   * - ``lake_stage_sim_obs``
+     - Lake stage (sim vs obs)
+     - tables ``timeseries``
+   * - ``lake_volume_sim_obs``
+     - Lake storage (sim vs obs)
+     - tables ``timeseries``
+   * - ``matching_hydrographic_network_card``
+     - Matching the hydrographic network: two-stage card
+     - tables ``calibration_iterations``
    * - ``piezo_timeseries_sim_obs``
      - Piezometric head (sim vs obs)
      - tables ``timeseries``
    * - ``residuals``
      - Residuals (sim - obs)
      - tables ``timeseries``
+   * - ``roptim_validity_chart``
+     - Optimal agreement and validity bound
+     - (no fixed input)
    * - ``scatter_one_to_one``
      - Sim vs obs scatter (1:1)
      - tables ``timeseries``
+   * - ``seepage_network_confusion_map``
+     - Seepage network confusion
+     - fields ``release_flux``
+   * - ``seepage_network_reference_overlay``
+     - Simulated network over reference
+     - fields ``release_flux``
    * - ``side_by_side``
      - Side-by-side map
      - (no fixed input)

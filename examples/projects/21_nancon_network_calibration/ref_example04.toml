@@ -1,0 +1,348 @@
+# ======================================================================
+# Nancon - replique MODFLOW 6 de addon_tempo/example_04_calibration.py
+#   hmp calibrate examples/projects/21_nancon_network_calibration/ref_example04.toml
+#
+# Point de COMPARAISON avec le script de reference, pas configuration
+# recommandee : il garde SES parametres, pas ceux que les autres fichiers du
+# dossier ont regles depuis.
+#
+# La methode est le protocole nomme `matching_hydrographic_network` (Abherve
+# et al., 2023 ; 2024 ; 2025), ramene par options aux choix du script :
+# `distance_mean` (eq. 2) au lieu de `distance_gap` (eq. 1), Nelder-Mead au
+# lieu de la dichotomie, ponderation surfacique au lieu d'une voix par
+# maille. `hmp calibrate --check` imprime les trois.
+#
+# Cinq ecarts au script. Les quatre premiers sont mesures, le cinquieme est
+# lu dans le script et son ampleur ici n'est PAS mesuree :
+#
+#   1. 1995-2020 et non 1995-2024 : la recharge et le ruissellement REA du
+#      Nancon s'arretent au 31/12/2020. 9497 jours. Le debit observe couvre
+#      1982-2022 et ne limite rien.
+#
+#   2. La reference regle ses tolerances dans un espace normalise [0 ; 1],
+#      l'adaptateur travaille en log10 ; elles sont converties plus bas. Le
+#      pas du simplexe initial vaut 10 % de l'intervalle et n'est pas
+#      reglable : 0,60 decade sur K contre 0,15, 0,370 sur Sy contre 0,98.
+#      Le point de depart, lui, coincide : K = 1e-5 m/s, Sy = 7,07e-3
+#      contre 1e-2.
+#
+#   3. `sy_max` vaut 0,5 et non 0,8 : le validateur plafonne un rendement
+#      specifique a 0,5, et il a raison. L'optimum des autres calages du
+#      dossier vaut 0,02 a 0,06, deux ordres sous la coupure.
+#
+#   4. `enforce_streams` reste actif a 10 m la ou la reference ne burne pas
+#      le reseau. Sans effet mesurable : l'etage 1 rejoue burn coupe rend
+#      les neuf memes essais au bit pres, meme `best_objective`
+#      185.7234104098768. Le critere descend le toit BRUT et le conditionne
+#      sur le graphe du maillage, il ne lit jamais la surface burnee ; le
+#      burn n'entre que par le masque du bassin, 64,603 km2 sans contre
+#      64,614 avec. Il est garde pour que la delimitation coincide avec les
+#      autres fichiers du dossier.
+#
+#   5. DESCENTE D4 CONTRE D8, ecart LU et non mesure ici. La reference
+#      calcule ses distances avec `wbt.downslope_distance_to_stream` sur le
+#      MNT rempli (lignes 928, 932, 954, 957 du script), donc le long de
+#      chemins D8. Le critere de HydroModPy descend son propre graphe sur le
+#      maillage et `diagonal_neighbors` vaut false par defaut, donc D4, les
+#      aretes partagees seulement.
+#
+#      Une descente D4 ne peut pas suivre un talweg diagonal sur une grille
+#      carree. Mesure sur une vallee synthetique dont le talweg suit la
+#      diagonale : la maille la plus accumulee collecte 6,6 % du domaine en
+#      D4 contre 100 % en D8
+#      (`tests/unit/core/test_a_diagonal_talweg_needs_diagonal_neighbours.py`).
+#
+#      Ce que ce chiffre ne dit PAS : de combien le cout de CE montage bouge
+#      entre les deux. Le declarer a true changerait les neuf essais et le
+#      `best_objective 185.7234104098768` de l'ecart 4, obtenus en D4. Le
+#      fichier le laisse donc tel quel et nomme l'ecart au lieu de le
+#      corriger en silence. Chaque run imprime desormais ce que son graphe
+#      peut drainer contre l'aire du bassin, donc le symptome se lit sans
+#      relire ce commentaire.
+# ======================================================================
+
+[workflow]
+mode = "calibration"
+
+[workspace]
+project_root = "."
+
+
+# ---------------------------------------------------------------------- geographic
+
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+reuse_existing_outputs = true
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+# `DEM_armorican_massif.tif` EST le `regional dem.tif` de la reference : meme
+# emprise, meme taille, meme pas de 75 m. La resolution fait partie des
+# parametres a reproduire, et elle divise le maillage par neuf.
+dem_init_path = "DEM_armorican_massif.tif"
+# Coordonnees PAR DEFAUT du script (`--x` / `--y`), et non celles du reste du
+# dossier. Le snap de 150 m ramene les deux sur le meme brin.
+x_outlet = 389358.0
+y_outlet = 6816630.0
+snap_dist = "150 m"
+buff_area = "10%"
+
+[geographic.enforce_streams]
+enabled = true
+mode = "constant"
+depth_m = 10.0
+
+
+# ---------------------------------------------------------------------- domain
+# `thick = 30`, `bottom = None`, `nlay = 1` de la reference.
+
+[domain]
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = 30.0
+
+
+# ---------------------------------------------------------------------- data
+# Aucune date locale : la fenetre vient de [simulation.time], que le loader
+# injecte dans toute section qui n'en porte pas.
+
+[data]
+project_crs = "EPSG:2154"
+types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff"]
+
+[[data.dem.sources]]
+source = "custom"
+path = "DEM_armorican_massif.tif"
+
+[[data.geology.sources]]
+source = "brgm_1m"
+
+[[data.hydrography.sources]]
+source = "custom"
+path = "nancon_stream_network.gpkg"
+
+[[data.hydrometry.sources]]
+source = "custom"
+path = "hydrometry"
+station_ids = ["NANCON"]
+
+# `recharge_REA`, journalier, moyenne surfacique SIM2 sur le bassin, 1990-2020.
+[[data.recharge.sources]]
+source = "custom"
+path = "recharge"
+station_ids = ["NANCON_REA"]
+
+# `runoff`, ajoute au drainage simule avant comparaison, comme
+# `Qmod = outflow_drain * 1000 + r * 1000` du script.
+[[data.runoff.sources]]
+source = "custom"
+path = "runoff"
+station_ids = ["NANCON_REA"]
+
+
+# ---------------------------------------------------------------------- flow
+# `[flow.bc.drainage]` est volontairement ABSENT : sans conductance
+# declaree elle est proportionnelle, C = K * A / e_lit, qui est le
+# `cond_drain = None` de la reference et ce qui fait du rapport K/R la
+# quantite calibree a l'etage 1.
+
+[flow]
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+flow_regime = "steady"
+
+[flow.ic]
+type = "top"
+description = "Water table initialised at the topographic surface."
+
+# Valeurs de depart de la reference. La calibration les remplace des le
+# premier essai ; elles ne servent qu'a faire tourner le fichier en `hmp run`.
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 1.0e-5
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.01
+
+# La reference ne regle pas le stockage specifique. Sur 30 m, 1e-5 m-1 pese
+# 3e-4 contre un Sy de l'ordre du centieme.
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+
+# ---------------------------------------------------------------------- simulation
+
+[simulation]
+name = "nancon_ref_ex04"
+description = "Nancon - replique MF6 de example_04_calibration.py, K puis Sy par Nelder-Mead."
+if_exists = "replace"
+
+[simulation.time]
+start_datetime = "1995-01-01"
+end_datetime = "2020-12-31"
+step_value = 1
+step_unit = "day"
+coverage_policy = "warn"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+[simulation.results.derived]
+release_flux = true
+watertable_elevation = true
+watertable_depth = true
+seepage_areas = true
+accumulation_flux = true
+
+
+# ---------------------------------------------------------------------- modflow 6
+
+[modflow6.runtime]
+print_head = false
+save_specific_discharge = false
+save_saturation = false
+
+
+# ---------------------------------------------------------------------- calibration
+
+[calibration]
+seed = 42
+save_runs = "best_n"
+save_best_n = 1
+persist_iteration_detail = "full"
+# Equivalent du `--resume` de la reference, necessaire ici : l'etage 2 est une
+# chronique de 9497 jours qu'une interruption ne doit pas remettre a zero.
+use_cache = true
+rerun_best_with_outputs = true
+
+# Bornes de la reference : `log10(1e-8*86400)` a `log10(1e-2*86400)`, six
+# decades, dont le centre en log est le `hk` initial du script.
+[calibration.parameters.K]
+bounds = [1e-8, 1e-2]
+transform = "log"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+# `sy_min, sy_max = 0.01/100, 80/100`, borne haute ramenee a 0,5 (ecart 3).
+[calibration.parameters.Sy]
+bounds = [1e-4, 0.5]
+transform = "log"
+path = "flow.param.Sy.field.value"
+units = "-"
+
+[calibration.outputs.seepage_network]
+support = "network"
+stream_geometry_path = "nancon_stream_network.gpkg"
+weighting = "area"
+tau_specific_ratio = 1.0e-4
+roptim_max = 2.0
+time = "last"
+observed_position_accuracy = "50 m"
+
+# Le protocole ecrit les deux etages, leur bloc d'objectif et les regimes
+# qu'ils imposent : permanent sur une periode unique de 9497 jours a recharge
+# moyenne, puis transitoire journalier a K gele. Tout ce qui n'est pas ecrit
+# ici est la valeur publiee.
+#
+# `steady_metric` est l'ecart de methode que ce fichier sert a mesurer :
+# `matching = (abs(sim_distance) + abs(obs_distance)) / 2` du script, dont
+# rien ne place le minimum interieur sur le zero de l'ecart signe.
+#
+# Version epinglee : un point de comparaison qui glisse avec les versions
+# n'en est plus un.
+[calibration.protocol]
+name = "matching_hydrographic_network"
+version = "1.0"
+steady_metric = "distance_mean"
+steady_method = "scipy_nelder_mead"
+steady_max_iter = 60
+
+# Les deux blocs ci-dessous sont en unites scipy parce que ce fichier reproduit
+# un appel publie. Un calage ordinaire ne les ecrit pas : il dit sa precision
+# une fois, `steady_tolerance` / `transient_tolerance`, relative au parametre.
+#
+# `maxiter: 30` de la reference. `maxfev` n'y est pas reglee, donc scipy prend
+# 200 ; elle est ecrite ici au budget de la phase, sinon l'adaptateur la
+# ramene a `maxiter`.
+# `xatol: 0.05` normalise sur six decades -> 0,05 x 6,0 = 0,30 decade de K.
+# `fatol: 0.05` : le cout est une distance en metres, non normalisee.
+[calibration.protocol.steady_optimizer_kwargs]
+maxiter = 30
+maxfev = 60
+xatol = 0.30
+fatol = 0.05
+
+# `xatol: 1e-5` normalise sur les 3,699 decades de [1e-4 ; 0,5] -> 3,7e-5
+# decade de Sy, inatteignable : c'est `maxiter` qui arrete la recherche,
+# comme dans la reference. `fatol: 1e-5`, cout 1 - NSE_log sans dimension.
+# Aucune `scoring_window` : la reference score toute la periode de calage,
+# sans annee d'amorce ecartee, et sans masque saisonnier.
+[calibration.protocol.transient_optimizer_kwargs]
+maxiter = 120
+maxfev = 120
+xatol = 3.7e-5
+fatol = 1e-5
+
+# La reference ne sort qu'un K et un Sy. `cost_profile` relit la trace des
+# essais deja faits et rend, a cote, la plage que la recherche n'a pas su
+# distinguer a 5 % du meilleur cout. Aucun run de plus, aucun optimum deplace.
+[calibration.uncertainty]
+
+
+# ---------------------------------------------------------------------- display
+
+[display]
+enabled = true
+preset = "default"
+show = false
+save = true
+output_dir = "figures"
+on_error = "warn"
+
+figures = [
+    "watershed_id_card",
+    "mesh_map",
+    "boundary_package_map",
+    "depression_map",
+    "flow_direction_map",
+
+    "hydrograph_sim_obs",
+    "hydrograph_log_nse",
+    "hydrograph",
+    "duration_curve",
+    "recession",
+    "seasonal_boxplot",
+
+    "water_budget",
+    "flux_timeseries",
+
+    "piezometric_map",
+    "watertable_depth_map",
+    "seepage_map",
+    "recharge_map",
+    "simulated_active_network",
+    "accumulation_map",
+
+    "downslope_distance_map",
+    "downslope_distance_crossing",
+    "seepage_network_reference_overlay",
+    "seepage_network_confusion_map",
+    "parameter_cost_profile",
+    "calibration_convergence",
+    "calibration_trace",
+    "matching_hydrographic_network_card",
+]

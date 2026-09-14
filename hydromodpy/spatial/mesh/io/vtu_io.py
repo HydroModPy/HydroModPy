@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.spatial.mesh.hydro_mesh import HydroMesh
+from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
 
 
 def _require_meshio():

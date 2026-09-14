@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
   <title id="title">HydroModPy workspace layout</title>
-  <desc id="desc">Diagram showing how a workspace contains data cache, projects, simulations, catalog, and exported outputs.</desc>
+  <desc id="desc">Diagram showing a workspace holding a shared data cache and projects, and one project holding its runs, sessions, share and internal directories.</desc>
   <defs>
     <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
       <path d="M2,2 L10,6 L2,10 Z" fill="#344b5b"/>
@@ -8,60 +8,78 @@
     <style>
       .bg { fill: #f7f8f4; }
       .workspace { fill: #ffffff; stroke: #7d8c83; stroke-width: 3; rx: 24; }
-      .folder { fill: #e9f1dc; stroke: #70885d; stroke-width: 2; rx: 18; }
-      .catalog { fill: #eaf2fb; stroke: #5d7d9c; stroke-width: 2; rx: 18; }
-      .run { fill: #fff1dd; stroke: #b5843e; stroke-width: 2; rx: 18; }
-      .docs { fill: #f1e8f1; stroke: #846b86; stroke-width: 2; rx: 18; }
+      .project { fill: #ffffff; stroke: #7d8c83; stroke-width: 2; rx: 20; }
+      .folder { fill: #e9f1dc; stroke: #70885d; stroke-width: 2; rx: 16; }
+      .authored { fill: #eaf2fb; stroke: #5d7d9c; stroke-width: 2; rx: 16; }
+      .run { fill: #fff1dd; stroke: #b5843e; stroke-width: 2; rx: 16; }
+      .internal { fill: #f1e8f1; stroke: #846b86; stroke-width: 2; rx: 16; }
       .title { font: 700 26px Georgia, serif; fill: #22313a; }
-      .label { font: 700 18px Georgia, serif; fill: #22313a; }
-      .small { font: 14px Georgia, serif; fill: #43515a; }
+      .label { font: 700 17px Georgia, serif; fill: #22313a; }
+      .small { font: 13px Georgia, serif; fill: #43515a; }
       .mono { font: 13px Consolas, monospace; fill: #2e3d47; }
       .arrow { stroke: #344b5b; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .rule { font: italic 15px Georgia, serif; fill: #43515a; }
     </style>
   </defs>
 
   <rect class="bg" width="1200" height="620"/>
-  <text x="48" y="58" class="title">Workspace as the durable spine of a project</text>
+  <text x="48" y="52" class="title">Workspace holds inputs, the project holds its runs</text>
 
-  <rect x="54" y="92" width="1092" height="468" class="workspace"/>
-  <text x="84" y="132" class="label">&lt;workspace&gt;/</text>
-  <text x="84" y="160" class="small">shared area for cached inputs, project intent, persisted runs, and user-facing evidence</text>
+  <rect x="48" y="76" width="336" height="452" class="workspace"/>
+  <text x="76" y="112" class="mono">&lt;workspace&gt;/</text>
+  <text x="76" y="136" class="small">shared area for cached input data</text>
 
-  <rect x="104" y="214" width="220" height="120" class="catalog"/>
-  <text x="132" y="248" class="label">catalog.duckdb</text>
-  <text x="132" y="278" class="small">simulation catalog</text>
-  <text x="132" y="304" class="mono">runs, metrics, provenance</text>
+  <rect x="76" y="158" width="280" height="88" class="authored"/>
+  <text x="98" y="186" class="mono">workspace.toml</text>
+  <text x="98" y="210" class="small">name, contact, licence,</text>
+  <text x="98" y="230" class="small">geographic scope, conventions</text>
 
-  <rect x="104" y="382" width="220" height="120" class="folder"/>
-  <text x="132" y="416" class="label">data/</text>
-  <text x="132" y="446" class="small">shared input cache</text>
-  <text x="132" y="472" class="mono">DEM, geology, recharge</text>
+  <rect x="76" y="264" width="280" height="112" class="folder"/>
+  <text x="98" y="292" class="mono">data/</text>
+  <text x="98" y="316" class="small">one folder per variable, plus</text>
+  <text x="98" y="336" class="mono">cache.duckdb</text>
+  <text x="98" y="358" class="small">shared by every project</text>
 
-  <rect x="458" y="214" width="230" height="120" class="folder"/>
-  <text x="486" y="248" class="label">projects/&lt;name&gt;/</text>
-  <text x="486" y="278" class="small">human-authored intent</text>
-  <text x="486" y="304" class="mono">project.toml, overlays</text>
+  <rect x="76" y="394" width="280" height="76" class="folder"/>
+  <text x="98" y="422" class="mono">projects/&lt;name&gt;/</text>
+  <text x="98" y="446" class="small">one folder per project</text>
 
-  <rect x="458" y="382" width="230" height="120" class="run"/>
-  <text x="486" y="416" class="label">simulations/</text>
-  <text x="486" y="446" class="small">persisted run stores</text>
-  <text x="486" y="472" class="mono">&lt;sim_uuid&gt;.zarr/</text>
+  <path class="arrow" d="M360,432 C400,432 404,300 440,300"/>
 
-  <rect x="824" y="214" width="230" height="120" class="docs"/>
-  <text x="852" y="248" class="label">outputs/</text>
-  <text x="852" y="278" class="small">workflow evidence</text>
-  <text x="852" y="304" class="mono">figures, reports, tables</text>
+  <rect x="452" y="76" width="700" height="452" class="project"/>
+  <text x="480" y="112" class="mono">&lt;project&gt;/</text>
+  <text x="480" y="136" class="small">everything a project owns, results included</text>
 
-  <rect x="824" y="382" width="230" height="120" class="docs"/>
-  <text x="852" y="416" class="label">docs static assets</text>
-  <text x="852" y="446" class="small">curated examples</text>
-  <text x="852" y="472" class="mono">capability_gallery/</text>
+  <rect x="480" y="158" width="316" height="88" class="authored"/>
+  <text x="502" y="186" class="mono">project.toml</text>
+  <text x="502" y="210" class="small">shared settings, and the marker</text>
+  <text x="502" y="230" class="small">that anchors the project root</text>
 
-  <path class="arrow" d="M334,274 C390,274 398,274 448,274"/>
-  <path class="arrow" d="M334,442 C392,442 398,442 448,442"/>
-  <path class="arrow" d="M698,274 C754,274 762,274 814,274"/>
-  <path class="arrow" d="M698,442 C754,442 762,442 814,442"/>
-  <path class="arrow" d="M574,340 L574,372"/>
+  <rect x="816" y="158" width="312" height="88" class="authored"/>
+  <text x="838" y="186" class="mono">run_*.toml   configs/</text>
+  <text x="838" y="210" class="small">run configs, inheriting from</text>
+  <text x="838" y="230" class="mono">base_config = "project.toml"</text>
 
-  <text x="82" y="596" class="small">Rule of thumb: edit project TOMLs, inspect runs through the catalog/API, and treat cache and simulations as generated stores.</text>
+  <rect x="480" y="264" width="316" height="112" class="run"/>
+  <text x="502" y="292" class="mono">runs/&lt;name&gt;/</text>
+  <text x="502" y="316" class="small">one directory per run: fields.zarr,</text>
+  <text x="502" y="336" class="small">tables.parquet, config.toml,</text>
+  <text x="502" y="356" class="small">manifest.json, provenance.json</text>
+
+  <rect x="816" y="264" width="312" height="112" class="run"/>
+  <text x="838" y="292" class="mono">sessions/&lt;name&gt;/</text>
+  <text x="838" y="316" class="small">calibration and spin-up sessions:</text>
+  <text x="838" y="336" class="mono">session.json   trials.jsonl</text>
+
+  <rect x="480" y="394" width="316" height="94" class="internal"/>
+  <text x="502" y="422" class="mono">share/</text>
+  <text x="502" y="446" class="small">on-demand exports, HTML reports,</text>
+  <text x="502" y="466" class="small">portable .hmp packages</text>
+
+  <rect x="816" y="394" width="312" height="94" class="internal"/>
+  <text x="838" y="422" class="mono">.hmp/</text>
+  <text x="838" y="446" class="small">disposable internals: index.duckdb,</text>
+  <text x="838" y="466" class="small">logs, checkpoints, scratch, trash</text>
+
+  <text x="48" y="576" class="rule">Rule of thumb: edit the TOMLs, treat data/ and .hmp/ as regenerable, and read runs/ directly. Only runs/ and sessions/ hold results.</text>
 </svg>

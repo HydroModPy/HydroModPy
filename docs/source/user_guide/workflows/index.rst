@@ -308,7 +308,7 @@ embedding a single component in another workflow.
    from hydromodpy.spatial.geographic import CatchmentDelineation
    from hydromodpy.spatial.domain import Domain
    from hydromodpy.spatial.mesh import HydroMesh
-   from hydromodpy.physics.process import Flow
+   from hydromodpy.physics.flow import Flow
 
 The data managers under ``hydromodpy.data`` can also be called directly to
 fetch a single source (BRGM geology, BD TOPAGE hydrography, Hub'Eau
@@ -327,12 +327,11 @@ Read more
       Registered ``hmp`` subcommands, workflow flags, and override
       precedence.
 
-   .. grid-item-card:: Project API
-      :link: ../project-api
+   .. grid-item-card:: Project object
+      :link: /python_api/project
       :link-type: doc
 
-      Python lifecycle for setup, data, mesh, run, comparison, and
-      calibration.
+      Python lifecycle for setup, data, mesh, run, and calibration.
 
    .. grid-item-card:: Configuration reference
       :link: ../config_reference/index
@@ -356,4 +355,6 @@ Read more
    regional_lab
    site_selection
    calibration
+   calibration-recipes
+   stream-network-calibration
    comparison

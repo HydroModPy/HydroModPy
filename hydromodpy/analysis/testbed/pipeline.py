@@ -16,6 +16,10 @@ from hydromodpy.analysis.testbed.config import (
     TestbedMetricConfig,
 )
 from hydromodpy.analysis.testbed.io import _jsonable
+from hydromodpy.core.logging import get_logger
+from hydromodpy.results.derive.config_flags import log_missing_field
+
+logger = get_logger(__name__)
 
 RUNNER_WORKFLOWS = {
     "calibration": "calibration",
@@ -311,6 +315,7 @@ def _extract_field_metrics(run: Any) -> tuple[dict[str, Any], dict[str, float | 
     ):
         try:
             if hasattr(run, "has_field") and not run.has_field(variable):
+                log_missing_field(logger, run, variable, "testbed field metrics")
                 continue
             values = run.field(variable, timestep=-1)
         except Exception:

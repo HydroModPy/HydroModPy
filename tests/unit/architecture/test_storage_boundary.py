@@ -20,7 +20,7 @@ CLI_DIAGNOSTIC_FILES = (
 )
 
 DATA_REGISTRY_FILES = (
-    REPO_ROOT / "hydromodpy" / "data" / "registry" / "_backend.py",
+    REPO_ROOT / "hydromodpy" / "data" / "registry" / "backend.py",
     REPO_ROOT / "hydromodpy" / "data" / "registry" / "catalog_duckdb.py",
 )
 

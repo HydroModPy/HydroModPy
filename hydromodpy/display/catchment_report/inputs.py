@@ -5,7 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from hydromodpy.core.state.paths import runs_dir_for, share_dir_for
+from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.display.catchment_report.settings import CatchmentReportSettings
+from hydromodpy.results.catalog.storage_paths import run_dirname
+from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
 
 @dataclass(frozen=True)
@@ -23,7 +27,6 @@ class CatchmentReportInputs:
     overview_figures: Path
     data_overview_figures: Path
     simulation_figures: Path
-    simulation_export: Path
     geographic_scratch: Path
     generated_network_root: Path
     context_html: Path
@@ -123,19 +126,20 @@ class CatchmentReportInputs:
             simulation_name=simulation_name,
             context_summary=context_outputs_dir / "context" / context_summary_name,
             context_assets=context_outputs_dir / "web" / "assets",
-            overview_figures=data_overview_project_dir / "figures" / "overview",
-            data_overview_figures=data_overview_project_dir / "figures" / "overview",
-            simulation_figures=simulation_workspace_dir / "figures" / simulation_name,
-            simulation_export=(
-                simulation_workspace_dir / "exports" / simulation_name / "timeseries.csv"
+            overview_figures=share_dir_for(data_overview_project_dir) / "figures" / "overview",
+            data_overview_figures=(
+                share_dir_for(data_overview_project_dir) / "figures" / "overview"
             ),
-            geographic_scratch=(
-                simulation_workspace_dir / ".solver_scratch" / "_preprocessing" / "geographic"
+            simulation_figures=(
+                runs_dir_for(simulation_workspace_dir)
+                / run_dirname(simulation_name)
+                / RUN_FIGURES_DIRNAME
             ),
-            generated_network_root=simulation_workspace_dir / "simulations",
+            geographic_scratch=(simulation_workspace_dir / PREPROCESSING_DIR / "geographic"),
+            generated_network_root=runs_dir_for(simulation_workspace_dir),
             context_html=context_outputs_dir / "web" / "index.html",
             overview_standard_html=(
-                data_overview_project_dir / "web_review" / "standard" / "index.html"
+                share_dir_for(data_overview_project_dir) / "web_review" / "standard" / "index.html"
             ),
             transient_config=(watershed_project_dir / transient_config_name).resolve(),
             overview_config=(data_overview_project_dir / overview_config_name).resolve(),

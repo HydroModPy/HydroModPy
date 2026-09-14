@@ -50,9 +50,8 @@ Foundations
       :link: two-databases
       :link-type: doc
 
-      The three-level v2 layout: machine global index, workspace
-      input cache, per-project simulation catalog. Why the split
-      exists.
+      Machine global index, workspace input cache, per-project run
+      index. Why the split exists and what each scope rebuilds from.
 
 Contracts and integration
 -------------------------

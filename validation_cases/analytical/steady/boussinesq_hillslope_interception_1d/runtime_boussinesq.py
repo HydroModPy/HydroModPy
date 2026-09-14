@@ -245,9 +245,7 @@ def run_boussinesq_hillslope_interception_case(
                         }
                     },
                     "bc": {
-                        "dirichlet": {
-                            "east_side": {"value": EAST_HEAD_M},
-                        }
+                        "east_side": {"value": EAST_HEAD_M},
                     },
                 },
                 flow_regime="steady",

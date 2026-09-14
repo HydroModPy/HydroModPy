@@ -68,11 +68,11 @@ value = "0.10 -"
 type = "custom"
 value = "100.0 m"
 
-[flow.bc.dirichlet.west_side]
+[flow.bc.west_side]
 kind = "dirichlet"
 value = "100.0 m"
 
-[flow.bc.dirichlet.east_side]
+[flow.bc.east_side]
 kind = "dirichlet"
 value = "100.0 m"
 

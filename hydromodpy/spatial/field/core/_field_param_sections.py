@@ -12,6 +12,8 @@ from pydantic import (
 )
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.calibrable import Calibrable
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr, Probability
 from hydromodpy.core.units import Length
@@ -62,6 +64,20 @@ class FieldHomogeneousSection(HydroModelBase):
     value: Annotated[object | None, Profile.USER] = Field(
         default=None,
         description="Scalar surface value used when kind='homogeneous'.",
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(
+                # No bounds: a conductivity range is a property of the catchment,
+                # not of the schema, so the file states it. What the schema does
+                # know is the space a search should walk, because a hydraulic
+                # property spans decades and a linear step wastes most of them.
+                transform="log",
+                prior="log_uniform",
+                description=(
+                    "Scalar value of a homogeneous field parameter. The target every "
+                    "calibration in the repository writes to."
+                ),
+            )
+        ),
     )
 
     @field_validator("value")

@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.calibration.method_config import (
+from hydromodpy.calibration.optim.method_config import (
     CmaEsMethodConfig,
     GridMethodConfig,
     OptunaMethodConfig,

@@ -9,6 +9,7 @@ import duckdb
 import pytest
 
 from hydromodpy.core.state.paths import (
+    CATALOG_FILENAME,
     cache_dir,
     decode_workspace_path,
     encode_workspace_path,
@@ -158,7 +159,7 @@ def test_tracked_files_canonical_path_is_relative(tmp_path: Path):
     """Simulate a P3-compliant INSERT into tracked_files and verify storage."""
     ws = tmp_path / "ws"
     ws.mkdir()
-    db_path = ws / "catalog.duckdb"
+    db_path = ws / CATALOG_FILENAME
     sample = ws / "inputs" / "dem.tif"
     sample.parent.mkdir(parents=True)
     sample.write_bytes(b"raster")

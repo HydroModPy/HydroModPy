@@ -22,7 +22,16 @@ class HydrographySourceConfig(HydroModelBase):
     """
 
     source: Annotated[Literal["custom", "osm", "bdtopage", "euhydro"], Profile.USER] = Field(
-        ..., description="Data provider."
+        ...,
+        description="Data provider.",
+        json_schema_extra={
+            "value_docs": {
+                "custom": "Loads a river network from a local vector or raster file you provide.",
+                "osm": "Downloads waterway geometries from OpenStreetMap.",
+                "bdtopage": "Downloads the French BD Topage reference network from the Sandre WFS.",
+                "euhydro": "Downloads the EEA EU-Hydro continental-scale river network.",
+            }
+        },
     )
 
     # --- Custom source fields ---

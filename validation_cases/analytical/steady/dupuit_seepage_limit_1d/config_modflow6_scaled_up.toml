@@ -1,0 +1,10 @@
+[[simulation.process]]
+solvers = ["modflow6"]
+
+[flow.param.K.field]
+value = "2.5e-2 m/s"
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [864.0]
+runoff_ratio = 0.0

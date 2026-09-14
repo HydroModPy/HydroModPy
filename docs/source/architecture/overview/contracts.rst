@@ -25,8 +25,8 @@ package exposes a flat set of verbs and helpers re-exported from
    * - Symbol
      - Role
    * - ``hmp.open(project_path)``
-     - Open a project catalog. Returns a ``SimulationCatalog``
-       backed by ``catalog.duckdb`` at the project root. Calls
+     - Open a project catalog. Returns a ``Catalog``
+       backed by ``.hmp/index.duckdb`` inside the project. Calls
        ``ensure_schema()`` on the underlying backend.
    * - ``hmp.read(run, field, **selectors)``
      - Read a logical field from a ``Run``. Dispatches to a Zarr
@@ -36,7 +36,9 @@ package exposes a flat set of verbs and helpers re-exported from
    * - ``hmp.calibrate(toml_path, **overrides)``
      - Drive a calibration session.
    * - ``hmp.index(db_path=None)``
-     - Open the machine-wide ``GlobalIndex``.
+     - Open the machine-wide ``GlobalIndex``, the registry of project
+       roots. One row is one project; a workspace root passed to
+       ``register`` expands into the projects it holds.
    * - ``hmp.viz.show(run, figure, **kwargs)``
      - Render one figure for a run. Scalable defaults via
        datashader / LTTB.
@@ -69,7 +71,7 @@ the catalog is always at the version pinned by the library.
 Simulation store Protocol
 -------------------------
 
-Source: ``hydromodpy/results/storage_contract.py``
+Source: ``hydromodpy/results/storage/contract.py``
 (``SimulationStore`` Protocol).
 
 Covers the minimal write/read surface that workflow steps, solver
@@ -86,7 +88,7 @@ adapters, and post-run extractors actually call:
   protocol.
 
 The default implementation is
-:class:`~hydromodpy.results.catalog.SimulationCatalog`. Conforming
+:class:`~hydromodpy.results.catalog.Catalog`. Conforming
 alternative backends (PostgreSQL, Parquet-only, in-memory, remote
 object storage) can plug in without touching workflow code.
 
@@ -127,10 +129,10 @@ Versioned schema constants
        ``hydromodpy/results/zarr_store/constants.py``.
    * - ``PARQUET_SCHEMA_VERSION``
      - Pinned to ``"v2"`` in
-       ``hydromodpy/results/parquet_schemas.py``.
+       ``hydromodpy/results/storage/parquet_schemas.py``.
    * - ``GEOPARQUET_SCHEMA_VERSION``
      - Pinned to ``"1.1.0"`` in
-       ``hydromodpy/results/geoparquet_io.py``.
+       ``hydromodpy/core/io/geoparquet.py``.
 
 For the migration runner mechanics, see :doc:`schema-evolution`.
 
@@ -152,6 +154,11 @@ requires:
   ``GEOPARQUET_SCHEMA_VERSION``);
 - a docs update on this page and on
   :doc:`/architecture/storage-layout`.
+
+The project index is the exception being built: because it is rebuilt
+from the run directories, its schema is meant to evolve by replacing the
+initial DDL and rebuilding, not by chaining migrations. See
+:doc:`schema-evolution` and :doc:`/architecture/storage-layout`.
 
 See also
 --------

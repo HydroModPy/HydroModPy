@@ -1,0 +1,118 @@
+# Reference calibration 3 of 3: a published method, named instead of retyped.
+#
+# Conductivity from the extent of the hydrographic network, storage from the
+# hydrograph. Abherve et al. (2023), doi:10.5194/hess-27-3221-2023.
+#
+# The whole two-stage assembly is one line. What is left in this file is what
+# belongs to the site: the two search ranges and the mapped network. The
+# protocol writes the stages, their criteria, and the regime and time-grid
+# overrides that make the first steady and the second transient.
+#
+# `hmp calibrate --list-phases <this file>` prints the assembly before running it.
+
+# This file is an overlay: it carries the calibration and inherits the
+# catchment, the data and the solver from the project it points at. Every
+# calibration in the repository is written this way, so the same model is
+# run and calibrated from one description.
+base_config = "project.toml"
+
+[workflow]
+mode = "calibration"
+
+[simulation.time]
+start_datetime = "1995-01-01"
+end_datetime = "2020-12-31"
+step_value = 1
+step_unit = "day"
+
+# The criterion measures lengths along the flow paths of the DEM, so the mapped
+# network has to sit in the talwegs of the routing surface. Burn it first.
+[geographic.enforce_streams]
+enabled = true
+stream_geometry_path = "streams.gpkg"
+mode = "constant"
+depth_m = 30
+
+[calibration]
+seed = 42
+save_runs = "best_n"
+save_best_n = 1
+rerun_best_with_outputs = true
+persist_iteration_detail = "full"
+
+# The signed criterion crosses zero once over several decades of K, which is
+# what makes the first stage a root search rather than a sweep. The bisection
+# refuses a parameter that is not searched in log space.
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+transform = "log"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+# The lower bound is not the physical floor, deliberately: the solve cost
+# climbs steeply as Sy goes to zero, and the observed recession already excludes
+# that region.
+[calibration.parameters.Sy]
+bounds = [5e-3, 0.35]
+transform = "log"
+path = "flow.param.Sy.field.value"
+units = "-"
+
+# The stage-one criterion is solved at zero, so five per cent of the best cost
+# is zero and no interval would be reported. State the width in the unit of the
+# cost instead: 25 metres of network offset is the agreement this catchment can
+# claim, and the interval is the range of K the trials could not tell apart
+# inside it.
+[calibration.uncertainty]
+method = "cost_profile"
+mode = "absolute"
+tolerance = 25.0
+
+[calibration.outputs.seepage_network]
+support = "network"
+stream_geometry_path = "streams.gpkg"
+# One cell one vote is the paper. Weight by area on a mesh refined along the
+# streams, where cell density is highest exactly where distances are smallest.
+weighting = "area"
+tau_specific_ratio = 1.0e-4
+roptim_max = 2.0
+# The positional accuracy of the linework does not improve because the mesh
+# does. Without this floor, the validity length would follow the mesh.
+observed_position_accuracy = "50 m"
+
+# `protocol = "matching_hydrographic_network"` on its own line is the whole
+# declaration. It is written here as a table because this file also states the
+# options, and TOML will not let one key be both a string and a table.
+# Every option below is optional: the defaults reproduce the published method.
+[calibration.protocol]
+name = "matching_hydrographic_network"
+# Which of this file's parameters plays which role.
+conductivity = "K"
+storage = "Sy"
+# Stage one. 'distance_gap' is the signed difference of Eq. 1, whose zero is the
+# balance the paper solves for.
+steady_metric = "distance_gap"
+steady_method = "bisection"
+steady_max_iter = 20
+# How precisely each stage has to pin its parameter before it stops, as a
+# relative precision on that parameter: the paper's one per cent on the
+# conductivity, five on the storage. One number per stage, whatever engine walks
+# it: each engine's own stopping option is written from it.
+steady_tolerance = 0.01
+# Stage two. Any registered engine works here: the method is the pair of
+# criteria and the order they run in, not the optimizer that walks them.
+transient_metric = "nse_log"
+transient_method = "scipy_nelder_mead"
+transient_max_iter = 120
+transient_tolerance = 0.05
+
+# The coarse log sweep the paper runs before bisecting. It checks the
+# monotonicity the method assumes instead of supposing it.
+[calibration.protocol.steady_optimizer_kwargs]
+sweep_points = 7
+
+# The transient stage still has to simulate 1995 to reach 1996 with a state it
+# has forgotten its initial condition in. It simulates it and does not score it.
+[calibration.protocol.scoring_window]
+start = "1996-01-01"
+end = "2020-12-31"

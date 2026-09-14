@@ -6,6 +6,11 @@ inspection, raster alignment, and many spatial diagnostics. It is usually the
 first data family to check because CRS, extent, outlet position, and mask
 alignment problems often become visible on the DEM panel.
 
+Watershed delineation itself, including DEM depression correction
+(``dem_correc_type``) and optional stream burning of the routing DEM
+(``enforce_streams``), is configured in the :doc:`[geographic] section
+</user_guide/config_reference/geographic>`.
+
 Accepted sources
 ----------------
 
@@ -23,6 +28,9 @@ Accepted sources
      - A regional French workflow should discover, download, assemble, and
        cache public IGN DEM archives through Geoplateforme.
      - ``ign-geoplateforme-dem``
+
+The complete ``[[data.dem.sources]]`` schema for both sources, field by field, is
+defined in :ref:`the data reference <data-dem-sources>`.
 
 Minimal example
 ---------------
@@ -68,14 +76,16 @@ Local spatial smoke test
 
    This generated data-doc figure is smaller than the Nancon overview and
    focuses on one practical question: does the raster support align with a
-   vector hydrography layer in the same projected CRS?
+   vector :doc:`hydrography <hydrography>` layer in the same projected CRS?
 
 Downstream uses
 ---------------
 
 - watershed and study-area support;
 - terrain-derived masks and raster alignment;
-- mesh and overview context;
+- mesh and overview context, since the :doc:`[mesh_catchment] launcher
+  </user_guide/config_reference/mesh_catchment>` conforms its mesh to the same
+  watershed support;
 - solver figures that display head or water-table depth against terrain.
 
 DEM Source: custom

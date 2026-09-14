@@ -37,25 +37,25 @@
   "reproduction_command": "python -m tools.doc_gallery",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_plan.json",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_report.json",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.md",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_site_inventory.csv",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_recipe_summary.csv",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_cluster_summary.csv",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_case_matrix.csv",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_plan.json",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_report.json",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.md",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_site_inventory.csv",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_recipe_summary.csv",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_cluster_summary.csv",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_case_matrix.csv",
     "hydromodpy/analysis/testbed/__init__.py",
     "hydromodpy/analysis/testbed/regional_lab_config.py",
     "hydromodpy/analysis/testbed/regional_lab.py"
   ],
   "source_hashes": {
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_plan.json": "d4ebc377b17cc8d1137b99e02eafe9ab3fdd0684647994d0f8f1dc543a99d3fc",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_report.json": "9646eb9d5f2ac27774be1a2e50d3195432bf4dfdcd2be1b3419c2b7b01344376",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.md": "e2cde85ae09a43a1ef17a386c7b2185b3cc66b96934882b9c6853c753d9a44cb",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_site_inventory.csv": "9e45497a24f90cfafb4660332d86d71fd32d42377a83a4b72d3e75a0b8b79ccc",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_recipe_summary.csv": "1bc560b4091286f3e24e6ff46613098cde8ac7c178bdb44c0b314a3489a88383",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_cluster_summary.csv": "1738b81b72150d3df29ccd709c43345eae3ad096603da988299a8a81f74d32c1",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_case_matrix.csv": "88e7980c11cbbf5ef62525d60925929c9ba75c3680d345bac13ce43fc0867e39",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_plan.json": "d4ebc377b17cc8d1137b99e02eafe9ab3fdd0684647994d0f8f1dc543a99d3fc",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_report.json": "9646eb9d5f2ac27774be1a2e50d3195432bf4dfdcd2be1b3419c2b7b01344376",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.md": "e2cde85ae09a43a1ef17a386c7b2185b3cc66b96934882b9c6853c753d9a44cb",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_site_inventory.csv": "9e45497a24f90cfafb4660332d86d71fd32d42377a83a4b72d3e75a0b8b79ccc",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_recipe_summary.csv": "1bc560b4091286f3e24e6ff46613098cde8ac7c178bdb44c0b314a3489a88383",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_cluster_summary.csv": "1738b81b72150d3df29ccd709c43345eae3ad096603da988299a8a81f74d32c1",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_case_matrix.csv": "88e7980c11cbbf5ef62525d60925929c9ba75c3680d345bac13ce43fc0867e39",
     "hydromodpy/analysis/testbed/__init__.py": "199376f72d11988af74a3fb860ddad35abb6f1452d47750aeb416a608e706895",
     "hydromodpy/analysis/testbed/regional_lab_config.py": "fba9d336e84677c50dd7c235f5f413c0bb4b7d0efbce556c78f5c51a13aa0d8e",
     "hydromodpy/analysis/testbed/regional_lab.py": "04a713bafe742f8d4c33860c7382ac7427806ba1370d0b74d3d1f068540505c0"
@@ -67,13 +67,13 @@
       "caption": "Dry-plan synthesis for regional lab mf6 reference recipe on headwater 100 km2: site or candidate coverage, recipe summary, and planning metrics.",
       "alt_text": "Regional lab dry-plan synthesis for Regional Lab MF6 Reference Recipe on Headwater 100 km2",
       "doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png"
+      "repo_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png"
     }
   ],
   "metrics": [],
   "metadata": {
-    "static_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
-    "regional_lab_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
+    "static_summary_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
+    "regional_lab_summary_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
     "study_area": "Brittany regional laboratory",
     "process_families": [
       "planning",
@@ -101,16 +101,16 @@
     ],
     "copied_assets": [
       {
-        "source_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png"
+        "source_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png",
+        "copied_to": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png"
       }
     ]
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
-    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
     "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png"
+      "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png"
     ]
   }
 }

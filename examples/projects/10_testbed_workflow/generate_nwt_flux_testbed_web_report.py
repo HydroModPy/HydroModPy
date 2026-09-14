@@ -298,9 +298,9 @@ def _open_run(case: SiteCase):
     if case.workspace_root is None or not case.workspace_root.exists():
         return None, None
     try:
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
-        catalog = SimulationCatalog(case.workspace_root)
+        catalog = Catalog(case.workspace_root)
         if case.sim_id:
             return catalog, catalog[case.sim_id]
         return catalog, catalog.latest()

@@ -12,12 +12,12 @@ import numpy as np
 import pytest
 import sklearn  # noqa: F401
 
-from hydromodpy.calibration.engine import CalibrationEngine
-from hydromodpy.calibration.optimizer import (
+from hydromodpy.calibration.optim.engine import CalibrationEngine
+from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     build_optimizer,
 )
-from hydromodpy.calibration.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 
 # ---------------------------------------------------------------------------
 # Fixtures

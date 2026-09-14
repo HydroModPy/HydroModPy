@@ -12,6 +12,7 @@ from rasterio.transform import from_origin
 from hydromodpy.core.rng import RngManager
 from hydromodpy.data.variables.geology.config import validate_geology_config_data
 from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
+from hydromodpy.spatial.field.core.cell_sampling import sample_points_in_cell
 from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
@@ -57,7 +58,7 @@ def _reference_on_mesh(
     fractions_flat = {key: np.zeros(int(mesh.n_cells), dtype=float) for key in zone_keys}
 
     for cell in mesh.cells:
-        x_s, y_s = field._sample_points_in_cell(cell, n_sub_per_axis=n_sub)
+        x_s, y_s = sample_points_in_cell(cell, n_sub_per_axis=n_sub)
         zones = np.asarray(field.zone_id(x_s, y_s), dtype=object).reshape(-1)
         valid = np.array([str(z).strip() != "" for z in zones], dtype=bool)
         n_valid = int(np.count_nonzero(valid))

@@ -17,7 +17,7 @@ import hydromodpy as hmp
 
 here = Path(__file__).resolve().parent
 
-# hmp.open renvoie un SimulationCatalog adosse a catalog.duckdb.
+# hmp.open renvoie un Catalog adosse a catalog.duckdb.
 catalog = hmp.open(here)
 
 # Tous les runs nommes. named_only=True ecarte les lignes techniques :

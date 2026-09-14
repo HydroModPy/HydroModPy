@@ -84,11 +84,11 @@ Disposition physique :
 
 Code principal :
 
-- ``hydromodpy/results/catalog.py`` : classe ``SimulationCatalog``.
+- ``hydromodpy/results/catalog.py`` : classe ``Catalog``.
 - ``hydromodpy/results/catalog_schema.py`` : DDL (tables, vues, index).
 - ``hydromodpy/results/zarr_store.py`` : classe ``SimulationZarr``.
 - ``hydromodpy/results/run.py`` : classe ``Run``.
-- ``hydromodpy/results/simulation_group.py`` : classe ``SimulationGroup``.
+- ``hydromodpy/results/simulation_group.py`` : classe ``RunSet``.
 - ``hydromodpy/results/views.py`` : vues catchment-scale calculées à la
   volée.
 - ``hydromodpy/core/io/db_retry.py`` : helpers de retry DuckDB.
@@ -268,7 +268,7 @@ déterministes : ``<project_slug>__<name_slug>__<short_uuid>``.
 Les anciens workspaces peuvent avoir ``storage_basename NULL`` ; dans ce
 cas le fallback est l'UUID complet.
 
-2.7. API publique de ``SimulationCatalog``
+2.7. API publique de ``Catalog``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Les méthodes suivantes sont le point d'entrée côté écriture (toutes
@@ -296,7 +296,7 @@ Côté lecture :
 
 - ``__getitem__(ref)`` : résolution par UUID complet, préfixe (>= 4 hex)
   ou alias unique ``(project, name)``.
-- ``find(**filters)`` : retourne un ``SimulationGroup``. Filtres possibles :
+- ``find(**filters)`` : retourne un ``RunSet``. Filtres possibles :
   ``project``, ``solver``, ``status``, ``flow_regime``, ``mesh_topology``,
   bornes métriques (``nse_gt=``, ``kge_ge=``, ...), tags.
 - ``best(project, metric="nse")`` : meilleur run du projet pour la métrique.
@@ -304,15 +304,15 @@ Côté lecture :
 - ``export_package(sim_id, path)`` et ``import_package(path)`` : voir §2.9.
 
 Toutes les méthodes s'utilisent aussi via un context manager :
-``with SimulationCatalog(workspace) as catalog: ...`` ferme la connexion
+``with Catalog(workspace) as catalog: ...`` ferme la connexion
 DuckDB proprement.
 
-2.8. ``Run`` et ``SimulationGroup``
+2.8. ``Run`` et ``RunSet``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``Run`` est un handle en lecture seule renvoyé par
 ``catalog[sim_id]``, ``catalog.best(...)`` ou par l'itération d'un
-``SimulationGroup``. Propriétés et méthodes :
+``RunSet``. Propriétés et méthodes :
 
 - Métadonnées : ``sim_id``, ``name``, ``project``, ``solver``, ``status``,
   ``n_cells``, ``n_layers``, ``n_timesteps``, ``duration_s``, ``tags``, ``config``.
@@ -329,7 +329,7 @@ DuckDB proprement.
   ``persistence``, ``catchment_mean``, ``recharge_forcing`` (voir
   ``views.py``).
 
-``SimulationGroup`` expose ``parameters``, ``metrics`` (DataFrames larges),
+``RunSet`` expose ``parameters``, ``metrics`` (DataFrames larges),
 ``compare(metric)``, ``sort_by``, ``best``, ``worst``, ``to_dataframe``,
 ``to_csv``, ``to_xarray`` (stack multi-simulation). Filtrage via
 ``group.filter(**criteria)``.
@@ -597,7 +597,7 @@ Perdre la course lève ``duckdb.IOException``.
 Politique de retry :
 
 - ``connect_with_retry(db_path, retries=8, backoff=0.05)`` : utilisé par
-  ``SimulationCatalog.__init__``. Délais croissants (0.05, 0.1, 0.2, 0.4,
+  ``Catalog.__init__``. Délais croissants (0.05, 0.1, 0.2, 0.4,
   0.8, 1.6, 3.2, 6.4 secondes, total environ 13 s).
 - ``@with_lock_retry(retries=8, backoff=0.05)`` : décore toutes les
   méthodes d'écriture du catalogue (register, write_parameters,
@@ -668,7 +668,7 @@ API publique (voir :doc:`glossary <glossary>` pour les types) :
    import hydromodpy as hmp
 
    # Ouverture en lecture
-   catalog = hmp.open("~/workspace")       # SimulationCatalog
+   catalog = hmp.open("~/workspace")       # Catalog
 
    # Résolution de simulation
    run = catalog["abc12345"]                # préfixe UUID ou UUID complet
@@ -711,7 +711,7 @@ API publique (voir :doc:`glossary <glossary>` pour les types) :
    catalog.export_package(run.sim_id, "~/share/run.hmp")
    catalog.import_package("~/share/other.hmp")
 
-``SimulationCatalog`` est un context manager ; en dehors de ce modèle,
+``Catalog`` est un context manager ; en dehors de ce modèle,
 appeler ``catalog.close()`` pour libérer le verrou.
 
 7. Flux récapitulatif
@@ -738,7 +738,7 @@ Diagramme synthétique d'une simulation :
    [simulations/<basename>.parquet/] (séries)
        | read
        v
-   [Run, SimulationGroup, figures, exports]
+   [Run, RunSet, figures, exports]
 
 La séparation en deux bases DuckDB est motivée par l'indépendance des
 cycles de vie : le cache d'entrée survit aux simulations et sert
@@ -841,7 +841,7 @@ SQL tables. No casts are needed on the read path.
 Write path
 ~~~~~~~~~~
 
-``SimulationCatalog.write_timeseries``, ``write_budgets``,
+``Catalog.write_timeseries``, ``write_budgets``,
 ``write_mass_balances`` share a common helper
 (``_atomic_write_parquet``) that:
 
@@ -917,8 +917,8 @@ Our catalog retries at two places:
 
 - ``connect_with_retry`` (``hydromodpy/core/io/db_retry.py``) loops over
   ``duckdb.connect`` with exponential backoff. Used by
-  ``SimulationCatalog.__init__``.
-- ``@with_lock_retry()`` wraps every ``SimulationCatalog`` write method
+  ``Catalog.__init__``.
+- ``@with_lock_retry()`` wraps every ``Catalog`` write method
   (register, write_parameters, write_metric, write_provenance,
   register_observation_points, register_tracked_files,
   write_geographic_feature, write_geographic_metadata, finalize, delete
@@ -1511,7 +1511,7 @@ Il ne contient que des metadonnees + des chemins vers des fichiers dans ``data/`
 Trois niveaux d'abstraction. L'utilisateur ne manipule jamais DuckDB directement
 sauf s'il le souhaite.
 
-7.1. SimulationCatalog : point d'entree
+7.1. Catalog : point d'entree
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
@@ -1643,7 +1643,7 @@ Export complet (package portable) :
    # cree un dossier contenant simulation.duckdb + results.zarr/
    # le destinataire fait : catalog.import_package("nancon_best.hmp")
 
-7.3. SimulationGroup : operations groupees
+7.3. RunSet : operations groupees
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python

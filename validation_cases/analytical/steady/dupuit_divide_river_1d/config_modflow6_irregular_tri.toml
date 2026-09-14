@@ -9,6 +9,9 @@ solvers = ["modflow6"]
 mf_verbose = false
 mf6_ims_complexity = "COMPLEX"
 
+[modflow6.sgrid]
+grid_dual = "triangle"
+
 [modflow6.sgrid.vertical]
 nlay = 1
 

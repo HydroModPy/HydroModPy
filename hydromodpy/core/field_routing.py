@@ -2,11 +2,28 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 
-DRAIN_BUDGET_KEYS = ("drn", "drain", "drains", "DRN", "DRAINS")
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
+
+# Canonical public name of the drain budget field. Both MODFLOW backends
+# normalize their record name (DRN / DRAINS) through
+# ``solver.modflow_common.budget_components.canonical_budget_component``
+# before writing, so the store only ever holds "drain".
+DRAIN_BUDGET_KEYS = ("drain",)
+
+# Budget zone whose support is the delineated catchment rather than the model
+# domain. MODFLOW-NWT meshes the basin, so the two coincide; MODFLOW 6 meshes a
+# buffered box, so a domain-wide row carries the neighbouring basins too. A row
+# under this zone is the only lumped row a gauge at the outlet can be compared
+# to. Written by the solver extractors, read by
+# ``simulation.extraction.derivation.catchment_aggregation``.
+CATCHMENT_BUDGET_ZONE = "catchment"
 
 
 def find_drain_budget_key(mapping: Any) -> str | None:
@@ -18,6 +35,25 @@ def find_drain_budget_key(mapping: Any) -> str | None:
         except TypeError:
             return None
     return None
+
+
+def _positive_outflow_from_signed(signed: np.ndarray) -> np.ndarray:
+    """Sum signed ``(time, layer, cell)`` budgets into positive per-cell outflow.
+
+    The all-positive fallback (budgets stored with outflow-positive sign) is
+    decided independently per timestep, matching the historical per-field call.
+    """
+    finite = np.isfinite(signed) & (signed > -9000.0)
+    positive_outflow = np.where(finite, np.maximum(-signed, 0.0), 0.0)
+    has_finite = finite.any(axis=(1, 2))
+    has_outflow = (positive_outflow > 0.0).any(axis=(1, 2))
+    has_positive = ((signed > 0.0) & finite).any(axis=(1, 2))
+    has_negative = ((signed < 0.0) & finite).any(axis=(1, 2))
+    fallback = has_finite & ~has_outflow & has_positive & ~has_negative
+    if np.any(fallback):
+        positive_signed = np.where(finite, signed, 0.0)
+        positive_outflow = np.where(fallback[:, None, None], positive_signed, positive_outflow)
+    return positive_outflow.sum(axis=1).astype("float64", copy=False)
 
 
 def drain_budget_to_positive_outflow(
@@ -40,22 +76,126 @@ def drain_budget_to_positive_outflow(
     else:
         signed = field.reshape(field.shape[0], -1)
 
-    finite = np.isfinite(signed) & (signed > -9000.0)
-    positive_outflow = np.where(finite, np.maximum(-signed, 0.0), 0.0)
-    if (
-        np.any(finite)
-        and not np.any(positive_outflow[finite] > 0.0)
-        and np.any(signed[finite] > 0.0)
-        and not np.any(signed[finite] < 0.0)
-    ):
-        positive_outflow = np.where(finite, signed, 0.0)
-    return positive_outflow.sum(axis=0).astype("float64", copy=False)
+    return _positive_outflow_from_signed(signed[None])[0]
+
+
+def drain_budget_stack_to_positive_outflow(
+    component_stack: Any,
+    *,
+    n_cells: int,
+) -> np.ndarray:
+    """Convert a signed ``(time, ...)`` drain budget stack to positive outflow.
+
+    Returns a ``(time, n_cells)`` array; layers are summed per timestep.
+    """
+    stack = np.asarray(component_stack, dtype=float)
+    if stack.ndim == 2:
+        stack = stack[:, None, :]
+    elif stack.ndim != 3:
+        raise ValueError(f"Expected a (time, ...) budget stack, got shape {stack.shape}")
+    n_cells_int = int(n_cells)
+    per_step = stack.shape[1] * stack.shape[2]
+    if n_cells_int > 0 and per_step % n_cells_int == 0:
+        stack = stack.reshape(stack.shape[0], -1, n_cells_int)
+    return _positive_outflow_from_signed(stack)
 
 
 def active_surface_mask(topography: Any, *, nodata_floor: float = -9000.0) -> np.ndarray:
     """Return True for cells with a finite, non-nodata surface elevation."""
     surface = np.asarray(topography, dtype=float).reshape(-1)
     return np.isfinite(surface) & (surface > float(nodata_floor))
+
+
+def seepage_mask(
+    *,
+    watertable: Any | None = None,
+    topography: Any | None = None,
+    surface_excess: Any | None = None,
+    band_depth: float = 0.0,
+) -> np.ndarray:
+    """Canonical seepage criterion, shared by every reader and writer.
+
+    ``surface_excess`` is the solver-declared surface release flux. When a
+    backend produces it (Boussinesq constrained formulations) it wins: those
+    formulations clamp the head at the surface over broad areas while the real
+    seepage flows through that flux, so the geometric test over-reports. Without
+    it (MODFLOW 6, MODFLOW-NWT) the mask is ``watertable >= topography``.
+
+    ``band_depth`` is the sub-cell discharge band the run gave its drains
+    (``solver.drain_band_depth_m``). A banded drain sits at ``top - D/2``, the
+    lowest land the cell is declared to hold, so a cell discharges as soon as
+    the water table reaches that elevation and never climbs back to ``top``.
+    Testing against ``top`` on a banded run therefore returns an all-false mask
+    while the drains are discharging: measured on the Nancon, reaching ``top``
+    would take four orders of magnitude more flux than the recharge supplies.
+    The criterion is ``watertable >= topography - band_depth / 2``, and
+    ``band_depth = 0`` is the unbanded test unchanged.
+
+    Accepts a single timestep ``(n_cells,)`` or a stack ``(time, n_cells)`` and
+    returns a float mask of the same shape.
+    """
+    if surface_excess is not None:
+        return (np.asarray(surface_excess, dtype=float) > 0.0).astype("float64")
+    if watertable is None or topography is None:
+        raise ValueError("seepage_mask needs either surface_excess or watertable + topography")
+    wt = np.asarray(watertable, dtype=float)
+    top = np.asarray(topography, dtype=float).reshape(-1) - 0.5 * float(band_depth)
+    if wt.ndim == 2:
+        top = top[None, :]
+    return (wt >= top).astype("float64")
+
+
+DRAIN_BAND_DEPTH_ATTR = "drain_band_depth_m"
+
+
+def drain_band_depth(root: Any) -> float:
+    """Read the discharge band a run gave its drains back from its store.
+
+    The band changes what "this cell seeps" means, so every reader of
+    :func:`seepage_mask` has to know it, including a figure drawn months after
+    the run. It travels in the store rather than through a call chain for the
+    same reason the surface-release flux does: the criterion interrogates the
+    file, not the object that produced it. Absent, which is every run written
+    before the option existed, it reads 0.0 and the criterion is unchanged.
+    """
+    try:
+        value = root.attrs.get(DRAIN_BAND_DEPTH_ATTR)
+    except (AttributeError, TypeError):
+        return 0.0
+    if value is None:
+        return 0.0
+    depth = float(value)
+    return depth if np.isfinite(depth) and depth > 0.0 else 0.0
+
+
+# Zarr group the Boussinesq adapter writes for every run it extracts. Its
+# presence identifies a backend whose seepage is a surface-release flux, so a
+# store holding it but no ``budget/surface_excess`` lost that signal.
+SURFACE_EXCESS_STATE_GROUP = "boussinesq_state"
+
+
+def warn_on_geometric_seepage_fallback(root: Any, *, sim_id: str) -> None:
+    """Warn when a surface-excess run falls back to the geometric criterion.
+
+    Call it right before building a seepage mask without ``surface_excess``.
+    On MODFLOW backends the geometric test is the criterion and nothing is
+    logged; on a solver that releases water through a flux it is a physics
+    degradation the user must see.
+    """
+    try:
+        degraded = SURFACE_EXCESS_STATE_GROUP in root
+    except TypeError:
+        return
+    if not degraded:
+        return
+    logger.warning(
+        "Seepage mask for sim %s falls back to the geometric criterion "
+        "(water table >= surface): this solver releases seepage through "
+        "budget/surface_excess, which the store does not hold, so the mask "
+        "over-reports the seepage extent. Set [simulation.results.budget] "
+        "spatial_fields = true to keep that flux.",
+        sim_id,
+    )
 
 
 def cell_adjacency_from_face_connectivity(
@@ -91,6 +231,41 @@ def cell_adjacency_from_face_connectivity(
     return adjacency
 
 
+def domain_edge_cells(face_node_connectivity: Any, active: Any) -> np.ndarray:
+    """Return the active cells holding a face edge no other active cell shares.
+
+    The geometric boundary of the modelled domain, where water leaves the mesh.
+    It is the seed set a priority flood needs to raise the closed depressions
+    and nothing else.
+
+    Read off the mesh rather than off the neighbour count: a degree below the
+    maximum means "on the edge" only on a structured grid, and a Voronoi dual
+    carries every degree from three upwards in its interior.
+    """
+    selected = np.asarray(active, dtype=bool).reshape(-1)
+    rows = np.asarray(face_node_connectivity, dtype=np.int64)
+    if rows.ndim == 1:
+        rows = rows.reshape(1, -1)
+    rows = rows[: selected.size]
+    present = rows >= 0
+    # Compact the nodes of each face to the front, keeping the ring order, so
+    # the following node of slot j is slot (j + 1) modulo the face arity.
+    ring = np.take_along_axis(rows, np.argsort(~present, axis=1, kind="stable"), axis=1)
+    arity = present.sum(axis=1)
+    slots = np.arange(rows.shape[1])
+    following = np.take_along_axis(
+        ring, np.mod(slots[None, :] + 1, np.maximum(arity, 1)[:, None]), axis=1
+    )
+    low = np.minimum(ring, following)
+    high = np.maximum(ring, following)
+    drawn = (slots[None, :] < arity[:, None]) & selected[:, None] & (low != high)
+    key = low * (int(rows.max(initial=0)) + 1) + high
+    _, inverse, counts = np.unique(key[drawn], return_inverse=True, return_counts=True)
+    shared = np.zeros(key.shape, dtype=bool)
+    shared[drawn] = counts[inverse] > 1
+    return selected & (drawn & ~shared).any(axis=1)
+
+
 def cell_centroids_from_mesh(
     vertices: Any,
     face_node_connectivity: Any,
@@ -100,101 +275,163 @@ def cell_centroids_from_mesh(
     connectivity = np.asarray(face_node_connectivity, dtype=int)
     if connectivity.ndim == 1:
         connectivity = connectivity.reshape(1, -1)
-    centroids = np.full((connectivity.shape[0], 2), np.nan, dtype="float64")
-    for cell_id, row in enumerate(connectivity):
-        nodes = np.asarray(row, dtype=int)
-        nodes = nodes[(nodes >= 0) & (nodes < points.shape[0])]
-        if nodes.size == 0:
-            continue
-        centroids[cell_id] = np.nanmean(points[nodes, :2], axis=0)
-    return centroids
+    valid = (connectivity >= 0) & (connectivity < points.shape[0])
+    safe = np.where(valid, connectivity, 0)
+    xy = points[safe, :2]
+    finite = np.isfinite(xy) & valid[:, :, None]
+    sums = np.where(finite, xy, 0.0).sum(axis=1)
+    counts = finite.sum(axis=1)
+    return np.where(counts > 0, sums / np.maximum(counts, 1), np.nan).astype("float64")
 
 
-def accumulate_downhill_on_mesh(
-    local_values: Any,
+@dataclass(frozen=True)
+class DownhillGraph:
+    """Static steepest-descent receiver graph over a mesh surface.
+
+    ``downstream`` maps each cell to its single receiver (-1 = outlet/none),
+    ``order`` lists active cells by descending reference elevation, and
+    ``active`` flags routable cells. Build once per mesh; the graph is
+    independent of the routed values, so transient stacks reuse it.
+    """
+
+    downstream: np.ndarray
+    order: np.ndarray
+    active: np.ndarray
+
+
+def build_downhill_graph(
     reference_values: Any,
     face_node_connectivity: Any,
     *,
     vertices: Any | None = None,
+    centroids: Any | None = None,
     inactive_mask: Any | None = None,
-) -> np.ndarray:
-    """Accumulate per-cell source values along the steepest downhill mesh path."""
-    local = np.asarray(local_values, dtype=float).reshape(-1)
-    reference = np.asarray(reference_values, dtype=float).reshape(-1)
-    if local.size != reference.size:
-        raise ValueError(
-            "local_values and reference_values must have the same number of cells "
-            f"({local.size} != {reference.size})."
-        )
+    adjacency: list[set[int]] | None = None,
+) -> DownhillGraph:
+    """Build the steepest downhill receiver graph for a static surface.
 
-    n_cells = int(local.size)
+    ``adjacency`` replaces the shared-edge neighbor graph derived from the face
+    connectivity. Pass one to route over shared nodes instead, which is how a
+    structured grid recovers its diagonal descents.
+
+    ``centroids`` are the points ``reference_values`` were sampled at, used to
+    normalize a drop into a slope. Without them the polygon centroid is derived
+    from ``vertices``, which is the same point on a parallelogram cell and NOT
+    on a Voronoi dual: there the generator seed carries the elevation while the
+    vertex mean sits elsewhere, so the drop and the length would span two
+    different segments and the ratio would be a slope of nothing.
+    """
+    reference = np.asarray(reference_values, dtype=float).reshape(-1)
+    n_cells = int(reference.size)
     if inactive_mask is None:
         inactive = np.zeros(n_cells, dtype=bool)
     else:
         inactive = np.asarray(inactive_mask, dtype=bool).reshape(-1)
         if inactive.size != n_cells:
             raise ValueError(f"inactive_mask must have {n_cells} entries, got {inactive.size}.")
+    if adjacency is not None and len(adjacency) != n_cells:
+        raise ValueError(f"adjacency must have {n_cells} entries, got {len(adjacency)}.")
 
     active = (~inactive) & np.isfinite(reference)
+    downstream = np.full(n_cells, -1, dtype=int)
     if not np.any(active):
-        return np.zeros(n_cells, dtype="float64")
+        return DownhillGraph(downstream=downstream, order=np.empty(0, dtype=int), active=active)
 
-    adjacency = cell_adjacency_from_face_connectivity(
-        face_node_connectivity,
-        n_cells=n_cells,
-    )
-    centroids = None
-    if vertices is not None:
+    if adjacency is None:
+        adjacency = cell_adjacency_from_face_connectivity(
+            face_node_connectivity,
+            n_cells=n_cells,
+        )
+    if centroids is not None:
+        centroids = np.asarray(centroids, dtype=float)
+        if centroids.ndim != 2 or centroids.shape != (n_cells, 2):
+            raise ValueError(
+                f"centroids must be ({n_cells}, 2), got {centroids.shape}. They are the points "
+                "the reference values were sampled at, one per cell."
+            )
+    elif vertices is not None:
         centroids = cell_centroids_from_mesh(vertices, face_node_connectivity)
-        if centroids.shape[0] != n_cells or not np.any(np.isfinite(centroids)):
-            centroids = None
+    if centroids is not None and (
+        centroids.shape[0] != n_cells or not np.any(np.isfinite(centroids))
+    ):
+        centroids = None
+
+    max_degree = max((len(cells) for cells in adjacency), default=0)
+    neighbors = np.full((n_cells, max(max_degree, 1)), -1, dtype=int)
+    for cell_id, cells in enumerate(adjacency):
+        if cells:
+            neighbors[cell_id, : len(cells)] = sorted(cells)
 
     ref_active = reference[active]
-    ref_range = float(np.nanmax(ref_active) - np.nanmin(ref_active)) if ref_active.size else 0.0
+    ref_range = float(np.nanmax(ref_active) - np.nanmin(ref_active))
     tolerance = max(1.0e-9, 1.0e-9 * max(abs(ref_range), 1.0))
-    downstream = np.full(n_cells, -1, dtype=int)
 
-    for cell_id in np.flatnonzero(active).tolist():
-        best_neighbor = -1
-        best_score = 0.0
-        cell_ref = float(reference[cell_id])
-        for neighbor in adjacency[int(cell_id)]:
-            if neighbor < 0 or neighbor >= n_cells or not bool(active[neighbor]):
-                continue
-            drop = cell_ref - float(reference[int(neighbor)])
-            if not np.isfinite(drop) or drop <= tolerance:
-                continue
-            score = drop
-            if centroids is not None and np.all(np.isfinite(centroids[[cell_id, neighbor]])):
-                delta = centroids[int(cell_id)] - centroids[int(neighbor)]
-                distance = max(float(np.hypot(delta[0], delta[1])), 1.0e-12)
-                score = drop / distance
-            if score > best_score:
-                best_score = float(score)
-                best_neighbor = int(neighbor)
-        downstream[int(cell_id)] = int(best_neighbor)
+    clipped = np.clip(neighbors, 0, n_cells - 1)
+    valid = (neighbors >= 0) & active[clipped] & active[:, None]
+    drop = reference[:, None] - reference[clipped]
+    valid &= np.isfinite(drop) & (drop > tolerance)
+    score = drop
+    if centroids is not None:
+        pair_finite = np.isfinite(centroids).all(axis=1)[:, None] & np.isfinite(
+            centroids[clipped]
+        ).all(axis=2)
+        delta = centroids[:, None, :] - centroids[clipped]
+        distance = np.maximum(np.hypot(delta[..., 0], delta[..., 1]), 1.0e-12)
+        score = np.where(pair_finite, drop / distance, drop)
+    score = np.where(valid, score, -np.inf)
+    best = np.argmax(score, axis=1)
+    rows = np.arange(n_cells)
+    has_receiver = score[rows, best] > 0.0
+    downstream[has_receiver] = neighbors[rows, best][has_receiver]
 
-    clean_local = np.where(active & np.isfinite(local), np.maximum(local, 0.0), 0.0)
-    accumulated = np.zeros(n_cells, dtype="float64")
-    order = np.argsort(np.where(active, reference, -np.inf).astype(float, copy=False))[::-1]
-    for cell_id in order.tolist():
-        if not bool(active[int(cell_id)]):
-            continue
-        accumulated[int(cell_id)] += float(clean_local[int(cell_id)])
-        target = int(downstream[int(cell_id)])
+    order_all = np.argsort(np.where(active, reference, -np.inf).astype(float, copy=False))[::-1]
+    order = order_all[active[order_all]]
+    return DownhillGraph(downstream=downstream, order=order, active=active)
+
+
+def accumulate_on_downhill_graph(graph: DownhillGraph, local_values: Any) -> np.ndarray:
+    """Accumulate positive sources along a prebuilt receiver graph.
+
+    Accepts a single ``(n_cells,)`` field or a ``(time, n_cells)`` stack and
+    returns the same leading shape. The graph traversal runs once with all
+    timesteps carried as vectors, so a transient stack costs one pass.
+    """
+    local = np.asarray(local_values, dtype=float)
+    single = local.ndim == 1
+    stack = local.reshape(1, -1) if single else local
+    n_cells = int(graph.active.size)
+    if stack.ndim != 2 or stack.shape[1] != n_cells:
+        raise ValueError(f"local_values must have {n_cells} cells, got shape {local.shape}.")
+    if not np.any(graph.active):
+        out = np.zeros(stack.shape, dtype="float64")
+        return out[0] if single else out
+
+    accumulated = np.where(
+        graph.active[None, :] & np.isfinite(stack), np.maximum(stack, 0.0), 0.0
+    ).astype("float64", copy=False)
+    downstream = graph.downstream
+    for cell_id in graph.order.tolist():
+        target = int(downstream[cell_id])
         if target >= 0:
-            accumulated[target] += float(accumulated[int(cell_id)])
-
-    accumulated[~active] = np.nan
-    return accumulated
+            accumulated[:, target] += accumulated[:, cell_id]
+    accumulated[:, ~graph.active] = np.nan
+    return accumulated[0] if single else accumulated
 
 
 __all__ = [
+    "CATCHMENT_BUDGET_ZONE",
+    "DRAIN_BAND_DEPTH_ATTR",
     "DRAIN_BUDGET_KEYS",
-    "accumulate_downhill_on_mesh",
+    "DownhillGraph",
+    "accumulate_on_downhill_graph",
     "active_surface_mask",
+    "build_downhill_graph",
     "cell_adjacency_from_face_connectivity",
     "cell_centroids_from_mesh",
+    "domain_edge_cells",
+    "drain_budget_stack_to_positive_outflow",
     "drain_budget_to_positive_outflow",
+    "drain_band_depth",
     "find_drain_budget_key",
+    "seepage_mask",
 ]

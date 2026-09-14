@@ -181,7 +181,7 @@ The resolved catalog path and source manifest provenance are written into
 ## Flow Catalog Metrics
 
 Flow children delegate to the normal simulation workflow. After a child run,
-`runtime.py` tries to reopen the result through the `SimulationCatalog` and
+`runtime.py` tries to reopen the result through the `Catalog` and
 adds these summary blocks:
 
 - `catalog`: run identity, solver, status, duration, cell count, timestep count.

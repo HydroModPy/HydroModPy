@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
+import os
+import threading
 import warnings
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from numbers import Real
+from pathlib import Path
 
 import numpy as np
 
@@ -299,12 +303,15 @@ def resolve_deferred_heterogeneous_recharge(model) -> None:
             discretize_fields_on_planar_mesh,
             discretize_points_on_planar_mesh,
         )
+        from hydromodpy.spatial.mesh.model.cell_types import CellType
 
+        solver_planar = model.solver_mesh.planar_mesh
         planar_mesh = getattr(model, "runtime_mesh_planar", None)
-        if planar_mesh is None:
-            from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
-
-            planar_mesh = GmshPlanarMesh2D.from_hydro_mesh(model.solver_mesh.planar_mesh)
+        # The runtime_mesh_planar is the triangular seed mesh; on a Voronoi solver grid
+        # recharge must discretize onto the actual (POLYGON) solver cells, which the
+        # HydroMesh exposes ragged-safe (cell_centroids + n_cells).
+        if planar_mesh is None or CellType.POLYGON in getattr(solver_planar, "cell_types", ()):
+            planar_mesh = solver_planar
 
     # Prefer fields; fall back to located points.
     if getattr(het_source, "has_fields", False):
@@ -488,8 +495,159 @@ def recharge_to_spd(model) -> dict[int, np.ndarray]:
     )
 
 
+def mask_recharge_on_lake_cells(
+    spd: dict[int, np.ndarray],
+    *,
+    lake_cell_ids: Iterable[int],
+) -> dict[int, np.ndarray]:
+    """Zero aquifer recharge on lake cells to avoid double counting with LAK.
+
+    The lake's own rainfall enters through the LAK package, so applying RCHA on
+    the same cells would count it twice. Without the FIXED_CELL option, RCHA does
+    NOT drop recharge on an inactive (``idomain == 0``) lake cell: it REASSIGNS it
+    to the first active cell below (right under the lake), which is exactly the
+    double count this mask prevents. This mask is therefore REQUIRED, not
+    belt-and-braces. The arrays are modified per stress period (flat ``ncpl``).
+    """
+    cells = np.asarray(list(lake_cell_ids), dtype=int)
+    if cells.size == 0:
+        return spd
+    for kper, arr in spd.items():
+        flat = np.asarray(arr, dtype=float)
+        flat[cells] = 0.0
+        spd[kper] = flat
+    return spd
+
+
+RECHARGE_BINARY_MIN_PERIODS = 64
+
+
+def externalize_recharge_spd(
+    spd: dict[int, np.ndarray],
+    *,
+    basename: str,
+    shared_dir: str | os.PathLike[str] | None = None,
+) -> dict[int, np.ndarray] | dict[int, dict]:
+    """Route long transient recharge stacks to external binary array files.
+
+    FloPy formats INTERNAL arrays value by value, which dominates
+    ``write_simulation`` on multi-thousand-period chronicles. External binary
+    files are written through numpy and read natively by MF6 via
+    ``OPEN/CLOSE <file> (BINARY)``. Short records stay internal so small
+    models keep human-readable input files.
+
+    ``shared_dir`` enables the CALIBRATION fast path: the recharge is invariant
+    across trials (K / Sy / bedleak do not change it), so the per-period ``.bin``
+    are written ONCE to ``shared_dir`` (content-hashed) and every trial merely
+    references them (``filename`` without ``data``), instead of re-writing
+    thousands of files per trial under the GIL. The write is atomic
+    (temp + rename), so concurrent first-generation trials never read a partial
+    file.
+    """
+    if len(spd) < RECHARGE_BINARY_MIN_PERIODS:
+        return spd
+    if shared_dir is not None:
+        return _shared_recharge_spd(spd, Path(shared_dir))
+    return {
+        kper: {
+            "factor": 1.0,
+            "data": arr,
+            "filename": f"{basename}.rcha.{kper}.bin",
+            "binary": True,
+        }
+        for kper, arr in spd.items()
+    }
+
+
+def _recharge_digest(spd: dict[int, np.ndarray]) -> str:
+    """Content hash of the recharge stack, so a changed forcing gets new files."""
+    hasher = hashlib.blake2b(digest_size=16)
+    for kper in sorted(spd):
+        arr = np.ascontiguousarray(np.asarray(spd[kper], dtype=np.float64))
+        hasher.update(np.int64(kper).tobytes())
+        hasher.update(np.int64(arr.size).tobytes())
+        hasher.update(arr.tobytes())
+    return hasher.hexdigest()
+
+
+def _write_shared_recharge_bin(target: Path, arr: np.ndarray, kper: int) -> None:
+    """Write one recharge period to ``target`` in the exact MF6 binary format.
+
+    Idempotent and race-safe: skips a complete existing target, and otherwise
+    writes a per-writer temp, fsyncs it, then renames it over the target, so a
+    concurrent reader (or a re-run after a crash) only ever sees a complete file
+    (all writers emit identical bytes). A pre-existing file of the wrong size
+    (a zero-length remnant from a crash between write and rename) is rewritten.
+
+    Two Windows specifics are handled here rather than left to fail: a handle
+    needs write access to be flushed, and a rename cannot land on a file another
+    process holds open. Both only surface under a parallel calibration, which is
+    the only caller of the shared-recharge path.
+    """
+    ncpl = int(arr.size)
+    expected_size = 52 + 8 * ncpl  # double-precision head header (52 B) + ncpl doubles
+    if target.exists() and target.stat().st_size == expected_size:
+        return
+    from flopy.utils import Util2d
+    from flopy.utils.binaryfile import BinaryHeader
+
+    header = BinaryHeader.create(
+        bintype="head",
+        precision="double",
+        text="RECHARGE",
+        ncol=ncpl,
+        nrow=1,
+        ilay=1,
+        pertim=1.0,
+        totim=1.0,
+        kstp=1,
+        kper=int(kper) + 1,
+    )
+    tmp = target.with_name(f"{target.name}.tmp.{os.getpid()}.{threading.get_ident()}")
+    Util2d.write_bin(
+        (1, ncpl), str(tmp), np.ascontiguousarray(arr).reshape(1, ncpl), header_data=header
+    )
+    # O_RDWR, not O_RDONLY: Windows refuses to flush a handle without write access
+    # and raises OSError(EBADF), which crashed every calibration trial on that
+    # platform (the shared-recharge path only runs under calibration).
+    fd = os.open(str(tmp), os.O_RDWR)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    try:
+        os.replace(str(tmp), str(target))
+    except OSError:
+        # Windows refuses to replace a file another process holds open, so parallel
+        # trials collide on the shared target. Every writer emits identical bytes,
+        # so a target already at the expected size is the file we were about to
+        # write: drop our temp and let it stand. Anything else is a real failure.
+        if target.exists() and target.stat().st_size == expected_size:
+            tmp.unlink(missing_ok=True)
+            return
+        raise
+
+
+def _shared_recharge_spd(spd: dict[int, np.ndarray], shared_dir: Path) -> dict[int, dict]:
+    """Write the trial-invariant recharge once and return reference-only specs."""
+    shared_dir.mkdir(parents=True, exist_ok=True)
+    digest = _recharge_digest(spd)
+    out: dict[int, dict] = {}
+    for kper, arr in spd.items():
+        target = shared_dir / f"rcha_{digest}.{kper}.bin"
+        _write_shared_recharge_bin(target, np.asarray(arr, dtype=np.float64), kper)
+        out[kper] = {"factor": 1.0, "filename": str(target), "binary": True}
+    return out
+
+
 def empty_recharge_aux(model) -> dict[int, list[np.ndarray]]:
-    return {k: [np.zeros(int(model.ncpl), dtype=float)] for k in range(int(model.nper))}
+    """Zero AUX concentration for period 0 only; MF6 repeats the last block.
+
+    A single block keeps FloPy's per-period block-header bookkeeping (quadratic
+    in the number of provided periods) out of long daily chronicles. Transport
+    runs overwrite the data through ``rch.aux.set_data``.
+    """
+    return {0: [np.zeros(int(model.ncpl), dtype=float)]}
 
 
 def finalize_pending_recharge_evt(model) -> None:
@@ -506,8 +664,15 @@ def build_evt_stress_period_data(
     *,
     ocean_support_mask: np.ndarray,
     stream_support_mask: np.ndarray,
+    lake_cell_ids: Iterable[int] = (),
 ) -> dict[int, list[list[float]]] | None:
-    """Build MF6 EVT stress-period data from recharge negatives routed to EVT."""
+    """Build MF6 EVT stress-period data from recharge negatives routed to EVT.
+
+    ``lake_cell_ids`` are the flat cell2d ids under the lake footprint: aquifer ET
+    is skipped there because LAK supplies the open-water evaporation, so it must
+    not be double-counted. They are passed explicitly (not read off the model) so
+    the masking does not depend on build ordering.
+    """
     evt_payload = getattr(model, "_evt_rate_payload", None)
     if evt_payload is None:
         return None
@@ -518,24 +683,31 @@ def build_evt_stress_period_data(
     # evt_extinction_depth in meters; floor only guards a degenerate zero depth.
     evt_depth = max(float(model.modflow_config.process_specific.evt_extinction_depth), 1e-6)
     # Place the EVT sink on the uppermost active layer of each cell, not layer 0.
-    idomain = solver_mesh.idomain()
+    # idomain and the skip mask are loop-invariant, so precompute them once.
+    ncpl = int(model.ncpl)
+    active_by_layer = solver_mesh.idomain() == 1
+    has_active = active_by_layer.any(axis=0)
+    top_layer_by_cell = np.argmax(active_by_layer, axis=0)  # first active layer per cell
+    skip = ocean_mask_flat | stream_mask_flat
+    for cid in lake_cell_ids:
+        if 0 <= int(cid) < ncpl:
+            skip[int(cid)] = True
+    keep = ~skip & has_active
 
     evt_spd: dict[int, list[list[float]]] = {}
     for kper in range(int(model.nper)):
         raw_value = evt_payload.get(kper, 0.0) if isinstance(evt_payload, Mapping) else evt_payload
         rate_flat = as_recharge_flat(model, raw_value, kper=kper)
         period_cells: list[list[float]] = []
-        for cid in range(int(model.ncpl)):
-            if ocean_mask_flat[cid] or stream_mask_flat[cid]:
+        for cid in range(ncpl):
+            if not keep[cid]:
                 continue
-            active_layers = np.flatnonzero(idomain[:, cid] == 1)
-            if active_layers.size == 0:
-                continue  # fully inactive cell: no EVT record
             rate_value = float(rate_flat[cid])
             if rate_value <= 0.0:
                 continue
-            top_layer = int(active_layers[0])
-            period_cells.append([top_layer, cid, float(top_flat[cid]), rate_value, evt_depth])
+            period_cells.append(
+                [int(top_layer_by_cell[cid]), cid, float(top_flat[cid]), rate_value, evt_depth]
+            )
         evt_spd[kper] = period_cells
 
     if any(len(v) > 0 for v in evt_spd.values()):
@@ -550,17 +722,59 @@ def build_evt_stress_period_data(
     return None
 
 
+def evt_list_spd_to_array_payload(
+    evt_spd: Mapping[int, list[list[float]]],
+    *,
+    top_flat: np.ndarray,
+    ncpl: int,
+) -> tuple[dict[int, np.ndarray], np.ndarray, float] | None:
+    """Convert list EVT stress-period data to EVTA (array) input, if it is safe.
+
+    The array package writes a compact READARRAY of rates per changed period
+    instead of ``O(ncells)`` list records, which dominates ``write_simulation`` on
+    long chronicles. It is byte-for-byte equivalent to the list builder ONLY when
+    every EVT record targets layer 0: EVTA applies ET to the highest active cell of
+    each column, which matches the list builder's ``top_layer_by_cell`` exactly
+    while that layer is 0, but diverges when the top layer is inactive (the list
+    moves ET down a layer, the array does not). The builder already skips lake
+    cells (the usual inactive-top source), so this normally holds; ``None`` here
+    tells the caller to keep the list package for the rare case that it does not.
+
+    Returns ``(rate_by_period, surface, depth)``. ``surface`` is the model top for
+    every cell (rate is 0 where no EVT, so the surface value is inert there);
+    ``depth`` is the builder's single extinction depth. Period keys mirror the
+    (already collapsed) input, so MF6 reuses the previous array for gaps.
+    """
+    top_flat = np.asarray(top_flat, dtype=float).reshape(-1)
+    depth: float | None = None
+    rate_by_period: dict[int, np.ndarray] = {}
+    for kper, records in evt_spd.items():
+        rate = np.zeros(ncpl, dtype=float)
+        for record in records:
+            if int(record[0]) != 0:
+                return None
+            rate[int(record[1])] = float(record[3])
+            if depth is None:
+                depth = float(record[4])
+        rate_by_period[int(kper)] = rate
+    if depth is None:
+        return None
+    return rate_by_period, top_flat[:ncpl].copy(), float(depth)
+
+
 __all__ = [
     "as_recharge_flat",
     "bind_heterogeneous_recharge",
     "bind_recharge_from_flow",
     "build_evt_stress_period_data",
+    "evt_list_spd_to_array_payload",
     "clip_negative_payload",
     "copy_runtime_payload",
     "empty_recharge_aux",
     "extract_evt_payload",
     "extract_evt_payload_2d",
     "finalize_pending_recharge_evt",
+    "mask_recharge_on_lake_cells",
     "payload_has_negative_values",
     "recharge_to_spd",
     "resolve_deferred_heterogeneous_recharge",

@@ -1,0 +1,29 @@
+# Tolerances for the LAK regular-vs-irregular grid-equivalence study (see
+# tests/TOLERANCES.md row 42). The SAME lake-aquifer problem is solved on the
+# 15x15 quad DISV (225 cells) and on a refined Delaunay triangle DISV (~772 cells)
+# with identical physics. The residual is the genuine grid-discretisation signal,
+# not solver noise, so the envelope is derived from the observed difference.
+
+[stage]
+# Max absolute per-period lake-stage difference between the two grids. Observed
+# max is ~0.039 m; the envelope is ~1.5x that observed value, rounded up. A
+# materially diverging grid (wrong CONNECTIONDATA geometry, lost bank seepage)
+# would move the stage by far more than 6 cm.
+max_abs_stage_diff_m = 0.06
+
+[exchange]
+# Relative difference of the STEADY lake-aquifer exchange flux (the GWF term of
+# the LAK budget). The steady state is storage-free and deterministic, so its flux
+# is the cleanest grid-independence signal; observed is ~0.004 %. The envelope is
+# 5 %, matching the sibling LAK p01 gross-flux envelope (tests/TOLERANCES.md row
+# 40); a diverging grid would break this by an order of magnitude.
+steady_exchange_rel_diff = 0.05
+
+[budget]
+# Per-grid LAK water-balance closure (worst percent discrepancy reported by MF6).
+budget_percent_discrepancy = 1.0
+
+[mesh]
+# The irregular grid must be a genuine non-rectangular triangulation that resolves
+# the lake at least as finely as the 40 m quad grid (>= the 25 quad lake cells).
+min_irregular_lake_cells = 25

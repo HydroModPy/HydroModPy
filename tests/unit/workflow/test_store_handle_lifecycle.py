@@ -38,7 +38,7 @@ def test_step_register_simulation_closes_unused_bootstrap_zarr(monkeypatch) -> N
     ctx = SimpleNamespace(
         parent_sim_id="parent-123",
         store=store,
-        cfg=SimpleNamespace(simulation=SimpleNamespace(on_collision="replace")),
+        cfg=SimpleNamespace(simulation=SimpleNamespace(if_exists="replace")),
         setup=SimpleNamespace(time_grid=None, workspace=SimpleNamespace(project_root=None)),
     )
     plan = SimpleNamespace(runs=[SimpleNamespace(solver="boussinesq", process_type="flow")])
@@ -58,9 +58,8 @@ def test_step_register_simulation_closes_unused_bootstrap_zarr(monkeypatch) -> N
     assert fake_zarr.close_calls == 1
 
 
-def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Path) -> None:
-    fake_zarr = _FakeZarr()
-    registration = SimpleNamespace(name="run_0002", replaced_sim_id=None, zarr=fake_zarr)
+def _fake_catalog_class(registration):
+    """Return a Catalog stand-in recording what it was asked to register."""
 
     class FakeCatalog:
         def __init__(self, workspace_root, *, persistence=None) -> None:
@@ -76,14 +75,20 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
             self.calls.append((args, kwargs))
             return registration
 
-    ctx = SimpleNamespace(
+    return FakeCatalog
+
+
+def _open_store_ctx(tmp_path: Path, *, reserved_sim_id: str | None = None) -> SimpleNamespace:
+    """A context shaped the way ``step_open_store`` expects to find it."""
+    return SimpleNamespace(
         parent_sim_id="parent-456",
         store=None,
         sim_id=None,
+        reserved_sim_id=reserved_sim_id,
         cfg=SimpleNamespace(
             simulation=SimpleNamespace(
                 results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=True)),
-                on_collision="replace",
+                if_exists="replace",
             ),
             domain=None,
         ),
@@ -102,9 +107,12 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
         ),
     )
 
+
+def _silence_store_writes(monkeypatch, catalog_class) -> None:
+    """Neutralise everything ``step_open_store`` persists besides the id."""
     import hydromodpy.results.catalog as catalog_module
 
-    monkeypatch.setattr(catalog_module, "SimulationCatalog", FakeCatalog)
+    monkeypatch.setattr(catalog_module, "Catalog", catalog_class)
     monkeypatch.setattr(prepare_solver_module, "collect_registration_kwargs", lambda ctx: {})
     monkeypatch.setattr(prepare_solver_module, "_register_tracked_input_files", lambda ctx: None)
     monkeypatch.setattr(prepare_solver_module, "step_persist_params", lambda *args, **kwargs: None)
@@ -113,6 +121,14 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
         prepare_solver_module, "step_persist_geographic", lambda *args, **kwargs: None
     )
 
+
+def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Path) -> None:
+    fake_zarr = _FakeZarr()
+    registration = SimpleNamespace(name="run_0002", replaced_sim_id=None, zarr=fake_zarr)
+    ctx = _open_store_ctx(tmp_path)
+
+    _silence_store_writes(monkeypatch, _fake_catalog_class(registration))
+
     prepare_solver_module.step_open_store(ctx)
 
     assert ctx.store is not None
@@ -120,6 +136,32 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
     assert ctx.setup.run_id == "run_0002"
     assert ctx.store.calls[0][1]["parent_sim_id"] == "parent-456"
     assert fake_zarr.close_calls == 1
+
+
+def test_step_open_store_takes_the_reserved_id_once(monkeypatch, tmp_path: Path) -> None:
+    """A reserved id becomes the run id, and is not handed to a second run.
+
+    Calibration promotion reserves the id so it can link the run to its
+    session before the pipeline reaches the step that draws the figures. The
+    reservation is consumed here: a context replayed for another run must mint
+    a fresh id rather than register twice under the same one.
+    """
+    registration = SimpleNamespace(name="run_0003", replaced_sim_id=None, zarr=None)
+    reserved = "0e6a5f5c-6f3c-4a6b-9c2f-2f0f5c1b7a11"
+    ctx = _open_store_ctx(tmp_path, reserved_sim_id=reserved)
+
+    _silence_store_writes(monkeypatch, _fake_catalog_class(registration))
+
+    prepare_solver_module.step_open_store(ctx)
+
+    assert ctx.sim_id == reserved
+    assert ctx.store.calls[0][0][0] == reserved
+    assert ctx.reserved_sim_id is None
+
+    ctx.store = None
+    prepare_solver_module.step_open_store(ctx)
+
+    assert ctx.sim_id != reserved
 
 
 class _Dumpable:
@@ -155,17 +197,20 @@ def test_effective_config_snapshot_uses_runtime_domain_and_results() -> None:
     assert snapshot["simulation"]["results"] == effective_results
 
 
+def _scratch_ctx(scratch: Path) -> SimpleNamespace:
+    return SimpleNamespace(
+        setup=SimpleNamespace(
+            workspace=SimpleNamespace(solver_scratch_folder=scratch),
+        )
+    )
+
+
 def test_step_cleanup_scratch_raises_on_cleanup_failure(monkeypatch, tmp_path: Path) -> None:
     from hydromodpy.core.exceptions import ExportError
     from hydromodpy.workflow.steps import export as export_module
 
     scratch = tmp_path / ".solver_scratch"
-    scratch.mkdir()
-    ctx = SimpleNamespace(
-        setup=SimpleNamespace(
-            workspace=SimpleNamespace(solver_scratch_folder=scratch),
-        )
-    )
+    (scratch / "sim-0001").mkdir(parents=True)
 
     def fail_rmtree(_path: Path) -> None:
         raise OSError("locked")
@@ -173,20 +218,16 @@ def test_step_cleanup_scratch_raises_on_cleanup_failure(monkeypatch, tmp_path: P
     monkeypatch.setattr(export_module.shutil, "rmtree", fail_rmtree)
 
     with pytest.raises(ExportError, match="Could not remove solver scratch directory"):
-        export_module.step_cleanup_scratch(ctx)
+        export_module.step_cleanup_scratch(_scratch_ctx(scratch))
 
 
 def test_step_cleanup_scratch_retries_after_releasing_handles(monkeypatch, tmp_path: Path) -> None:
     from hydromodpy.workflow.steps import export as export_module
 
     scratch = tmp_path / ".solver_scratch"
-    scratch.mkdir()
-    (scratch / "locked.txt").write_text("temporary", encoding="utf-8")
-    ctx = SimpleNamespace(
-        setup=SimpleNamespace(
-            workspace=SimpleNamespace(solver_scratch_folder=scratch),
-        )
-    )
+    run_dir = scratch / "sim-0001"
+    run_dir.mkdir(parents=True)
+    (run_dir / "locked.txt").write_text("temporary", encoding="utf-8")
     real_rmtree = export_module.shutil.rmtree
     calls = 0
     releases = 0
@@ -207,10 +248,41 @@ def test_step_cleanup_scratch_retries_after_releasing_handles(monkeypatch, tmp_p
     monkeypatch.setattr(export_module, "_release_cleanup_handles", fake_release)
     monkeypatch.setattr(export_module.shutil, "rmtree", flaky_rmtree)
 
-    export_module.step_cleanup_scratch(ctx)
+    export_module.step_cleanup_scratch(_scratch_ctx(scratch))
 
     assert calls == 2
     assert releases == 2
+    assert not run_dir.exists()
+
+
+def test_step_cleanup_scratch_spares_the_preprocessing_tree(tmp_path: Path) -> None:
+    """A run owns its solver folder, not the tree the whole session reads."""
+    from hydromodpy.workflow.steps import export as export_module
+
+    scratch = tmp_path / ".solver_scratch"
+    run_dir = scratch / "sim-0001"
+    run_dir.mkdir(parents=True)
+    preprocessing = scratch / "_preprocessing" / "geographic"
+    preprocessing.mkdir(parents=True)
+
+    export_module.step_cleanup_scratch(_scratch_ctx(scratch))
+
+    assert not run_dir.exists()
+    assert preprocessing.is_dir()
+
+
+def test_step_drop_empty_scratch_only_removes_an_empty_folder(tmp_path: Path) -> None:
+    from hydromodpy.workflow.steps import export as export_module
+
+    scratch = tmp_path / ".solver_scratch"
+    kept = scratch / "_preprocessing"
+    kept.mkdir(parents=True)
+
+    export_module.step_drop_empty_scratch(_scratch_ctx(scratch))
+    assert scratch.is_dir()
+
+    kept.rmdir()
+    export_module.step_drop_empty_scratch(_scratch_ctx(scratch))
     assert not scratch.exists()
 
 

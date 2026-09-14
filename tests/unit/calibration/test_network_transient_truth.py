@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.calibration.network_transient_truth import (
+from hydromodpy.calibration.observations.network_transient_truth import (
     discharge_rmse_cost,
     mesh_cell_geometry,
     q_total_release_from_drain_by_cell,
@@ -116,7 +116,7 @@ def test_write_truth_package_and_score_identity(tmp_path) -> None:
 
 
 def test_score_candidate_combines_network_and_discharge_costs(tmp_path) -> None:
-    steady = np.array([1.0, 1.0, 0.0, 0.0], dtype=float)
+    steady = np.array([1.0, 0.5, 0.0, 0.0], dtype=float)
     q_ref = np.array([1.0, 1.0, 1.0], dtype=float)
     centroids = np.array(
         [
@@ -156,7 +156,7 @@ def test_score_candidate_combines_network_and_discharge_costs(tmp_path) -> None:
 
 
 def test_score_candidate_from_runs_uses_outflow_drain_fields(tmp_path) -> None:
-    steady = np.array([1.0, 0.0, 1.0], dtype=float)
+    steady = np.array([1.5, 0.0, 0.5], dtype=float)
     q_ref = np.array([2.0, 2.0], dtype=float)
     centroids = np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]], dtype=float)
     area = np.ones(3, dtype=float)
@@ -190,7 +190,7 @@ def test_score_candidate_from_runs_uses_outflow_drain_fields(tmp_path) -> None:
     score = score_network_transient_candidate_from_runs(
         tmp_path,
         steady_run=_Run(steady_field=steady),
-        transient_run=_Run(stack=np.array([[1.0, 0.0, 1.0], [1.0, 0.0, 1.0]])),
+        transient_run=_Run(stack=np.array([[1.5, 0.0, 0.5], [1.5, 0.0, 0.5]])),
     )
 
     assert score.total == pytest.approx(0.0)

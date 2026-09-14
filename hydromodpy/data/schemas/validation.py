@@ -67,11 +67,17 @@ def validate_warn_only(
             failures = exc.failure_cases.to_dict(orient="records")
         except Exception:
             failures = [{"message": str(exc)}]
+        summary = ", ".join(
+            f"{f.get('check') or 'check'}: {f.get('failure_case')}" for f in failures[:3]
+        )
+        if len(failures) > 3:
+            summary += ", ..."
         logger.warning(
-            "pandera contract '%s' failed in warn-only mode (%d failure(s)); "
-            "returning original DataFrame unchanged. First failures: %s",
+            "pandera contract '%s' failed in warn-only mode (%d failure(s)): %s "
+            "- returning original DataFrame unchanged, details in the debug log",
             schema_name,
             len(failures),
-            failures[:3],
+            summary,
         )
+        logger.debug("pandera failures for '%s': %s", schema_name, failures)
         return df

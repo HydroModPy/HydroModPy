@@ -39,7 +39,7 @@ def run(args: argparse.Namespace) -> None:
     for project in projects:
         details = []
         if project["has_project_toml"]:
-            details.append("hydromodpy.toml")
+            details.append("project.toml")
         if project["run_tomls"]:
             details.append(f"{len(project['run_tomls'])} run(s)")
         suffix = f"  [{', '.join(details)}]" if details else ""

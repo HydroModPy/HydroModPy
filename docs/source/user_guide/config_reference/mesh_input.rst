@@ -31,6 +31,8 @@ Fields
 
 .. rst-class:: hmp-config-fields
 
+.. index:: ! mesh_path
+
 .. container:: hmp-field hmp-field-level-user
    :name: mesh-input-mesh-path
 
@@ -44,6 +46,8 @@ Fields
 
       Path to the external planar mesh file (typically a ``.msh``). Required when ``bundle_dir`` is not provided. Relative paths are resolved against the TOML directory.
 
+
+.. index:: ! bundle_dir
 
 .. container:: hmp-field hmp-field-level-user
    :name: mesh-input-bundle-dir

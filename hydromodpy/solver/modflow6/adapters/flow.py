@@ -7,24 +7,68 @@ shared flow execution lifecycle lives in
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
+from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
+from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
-from hydromodpy.solver.modflow6.modflow6 import Modflow6
-from hydromodpy.solver.modflow_common.calibration_extractors import (
-    extract_discharge_from_cbc,
-    extract_head_from_hds,
+from hydromodpy.solver.base.observable_support import (
+    ObservableSupport,
+    servable,
+    under_condition,
 )
+from hydromodpy.solver.base.observables import series_observable
+from hydromodpy.solver.modflow6.extractors.lake import extract_lake_series
+from hydromodpy.solver.modflow6.modflow6 import Modflow6
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     build_preprocess_options,
     resolve_run_model_name,
     run_flow_model,
 )
+from hydromodpy.solver.modflow_common.observable_extraction import (
+    extract_common_modflow_observables,
+    resolve_run_output,
+)
+
+# LAK observation states this adapter serves, and the unit each carries. The
+# request names the state directly now that it also carries the lake in its
+# ``key``, so there is no composed ``lake_<quantity>`` variable any more.
+_LAKE_STATE_UNITS: dict[str, str] = {
+    "stage": "m",
+    "volume": "m3",
+    "surface_area": "m2",
+}
+
+
+def _collapse_to_disv_cells(
+    station_cells: Mapping[str, tuple[int, int, int]],
+    model: Any,
+) -> dict[str, tuple[int, int, int]]:
+    """Map structured ``(layer, row, col)`` station cells to DISV ``(layer, 0, id)``.
+
+    MF6 always writes DISV, whose head array is ``(nlay, 1, ncpl)``. The station
+    resolver returns ``(layer, row, col)`` from the structured planar grid, so the
+    ``(row, col)`` is collapsed to the flat row-major ``cell2d`` id and the head is
+    read as ``head[layer, 0, id]``. Without this, ``head[layer, row, col]`` indexes
+    the size-1 middle axis and raises for any station off the first grid row. On an
+    unstructured mesh (no ``ncol``) the cells are already flat, so they pass
+    through unchanged.
+    """
+    mesh = getattr(model, "solver_mesh", None)
+    if mesh is None or not getattr(mesh, "is_structured", False):
+        return dict(station_cells)
+    ncol = int(mesh.ncol)
+    return {sid: (int(k), 0, int(i) * ncol + int(j)) for sid, (k, i, j) in station_cells.items()}
+
+
+def _active_bc(config: object) -> set[str]:
+    flow = getattr(config, "flow", None)
+    return {str(name).lower() for name in (getattr(flow, "active_bc", None) or [])}
 
 
 class Modflow6FlowAdapter:
@@ -37,65 +81,104 @@ class Modflow6FlowAdapter:
     def validate(self, ctx: RunContext) -> None:
         """No precondition checks for MODFLOW 6 flow runs."""
 
+    def declared_observables(self, config: object) -> tuple[ObservableSupport, ...]:
+        """Say what this run can serve, reading the configuration it will build.
+
+        MODFLOW 6 builds LAK and SFR when the file asks for them, so a lake stage
+        and a routed reach discharge are one declaration away rather than out of
+        reach. Everything else is served from the head and budget files this
+        backend always writes.
+        """
+        active = _active_bc(config)
+        lake_declared = bool({"lake", "reservoir"} & active)
+        sfr_declared = "sfr" in active
+        return (
+            servable("head", "read at any cell from the head file"),
+            servable("discharge", "integrated over the domain from the budget file"),
+            servable("release_flux", "per-cell surface release, from the budget file"),
+            servable("water_budget_percent_discrepancy", "reported by the listing file"),
+            (
+                servable("stage", "read from the LAK observation file")
+                if lake_declared
+                else under_condition(
+                    "stage",
+                    "add 'lake' (or 'reservoir') to flow.active_bc and declare the lake "
+                    "under flow.sinks_sources.lakes; MODFLOW 6 builds LAK on that.",
+                )
+            ),
+            (
+                servable("routed_discharge", "read from the SFR reach outflow")
+                if sfr_declared
+                else under_condition(
+                    "routed_discharge",
+                    "add 'sfr' to flow.active_bc and declare the network under "
+                    "flow.sinks_sources.sfr; without it the discharge at a cell is the "
+                    "upstream accumulation of the release flux instead.",
+                )
+            ),
+        )
+
+    def locate_cell(self, ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
+        """Return the nearest cell on the mesh this run actually wrote."""
+        from hydromodpy.solver.base.cell_lookup import locate_cell_on_solver_mesh
+
+        return locate_cell_on_solver_mesh(ctx, x, y)
+
     def cleanup(self, ctx: RunContext) -> None:
         """Remove the scratch directory written by this run, if any."""
         solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
         if solver_output_dir is not None:
             cleanup_solver_files(solver_output_dir)
 
-    def extract_calibration_series(
+    def extract_observables(
         self,
         ctx: RunContext,
         store: Any,
+        requests: Sequence[ObservableRequest],
         *,
-        variable: str,
-        station_cells: Mapping[str, tuple[int, int, int]] | None = None,
         time_index: pd.DatetimeIndex | None = None,
-    ) -> pd.Series:
-        """Read the simulated calibration series from the scratch CBC/HDS files.
+    ) -> dict[str, ObservableResult]:
+        """Read observables from the scratch CBC, HDS and LAK observation files.
 
-        MF6 binaries share the FloPy-readable format used by MODFLOW-NWT, so
-        the same helpers in ``modflow_common.calibration_extractors`` apply.
+        MF6 binaries share the FloPy-readable format MODFLOW-NWT uses, so
+        discharge, head and the per-cell fields come out of the shared helper.
+        Lake states are MF6-only: the request names the state in ``name`` and
+        the lake in ``key``, and they are read from the LAK observation CSV.
         ``store`` is accepted for Protocol uniformity but unused on this path.
         """
         del store
-        output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
-        model = ctx.state.execution.models_by_run_id.get(ctx.run.id)
-        if output_dir is None or model is None:
-            raise RuntimeError(f"No solver output recorded for run {ctx.run.id!r}")
-        model_name = (
-            getattr(model, "model_output_name", None)
-            or getattr(model, "model_name", None)
-            or getattr(model, "name", None)
+        if not requests:
+            return {}
+        output_dir, model, model_name = resolve_run_output(
+            ctx, name_attributes=("model_output_name", "model_name", "name")
         )
-        if model_name is None:
-            raise RuntimeError(f"Model name is missing for run {ctx.run.id!r}")
-        output_dir = Path(output_dir)
-
-        if variable == "discharge":
-            return extract_discharge_from_cbc(output_dir, model_name, time_index)
-        if variable == "head":
-            if not station_cells:
-                raise ValueError("head calibration requires station_cells")
-            series_by_station = extract_head_from_hds(
+        served, unserved = extract_common_modflow_observables(
+            output_dir,
+            model_name,
+            model,
+            requests,
+            time_index=time_index,
+            station_cell_mapper=lambda cells: _collapse_to_disv_cells(cells, model),
+            routed_discharge_reader=_routed_discharge_series,
+            reach_flow_reader=_reach_flow_by_cell,
+        )
+        for request in unserved:
+            if request.support != "lake" or request.name not in _LAKE_STATE_UNITS:
+                raise ObservableNotAvailableError(
+                    f"MODFLOW 6 does not produce observable {request.name!r} on support "
+                    f"{request.support!r}."
+                )
+            series = extract_lake_series(
                 output_dir,
                 model_name,
-                station_cells=station_cells,
+                lake_id=str(request.key),
+                quantity=request.name,
                 time_index=time_index,
             )
-            if len(station_cells) == 1:
-                station_id = next(iter(station_cells))
-                try:
-                    return series_by_station[station_id]
-                except KeyError as exc:
-                    raise KeyError(f"No head series extracted for station {station_id!r}") from exc
-            raise ValueError(
-                "extract_calibration_series returns one series; pass station_cells "
-                "with a single entry per call for head calibration."
+            served[request.id] = series_observable(
+                request, series, units=_LAKE_STATE_UNITS[request.name]
             )
-        raise NotImplementedError(
-            f"MODFLOW 6 calibration extraction is not implemented for variable {variable!r}."
-        )
+        return served
 
     @staticmethod
     def _solver_runtime_cache(state) -> dict[tuple[str, str, str], Modflow6]:
@@ -123,6 +206,15 @@ class Modflow6FlowAdapter:
         """
 
         state = ctx.state
+        if self._reuse_solver_model_enabled(state):
+            raise NotImplementedError(
+                "flow_runtime_overrides['reuse_solver_model'] is disabled: solver-model reuse "
+                "was validated as NOT output-equivalent (identical parameters produced different "
+                "objectives). Profiling (2026-07) also found the per-trial model build is small "
+                "(a lightweight trial builds in ~0.1 s; the solve dominates), so reuse trades a "
+                "real correctness risk for a negligible speedup. Re-enable it only behind an "
+                "integration test that asserts objective equality versus a full rebuild."
+            )
         preprocess_options = build_preprocess_options(state)
         model_name = resolve_run_model_name(ctx)
         model_modflow = None
@@ -152,3 +244,63 @@ class Modflow6FlowAdapter:
                 preprocess_options=preprocess_options,
             )
         return run_flow_model(ctx, model_modflow, preprocess_options)
+
+
+def _reach_flow_by_cell(output_dir: Path, model_name: str) -> dict[int, Any] | None:
+    """Routed streamflow per reach cell, or None when the run has no network.
+
+    Injected the same way ``_routed_discharge_series`` is, and for the same
+    reason: SFR exists only in this backend, and ``modflow_common`` must not
+    import it.
+    """
+    import flopy
+
+    from hydromodpy.solver.modflow6.extractors.sfr import reach_flow_by_cell
+    from hydromodpy.solver.modflow_common.calibration_extractors import (
+        _resolve_seconds_per_unit,
+    )
+
+    head_path = output_dir / f"{model_name}.hds"
+    if not head_path.is_file():
+        return None
+    times = flopy.utils.HeadFile(str(head_path)).get_times()
+    return reach_flow_by_cell(
+        output_dir,
+        model_name,
+        times=times,
+        seconds_per_time_unit=_resolve_seconds_per_unit(output_dir, model_name),
+    )
+
+
+def _routed_discharge_series(
+    output_dir: Path,
+    model_name: str,
+    time_index: pd.DatetimeIndex | None,
+) -> pd.Series | None:
+    """Discharge of a routed SFR network, or None when the run has no network.
+
+    Injected into the shared observable extractor so ``modflow_common`` keeps no
+    dependency on this backend: SFR exists only here.
+    """
+    import flopy
+
+    from hydromodpy.solver.modflow6.extractors.sfr import routed_outflow_series
+    from hydromodpy.solver.modflow_common.calibration_extractors import (
+        _resolve_seconds_per_unit,
+    )
+
+    head_path = output_dir / f"{model_name}.hds"
+    if not head_path.is_file():
+        return None
+    times = flopy.utils.HeadFile(str(head_path)).get_times()
+    values = routed_outflow_series(
+        output_dir,
+        model_name,
+        times=times,
+        seconds_per_time_unit=_resolve_seconds_per_unit(output_dir, model_name),
+    )
+    if values is None:
+        return None
+    if time_index is not None and len(time_index) >= len(values):
+        return pd.Series(values, index=pd.DatetimeIndex(time_index[: len(values)]))
+    return pd.Series(values)

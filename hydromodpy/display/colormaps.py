@@ -29,6 +29,15 @@ PREFERRED_CMAPS: dict[str, str] = {
     "categorical": "tab10",
 }
 
+HIGH_CONTRAST_TRIPLET: tuple[str, str, str] = ("#004488", "#DDAA33", "#BB5566")
+"""Blue, sand and red, for at most three classes drawn side by side.
+
+The three hues stay separable under every common colour-vision deficiency,
+and their lightnesses are far enough apart (roughly 33, 73 and 50 in L*) that
+the classes survive a greyscale print. A red-versus-green pair has neither
+property, which is why no figure encodes a class with one.
+"""
+
 
 def get_cmap(name: str | None = None, kind: str = "sequential"):
     """Return a matplotlib colormap.
@@ -59,6 +68,7 @@ def check_no_banned_in_call(call_args: Iterable[str]) -> list[str]:
 
 __all__ = [
     "BANNED_CMAPS",
+    "HIGH_CONTRAST_TRIPLET",
     "PREFERRED_CMAPS",
     "get_cmap",
     "check_no_banned_in_call",

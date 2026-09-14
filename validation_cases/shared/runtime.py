@@ -530,19 +530,18 @@ def resolve_model_workspace(
 
 
 def _discover_result_store(project_path: Path) -> tuple[Any, str | None]:
-    """Try to open a SimulationCatalog from a project directory and find its sim_id.
+    """Try to open a Catalog from a project directory and find its sim_id.
 
     Returns ``(store, sim_id)`` on success, ``(None, None)`` on failure.
     The caller is responsible for closing the store when done.
     """
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import catalog_path_for
 
-    db_path = project_path / CATALOG_FILENAME
-    if not db_path.exists():
+    if not catalog_path_for(project_path).exists():
         return None, None
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
-    store = SimulationCatalog(project_path)
+    store = Catalog(project_path)
     sims = store.list_simulations()
     if sims.empty:
         store.close()
@@ -577,7 +576,7 @@ def write_validation_fields_to_store(
     solver_name: str,
     flow_regime: str = "steady",
 ) -> tuple[Any, str | None]:
-    """Write in-memory validation field series to a SimulationCatalog."""
+    """Write in-memory validation field series to a Catalog."""
     payloads = _normalize_validation_field_series(fields)
     if not payloads:
         return None, None
@@ -591,9 +590,9 @@ def write_validation_fields_to_store(
     n_timesteps = max(len(series) for series in payloads.values())
     sim_id = str(uuid.uuid4())
 
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
-    store = SimulationCatalog(out_path)
+    store = Catalog(out_path)
     registration = store.register_simulation(
         sim_id,
         project=Path(out_path).name,
@@ -651,7 +650,7 @@ def run_example_script(
     env[out_env_var] = str(out_path)
     env["HMP_PROJECT_ROOT"] = str(out_path)
     env["HMP_WORKSPACE"] = str(out_path)
-    env["HMP_AUTO_REGISTER_WORKSPACE"] = "0"
+    env["HMP_AUTO_REGISTER_PROJECT"] = "0"
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
         for key, value in extra_env.items():
@@ -729,13 +728,14 @@ def _build_validation_launcher_config(
             tomllib.loads(profile_block),
         )
 
-    # Inject a stable run_id so the model folder name is predictable
+    # Inject a stable simulation name so the model folder name is predictable
     # (derived from case_dir name + solver) instead of the temp TOML filename.
+    # ``[simulation] name`` is the run identity (``run_id`` was removed by the
+    # simulation-management v2 schema); it must stay unique per solver.
     case_id = str(metadata.get("case_id", case_dir.name))
-    stable_run_id = _short_validation_name(f"{case_id}_{solver_name}", max_length=48)
+    stable_name = _short_validation_name(f"{case_id}_{solver_name}", max_length=48)
     sim_section = merged_payload.setdefault("simulation", {})
-    if not sim_section.get("run_id"):
-        sim_section["run_id"] = stable_run_id
+    sim_section["name"] = stable_name
 
     if "workflow" not in merged_payload:
         raise ValueError(f"{config_path} must define [workflow] or inherit it from base_config.")
@@ -831,7 +831,7 @@ def run_launcher_validation_case(
     env = os.environ.copy()
     env["HMP_PROJECT_ROOT"] = str(out_path)
     env["HMP_WORKSPACE"] = str(out_path)
-    env["HMP_AUTO_REGISTER_WORKSPACE"] = "0"
+    env["HMP_AUTO_REGISTER_PROJECT"] = "0"
     env.setdefault("MPLBACKEND", "Agg")
 
     # Validation runs never persist ``hydromodpy.lock``: the lockfile would
@@ -910,7 +910,7 @@ def run_launcher_validation_case(
                     command=command,
                     completed=completed,
                     workspace_error=AssertionError(
-                        f"Results folder not found and no SimulationCatalog available at {out_path}"
+                        f"Results folder not found and no Catalog available at {out_path}"
                     ),
                 )
             ) from None

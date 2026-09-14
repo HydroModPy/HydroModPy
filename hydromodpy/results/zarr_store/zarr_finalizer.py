@@ -1,7 +1,9 @@
 """Finalization concerns for :class:`SimulationZarr`.
 
-Owns lifecycle: write-lock acquisition, ``consolidate_metadata``,
-``pack_to_zip`` (directory store -> ``.zarr.zip``), and ``close``.
+Owns lifecycle: write-lock acquisition, ``consolidate_metadata`` and
+``close``. A run store is always a directory: there is no packed form,
+and its content is exactly the Zarr hierarchy, so the write lock is
+addressed outside of it (see :func:`lock_path_for_store`).
 
 All helpers take the live :class:`SimulationZarr` (or its store/lock)
 explicitly so the module stays free of hidden global state.
@@ -9,10 +11,8 @@ explicitly so the module stays free of hidden global state.
 
 from __future__ import annotations
 
-import shutil
+import hashlib
 import warnings
-import zipfile
-from os import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -20,7 +20,7 @@ import zarr
 from filelock import FileLock, Timeout
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.storage_contract import ZARR_ZIP_SUFFIX
+from hydromodpy.core.state.paths import internal_dir, resolve_project_root
 from hydromodpy.results.zarr_store.zarr_schema import windows_long_path
 
 if TYPE_CHECKING:
@@ -29,7 +29,25 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 LOCK_TIMEOUT_SECONDS = 60.0
-LOCK_FILE_NAME = ".lock"
+LOCKS_DIRNAME = "locks"
+LOCK_KEY_LENGTH = 16
+
+
+def lock_path_for_store(path: Path) -> Path:
+    """Return the write-lock address of a store, always outside the store.
+
+    A directory store is exactly its own content, so a lock file dropped
+    inside it becomes a member of the Zarr hierarchy and of every content
+    hash taken over it. POSIX keeps that file after release while Windows
+    unlinks it, which would make the store bytes differ per platform. The
+    lock lives in the disposable ``.hmp/locks`` directory of the owning
+    project instead, keyed by the resolved store path so that two stores
+    never contend on one file.
+    """
+    store = Path(path).resolve()
+    key = hashlib.sha256(store.as_posix().encode("utf-8")).hexdigest()[:LOCK_KEY_LENGTH]
+    locks_dir = internal_dir(resolve_project_root(store.parent)) / LOCKS_DIRNAME
+    return locks_dir / f"{store.parent.name or store.name}-{key}.lock"
 
 
 class DummyLock:
@@ -78,68 +96,23 @@ def consolidate_metadata(store: Any, path: Path) -> None:
         logger.warning("consolidate_metadata failed for %s: %s", path, exc)
 
 
-def pack_to_zip(store_obj: SimulationZarr) -> Path:
-    """Compact the directory-based Zarr store into a ``.zarr.zip`` file.
+def drop_group(store_obj: SimulationZarr, name: str) -> int:
+    """Delete a top-level group from a live directory store.
 
-    Closes the live store first, atomically writes a ``<name>.tmp`` zip,
-    verifies it with :meth:`zipfile.ZipFile.testzip`, renames it to the
-    final ``.zarr.zip`` path, then removes the source directory and
-    rebinds ``store_obj`` to a read-only ZipStore over the new artefact.
+    Returns the number of bytes freed on disk (0 when the group is absent).
     """
-    from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
-    from hydromodpy.results.zarr_store.zarr_schema import open_root_strict
-
+    root = store_obj.root
+    if name not in root:
+        return 0
     if not store_obj._path.is_dir():
-        return store_obj._path
-
-    store_obj.close()
-
-    zip_path = store_obj._path.with_suffix(ZARR_ZIP_SUFFIX)
-    tmp_path = zip_path.with_name(f"{zip_path.name}.tmp")
-    tmp_path_io = windows_long_path(tmp_path)
-    zip_path_io = windows_long_path(zip_path)
-    store_path_io = windows_long_path(store_obj._path)
-    if tmp_path_io.exists():
-        tmp_path_io.unlink()
-
-    # Skip the lock file (transient, not part of the artifact).
-    with zipfile.ZipFile(str(tmp_path_io), "w", compression=zipfile.ZIP_STORED) as zf:
-        for fpath in sorted(store_path_io.rglob("*")):
-            if not fpath.is_file():
-                continue
-            if fpath.name == LOCK_FILE_NAME:
-                continue
-            arcname = fpath.relative_to(store_path_io).as_posix()
-            zf.write(str(fpath), arcname)
-
-    with zipfile.ZipFile(str(tmp_path_io), "r") as zf:
-        corrupt = zf.testzip()
-        if corrupt is not None:
-            tmp_path_io.unlink(missing_ok=True)
-            raise RuntimeError(f"Corrupt Zarr zip member: {corrupt}")
-
-    replace(tmp_path_io, zip_path_io)
-    check = SimulationZarr(zip_path)
-    check.close()
-
-    try:
-        shutil.rmtree(store_path_io)
-    except FileNotFoundError:
-        pass
-    except OSError:
-        logger.warning(
-            "Packed %s -> %s, but could not remove the source Zarr directory.",
-            store_obj._path.name,
-            zip_path.name,
-            exc_info=True,
-        )
-    logger.debug("Packed %s -> %s", store_obj._path.name, zip_path.name)
-
-    store_obj._path = zip_path
-    store_obj._store = zarr.storage.ZipStore(str(zip_path), mode="r")
-    store_obj._root = open_root_strict(store_obj._store, read_only=True)
-    store_obj._lock = DummyLock()
-    return zip_path
+        raise RuntimeError(f"Cannot drop group '{name}' from a read-only store: {store_obj._path}")
+    group_dir = windows_long_path(store_obj._path / name)
+    freed = 0
+    if group_dir.is_dir():
+        freed = sum(f.stat().st_size for f in group_dir.rglob("*") if f.is_file())
+    with guard_write(store_obj._lock, store_obj._path):
+        del root[name]
+    return freed
 
 
 def close(store_obj: SimulationZarr) -> None:
@@ -157,10 +130,12 @@ def close(store_obj: SimulationZarr) -> None:
 
 __all__ = [
     "DummyLock",
-    "LOCK_FILE_NAME",
+    "LOCKS_DIRNAME",
+    "LOCK_KEY_LENGTH",
     "LOCK_TIMEOUT_SECONDS",
     "close",
     "consolidate_metadata",
+    "drop_group",
     "guard_write",
-    "pack_to_zip",
+    "lock_path_for_store",
 ]

@@ -25,7 +25,7 @@ from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.data.base_config import BaseVariableConfig
+from hydromodpy.data.managers.base_config import BaseVariableConfig
 
 
 class TimeseriesColumnsMixin(HydroModelBase):
@@ -74,13 +74,11 @@ class TimeseriesSelectionMixin(HydroModelBase):
     )
     extent: Annotated[
         Literal["watershed", "study_area"] | None,
-        Profile.USER,
+        Profile.DEV,
     ] = Field(
         default=None,
         description=(
-            "Enable bounding-box data retrieval using the project extent. "
-            "``watershed`` uses the delineated watershed, ``study_area`` uses "
-            "the broader study bounding box."
+            "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it."
         ),
     )
     force_refresh: Annotated[bool, Profile.DEV] = Field(

@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from hydromodpy.core.units import to_modflow_itmuni
 from hydromodpy.physics.flow.regime import normalize_flow_regime
+
+if TYPE_CHECKING:
+    from hydromodpy.discretization.time.tmesh_config import TMeshConfig
 
 
 @dataclass(slots=True)
@@ -19,7 +24,9 @@ class TemporalDiscretizationResult:
     perlen: np.ndarray
     nstp: np.ndarray
     steady: np.ndarray
-    start_datetime: object | None
+    # A calendar anchor for TDIS START_DATE_TIME; pandas Timestamp is a datetime
+    # subclass, so both builder paths land on datetime | None.
+    start_datetime: datetime | None
 
     def as_dis_kwargs(self) -> dict[str, object]:
         """Return the exact key/value mapping consumed by FloPy packages."""
@@ -135,7 +142,7 @@ def build_temporal_discretization_from_time_grid(
 
 def build_temporal_discretization(
     *,
-    tgrid_config: object,
+    tgrid_config: TMeshConfig,
     flow_regime: str,
     default_itmuni: int,
     first_period_steady: bool | None = None,

@@ -37,6 +37,12 @@ class _FakeStore:
     def write_field(self, sim_id, name, t, values, n_timesteps=None, subgroup=None) -> None:
         self.fields.append((name, t, np.asarray(values)))
 
+    def write_field_stack(
+        self, sim_id, name, values, *, n_timesteps=None, timestep_offset=0, subgroup=None
+    ) -> None:
+        for offset, row in enumerate(np.asarray(values)):
+            self.fields.append((name, timestep_offset + offset, row))
+
     def write_budgets(self, sim_id, records) -> None:
         self.budgets = records
 
@@ -45,7 +51,7 @@ class _FakeStore:
 
 
 class _FakeHeadFile:
-    def __init__(self, path) -> None:
+    def __init__(self, path, precision: str = "double") -> None:
         del path
 
     def get_times(self):
@@ -63,17 +69,39 @@ class _FakeHeadFile:
 
 
 def _fake_cbc_factory(records: dict[str, np.ndarray]):
+    # This stand-in imitates hydromodpy's OWN cbc reader, which does expose
+    # `records` / `read_record`. The drain fixture further down imitates
+    # flopy's CellBudgetFile instead, which exposes `get_indices` /
+    # `get_record`: the two readers have different APIs and a stand-in that
+    # blurs them is how an invented method reaches production.
+    from hydromodpy.solver.modflow6.extractors.cbc_reader import CbcRecord
+
+    flat = list(records.items())
+
     class _FakeCBC:
         def __init__(self, path, *args, **kwargs):
             del path, args, kwargs
+            self.records = tuple(
+                CbcRecord(
+                    kstp=1,
+                    kper=1,
+                    text=text,
+                    imeth=1,
+                    ndim1=2,
+                    ndim2=1,
+                    ndim3=-1,
+                    nlist=0,
+                    aux_names=(),
+                    data_pos=0,
+                )
+                for text, _ in flat
+            )
 
-        def get_unique_record_names(self):
-            return [name.encode() for name in records]
+        def unique_record_names(self):
+            return [text for text, _ in flat]
 
-        def get_data(self, *, text, kstpkper, totim):
-            del kstpkper, totim
-            arr = records.get(text.strip())
-            return [arr] if arr is not None else []
+        def read_record(self, idx: int):
+            return flat[idx][1]
 
         def close(self) -> None:
             pass
@@ -91,7 +119,9 @@ def test_seconds_per_time_unit_collapses_to_core_units() -> None:
 def _run_extract(tmp_path: Path, monkeypatch, time_units: str, records: dict[str, np.ndarray]):
     monkeypatch.setattr("flopy.utils.binaryfile.HeadFile", _FakeHeadFile, raising=True)
     monkeypatch.setattr(
-        "flopy.utils.binaryfile.CellBudgetFile", _fake_cbc_factory(records), raising=True
+        "hydromodpy.solver.modflow6.extractors.cbc_reader.Mf6CellBudgetReader",
+        _fake_cbc_factory(records),
+        raising=True,
     )
     (tmp_path / "flow.cbc").write_text("", encoding="utf-8")
     (tmp_path / "flow.tdis").write_text(
@@ -111,18 +141,18 @@ def test_mf6_budget_flux_scaled_to_m3_per_s_under_days(tmp_path, monkeypatch) ->
     }
     store = _run_extract(tmp_path, monkeypatch, "DAYS", records)
     by = {r["component"]: r for r in store.budgets}
-    assert by["rcha"]["flux_in"] == pytest.approx(1.0)
-    assert by["drn"]["flux_out"] == pytest.approx(1.0)
+    assert by["recharge"]["flux_in"] == pytest.approx(1.0)
+    assert by["drain"]["flux_out"] == pytest.approx(1.0)
 
     store_s = _run_extract(tmp_path, monkeypatch, "SECONDS", records)
     by_s = {r["component"]: r for r in store_s.budgets}
-    assert by_s["rcha"]["flux_in"] == pytest.approx(86400.0)
+    assert by_s["recharge"]["flux_in"] == pytest.approx(86400.0)
 
 
 def test_mf6_budget_flux_seconds_is_identity(tmp_path, monkeypatch) -> None:
     adapter = Modflow6OutputAdapter()
     monkeypatch.setattr(
-        "flopy.utils.binaryfile.CellBudgetFile",
+        "hydromodpy.solver.modflow6.extractors.cbc_reader.Mf6CellBudgetReader",
         _fake_cbc_factory({"DRN": np.array([5.0, -5.0])}),
         raising=True,
     )
@@ -156,7 +186,7 @@ def test_mf6_mass_balance_extracts_storage_components(tmp_path, monkeypatch) -> 
     inc = np.array([(174240.0, 174240.0, 0.01, 864.0, 86400.0, 0.0, 43200.0)], dtype=dtype)
 
     class _FakeListBudget:
-        def __init__(self, path) -> None:
+        def __init__(self, path, precision: str = "double") -> None:
             del path
 
         def get_budget(self):
@@ -176,9 +206,18 @@ def test_mf6_mass_balance_extracts_storage_components(tmp_path, monkeypatch) -> 
 
 
 def _write_drain_cbc_fixtures(tmp_path: Path, monkeypatch) -> None:
+    """A budget file read the way the real one is: by POSITION in the index.
+
+    The extractor walks ``records`` once and calls ``read_record(idx)``. A
+    stand-in offering only ``get_data(text=, kstpkper=, full3D=)`` would let the
+    quadratic per-record lookup come back unnoticed, and that lookup is exactly
+    what this path exists to avoid on a chronicle of a thousand steps.
+    """
+
     class _FakeCBC:
-        def __init__(self, path) -> None:
+        def __init__(self, path, precision: str = "double") -> None:
             del path
+            # kstp / kper are 1-based on a record, 0-based from get_kstpkper().
 
         def get_unique_record_names(self):
             return [b"DRN"]
@@ -189,9 +228,15 @@ def _write_drain_cbc_fixtures(tmp_path: Path, monkeypatch) -> None:
         def get_kstpkper(self):
             return [(0, 0)]
 
-        def get_data(self, *, text, kstpkper, totim, full3D):
-            del text, kstpkper, totim, full3D
-            return [np.array([[-86400.0, 0.0, 0.0]], dtype=float)]
+        def get_indices(self, text=None):
+            del text
+            # An ARRAY, like flopy: a tuple here would hide that `or ()` on the
+            # result raises "truth value of an array is ambiguous".
+            return np.array([0], dtype=np.int64)
+
+        def get_record(self, idx, full3D=False):
+            assert idx == 0 and not full3D
+            return np.array([[-86400.0, 0.0, 0.0]], dtype=float)
 
         def close(self) -> None:
             pass
@@ -206,7 +251,7 @@ def test_mf6_calibration_discharge_reads_time_unit_from_tdis(tmp_path, monkeypat
     (tmp_path / "flow_gwf.tdis").write_text(
         "BEGIN OPTIONS\n  TIME_UNITS DAYS\nEND OPTIONS\n", encoding="utf-8"
     )
-    series = cal.extract_discharge_from_cbc(tmp_path, "flow")
+    series = cal.extract_discharge_from_cbc(tmp_path, "flow", catchment_mask=np.ones(3, dtype=bool))
     assert float(series.iloc[0]) == pytest.approx(1.0)
 
 
@@ -217,7 +262,7 @@ def test_mf6_calibration_tdis_takes_precedence_over_dis(tmp_path, monkeypatch) -
         "BEGIN OPTIONS\n  TIME_UNITS DAYS\nEND OPTIONS\n", encoding="utf-8"
     )
     (tmp_path / "flow.dis").write_text("1 1 1\n1 1\n", encoding="utf-8")
-    series = cal.extract_discharge_from_cbc(tmp_path, "flow")
+    series = cal.extract_discharge_from_cbc(tmp_path, "flow", catchment_mask=np.ones(3, dtype=bool))
     assert float(series.iloc[0]) == pytest.approx(1.0)
 
 
@@ -228,7 +273,7 @@ def test_nwt_calibration_discharge_still_uses_dis_itmuni(tmp_path, monkeypatch) 
     (tmp_path / "model.dis").write_text("1 1 1\n1 4\n", encoding="utf-8")
 
     class _FakeCBC:
-        def __init__(self, path) -> None:
+        def __init__(self, path, precision: str = "double") -> None:
             del path
 
         def get_unique_record_names(self):
@@ -240,15 +285,23 @@ def test_nwt_calibration_discharge_still_uses_dis_itmuni(tmp_path, monkeypatch) 
         def get_kstpkper(self):
             return [(0, 0)]
 
-        def get_data(self, *, text, kstpkper, totim, full3D):
-            del text, kstpkper, totim, full3D
-            return [np.array([[-86400.0, 0.0, 0.0]], dtype=float)]
+        def get_indices(self, text=None):
+            del text
+            # An ARRAY, like flopy: a tuple here would hide that `or ()` on the
+            # result raises "truth value of an array is ambiguous".
+            return np.array([0], dtype=np.int64)
+
+        def get_record(self, idx, full3D=False):
+            assert idx == 0 and not full3D
+            return np.array([[-86400.0, 0.0, 0.0]], dtype=float)
 
         def close(self) -> None:
             pass
 
     monkeypatch.setattr("flopy.utils.binaryfile.CellBudgetFile", _FakeCBC, raising=True)
-    series = cal.extract_discharge_from_cbc(tmp_path, "model")
+    series = cal.extract_discharge_from_cbc(
+        tmp_path, "model", catchment_mask=np.ones(3, dtype=bool)
+    )
     assert float(series.iloc[0]) == pytest.approx(1.0)
 
 
@@ -332,7 +385,53 @@ def test_mf6_transient_recharge_reads_back_m3_per_s(tmp_path) -> None:
         by_component_inflow[rec["component"]] = max(
             by_component_inflow.get(rec["component"], 0.0), rec["flux_in"]
         )
-    assert by_component_inflow["rcha"] == pytest.approx(expected_recharge_m3_s, rel=1e-6)
+    assert by_component_inflow["recharge"] == pytest.approx(expected_recharge_m3_s, rel=1e-6)
 
     # Storage exchanges water during the transient period (m3/s, non-zero).
     assert any(abs(r["storage_in"]) + abs(r["storage_out"]) > 0.0 for r in store.mass)
+
+
+class TestTheDischargeSeriesIsTheCatchmentAndNotTheDomain:
+    """A gauge closes a catchment. A buffered model domain is not one.
+
+    Measured on the Nancon at 25 m on MODFLOW 6: 152.2 km2 of domain against
+    64.6 km2 of catchment, 2.119 m3/s of drain outflow against 0.888 m3/s
+    inside the basin. Scored unmasked, every discharge metric would be computed
+    on 2.4 times the water the gauge sees, and it would look healthy.
+    """
+
+    def test_only_the_masked_cells_are_summed(self, tmp_path, monkeypatch) -> None:
+        _write_drain_cbc_fixtures(tmp_path, monkeypatch)
+        (tmp_path / "flow_gwf.tdis").write_text(
+            "BEGIN OPTIONS\n  TIME_UNITS DAYS\nEND OPTIONS\n", encoding="utf-8"
+        )
+        # The fixture puts all the outflow on cell 0. Masking it out leaves zero.
+        whole = cal.extract_discharge_from_cbc(
+            tmp_path, "flow", catchment_mask=np.ones(3, dtype=bool)
+        )
+        without = cal.extract_discharge_from_cbc(
+            tmp_path, "flow", catchment_mask=np.array([False, True, True])
+        )
+
+        assert float(whole.iloc[0]) == pytest.approx(1.0)
+        assert float(without.iloc[0]) == pytest.approx(0.0)
+
+    def test_a_mask_of_the_wrong_size_is_refused_by_name(self, tmp_path, monkeypatch) -> None:
+        _write_drain_cbc_fixtures(tmp_path, monkeypatch)
+        (tmp_path / "flow_gwf.tdis").write_text(
+            "BEGIN OPTIONS\n  TIME_UNITS DAYS\nEND OPTIONS\n", encoding="utf-8"
+        )
+        with pytest.raises(ValueError, match="not built for the same mesh"):
+            cal.extract_discharge_from_cbc(tmp_path, "flow", catchment_mask=np.ones(7, dtype=bool))
+
+    def test_an_empty_mask_is_refused_before_the_file_is_opened(self, tmp_path) -> None:
+        with pytest.raises(ValueError, match="holds no cell"):
+            cal.extract_discharge_from_cbc(tmp_path, "flow", catchment_mask=np.zeros(3, dtype=bool))
+
+    def test_a_run_without_a_delineated_catchment_is_refused_by_name(self) -> None:
+
+        from hydromodpy.solver.modflow_common.catchment_support import catchment_cell_mask
+
+        model = SimpleNamespace(geographic=SimpleNamespace(watershed_shp=None), solver_mesh=None)
+        with pytest.raises(ValueError, match="which water the gauge closes on"):
+            catchment_cell_mask(model)

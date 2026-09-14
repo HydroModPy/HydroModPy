@@ -1,9 +1,9 @@
-"""Conservation tests for solute / mass / groundwater-flux derivations.
+"""Conservation tests for solute / mass / release-flux derivations.
 
 These cover the dark branch of
 ``hydromodpy.simulation.extraction.derivation.derived``: the transport-specific
 derived fields (concentration_seepage, mass_seepage, mass_accumulated) plus the
-solver-neutral release/groundwater flux derivations.
+solver-neutral release/drain flux derivations.
 
 The asserts target genuine invariants derived from the science:
 
@@ -15,8 +15,6 @@ The asserts target genuine invariants derived from the science:
   and ``mass_accumulated[-1] == sum_t mass_seepage[t]`` cell by cell.
 * ``release_flux`` = positive drain outflow + positive surface-excess outflow,
   is non-negative and finite everywhere (m3/s).
-* ``groundwater_flux`` is the Euclidean magnitude of the face-flow vector, so
-  it is non-negative and equals sqrt(sum of squared face components).
 """
 
 from __future__ import annotations
@@ -26,18 +24,18 @@ from uuid import uuid4
 import numpy as np
 import pytest
 
+from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.core.field_routing import drain_budget_to_positive_outflow
 from hydromodpy.simulation.extraction.derivation.derived import (
     _compute_accumulation_flux,
     _compute_concentration_seepage,
-    _compute_groundwater_flux,
     _compute_mass_accumulated,
     _compute_mass_seepage,
     _compute_outflow_drain,
     _compute_release_accumulation_flux,
     _compute_release_flux,
     _drain_outflow_stack,
-    _positive_cell_flux,
+    _positive_cell_flux_stack,
     compute_derived,
 )
 from tests._helpers.fixtures_catalog import simulation_catalog
@@ -107,7 +105,7 @@ class TestMassSeepageConservation:
             # Drain budget is signed: negative = outflow to the drain.
             catalog.write_field(
                 sid,
-                "drn",
+                "drain",
                 t,
                 drn_stack[t],
                 n_timesteps=n_ts if t == 0 else None,
@@ -261,7 +259,7 @@ class TestReleaseFluxNonNegative:
         for t in range(n_ts):
             catalog.write_field(
                 sid,
-                "drn",
+                "drain",
                 t,
                 drn[t],
                 n_timesteps=n_ts if t == 0 else None,
@@ -290,57 +288,6 @@ class TestReleaseFluxNonNegative:
             assert np.all(np.isfinite(rf))
 
 
-class TestGroundwaterFluxMagnitude:
-    """groundwater_flux is the Euclidean magnitude of face-flow components."""
-
-    def test_magnitude_equals_root_sum_of_squares(self, catalog):
-        n_ts, n_layers, n_cells = 2, 1, 4
-        rng = np.random.default_rng(3)
-        sid = _register(catalog, n_ts=n_ts, n_layers=n_layers, n_cells=n_cells)
-        head = np.full((n_ts, n_layers, n_cells), 9.0)
-        _write_head(catalog, sid, head, n_ts=n_ts)
-
-        right = rng.normal(size=(n_ts, n_cells))
-        front = rng.normal(size=(n_ts, n_cells))
-        lower = rng.normal(size=(n_ts, n_cells))
-        for t in range(n_ts):
-            catalog.write_field(
-                sid,
-                "flow_right_face",
-                t,
-                right[t],
-                n_timesteps=n_ts if t == 0 else None,
-                subgroup="budget",
-            )
-            catalog.write_field(
-                sid,
-                "flow_front_face",
-                t,
-                front[t],
-                n_timesteps=n_ts if t == 0 else None,
-                subgroup="budget",
-            )
-            catalog.write_field(
-                sid,
-                "flow_lower_face",
-                t,
-                lower[t],
-                n_timesteps=n_ts if t == 0 else None,
-                subgroup="budget",
-            )
-
-        _compute_groundwater_flux(sid, catalog, n_ts, n_layers, n_cells)
-
-        for t in range(n_ts):
-            mag = catalog.query_field(sid, "groundwater_flux", t).reshape(-1)
-            expected = np.sqrt(right[t] ** 2 + front[t] ** 2 + lower[t] ** 2)
-            assert np.allclose(mag, expected)
-            # magnitude is non-negative by construction.
-            assert np.all(mag >= 0.0)
-            # magnitude dominates each component (vector norm property).
-            assert np.all(mag + 1e-9 >= np.abs(right[t]))
-
-
 class TestComputeDerivedDispatch:
     """compute_derived wires the toggles to the right derivations end to end."""
 
@@ -366,7 +313,7 @@ class TestComputeDerivedDispatch:
             )
             catalog.write_field(
                 sid,
-                "drn",
+                "drain",
                 t,
                 drn[t],
                 n_timesteps=n_ts if t == 0 else None,
@@ -406,6 +353,67 @@ class TestComputeDerivedDispatch:
             catalog.query_field(sid, "mass_seepage", 0)
 
 
+class TestSoluteChainDependencies:
+    """A solute field that cannot be built is reported, never dropped in silence."""
+
+    def _seed_flow_only(self, catalog, *, n_ts, n_cells):
+        """Store of a flow run: head, mesh and drain budget, no concentration."""
+        sid = _register(catalog, n_ts=n_ts, n_layers=1, n_cells=n_cells)
+        _write_mesh(catalog, sid, n_cells=n_cells)
+        _write_head(catalog, sid, np.full((n_ts, 1, n_cells), 9.0), n_ts=n_ts)
+        for t in range(n_ts):
+            catalog.write_field(
+                sid,
+                "drain",
+                t,
+                -np.ones(n_cells),
+                n_timesteps=n_ts if t == 0 else None,
+                subgroup="budget",
+            )
+        return sid
+
+    def test_chain_waits_for_the_transport_run(self, catalog):
+        # Derivation runs after every run of a plan, so the flow run of a
+        # flow-then-transport plan gets here before any concentration exists.
+        # That is a deferral, not a failure: nothing raises, nothing is written.
+        n_ts, n_cells = 2, 4
+        sid = self._seed_flow_only(catalog, n_ts=n_ts, n_cells=n_cells)
+
+        compute_derived(
+            sid,
+            catalog,
+            {
+                "concentration_seepage": True,
+                "mass_seepage": True,
+                "mass_accumulated": True,
+            },
+        )
+
+        for variable in ("concentration_seepage", "mass_seepage", "mass_accumulated"):
+            with pytest.raises(KeyError):
+                catalog.query_field(sid, variable, 0)
+
+    def test_mass_seepage_without_its_input_raises(self, catalog):
+        # Concentration is there, so the transport run has happened: a missing
+        # concentration_seepage is a disabled flag, and the error names it.
+        n_ts, n_cells = 2, 4
+        sid = self._seed_flow_only(catalog, n_ts=n_ts, n_cells=n_cells)
+        for t in range(n_ts):
+            catalog.write_field(
+                sid,
+                "concentration",
+                t,
+                np.ones(n_cells),
+                n_timesteps=n_ts if t == 0 else None,
+            )
+
+        with pytest.raises(ExtractError, match="concentration_seepage"):
+            _compute_mass_seepage(sid, catalog, n_ts, n_cells)
+
+        with pytest.raises(ExtractError, match="mass_seepage"):
+            _compute_mass_accumulated(sid, catalog, n_ts, n_cells)
+
+
 class TestDrainRoutingChain:
     """outflow_drain and the accumulation/release routing fallbacks.
 
@@ -423,7 +431,7 @@ class TestDrainRoutingChain:
         for t in range(n_ts):
             catalog.write_field(
                 sid,
-                "drn",
+                "drain",
                 t,
                 drn_stack[t],
                 n_timesteps=n_ts if t == 0 else None,
@@ -494,14 +502,15 @@ class TestDrainRoutingChain:
             assert np.allclose(rac, rf)
             assert np.all(rac >= 0.0)
 
-    def test_outflow_drain_noop_without_budget(self, catalog):
-        """No budget group -> outflow_drain is skipped, nothing written."""
+    def test_outflow_drain_raises_without_budget(self, catalog):
+        """No budget group -> outflow_drain fails loudly, nothing written."""
         n_ts, n_cells = 2, 3
         sid = _register(catalog, n_ts=n_ts, n_layers=1, n_cells=n_cells)
         head = np.full((n_ts, 1, n_cells), 9.0)
         _write_head(catalog, sid, head, n_ts=n_ts)
 
-        _compute_outflow_drain(sid, catalog, n_ts, n_cells)
+        with pytest.raises(ExtractError, match="spatial_fields"):
+            _compute_outflow_drain(sid, catalog, n_ts, n_cells)
         with pytest.raises(KeyError):
             catalog.query_field(sid, "outflow_drain", 0)
 
@@ -535,7 +544,7 @@ class TestMeshGraphRouting:
         for t in range(n_ts):
             catalog.write_field(
                 sid,
-                "drn",
+                "drain",
                 t,
                 drn_stack[t],
                 n_timesteps=n_ts if t == 0 else None,
@@ -567,24 +576,41 @@ class TestMeshGraphRouting:
 
 
 class TestPositiveCellFlux:
-    """_positive_cell_flux sums only finite, positive per-cell contributions."""
+    """_positive_cell_flux_stack sums only finite, positive per-cell contributions.
+
+    The single-field helper was folded into the time-vectorised stack version;
+    one timestep with shape ``(1, layers, cells)`` reproduces the old behaviour.
+    """
 
     def test_drops_negative_and_nodata_and_sums_layers(self):
         n_cells = 4
-        # two layers stacked: positives kept, negatives/nodata zeroed.
-        field = np.array(
+        # one timestep, two layers: positives kept, negatives/nodata zeroed.
+        stack = np.array(
             [
-                [1.0, -2.0, 3.0, -99999.0],
-                [0.5, 4.0, np.nan, 2.0],
+                [
+                    [1.0, -2.0, 3.0, -99999.0],
+                    [0.5, 4.0, np.nan, 2.0],
+                ]
             ]
-        )
-        out = _positive_cell_flux(field, n_cells=n_cells)
+        )  # shape (time=1, layers=2, cells=4)
+        out = _positive_cell_flux_stack(stack, n_cells=n_cells)[0]
         # cell0: 1.0+0.5; cell1: 0+4.0; cell2: 3.0+0(nan); cell3: 0(nodata)+2.0
         assert np.allclose(out, [1.5, 4.0, 3.0, 2.0])
         assert np.all(out >= 0.0)
         assert out.shape == (n_cells,)
 
-    def test_empty_field_returns_zeros(self):
-        out = _positive_cell_flux(np.array([]), n_cells=3)
-        assert out.shape == (3,)
-        assert np.all(out == 0.0)
+    def test_empty_stack_returns_zeros(self):
+        out = _positive_cell_flux_stack(np.empty((0, 1, 3)), n_cells=3)
+        assert out.shape == (0, 3)
+
+
+class TestBudgetDependentDerivedFailLoudly:
+    """A requested budget-dependent field with no budget is an error, not a no-op."""
+
+    def test_mass_seepage_raises_without_budget(self, catalog):
+        n_ts, n_cells = 2, 3
+        sid = _register(catalog, n_ts=n_ts, n_layers=1, n_cells=n_cells)
+        _write_head(catalog, sid, np.full((n_ts, 1, n_cells), 9.0), n_ts=n_ts)
+
+        with pytest.raises(ExtractError, match="spatial_fields"):
+            _compute_mass_seepage(sid, catalog, n_ts, n_cells)

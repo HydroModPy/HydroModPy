@@ -12,7 +12,7 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.state.paths import catalog_path_for
 
 
 def _load_main():
@@ -50,10 +50,11 @@ def test_calibrate_success_forwards_resolved_path_and_prints_summary(
 
     config = tmp_path / "calib.toml"
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
-    captured: dict[str, Path] = {}
+    captured: dict[str, object] = {}
 
-    def fake_calibrate(path: Path):
+    def fake_calibrate(path: Path, *, phase=None):
         captured["path"] = path
+        captured["phase"] = phase
         return SimpleNamespace(summary={"session_id": "s1", "best_objective": 0.25})
 
     monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
@@ -62,6 +63,7 @@ def test_calibrate_success_forwards_resolved_path_and_prints_summary(
 
     assert code == 0
     assert captured["path"] == config.resolve()
+    assert captured["phase"] is None
     err = capsys.readouterr().err
     assert "Calibration finished: calib.toml" in err
     assert "session_id: s1" in err
@@ -82,53 +84,21 @@ def test_audit_list_without_catalog_exits_clean(monkeypatch, tmp_path) -> None:
     assert code == 10
 
 
-def test_audit_prune_dry_run_and_apply_forward_mode(monkeypatch, tmp_path, capsys) -> None:
-    import hydromodpy as hmp
+def test_audit_prune_is_gone(monkeypatch, capsys) -> None:
+    """``hmp audit prune`` was removed with the never-written retention table."""
+    code = _run(monkeypatch, ["hmp", "audit", "prune"])
 
-    calls: list[tuple[str, bool]] = []
-
-    def fake_audit_prune(workspace, *, apply: bool):
-        calls.append((workspace, apply))
-        return {"config.replay": 2, "solver.run": 1}
-
-    monkeypatch.setattr(hmp, "audit_prune", fake_audit_prune)
-
-    dry_code = _run(monkeypatch, ["hmp", "audit", "prune", "--workspace", str(tmp_path)])
-    dry_out = capsys.readouterr().out
-    apply_code = _run(
-        monkeypatch,
-        ["hmp", "audit", "prune", "--workspace", str(tmp_path), "--apply"],
-    )
-    apply_out = capsys.readouterr().out
-
-    assert dry_code == 0
-    assert apply_code == 0
-    assert calls == [(str(tmp_path), False), (str(tmp_path), True)]
-    assert "(dry-run) config.replay: 2 row(s)" in dry_out
-    assert "(dry-run) solver.run: 1 row(s)" in dry_out
-    assert "(applied) config.replay: 2 row(s)" in apply_out
+    assert code == 2
+    assert "invalid choice: 'prune'" in capsys.readouterr().err
 
 
-def test_audit_prune_missing_workspace_maps_to_not_found(monkeypatch, capsys) -> None:
-    import hydromodpy as hmp
-
-    def fake_audit_prune(workspace, *, apply: bool):
-        del workspace, apply
-        raise FileNotFoundError("missing catalog")
-
-    monkeypatch.setattr(hmp, "audit_prune", fake_audit_prune)
-
-    code = _run(monkeypatch, ["hmp", "audit", "prune", "--workspace", "/missing"])
-
-    assert code == 10
-    assert "missing catalog" in capsys.readouterr().err
-
-
-def test_viz_family_help_lists_serve(monkeypatch, capsys) -> None:
+def test_viz_family_help_lists_actions(monkeypatch, capsys) -> None:
     code = _run(monkeypatch, ["hmp", "viz", "--help"])
     assert code == 0
     out = capsys.readouterr().out
-    assert "serve" in out
+    assert "show" in out
+    assert "gallery" in out
+    assert "serve" not in out
 
 
 def test_report_render_calls_api_and_opens_browser_after_success(
@@ -173,7 +143,9 @@ def test_report_compare_filters_metric_name_without_changing_api_call(
 ) -> None:
     import hydromodpy as hmp
 
-    (tmp_path / CATALOG_FILENAME).write_bytes(b"")
+    catalog_path = catalog_path_for(tmp_path)
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
+    catalog_path.write_bytes(b"")
     calls: dict[str, object] = {}
 
     def fake_compare_pair(ref_a: str, ref_b: str, *, workspace: Path):
@@ -259,3 +231,91 @@ def test_privacy_verify_strict_rejects_wrong_permissions(monkeypatch, tmp_path) 
     os.chmod(cert, 0o644)
     code = _run(monkeypatch, ["hmp", "privacy", "verify", "--strict", str(cert)])
     assert code == 14
+
+
+def test_calibrate_forwards_the_selected_phase(monkeypatch, tmp_path) -> None:
+    """``--phase`` reaches the API, which is what runs one stage of a chain."""
+    import hydromodpy as hmp
+
+    config = tmp_path / "calib.toml"
+    config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def fake_calibrate(path: Path, *, phase=None):
+        captured["phase"] = phase
+        return SimpleNamespace(summary={})
+
+    monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
+
+    code = _run(monkeypatch, ["hmp", "calibrate", str(config), "--phase", "transient_sy"])
+
+    assert code == 0
+    assert captured["phase"] == "transient_sy"
+
+
+def test_calibrate_lists_the_phases_without_running(monkeypatch, tmp_path, capsys) -> None:
+    import hydromodpy as hmp
+
+    config = tmp_path / "calib.toml"
+    config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
+    calls: list[dict] = []
+
+    def fake_calibrate(path: Path, *, phase=None, list_phases=False):
+        calls.append({"phase": phase, "list_phases": list_phases})
+        return [
+            {
+                "name": "steady_k_over_r",
+                "description": "zero of the signed gap",
+                "method": "bisection",
+                "parameters": ["K"],
+                "depends_on": None,
+                "freeze_on_success": True,
+            }
+        ]
+
+    monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
+
+    code = _run(monkeypatch, ["hmp", "calibrate", str(config), "--list-phases"])
+
+    assert code == 0
+    # Listing must not run anything.
+    assert calls == [{"phase": None, "list_phases": True}]
+    assert "steady_k_over_r" in capsys.readouterr().out
+
+
+def test_calibrate_refusal_exits_with_the_calibration_code(monkeypatch, tmp_path, capsys) -> None:
+    """A refusal of the method is typed, so it exits 21 and not 1."""
+    import hydromodpy as hmp
+    from hydromodpy.core.exceptions import CalibrationError
+
+    config = tmp_path / "calib.toml"
+    config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
+
+    def fake_calibrate(path: Path, *, phase=None):
+        raise CalibrationError("residual keeps a constant sign over the bracket")
+
+    monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
+
+    code = _run(monkeypatch, ["hmp", "calibrate", str(config)])
+
+    assert code == 21
+    assert "residual keeps a constant sign" in capsys.readouterr().err
+
+
+def test_calibrate_list_phases_reports_an_unreadable_config(monkeypatch, tmp_path, capsys) -> None:
+    """``--list-phases`` on a file that cannot be read exits 14, not 0."""
+    import hydromodpy as hmp
+    from hydromodpy.core.exceptions import ConfigError
+
+    config = tmp_path / "calib.toml"
+    config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
+
+    def fake_calibrate(path: Path, *, phase=None, list_phases=False):
+        raise ConfigError("calib.toml: 1 validation error for CalibrationConfig")
+
+    monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
+
+    code = _run(monkeypatch, ["hmp", "calibrate", str(config), "--list-phases"])
+
+    assert code == 14
+    assert "validation error" in capsys.readouterr().err

@@ -8,7 +8,8 @@ Use it when the question is not only "what is this object?" but also
 "why does this boundary exist?".
 
 The repository also contains a developer glossary under
-``docs/developers/glossary.md`` for shorter term-by-term definitions.
+``docs/_internal/notes/dev/glossary.rst`` for shorter term-by-term
+definitions.
 
 For package-by-package reading guidance, use :doc:`code-reading-guide`.
 
@@ -28,7 +29,7 @@ The main execution path is:
    -> SimulationRunner
    -> SolverAdapter
    -> concrete solver
-   -> SimulationCatalog
+   -> Catalog
    -> Run
 
 The main input-data path is:
@@ -126,14 +127,14 @@ Keeping these separate avoids ambiguity between:
 - something that still has to be executed,
 - something that has already been written and can be queried again.
 
-`SimulationCatalog` vs `DataCatalogDuckDB`
+`Catalog` vs `DataCatalogDuckDB`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 HydroModPy keeps two persistent memories because they do not have the same
 lifecycle:
 
 - `DataCatalogDuckDB` caches input data that may be reused by many runs.
-- `SimulationCatalog` tracks outputs that belong to particular runs.
+- `Catalog` tracks outputs that belong to particular runs.
 
 The important relation between them is provenance, not identity.
 
@@ -242,7 +243,7 @@ computes useful summaries such as:
 - the ``simulated_active_network`` figure when the run has
   ``accumulation_flux`` and a plottable mesh
 
-These are lazy result views implemented in ``hydromodpy.results.views``:
+These are lazy result views implemented in ``hydromodpy.results.derive.views``:
 they read persisted fields, mesh geometry, and hydrographic-network roles from
 the run without mutating the catalog.
 
@@ -263,7 +264,7 @@ diagrams for this part of HydroModPy would be:
 1. A component diagram for ``TOML -> Run``.
 2. A sequence diagram for one nominal execution.
 3. A facade-object relationship diagram for `Workspace`, `Project`,
-   `SimulationCatalog`, `Run`, and `SimulationGroup`.
+   `Catalog`, `Run`, and `RunSet`.
 4. A data-loading diagram for `Variable -> Manager -> Source -> cache`.
 5. A simple identifier map for `sim_id`, `simulation.run_id`, and
    `ProcessRun.id`.

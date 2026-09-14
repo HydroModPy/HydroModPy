@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from geopy.geocoders import Nominatim
 
-from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.geographic.core.derived_features import (
     GeographicBoundaryFeatures,
     GeographicDerivedFeatures,
@@ -30,8 +29,6 @@ from hydromodpy.spatial.geographic.dem_metadata import read_dem_metadata
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.geographic.geographic_io import resolve_delineation_backend
 from hydromodpy.spatial.geographic.pipeline import build_geographic_runtime_context
-
-logger = get_logger(__name__)
 
 
 def _optional_str_path(path: object) -> str | None:
@@ -131,8 +128,6 @@ class CatchmentDelineation:
             Workspace-like object exposing ``project_root``. Generated
             geographic artifacts are written below this project root.
         """
-        logger.info("Extracting geographic data for model area")
-
         self._config = config
         self.out_dir_path = initializing.project_root
         self.catch_def = config.catch_def
@@ -181,8 +176,19 @@ class CatchmentDelineation:
         This helper keeps the extraction of topography-driven domain objects
         close to the `CatchmentDelineation` object that produces the underlying data,
         while still passing only explicit objects to `Domain`.
+
+        The active extent follows ``geographic.domain_extent``: 'box' keeps the
+        full buffered rectangle active (historical default); 'watershed' masks the
+        domain to the catchment so recharge and drainage outside it no longer feed
+        the model; 'watershed_buff' keeps a buffer ring around the catchment.
         """
-        return build_surface_topo_from_dem(self.watershed_box_buff_dem)
+        dem_by_extent = {
+            "box": self.watershed_box_buff_dem,
+            "watershed_buff": self.watershed_buff_dem,
+            "watershed": self.watershed_dem,
+        }
+        extent = getattr(self._config, "domain_extent", "box")
+        return build_surface_topo_from_dem(dem_by_extent.get(extent, self.watershed_box_buff_dem))
 
     def get_geographic_derived_features(self) -> GeographicDerivedFeatures:
         """Return the canonical bundle of derived geographic artifacts."""

@@ -1,4 +1,4 @@
-"""Calibration bridge: hot path (RAM) vs cold path (SimulationCatalog).
+"""Calibration bridge: hot path (RAM) vs cold path (Catalog).
 
 During calibration, the optimizer runs hundreds of simulations. Each
 iteration must be fast - no disk I/O in the inner loop. Only the best
@@ -11,7 +11,7 @@ The bridge provides:
   engine can score against the observation plan while keeping the raw
   solver output available for optional post-calibration persistence.
 - ``promote_trial``: after calibration converges, stores one run into
-  the SimulationCatalog for archival and comparison.
+  the Catalog for archival and comparison.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ def make_hot_simulator(
     observation_plan : list of (station_id, variable, timestamps)
         Defines which stations, variables, and time points to extract.
         This is the same format accepted by
-        ``SimulationCatalog.extract_calibration_vector``.
+        ``Catalog.extract_calibration_vector``.
 
     Returns
     -------
@@ -85,7 +85,7 @@ def promote_trial(
     name: str | None = None,
     metrics: list[tuple[str, str, float]] | None = None,
 ) -> None:
-    """Persist one best-of-calibration run into the ``SimulationCatalog``.
+    """Persist one best-of-calibration run into the ``Catalog``.
 
     Re-runs ``run_fn`` with ``best_params`` so the series written to the
     catalog match the parameters recorded in the calibration trace.
@@ -141,7 +141,7 @@ def persist_calibration_summary_to_store(
     solver: str | None = None,
     calibration_id: str | None = None,
 ) -> None:
-    """Persist a lightweight calibration summary into the SimulationCatalog.
+    """Persist a lightweight calibration summary into the Catalog.
 
     Unlike :func:`promote_trial`, this does **not** re-run the
     simulation.  It only records the optimizer output (best parameters,
@@ -150,7 +150,7 @@ def persist_calibration_summary_to_store(
 
     Parameters
     ----------
-    store : SimulationCatalog
+    store : Catalog
         The result store to write into.
     sim_id : str
         Simulation UUID for the persisted record.

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import flopy.utils.binaryfile as bf
 import numpy as np
 
 from ._models import BudgetReaderLike, FlowPostprocessModel
@@ -32,18 +31,15 @@ def get_budget_records_or_none(
 
 
 def open_budget_file(path: str):
-    """Open one MF6 cell-budget file with a small precision fallback chain."""
-    for kwargs in ({}, {"precision": "double"}, {"precision": "single"}):
-        try:
-            return bf.CellBudgetFile(path, **kwargs)
-        except TypeError:
-            if kwargs:
-                continue
-            raise
-        except Exception:
-            if kwargs == {"precision": "single"}:
-                raise
-            continue
+    """Open one MF6 cell-budget file, delegating the precision choice.
+
+    The chain used to live here in a second copy. One copy is enough, and the
+    shared one explains WHY the order matters: FloPy's own guess raises an
+    OSError on a MODFLOW 6 file instead of falling through to the other width.
+    """
+    from hydromodpy.solver.modflow_common.calibration_extractors import open_cell_budget
+
+    return open_cell_budget(path)
 
 
 def compute_drain_outflow_and_seepage(

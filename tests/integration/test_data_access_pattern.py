@@ -1,6 +1,6 @@
 """Integration coverage for the data access patterns of HydroModPy.
 
-Validates that ``SimulationCatalog`` exposes its results through:
+Validates that ``Catalog`` exposes its results through:
 
 - DuckDB SQL queries on ``simulations`` (with scientific metadata columns).
 - Parquet files readable directly by ``pandas.read_parquet`` (with KV
@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
@@ -29,7 +29,7 @@ def catalog(tmp_path):
 
 
 def _seed_run(
-    catalog: SimulationCatalog,
+    catalog: Catalog,
     *,
     project: str,
     name: str,
@@ -119,7 +119,7 @@ class TestParquetPattern:
 
     def test_parquet_with_kv_metadata(self, catalog):
         sid = _seed_run(catalog, project="ml_p3", name="r1", objective="exploratory")
-        target = catalog.parquet_dir_for(sid) / "timeseries.parquet"
+        target = catalog.tables_dir_for(sid) / "timeseries.parquet"
         assert target.is_file()
 
         # Read via DuckDB (no pyarrow dependency); equivalent to
@@ -160,11 +160,19 @@ class TestZarrPattern:
         assert ds["head"].sizes["time"] == 3
         assert ds["head"].attrs.get("units") == "m"
 
-    def test_run_to_xarray_batch_unknown_field_raises(self, catalog):
+    def test_run_to_xarray_batch_absent_field_raises(self, catalog):
+        """A registered field that is neither stored nor derivable raises."""
         sid = _seed_run(catalog, project="ml_p4b", name="r1", objective="exploratory")
         run = catalog[sid]
         with pytest.raises(KeyError, match="not found"):
-            run.array.to_xarray_batch(("watertable_depth",))
+            run.array.to_xarray_batch(("concentration",))
+
+    def test_run_to_xarray_batch_derives_virtual_field(self, catalog):
+        """``watertable_depth`` is not persisted but is rebuilt from head + top."""
+        sid = _seed_run(catalog, project="ml_p4c", name="r1", objective="exploratory")
+        run = catalog[sid]
+        ds = run.array.to_xarray_batch(("watertable_depth",))
+        assert ds["watertable_depth"].sizes["time"] == 3
 
 
 class TestScientificObjective:

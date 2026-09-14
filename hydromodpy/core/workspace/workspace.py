@@ -57,7 +57,7 @@ class Workspace:
         self.root = self.paths.root
         self.catalog_path = self.paths.catalog_path
         self.data_dir = self.paths.data_dir
-        self.simulations_dir = self.paths.simulations_dir
+        self.runs_dir = self.paths.runs_dir
         self.catch_name = self.paths.catch_name
 
         create_folder(self.project_root)

@@ -155,14 +155,30 @@ class Surface:
 
         The returned surface:
         - keeps the same raster support as the current one,
-        - uses a new 2D array equal to ``self - offset``.
+        - uses a new 2D array equal to ``self - offset``,
+        - leaves a NODATA cell AT the sentinel instead of shifting it.
+
+        The sentinel must not move. The support is shared by reference, so it keeps
+        advertising the same ``nodata`` value, and every consumer recognises a
+        no-data cell by exact equality with it (``surface_sampling``, the
+        discretization guard, the zonal statistics). Shifting ``-9999`` to
+        ``-9999 - offset`` silently turns the sentinel into an ordinary elevation:
+        it is then interpolated as if it were terrain, and a mesh cell whose stencil
+        straddles the mask edge inherits a bottom dragged toward it. Such a cell has
+        no idomain signature either, because the top of that same cell is clean: it
+        stays active and carries a column kilometres thick, with the transmissivity
+        and the storage that go with it.
 
         Example
         -------
         If ``self`` stores the topography and ``offset=50``, the returned
-        surface is ``topography - 50`` on every cell.
+        surface is ``topography - 50`` on every cell carrying data.
         """
-        bottom = self.as_array() - float(offset)
+        top = self.as_array()
+        bottom = top - float(offset)
+        nodata = getattr(self.support, "nodata", None)
+        if nodata is not None:
+            bottom = np.where(top == float(nodata), float(nodata), bottom)
         return Surface(name=name, values=bottom, support=self.support)
 
     def flat_like(
@@ -170,25 +186,36 @@ class Surface:
         value: float,
         *,
         name: str = "substratum",
+        min_gap: float = 1.0,
     ) -> Surface:
         """
-        Return a flat surface with one constant value on the same support.
+        Return a flat (constant-elevation) substratum below this surface.
 
-        The returned surface:
-        - keeps the same raster support as the current one,
-        - is filled with one constant scalar value,
-        - is validated to remain strictly below the current surface.
+        The returned surface is ``value`` on every cell whose top sits strictly
+        above ``value + min_gap``. Where the top drops to or below that level the
+        cell has no aquifer (basement outcrop, or a NODATA sentinel left by a
+        watershed-masked / out-of-DEM cell): the bottom is clamped to
+        ``top - min_gap`` so the column stays a thin degenerate cell that the
+        mesh masks out, instead of inverting (bottom above top). This mirrors
+        ``shifted_down_by`` on those cells, so a flat substratum behaves like a
+        constant thickness there and never trips the strict-ordering guard.
 
         Example
         -------
-        If ``value=-20``, the returned surface is a constant 2D
-        array equal to ``-20`` and it must remain strictly below the current
-        surface on all finite cells.
+        If ``value=20`` and the terrain is 56..83 m, every cell gets a flat
+        bottom at 20 m. A NODATA cell (top ``-9999``) is clamped to ``-10000``.
         """
-        bottom = np.full_like(self.as_array(), float(value))
-        surface = Surface(name=name, values=bottom, support=self.support)
-        surface.assert_strictly_below(self)
-        return surface
+        top = self.as_array()
+        flat = float(value)
+        gap = float(min_gap)
+        finite = np.isfinite(top)
+        if np.any(finite) and not np.any(top[finite] > flat + gap):
+            raise ValueError(
+                f"Flat substratum {flat} m sits at or above the top on every finite "
+                "cell; no aquifer would remain. Lower substratum_elevation."
+            )
+        bottom = np.where(top > flat + gap, flat, top - gap)
+        return Surface(name=name, values=bottom, support=self.support)
 
     def assert_strictly_below(self, upper_surface: Surface) -> None:
         """

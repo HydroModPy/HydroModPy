@@ -1,7 +1,12 @@
 """Cache store: connection, schema bootstrap, register, frozen-mode helpers.
 
 Concern: state-changing operations on raw catalog entries and the
-file-system anchors that back them (workspace root, lockfile, sidecars).
+file-system anchors that back them (workspace root, sidecars).
+
+The lockfile is not one of those anchors: it belongs to the project root, not
+to the workspace the cache database sits in, so frozen mode carries that root
+and :func:`hydromodpy.data.data_freeze.project_lockfile_path` turns it into
+the single path read here.
 """
 
 from __future__ import annotations
@@ -19,6 +24,7 @@ from hydromodpy.core.state.paths import encode_workspace_path
 from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
 
 if TYPE_CHECKING:
+    from hydromodpy.data.data_freeze import LockedArtifact
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 logger = get_logger(__name__)
@@ -90,33 +96,30 @@ def resolve_entry_path(
     return candidates[0]
 
 
-def workspace_lockfile_path(catalog: DataCatalogDuckDB) -> Path | None:
-    if catalog._db_path is None:
-        return None
-    from hydromodpy.data.data_freeze import LOCKFILE_NAME
-
-    candidates = (
-        catalog._db_path.parent.parent / LOCKFILE_NAME,
-        catalog._db_path.parent / LOCKFILE_NAME,
-    )
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate
-    return candidates[0]
-
-
 def frozen_enabled() -> bool:
     from hydromodpy.data.data_freeze import is_frozen_mode
 
     return is_frozen_mode()
 
 
-def locked_artifacts(catalog: DataCatalogDuckDB):
-    lockfile = workspace_lockfile_path(catalog)
-    if lockfile is None or not lockfile.is_file():
-        raise RuntimeError("Frozen data mode requires an existing hydromodpy.lock file.")
-    from hydromodpy.data.data_freeze import read_lockfile
+def locked_artifacts() -> list[LockedArtifact]:
+    """Return the artefacts pinned by the lockfile of the frozen project."""
+    from hydromodpy.data.data_freeze import (
+        frozen_project_root,
+        project_lockfile_path,
+        read_lockfile,
+    )
 
+    project_root = frozen_project_root()
+    if project_root is None:
+        raise RuntimeError(
+            "Frozen data mode has no project bound: enable it with "
+            "set_frozen_mode(True, project_root=<project root>) before reading "
+            "hydromodpy.lock."
+        )
+    lockfile = project_lockfile_path(project_root)
+    if not lockfile.is_file():
+        raise RuntimeError(f"Frozen data mode requires an existing lockfile at {lockfile}.")
     return read_lockfile(lockfile)
 
 
@@ -127,10 +130,10 @@ def match_locked_artifact(
     source: str,
     station_id: str | None,
     file_path: Path | str,
-):
+) -> LockedArtifact | None:
     path = Path(file_path)
     resolved = resolve_entry_path(catalog, path, variable=variable)
-    artifacts = locked_artifacts(catalog)
+    artifacts = locked_artifacts()
     for artifact in artifacts:
         if (
             artifact.variable == variable
@@ -155,10 +158,11 @@ def reject_frozen_cache_miss(
 ) -> None:
     if not frozen_enabled():
         return
-    locked_artifacts(catalog)
+    locked_artifacts()
     raise RuntimeError(
         "Frozen data mode forbids cache misses: "
-        f"{variable}/{source}/{station_id or '-'} is absent from the local catalog."
+        f"{variable}/{source}/{station_id or '-'} is absent from the catalog at "
+        f"{catalog._db_path or ':memory:'}."
     )
 
 
@@ -318,7 +322,7 @@ def register(
                         encoded_path,
                         mtime,
                         digest,
-                        1 if is_custom else 0,
+                        is_custom,
                         json_or_none(fetch_metadata),
                         eid,
                     ],
@@ -350,7 +354,7 @@ def register(
                         encoded_path,
                         mtime,
                         digest,
-                        1 if is_custom else 0,
+                        is_custom,
                         json_or_none(fetch_metadata),
                     ],
                 )

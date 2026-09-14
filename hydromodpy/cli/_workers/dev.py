@@ -31,13 +31,13 @@ def rank_simulations(
     n: int = 5,
 ) -> Any:
     """Rank simulations of one project by a metric. Returns a DataFrame."""
-    from hydromodpy.cli.helpers import find_catalog_root
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.results.catalog import Catalog
 
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
-    with SimulationCatalog(workspace_root) as catalog:
+    with Catalog(workspace_root, read_only=True) as catalog:
         order = "DESC" if top else "ASC"
         sql = (
             "SELECT s.sim_id, s.name, s.solver, m.metric_name, m.value "
@@ -108,22 +108,93 @@ def install_binaries(
     }
 
 
-def lock_update(workspace: Any = None, *, output: Any = None) -> Path:
-    """Scan the cache and write/update the workspace lockfile."""
-    from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
+def _lock_workspace_root(workspace: Any) -> Path:
+    """Return the workspace root a lock command reads, which must already exist.
+
+    :func:`hydromodpy.cli.helpers.resolve_workspace` prints and calls
+    ``sys.exit`` on a missing root. A worker the Python API calls too must
+    raise instead, and leave the exit code to ``cli/commands/``.
+    """
+    from hydromodpy.data.scaffold import DEFAULT_ROOT
+
+    root = Path(workspace).expanduser().resolve() if workspace else DEFAULT_ROOT
+    if not root.is_dir():
+        raise FileNotFoundError(f"Workspace not found: {root}. Run 'hmp workspace init' first.")
+    return root
+
+
+def _lock_cache_database(workspace_root: Path) -> Path:
+    """Return the cache database of a workspace, which must already exist.
+
+    Locking an empty cache would pin nothing, so a missing database is an
+    error instead of a file DuckDB creates on the way past.
+    """
+    db_path = workspace_root / "data" / "cache.duckdb"
+    if not db_path.is_file():
+        raise FileNotFoundError(f"Data cache not found: {db_path}")
+    return db_path
+
+
+def _lock_cache_workspace(project_root: Path) -> Path:
+    """Return the workspace whose cache the lockfile of *project_root* pins.
+
+    The workspace holding the project, the project itself when it carries the
+    ``data/`` directory of a flat layout, else the default workspace.
+    """
+    from hydromodpy.cli.helpers import find_data_workspace
+
+    found = find_data_workspace(project_root)
+    if found is not None:
+        return found
+    if (project_root / "data").is_dir():
+        return project_root
+    return _lock_workspace_root(None)
+
+
+def _lock_targets(workspace: Any, project: Any, lockfile: Any) -> tuple[Path, Path, Path]:
+    """Return the cache database, the lockfile address and the project it describes.
+
+    An explicit lockfile path is itself the address, so it needs no project
+    root: the project it describes is the one named, or the directory the file
+    lives in, since that is where a lockfile belongs. Only a derived address
+    asks :func:`resolve_lockfile_root` for a root, and that is the call that
+    refuses to answer outside a project.
+    """
+    from hydromodpy.data.data_freeze import project_lockfile_path, resolve_lockfile_root
+
+    explicit = Path(lockfile).expanduser().resolve() if lockfile else None
+    if project:
+        named = resolve_lockfile_root(project)
+    elif explicit is not None:
+        named = explicit.parent
+    else:
+        named = resolve_lockfile_root(None)
+    workspace_root = _lock_workspace_root(workspace) if workspace else _lock_cache_workspace(named)
+    return (
+        _lock_cache_database(workspace_root),
+        explicit if explicit is not None else project_lockfile_path(named),
+        named,
+    )
+
+
+def lock_update(workspace: Any = None, *, project: Any = None, output: Any = None) -> Path:
+    """Scan the cache and write/update the lockfile of one project.
+
+    ``project_root`` travels with the write so this file carries the same
+    ``[hydromodpy].project_git_commit`` as the one ``hmp run`` produces.
+    """
     from hydromodpy.config.schema_export import schema_sha256
-    from hydromodpy.data.data_freeze import LOCKFILE_NAME, write_lockfile
+    from hydromodpy.data.data_freeze import write_lockfile
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-    from hydromodpy.results.parquet_schemas import PARQUET_SCHEMA_VERSION
+    from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
     from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 
-    workspace_root = _resolve_ws(str(workspace) if workspace else None)
-    db_path = workspace_root / "data" / "cache.duckdb"
-    dest = Path(output).expanduser().resolve() if output else (workspace_root / LOCKFILE_NAME)
+    db_path, dest, project_root = _lock_targets(workspace, project, output)
     with DataCatalogDuckDB(db_path) as catalog:
         return write_lockfile(
             catalog,
             dest,
+            project_root=project_root,
             schema_sha256=schema_sha256(),
             zarr_schema_version=str(ZARR_SCHEMA_VERSION),
             parquet_schema_version=str(PARQUET_SCHEMA_VERSION),
@@ -132,12 +203,10 @@ def lock_update(workspace: Any = None, *, output: Any = None) -> Path:
 
 def lock_archive(output: Any, *, workspace: Any = None) -> Path:
     """Create a portable archive of the lockfile + cache artefacts."""
-    from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
     from hydromodpy.data.data_freeze import archive_lockfile
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
-    workspace_root = _resolve_ws(str(workspace) if workspace else None)
-    db_path = workspace_root / "data" / "cache.duckdb"
+    db_path = _lock_cache_database(_lock_workspace_root(workspace))
     dest = Path(output).expanduser().resolve()
     with DataCatalogDuckDB(db_path) as catalog:
         archive_lockfile(catalog, dest)
@@ -146,10 +215,9 @@ def lock_archive(output: Any, *, workspace: Any = None) -> Path:
 
 def lock_restore(source: Any, *, workspace: Any = None, output: Any = None) -> Path:
     """Restore a lockfile archive and verify SHA-256."""
-    from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
     from hydromodpy.data.data_freeze import restore_archive
 
-    workspace_root = _resolve_ws(str(workspace) if workspace else None)
+    workspace_root = _lock_workspace_root(workspace)
     src = Path(source).expanduser().resolve()
     dest_dir = (
         Path(output).expanduser().resolve() if output else (workspace_root / "data" / "restored")
@@ -161,25 +229,20 @@ def lock_restore(source: Any, *, workspace: Any = None, output: Any = None) -> P
 def lock_verify(
     workspace: Any = None,
     *,
+    project: Any = None,
     lockfile: Any = None,
     strict: bool = False,
 ) -> dict:
-    """Verify the cache matches the lockfile."""
-    from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
+    """Verify the cache matches the lockfile of one project."""
     from hydromodpy.config.schema_export import schema_sha256
     from hydromodpy.data.data_freeze import (
-        LOCKFILE_NAME,
         read_lockfile_schema_sha256,
         verify_frozen,
         verify_inputs_strict,
     )
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
-    workspace_root = _resolve_ws(str(workspace) if workspace else None)
-    db_path = workspace_root / "data" / "cache.duckdb"
-    lockfile_path = (
-        Path(lockfile).expanduser().resolve() if lockfile else (workspace_root / LOCKFILE_NAME)
-    )
+    db_path, lockfile_path, _ = _lock_targets(workspace, project, lockfile)
     if not lockfile_path.is_file():
         raise FileNotFoundError(f"Lockfile not found: {lockfile_path}")
 

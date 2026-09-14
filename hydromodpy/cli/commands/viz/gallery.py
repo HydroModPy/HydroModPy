@@ -6,6 +6,7 @@ import argparse
 import sys
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
+from hydromodpy.core import progress
 
 NAME: str = "gallery"
 HELP: str = "Render the [display] figure gallery for one or several runs"
@@ -29,15 +30,16 @@ def run(args: argparse.Namespace) -> None:
 
     only = [s.strip() for s in args.only.split(",") if s.strip()] if args.only else None
     try:
-        paths = render_gallery(
-            args.config,
-            run_name=args.run_name,
-            sim_ref=args.sim_ref,
-            all_runs=args.all_runs,
-            latest=args.latest,
-            only=only,
-            no_show=args.no_show,
-        )
+        with progress.status("Rendering gallery figures"):
+            paths = render_gallery(
+                args.config,
+                run_name=args.run_name,
+                sim_ref=args.sim_ref,
+                all_runs=args.all_runs,
+                latest=args.latest,
+                only=only,
+                no_show=args.no_show,
+            )
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

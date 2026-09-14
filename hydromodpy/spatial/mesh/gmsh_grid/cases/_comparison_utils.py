@@ -8,6 +8,7 @@ This module consolidates utility functions that were duplicated across
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -167,16 +168,25 @@ def signature_head(arr, *, n: int = 8) -> list[float]:
 
 
 def polygon_area(vertices) -> float:
-    """Shoelace formula for a simple polygon given an (N, 2+) vertex array."""
+    """Shoelace formula for a simple polygon given an (N, 2+) vertex array.
+
+    The vertices are shifted to the first one before the cross products: on a
+    projected CRS the raw products reach 1e12 for an area near 1e5, and the
+    cancellation costs eight significant digits. The terms are then summed with
+    :func:`math.fsum` instead of reduced by ``np.dot``, whose kernel is picked
+    from the CPU at runtime, so the same mesh measures the same area on every
+    machine.
+    """
     xy = np.asarray(vertices, dtype=float)
-    x = xy[:, 0]
-    y = xy[:, 1]
-    return 0.5 * float(np.abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1))))
+    x = xy[:, 0] - xy[0, 0]
+    y = xy[:, 1] - xy[0, 1]
+    cross = x * np.roll(y, -1) - y * np.roll(x, -1)
+    return 0.5 * abs(math.fsum(cross.tolist()))
 
 
 def mesh_footprint_area(mesh) -> float:
     """Total planar area of all cells in *mesh*."""
-    return round_float(sum(polygon_area(cell.vertices) for cell in mesh.cells))
+    return round_float(math.fsum(polygon_area(cell.vertices) for cell in mesh.cells))
 
 
 def mesh_bounds_xy(mesh) -> list[float]:

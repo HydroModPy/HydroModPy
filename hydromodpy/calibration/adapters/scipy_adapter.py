@@ -15,6 +15,7 @@ from __future__ import annotations
 import queue
 import threading
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
@@ -22,13 +23,15 @@ from hydromodpy.calibration.adapters._prior_sampling import (
     transformed_prior_center,
     transformed_prior_samples,
 )
-from hydromodpy.calibration.optimizer import (
+from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
+    EngineTraits,
     EvaluationResult,
     ParamSuggestion,
     register_optimizer,
 )
-from hydromodpy.calibration.parameters import ParameterSpace
+from hydromodpy.calibration.optim.parameters import ParameterSpace
+from hydromodpy.core.exceptions import OptimizerError
 
 
 class _BridgeClosed(RuntimeError):
@@ -100,6 +103,12 @@ class _AskTellBridge:
 
 class _ScipyAdapterBase:
     name = "scipy"
+
+    traits = EngineTraits(supports_parallel=False)
+    """Sequential by construction: SciPy runs with ``workers=1``, so the next
+    point exists only once the current one has been told back. Asking for
+    concurrent trials buys nothing here, and the ``ask`` above says so in its own
+    comment."""
 
     def __init__(self, space: ParameterSpace, *, seed: int | None = None):
         self.space = space
@@ -220,6 +229,15 @@ class ScipyDE(_ScipyAdapterBase):
 class ScipyNelderMead(_ScipyAdapterBase):
     """scipy.optimize.minimize(method='Nelder-Mead') adapter."""
 
+    # scipy's xatol is an absolute width in the variable the simplex walks, which
+    # is the transformed one here.
+    traits = EngineTraits(
+        supports_parallel=False,
+        accepts_a_start_point=True,
+        tolerance_option="xatol",
+        tolerance_reads="search_width",
+    )
+
     name = "scipy_nelder_mead"
 
     def __init__(
@@ -231,12 +249,31 @@ class ScipyNelderMead(_ScipyAdapterBase):
         maxfev: int | None = None,
         xatol: float | None = None,
         fatol: float | None = None,
+        start_at: Any | None = None,
     ):
         self._maxiter = 100 if maxiter is None else int(maxiter)
         self._maxfev = self._maxiter if maxfev is None else int(maxfev)
         self._xatol = None if xatol is None else float(xatol)
         self._fatol = None if fatol is None else float(fatol)
+        self._start_at = None if start_at is None else np.asarray(start_at, dtype=float).ravel()
         super().__init__(space, seed=seed)
+
+    def _initial_point(self, lower: np.ndarray, upper: np.ndarray) -> np.ndarray:
+        """Return where the simplex is built, the prior centre unless told otherwise.
+
+        A caller states a start when it is repeating the search on purpose: the
+        simplex is deterministic, so the same start returns the same answer and a
+        spread read off identical runs would be zero by construction.
+        """
+        if self._start_at is None:
+            return transformed_prior_center(self.space)
+        if self._start_at.size != lower.size:
+            raise OptimizerError(
+                f"start_at carries {self._start_at.size} value(s) and the space declares "
+                f"{lower.size}; a start point is one coordinate per calibrated parameter, "
+                "in transformed space."
+            )
+        return np.clip(self._start_at, lower, upper)
 
     def _make_method(self) -> Callable[[Callable], object]:
         from scipy.optimize import minimize
@@ -244,7 +281,7 @@ class ScipyNelderMead(_ScipyAdapterBase):
         bounds = self._bounds_transformed()
         lower = np.array([b[0] for b in bounds], dtype=float)
         upper = np.array([b[1] for b in bounds], dtype=float)
-        x0 = transformed_prior_center(self.space)
+        x0 = self._initial_point(lower, upper)
         # Bound-scaled initial simplex (10 % of range per axis) gives
         # Nelder-Mead a wider starting spread than scipy's 5 %-of-x0
         # default, reducing the iter count needed to reach a tight

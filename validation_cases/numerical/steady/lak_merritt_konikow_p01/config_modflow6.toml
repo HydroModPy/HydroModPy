@@ -1,0 +1,42 @@
+﻿# HMP-facing declaration of the Merritt & Konikow (2000) Lake Package problem 1.
+#
+# This is the configuration a user would write to drive the case through HMP: a
+# single lake activated on the MODFLOW 6 backend, with its bed leakance, initial
+# stage and per-lake forcings declared in SI (HMP runs in meters/seconds). The
+# stage-volume-area abacus and the lake footprint come from the lake data
+# variables, inferred automatically once ``lake`` is listed in ``active_bc``.
+#
+# ``runtime_lak.py`` builds the same model directly from ``metadata.toml`` so the
+# validation can run without a full geographic project; this file documents the
+# user-facing contract and the SI values the LAK builder consumes.
+
+[[simulation.process]]
+solvers = ["modflow6"]
+
+[modflow6.runtime]
+mf_verbose = false
+mf6_ims_complexity = "MODERATE"
+
+[flow]
+flow_regime = "steady"
+active_bc = ["lake", "left_side", "right_side"]
+active_sinks_sources = ["recharge"]
+
+[flow.sinks_sources.lakes.lac0]
+# Lakebed leakance (1/day) and initial stage (32.6136 m bed; start at 33.528 m).
+bedleak = 0.1
+bedleak_unit = "1/day"
+stageinit = "33.528 m"
+description = "Merritt & Konikow p01 surface reservoir"
+
+[flow.sinks_sources.lakes.lac0.rainfall]
+# 0.0116 ft/day areal rainfall on the lake surface.
+kind = "constant"
+value = 0.0035357
+units = "m/day"
+
+[flow.sinks_sources.lakes.lac0.evaporation]
+# 0.0103 ft/day lake evaporation.
+kind = "constant"
+value = 0.0031394
+units = "m/day"

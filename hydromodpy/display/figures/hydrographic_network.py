@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure_registry import register
 from hydromodpy.display.geo import GeoFigureMixin
 from hydromodpy.display.map_axes import overlay_watershed_contour, style_relative_km_axes
 
@@ -22,6 +22,16 @@ class _HydrographicNetworkRoleFigure(GeoFigureMixin, BaseFigure):
     color: str
     title: str
     subtitle: str
+
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Require the persisted network of this role.
+
+        The requirement is a geographic feature, not a Zarr field or a
+        catalog table, so it is expressed here instead of in ``spec``.
+        """
+        if not sim.has_hydrographic_network(self.role):
+            return f"run has no '{self.role}' hydrographic network"
+        return None
 
     def render(self, sim: Run, ax: Axes, **_) -> Axes:
         raw_gdf = sim.hydrographic_network(self.role)

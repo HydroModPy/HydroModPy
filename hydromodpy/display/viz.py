@@ -60,10 +60,10 @@ def show(
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> da = hmp.read(run, "head", time=-1, lazy=True)
-    >>> fig = hmp.viz.show(da)
-    >>> ts = hmp.read(run, "discharge", sel={"station": "outlet"})
-    >>> hmp.viz.show(ts, downsample="lttb", n_out=2_000)
+    >>> da = hmp.read(run, "head", time=-1, lazy=True)  # doctest: +SKIP
+    >>> fig = hmp.viz.show(da)  # doctest: +SKIP
+    >>> ts = hmp.read(run, "discharge", sel={"station": "outlet"})  # doctest: +SKIP
+    >>> hmp.viz.show(ts, downsample="lttb", n_out=2_000)  # doctest: +SKIP
     """
     import matplotlib.pyplot as plt
 
@@ -152,7 +152,7 @@ def _show_series(
 ) -> MplFigure:
     import matplotlib.pyplot as plt
 
-    from hydromodpy.results.timeseries_downsample import (
+    from hydromodpy.results.derive.downsample import (
         DEFAULT_TIMESERIES_THRESHOLD,
         lttb_downsample,
         should_downsample,

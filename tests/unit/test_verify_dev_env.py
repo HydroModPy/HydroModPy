@@ -98,7 +98,7 @@ def test_collect_issues_reports_missing_core_and_docs_modules(
     )
 
     def _fake_find_spec(name: str):
-        if name in {"zarr", "xugrid", "nbsphinx"}:
+        if name in {"zarr", "xugrid", "myst_parser"}:
             return None
         return object()
 
@@ -112,4 +112,4 @@ def test_collect_issues_reports_missing_core_and_docs_modules(
     )
 
     assert any("Missing core runtime modules: zarr, xugrid." == issue for issue in issues)
-    assert any("Missing docs modules: nbsphinx." == issue for issue in issues)
+    assert any("Missing docs modules: myst_parser." == issue for issue in issues)

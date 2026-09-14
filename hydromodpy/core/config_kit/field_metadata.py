@@ -27,7 +27,7 @@ from __future__ import annotations
 from typing import Any, Final, Literal, TypedDict
 
 WidgetType = Literal["input", "slider", "select"]
-"""UI widget hint consumed by the Streamlit/React frontend."""
+"""UI widget hint consumed by the frontend."""
 
 Stability = Literal["experimental", "stable"]
 """Maturity tag attached to a field."""
@@ -51,6 +51,7 @@ class FieldMetadata(TypedDict, total=False):
     toml_exclude: bool
     group: str
     stability: Stability
+    value_docs: dict[str, str]
 
 
 _ALLOWED_KEYS: Final[frozenset[str]] = frozenset(FieldMetadata.__annotations__)

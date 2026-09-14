@@ -19,17 +19,17 @@ from unittest.mock import patch
 import pytest
 
 from hydromodpy.cli.commands import privacy as privacy_cmd
-from hydromodpy.results.catalog.facade import SimulationCatalog
+from hydromodpy.results.catalog.facade import Catalog
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
-def catalog(tmp_path: Path) -> SimulationCatalog:
+def catalog(tmp_path: Path) -> Catalog:
     with simulation_catalog(tmp_path) as cat:
         yield cat
 
 
-def _register(catalog: SimulationCatalog, project: str = "lab") -> str:
+def _register(catalog: Catalog, project: str = "lab") -> str:
     sid = str(uuid.uuid4())
     catalog.register_simulation(
         sid,
@@ -47,7 +47,7 @@ def _register(catalog: SimulationCatalog, project: str = "lab") -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_delete_simulation_inserts_audit_log_entry(catalog: SimulationCatalog) -> None:
+def test_delete_simulation_inserts_audit_log_entry(catalog: Catalog) -> None:
     sid = _register(catalog)
     catalog.delete(sid)
 
@@ -67,7 +67,7 @@ def test_delete_simulation_inserts_audit_log_entry(catalog: SimulationCatalog) -
 
 
 def test_delete_simulation_does_not_insert_deletion_tombstone(
-    catalog: SimulationCatalog,
+    catalog: Catalog,
 ) -> None:
     sid = _register(catalog)
     catalog.delete(sid)
@@ -78,7 +78,7 @@ def test_delete_simulation_does_not_insert_deletion_tombstone(
     assert count == 0
 
 
-def test_delete_audit_log_records_remove_storage_false(catalog: SimulationCatalog) -> None:
+def test_delete_audit_log_records_remove_storage_false(catalog: Catalog) -> None:
     sid = _register(catalog)
     catalog.delete(sid, remove_storage=False)
     payload = catalog.connection.execute(
@@ -89,7 +89,7 @@ def test_delete_audit_log_records_remove_storage_false(catalog: SimulationCatalo
     assert body["remove_storage"] is False
 
 
-def test_delete_audit_log_has_hostname_and_actor(catalog: SimulationCatalog) -> None:
+def test_delete_audit_log_has_hostname_and_actor(catalog: Catalog) -> None:
     sid = _register(catalog)
     catalog.delete(sid)
     row = catalog.connection.execute(
@@ -127,7 +127,7 @@ def _run_privacy_purge(tmp_path: Path, sid: str, reason: str = "gdpr-request") -
 
 
 def test_privacy_purge_inserts_deletion_tombstone_with_sha256(tmp_path: Path) -> None:
-    catalog = SimulationCatalog(tmp_path)
+    catalog = Catalog(tmp_path)
     try:
         sid = _register(catalog)
     finally:
@@ -135,7 +135,7 @@ def test_privacy_purge_inserts_deletion_tombstone_with_sha256(tmp_path: Path) ->
 
     _run_privacy_purge(tmp_path, sid)
 
-    catalog = SimulationCatalog(tmp_path)
+    catalog = Catalog(tmp_path)
     try:
         rows = catalog.connection.execute(
             "SELECT sim_id, sha256_snapshot, reason FROM deletions WHERE sim_id = ?",
@@ -152,7 +152,7 @@ def test_privacy_purge_inserts_deletion_tombstone_with_sha256(tmp_path: Path) ->
 
 
 def test_privacy_purge_inserts_audit_log_entry_with_event_type_purge(tmp_path: Path) -> None:
-    catalog = SimulationCatalog(tmp_path)
+    catalog = Catalog(tmp_path)
     try:
         sid = _register(catalog)
     finally:
@@ -160,7 +160,7 @@ def test_privacy_purge_inserts_audit_log_entry_with_event_type_purge(tmp_path: P
 
     _run_privacy_purge(tmp_path, sid, reason="legal-hold")
 
-    catalog = SimulationCatalog(tmp_path)
+    catalog = Catalog(tmp_path)
     try:
         rows = catalog.connection.execute(
             "SELECT event_type, payload FROM audit_log WHERE sim_id = ?",
@@ -178,7 +178,7 @@ def test_privacy_purge_inserts_audit_log_entry_with_event_type_purge(tmp_path: P
 
 
 def test_privacy_purge_writes_certificate(tmp_path: Path) -> None:
-    catalog = SimulationCatalog(tmp_path)
+    catalog = Catalog(tmp_path)
     try:
         sid = _register(catalog)
     finally:
@@ -195,7 +195,7 @@ def test_privacy_purge_writes_certificate(tmp_path: Path) -> None:
 
 def test_privacy_purge_sha256_matches_tombstone_and_certificate(tmp_path: Path) -> None:
     """The same sha256_snapshot lands in deletions, audit_log payload, and cert."""
-    catalog = SimulationCatalog(tmp_path)
+    catalog = Catalog(tmp_path)
     try:
         sid = _register(catalog)
     finally:
@@ -206,7 +206,7 @@ def test_privacy_purge_sha256_matches_tombstone_and_certificate(tmp_path: Path) 
     cert = json.loads(
         (tmp_path / ".hmp" / "purge_certificates" / f"{sid}.json").read_text(encoding="utf-8")
     )
-    cat = SimulationCatalog(tmp_path)
+    cat = Catalog(tmp_path)
     try:
         tomb_sha = cat.connection.execute(
             "SELECT sha256_snapshot FROM deletions WHERE sim_id = ?", [sid]
@@ -226,7 +226,7 @@ def test_privacy_purge_sha256_matches_tombstone_and_certificate(tmp_path: Path) 
 # ---------------------------------------------------------------------------
 
 
-def test_rename_simulation_emits_sim_rename(catalog: SimulationCatalog) -> None:
+def test_rename_simulation_emits_sim_rename(catalog: Catalog) -> None:
     sid = _register(catalog)
     catalog.rename_simulation(sid, "renamed")
     rows = catalog.connection.execute(
@@ -242,7 +242,7 @@ def test_rename_simulation_emits_sim_rename(catalog: SimulationCatalog) -> None:
     assert name_row[0] == "renamed"
 
 
-def test_remove_tag_emits_sim_tag_remove(catalog: SimulationCatalog) -> None:
+def test_remove_tag_emits_sim_tag_remove(catalog: Catalog) -> None:
     sid = str(uuid.uuid4())
     catalog.register_simulation(
         sid,
@@ -267,7 +267,7 @@ def test_remove_tag_emits_sim_tag_remove(catalog: SimulationCatalog) -> None:
     assert [r[0] for r in remaining] == ["beta"]
 
 
-def test_update_parameter_emits_param_update(catalog: SimulationCatalog) -> None:
+def test_update_parameter_emits_param_update(catalog: Catalog) -> None:
     sid = _register(catalog)
     catalog.write_parameters(
         sid,
@@ -289,7 +289,7 @@ def test_update_parameter_emits_param_update(catalog: SimulationCatalog) -> None
     assert float(new_value) == pytest.approx(2e-4)
 
 
-def test_remove_tracked_file_emits_tracked_file_remove(catalog: SimulationCatalog) -> None:
+def test_remove_tracked_file_emits_tracked_file_remove(catalog: Catalog) -> None:
     sid = _register(catalog)
     # Seed one row directly so we do not depend on the full tracked_file
     # registration pipeline (filesystem walker, SHA-256, ...).

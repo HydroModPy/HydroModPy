@@ -11,13 +11,13 @@ bounds in that unit. Values are *inclusive* of both ends.
 Example
 -------
 >>> validate_physical_value(param_id="K", value=1e-4)
-1e-4
+0.0001
 >>> validate_physical_value(
 ...     param_id="K", value=1e4
 ... )  # doctest: +IGNORE_EXCEPTION_DETAIL
 Traceback (most recent call last):
     ...
-ValueError: hydraulic conductivity (id='K') value 10000.0 outside ...
+PhysicalBoundsError: hydraulic conductivity (id='K') value 10000.0 outside ...
 
 Notes
 -----

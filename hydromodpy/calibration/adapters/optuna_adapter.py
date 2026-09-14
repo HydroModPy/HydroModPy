@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import optuna
 
-from hydromodpy.calibration.optimizer import (
+from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     ParamSuggestion,
     register_optimizer,
 )
-from hydromodpy.calibration.parameters import ParameterSpace
+from hydromodpy.calibration.optim.parameters import ParameterSpace
 
 _SAMPLERS = {
     "tpe": optuna.samplers.TPESampler,

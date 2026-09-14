@@ -1,0 +1,50 @@
+# HMP-facing declaration of the transient multi-layer Plainfield Lakes case.
+#
+# This is the configuration a user would write to drive the case through HMP: one
+# reservoir active on the MODFLOW 6 backend, incised across the top two layers,
+# with its bed leakance, initial stage and per-period forcings declared in SI (HMP
+# runs in meters/seconds). The stage-volume-area abacus comes from the real USGS
+# Plainfield Lakes table; per-period rainfall, evaporation and runoff vary across
+# the transient stress periods.
+#
+# runtime_lak.py builds the same model directly from metadata.toml so the
+# validation can run without a full geographic project; this file documents the
+# user-facing contract and the SI values the LAK builder consumes.
+
+[[simulation.process]]
+solvers = ["modflow6"]
+
+[modflow6.runtime]
+mf_verbose = false
+mf6_ims_complexity = "MODERATE"
+
+[flow]
+flow_regime = "transient"
+active_bc = ["lake", "west_side", "east_side"]
+active_sinks_sources = ["recharge"]
+
+[flow.sinks_sources.lakes.plainfield]
+# Lakebed leakance (1/day) and initial stage (336 m). The lake is incised across
+# the top two layers (occupied_layers = 2 in metadata.toml).
+# Plainfield Lakes transient multi-layer reservoir.
+bedleak = 0.1
+bedleak_unit = "1/day"
+stageinit = "336.0 m"
+
+[flow.sinks_sources.lakes.plainfield.rainfall]
+# Period-0 rainfall on the lake surface (m/day); later periods vary in metadata.
+kind = "constant"
+value = 0.0030
+units = "m/day"
+
+[flow.sinks_sources.lakes.plainfield.evaporation]
+# Period-0 lake evaporation (m/day).
+kind = "constant"
+value = 0.0025
+units = "m/day"
+
+[flow.sinks_sources.lakes.plainfield.runoff]
+# Period-0 overland runoff into the lake (m3/day, volumetric).
+kind = "constant"
+value = 500.0
+units = "m3/day"

@@ -19,13 +19,13 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from hydromodpy.calibration.optimizer import (
+from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
     EvaluationResult,
     ParamSuggestion,
     register_optimizer,
 )
-from hydromodpy.calibration.parameters import ParameterSpace
+from hydromodpy.calibration.optim.parameters import ParameterSpace
 
 try:
     from sklearn.exceptions import ConvergenceWarning

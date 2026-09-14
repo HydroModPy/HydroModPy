@@ -44,7 +44,11 @@ jobs:
     timeout-minutes: 40
 
     steps:
+      # sphinx-last-updated-by-git needs the full history: on a shallow
+      # clone it warns once per page, and -W turns that into 465 errors.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -64,6 +68,15 @@ jobs:
       - name: Build Sphinx html-strict
         run: make -C docs html-strict
 
+      # conf.py regenerates config_reference/ on builder-inited, so the build
+      # above has already written the truth. 130 committed files under
+      # docs/source carry an auto-generated header and until now exactly one
+      # artifact had a freshness test: CI never looked at the rest.
+      - name: Generated documentation must match its source
+        run: |
+          git diff --exit-code -- docs/source \
+            || { echo "::error::A generated file is stale. Run 'make -C docs html' and commit the result."; exit 1; }
+
       - name: Upload built HTML
         if: always()
         uses: actions/upload-artifact@v4
@@ -72,3 +85,43 @@ jobs:
           path: docs/build/html
           if-no-files-found: error
           retention-days: 14
+
+  redirects:
+    name: Docs / rediraffe checkdiff
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # sphinxext-rediraffe has been configured with a 136-entry redirects.txt
+    # for a long time, but nothing ever ran it: renaming or deleting a page
+    # broke its published URL silently. This job makes that a red check.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglu1-mesa graphviz libgraphviz-dev pkg-config
+
+      - name: Install package and docs extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[docs]"
+
+      - name: Every renamed or deleted page must have a redirect
+        run: |
+          base="${GITHUB_BASE_REF:-${GITHUB_REF_NAME}}"
+          git fetch --no-tags origin "${base}"
+          # numfig=0: the checkdiff builder reads no source, so it writes no
+          # doctree, and the figure numbering collector then dies looking for
+          # index.doctree. Nothing here renders a figure number anyway.
+          python -m sphinx -j auto -b rediraffecheckdiff \
+            -D numfig=0 \
+            -D rediraffe_branch="origin/${base}" \
+            docs/source docs/build/rediraffe

@@ -16,7 +16,7 @@ from typing import Annotated
 import pytest
 from pydantic import BaseModel, Field
 
-from hydromodpy.calibration.parameters import (
+from hydromodpy.calibration.optim.parameters import (
     CalibParameter,
     ParameterSpace,
     apply_parameter_to_config,
@@ -132,8 +132,9 @@ class TestApplyParameterToConfig:
             path="K.homogeneous.does_not_exist",
             mode="replace",
         )
-        with pytest.raises(ValueError, match="not found"):
+        with pytest.raises(ValueError, match=r"calibration\.parameters\.K") as failure:
             apply_parameter_to_config(cfg, param, 0.5)
+        assert "does_not_exist" in str(failure.value)
 
     def test_rejects_missing_path(self):
         param = CalibParameter(

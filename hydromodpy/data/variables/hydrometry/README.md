@@ -45,8 +45,6 @@ Hydrometry now reuses shared components from `hydromodpy.data.common`:
 ```python
 from hydromodpy.data.variables.hydrometry.station_set import StationSet
 
-stations = StationSet.from_toml(
-    "hydromodpy/data/hydrometry/cases/run_hydrometry_config.toml"
-)
+stations = StationSet.from_toml("hydromodpy/data/hydrometry/cases/run_hydrometry_config.toml")
 report = stations.get_missing_data_summary()
 ```

@@ -1,0 +1,28 @@
+# Tolerances for the LAK ex-gwf-lak-p01 validation (see tests/TOLERANCES.md row 40).
+# The two models share the SAME single-layer surface-lake footprint but build
+# their LAK input differently (upstream get_lak_connections in feet/days vs the
+# HMP DISV builder in meters/seconds), so the residual is governed by Newton
+# smoothing and the unit round-trip, not by the lake physics.
+
+[stage]
+# Final lake stage agreement, in meters. The lake equilibrates near the
+# surrounding head (~63 m); the two builds agree to ~0.25 m.
+final_stage_abs_error_m = 0.5
+rmse_stage_m = 0.5
+
+[exchange]
+# Gross lake-aquifer flux (in + out) relative error between the two builds. The
+# gross magnitude is the stable signal; the net is a tiny difference of two large
+# near-equal terms and is dominated by the staircased lake perimeter.
+lake_gwf_exchange_rel_err = 0.05
+
+[budget]
+# Per-build LAK water-balance closure (percent discrepancy reported by MF6).
+budget_percent_discrepancy = 1.0
+
+[structural]
+# The home-grown DISV CONNECTIONDATA must reproduce the upstream connection count
+# exactly: 25 VERTICAL (one per lake cell) + 20 HORIZONTAL (perimeter edges).
+n_connections = 45
+n_vertical = 25
+n_horizontal = 20

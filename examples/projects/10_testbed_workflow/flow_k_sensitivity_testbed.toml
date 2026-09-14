@@ -27,7 +27,7 @@ project_root = "outputs/flow_k_sensitivity/low_k_workspace"
 [testbed.case.overlay.simulation]
 name = "flow_low_k"
 run_id = "flow_low_k"
-on_collision = "replace"
+if_exists = "replace"
 
 [testbed.case.overlay.flow.param.K.field]
 value = "5e-6 m/s"
@@ -42,7 +42,7 @@ project_root = "outputs/flow_k_sensitivity/reference_k_workspace"
 [testbed.case.overlay.simulation]
 name = "flow_reference_k"
 run_id = "flow_reference_k"
-on_collision = "replace"
+if_exists = "replace"
 
 [testbed.case.overlay.flow.param.K.field]
 value = "1e-5 m/s"
@@ -57,7 +57,7 @@ project_root = "outputs/flow_k_sensitivity/high_k_workspace"
 [testbed.case.overlay.simulation]
 name = "flow_high_k"
 run_id = "flow_high_k"
-on_collision = "replace"
+if_exists = "replace"
 
 [testbed.case.overlay.flow.param.K.field]
 value = "2e-5 m/s"

@@ -6,17 +6,17 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.spatial.mesh.batch import (
+from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
+from hydromodpy.spatial.mesh.launcher.batch import (
     MeshCatchmentBatchConfig,
     MeshCatchmentBatchResultRow,
     MeshCatchmentBatchRunner,
     MeshCatchmentBatchSummary,
 )
-from hydromodpy.spatial.mesh.batch_io import load_mesh_catchment_outlet_records
-from hydromodpy.spatial.mesh.batch_reporting import (
+from hydromodpy.spatial.mesh.launcher.batch_io import load_mesh_catchment_outlet_records
+from hydromodpy.spatial.mesh.launcher.batch_reporting import (
     write_mesh_catchment_batch_manifest,
 )
-from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
 
 def test_mesh_catchment_batch_config_from_mapping_returns_typed_values(

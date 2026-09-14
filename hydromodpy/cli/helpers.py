@@ -7,9 +7,10 @@ import re
 import sys
 import tempfile
 import uuid
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from pathlib import Path
-
-from hydromodpy.core.state.paths import find_catalog_root
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Standardised exit codes for the hmp CLI. The shared grammar that emits them
@@ -31,6 +32,10 @@ EXIT_VALIDATION = 16
 EXIT_CROSS_PROJECTS = 17
 EXIT_BACKUP_FAILED = 18
 EXIT_MIGRATION_FAILED = 19
+# The 10..19 band is fully assigned above, so the categories added since take
+# the following slots. CLAUDE.md documents the band as 10..21.
+EXIT_AMBIGUOUS_REFERENCE = 20
+EXIT_CALIBRATION = 21
 EXIT_SIGINT = 130
 
 
@@ -40,23 +45,47 @@ def exit_code_for(exc: BaseException) -> int:
     Returns :data:`EXIT_GENERIC` when no specific mapping is registered.
     :class:`KeyboardInterrupt` is routed to :data:`EXIT_SIGINT` (POSIX 130).
     """
-    from hydromodpy.core import exceptions as hmp_exc
+    from hydromodpy.core.exceptions import (
+        BackupFailedError,
+        CalibrationError,
+        ConfigError,
+        ConfigMissingError,
+        CrossProjectsError,
+        DataError,
+        MigrationFailedError,
+        ReadOnlyError,
+        SolverError,
+        WriteConflictError,
+    )
+    from hydromodpy.results.catalog.discovery import (
+        AmbiguousReferenceError,
+        SimulationNotFoundError,
+    )
+    from hydromodpy.results.errors import SchemaVersionMismatchError
 
     if isinstance(exc, KeyboardInterrupt):
         return EXIT_SIGINT
+    if isinstance(exc, AmbiguousReferenceError):
+        return EXIT_AMBIGUOUS_REFERENCE
+    if isinstance(exc, SimulationNotFoundError):
+        return EXIT_NOT_FOUND
     if isinstance(exc, FileNotFoundError):
         return EXIT_NOT_FOUND
     mapping: tuple[tuple[type[BaseException], int], ...] = (
-        (getattr(hmp_exc, "SchemaVersionMismatchError", type("_n", (), {})), EXIT_SCHEMA_MISMATCH),
-        (getattr(hmp_exc, "WriteConflictError", type("_n", (), {})), EXIT_WRITE_CONFLICT),
-        (getattr(hmp_exc, "ReadOnlyError", type("_n", (), {})), EXIT_READ_ONLY),
-        (getattr(hmp_exc, "ConfigError", type("_n", (), {})), EXIT_CONFIG),
-        (getattr(hmp_exc, "ConfigMissingError", type("_n", (), {})), EXIT_CONFIG),
-        (getattr(hmp_exc, "SolverError", type("_n", (), {})), EXIT_SOLVER_ERROR),
-        (getattr(hmp_exc, "DataError", type("_n", (), {})), EXIT_VALIDATION),
-        (getattr(hmp_exc, "CrossProjectsError", type("_n", (), {})), EXIT_CROSS_PROJECTS),
-        (getattr(hmp_exc, "BackupFailedError", type("_n", (), {})), EXIT_BACKUP_FAILED),
-        (getattr(hmp_exc, "MigrationFailedError", type("_n", (), {})), EXIT_MIGRATION_FAILED),
+        (SchemaVersionMismatchError, EXIT_SCHEMA_MISMATCH),
+        (WriteConflictError, EXIT_WRITE_CONFLICT),
+        (ReadOnlyError, EXIT_READ_ONLY),
+        (ConfigError, EXIT_CONFIG),
+        (ConfigMissingError, EXIT_CONFIG),
+        (SolverError, EXIT_SOLVER_ERROR),
+        (DataError, EXIT_VALIDATION),
+        (CrossProjectsError, EXIT_CROSS_PROJECTS),
+        (BackupFailedError, EXIT_BACKUP_FAILED),
+        (MigrationFailedError, EXIT_MIGRATION_FAILED),
+        # Last of the list on purpose: CalibrationError is a sibling of the
+        # others, but ObjectiveError and OptimizerError derive from it, so a
+        # more specific mapping would have to come before this one.
+        (CalibrationError, EXIT_CALIBRATION),
     )
     for exc_type, code in mapping:
         if isinstance(exc, exc_type):
@@ -117,27 +146,6 @@ def resolve_workspace(workspace_arg: str | None) -> Path:
     return root
 
 
-def resolve_sim_id(catalog, sim_id_or_prefix: str) -> str:
-    """Resolve a simulation reference to its full ``sim_id``.
-
-    Delegates to :meth:`SimulationCatalog.resolve` and exits the CLI with a
-    friendly message when the reference is ambiguous or missing.
-    """
-    from hydromodpy.results.catalog import (
-        AmbiguousReferenceError,
-        SimulationNotFoundError,
-    )
-
-    try:
-        return catalog.resolve(sim_id_or_prefix)
-    except AmbiguousReferenceError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-    except SimulationNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-
-
 # ---------------------------------------------------------------------------
 # Auto-scan workspace for drag-and-drop custom folders
 # ---------------------------------------------------------------------------
@@ -164,6 +172,84 @@ def auto_scan_workspace(config_path: Path) -> None:
                 print(f"[auto_scan]   ! {path}: {msg}", file=sys.stderr)
     except Exception as exc:  # pragma: no cover - defensive
         print(f"[auto_scan] skipped ({type(exc).__name__}: {exc})", file=sys.stderr)
+
+
+# ---------------------------------------------------------------------------
+# Profiling (--profile flag, pyinstrument)
+# ---------------------------------------------------------------------------
+
+
+def _require_pyinstrument() -> None:
+    """Exit with :data:`EXIT_CONFIG` when pyinstrument is not installed."""
+    try:
+        import pyinstrument  # noqa: F401
+    except ImportError:
+        print(
+            "pyinstrument is required for --profile. Install it with: pip install pyinstrument",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_CONFIG)
+
+
+def profile_arg_from_toml(raw_toml: Mapping[str, Any]) -> str | None:
+    """Map ``[workflow].profile`` to the ``--profile`` argument convention."""
+    workflow_section = raw_toml.get("workflow")
+    if not isinstance(workflow_section, dict):
+        return None
+    value = workflow_section.get("profile")
+    if value is True:
+        return ""
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
+def resolve_profile_output(profile_arg: str | None, config_path: Path) -> Path | None:
+    """Resolve the ``--profile`` argument to an HTML report path.
+
+    ``None`` means profiling is disabled. An empty string (bare ``--profile``)
+    defaults to ``<config>.profile.html`` next to the config. Fails fast when
+    profiling is requested but pyinstrument is missing.
+    """
+    if profile_arg is None:
+        return None
+    _require_pyinstrument()
+    if profile_arg:
+        return Path(profile_arg).expanduser().resolve()
+    return config_path.with_suffix(".profile.html")
+
+
+@contextmanager
+def profile_run(output: Path | None, *, description: str | None = None) -> Iterator[None]:
+    """Profile the wrapped block with pyinstrument.
+
+    No-op when ``output`` is None. ``description`` labels the report header
+    (defaults to pyinstrument's call-site text). Writes the HTML report to
+    ``output`` and prints the call-tree summary to stderr, even when the
+    block raises or is interrupted. Exits with :data:`EXIT_CONFIG` when
+    pyinstrument is missing.
+    """
+    if output is None:
+        yield
+        return
+    _require_pyinstrument()
+    from pyinstrument import Profiler
+
+    profiler = Profiler()
+    profiler.start(target_description=description)
+    try:
+        yield
+    finally:
+        profiler.stop()
+        # Best-effort emission: a report failure must never mask the run
+        # outcome or replace its typed exit code.
+        try:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(profiler.output_html(), encoding="utf-8")
+            print(profiler.output_text(unicode=True, color=sys.stderr.isatty()), file=sys.stderr)
+            print(f"  Profile report: {output}", file=sys.stderr)
+        except Exception as exc:
+            print(f"  WARNING: profile report write failed: {exc}", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
@@ -226,15 +312,17 @@ __all__ = (
     "EXIT_CROSS_PROJECTS",
     "EXIT_BACKUP_FAILED",
     "EXIT_MIGRATION_FAILED",
+    "EXIT_AMBIGUOUS_REFERENCE",
     "EXIT_SIGINT",
     "exit_code_for",
     "find_project_root",
-    "find_catalog_root",
     "find_workspace_root",
     "find_data_workspace",
     "resolve_workspace",
-    "resolve_sim_id",
     "auto_scan_workspace",
+    "profile_arg_from_toml",
+    "resolve_profile_output",
+    "profile_run",
     "resolve_test_scratch_root",
     "resolve_test_session_scratch_root",
     "pytest_addopts_declares_basetemp",

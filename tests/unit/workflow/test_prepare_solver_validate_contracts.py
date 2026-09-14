@@ -9,6 +9,8 @@ import pytest
 
 import hydromodpy.workflow.steps.prepare_solver.validate as validate_module
 from hydromodpy.core.exceptions import PipelineError
+from hydromodpy.core.state.paths import RUNS_DIRNAME
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME, TABLES_DIRNAME
 
 
 class _DumpableConfig:
@@ -107,18 +109,19 @@ def test_collect_registration_kwargs_collects_mesh_time_and_simulation_metadata(
     assert kwargs["time_unit"] == "days"
 
 
-def test_store_sim_artifacts_returns_existing_workspace_relative_store_paths(
+def test_store_sim_artifacts_returns_existing_project_relative_run_paths(
     tmp_path: Path,
 ) -> None:
     project_root = tmp_path / "project"
-    zarr_path = project_root / "simulations" / "sim-123.zarr"
-    parquet_dir = project_root / "exports" / "sim-123"
-    zarr_path.mkdir(parents=True)
-    parquet_dir.mkdir(parents=True)
+    run_dir = project_root / RUNS_DIRNAME / "demo_run"
+    fields_path = run_dir / FIELDS_STORE_NAME
+    tables_dir = run_dir / TABLES_DIRNAME
+    fields_path.mkdir(parents=True)
+    tables_dir.mkdir(parents=True)
 
     store = SimpleNamespace(
-        zarr_path_for=lambda sim_id: zarr_path,
-        parquet_dir_for=lambda sim_id: parquet_dir,
+        fields_path_for=lambda sim_id: fields_path,
+        tables_dir_for=lambda sim_id: tables_dir,
     )
     ctx = SimpleNamespace(
         store=store,
@@ -126,19 +129,19 @@ def test_store_sim_artifacts_returns_existing_workspace_relative_store_paths(
     )
 
     assert validate_module._store_sim_artifacts(ctx, "sim-123") == (
-        "simulations/sim-123.zarr",
-        "exports/sim-123",
+        f"{RUNS_DIRNAME}/demo_run/{FIELDS_STORE_NAME}",
+        f"{RUNS_DIRNAME}/demo_run/{TABLES_DIRNAME}",
     )
 
 
 def test_store_sim_artifacts_ignores_missing_and_external_paths(tmp_path: Path) -> None:
     project_root = tmp_path / "project"
-    external = tmp_path / "external.zarr"
-    external.mkdir()
-    missing = project_root / "exports" / "missing"
+    external = tmp_path / "external" / FIELDS_STORE_NAME
+    external.mkdir(parents=True)
+    missing = project_root / RUNS_DIRNAME / "gone" / TABLES_DIRNAME
     store = SimpleNamespace(
-        zarr_path_for=lambda sim_id: external,
-        parquet_dir_for=lambda sim_id: missing,
+        fields_path_for=lambda sim_id: external,
+        tables_dir_for=lambda sim_id: missing,
     )
     ctx = SimpleNamespace(
         store=store,

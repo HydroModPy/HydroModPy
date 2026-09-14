@@ -24,10 +24,11 @@ imports the standalone, uninstalled ``validity_frame`` sub-project and is
 not run by any CI job. A fully provisioned environment may collect a few
 more tests.
 
-Collected test count: **4979** (rough snapshot; the de-duplication and
-re-tiering work splits some god-files into many smaller files, so the file
-count rose while several copy-paste families collapsed into parametrized
-tables).
+Collected test count: **7417** (snapshot of 2026-09-10; rerun the command
+above for the live number). The five documented families below account for
+7380 of them; the remaining 37 sit in ``tests/contract/`` and
+``tests/performance/``, two small directories outside the five-tier
+contract.
 
 Runtime envelope
 ----------------
@@ -239,23 +240,23 @@ By test family
      - Tests
      - What the family mostly covers
    * - ``unit``
-     - 3024
+     - 6851
      - Local contracts: schemas, helpers, adapters, data managers,
        solvers, mesh utilities, calibration primitives, result stores.
    * - ``regression``
-     - 128
+     - 243
      - Known workflow outputs, public API consistency, golden
        signatures, and solver intercomparison summaries.
    * - ``validation``
-     - 118
+     - 128
      - Analytical benchmarks, numerical stress cases, MMS checks, and
        calibration twin experiments.
    * - ``integration``
-     - 82
+     - 147
      - Cross-package composition without golden references: CLI,
        results, ML access, calibration bridges, and workflow plumbing.
    * - ``e2e``
-     - 16
+     - 11
      - Full user-facing scenarios such as add/export round-trips,
        resume after interrupt, and complete simulation cycles.
 
@@ -269,41 +270,53 @@ Largest unit-test areas
    * - Area
      - Tests
      - Main protection role
-   * - ``data_managers``
-     - 543
-     - Custom and provider-backed data loading, validation,
-       autoscan, catalog handling, unit conversion, and data-source
-       contracts.
    * - ``solver``
-     - 312
+     - 930
      - MODFLOW-NWT, MODFLOW 6, PETSc/Boussinesq, boundary-condition
        translation, output adapters, solver registries, and numerical
        contracts.
-   * - ``simulation``
-     - 262
-     - Simulation catalog APIs, result stores, exports, comparison
-       metrics, run grids, observations, and post-run access.
    * - ``calibration``
-     - 259
+     - 802
      - Objective construction, candidate materialization, optimizer
        orchestration, parameter handling, cache behaviour, and CLI
        session state.
-   * - ``mesh``
-     - 219
-     - Cartesian grids, Gmsh grids, conformal meshing, geometry
-       constraints, field discretization, and reference mesh cases.
+   * - ``data_managers``
+     - 592
+     - Custom and provider-backed data loading, validation,
+       autoscan, catalog handling, unit conversion, and data-source
+       contracts.
+   * - ``results``
+     - 546
+     - Catalog surface and lifecycle, Zarr and Parquet stores, run
+       layout contract, schema migrations, exporters, and provenance.
+   * - ``display``
+     - 514
+     - Figure registry and named figures, colormap and CRS guards,
+       overview and catchment report rendering, and PNG metadata.
+   * - ``simulation``
+     - 405
+     - Simulation catalog APIs, result stores, exports, comparison
+       metrics, run grids, observations, and post-run access.
    * - ``launchers``
-     - 216
+     - 237
      - TOML-to-workflow entry points, simulation/comparison launchers,
        batch launchers, CLI wiring, and error paths.
-   * - ``analysis``
-     - 118
-     - Comparison metrics, web-report sections, audit payloads,
-       experiment configuration, and analysis exports.
    * - ``config``
-     - 83
+     - 229
      - TOML loading, schema export, units round-trips, native dispatch,
        error location, and cross-section validation.
+   * - ``mesh``
+     - 227
+     - Cartesian grids, Gmsh grids, conformal meshing, geometry
+       constraints, field discretization, and reference mesh cases.
+   * - ``cli``
+     - 225
+     - Verb families and their actions, argument parsing, exit-code
+       mapping, and output formatting.
+   * - ``analysis``
+     - 159
+     - Comparison metrics, web-report sections, audit payloads,
+       experiment configuration, and analysis exports.
 
 Validation-test areas
 ---------------------
@@ -316,11 +329,11 @@ Validation-test areas
      - Tests
      - Main protection role
    * - ``analytical``
-     - 92
+     - 104
      - Solver-backed comparisons against closed-form or
        semi-analytical groundwater-flow references.
    * - ``numerical``
-     - 12
+     - 10
      - PETSc/Boussinesq stress cases and multi-backend robustness cases
        without a clean closed-form target.
    * - ``calibration``
@@ -342,11 +355,17 @@ Regression-test areas
      - Tests
      - Main protection role
    * - ``test_api_public_consistency.py``
-     - 97
+     - 177
      - Public facade and exported symbol consistency.
    * - ``fast``
-     - 25
+     - 28
      - Routine workflow goldens and compact intercomparison checks.
+   * - ``data``
+     - 15
+     - Frozen data-loading and cache behaviour across releases.
+   * - ``migration``
+     - 9
+     - Catalog schema migrations replayed against recorded databases.
    * - ``extensive``
      - 5
      - Heavier workflow goldens for pre-merge or pre-release checks.

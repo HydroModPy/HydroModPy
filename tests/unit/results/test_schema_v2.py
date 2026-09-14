@@ -1,6 +1,6 @@
 """Catalog v2 schema validation tests (P4).
 
-Verifies the full v2 DDL is created end-to-end through ``SimulationCatalog``
+Verifies the full v2 DDL is created end-to-end through ``Catalog``
 and that the migration runner reports the right state, FK semantics work
 through the Python lifecycle cascade, and no legacy ``mf6_*`` columns
 survive in the new schema.
@@ -13,7 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.results.catalog.facade import SimulationCatalog
+from hydromodpy.results.catalog.facade import Catalog
+from hydromodpy.results.catalog.migrations import discover_migrations, target_version
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 # Tables we expect after migration 0001 has applied.
@@ -41,14 +42,12 @@ _EXPECTED_TABLES: frozenset[str] = frozenset(
         "runs_environment",
         "provenance",
         "observations",
-        "observation_points",
         # Cross-cutting
         "audit_log",
         "deletions",
         "tracked_files",
         "geographic_features",
         "geographic_metadata",
-        "parquet_files",
         "tags",
         "stations",
         # Calibration
@@ -61,13 +60,13 @@ _EXPECTED_TABLES: frozenset[str] = frozenset(
 
 
 @pytest.fixture
-def catalog(tmp_path: Path) -> SimulationCatalog:
+def catalog(tmp_path: Path) -> Catalog:
     """Fresh catalog on a tmp workspace, closed at teardown."""
     with simulation_catalog(tmp_path) as cat:
         yield cat
 
 
-def _table_set(cat: SimulationCatalog) -> set[str]:
+def _table_set(cat: Catalog) -> set[str]:
     rows = cat.connection.execute(
         "SELECT table_name FROM information_schema.tables "
         "WHERE table_schema = 'main' AND table_type = 'BASE TABLE'"
@@ -75,7 +74,7 @@ def _table_set(cat: SimulationCatalog) -> set[str]:
     return {r[0] for r in rows}
 
 
-def _columns(cat: SimulationCatalog, table: str) -> dict[str, str]:
+def _columns(cat: Catalog, table: str) -> dict[str, str]:
     rows = cat.connection.execute(
         "SELECT column_name, data_type FROM information_schema.columns "
         "WHERE table_schema = 'main' AND table_name = ?",
@@ -89,14 +88,14 @@ def _columns(cat: SimulationCatalog, table: str) -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 
-def test_every_expected_table_exists(catalog: SimulationCatalog) -> None:
+def test_every_expected_table_exists(catalog: Catalog) -> None:
     """All v2 catalog tables are created by the migration."""
     present = _table_set(catalog)
     missing = _EXPECTED_TABLES - present
     assert not missing, f"Missing tables: {sorted(missing)}"
 
 
-def test_table_count_matches_spec(catalog: SimulationCatalog) -> None:
+def test_table_count_matches_spec(catalog: Catalog) -> None:
     """The schema lists exactly the expected number of catalog tables."""
     present = _table_set(catalog)
     # Allow extras (system catalogs) but require >= the expected count.
@@ -108,7 +107,7 @@ def test_table_count_matches_spec(catalog: SimulationCatalog) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_simulations_has_v2_fk_columns(catalog: SimulationCatalog) -> None:
+def test_simulations_has_v2_fk_columns(catalog: Catalog) -> None:
     """``simulations`` carries the v2 dim FKs and core scalars."""
     cols = _columns(catalog, "simulations")
     assert "sim_id" in cols and "UUID" in cols["sim_id"]
@@ -122,13 +121,13 @@ def test_simulations_has_v2_fk_columns(catalog: SimulationCatalog) -> None:
     assert "last_heartbeat" not in cols
 
 
-def test_simulations_no_mf6_columns(catalog: SimulationCatalog) -> None:
+def test_simulations_no_mf6_columns(catalog: Catalog) -> None:
     """v2 ``simulations`` must not carry any legacy ``mf6_*`` column."""
     cols = _columns(catalog, "simulations")
     assert not any(c.startswith("mf6_") for c in cols)
 
 
-def test_runs_environment_is_solver_agnostic(catalog: SimulationCatalog) -> None:
+def test_runs_environment_is_solver_agnostic(catalog: Catalog) -> None:
     """``runs_environment`` exposes ``solver_*`` and no ``mf6_*``."""
     cols = _columns(catalog, "runs_environment")
     for required in (
@@ -143,21 +142,21 @@ def test_runs_environment_is_solver_agnostic(catalog: SimulationCatalog) -> None
     assert not any(c.startswith("mf6_") for c in cols), "Found legacy mf6_* columns"
 
 
-def test_parameters_has_valid_from(catalog: SimulationCatalog) -> None:
+def test_parameters_has_valid_from(catalog: Catalog) -> None:
     """``parameters.valid_from`` enables point-in-time correctness."""
     cols = _columns(catalog, "parameters")
     assert "valid_from" in cols
     assert "TIMESTAMP" in cols["valid_from"]
 
 
-def test_metrics_has_valid_from(catalog: SimulationCatalog) -> None:
+def test_metrics_has_valid_from(catalog: Catalog) -> None:
     """``metrics.valid_from`` enables point-in-time correctness."""
     cols = _columns(catalog, "metrics")
     assert "valid_from" in cols
     assert "TIMESTAMP" in cols["valid_from"]
 
 
-def test_provenance_has_valid_from_and_v2_columns(catalog: SimulationCatalog) -> None:
+def test_provenance_has_valid_from_and_v2_columns(catalog: Catalog) -> None:
     """``provenance`` exposes ``valid_from``, ``license``, ``etag``."""
     cols = _columns(catalog, "provenance")
     assert "valid_from" in cols
@@ -167,13 +166,13 @@ def test_provenance_has_valid_from_and_v2_columns(catalog: SimulationCatalog) ->
     assert "last_modified" in cols
 
 
-def test_observations_has_valid_from(catalog: SimulationCatalog) -> None:
+def test_observations_has_valid_from(catalog: Catalog) -> None:
     """``observations.valid_from`` is required by §4.10octies."""
     cols = _columns(catalog, "observations")
     assert "valid_from" in cols
 
 
-def test_audit_log_has_event_id_uuid(catalog: SimulationCatalog) -> None:
+def test_audit_log_has_event_id_uuid(catalog: Catalog) -> None:
     """``audit_log`` is the new event-sourcing table with UUID PK."""
     cols = _columns(catalog, "audit_log")
     assert "event_id" in cols and "UUID" in cols["event_id"]
@@ -181,7 +180,7 @@ def test_audit_log_has_event_id_uuid(catalog: SimulationCatalog) -> None:
     assert "actor_kind" in cols
 
 
-def test_deletions_tombstone_table(catalog: SimulationCatalog) -> None:
+def test_deletions_tombstone_table(catalog: Catalog) -> None:
     """``deletions`` carries the GDPR tombstone columns."""
     cols = _columns(catalog, "deletions")
     assert "sim_id" in cols and "UUID" in cols["sim_id"]
@@ -189,16 +188,7 @@ def test_deletions_tombstone_table(catalog: SimulationCatalog) -> None:
     assert "sha256_snapshot" in cols
 
 
-def test_parquet_files_manifest_columns(catalog: SimulationCatalog) -> None:
-    """``parquet_files`` manifest exposes path / view / sha / written_at."""
-    cols = _columns(catalog, "parquet_files")
-    assert "path" in cols
-    assert "view_name" in cols
-    assert "sha256" in cols
-    assert "written_at" in cols
-
-
-def test_tracked_files_canonical_path_column(catalog: SimulationCatalog) -> None:
+def test_tracked_files_canonical_path_column(catalog: Catalog) -> None:
     """``tracked_files`` carries ``canonical_path`` for workspace-relative storage."""
     cols = _columns(catalog, "tracked_files")
     assert "canonical_path" in cols
@@ -206,14 +196,14 @@ def test_tracked_files_canonical_path_column(catalog: SimulationCatalog) -> None
     assert "sha256" in cols
 
 
-def test_workflow_steps_has_status_fk(catalog: SimulationCatalog) -> None:
+def test_workflow_steps_has_status_fk(catalog: Catalog) -> None:
     """``workflow_steps`` references ``statuses(id)`` (FK to dim)."""
     cols = _columns(catalog, "workflow_steps")
     assert "status_id" in cols
     assert "checkpoint_path" in cols
 
 
-def test_calibration_sessions_v2_enrichment(catalog: SimulationCatalog) -> None:
+def test_calibration_sessions_v2_enrichment(catalog: Catalog) -> None:
     """``calibration_sessions`` carries the v2 enrichment columns."""
     cols = _columns(catalog, "calibration_sessions")
     for required in (
@@ -236,7 +226,7 @@ def test_calibration_sessions_v2_enrichment(catalog: SimulationCatalog) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_dim_solvers_seeded(catalog: SimulationCatalog) -> None:
+def test_dim_solvers_seeded(catalog: Catalog) -> None:
     """``solvers`` is pre-populated with the six canonical codes."""
     rows = catalog.connection.execute("SELECT code FROM solvers ORDER BY id").fetchall()
     codes = [r[0] for r in rows]
@@ -250,8 +240,8 @@ def test_dim_solvers_seeded(catalog: SimulationCatalog) -> None:
     ]
 
 
-def test_dim_statuses_seeded(catalog: SimulationCatalog) -> None:
-    """``statuses`` is pre-populated with the seven lifecycle states."""
+def test_dim_statuses_seeded(catalog: Catalog) -> None:
+    """``statuses`` is pre-populated with the lifecycle states (incl. trashed)."""
     rows = catalog.connection.execute("SELECT code FROM statuses ORDER BY id").fetchall()
     codes = [r[0] for r in rows]
     assert codes == [
@@ -262,16 +252,17 @@ def test_dim_statuses_seeded(catalog: SimulationCatalog) -> None:
         "failed",
         "aborted",
         "resumed",
+        "trashed",
     ]
 
 
-def test_dim_flow_regimes_seeded(catalog: SimulationCatalog) -> None:
+def test_dim_flow_regimes_seeded(catalog: Catalog) -> None:
     """``flow_regimes`` has the three canonical regimes."""
     rows = catalog.connection.execute("SELECT code FROM flow_regimes ORDER BY id").fetchall()
     assert {r[0] for r in rows} == {"steady", "transient", "steady_then_transient"}
 
 
-def test_dim_mesh_topologies_seeded(catalog: SimulationCatalog) -> None:
+def test_dim_mesh_topologies_seeded(catalog: Catalog) -> None:
     """``mesh_topologies`` has the six canonical topologies."""
     rows = catalog.connection.execute("SELECT code FROM mesh_topologies ORDER BY id").fetchall()
     assert {r[0] for r in rows} == {
@@ -284,7 +275,7 @@ def test_dim_mesh_topologies_seeded(catalog: SimulationCatalog) -> None:
     }
 
 
-def test_metric_definitions_seeded(catalog: SimulationCatalog) -> None:
+def test_metric_definitions_seeded(catalog: Catalog) -> None:
     """``metric_definitions`` is pre-populated with NSE/KGE/RMSE/R2/etc."""
     rows = catalog.connection.execute(
         "SELECT metric_name FROM metric_definitions ORDER BY metric_name"
@@ -299,28 +290,21 @@ def test_metric_definitions_seeded(catalog: SimulationCatalog) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_schema_version_records_catalog_v1(catalog: SimulationCatalog) -> None:
+def test_schema_version_records_the_bundled_catalog_version(catalog: Catalog) -> None:
     """``_schema_version`` carries the latest catalog migration after init."""
     rows = catalog.connection.execute("SELECT component, version FROM _schema_version").fetchall()
-    assert ("catalog", 6) in rows
+    assert ("catalog", target_version()) in rows
 
 
-def test_schema_migrations_records_all_known_migrations(catalog: SimulationCatalog) -> None:
-    """``schema_migrations`` records the bundled migrations in order."""
+def test_schema_migrations_records_all_known_migrations(catalog: Catalog) -> None:
+    """``schema_migrations`` records every bundled migration, in order."""
     rows = catalog.connection.execute(
         "SELECT version, slug FROM schema_migrations ORDER BY version"
     ).fetchall()
-    assert rows == [
-        (1, "initial"),
-        (2, "audit_hash_chain"),
-        (3, "retention_policies"),
-        (4, "workflow_events"),
-        (5, "drop_simulation_heartbeat"),
-        (6, "drop_simulation_heartbeat_column"),
-    ]
+    assert rows == [(m.version, m.slug) for m in discover_migrations()]
 
 
-def test_workflow_steps_has_artifact_uris_column(catalog: SimulationCatalog) -> None:
+def test_workflow_steps_has_artifact_uris_column(catalog: Catalog) -> None:
     """``workflow_steps`` exposes ``artifact_uris`` (JSON) as a native column."""
     cols = _columns(catalog, "workflow_steps")
     assert "artifact_uris" in cols
@@ -333,18 +317,18 @@ def test_workflow_steps_has_artifact_uris_column(catalog: SimulationCatalog) -> 
 
 def test_double_init_is_idempotent(tmp_path: Path) -> None:
     """Two consecutive catalogs on the same workspace do not duplicate."""
-    cat1 = SimulationCatalog(tmp_path)
+    cat1 = Catalog(tmp_path)
     tables_a = _table_set(cat1)
     cat1.close()
 
-    cat2 = SimulationCatalog(tmp_path)
+    cat2 = Catalog(tmp_path)
     tables_b = _table_set(cat2)
     rows = cat2.connection.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()
     version_rows = cat2.connection.execute("SELECT COUNT(*) FROM _schema_version").fetchone()
     cat2.close()
 
     assert tables_a == tables_b
-    assert rows[0] == 6, "schema_migrations should record every bundled migration"
+    assert rows[0] == target_version(), "every bundled migration is recorded exactly once"
     assert version_rows[0] == 1
 
 
@@ -353,7 +337,7 @@ def test_double_init_is_idempotent(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_delete_cascades_to_per_sim_tables(catalog: SimulationCatalog) -> None:
+def test_delete_cascades_to_per_sim_tables(catalog: Catalog) -> None:
     """``catalog.delete(sid)`` removes child rows in parameters/metrics."""
     sid = uuid.uuid4()
     catalog.register_simulation(
@@ -384,7 +368,7 @@ def test_delete_cascades_to_per_sim_tables(catalog: SimulationCatalog) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_list_simulations_joins_dim_text(catalog: SimulationCatalog) -> None:
+def test_list_simulations_joins_dim_text(catalog: Catalog) -> None:
     """``list_simulations`` returns ``solver`` / ``status`` text via JOIN."""
     sid = uuid.uuid4()
     catalog.register_simulation(
@@ -406,7 +390,7 @@ def test_list_simulations_joins_dim_text(catalog: SimulationCatalog) -> None:
 
 def test_register_resolves_unknown_solver_to_null_fk(tmp_path: Path) -> None:
     """An unknown solver name lands NULL in solver_id (dim FK strict)."""
-    cat = SimulationCatalog(tmp_path)
+    cat = Catalog(tmp_path)
     sid = uuid.uuid4()
     # ``unknown`` is not in the seeded ``solvers.code`` list; FK insert
     # subselect returns NULL but NOT NULL on solver_id blocks the row.

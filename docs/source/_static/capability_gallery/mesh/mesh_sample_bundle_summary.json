@@ -31,8 +31,8 @@
   "source_hashes": {
     "examples/projects/08_mesh_viewer/config_example.toml": "3d029b663116ccb877ebb5969950ba7bbb51f46f5b67548e796dd500e2e41ca5",
     "examples/projects/08_mesh_viewer/default_bundle/README.md": "44d8359209d029cc02d8f9f9d31da522369d090983d4bc12dff6781da6e98bd1",
-    "tools/mesh_bundle_viewer/README.md": "ee221138fdfd22bdca4c3e5dbd1b3b6abab2a8e89c4ad51c5f17355708f72d13",
-    "tools/mesh_bundle_viewer/runner/visualization_runner.py": "a2a5296887c77f6be1d1ce7cfa921393c60a0cf447689585d54349f50f08766e",
+    "tools/mesh_bundle_viewer/README.md": "ab0c37f38007a12206c879f2a3e71848491be146ce347f4f331b3d8215cde2ba",
+    "tools/mesh_bundle_viewer/runner/visualization_runner.py": "3878742b7f9dab2bcc23ec7e0d1287359ded4842dd13fd418033667fb09d670d",
     "tools/mesh_bundle_viewer/display/figure.py": "0df18b1454f263696e5cc7d272e072ddee6cf1fd81cc176b628f9568c787489e",
     "tools/mesh_bundle_viewer/display/summary.py": "94d0c8de4718a447b459daf5899e8fe92812a90999fee0e7f1c02d28e45fe7b0"
   },

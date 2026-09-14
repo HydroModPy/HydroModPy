@@ -172,7 +172,7 @@ def test_materialize_simulation_config_writes_base_overlay(tmp_path: Path) -> No
                 'solver = "boussinesq"',
                 "",
                 "[comparison.simulation.overlay.mesh_input]",
-                'bundle_dir = "results_stable/mesh/bundle"',
+                'bundle_dir = "mesh/bundle"',
                 "",
                 "[[comparison.observable]]",
                 'name = "head_cell"',
@@ -193,12 +193,9 @@ def test_materialize_simulation_config_writes_base_overlay(tmp_path: Path) -> No
 
     assert generated is not None
     raw = load_toml_with_base_config(generated)
-    assert raw["simulation"]["run_id"] == "demo_compare__bouss_demo"
+    assert raw["simulation"]["name"] == "demo_compare__bouss_demo"
     assert raw["simulation"]["process"][0]["solvers"] == ["boussinesq"]
-    assert (
-        raw["mesh_input"]["bundle_dir"]
-        == (tmp_path / "results_stable" / "mesh" / "bundle").resolve().as_posix()
-    )
+    assert raw["mesh_input"]["bundle_dir"] == (tmp_path / "mesh" / "bundle").resolve().as_posix()
 
 
 def test_materialize_simulation_config_applies_shared_base_overlay_and_default_workspace(
@@ -250,9 +247,10 @@ def test_materialize_simulation_config_applies_shared_base_overlay_and_default_w
 
     assert generated is not None
     generated_text = generated.read_text(encoding="utf-8")
-    assert "# Human-readable simulation name." in generated_text
+    assert "# Human-readable simulation name and the run's identity." in generated_text
     assert "# X coordinate of the watershed outlet" in generated_text
     raw = load_toml_with_base_config(generated)
+    assert raw["simulation"]["name"] == "site_01_compare__mf6_demo"
     assert raw["geographic"]["catchment"]["x_outlet"] == 131189.1
     assert raw["geographic"]["target_area_km2"] == 10.0
     assert raw["flow"]["param"]["K"]["field_homogeneous"]["value"] == "2e-5 m/s"

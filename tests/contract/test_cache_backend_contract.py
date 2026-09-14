@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.contracts.data_cache_backend import DataCacheBackend
-from hydromodpy.data.registry._backend import CacheBackend, DuckDBCacheBackend
+from hydromodpy.data.registry.backend import CacheBackend, DuckDBCacheBackend
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 

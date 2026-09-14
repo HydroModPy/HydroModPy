@@ -36,8 +36,8 @@ Key public symbols
 - ``hydromodpy.physics.flow.flow_config.FlowConfig``
 - ``hydromodpy.physics.transport.transport.Transport``
 - ``hydromodpy.physics.transport.transport_config.TransportConfig``
-- ``hydromodpy.physics.forcing.forcing_bridge.ForcingBridge``
-- ``hydromodpy.physics.forcing.time_alignment.align_to_stress_periods``
+- ``hydromodpy.physics.forcing.forcing_bridge.resolve_forcing``
+- ``hydromodpy.physics.forcing.time_alignment.align_forcing_series_to_simulation_window``
 
 Process contract
 ----------------

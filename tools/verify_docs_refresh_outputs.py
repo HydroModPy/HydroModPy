@@ -11,7 +11,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ALLOWED_PREFIXES = (
     "docs/source/capability_gallery/",
     "docs/source/_static/capability_gallery/",
-    "validation_cases/reports/latest/",
 )
 DEFAULT_ALLOWED_FILES = (
     "tools/doc_gallery/manifests/xt3d_irregular_tri_method_choice_report.json",

@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from hydromodpy.core.exceptions import DataSourceError
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
 from hydromodpy.data.variables.hydrometry.custom import load_custom
 
@@ -32,6 +33,26 @@ class TestHydrometryCustomCSV:
         records = load_custom(cfg, project_period=project_period)
         assert len(records) == 1
         assert records[0].station_id == "ST001"
+
+    def test_an_unknown_station_id_is_refused(self, sample_hydro_dir, project_period):
+        # Dropping it silently leaves an empty observed series, and a
+        # calibration scored against nothing still reports a number.
+        cfg = HydrometrySourceConfig(source="custom", path=sample_hydro_dir, station_ids=["ST999"])
+
+        with pytest.raises(DataSourceError, match="ST999"):
+            load_custom(cfg, project_period=project_period)
+
+    def test_the_refusal_names_the_ids_the_file_does_hold(self, sample_hydro_dir, project_period):
+        cfg = HydrometrySourceConfig(
+            source="custom", path=sample_hydro_dir, station_ids=["ST001", "NANCON"]
+        )
+
+        with pytest.raises(DataSourceError) as excinfo:
+            load_custom(cfg, project_period=project_period)
+
+        message = str(excinfo.value)
+        assert "NANCON" in message
+        assert "ST001" in message
 
     @pytest.mark.parametrize("source_unit", ["L/s", "l/s"])
     def test_unit_conversion_via_loc(self, tmp_path, project_period, source_unit):

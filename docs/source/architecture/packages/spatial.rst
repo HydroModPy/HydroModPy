@@ -38,14 +38,14 @@ Sub-modules
 Key public symbols
 ------------------
 
-- ``hydromodpy.spatial.delineation.WhiteboxWorkflowsBackend``
-- ``hydromodpy.spatial.geographic.flow_products``
-- ``hydromodpy.spatial.geographic.river_network``
-- ``hydromodpy.spatial.geographic.hydrographic_network.HydrographicNetwork``
+- ``hydromodpy.spatial.delineation.whitebox_workflows_backend.WhiteboxWorkflowsBackend``
+- ``hydromodpy.spatial.geographic.core.flow_products``
+- ``hydromodpy.spatial.geographic.core.river_network``
+- ``hydromodpy.spatial.geographic.core.hydrographic_network.HydrographicNetwork``
 - ``hydromodpy.spatial.domain.Domain``
 - ``hydromodpy.spatial.mesh.cartesian_grid.{SGridConfig, StructuredGridBuilder}``
-- ``hydromodpy.spatial.mesh.gmsh_grid.GmshPlanarMesh2D``
-- ``hydromodpy.spatial.mesh.gmsh_grid.ExtrudedPrismMesh3D``
+- ``hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh.GmshPlanarMesh2D``
+- ``hydromodpy.spatial.mesh.gmsh_grid.extruded_prism_mesh.ExtrudedPrismMesh3D``
 - ``hydromodpy.spatial.mesh.HydroMesh``
 - ``hydromodpy.spatial.field.core.{FieldSpatial, FieldParam}``
 
@@ -74,7 +74,7 @@ Recommended reading path
 ------------------------
 
 1. ``hydromodpy/spatial/geographic/README.md``
-2. ``hydromodpy/spatial/geographic/domain_geographic_pipeline.py``
+2. ``hydromodpy/spatial/geographic/core/domain_geographic_pipeline.py``
 3. ``hydromodpy/spatial/domain/domain.py``
 4. ``hydromodpy/spatial/field/README.md`` for the FieldSpatial /
    FieldParam contract.

@@ -15,10 +15,14 @@ from hydromodpy.solver.modflow6.build import (
 )
 from hydromodpy.solver.modflow6.builders.solver_options import resolve_ims_complexity
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config, Modflow6RuntimeConfig
-from hydromodpy.solver.modflow6.steady_initial_conditions import (
+from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
     _modflow_config_for_steady_initialization,
 )
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import _last_percent_discrepancy
+from hydromodpy.solver.modflow_common.flow_adapter_helpers import last_percent_discrepancy
+from tests._helpers.tolerances import tol
+
+# tests/TOLERANCES.md row 2 (fraction; the MF6 listing reports percent).
+_BUDGET_CLOSURE_FRACTION = tol("global_water_budget_closure")
 
 
 def _runtime(**overrides) -> Modflow6RuntimeConfig:
@@ -157,11 +161,11 @@ def test_modflow6_divergence_message_includes_percent_discrepancy(tmp_path) -> N
     )
     (tmp_path / "mfsim.lst").write_text("PERCENT DISCREPANCY = 99.0\n", encoding="utf-8")
     # The per-model listing is read; the simulation listing (mfsim.lst) is ignored.
-    assert _last_percent_discrepancy(tmp_path) == pytest.approx(-3.5)
+    assert last_percent_discrepancy(tmp_path) == pytest.approx(-3.5)
 
 
 def test_modflow6_divergence_message_fallback_when_lst_missing(tmp_path) -> None:
-    assert _last_percent_discrepancy(tmp_path) is None
+    assert last_percent_discrepancy(tmp_path) is None
 
 
 @pytest.mark.regression
@@ -193,5 +197,7 @@ def test_modflow6_newton_unconfined_converges_with_default_solver(tmp_path) -> N
     success, _ = sim.run_simulation(silent=True)
     # Newton converges this convertible (unconfined) problem with the default solver.
     assert success
-    # The listing is readable and reports a water-budget discrepancy.
-    assert _last_percent_discrepancy(tmp_path) is not None
+    # Convergence alone does not prove a closed budget: bound the actual discrepancy.
+    discrepancy = last_percent_discrepancy(tmp_path)
+    assert discrepancy is not None
+    assert abs(discrepancy) / 100.0 <= _BUDGET_CLOSURE_FRACTION

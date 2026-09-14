@@ -30,7 +30,7 @@ root = "../.."
 name = "nwt_flux_site_01"
 run_id = "nwt_flux_site_01"
 description = "MODFLOW-NWT transient flux diagnostic on numbered Armorican outlet 01."
-on_collision = "replace"
+if_exists = "replace"
 
 [testbed.case.overlay.geographic.catchment]
 x_outlet = 131189.100
@@ -52,7 +52,7 @@ root = "../.."
 name = "nwt_flux_site_02"
 run_id = "nwt_flux_site_02"
 description = "MODFLOW-NWT transient flux diagnostic on numbered Armorican outlet 02."
-on_collision = "replace"
+if_exists = "replace"
 
 [testbed.case.overlay.geographic.catchment]
 x_outlet = 142435.200
@@ -74,7 +74,7 @@ root = "../.."
 name = "nwt_flux_site_03"
 run_id = "nwt_flux_site_03"
 description = "MODFLOW-NWT transient flux diagnostic on numbered Armorican outlet 03."
-on_collision = "replace"
+if_exists = "replace"
 
 [testbed.case.overlay.geographic.catchment]
 x_outlet = 153077.000
@@ -96,7 +96,7 @@ root = "../.."
 name = "nwt_flux_site_04"
 run_id = "nwt_flux_site_04"
 description = "MODFLOW-NWT transient flux diagnostic on numbered Armorican outlet 04."
-on_collision = "replace"
+if_exists = "replace"
 
 [testbed.case.overlay.geographic.catchment]
 x_outlet = 162427.700
@@ -118,7 +118,7 @@ root = "../.."
 name = "nwt_flux_site_05"
 run_id = "nwt_flux_site_05"
 description = "MODFLOW-NWT transient flux diagnostic on numbered Armorican outlet 05."
-on_collision = "replace"
+if_exists = "replace"
 
 [testbed.case.overlay.geographic.catchment]
 x_outlet = 132962.900
@@ -140,7 +140,7 @@ root = "../.."
 name = "nwt_flux_site_06"
 run_id = "nwt_flux_site_06"
 description = "MODFLOW-NWT transient flux diagnostic on numbered Armorican outlet 06."
-on_collision = "replace"
+if_exists = "replace"
 
 [testbed.case.overlay.geographic.catchment]
 x_outlet = 146274.500
@@ -162,7 +162,7 @@ root = "../.."
 name = "nwt_flux_site_07"
 run_id = "nwt_flux_site_07"
 description = "MODFLOW-NWT transient flux diagnostic on numbered Armorican outlet 07."
-on_collision = "replace"
+if_exists = "replace"
 
 [testbed.case.overlay.geographic.catchment]
 x_outlet = 158140.700
@@ -184,7 +184,7 @@ root = "../.."
 name = "nwt_flux_site_08"
 run_id = "nwt_flux_site_08"
 description = "MODFLOW-NWT transient flux diagnostic on numbered Armorican outlet 08."
-on_collision = "replace"
+if_exists = "replace"
 
 [testbed.case.overlay.geographic.catchment]
 x_outlet = 164915.000

@@ -215,7 +215,6 @@ def _build_structured_geographic(output_dir: Path):
     geographic.dem_box_buff_data = top_values.copy()
     geographic.dem_buff_data = top_values.copy()
     geographic.dem_data = top_values.copy()
-    geographic.depressions_data = np.zeros_like(top_values, dtype=float)
     geographic.y_pixel = int(STRUCTURED_NY)
     geographic.x_pixel = int(STRUCTURED_NX)
     geographic.catch_area = float(LENGTH_X_M * WIDTH_Y_M / 1_000_000.0)
@@ -577,13 +576,11 @@ def _run_boussinesq_irregular(*, timeout: int) -> ValidationRunResult:
             }
         },
         "bc": {
-            "dirichlet": {"east_side": {"type": "dirichlet", "value": EAST_HEAD_M}},
-            "cauchy": {
-                "drainage": {
-                    "application_domain": "top",
-                    "kind": "cauchy",
-                    "value": DRAINAGE_CONDUCTANCE_M2_S,
-                }
+            "east_side": {"value": EAST_HEAD_M},
+            "drainage": {
+                "application_domain": "top",
+                "kind": "cauchy",
+                "value": DRAINAGE_CONDUCTANCE_M2_S,
             },
         },
     }

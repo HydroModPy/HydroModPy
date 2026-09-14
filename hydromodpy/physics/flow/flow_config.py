@@ -13,6 +13,7 @@ from typing import Annotated, ClassVar
 
 from pydantic import (
     Field,
+    ValidationError,
     ValidationInfo,
     field_validator,
     model_validator,
@@ -25,6 +26,7 @@ from hydromodpy.physics.base import ProcessSpatialConfig
 from hydromodpy.physics.flow import flow_toml_loader
 from hydromodpy.physics.flow.boundary_condition_registry import (
     SUPPORTED_FLOW_BOUNDARY_IDS,
+    boundary_definition,
 )
 from hydromodpy.physics.flow.boundary_conditions import (
     BCEntry,
@@ -50,6 +52,8 @@ from hydromodpy.physics.flow.initial_conditions_config import (
 )
 from hydromodpy.physics.flow.regime import FlowRegime, normalize_flow_regime
 from hydromodpy.physics.flow.sinks_sources import (
+    FlowBarrierConfig,
+    FlowLakeConfig,
     FlowSinksSourcesConfig,
     FlowWellConfig,
 )
@@ -58,8 +62,10 @@ from hydromodpy.physics.flow.sinks_sources_config import (
 )
 
 __all__ = [
+    "FlowBarrierConfig",
     "FlowBoundaryConditionConfig",
     "FlowConfig",
+    "FlowLakeConfig",
     "FlowParam",
     "FlowRuntimeConfig",
     "FlowSinksSourcesConfig",
@@ -110,6 +116,22 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
             ),
         ),
     )
+    restart_from: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional hotstart: path to a prior simulation Zarr store whose last time step "
+            "seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior "
+            "run must share this run's mesh, so enable [mesh_catchment] cache = true; "
+            "otherwise the cell count differs and restart is refused. None keeps [flow.ic]. "
+            "Read only by a backend that declares it can: elsewhere the run is refused "
+            "rather than started from [flow.ic] without a word. This is one of the four "
+            "ways to say where a transient starts, next to [flow.ic] type='steady_state' "
+            "(equilibrium under the mean recharge, or under a rate you state with "
+            "source='prescribed'), type='custom'/'top'/'bottom' (a level you write), and "
+            "`hmp spinup` (repeat a representative window until the state stops moving, "
+            "then point this key at its result)."
+        ),
+    )
     param_list: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description=(
@@ -129,19 +151,21 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
             "\n"
             "**Supported TOML sections**\n"
             "\n"
-            "- ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of "
-            "``ocean``, ``stream``, ``north_side``, ``south_side``, "
-            "``east_side``, ``west_side``\n"
-            "- ``[flow.bc.cauchy.drainage]``\n"
-            "- ``[flow.bc.robin.drainage]``\n"
-            "- ``[flow.bc.<custom_id>]`` for generic payloads\n"
+            "- ``[flow.bc.<id>]``, one block per boundary, keyed by what it is. "
+            "Canonical ids: ``drainage``, ``ocean``, ``stream``, ``north_side``, "
+            "``south_side``, ``east_side``, ``west_side``\n"
+            "- a boundary the registry describes entirely needs NO block: listing "
+            "it in ``flow.active_bc`` is enough\n"
             "\n"
             "**Common keys**\n"
             "\n"
-            "- ``value`` (required): numeric or ``'<value> <unit>'``\n"
-            "- ``application_domain``: optional for dirichlet when ``<id>`` "
-            "implies it (e.g. ``west_side`` -> ``'west side'``); required "
-            "for ``cauchy`` and ``robin`` drainage\n"
+            "- ``kind``: optional, the registry supplies it; write it only to "
+            "depart from the default, and only within a family (``cauchy`` and "
+            "``robin`` may be swapped, a prescribed head may not)\n"
+            "- ``value``: optional on a drainage, where leaving it out derives the "
+            "conductance from K; required for a prescribed head\n"
+            "- ``application_domain``: optional, the registry supplies it, and a "
+            "value contradicting it is refused\n"
             "\n"
             "**Allowed application_domain values:** ``top``, ``north side``, "
             "``south side``, ``east side``, ``west side``.\n"
@@ -183,7 +207,9 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
             "Explicitly activated boundary-condition ids for this flow run. "
             "Allowed values are the canonical ids declared in the flow "
             "boundary-condition registry: 'ocean', 'stream', 'north_side', "
-            "'south_side', 'east_side', 'west_side', 'drainage'. "
+            "'south_side', 'east_side', 'west_side', 'drainage', 'lake', "
+            "'reservoir'. 'lake'/'reservoir' build a MODFLOW 6 LAK advanced "
+            "package and are only supported by the modflow6 backend. "
             "An empty list means no boundary-condition package is assembled by the solver."
         ),
         examples=[["ocean"], ["west_side", "east_side", "drainage"]],
@@ -360,7 +386,49 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
         context = info.context if isinstance(info.context, Mapping) else {}
         raw_base_dir = context.get("base_dir")
         base_dir = raw_base_dir if isinstance(raw_base_dir, Path) else None
-        return flow_toml_loader.normalize_bc_payloads(value, base_dir=base_dir)
+        raw_data_dir = context.get("workspace_data_dir")
+        workspace_data_dir = raw_data_dir if isinstance(raw_data_dir, Path) else None
+        return flow_toml_loader.normalize_bc_payloads(
+            value,
+            base_dir=base_dir,
+            workspace_data_dir=workspace_data_dir,
+        )
+
+    @model_validator(mode="after")
+    def _declare_boundaries_the_registry_can_describe(self) -> FlowConfig:
+        """Build a boundary the registry fully describes when no table declares it.
+
+        ``active_bc`` already says which boundaries a run carries, and the
+        registry owns their kind, their application domain and their units. A
+        drainage therefore needs no table at all: what a table adds is a value
+        the registry cannot know, such as an imposed conductance or a head.
+
+        Only boundaries whose canonical payload validates on its own are built
+        here. One that needs a value the registry does not hold is left absent,
+        exactly as before, so this adds a capability and removes none.
+        """
+        from pydantic import TypeAdapter
+
+        for bc_id in self.active_bc:
+            if bc_id in self.bc:
+                continue
+            definition = boundary_definition(bc_id)
+            if definition is None or definition.default_type not in (
+                "dirichlet",
+                "cauchy",
+                "robin",
+            ):
+                continue
+            payload = {
+                "id": bc_id,
+                "kind": definition.default_type,
+                "_location_prefix": f"flow.bc.{definition.default_type}.{bc_id}",
+            }
+            try:
+                self.bc[bc_id] = TypeAdapter(BCEntry).validate_python(payload)
+            except ValidationError:
+                continue
+        return self
 
     @field_validator("ic", mode="before")
     @classmethod
@@ -460,6 +528,25 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
         }
 
     @classmethod
+    def _homogeneous(
+        cls,
+        parameters: Mapping[str, float],
+        *,
+        flow_regime: FlowRegime,
+        active_bc: list[str] | None,
+        active_sinks_sources: list[str] | None,
+    ) -> FlowConfig:
+        if not parameters:
+            raise ValueError("homogeneous() requires at least one parameter (e.g. K=5e-5)")
+        return cls(
+            flow_regime=flow_regime,
+            param_list=list(parameters),
+            param={pid: cls._homogeneous_param_entry(pid, v) for pid, v in parameters.items()},
+            active_bc=active_bc or [],
+            active_sinks_sources=active_sinks_sources or [],
+        )
+
+    @classmethod
     def homogeneous(
         cls,
         *,
@@ -474,25 +561,26 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
         homogeneous scalar parameter. Units are inferred from the canonical
         names (K in m/s, Ss in 1/m, Sy dimensionless).
         """
-        if not parameters:
-            raise ValueError("homogeneous() requires at least one parameter (e.g. K=5e-5)")
-        return cls(
+        return cls._homogeneous(
+            parameters,
             flow_regime=flow_regime,
-            param_list=list(parameters),
-            param={pid: cls._homogeneous_param_entry(pid, v) for pid, v in parameters.items()},
-            active_bc=active_bc or [],
-            active_sinks_sources=active_sinks_sources or [],
+            active_bc=active_bc,
+            active_sinks_sources=active_sinks_sources,
         )
 
     @classmethod
     def steady(cls, **parameters: float) -> FlowConfig:
         """Shortcut for a steady-state FlowConfig with homogeneous parameters."""
-        return cls.homogeneous(flow_regime="steady", **parameters)
+        return cls._homogeneous(
+            parameters, flow_regime="steady", active_bc=None, active_sinks_sources=None
+        )
 
     @classmethod
     def transient(cls, **parameters: float) -> FlowConfig:
         """Shortcut for a transient FlowConfig with homogeneous parameters."""
-        return cls.homogeneous(flow_regime="transient", **parameters)
+        return cls._homogeneous(
+            parameters, flow_regime="transient", active_bc=None, active_sinks_sources=None
+        )
 
     @classmethod
     def from_toml_section(
@@ -500,6 +588,12 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
         flow_section: Mapping[str, object] | None,
         *,
         base_dir: Path,
+        workspace_data_dir: Path | None = None,
     ) -> FlowConfig:
         """Build a validated `FlowConfig` from the `[flow]` TOML section."""
-        return flow_toml_loader.from_toml_section(cls, flow_section, base_dir=base_dir)
+        return flow_toml_loader.from_toml_section(
+            cls,
+            flow_section,
+            base_dir=base_dir,
+            workspace_data_dir=workspace_data_dir,
+        )

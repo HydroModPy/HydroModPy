@@ -31,11 +31,13 @@ StationCollectionSchema = pa.DataFrameSchema(
         "z": pa.Column(
             float,
             nullable=True,
+            required=False,
             description="Altitude above sea level (metres).",
         ),
         "name": pa.Column(
             str,
             nullable=True,
+            required=False,
             description="Human-readable station label.",
         ),
     },

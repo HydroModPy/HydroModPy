@@ -21,6 +21,7 @@ from hydromodpy.results.export.rocrate import (
     RO_CRATE_CONFORMS,
     RO_CRATE_METADATA_FILENAME,
 )
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from tests.integration.exports.conftest import populate_simulation
 
 # Minimal RO-Crate JSON Schema. Reference:
@@ -81,8 +82,8 @@ def test_rocrate_carries_assets(fair_catalog):
     file_nodes = [n for n in payload["@graph"] if n.get("@type") == "File"]
     assert file_nodes, "expected at least one File node in the crate"
     keys = {n.get("@id") for n in file_nodes}
-    # Zarr archive should always be referenced.
-    assert any(k.endswith(".zarr.zip") for k in keys)
+    # The field store should always be referenced.
+    assert any(k.endswith(FIELDS_STORE_NAME) for k in keys)
 
 
 def test_rocrate_carries_prov_action(fair_catalog):

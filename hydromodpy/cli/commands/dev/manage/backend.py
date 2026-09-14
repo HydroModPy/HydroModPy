@@ -10,12 +10,10 @@ from uuid import UUID
 import pandas as pd
 
 from hydromodpy.cli._workers.catalog import delete_simulation_artifacts
-from hydromodpy.core.state.paths import CATALOG_FILENAME
-from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME
-from hydromodpy.results.storage_diagnostics import (
+from hydromodpy.core.state.paths import CATALOG_FILENAME, catalog_path_for, runs_dir_for
+from hydromodpy.results.storage.diagnostics import (
     diagnose_result_storage,
-    storage_artefact_basename,
-    storage_artefact_kind,
+    is_run_directory,
 )
 
 
@@ -39,14 +37,6 @@ def _path_size(path: Path) -> int:
     except OSError:
         return total
     return total
-
-
-def _artefact_kind(path: Path) -> str | None:
-    return storage_artefact_kind(path)
-
-
-def _artefact_basename(path: Path) -> str:
-    return storage_artefact_basename(path)
 
 
 def _workspace_label(path: Path, scan_root: Path) -> str:
@@ -131,7 +121,7 @@ class _WorkspaceManagerBackend:
                     "id": str(path),
                     "path": str(path),
                     "label": _workspace_label(path, self.scan_root),
-                    "catalog_exists": (path / CATALOG_FILENAME).is_file(),
+                    "catalog_exists": (catalog_path_for(path)).is_file(),
                     "cache_exists": (path / "data" / "cache.duckdb").is_file(),
                 }
             )
@@ -146,7 +136,7 @@ class _WorkspaceManagerBackend:
         simulations = self.list_simulations(workspace_ref)["rows"]
         orphans = self.list_orphans(workspace_ref)["rows"]
         diagnostics = self.result_diagnostics(workspace_ref)["rows"]
-        catalog_path = workspace_root / CATALOG_FILENAME
+        catalog_path = catalog_path_for(workspace_root)
         cache_path = workspace_root / "data" / "cache.duckdb"
         return {
             "workspace": str(workspace_root),
@@ -174,21 +164,21 @@ class _WorkspaceManagerBackend:
         return {"rows": rows}
 
     def list_simulations(self, workspace_ref: str | None = None) -> dict[str, Any]:
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
         workspace_root = self._resolve_workspace(workspace_ref)
-        catalog_path = workspace_root / CATALOG_FILENAME
+        catalog_path = catalog_path_for(workspace_root)
         if not catalog_path.exists():
             return {"rows": []}
 
         rows: list[dict[str, Any]] = []
-        with SimulationCatalog(workspace_root) as catalog:
+        with Catalog(workspace_root) as catalog:
             df = catalog.list_simulations(order_by="created_at DESC")
             for _, raw in df.iterrows():
                 record = {str(key): _json_value(value) for key, value in raw.items()}
                 sim_id = str(record.get("sim_id", ""))
-                zarr_path = catalog.zarr_path_for(sim_id)
-                parquet_dir = catalog.parquet_dir_for(sim_id)
+                zarr_path = catalog.fields_path_for(sim_id)
+                parquet_dir = catalog.tables_dir_for(sim_id)
                 zarr_bytes = _path_size(zarr_path)
                 parquet_bytes = _path_size(parquet_dir)
                 record.update(
@@ -211,11 +201,11 @@ class _WorkspaceManagerBackend:
         workspace_ref: str | None,
         sim_ids: list[str],
     ) -> dict[str, Any]:
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
         workspace_root = self._resolve_workspace(workspace_ref)
         deleted: list[dict[str, Any]] = []
-        with SimulationCatalog(workspace_root) as catalog:
+        with Catalog(workspace_root) as catalog:
             for sim_id in sim_ids:
                 run = catalog[sim_id]
                 result = delete_simulation_artifacts(catalog, sim_id)
@@ -234,36 +224,27 @@ class _WorkspaceManagerBackend:
 
     def list_orphans(self, workspace_ref: str | None = None) -> dict[str, Any]:
         workspace_root = self._resolve_workspace(workspace_ref)
-        catalog_path = workspace_root / CATALOG_FILENAME
-        simulations_dir = workspace_root / SIMULATIONS_DIRNAME
+        catalog_path = catalog_path_for(workspace_root)
+        runs_dir = runs_dir_for(workspace_root)
         registered: set[str] = set()
         if catalog_path.exists():
-            from hydromodpy.results.catalog import SimulationCatalog
+            from hydromodpy.results.catalog import Catalog
 
-            with SimulationCatalog(workspace_root) as catalog:
-                rows = catalog.connection.execute(
-                    "SELECT CAST(sim_id AS VARCHAR) AS sim_id, storage_basename FROM simulations"
-                ).fetchall()
-                registered = {str(storage_basename) for _, storage_basename in rows}
+            with Catalog(workspace_root, read_only=True) as catalog:
+                registered = catalog.list_run_dirnames()
 
         artefacts: list[dict[str, Any]] = []
-        if not simulations_dir.is_dir():
+        if not runs_dir.is_dir():
             return {"rows": artefacts}
 
-        for path in sorted(simulations_dir.iterdir()):
-            if not (path.is_dir() or path.is_file()):
-                continue
-            kind = _artefact_kind(path)
-            if kind is None:
-                continue
-            basename = _artefact_basename(path)
-            if basename in registered:
+        for path in sorted(runs_dir.iterdir()):
+            if not is_run_directory(path) or path.name in registered:
                 continue
             artefacts.append(
                 {
                     "path": str(path),
-                    "basename": basename,
-                    "kind": kind,
+                    "basename": path.name,
+                    "kind": "run",
                     "size_bytes": _path_size(path),
                 }
             )
@@ -275,12 +256,12 @@ class _WorkspaceManagerBackend:
         paths: list[str],
     ) -> dict[str, Any]:
         workspace_root = self._resolve_workspace(workspace_ref)
-        simulations_dir = workspace_root / SIMULATIONS_DIRNAME
+        runs_dir = runs_dir_for(workspace_root)
         deleted: list[dict[str, Any]] = []
         for raw_path in paths:
             path = Path(raw_path).expanduser().resolve()
-            if not _is_relative_to(path, simulations_dir):
-                raise ValueError(f"Refusing to delete outside simulations/: {path}")
+            if not _is_relative_to(path, runs_dir):
+                raise ValueError(f"Refusing to delete outside runs/: {path}")
             if not path.exists():
                 continue
             freed_bytes = _path_size(path)
@@ -365,7 +346,7 @@ class _WorkspaceManagerBackend:
 
     def _db_path(self, workspace_root: Path, database: str) -> Path:
         if database == "catalog":
-            return workspace_root / CATALOG_FILENAME
+            return catalog_path_for(workspace_root)
         if database == "cache":
             return workspace_root / "data" / "cache.duckdb"
         raise ValueError(f"Unsupported database '{database}'")
@@ -373,7 +354,9 @@ class _WorkspaceManagerBackend:
     @staticmethod
     def _discover_workspaces(scan_root: Path) -> list[Path]:
         roots = {
-            path.parent.resolve() for path in scan_root.rglob(CATALOG_FILENAME) if path.is_file()
+            path.parent.parent.resolve()
+            for path in scan_root.rglob(CATALOG_FILENAME)
+            if path.is_file()
         }
         return sorted(roots)
 

@@ -8,10 +8,15 @@ from hydromodpy.spatial.delineation.whitebox_workflows_backend.raster import (
 
 
 class WhiteboxFlowBackend(_WhiteboxComponent):
-    """DEM flow analysis: pit-filling, pointer, accumulation, mass flux, downslope."""
+    """DEM flow analysis: pit-filling, pointer, accumulation, mass flux, downslope.
+
+    Depression removal runs single-threaded: it is the only stage of the chain
+    whose parallel form is not reproducible, and everything downstream (D8
+    pointer, accumulation, watershed, catchment area) inherits its output.
+    """
 
     def fill_depressions_raster(self, dem):
-        return self._run(self._env.fill_depressions, dem)
+        return self._run_single_threaded(self._env.fill_depressions, dem)
 
     def fill_depressions(self, input_dem: str, output_dem: str) -> None:
         self._write_raster(
@@ -20,7 +25,7 @@ class WhiteboxFlowBackend(_WhiteboxComponent):
         )
 
     def breach_depressions_raster(self, dem):
-        return self._run(self._env.breach_depressions_least_cost, dem)
+        return self._run_single_threaded(self._env.breach_depressions_least_cost, dem)
 
     def breach_depressions(self, input_dem: str, output_dem: str) -> None:
         self._write_raster(

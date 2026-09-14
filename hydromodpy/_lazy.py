@@ -25,7 +25,7 @@ LAZY_IMPORTS: dict[str, str] = {
     "CatchmentDelineation": "hydromodpy.spatial.geographic.catchment_delineation",
     "GeographicConfig": "hydromodpy.spatial.geographic.geographic_config",
     "Subbasin": "hydromodpy.spatial.geographic.subbasin",
-    "HydroMesh": "hydromodpy.spatial.mesh.hydro_mesh",
+    "HydroMesh": "hydromodpy.spatial.mesh.model.hydro_mesh",
     "DomainConfig": "hydromodpy.spatial.domain.domain_config",
     # Processes (factories expose FlowConfig/TransportConfig)
     "FlowConfig": "hydromodpy.physics.flow.flow_config",
@@ -57,7 +57,7 @@ LAZY_IMPORTS: dict[str, str] = {
     # Display
     "DisplayConfig": "hydromodpy.display.config",
     # Data variables (public surface)
-    "DataManagersConfig": "hydromodpy.data.data_managers_config",
+    "DataManagersConfig": "hydromodpy.data.managers.config_schema",
     "DemConfig": "hydromodpy.data.variables.dem.config",
     "CustomDemSource": "hydromodpy.data.variables.dem.config",
     "IgnGeoplateformeDemSource": "hydromodpy.data.variables.dem.config",
@@ -102,7 +102,7 @@ LAZY_IMPORTS: dict[str, str] = {
     "Project": "hydromodpy.project",
     "SimulationPlan": "hydromodpy.simulation.planning.plan",
     # Catalog API
-    "SimulationCatalog": "hydromodpy.results.catalog",
-    "SimulationGroup": "hydromodpy.results.simulation_group",
+    "Catalog": "hydromodpy.results.catalog",
+    "RunSet": "hydromodpy.results.run.group",
     "Run": "hydromodpy.results.run",
 }

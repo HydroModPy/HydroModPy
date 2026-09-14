@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.simulation.extraction.calibration_bridge import (
     make_hot_simulator,
     persist_calibration_summary_to_store,
@@ -18,7 +18,7 @@ from hydromodpy.simulation.extraction.calibration_bridge import (
 
 @pytest.fixture
 def store(tmp_path):
-    s = SimulationCatalog(tmp_path / "workspace")
+    s = Catalog(tmp_path / "workspace")
     yield s
     s.close()
 
@@ -288,7 +288,7 @@ class TestPersistCalibrationSummary:
         workspace = tmp_path / "ws"
         sid = str(uuid4())
 
-        store = SimulationCatalog(workspace)
+        store = Catalog(workspace)
         try:
             persist_calibration_summary_to_store(
                 store,
@@ -303,7 +303,7 @@ class TestPersistCalibrationSummary:
         finally:
             store.close()
 
-        reopened = SimulationCatalog(workspace)
+        reopened = Catalog(workspace)
         try:
             objective = reopened.sql(
                 "SELECT value FROM metrics WHERE sim_id = ? "

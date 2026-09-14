@@ -36,6 +36,7 @@ from hydromodpy.analysis.testbed.pipeline import (
     _metric_row_for_execution,
     _slugify,
 )
+from hydromodpy.core import progress
 from hydromodpy.core.toml_io import load_toml_with_base_config, merge_toml_payloads
 
 __all__ = (
@@ -73,7 +74,7 @@ class TestbedLauncher:
         if not isinstance(payload, dict):
             raise ValueError("testbed base config must load to a TOML mapping")
         payload.pop("testbed", None)
-        payload["workflow"] = self._child_workflow()
+        payload["workflow"] = {"mode": self._child_workflow()}
         if self.cfg.runner.type == "simulation" and self.cfg.subject == "mesh":
             _ensure_mesh_process_payload(payload)
         return payload
@@ -84,7 +85,7 @@ class TestbedLauncher:
             source_dir=self.cfg.base_dir,
         )
         payload = merge_toml_payloads(self._base_child_payload(), overlay)
-        payload["workflow"] = self._child_workflow()
+        payload["workflow"] = {"mode": self._child_workflow()}
         if self.cfg.runner.type == "simulation" and self.cfg.subject == "mesh":
             _ensure_mesh_process_payload(payload)
         path = self.generated_configs_dir / f"{_slugify(case_config.id)}.toml"
@@ -233,50 +234,54 @@ class TestbedLauncher:
         paths = self._persist_outputs(cases=cases, executions=executions)
 
         if self.cfg.execute:
-            for case in cases:
-                if case.status == "disabled":
-                    continue
+            pending = [case for case in cases if case.status != "disabled"]
+            with progress.task("Running testbed cases", total=len(pending)) as bar:
+                for case in pending:
+                    started_at = time.perf_counter()
+                    try:
+                        with progress.suppressed():
+                            child_summary = self._run_case(case)
+                        if self.cfg.runner.type == "simulation":
+                            child_summary = {
+                                **child_summary,
+                                **_extract_simulation_catalog_summary(
+                                    config_path=case.config_path,
+                                    child_summary=child_summary,
+                                ),
+                            }
+                        duration = round(float(time.perf_counter() - started_at), 6)
+                        from hydromodpy.analysis.testbed.io import _jsonable
 
-                started_at = time.perf_counter()
-                try:
-                    child_summary = self._run_case(case)
-                    if self.cfg.runner.type == "simulation":
-                        child_summary = {
-                            **child_summary,
-                            **_extract_simulation_catalog_summary(
-                                config_path=case.config_path,
-                                child_summary=child_summary,
-                            ),
-                        }
-                    duration = round(float(time.perf_counter() - started_at), 6)
-                    from hydromodpy.analysis.testbed.io import _jsonable
-
-                    summary = _jsonable(child_summary)
-                    execution = TestbedExecution(
-                        case=case,
-                        status="ok",
-                        duration_seconds=duration,
-                        summary=summary,
-                    )
-                    if self.cfg.metrics:
-                        _configured_metric_row(metrics=self.cfg.metrics, summary=execution.summary)
-                    executions.append(execution)
-                except Exception as exc:
-                    duration = round(float(time.perf_counter() - started_at), 6)
-                    executions.append(
-                        TestbedExecution(
+                        summary = _jsonable(child_summary)
+                        execution = TestbedExecution(
                             case=case,
-                            status="failed",
+                            status="ok",
                             duration_seconds=duration,
-                            summary={},
-                            error=f"{type(exc).__name__}: {exc}",
+                            summary=summary,
                         )
-                    )
-                    paths = self._persist_outputs(cases=cases, executions=executions)
-                    if not self.cfg.continue_on_error:
-                        raise
-                else:
-                    paths = self._persist_outputs(cases=cases, executions=executions)
+                        if self.cfg.metrics:
+                            _configured_metric_row(
+                                metrics=self.cfg.metrics,
+                                summary=execution.summary,
+                            )
+                        executions.append(execution)
+                    except Exception as exc:
+                        duration = round(float(time.perf_counter() - started_at), 6)
+                        executions.append(
+                            TestbedExecution(
+                                case=case,
+                                status="failed",
+                                duration_seconds=duration,
+                                summary={},
+                                error=f"{type(exc).__name__}: {exc}",
+                            )
+                        )
+                        paths = self._persist_outputs(cases=cases, executions=executions)
+                        if not self.cfg.continue_on_error:
+                            raise
+                    else:
+                        paths = self._persist_outputs(cases=cases, executions=executions)
+                    bar.advance()
 
         successful_count = len([item for item in executions if item.status == "ok"])
         failed_count = len([item for item in executions if item.status == "failed"])

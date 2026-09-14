@@ -24,32 +24,11 @@ def register(subparsers) -> argparse.ArgumentParser:
     verify.add_argument("--workspace", default=None)
     verify.add_argument("--strict", action="store_true")
 
-    prune = sub.add_parser(
-        "prune",
-        help="Apply retention_policies to audit_log (dry-run by default)",
-    )
-    prune.add_argument("--workspace", default=None)
-    prune_group = prune.add_mutually_exclusive_group()
-    prune_group.add_argument(
-        "--dry-run",
-        dest="prune_apply",
-        action="store_false",
-        help="Count rows that would be deleted without modifying the catalog.",
-    )
-    prune_group.add_argument(
-        "--apply",
-        dest="prune_apply",
-        action="store_true",
-        help="Actually delete rows that exceed their retention window.",
-    )
-    prune.set_defaults(prune_apply=False)
-
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
     from hydromodpy.cli._workers.audit import audit_list, audit_verify
 
     sub = getattr(args, "audit_command", None)
@@ -74,21 +53,8 @@ def run(args: argparse.Namespace) -> None:
             print(str(exc), file=sys.stderr)
             sys.exit(EXIT_CONFIG)
         print(result["message"])
-        sys.exit(EXIT_OK)
-    if sub == "prune":
-        try:
-            counts = hmp.audit_prune(args.workspace, apply=bool(args.prune_apply))
-        except FileNotFoundError as exc:
-            print(str(exc), file=sys.stderr)
-            sys.exit(EXIT_NOT_FOUND)
-        mode = "applied" if args.prune_apply else "dry-run"
-        if not counts:
-            print(f"({mode}) no retention policies registered")
-        else:
-            for event_type in sorted(counts):
-                print(f"({mode}) {event_type}: {counts[event_type]} row(s)")
-        sys.exit(EXIT_OK)
-    print("Usage: hmp audit {list|verify|prune} [options]", file=sys.stderr)
+        sys.exit(EXIT_OK if result.get("status") == "ok" else EXIT_CONFIG)
+    print("Usage: hmp audit {list|verify} [options]", file=sys.stderr)
     sys.exit(EXIT_CONFIG)
 
 

@@ -22,7 +22,6 @@ PRESENT = (
     "index",
     "compare_pair",
     "report",
-    "audit_prune",
     "doctor",
 )
 

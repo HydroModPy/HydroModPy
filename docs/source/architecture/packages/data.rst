@@ -94,25 +94,25 @@ Every manager returns a ``LoadResult``:
 Key public symbols
 ------------------
 
-- ``hydromodpy.data.base_manager_variable.BaseVariableManager``
-- ``hydromodpy.data.base_manager_field.BaseFieldManager``
-- ``hydromodpy.data.sources.{register_source, get_source, list_sources}``
-- ``hydromodpy.data.planner.DataPlanner``
-- ``hydromodpy.data.plan.DataLoadPlan``
+- ``hydromodpy.data.managers.base_manager_variable.BaseVariableManager``
+- ``hydromodpy.data.managers.base_manager_field.BaseFieldManager``
+- ``hydromodpy.data.loading.loader.DataManagersRuntimeLoader``
+- ``hydromodpy.data.managers.planner.DataPlanner``
+- ``hydromodpy.data.managers.plan.DataLoadPlan``
 - ``hydromodpy.data.registry.catalog_duckdb.DataCatalogDuckDB``
-- ``hydromodpy.data.contracts.results.LoadResult``
-- ``hydromodpy.data.contracts.records.{PointRecord, FieldRecord}``
+- ``hydromodpy.data.contracts.load_result.LoadResult``
+- ``hydromodpy.data.contracts.timeseries.{PointRecord, FieldRecord}``
 
 Recommended reading path
 ------------------------
 
 1. ``hydromodpy/data/README.md``
-2. ``hydromodpy/data/base_manager_variable.py``
-3. ``hydromodpy/data/sources.py`` for the registration model.
+2. ``hydromodpy/data/managers/base_manager_variable.py``
+3. ``hydromodpy/data/loading/loader.py`` for the dispatch model.
 4. ``hydromodpy/data/variables/hydrometry/`` for a complete point
    variable.
 5. ``hydromodpy/data/variables/dem/`` for a complete field variable.
-6. ``hydromodpy/data/planner.py`` for the inference rules.
+6. ``hydromodpy/data/managers/planner.py`` for the inference rules.
 7. ``hydromodpy/data/registry/catalog_duckdb.py`` for the cache
    schema.
 

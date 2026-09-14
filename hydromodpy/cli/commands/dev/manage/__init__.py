@@ -50,7 +50,7 @@ def run(args: argparse.Namespace) -> None:
         import duckdb  # noqa: F401
     except ImportError:
         print(
-            "DuckDB is required for 'hmp manage'. Reinstall the project dependencies first: "
+            "DuckDB is required for 'hmp dev manage'. Reinstall the project dependencies first: "
             "pip install -e .",
             file=sys.stderr,
         )

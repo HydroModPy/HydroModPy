@@ -1,0 +1,22 @@
+{
+  "lak_pleasant_transient_expected": {
+    "connectiondata_sha256": "df482da1a7f44482ecc4d4ad4733f89ce188e02b92e1ae4dafe8369130370ad0",
+    "horizontal_layer_0": 20,
+    "horizontal_layer_1": 20,
+    "n_connections": 65,
+    "n_horizontal": 40,
+    "n_vertical": 25,
+    "period_budget_percent": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "period_stages_m": [
+      338.938,
+      339.1672,
+      339.0157,
+      338.8118
+    ]
+  }
+}

@@ -5,18 +5,27 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 from pydantic import ValidationError
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_OK
+from hydromodpy.core import progress
+from hydromodpy.core.logging import get_logger
 
 NAME: str = "site-selection"
 HELP: str = "Plan and inspect site-selection workflows"
 
+logger = get_logger(__name__)
 
-def _progress(message: str) -> None:
-    print(f"[site_selection] {message}", file=sys.stderr)
+
+def _progress_callback(handle: progress.TaskHandle) -> Callable[[str], None]:
+    def _callback(message: str) -> None:
+        handle.update(description=message)
+        logger.debug("%s", message)
+
+    return _callback
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -207,13 +216,14 @@ def run_build_observed(args: argparse.Namespace) -> None:
         sys.exit(EXIT_NOT_FOUND)
 
     try:
-        result = build_observed_site_selection_from_toml(
-            config_path=config_path,
-            output_root=args.output_root,
-            workspace_root=args.workspace,
-            data_root=args.data_root,
-            progress_callback=_progress,
-        )
+        with progress.status("Site selection") as handle:
+            result = build_observed_site_selection_from_toml(
+                config_path=config_path,
+                output_root=args.output_root,
+                workspace_root=args.workspace,
+                data_root=args.data_root,
+                progress_callback=_progress_callback(handle),
+            )
     except (ValueError, ValidationError) as exc:
         print(f"Invalid site-selection input: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
@@ -234,13 +244,14 @@ def run_build_generated(args: argparse.Namespace) -> None:
         sys.exit(EXIT_NOT_FOUND)
 
     try:
-        result = build_generated_site_selection_from_toml(
-            config_path=config_path,
-            output_root=args.output_root,
-            workspace_root=args.workspace,
-            data_root=args.data_root,
-            progress_callback=_progress,
-        )
+        with progress.status("Site selection") as handle:
+            result = build_generated_site_selection_from_toml(
+                config_path=config_path,
+                output_root=args.output_root,
+                workspace_root=args.workspace,
+                data_root=args.data_root,
+                progress_callback=_progress_callback(handle),
+            )
     except (ValueError, ValidationError) as exc:
         print(f"Invalid site-selection input: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)

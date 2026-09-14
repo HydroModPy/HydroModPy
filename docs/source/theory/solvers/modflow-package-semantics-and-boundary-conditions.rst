@@ -39,7 +39,7 @@ The current public package choices are mainly assembled in the following code
 locations:
 
 - ``hydromodpy/solver/modflow6/modflow6.py``
-- ``hydromodpy/solver/modflow6/flow_to_modflow_adapter.py``
+- ``hydromodpy/solver/modflow6/adapters/flow.py``
 - ``hydromodpy/solver/modflow6/modflow6_config.py``
 - ``hydromodpy/solver/modflow_nwt/nwt/nwt_solver.py``
 - ``hydromodpy/solver/modflow_nwt/nwt/flow_to_modflow_adapter.py``
@@ -171,7 +171,8 @@ IMS
 ^^^
 
 HydroModPy exposes the following main IMS knobs in
-``modflow6.runtime``:
+``modflow6.runtime``, documented in
+:doc:`/user_guide/config_reference/modflow6`:
 
 - ``mf6_ims_complexity``
 - ``mf6_outer_dvclose``
@@ -256,8 +257,10 @@ Why these choices make sense:
   should remain visible.
 - XT3D:
   the official docs present XT3D as more expensive but more accurate for
-  anisotropic conductivity and irregular grids. HydroModPy therefore auto-
-  enables XT3D on unstructured meshes unless the user overrides the choice.
+  anisotropic conductivity and irregular grids. HydroModPy therefore
+  auto-enables XT3D on an unstructured mesh once its non-orthogonality or
+  an anisotropic K tensor crosses a fixed trigger, unless the user
+  overrides the choice (see :doc:`xt3d-on-irregular-disv-meshes`).
 - ``save_specific_discharge`` and ``save_saturation``:
   these are project-facing diagnostics choices. HydroModPy uses them because
   postprocessing, interpretation, and comparison artifacts benefit directly
@@ -376,7 +379,8 @@ NWT solver package
 ^^^^^^^^^^^^^^^^^^
 
 HydroModPy exposes the main Newton-solver fields under
-``modflownwt.runtime.nwt``:
+``modflownwt.runtime.nwt``, documented in
+:doc:`/user_guide/config_reference/modflownwt`:
 
 - ``headtol``
 - ``fluxtol``

@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import IsoDateStr
 
 
 class OverviewPanelsConfig(HydroModelBase):
@@ -39,11 +40,25 @@ class OverviewConfig(HydroModelBase):
     """Overview report settings (watershed identity card)."""
 
     name: Annotated[str, Profile.USER] = Field("", description="Watershed name.")
-    date_start: Annotated[str | None, Profile.USER] = Field(
-        None, description="Global start date (YYYY-MM-DD)."
+    date_start: Annotated[IsoDateStr, Profile.USER] = Field(
+        None,
+        description=(
+            "Start of the overview window (ISO date, e.g. '2019-01-01'). Overview "
+            "mode has no [simulation.time], so this is the date declaration every "
+            "[data.<type>] section without a window of its own inherits. Must be "
+            "declared together with date_end."
+        ),
+        examples=["2019-01-01"],
     )
-    date_end: Annotated[str | None, Profile.USER] = Field(
-        None, description="Global end date (YYYY-MM-DD)."
+    date_end: Annotated[IsoDateStr, Profile.USER] = Field(
+        None,
+        description=(
+            "End of the overview window (ISO date, e.g. '2025-12-31'). Overview "
+            "mode has no [simulation.time], so this is the date declaration every "
+            "[data.<type>] section without a window of its own inherits. Must be "
+            "declared together with date_start."
+        ),
+        examples=["2025-12-31"],
     )
     regional_context_label: Annotated[str | None, Profile.USER] = Field(
         None,
@@ -53,3 +68,17 @@ class OverviewConfig(HydroModelBase):
         default_factory=OverviewPanelsConfig,
         description="Panel toggles.",
     )
+
+    @model_validator(mode="after")
+    def _check_date_window(self):
+        if bool(self.date_start) != bool(self.date_end):
+            missing = "date_end" if self.date_start else "date_start"
+            raise ValueError(
+                f"overview.{missing} is missing: declare date_start and date_end together"
+            )
+        if self.date_start and self.date_end:
+            from datetime import datetime
+
+            if datetime.fromisoformat(self.date_start) >= datetime.fromisoformat(self.date_end):
+                raise ValueError("overview.date_start must be before overview.date_end")
+        return self

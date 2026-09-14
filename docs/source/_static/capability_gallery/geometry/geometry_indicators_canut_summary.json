@@ -41,7 +41,7 @@
       "caption": "Hypsometric curve and slope diagnostics for the Canut mask.",
       "alt_text": "Geometry indicators based on DEM and catchment mask",
       "doc_path": "/_static/capability_gallery/geometry/geometry_indicators_canut.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut.png"
+      "repo_path": "docs/source/_static/capability_gallery/geometry/geometry_indicators_canut.png"
     }
   ],
   "metrics": [
@@ -82,9 +82,9 @@
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json",
-    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json",
     "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut.png"
+      "docs/source/_static/capability_gallery/geometry/geometry_indicators_canut.png"
     ]
   },
   "parameter_docs": {
@@ -96,7 +96,7 @@
             "field": "geometry_case_kind",
             "meaning": "Geometry-focused rendering mode used to build this gallery page.",
             "value": "hypsometry_indicators",
-            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
+            "source": "docs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
           },
           {
             "field": "boundary_path",
@@ -119,31 +119,31 @@
             "field": "boundary_area_km2",
             "meaning": "Catchment area represented on the geometry page.",
             "value": "24.9187 km2",
-            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
+            "source": "docs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
           },
           {
             "field": "river_length_km",
             "meaning": "Total clipped river length visible inside the boundary.",
             "value": "0 km",
-            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
+            "source": "docs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
           },
           {
             "field": "geology_unit_count",
             "meaning": "Number of distinct geology units intersecting the catchment.",
             "value": "0",
-            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
+            "source": "docs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
           },
           {
             "field": "dem_min_m",
             "meaning": "Minimum DEM elevation represented by the rendered extent.",
             "value": "86.7 m",
-            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
+            "source": "docs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
           },
           {
             "field": "dem_max_m",
             "meaning": "Maximum DEM elevation represented by the rendered extent.",
             "value": "138.7 m",
-            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
+            "source": "docs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
           }
         ]
       }

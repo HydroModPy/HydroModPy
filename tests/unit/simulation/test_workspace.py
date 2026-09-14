@@ -1,5 +1,11 @@
 from pathlib import Path
 
+from hydromodpy.core.state.paths import (
+    CATALOG_FILENAME,
+    INTERNAL_DIRNAME,
+    RUNS_DIRNAME,
+    SHARE_DIRNAME,
+)
 from hydromodpy.core.workspace import (
     Workspace,
     WorkspaceConfig,
@@ -58,7 +64,9 @@ def test_workspace_creates_folder_structure(tmp_path) -> None:
     workspace = Workspace(config=cfg)
 
     assert workspace.project_root.is_dir()
-    assert workspace.solver_scratch_folder == workspace.project_root / ".solver_scratch"
+    assert workspace.solver_scratch_folder == (
+        workspace.project_root / INTERNAL_DIRNAME / "scratch"
+    )
 
 
 def test_workspace_resolves_scaffold(tmp_path) -> None:
@@ -98,7 +106,7 @@ def test_workspace_standalone_project_falls_back_to_project_root(tmp_path, monke
     project.mkdir()
     cfg = WorkspaceConfig(project_root=project)
     assert cfg.root == project.resolve()
-    assert cfg.catalog_path == (project / "catalog.duckdb").resolve()
+    assert cfg.catalog_path == (project / INTERNAL_DIRNAME / CATALOG_FILENAME).resolve()
     assert cfg.resolution_source == "project"
 
 
@@ -113,14 +121,15 @@ def test_workspace_data_path_from_workspace_root(tmp_path) -> None:
     project = _scaffold(ws_root)
     cfg = WorkspaceConfig(project_root=project)
     assert cfg.data_path == (ws_root / "data").resolve()
-    assert cfg.catalog_path == (project / "catalog.duckdb").resolve()
-    assert cfg.simulations_dir == (project / "simulations").resolve()
+    assert cfg.catalog_path == (project / INTERNAL_DIRNAME / CATALOG_FILENAME).resolve()
+    assert cfg.runs_dir == (project / RUNS_DIRNAME).resolve()
+    assert cfg.share_folder == (project / SHARE_DIRNAME).resolve()
 
 
 def test_workspace_folder_derivation(tmp_path) -> None:
     project = _scaffold(tmp_path / "ws")
     cfg = WorkspaceConfig(project_root=project)
-    assert cfg.solver_scratch_folder == project / ".solver_scratch"
+    assert cfg.solver_scratch_folder == project / INTERNAL_DIRNAME / "scratch"
 
 
 def test_workspace_component_override(tmp_path) -> None:

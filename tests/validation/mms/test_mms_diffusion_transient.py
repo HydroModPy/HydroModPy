@@ -16,6 +16,21 @@ time) for the temporal update. Two refinement studies are run:
   slope ~2.
 * **time**  - ``dx`` held fine, ``dt`` refined under backward Euler.
   Expected slope ~1 (see ``tests/TOLERANCES.md`` row 10).
+
+Scope, read this before citing the result
+-----------------------------------------
+This file imports nothing from ``hydromodpy``. It verifies the *scheme* on a
+stencil assembled inside the test, which is what MMS is for: it establishes
+that the discretisation written here converges at its theoretical order. It
+does **not** exercise HydroModPy's own assembly, so a passing run here is not
+evidence that the production discretisation is second-order.
+
+What does cover the production path is the analytical tier
+(``tests/validation/analytical/``): Theis, Hantush and Ogata-Banks run a real
+solve through HydroModPy and compare against a closed form. Those would catch a
+gross regression, but a silent drop from order 2 to order 1 that stays inside
+the RMSE band would pass them. Closing that gap means running this convergence
+study on the production assembly, not extending this file.
 """
 
 from __future__ import annotations

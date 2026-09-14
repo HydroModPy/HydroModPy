@@ -44,13 +44,13 @@ Main packages and responsibilities
   both MODFLOW-family backends.
 - ``hydromodpy/solver/modflow6/modflow6_config.py`` validates the
   ``[modflow6.*]`` configuration tree.
-- ``hydromodpy/solver/modflow6/property_mapping.py`` resolves HydroModPy flow
+- ``hydromodpy/solver/modflow6/support/property_mapping.py`` resolves HydroModPy flow
   properties into MF6-ready arrays.
-- ``hydromodpy/solver/modflow6/flow_to_modflow_adapter.py`` translates the
+- ``hydromodpy/solver/modflow6/adapters/flow.py`` translates the
   normalized runtime payload into FloPy package inputs.
 - ``hydromodpy/solver/modflow6/modflow6.py`` owns concrete FloPy model
   creation, execution, and output shaping.
-- ``hydromodpy/solver/modflow6/postprocess.py`` and ``diagnostics.py`` read
+- ``hydromodpy/solver/modflow6/postprocess/pipeline.py`` and ``diagnostics.py`` read
   solver outputs back into HydroModPy products.
 
 Mesh contract

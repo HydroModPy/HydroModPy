@@ -1,18 +1,15 @@
-# 03 - Groundwater 1D (cas analytique)
+# 03 - Groundwater 1D, analytical case
 
-Cas analytique purement Python : aquifère Dupuit-Forchheimer 1D
-calibré sur une chronique de têtes synthétique bruitée. Pas de
-MODFLOW, pas de filesystem, pas de réseau.
+Pure-Python Dupuit-Forchheimer 1D aquifer, calibrated against a noisy synthetic
+head chronicle. No MODFLOW, no filesystem, no network.
 
-## État courant
+## State
 
-Le fichier `project.toml` n'existe pas : il a été mis en quarantaine
-sous `project.toml.draft` car ce projet **n'est pas dispatché par
-`hmp run`** dans v1. Les cas analytiques vivent sous
-`hydromodpy.calibration.cases` et sont chargés directement depuis
-Python.
+There is no `project.toml`. The draft is kept as `project.toml.draft` because
+`hmp run` does not dispatch this project: analytical cases live under
+`hydromodpy.calibration.cases` and are driven from Python.
 
-## Utilisation Python
+## Run
 
 ```python
 from hydromodpy.calibration.cases.groundwater_1d import (
@@ -20,29 +17,23 @@ from hydromodpy.calibration.cases.groundwater_1d import (
     calibrate_groundwater,
 )
 
-chronicle = build_noisy_groundwater_chronicle({
-    # voir [chronicle] dans project.toml.draft
-})
+chronicle = build_noisy_groundwater_chronicle()  # see [chronicle] in the draft
 result = calibrate_groundwater(
     method="optuna",
     chronicle=chronicle,
     max_iter=50,
     seed=42,
-    bounds={"Kam": [1.0, 10.0]},   # voir [calibration.parameters]
+    bounds={"Kam": [1.0, 10.0]},  # see [calibration.parameters] in the draft
 )
 ```
 
-Les sections TOML du draft documentent les kwargs attendus par les
-deux helpers. Voir `docs/developers/calibration_guide.md` pour le
-walkthrough complet.
+The draft's TOML sections document the keyword arguments both helpers accept.
+`docs/source/python_api/calibrate.rst` covers the calibration API.
 
-## Réactiver le TOML
+## Turning the draft into a project
 
-Pour transformer le draft en projet runnable, il faudra :
-
-1. Câbler `groundwater_1d` dans le dispatcher de `hmp run`
+1. Wire `groundwater_1d` into the `hmp run` dispatcher
    (`hydromodpy/cli/commands/run.py`).
-2. Définir un schéma Pydantic dédié (ou réutiliser le sous-set
-   `[calibration]` de `HydroModPyConfig`).
-3. Renommer `project.toml.draft` -> `project.toml` et valider via
+2. Give it a schema, or reuse the `[calibration]` subset of `HydroModPyConfig`.
+3. Rename `project.toml.draft` to `project.toml` and check it with
    `hmp config check`.

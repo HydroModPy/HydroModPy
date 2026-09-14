@@ -19,12 +19,16 @@ from hydromodpy.analysis.comparison.runtime.metadata import (
 from hydromodpy.core.contracts.solver_registry import (
     get_solver_registry_provider,
 )
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 
 try:
     import rasterio
 except Exception:  # pragma: no cover - optional dependency in lightweight envs
     rasterio = None
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,8 +184,7 @@ def _structured_bounds_from_run_folder(
     )
 
 
-def _candidate_structured_support_rasters(project_root: Path) -> tuple[Path, ...]:
-    geographic_dir = project_root / "results_stable" / "geographic"
+def _candidate_structured_support_rasters(geographic_dir: Path) -> tuple[Path, ...]:
     return (
         geographic_dir / "watershed_box_buff_dem.tif",
         geographic_dir / "watershed_dem.tif",
@@ -193,17 +196,27 @@ def _candidate_structured_support_rasters(project_root: Path) -> tuple[Path, ...
 
 def _structured_bounds_from_config(config_path: Path) -> tuple[float, float, float, float] | None:
     if rasterio is None:
+        logger.warning(
+            "Cannot rebuild structured cell centroids for %s: rasterio is not installed.",
+            config_path,
+        )
         return None
     project_root = _resolve_project_root_from_config(config_path)
     if project_root is None:
+        logger.warning(
+            "Cannot rebuild structured cell centroids: %s declares no workspace.project_root.",
+            config_path,
+        )
         return None
-    for raster_path in _candidate_structured_support_rasters(project_root):
+    geographic_dir = project_root / PREPROCESSING_DIR / "geographic"
+    for raster_path in _candidate_structured_support_rasters(geographic_dir):
         if not raster_path.exists():
             continue
         try:
             with rasterio.open(raster_path) as dataset:
                 bounds = dataset.bounds
         except Exception:
+            logger.warning("Could not read structured grid bounds from %s", raster_path)
             continue
         return (
             float(bounds.left),
@@ -211,6 +224,12 @@ def _structured_bounds_from_config(config_path: Path) -> tuple[float, float, flo
             float(bounds.right),
             float(bounds.top),
         )
+    logger.warning(
+        "Cannot rebuild structured cell centroids for %s: no geographic support raster under "
+        "%s. Set [geographic] write_intermediates = true and run the simulation again.",
+        config_path,
+        geographic_dir,
+    )
     return None
 
 

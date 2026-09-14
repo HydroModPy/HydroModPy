@@ -1,0 +1,22 @@
+# ex-gwf-lak-p02 (Merritt & Konikow 2000, test 2) acceptance bands.
+# Referenced by tests/validation/numerical/transient/test_sfr_lak_mvr_p02.py and
+# summarized as row 48 of tests/TOLERANCES.md.
+
+[published]
+# MF6 examples documentation (ex-gwf-lak-p02.tex): converged stages at the end
+# of the 1,500-day simulation.
+lake1_final_stage_ft = 116.98
+lake2_final_stage_ft = 111.93
+
+[stage]
+# Observed reproduction error is < 0.004 ft (116.9837 / 111.9329 on MF6 6.6.3);
+# the band absorbs the published 0.01-ft rounding plus solver-version drift.
+final_stage_abs_error_ft = 0.05
+
+[mvr]
+# Every one of the four published transfers must actually carry water at the
+# end of the simulation (observed magnitudes are ~1e6 ft3/d).
+min_transfer_cfd = 1000.0
+
+[budget]
+budget_percent_discrepancy = 1.0

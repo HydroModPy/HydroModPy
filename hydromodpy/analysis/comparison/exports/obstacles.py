@@ -16,6 +16,7 @@ from hydromodpy.core.solver_diagnostics import (
     VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
     VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV,
 )
+from hydromodpy.core.state.paths import SHARE_DIRNAME
 
 from .base import _completed_simulation_summaries, _slug_token, _write_csv
 from .budget import (
@@ -90,7 +91,7 @@ def _vi_obstacle_diagnostic_paths(summary: Mapping[str, Any]) -> dict[str, Path]
         return {}
     run_folder = Path(str(run_folder_raw))
     for runtime_path in run_folder.glob(
-        f"exports/*/solver_diagnostics/{VI_OBSTACLE_RUNTIME_SUMMARY_JSON}"
+        f"{SHARE_DIRNAME}/*/solver_diagnostics/{VI_OBSTACLE_RUNTIME_SUMMARY_JSON}"
     ):
         directory = runtime_path.parent
         paths["runtime_summary"] = runtime_path
@@ -131,7 +132,7 @@ def _ts_vi_obstacle_diagnostic_paths(summary: Mapping[str, Any]) -> dict[str, Pa
         return {}
     run_folder = Path(str(run_folder_raw))
     for runtime_path in run_folder.glob(
-        f"exports/*/solver_diagnostics/{TS_VI_OBSTACLE_RUNTIME_SUMMARY_JSON}"
+        f"{SHARE_DIRNAME}/*/solver_diagnostics/{TS_VI_OBSTACLE_RUNTIME_SUMMARY_JSON}"
     ):
         directory = runtime_path.parent
         paths["runtime_summary"] = runtime_path

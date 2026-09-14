@@ -1,8 +1,8 @@
 """sphinx-polyversion driver for HydroModPy.
 
 Builds the HTML documentation for the published branches and tags into a
-single merged site under ``docs/build/html``. Read the Docs keeps using its
-own per-branch builds and ignores this file.
+single merged site under ``docs/build/html``. That merged tree is what the
+Pages deploy publishes at https://docs.hydromodpy.fr/, one folder per version.
 
 Run locally::
 

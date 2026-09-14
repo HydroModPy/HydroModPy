@@ -33,8 +33,8 @@ def test_simulation_regression_mf6_precomputed_mesh_input_config_uses_runtime_me
 
     payload = load_toml_with_base_config(example_config)
 
-    assert payload["mesh_input"]["mesh_path"] == "results_stable/mesh/mesh_catchment.msh"
-    assert payload["mesh_input"]["bundle_dir"] == "results_stable/mesh/mesh_catchment_bundle"
+    assert payload["mesh_input"]["mesh_path"] == "mesh/mesh_catchment.msh"
+    assert payload["mesh_input"]["bundle_dir"] == "mesh/mesh_catchment_bundle"
     assert "planar" not in payload["modflow6"]["sgrid"]
     assert payload["modflow6"]["sgrid"]["vertical"]["nlay"] == 2
     assert "postprocess" not in payload
@@ -52,7 +52,7 @@ def test_simulation_regression_mf6_mesh_catchment_config_embeds_mesh_generation(
     payload = load_toml_with_base_config(example_config)
 
     assert payload["mesh_catchment"]["constraints_mode"] == "geology_rivers"
-    assert payload["simulation"]["run_id"] == "example12_fast_mf6_mesh_catchment"
+    assert payload["simulation"]["name"] == "example12_fast_mf6_mesh_catchment"
     assert payload["simulation"]["process"][0]["solvers"] == ["modflow6"]
     assert payload["simulation"]["process"][1]["solvers"] == ["modflow6"]
     assert payload["simulation"]["time"]["step_value"] == "10 day"

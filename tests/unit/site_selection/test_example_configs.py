@@ -1,6 +1,19 @@
+"""Config-parse checks for the shipped site-selection example configs.
+
+Only the fast, config-parse-only examples live here (one test per config,
+parametrized). The slower examples that exercise the full workflow run were
+moved to ``tests/integration/site_selection/test_site_selection_example_runs.py``
+(see git history) and are intentionally not covered by this file: discovering
+every ``*.toml`` under the example directory here would silently re-absorb
+those integration-tier and probe configs into the unit tier.
+"""
+
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -14,14 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLE_ROOT = REPO_ROOT / "examples" / "projects" / "17_site_selection_workflow"
 
 
-@pytest.mark.fast
-def test_bretagne_hydrometry_primary_example_loads():
-    config_path = EXAMPLE_ROOT / "configs" / "bretagne_hydrometry_primary.toml"
-
-    site_cfg = load_site_selection_config(config_path)
-    dem_cfg = load_data_dem_config_for_site_selection(config_path)
-    hydrometry_cfg = load_hydrometry_config_for_site_selection(config_path)
-
+def _check_bretagne_hydrometry_primary(site_cfg: Any, dem_cfg: Any, hydrometry_cfg: Any) -> None:
     assert site_cfg.strategy.principle == "observation_led"
     assert site_cfg.strategy.primary_observation_type == "flow_station"
     assert site_cfg.input.mode == "delineated_catchments"
@@ -32,14 +38,9 @@ def test_bretagne_hydrometry_primary_example_loads():
     assert hydrometry_cfg.sources[0].product == "QmnJ"
 
 
-@pytest.mark.fast
-def test_bretagne_hydrometry_hubeau_preview_uses_generic_loader():
-    config_path = EXAMPLE_ROOT / "configs" / "bretagne_hydrometry_50_500_hubeau_preview.toml"
-
-    site_cfg = load_site_selection_config(config_path)
-    dem_cfg = load_data_dem_config_for_site_selection(config_path)
-    hydrometry_cfg = load_hydrometry_config_for_site_selection(config_path)
-
+def _check_bretagne_hydrometry_hubeau_preview(
+    site_cfg: Any, dem_cfg: Any, hydrometry_cfg: Any
+) -> None:
     assert site_cfg.input.mode == "hydrometry"
     assert site_cfg.input.catchments_csv is None
     assert site_cfg.strategy.principle == "observation_led"
@@ -54,14 +55,9 @@ def test_bretagne_hydrometry_hubeau_preview_uses_generic_loader():
     assert hydrometry_cfg.sources[0].extent == "study_area"
 
 
-@pytest.mark.fast
-def test_auvergne_rhone_alpes_hydrometry_example_loads():
-    config_path = EXAMPLE_ROOT / "configs" / "auvergne_rhone_alpes_hydrometry_50_150.toml"
-
-    site_cfg = load_site_selection_config(config_path)
-    dem_cfg = load_data_dem_config_for_site_selection(config_path)
-    hydrometry_cfg = load_hydrometry_config_for_site_selection(config_path)
-
+def _check_auvergne_rhone_alpes_hydrometry(
+    site_cfg: Any, dem_cfg: Any, hydrometry_cfg: Any
+) -> None:
     assert site_cfg.input.mode == "hydrometry"
     assert site_cfg.strategy.principle == "observation_led"
     assert site_cfg.territory.regions == ["Auvergne-Rhone-Alpes"]
@@ -74,14 +70,9 @@ def test_auvergne_rhone_alpes_hydrometry_example_loads():
     assert hydrometry_cfg.sources[0].extent == "study_area"
 
 
-@pytest.mark.fast
-def test_auvergne_rhone_alpes_hydrometry_preview_example_loads():
-    config_path = EXAMPLE_ROOT / "configs" / "auvergne_rhone_alpes_hydrometry_preview.toml"
-
-    site_cfg = load_site_selection_config(config_path)
-    dem_cfg = load_data_dem_config_for_site_selection(config_path)
-    hydrometry_cfg = load_hydrometry_config_for_site_selection(config_path)
-
+def _check_auvergne_rhone_alpes_hydrometry_preview(
+    site_cfg: Any, dem_cfg: Any, hydrometry_cfg: Any
+) -> None:
     assert site_cfg.input.mode == "hydrometry"
     assert site_cfg.strategy.principle == "observation_led"
     assert site_cfg.selection_id == "aura_hydrometry_preview_v1"
@@ -98,14 +89,7 @@ def test_auvergne_rhone_alpes_hydrometry_preview_example_loads():
     ]
 
 
-@pytest.mark.fast
-def test_bretagne_hydrometry_small_example_loads():
-    config_path = EXAMPLE_ROOT / "configs" / "bretagne_hydrometry_50_500_small.toml"
-
-    site_cfg = load_site_selection_config(config_path)
-    dem_cfg = load_data_dem_config_for_site_selection(config_path)
-    hydrometry_cfg = load_hydrometry_config_for_site_selection(config_path)
-
+def _check_bretagne_hydrometry_small(site_cfg: Any, dem_cfg: Any, hydrometry_cfg: Any) -> None:
     assert site_cfg.input.mode == "hydrometry"
     assert site_cfg.input.catchments_csv is None
     assert site_cfg.criteria.area.ranges[0].min_area_km2 == pytest.approx(50.0)
@@ -127,13 +111,9 @@ def test_bretagne_hydrometry_small_example_loads():
     assert hydrometry_cfg.sources[0].max_stations == 7
 
 
-@pytest.mark.fast
-def test_bretagne_hydrometry_small_bdtopage_example_loads():
-    config_path = EXAMPLE_ROOT / "configs" / "bretagne_hydrometry_50_500_small_bdtopage.toml"
-
-    site_cfg = load_site_selection_config(config_path)
-    hydrometry_cfg = load_hydrometry_config_for_site_selection(config_path)
-
+def _check_bretagne_hydrometry_small_bdtopage(
+    site_cfg: Any, dem_cfg: Any, hydrometry_cfg: Any
+) -> None:
     assert site_cfg.input.mode == "hydrometry"
     assert site_cfg.input.catchments_csv is None
     assert site_cfg.outlets.snap_strategy == "bdtopage_then_dem"
@@ -151,13 +131,7 @@ def test_bretagne_hydrometry_small_bdtopage_example_loads():
     assert hydrometry_cfg.sources[0].max_stations == 7
 
 
-@pytest.mark.fast
-def test_normandie_dem_area_light_example_loads():
-    config_path = EXAMPLE_ROOT / "configs" / "normandie_dem_area_light_100km2.toml"
-
-    site_cfg = load_site_selection_config(config_path)
-    dem_cfg = load_data_dem_config_for_site_selection(config_path)
-
+def _check_normandie_dem_area_light(site_cfg: Any, dem_cfg: Any, hydrometry_cfg: Any) -> None:
     assert site_cfg.input.mode == "dem_area_light"
     assert site_cfg.territory.regions == ["Normandie"]
     assert site_cfg.hydrology.network_threshold_area_km2 == pytest.approx(1.0)
@@ -171,13 +145,7 @@ def test_normandie_dem_area_light_example_loads():
     assert dem_cfg.sources[0].regions == ["Normandie"]
 
 
-@pytest.mark.fast
-def test_calvados_dem_area_light_fast_example_loads():
-    config_path = EXAMPLE_ROOT / "configs" / "calvados_dem_area_light_100km2_fast.toml"
-
-    site_cfg = load_site_selection_config(config_path)
-    dem_cfg = load_data_dem_config_for_site_selection(config_path)
-
+def _check_calvados_dem_area_light_fast(site_cfg: Any, dem_cfg: Any, hydrometry_cfg: Any) -> None:
     assert site_cfg.input.mode == "dem_area_light"
     assert site_cfg.territory.mode == "admin_departments"
     assert site_cfg.territory.departments == ["014"]
@@ -190,13 +158,7 @@ def test_calvados_dem_area_light_fast_example_loads():
     assert dem_cfg.sources[0].departments == ["014"]
 
 
-@pytest.mark.fast
-def test_manche_dem_area_light_fast_example_loads():
-    config_path = EXAMPLE_ROOT / "configs" / "manche_dem_area_light_100km2_fast.toml"
-
-    site_cfg = load_site_selection_config(config_path)
-    dem_cfg = load_data_dem_config_for_site_selection(config_path)
-
+def _check_manche_dem_area_light_fast(site_cfg: Any, dem_cfg: Any, hydrometry_cfg: Any) -> None:
     assert site_cfg.input.mode == "dem_area_light"
     assert site_cfg.territory.mode == "admin_departments"
     assert site_cfg.territory.departments == ["050"]
@@ -207,3 +169,75 @@ def test_manche_dem_area_light_fast_example_loads():
     assert dem_cfg is not None
     assert dem_cfg.sources[0].source == "ign_geoplateforme_dem"
     assert dem_cfg.sources[0].departments == ["050"]
+
+
+@dataclass(frozen=True)
+class ExampleCase:
+    """One shipped config plus the loaders and checks it is expected to satisfy."""
+
+    config_name: str
+    load_dem: bool
+    load_hydrometry: bool
+    check: Callable[[Any, Any, Any], None]
+
+
+EXAMPLE_CASES = [
+    ExampleCase("bretagne_hydrometry_primary.toml", True, True, _check_bretagne_hydrometry_primary),
+    ExampleCase(
+        "bretagne_hydrometry_50_500_hubeau_preview.toml",
+        True,
+        True,
+        _check_bretagne_hydrometry_hubeau_preview,
+    ),
+    ExampleCase(
+        "auvergne_rhone_alpes_hydrometry_50_150.toml",
+        True,
+        True,
+        _check_auvergne_rhone_alpes_hydrometry,
+    ),
+    ExampleCase(
+        "auvergne_rhone_alpes_hydrometry_preview.toml",
+        True,
+        True,
+        _check_auvergne_rhone_alpes_hydrometry_preview,
+    ),
+    ExampleCase(
+        "bretagne_hydrometry_50_500_small.toml", True, True, _check_bretagne_hydrometry_small
+    ),
+    ExampleCase(
+        "bretagne_hydrometry_50_500_small_bdtopage.toml",
+        False,
+        True,
+        _check_bretagne_hydrometry_small_bdtopage,
+    ),
+    ExampleCase(
+        "normandie_dem_area_light_100km2.toml", True, False, _check_normandie_dem_area_light
+    ),
+    ExampleCase(
+        "calvados_dem_area_light_100km2_fast.toml",
+        True,
+        False,
+        _check_calvados_dem_area_light_fast,
+    ),
+    ExampleCase(
+        "manche_dem_area_light_100km2_fast.toml", True, False, _check_manche_dem_area_light_fast
+    ),
+]
+
+
+@pytest.mark.fast
+@pytest.mark.parametrize(
+    "case",
+    EXAMPLE_CASES,
+    ids=[case.config_name.removesuffix(".toml") for case in EXAMPLE_CASES],
+)
+def test_example_config_loads(case: ExampleCase) -> None:
+    config_path = EXAMPLE_ROOT / "configs" / case.config_name
+
+    site_cfg = load_site_selection_config(config_path)
+    dem_cfg = load_data_dem_config_for_site_selection(config_path) if case.load_dem else None
+    hydrometry_cfg = (
+        load_hydrometry_config_for_site_selection(config_path) if case.load_hydrometry else None
+    )
+
+    case.check(site_cfg, dem_cfg, hydrometry_cfg)

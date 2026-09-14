@@ -1,4 +1,4 @@
-"""MODFLOW-NWT output adapters: solver files → SimulationCatalog."""
+"""MODFLOW-NWT output adapters: solver files → Catalog."""
 
 from hydromodpy.solver.modflow_nwt.extractors.flow import ModflowNwtOutputAdapter
 from hydromodpy.solver.modflow_nwt.extractors.modpath import ModpathOutputAdapter

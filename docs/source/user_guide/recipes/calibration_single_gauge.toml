@@ -1,0 +1,54 @@
+# Reference calibration 1 of 3: one parameter, one gauge, one metric.
+#
+# The shape almost every calibration starts from. One hydraulic property is
+# searched over a bounded range, the run is scored against one observed
+# discharge series, and the best value is replayed with its full outputs so the
+# figures show the calibrated model and not the last trial.
+#
+# Load it with `hmp calibrate calibration_single_gauge.toml`.
+
+# This file is an overlay: it carries the calibration and inherits the
+# catchment, the data and the solver from the project it points at. Every
+# calibration in the repository is written this way, so the same model is
+# run and calibrated from one description.
+base_config = "project.toml"
+
+[workflow]
+mode = "calibration"
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2005-12-31"
+step_value = 1
+step_unit = "day"
+
+[calibration]
+# 'grid' sweeps the range on a regular lattice: no tuning, reproducible, and it
+# shows the shape of the cost rather than a single point. Switch to 'optuna' or
+# 'scipy_nelder_mead' once the shape is known and the budget matters.
+method = "grid"
+max_iter = 25
+seed = 42
+
+# Which observed series the cost is computed on, and how.
+variable = "discharge"
+objective = "nse_log"
+
+# The first year is still forgetting its initial condition. Dropping it from the
+# score keeps that memory out of the calibrated value. Size it by raising it
+# until the objective stops moving, not by picking a round number.
+warmup_periods = 365
+
+# Keep one full simulation: the best trial, replayed with every output.
+save_runs = "best_n"
+save_best_n = 1
+rerun_best_with_outputs = true
+
+[calibration.parameters.K]
+# Bounds are the statement of what the site could plausibly be. Six decades is
+# what a fractured basement aquifer spans; narrow it when a pumping test or a
+# regional map says more.
+bounds = [1e-7, 1e-3]
+transform = "log"
+path = "flow.param.K.field.value"
+units = "m/s"

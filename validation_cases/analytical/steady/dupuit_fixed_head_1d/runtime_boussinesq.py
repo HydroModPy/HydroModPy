@@ -48,10 +48,8 @@ def run_boussinesq_dupuit_fixed_head_case(
         "active_sinks_sources": [],
         "active_bc": ["west_side", "east_side"],
         "bc": {
-            "dirichlet": {
-                "west_side": {"value": west_head_m},
-                "east_side": {"value": east_head_m},
-            }
+            "west_side": {"value": west_head_m},
+            "east_side": {"value": east_head_m},
         },
     }
     if surface_interaction_model is not None:

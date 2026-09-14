@@ -13,20 +13,27 @@ def render_figure(
     workspace: Any = None,
     output: Any = None,
 ) -> Path:
-    """Render one registered figure for a simulation. Returns the output path."""
-    from hydromodpy.cli.helpers import find_catalog_root
-    from hydromodpy.display import get as get_figure
-    from hydromodpy.results.catalog import SimulationCatalog
+    """Render one registered figure for a simulation. Returns the output path.
 
-    workspace_root = find_catalog_root(
+    Without an explicit ``output`` the figure is written inside the run it
+    describes, at ``runs/<run>/figures/<figure>.png``. The index is opened
+    read-only: rendering a figure reads a run, it never rewrites its index.
+    """
+    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.display import get as get_figure
+    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
+
+    workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
-    with SimulationCatalog(workspace_root) as catalog:
-        sim = catalog[sim_ref]
+    with Catalog(workspace_root, read_only=True) as catalog:
+        sid = catalog.resolve(sim_ref)
+        sim = catalog[sid]
         save = (
             Path(output).expanduser().resolve()
             if output
-            else Path.cwd() / "figures" / f"{figure}.png"
+            else catalog.run_dir_for(sid) / RUN_FIGURES_DIRNAME / f"{figure}.png"
         )
         save.parent.mkdir(parents=True, exist_ok=True)
         get_figure(figure).plot(sim, save_path=save)
@@ -43,11 +50,20 @@ def render_gallery(
     only: list[str] | None = None,
     no_show: bool = False,
 ) -> list[Path]:
-    """Render the ``[display]`` figure gallery for one or several runs."""
+    """Render the ``[display]`` figure gallery for one or several runs.
+
+    Each run gets its own summary line, so a figure the gallery was asked for
+    and could not produce is reported here exactly as it is on the run path.
+    """
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
     from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.display.runs import render_figures_for_run, resolve_run_output_dir
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.display.runs import (
+        log_render_summary,
+        render_figures_for_run,
+        resolve_run_output_dir,
+    )
+    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.registration import portable_config_source
 
     target_path = Path(config_toml).expanduser()
     if not target_path.is_file() or target_path.suffix != ".toml":
@@ -58,10 +74,12 @@ def render_gallery(
     if no_show:
         display_cfg.show = False
     project_dir = target_path.parent.resolve()
-    config_source = str(target_path.resolve())
+    # The index stores the config path relative to the project, so a copied or
+    # moved project still recognises the runs it owns.
+    config_source = portable_config_source(project_dir, target_path)
 
     written_paths: list[Path] = []
-    with SimulationCatalog(project_dir) as catalog:
+    with Catalog(project_dir, read_only=True) as catalog:
         sims = catalog.list_simulations(config_source=config_source, order_by="created_at DESC")
         if sims.empty:
             sims = catalog.list_simulations(project=project_dir.name, order_by="created_at DESC")
@@ -69,15 +87,9 @@ def render_gallery(
             raise FileNotFoundError(f"No simulations found for {target_path.name}.")
 
         if sim_ref:
-            ref = sim_ref.lower()
-            matches = [
-                str(sid) for sid in sims["sim_id"].astype(str) if str(sid).lower().startswith(ref)
-            ]
-            if not matches:
-                raise FileNotFoundError(f"No run matches sim_ref {sim_ref!r}")
-            if len(matches) > 1:
-                raise ValueError(f"sim_ref {sim_ref!r} is ambiguous")
-            ids = matches
+            # Route through the single canonical resolver (UUID / prefix / name /
+            # stem / @-selectors), not a bespoke startswith matcher.
+            ids = [catalog.resolve(sim_ref, project=project_dir.name)]
         elif run_name:
             subset = sims[sims["name"] == run_name]
             if subset.empty:
@@ -95,7 +107,7 @@ def render_gallery(
             out_dir = resolve_run_output_dir(
                 display_cfg, project_root=project_dir, run_name=sim.name, sim_id=sid
             )
-            written_paths.extend(
-                render_figures_for_run(sim, display_cfg, output_dir=out_dir, figure_names=only)
-            )
+            report = render_figures_for_run(sim, display_cfg, output_dir=out_dir, figure_names=only)
+            log_render_summary(report, destination=out_dir)
+            written_paths.extend(report.written)
     return written_paths

@@ -6,14 +6,14 @@ from pathlib import Path
 
 import pandas as pd
 
-from hydromodpy.core.state.paths import CATALOG_FILENAME
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.results.catalog import Catalog
 
 
 def _discover_catalog_root(start: Path) -> Path:
     """Walk up from ``start`` to find a project catalog."""
     for parent in [start, *start.parents]:
-        if (parent / CATALOG_FILENAME).exists():
+        if (catalog_path_for(parent)).exists():
             return parent
     return start
 
@@ -30,15 +30,15 @@ def compare_pair(
     per simulation (``A`` for ``sim_a``, ``B`` for ``sim_b``). When the catalog
     holds no metrics for either reference, an empty DataFrame is returned.
 
-    ``workspace`` defaults to the nearest ancestor of ``cwd`` containing
-    ``catalog.duckdb``.
+    ``workspace`` defaults to the nearest ancestor of ``cwd`` holding a
+    project index database.
     """
     start = Path(workspace).expanduser().resolve() if workspace is not None else Path.cwd()
     workspace_root = _discover_catalog_root(start)
-    if not (workspace_root / CATALOG_FILENAME).exists():
+    if not (catalog_path_for(workspace_root)).exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
-    with SimulationCatalog(workspace_root) as catalog:
+    with Catalog(workspace_root, read_only=True) as catalog:
         sid_a = catalog.resolve(sim_a)
         sid_b = catalog.resolve(sim_b)
         df = catalog.sql(

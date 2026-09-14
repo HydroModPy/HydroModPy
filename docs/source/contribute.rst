@@ -190,7 +190,7 @@ command, for example ``pip install -e ".[dev,test,docs]"``.
    * - ``[dev]``
      - ``ruff`` and ``pre-commit`` for linting and Git hooks.
    * - ``[docs]``
-     - Sphinx, the PyData theme, ``myst-parser``, ``nbsphinx``, plus
+     - Sphinx, the PyData theme, ``myst-parser``, plus
        all extensions used to build this documentation. Pure wheels,
        no system Graphviz needed.
    * - ``[docs-uml]``
@@ -259,7 +259,7 @@ Coding style
   retrying the commit.
 - Add a docstring on every public method and class. Keep parameter
   names consistent with the existing modules.
-- Reuse helpers from ``hydromodpy/core/tools/`` rather than
+- Reuse helpers from ``hydromodpy/core/io/`` rather than
   duplicating raster, folder, or path logic.
 
 Run the tests

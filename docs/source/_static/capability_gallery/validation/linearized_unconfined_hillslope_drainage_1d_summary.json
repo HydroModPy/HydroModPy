@@ -71,7 +71,7 @@
       "caption": "Linearized Unconfined Hillslope Drainage 1D rendered with MODFLOW-NWT for the analytical gallery.",
       "alt_text": "Linearized Unconfined Hillslope Drainage 1D validation figure for MODFLOW-NWT",
       "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflownwt.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflownwt.png"
+      "repo_path": "docs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflownwt.png"
     }
   ],
   "metrics": [],
@@ -124,11 +124,11 @@
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d_summary.json",
-    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d_summary.json",
     "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflownwt.png",
-      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6.png",
-      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6_irregular_tri.png"
+      "docs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflownwt.png",
+      "docs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6.png",
+      "docs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6_irregular_tri.png"
     ]
   },
   "solver_runs": [
@@ -151,7 +151,7 @@
         "caption": "Linearized Unconfined Hillslope Drainage 1D rendered with MODFLOW-NWT for the analytical gallery.",
         "alt_text": "Linearized Unconfined Hillslope Drainage 1D validation figure for MODFLOW-NWT",
         "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflownwt.png",
-        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflownwt.png"
+        "repo_path": "docs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflownwt.png"
       },
       "metadata": {
         "observable_name": "watertable_elevation",
@@ -224,7 +224,7 @@
         "caption": "Linearized Unconfined Hillslope Drainage 1D rendered with MODFLOW 6 for the analytical gallery.",
         "alt_text": "Linearized Unconfined Hillslope Drainage 1D validation figure for MODFLOW 6",
         "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6.png",
-        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6.png"
+        "repo_path": "docs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6.png"
       },
       "metadata": {
         "observable_name": "watertable_elevation",
@@ -297,7 +297,7 @@
         "caption": "Linearized Unconfined Hillslope Drainage 1D rendered with MODFLOW 6 irregular triangles for the analytical gallery.",
         "alt_text": "Linearized Unconfined Hillslope Drainage 1D validation figure for MODFLOW 6 irregular triangles",
         "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6_irregular_tri.png",
-        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6_irregular_tri.png"
+        "repo_path": "docs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6_irregular_tri.png"
       },
       "metadata": {
         "observable_name": "watertable_elevation",

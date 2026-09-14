@@ -21,6 +21,7 @@ import time
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 
 from .output import HelpOutput
@@ -144,13 +145,15 @@ class HelpManager:
             dividing the study area.
         """
         self.grid_filename = osp.abspath(path_to_grid)
-        logger.info("Loading grid data from %s", path_to_grid)
+        logger.debug("Loading grid data from %s", path_to_grid)
         if not osp.exists(path_to_grid):
             self.grid = None
             logger.error("Grid input CSV %s does not exist", path_to_grid)
         else:
-            self.grid = load_grid_from_csv(path_to_grid)
-            logger.info("Grid data loaded successfully from %s", path_to_grid)
+            with progress.status("Loading HELP input data") as handle:
+                handle.update(description="Loading grid data")
+                self.grid = load_grid_from_csv(path_to_grid)
+            logger.debug("Grid data loaded successfully from %s", path_to_grid)
 
     def load_weather_input_data(
         self, path_to_precip: str, path_to_airtemp: str, path_to_solrad: str
@@ -170,17 +173,21 @@ class HelpManager:
             The path to the csv file that contains the input data for the
             daily global solar radiation.
         """
-        logger.info("Loading precipitation inputs from %s", path_to_precip)
-        self.precip_data = load_weather_from_csv(path_to_precip)
-        self.precip_filename = path_to_precip
+        with progress.status("Loading HELP input data") as handle:
+            handle.update(description="Loading precipitation inputs")
+            logger.debug("Loading precipitation inputs from %s", path_to_precip)
+            self.precip_data = load_weather_from_csv(path_to_precip)
+            self.precip_filename = path_to_precip
 
-        logger.info("Loading air temperature inputs from %s", path_to_airtemp)
-        self.airtemp_data = load_weather_from_csv(path_to_airtemp)
-        self.airtemp_filename = path_to_airtemp
+            handle.update(description="Loading air temperature inputs")
+            logger.debug("Loading air temperature inputs from %s", path_to_airtemp)
+            self.airtemp_data = load_weather_from_csv(path_to_airtemp)
+            self.airtemp_filename = path_to_airtemp
 
-        logger.info("Loading solar radiation inputs from %s", path_to_solrad)
-        self.solrad_data = load_weather_from_csv(path_to_solrad)
-        self.solrad_filename = path_to_solrad
+            handle.update(description="Loading solar radiation inputs")
+            logger.debug("Loading solar radiation inputs from %s", path_to_solrad)
+            self.solrad_data = load_weather_from_csv(path_to_solrad)
+            self.solrad_filename = path_to_solrad
 
         datasets = [self.precip_data, self.airtemp_data, self.solrad_data]
         datasets_name = {
@@ -225,7 +232,7 @@ class HelpManager:
                 raise ValueError(
                     f"{name1} and {name2.lower()} data does not match: {x1[~match][0]} != {x2[~match][0]}."
                 )
-        logger.info("Weather input datasets loaded successfully")
+        logger.debug("Weather input datasets loaded successfully")
 
     # ---- HELP input files creation
     def clear_cache(self):
@@ -322,8 +329,6 @@ class HelpManager:
             ("solrad", "D13", save_solrad_to_HELP, self.solrad_data),
         )
         for var, fext, to_help_func, data in args:
-            logger.info("Generating %s HELP input files for %s", fext, var.lower())
-
             if data is None:
                 logger.warning(
                     "Skipping %s HELP input files; %s dataset not loaded", fext, var.lower()
@@ -338,30 +343,37 @@ class HelpManager:
             index_conn_tbl = {}
             data_lat = data.columns.get_level_values("lat_dd").values
             data_lon = data.columns.get_level_values("lon_dd").values
-            for i, cellname in enumerate(cellnames):
-                dist = calc_dist_from_coord(grid_lat[i], grid_lon[i], data_lat, data_lon)
-                argmin = int(np.argmin(dist))
+            with progress.task(
+                f"Writing {fext} HELP inputs ({var})", total=len(cellnames)
+            ) as handle:
+                for i, cellname in enumerate(cellnames):
+                    dist = calc_dist_from_coord(grid_lat[i], grid_lon[i], data_lat, data_lon)
+                    argmin = int(np.argmin(dist))
 
-                lat = data_lat[argmin]
-                lon = data_lon[argmin]
-                help_input_fname = osp.join(help_inputdir, fformat.format(lat, lon, fext))
-                if not osp.exists(help_input_fname):
-                    city = f"{var} at {lat:3.1f} ; {lon:3.1f}"
-                    if var in ("precip", "airtemp"):
-                        to_help_func(
-                            help_input_fname, data.index.year.values, data.values[:, argmin], city
-                        )
-                    elif var == "solrad":
-                        to_help_func(
-                            help_input_fname,
-                            data.index.year.values,
-                            data.values[:, argmin],
-                            city,
-                            lat,
-                        )
+                    lat = data_lat[argmin]
+                    lon = data_lon[argmin]
+                    help_input_fname = osp.join(help_inputdir, fformat.format(lat, lon, fext))
+                    if not osp.exists(help_input_fname):
+                        city = f"{var} at {lat:3.1f} ; {lon:3.1f}"
+                        if var in ("precip", "airtemp"):
+                            to_help_func(
+                                help_input_fname,
+                                data.index.year.values,
+                                data.values[:, argmin],
+                                city,
+                            )
+                        elif var == "solrad":
+                            to_help_func(
+                                help_input_fname,
+                                data.index.year.values,
+                                data.values[:, argmin],
+                                city,
+                                lat,
+                            )
 
-                file_conn_tbl[cellname] = help_input_fname
-                index_conn_tbl[cellname] = argmin
+                    file_conn_tbl[cellname] = help_input_fname
+                    index_conn_tbl[cellname] = argmin
+                    handle.advance()
 
             self.connect_tables[fext] = file_conn_tbl
             self.connect_tables[var] = index_conn_tbl

@@ -13,6 +13,7 @@ from hydromodpy.display.catchment_report.resources import (
     GEOLOGY_DATA_ROOT,
     REPO_ROOT,
 )
+from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
 
 
 @dataclass(frozen=True)
@@ -221,13 +222,13 @@ def generate_generated_network_context_figure(
 
 
 def latest_generated_network_parquet(generated_network_root: Path) -> Path | None:
-    candidates = [
-        path
-        for path in generated_network_root.glob(
-            "*/geographic_hydrographic_network_generated.parquet"
-        )
-        if path.is_file()
-    ]
+    """Newest generated-network payload across the runs of a project.
+
+    ``generated_network_root`` is the ``runs/`` directory; each run keeps its
+    tabular payloads in ``<run>/tables.parquet/``.
+    """
+    pattern = f"*/{TABLES_DIRNAME}/geographic_hydrographic_network_generated{PARQUET_FILE_SUFFIX}"
+    candidates = [path for path in generated_network_root.glob(pattern) if path.is_file()]
     if not candidates:
         return None
     return max(candidates, key=lambda path: path.stat().st_mtime)

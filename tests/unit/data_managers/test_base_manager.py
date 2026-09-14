@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 import pandas as pd
 import pytest
 
-from hydromodpy.data.base_manager_variable import BaseVariableManager
 from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.managers.base_manager_variable import BaseVariableManager
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
 

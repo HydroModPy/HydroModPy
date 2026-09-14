@@ -11,11 +11,11 @@
       "bouss_candidate::head_east_series": {
         "unit": "m",
         "n_pairs": 31,
-        "bias": 0.021149289174492342,
-        "mae": 0.021149289174492342,
-        "rmse": 0.024538341784328437,
-        "max_abs_error": 0.029867334084542563,
-        "mean_relative_error": 9.562686809214962e-05
+        "bias": 0.021157275362142056,
+        "mae": 0.021157275362142056,
+        "rmse": 0.02454793526281001,
+        "max_abs_error": 0.029868372008678534,
+        "mean_relative_error": 9.566297449671763e-05
       },
       "bouss_candidate::head_map_first_computed": {
         "unit": "m",
@@ -29,38 +29,38 @@
       "bouss_candidate::head_map_last": {
         "unit": "m",
         "n_pairs": 547,
-        "bias": 0.02663082469727193,
-        "mae": 0.027294059049941567,
-        "rmse": 0.034834954202452466,
-        "max_abs_error": 0.44278996470697507,
-        "mean_relative_error": 0.00012339491452739612
+        "bias": 0.026464817641879673,
+        "mae": 0.026902418715409108,
+        "rmse": 0.03166337053726638,
+        "max_abs_error": 0.31638372819560345,
+        "mean_relative_error": 0.00012162103137537965
       },
       "bouss_candidate::head_map_pulse": {
         "unit": "m",
         "n_pairs": 547,
-        "bias": 0.020065663762578335,
-        "mae": 0.020065663762578335,
-        "rmse": 0.020471249253725735,
-        "max_abs_error": 0.04122050210341399,
-        "mean_relative_error": 9.0803892950862e-05
+        "bias": 0.02007159259432349,
+        "mae": 0.02007159259432349,
+        "rmse": 0.020472174988138945,
+        "max_abs_error": 0.040953839852761575,
+        "mean_relative_error": 9.083072188049921e-05
       },
       "bouss_candidate::head_middle_series": {
         "unit": "m",
         "n_pairs": 31,
-        "bias": 0.019632918090344044,
-        "mae": 0.019632918090344044,
-        "rmse": 0.02278247389983293,
-        "max_abs_error": 0.02768157766010404,
-        "mean_relative_error": 8.87694804760104e-05
+        "bias": 0.019633279003395575,
+        "mae": 0.019633279003395575,
+        "rmse": 0.022782869511076685,
+        "max_abs_error": 0.0276824670848157,
+        "mean_relative_error": 8.877111299065703e-05
       },
       "bouss_candidate::head_west_series": {
         "unit": "m",
         "n_pairs": 31,
-        "bias": 0.016309259032207212,
-        "mae": 0.016309259032207212,
-        "rmse": 0.01892757822160465,
-        "max_abs_error": 0.023003499580454445,
-        "mean_relative_error": 7.374008262750184e-05
+        "bias": 0.01631136393463121,
+        "mae": 0.01631136393463121,
+        "rmse": 0.01893006926977801,
+        "max_abs_error": 0.023007391951921363,
+        "mean_relative_error": 7.374959963096167e-05
       }
     }
   }

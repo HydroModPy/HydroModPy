@@ -7,7 +7,7 @@ never from pickle blobs. The ``workflow_steps`` journal is the single
 source of truth for resume decisions: every step records its
 ``inputs_hash``, ``outputs_hash`` and ``artifact_uris`` rows there. A
 :class:`HeartbeatPulse` emits ``heartbeat`` events on ``workflow_events``
-while a step executes so ``hmp gc`` can detect zombie runs.
+while a step executes so ``hmp catalog gc`` can detect zombie runs.
 
 Two-phase execution
 -------------------
@@ -34,14 +34,15 @@ from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ResumeIntegrityError, StepError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.internals.step import Step
 
 if TYPE_CHECKING:
-    from hydromodpy.results.catalog import SimulationCatalog
-    from hydromodpy.workflow.journal import WorkflowJournal
+    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.workflow.tracking.journal import WorkflowJournal
 
 logger = get_logger(__name__)
 
@@ -54,7 +55,7 @@ class Pipeline:
         steps: Sequence[Step],
         *,
         workspace: Path | None = None,
-        catalog: SimulationCatalog | None = None,
+        catalog: Catalog | None = None,
     ) -> None:
         self.steps: tuple[Step, ...] = tuple(steps)
         self.workspace = Path(workspace) if workspace is not None else None
@@ -85,6 +86,7 @@ class Pipeline:
         *,
         resume_from: int | None = None,
         parallel: bool = True,
+        model_phase_ready: bool = False,
     ) -> PipelineState:
         """Execute steps sequentially.
 
@@ -92,20 +94,23 @@ class Pipeline:
         Steps before that index are reconstructed via ``rebuild_state`` (or
         re-executed in memory when they declare no artefacts).
 
+        ``model_phase_ready`` marks a fresh run whose ``resume_from > 0`` only
+        skips the model phase already built in this process - not a journal
+        resume. Such a run is a new (possibly versioned) run, so it ignores any
+        stale same-name manifest and rebuilds its prefix from the live ctx
+        rather than a prior run's journalled artefacts. A genuine resume
+        (``resume_from > 0`` with this False) keeps verifying the checkpoint.
+
         ``parallel`` (default True) consumes the Kahn cohort layout: a
         multi-step cohort is dispatched through a thread pool. The
         default 12-step pipeline only produces singleton cohorts so the
         behaviour is identical to the strict for-loop. Pass
         ``parallel=False`` to fall back to the legacy sequential path.
         """
-        from hydromodpy.solver.base import registry as solver_registry
-        from hydromodpy.workflow.events import WorkflowEventStream
-        from hydromodpy.workflow.heartbeat import HeartbeatPulse
         from hydromodpy.workflow.internals.manifest import ResolvedRunManifest
-        from hydromodpy.workflow.journal import WorkflowJournal
-
-        solver_registry.load_plugins()
-        solver_registry.load_extractor_plugins()
+        from hydromodpy.workflow.tracking.events import WorkflowEventStream
+        from hydromodpy.workflow.tracking.heartbeat import HeartbeatPulse
+        from hydromodpy.workflow.tracking.journal import WorkflowJournal
 
         self._parallel = bool(parallel)
 
@@ -115,9 +120,9 @@ class Pipeline:
         owns_catalog = False
         if catalog is None and self.workspace is not None:
             try:
-                from hydromodpy.results.catalog import SimulationCatalog
+                from hydromodpy.results.catalog import Catalog
 
-                catalog = SimulationCatalog(self.workspace)
+                catalog = Catalog(self.workspace)
                 owns_catalog = True
             except Exception as exc:
                 logger.debug("pipeline.journal_disabled reason=%s", exc)
@@ -135,14 +140,23 @@ class Pipeline:
 
         manifest: ResolvedRunManifest | None = None
         if self.workspace is not None:
-            manifest = ResolvedRunManifest.read(self.workspace, state.run_id)
-            if restart_index > 0 and manifest is not None:
-                manifest.verify_state(state, self.steps, self.workspace)
-            elif restart_index == 0:
+            existing = ResolvedRunManifest.read(self.workspace, state.run_id)
+            if restart_index > 0 and not model_phase_ready and existing is not None:
+                # Genuine resume: the prefix is reconstructed from the prior
+                # run's artefacts, so its config/pipeline must still match.
+                existing.verify_state(state, self.steps)
+                manifest = existing
+            else:
+                # Fresh run (restart_index 0) or a model-phase-ready re-run
+                # whose config may differ from a stale same-name manifest:
+                # write a clean manifest and ignore any prior one.
                 manifest = ResolvedRunManifest.from_state(state, self.steps, self.workspace)
                 manifest.write_atomic(self.workspace)
 
-        if restart_index == 0 and journal is not None:
+        # A from-scratch run and a model-phase-ready re-run rebuild their prefix
+        # from the live ctx (is_prebuilt), never from a previous same-name run's
+        # journalled artefacts, so drop any stale journal for this run_id.
+        if (restart_index == 0 or model_phase_ready) and journal is not None:
             try:
                 journal.invalidate_from(state.run_id, start_order=0, reason="from_scratch")
             except Exception as exc:
@@ -163,6 +177,7 @@ class Pipeline:
                 events=events,
             )
         finally:
+            _close_dangling_store(state)
             if owns_catalog and catalog is not None:
                 try:
                     catalog.close()
@@ -214,27 +229,42 @@ class Pipeline:
             )
 
             try:
-                if has_artifacts and row_completed:
-                    rebuild = getattr(step, "rebuild_state", None)
-                    if rebuild is not None:
+                rebuild = getattr(step, "rebuild_state", None) if row_completed else None
+                if rebuild is not None:
+                    # The journal says this step already ran to completion, so
+                    # restore it from disk whatever it declared: a step that
+                    # writes into the shared run store (derive, display) has no
+                    # artefact of its own yet must not be executed twice.
+                    with progress.phase(name):
                         state = rebuild(
                             prior_state=state,
                             workspace=self.workspace or Path(),
                             run_id=state.run_id,
                         )
-                    else:
-                        logger.warning(
-                            "pipeline.rebuild_skipped step=%s reason=no_rebuild_state",
+                elif has_artifacts and row_completed:
+                    logger.warning(
+                        "pipeline.rebuild_skipped step=%s reason=no_rebuild_state",
+                        name,
+                    )
+                    state = state.advance(step_index=index, step_name=name)
+                else:
+                    is_prebuilt = getattr(step, "is_prebuilt", None)
+                    if is_prebuilt is not None and is_prebuilt(state):
+                        # The in-memory ctx already carries this step's
+                        # products (eager facade build); advancing is enough.
+                        logger.debug(
+                            "pipeline.rebuild_skipped step=%s reason=prebuilt_in_memory",
                             name,
                         )
                         state = state.advance(step_index=index, step_name=name)
-                else:
-                    state = step.run(state)
-                    state = state.advance(
-                        step_index=index,
-                        step_name=name,
-                        data=state.data,
-                    )
+                    else:
+                        with progress.phase(name):
+                            state = step.run(state)
+                        state = state.advance(
+                            step_index=index,
+                            step_name=name,
+                            data=state.data,
+                        )
             except Exception as exc:
                 raise ResumeIntegrityError(
                     f"pipeline rebuild failed at step {index} ({name}): {exc}",
@@ -259,11 +289,11 @@ class Pipeline:
     ) -> PipelineState:
         """Run every step from ``restart_index`` to the end with journal writes."""
         from hydromodpy.workflow.internals.manifest import ResolvedRunManifest
-        from hydromodpy.workflow.journal import WorkflowJournal as _Journal
         from hydromodpy.workflow.parallel import (
             SequentialExecutor,
             ThreadPoolCohortExecutor,
         )
+        from hydromodpy.workflow.tracking.journal import WorkflowJournal as _Journal
 
         if restart_index >= len(self.steps):
             return state
@@ -297,7 +327,7 @@ class Pipeline:
                     manifest = (
                         ResolvedRunManifest.from_state(state, self.steps, self.workspace)
                         if manifest is None
-                        else manifest.with_state(state, self.steps)
+                        else manifest.with_state(state, self.steps, self.workspace)
                     )
                     manifest.write_atomic(self.workspace)
         return state
@@ -442,7 +472,8 @@ class Pipeline:
 
         t0 = time.monotonic()
         try:
-            out = step.run(state)
+            with progress.phase(name):
+                out = step.run(state)
         except (KeyboardInterrupt, SystemExit):
             self._finish_journal_step(
                 journal,
@@ -571,7 +602,26 @@ class Pipeline:
             events=events,
             run_id=sim_id,
             step_name="pipeline",
+            sidecar_workspace=self.workspace,
         )
+
+
+def _close_dangling_store(state: PipelineState) -> None:
+    """Close the run store when the pipeline stops before the export step.
+
+    ``export`` owns the normal close. A pipeline truncated by ``--until``, or
+    one that raised, would otherwise leave the project index open: the DuckDB
+    write-ahead log survives the process and the next run has to replay it.
+    """
+    from hydromodpy.workflow.steps.export import step_close_store
+
+    ctx = state.get("ctx")
+    if ctx is None or getattr(ctx, "store", None) is None:
+        return
+    try:
+        step_close_store(ctx)
+    except Exception:
+        logger.debug("pipeline.store_close_failed", exc_info=True)
 
 
 def _collect_artifacts(

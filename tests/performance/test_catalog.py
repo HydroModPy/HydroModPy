@@ -1,8 +1,8 @@
-"""SimulationCatalog open/list baseline benchmarks (DuckDB backend).
+"""Catalog open/list baseline benchmarks (DuckDB backend).
 
 Guards the thin HydroModPy catalog wrapper the v2 pipeline opens on every
 run: the DuckDB connection plus workspace layout, and a ``list_simulations``
-query over a populated catalog. A regression in ``SimulationCatalog`` open or
+query over a populated catalog. A regression in ``Catalog`` open or
 query shows up here as a pairwise-ratio drift in ``perf.yml``.
 """
 
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 pytestmark = pytest.mark.performance
@@ -40,10 +40,10 @@ def catalog_workspace(tmp_path: Path) -> Path:
 
 @pytest.mark.benchmark(group="catalog")
 def test_catalog_open_cold(benchmark, catalog_workspace: Path) -> None:
-    """Cold-open a populated SimulationCatalog and close it."""
+    """Cold-open a populated Catalog and close it."""
 
     def _open() -> None:
-        cat = SimulationCatalog(catalog_workspace)
+        cat = Catalog(catalog_workspace)
         cat.close()
 
     benchmark(_open)

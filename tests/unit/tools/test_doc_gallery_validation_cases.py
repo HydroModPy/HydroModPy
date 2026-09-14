@@ -20,6 +20,7 @@ from tools.doc_gallery.gallery_manifest import GalleryCaseSpec, build_gallery_sp
 from tools.doc_gallery.update_gallery import (
     _build_case_page,
     _build_category_page,
+    _filesystem_path,
     _generate_validation_case,
 )
 from tools.doc_gallery.validation_case_registry import build_validation_case_records
@@ -276,6 +277,8 @@ def test_build_validation_category_page_groups_cases_by_family() -> None:
     assert "Process families populated today: Flow (2)." in page
     assert "Synthetic Core Case" in page
     assert "Synthetic Hillslope Case" in page
+    assert "Latest Batch Reports" not in page
+    assert "validation_cases/reports/latest" not in page
 
 
 def test_generate_validation_case_skips_missing_solver_figures(
@@ -292,8 +295,8 @@ def test_generate_validation_case_skips_missing_solver_figures(
 
     def plotting_function(comparison, *, output_png, show_plot):
         if comparison.solver == "modflow_nwt":
-            output_png.parent.mkdir(parents=True, exist_ok=True)
-            output_png.write_bytes(b"fake-png")
+            _filesystem_path(output_png.parent).mkdir(parents=True, exist_ok=True)
+            _filesystem_path(output_png).write_bytes(b"fake-png")
 
     def metric_builder(comparison):
         return [f"Solver: {comparison.solver}"]

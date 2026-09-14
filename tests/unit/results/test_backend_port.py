@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 from hydromodpy.results.catalog.ports import CatalogBackend
 from tests._helpers.fixtures_catalog import simulation_catalog
@@ -29,14 +29,14 @@ def catalog(tmp_path):
         yield cat
 
 
-def test_catalog_exposes_backend_as_protocol(catalog: SimulationCatalog) -> None:
+def test_catalog_exposes_backend_as_protocol(catalog: Catalog) -> None:
     """The facade must expose a :class:`CatalogBackend` adapter."""
     assert isinstance(catalog._backend, CatalogBackend)
     assert isinstance(catalog._backend, DuckDBBackend)
     assert catalog.backend is catalog._backend
 
 
-def test_write_metric_routes_insert_through_backend(catalog: SimulationCatalog) -> None:
+def test_write_metric_routes_insert_through_backend(catalog: Catalog) -> None:
     """``write_metric`` must dispatch its INSERT via ``_backend.execute``."""
     sid = _sim_id()
     catalog.register_simulation(
@@ -73,7 +73,7 @@ def test_write_metric_routes_insert_through_backend(catalog: SimulationCatalog) 
     assert row[0] == pytest.approx(0.42)
 
 
-def test_list_simulations_routes_query_through_backend(catalog: SimulationCatalog) -> None:
+def test_list_simulations_routes_query_through_backend(catalog: Catalog) -> None:
     """A read accessor must use ``_backend.query`` rather than the raw cursor."""
     real_backend = catalog._backend
     spy = MagicMock(wraps=real_backend, spec=CatalogBackend)

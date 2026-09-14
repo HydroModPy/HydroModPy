@@ -11,9 +11,9 @@ from __future__ import annotations
 import threading
 from collections.abc import Mapping
 
-from hydromodpy.calibration.engine import CalibrationEngine
-from hydromodpy.calibration.optimizer import EvaluationResult, ParamSuggestion
-from hydromodpy.calibration.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.optim.engine import CalibrationEngine
+from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 
 
 def _unit_space() -> ParameterSpace:

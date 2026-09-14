@@ -1,4 +1,4 @@
-"""Self-documenting schema accessors for :class:`SimulationCatalog`.
+"""Self-documenting schema accessors for :class:`Catalog`.
 
 Mixed into the catalog facade so callers can discover what to query without
 reading the DDL: ``describe`` (human summary), ``tables``, ``columns``,
@@ -11,7 +11,7 @@ from typing import Any
 
 
 class SchemaDiscoveryMixin:
-    """Schema-introspection methods for :class:`SimulationCatalog`.
+    """Schema-introspection methods for :class:`Catalog`.
 
     Relies on the facade attribute ``self._backend`` (CatalogBackend port).
     """

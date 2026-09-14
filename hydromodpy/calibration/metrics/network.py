@@ -64,6 +64,24 @@ def _as_centroids(values: object, *, expected_size: int) -> np.ndarray:
     return centroids
 
 
+def _reject_binary_reference(d_ref: np.ndarray, *, name: str) -> None:
+    """Refuse a 0/1 mask where a per-cell drainage outflow is required.
+
+    A mask normalizes the flux error by a count of cells instead of a
+    discharge, which yields a plausible-looking but meaningless score.
+    """
+
+    active = int(np.count_nonzero(d_ref))
+    if active == 0 or not np.all((d_ref == 0.0) | (d_ref == 1.0)):
+        return
+    raise ValueError(
+        f"{name} is a binary 0/1 mask ({d_ref.size} cells, {active} active, "
+        f"sum = {float(np.sum(d_ref))}), but a per-cell drainage outflow is "
+        "required: normalizing by the sum of a mask divides a flux by a count "
+        "of cells. Pass the reference outflow field, not its active mask."
+    )
+
+
 def _reference_outflow(
     d_ref: np.ndarray,
     q_ref_steady: float | None,
@@ -123,6 +141,7 @@ def network_flux_error(
     ref = positive_outflow(d_ref)
     if sim.size != ref.size:
         raise ValueError(f"d_sim and d_ref must have the same length ({sim.size} != {ref.size}).")
+    _reject_binary_reference(ref, name="d_ref")
     q_ref = _reference_outflow(ref, q_ref_steady)
     return float(np.sum(np.abs(sim - ref)) / q_ref)
 
@@ -218,6 +237,7 @@ def network_cost(
     if sim.size != ref.size:
         raise ValueError(f"d_sim and d_ref must have the same length ({sim.size} != {ref.size}).")
 
+    _reject_binary_reference(ref, name="d_ref")
     q_ref = _reference_outflow(ref, q_ref_steady)
     centroids_arr = _as_centroids(centroids, expected_size=ref.size)
     cell_area_arr = _as_float_vector(cell_area, name="cell_area")

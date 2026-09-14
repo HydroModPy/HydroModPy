@@ -32,13 +32,19 @@ which forces a re-download and rewrites the manifest.
 
 from __future__ import annotations
 
+import importlib
 import json
 import os
+import re
+import subprocess
 import sys
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import cache_dir
 from hydromodpy.solver.modflow_common.executables import ensure_platform_executable
@@ -47,6 +53,9 @@ logger = get_logger(__name__)
 
 MANIFEST_FILENAME = ".manifest.json"
 DEFAULT_RELEASE = "23.0"
+
+SOLVER_EXECUTABLES: dict[str, str] = {"modflow6": "mf6", "modflow_nwt": "mfnwt"}
+"""Catalog solver code -> canonical executable this module can fetch."""
 
 
 def managed_bin_dir() -> Path:
@@ -62,6 +71,7 @@ _SOLVER_FILENAMES: dict[str, dict[str, str]] = {
     "mp6": {"win": "mp6.exe", "linux": "mp6", "darwin": "mp6"},
     "mp7": {"win": "mp7.exe", "linux": "mp7", "darwin": "mp7"},
     "mt3dusgs": {"win": "mt3dusgs.exe", "linux": "mt3dusgs", "darwin": "mt3dusgs"},
+    "libmf6": {"win": "libmf6.dll", "linux": "libmf6.so", "darwin": "libmf6.dylib"},
 }
 
 
@@ -205,7 +215,8 @@ def ensure_solver_binary(solver: str, bin_path: str | os.PathLike[str] | None = 
         return Path(ensure_platform_executable(located))
 
     if bin_path is None or is_managed_cache(target):
-        download_solver_binaries(target, subset=[solver])
+        with progress.status(f"Fetching {solver} binary"):
+            download_solver_binaries(target, subset=[solver], quiet=True)
         located = locate_solver_binary(target, solver)
         if located is not None:
             return Path(ensure_platform_executable(located))
@@ -226,14 +237,224 @@ def ensure_solver_binary(solver: str, bin_path: str | os.PathLike[str] | None = 
     return expected
 
 
+def ensure_solver_library(
+    solver: str = "libmf6", bin_path: str | os.PathLike[str] | None = None
+) -> Path:
+    """Resolve a MODFLOW shared library (e.g. ``libmf6``) under ``bin_path``.
+
+    Mirrors :func:`ensure_solver_binary`: ``flopy.utils.get_modflow`` DOES fetch
+    shared objects named in the subset, so on a managed-cache miss the library is
+    downloaded before failing, keeping the api runner as zero-setup as the
+    subprocess runner. ``bin_path`` defaults to the managed cache.
+    """
+    bindir = Path(bin_path).expanduser() if bin_path else managed_bin_dir()
+    found = locate_solver_binary(bindir, solver)
+    if found is not None:
+        return ensure_platform_executable(found)
+    if bin_path is None or is_managed_cache(bindir):
+        with progress.status(f"Fetching {solver} library"):
+            download_solver_binaries(bindir, subset=[solver], quiet=True)
+        found = locate_solver_binary(bindir, solver)
+        if found is not None:
+            return ensure_platform_executable(found)
+    raise FileNotFoundError(
+        f"{exe_filename(solver)} not found in {bindir} after a download attempt. "
+        "Run `hmp install-binaries` or copy the MODFLOW 6 shared library into the cache."
+    )
+
+
+_VERSION_RE = re.compile(r"(\d+\.\d+\.\d+)")
+_MF6_VERSION_PARITY_CHECKED = False
+_MISMATCH_ENV_VAR = "HMP_SILENCE_MF6_VERSION_MISMATCH"
+
+
+def mf6_executable_version(exe_path: str | os.PathLike[str]) -> str | None:
+    """Return the MODFLOW 6 executable version (e.g. ``'6.6.3'``), or ``None``."""
+    try:
+        out = subprocess.run(  # noqa: S603 - trusted managed binary
+            [str(exe_path), "-v"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    match = _VERSION_RE.search(f"{out.stdout}\n{out.stderr}")
+    return match.group(1) if match else None
+
+
+def libmf6_version(lib_path: str | os.PathLike[str]) -> str | None:
+    """Return the libmf6 shared-library version via xmipy, or ``None``.
+
+    Loads the library only to read its BMI ``get_version``; no simulation is
+    initialized, so it is safe to call once before the isolated solves spawn.
+    """
+    try:
+        from xmipy import XmiWrapper
+
+        match = _VERSION_RE.search(str(XmiWrapper(str(lib_path)).get_version()))
+        return match.group(1) if match else None
+    except Exception:  # noqa: BLE001 - version probe must never break a solve
+        return None
+
+
+def _package_version_and_editable(name: str) -> tuple[str | None, bool]:
+    """Return one Python package's version and whether it is a dev/editable install."""
+    try:
+        module = importlib.import_module(name)
+    except Exception:  # noqa: BLE001 - a version probe must never break a solve
+        return None, False
+    version = getattr(module, "__version__", None)
+    if version is None:
+        try:
+            from importlib.metadata import version as _metadata_version
+
+            version = _metadata_version(name)
+        except Exception:  # noqa: BLE001
+            version = None
+    origin = getattr(module, "__file__", "") or ""
+    is_dev = bool(version) and ".dev" in str(version)
+    is_editable = "site-packages" not in origin and "dist-packages" not in origin
+    return version, bool(is_dev or is_editable)
+
+
+def solver_python_stack() -> str:
+    """Return the ``modflowapi``/``xmipy`` versions, flagged when dev/editable.
+
+    The api runner loads libmf6 through these wrappers, so an unpinned dev/editable
+    install is part of the reproducibility surface and worth recording once.
+    """
+    parts: list[str] = []
+    for name in ("modflowapi", "xmipy"):
+        version, editable = _package_version_and_editable(name)
+        if version is None:
+            parts.append(f"{name} (absent)")
+        else:
+            parts.append(f"{name} {version}{' (editable)' if editable else ''}")
+    return ", ".join(parts)
+
+
+@dataclass(frozen=True, slots=True)
+class SolverEngine:
+    """The binary a run actually executes, and how the run drives it.
+
+    ``kind`` says what the file is (a standalone executable, or a shared
+    library loaded in-process through the BMI/XMI wrappers) and
+    ``execution_mode`` says how it was driven. They move together today, but
+    provenance records both because a reader must not have to infer one from
+    the other.
+    """
+
+    solver: str
+    kind: Literal["executable", "library"]
+    execution_mode: Literal["subprocess", "api"]
+    path: Path
+    version: str | None
+
+
+def resolve_solver_engine(
+    solver: str,
+    *,
+    execution_mode: str = "subprocess",
+    bin_path: str | os.PathLike[str] | None = None,
+) -> SolverEngine | None:
+    """Return the engine a run executes, or ``None`` for a binary-less solver.
+
+    ``execution_mode`` is the dispatch the run selected: ``'api'`` loads the
+    MODFLOW 6 shared library, anything else runs the executable. Solvers with
+    no bundled binary (Boussinesq, GR4J) return ``None``. Resolution failures
+    (binary absent and not downloadable) also return ``None``: provenance must
+    never be the reason a run does not start.
+    """
+    if execution_mode == "api" and solver == "modflow6":
+        try:
+            lib = ensure_solver_library("libmf6", bin_path)
+        except Exception:  # noqa: BLE001 - provenance never breaks a run
+            logger.debug("Could not resolve libmf6 for provenance", exc_info=True)
+            return None
+        return SolverEngine(
+            solver=solver,
+            kind="library",
+            execution_mode="api",
+            path=lib,
+            version=libmf6_version(lib),
+        )
+
+    exe_name = SOLVER_EXECUTABLES.get(solver)
+    if exe_name is None:
+        return None
+    try:
+        exe = ensure_solver_binary(exe_name, bin_path)
+    except Exception:  # noqa: BLE001 - provenance never breaks a run
+        logger.debug("Could not resolve the %s executable for provenance", exe_name, exc_info=True)
+        return None
+    return SolverEngine(
+        solver=solver,
+        kind="executable",
+        execution_mode="subprocess",
+        path=exe,
+        version=mf6_executable_version(exe),
+    )
+
+
+def warn_on_mf6_version_mismatch(
+    exe_path: str | os.PathLike[str], lib_path: str | os.PathLike[str]
+) -> None:
+    """Log the mf6 exe and libmf6 versions once and warn on a major.minor mismatch.
+
+    The api runner solves with libmf6 while the subprocess runner and the
+    per-trial steady-state init use the exe, so a version skew means calibrated
+    optima may not reproduce a subprocess ``hmp run``. A mismatch warns once (loud,
+    with the fix); silence it with ``HMP_SILENCE_MF6_VERSION_MISMATCH``. It never
+    raises, so an existing mixed install keeps working.
+    """
+    global _MF6_VERSION_PARITY_CHECKED
+    if _MF6_VERSION_PARITY_CHECKED:
+        return
+    _MF6_VERSION_PARITY_CHECKED = True
+
+    exe_v = mf6_executable_version(exe_path)
+    lib_v = libmf6_version(lib_path)
+    logger.info(
+        "MODFLOW 6 engines: exe %s, libmf6 %s | %s",
+        exe_v or "?",
+        lib_v or "?",
+        solver_python_stack(),
+    )
+    if not exe_v or not lib_v or exe_v.split(".")[:2] == lib_v.split(".")[:2]:
+        return
+
+    silence = os.environ.get(_MISMATCH_ENV_VAR, "")
+    if silence.strip().lower() not in ("", "0", "false", "no"):
+        return
+    logger.warning(
+        "MODFLOW 6 version mismatch: executable %s vs libmf6 %s. The api solves and the "
+        "per-trial steady-state init use different engine builds, so calibrated optima may not "
+        "reproduce a subprocess 'hmp run'. Re-align them with 'hmp install-binaries' (or set "
+        "%s to silence).",
+        exe_v,
+        lib_v,
+        _MISMATCH_ENV_VAR,
+    )
+
+
 __all__ = [
     "DEFAULT_RELEASE",
     "MANIFEST_FILENAME",
+    "SOLVER_EXECUTABLES",
+    "SolverEngine",
     "available_solvers",
     "download_solver_binaries",
     "ensure_solver_binary",
+    "ensure_solver_library",
     "exe_filename",
     "is_managed_cache",
+    "libmf6_version",
     "locate_solver_binary",
+    "mf6_executable_version",
     "read_manifest",
+    "resolve_solver_engine",
+    "solver_python_stack",
+    "warn_on_mf6_version_mismatch",
 ]

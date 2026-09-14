@@ -30,7 +30,7 @@ Case Setup
 
 - Launcher family: `data-overview`, so the workflow stops after setup, domain assembly, and data loading.
 - Primary editable file: `examples/projects/04_data_overview/project.toml`.
-- Committed figures are mirrored under `examples/projects/09_capability_gallery/geographic/` so the doc build stays reproducible without a local `results_stable` checkout.
+- Committed figures are mirrored under `examples/projects/09_capability_gallery/geographic/` so the doc build stays reproducible without a local run tree.
 
 What It Shows
 -------------
@@ -100,10 +100,6 @@ Selected Parameters
    * - ``[geographic.catchment] buff_area``
      - Extra area kept around the watershed to preserve regional context in overview figures.
      - 20%
-     - ``examples/projects/04_data_overview/project.toml``
-   * - ``[domain] zone_ids``
-     - Domain layers kept on the spatial support before any meshing or solving stage.
-     - geology
      - ``examples/projects/04_data_overview/project.toml``
    * - ``[domain.depth_model] thickness``
      - Constant basin thickness assigned by the depth model when that mode is selected.

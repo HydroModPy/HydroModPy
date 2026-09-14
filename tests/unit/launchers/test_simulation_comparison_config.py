@@ -30,7 +30,7 @@ def test_simulation_comparison_materializes_child_tomls(tmp_path: Path) -> None:
     assert mf6_raw["workflow"] == {"mode": "simulation"}
     assert mf6_raw["simulation"]["name"] == "demo_sim_compare__mf6_ref"
     assert mf6_raw["simulation"]["process"][0]["solvers"] == ["modflow6"]
-    assert bouss_raw["simulation"]["run_id"] == "demo_sim_compare__bouss_candidate"
+    assert bouss_raw["simulation"]["name"] == "demo_sim_compare__bouss_candidate"
     assert bouss_raw["simulation"]["process"][0]["solvers"] == ["boussinesq"]
 
 
@@ -177,10 +177,10 @@ def test_simulation_comparison_rejects_physical_overlay_changes(tmp_path: Path) 
         pytest.param(
             "drainage_high",
             [
-                "[comparison.simulation.overlay.flow.bc.cauchy.drainage]",
+                "[comparison.simulation.overlay.flow.bc.drainage]",
                 'value = "3e-3 m2/s"',
             ],
-            ("flow", "bc", "cauchy", "drainage", "value"),
+            ("flow", "bc", "drainage", "value"),
             "3e-3 m2/s",
             id="test_simulation_comparison_allows_flow_boundary_sweep_overlay",
         ),

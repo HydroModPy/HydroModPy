@@ -11,13 +11,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from hydromodpy.core.logging import get_logger
+from hydromodpy.solver.modflow_common.field_slab import slab_steps
 
 logger = get_logger(__name__)
 
 
 class Mt3dmsExtractorBase:
-    """Read MT3DMS / MF6-GWT binary outputs and inject them into a SimulationCatalog.
+    """Read MT3DMS / MF6-GWT binary outputs and inject them into a Catalog.
 
     Expects a solver output directory containing ``{model_name}.ucn``
     (unformatted concentration file). Subclasses must override
@@ -77,18 +80,21 @@ class Mt3dmsExtractorBase:
             n_cells,
         )
 
-        for t, time in enumerate(times):
-            conc = ucn.get_data(totim=time)
-            values = conc.reshape(nlay, n_cells)
-            store.write_field(
-                sim_id,
-                "concentration",
-                t,
-                values,
-                n_timesteps=n_timesteps if t == 0 else None,
-            )
-
-        ucn.close()
+        # Batched stack write in time slabs: one shard encode instead of a
+        # per-timestep read-modify-write, without holding the whole
+        # (nper, nlay, ncells) stack in RAM.
+        slab = slab_steps(nlay, n_cells)
+        try:
+            for t0 in range(0, n_timesteps, slab):
+                t1 = min(t0 + slab, n_timesteps)
+                chunk = np.empty((t1 - t0, nlay, n_cells), dtype="float64")
+                for t in range(t0, t1):
+                    chunk[t - t0] = ucn.get_data(totim=times[t]).reshape(nlay, n_cells)
+                store.write_field_stack(
+                    sim_id, "concentration", chunk, n_timesteps=n_timesteps, timestep_offset=t0
+                )
+        finally:
+            ucn.close()
 
     def derive(
         self,

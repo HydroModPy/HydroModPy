@@ -34,47 +34,23 @@ This allows:
 from __future__ import annotations
 
 from collections.abc import Mapping
-from functools import cache
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 from rasterio.transform import rowcol
 
+from hydromodpy.spatial.field.core.cell_sampling import (
+    quadrilateral_sample_weights,
+    sample_points_in_cell,
+    triangle_sample_weights,
+)
 from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh
 from hydromodpy.spatial.field.core.field_spatial import Field
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
 from hydromodpy.spatial.protocols import get_geology_data_source
-
-
-@cache
-def _quadrilateral_sample_weights(n_sub_per_axis: int) -> np.ndarray:
-    n = max(2, int(n_sub_per_axis))
-    u = (np.arange(n, dtype=float) + 0.5) / float(n)
-    v = (np.arange(n, dtype=float) + 0.5) / float(n)
-    uu, vv = np.meshgrid(u, v, indexing="xy")
-    return np.column_stack(
-        (
-            ((1.0 - uu) * (1.0 - vv)).ravel(),
-            (uu * (1.0 - vv)).ravel(),
-            (uu * vv).ravel(),
-            ((1.0 - uu) * vv).ravel(),
-        )
-    )
-
-
-@cache
-def _triangle_sample_weights(n_sub_per_axis: int) -> np.ndarray:
-    n = max(2, int(n_sub_per_axis))
-    u = (np.arange(n, dtype=float) + 0.5) / float(n)
-    v = (np.arange(n, dtype=float) + 0.5) / float(n)
-    uu, vv = np.meshgrid(u, v, indexing="xy")
-    mask = (uu + vv) < 1.0
-    uu = uu[mask]
-    vv = vv[mask]
-    return np.column_stack((1.0 - uu - vv, uu, vv))
 
 
 class GeologyField(Field):
@@ -161,25 +137,6 @@ class GeologyField(Field):
         return self.encoded_codes.shape
 
     @staticmethod
-    def _sample_points_in_cell(cell, *, n_sub_per_axis: int):
-        """Generate deterministic interior sample points for one mesh cell."""
-        verts = np.asarray(cell.vertices, dtype=float)
-
-        if cell.kind == "quadrilateral":
-            weights = _quadrilateral_sample_weights(n_sub_per_axis)
-            x = np.einsum("pv,v->p", weights, verts[:, 0], optimize=True)
-            y = np.einsum("pv,v->p", weights, verts[:, 1], optimize=True)
-            return x.ravel(), y.ravel()
-
-        if cell.kind == "triangle":
-            weights = _triangle_sample_weights(n_sub_per_axis)
-            x = np.einsum("pv,v->p", weights, verts[:, 0], optimize=True)
-            y = np.einsum("pv,v->p", weights, verts[:, 1], optimize=True)
-            return x, y
-
-        raise ValueError(f"Unsupported cell kind '{cell.kind}'")
-
-    @staticmethod
     def _sample_points_in_cells(
         vertices: np.ndarray, *, cell_kind: str, n_sub_per_axis: int
     ) -> tuple[np.ndarray, np.ndarray]:
@@ -188,7 +145,7 @@ class GeologyField(Field):
             raise ValueError("vertices must have shape (n_cells, n_vertices, 2)")
 
         if cell_kind == "quadrilateral":
-            weights = _quadrilateral_sample_weights(n_sub_per_axis)
+            weights = quadrilateral_sample_weights(n_sub_per_axis)
             w0 = weights[:, 0][None, :]
             w1 = weights[:, 1][None, :]
             w2 = weights[:, 2][None, :]
@@ -207,7 +164,7 @@ class GeologyField(Field):
             )
             return np.asarray(x, dtype=float), np.asarray(y, dtype=float)
         elif cell_kind == "triangle":
-            weights = _triangle_sample_weights(n_sub_per_axis)
+            weights = triangle_sample_weights(n_sub_per_axis)
             uu = weights[:, 1][None, :]
             vv = weights[:, 2][None, :]
             p0x = verts[:, 0, 0:1]
@@ -303,9 +260,9 @@ class GeologyField(Field):
 
             n_vertices = 4 if cell_kind == "quadrilateral" else 3
             weights = (
-                _quadrilateral_sample_weights(n_sub)
+                quadrilateral_sample_weights(n_sub)
                 if cell_kind == "quadrilateral"
-                else _triangle_sample_weights(n_sub)
+                else triangle_sample_weights(n_sub)
             )
             n_points_per_cell = int(weights.shape[0])
             chunk_size = max(1, int(200000 // max(1, n_points_per_cell)))
@@ -313,12 +270,9 @@ class GeologyField(Field):
             for start in range(0, len(kind_cells), chunk_size):
                 chunk = kind_cells[start : start + chunk_size]
                 cell_indices = np.array([int(cell.index) for cell in chunk], dtype=np.int32)
-                if cell_kind == "triangle":
+                if cell_kind in ("triangle", "polygon"):
                     for cell in chunk:
-                        x_s, y_s = self._sample_points_in_cell(
-                            cell,
-                            n_sub_per_axis=n_sub,
-                        )
+                        x_s, y_s = sample_points_in_cell(cell, n_sub_per_axis=n_sub)
                         encoded = self._sample_encoded_codes(x_s, y_s).reshape(-1)
                         valid_codes = encoded[encoded > 0]
                         if valid_codes.size == 0:

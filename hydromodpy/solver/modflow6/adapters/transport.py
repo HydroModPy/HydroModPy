@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-from hydromodpy.core.exceptions import SolverDivergedError
+from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
+from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverDivergedError
 from hydromodpy.simulation.adapters.transport_helpers import (
     required_flow_model,
     transport_output_suffix,
@@ -35,19 +36,21 @@ class Modflow6GwtTransportAdapter:
         if solver_output_dir is not None:
             cleanup_solver_files(solver_output_dir)
 
-    def extract_calibration_series(
+    def extract_observables(
         self,
         ctx: RunContext,
         store: Any,
+        requests: Sequence[ObservableRequest],
         *,
-        variable: str,
-        station_cells: Mapping[str, tuple[int, int, int]] | None = None,
         time_index: pd.DatetimeIndex | None = None,
-    ) -> pd.Series:
+    ) -> dict[str, ObservableResult]:
         """Fail explicitly because transport calibration is not implemented."""
-        del ctx, store, station_cells, time_index
-        raise NotImplementedError(
-            f"MODFLOW 6 GWT calibration extraction is not implemented for {variable!r}."
+        del ctx, store, time_index
+        if not requests:
+            return {}
+        names = sorted({request.name for request in requests})
+        raise ObservableNotAvailableError(
+            f"MODFLOW 6 GWT produces no calibration observable; asked for {names}."
         )
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:

@@ -8,10 +8,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from hydromodpy.data.base_manager_field import BaseFieldManager
 from hydromodpy.data.common.geo_helpers import bbox_hash as _bbox_hash
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.managers.base_manager_field import BaseFieldManager
 
 from ._test_climatic_managers_builders import _make_field_record, _make_point_record
 

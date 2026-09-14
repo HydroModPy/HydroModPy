@@ -19,21 +19,24 @@ Sub-modules
   ``state.advance(...)``.
 - ``workflow/internals/step.py`` -- ``Step[TIn, TOut]`` Protocol
   (``name``, ``run(state) -> state``, optional ``config_sections``).
-- ``workflow/internals/checkpoint.py`` -- ``CheckpointStore`` with
-  HMAC-SHA256 signed pickle plus zstd compression.
-- ``workflow/internals/ledger.py`` -- DuckDB ledger of executed
-  steps.
+- ``workflow/tracking/journal.py`` -- ``WorkflowJournal``, the DuckDB
+  journal of executed steps; ``workflow/tracking/resume.py`` and
+  ``workflow/tracking/heartbeat.py`` sit beside it. There is no
+  checkpoint store and no pickle layer: resume reads artefacts, see
+  :doc:`/architecture/pipeline_resume`.
 - ``workflow/internals/dependencies.py`` --
   ``earliest_affected_step`` resolves the first pipeline index
   affected by a dotted-path override (used by calibration to skip
   shared phases).
 - ``workflow/internals/derived.py`` -- ``DerivedRegistry`` for
   ordered post-extraction calculations.
-- ``workflow/internals/manifest.py`` -- ``WorkflowManifest`` summary
-  for the lockfile.
+- ``workflow/internals/manifest.py`` -- ``ResolvedRunManifest``, the
+  step blueprint plus config digest written under
+  ``.hmp/checkpoints/<run_id>/resolved_manifest.json`` and verified on
+  resume.
 - ``workflow/runner.py`` -- ``Pipeline`` runner that chains steps,
-  manages the ledger, the optional checkpoint store, and typed
-  errors (``StepError`` exposes ``step_name`` and ``run_id``).
+  manages the journal, and raises typed errors (``StepError`` exposes
+  ``step_name`` and ``run_id``).
 - ``workflow/steps/`` -- the canonical step library.
 - ``workflow/pipelines/`` -- pre-assembled pipelines for the
   standard workflows.
@@ -47,7 +50,12 @@ Defined under ``workflow/steps/`` and re-exported from
 ``ValidateStep``, ``ResolveStep``, ``LoadDataStep``,
 ``BuildGeographicStep``, ``BuildMeshStep``,
 ``SetupProcessStep``, ``PrepareSolverStep``, ``RunSolverStep``,
-``ExtractStep``, ``DeriveStep``, ``ExportStep``, ``DisplayStep``.
+``ExtractStep``, ``DeriveStep``, ``DisplayStep``, ``ExportStep``.
+
+``DisplayStep`` runs before ``ExportStep``: figures are the last reader
+of a run, so they draw from the open store while the intermediate fields
+are still there. ``ExportStep`` then drops what reconciliation forced on
+(the per-cell budget) and seals the store.
 
 Step contract
 -------------
@@ -78,7 +86,7 @@ Key public symbols
 
 - ``hydromodpy.workflow.internals.state.PipelineState``
 - ``hydromodpy.workflow.internals.step.Step``
-- ``hydromodpy.workflow.internals.checkpoint.CheckpointStore``
+- ``hydromodpy.workflow.internals.manifest.ResolvedRunManifest``
 - ``hydromodpy.workflow.internals.dependencies.earliest_affected_step``
 - ``hydromodpy.workflow.internals.derived.DerivedRegistry``
 - ``hydromodpy.workflow.runner.Pipeline``
@@ -86,7 +94,7 @@ Key public symbols
   DisplayStep}``
 
 The v1 ``StepsLedger`` module is removed; workflow steps are now
-recorded in the project ``catalog.duckdb`` under the
+recorded in the project index (``.hmp/index.duckdb``) under the
 ``workflow_steps`` table (see :doc:`/architecture/storage-layout`).
 
 Recommended reading path
@@ -97,7 +105,7 @@ Recommended reading path
 3. ``hydromodpy/workflow/runner.py``
 4. ``hydromodpy/workflow/steps/__init__.py`` to see the registered
    steps.
-5. one step (``hydromodpy/workflow/steps/build_geographic.py``).
+5. one step (``hydromodpy/workflow/steps/setup.py``).
 6. ``hydromodpy/workflow/internals/dependencies.py`` for the
    skip-aware logic used by calibration.
 

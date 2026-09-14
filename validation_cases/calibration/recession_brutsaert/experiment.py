@@ -35,7 +35,7 @@ from hydromodpy.calibration import (
     SimulationOutput,
     build_optimizer,
 )
-from hydromodpy.calibration.objective import evaluate_objective
+from hydromodpy.calibration.optim.objective import evaluate_objective
 
 # ---------------------------------------------------------------------------
 # Forward model

@@ -17,12 +17,20 @@ mid-write leaves the previous lockfile untouched.
 
 Verification has two modes:
 
-- ``verify_frozen`` (used by ``hmp lock verify`` and the frozen-mode catalog)
+- ``verify_frozen`` (used by ``hmp dev lock verify`` and the frozen-mode catalog)
   walks every entry and reports :class:`LockMismatch` records (one per kind:
   ``"missing"``, ``"sha256"``).
 - ``verify_inputs_strict`` returns the same kind of report but is consumed by
-  ``hmp lock verify --strict`` to map ``sha256`` mismatches to a non-zero
+  ``hmp dev lock verify --strict`` to map ``sha256`` mismatches to a non-zero
   exit.
+
+The file has one address, ``<project root>/hydromodpy.lock``, built by
+:func:`project_lockfile_path` and by nothing else. A command that is not handed
+a project root asks :func:`resolve_lockfile_root` for one; a workspace root is
+never an answer, because a workspace holds many projects and one shared cache.
+Frozen mode carries the project root it was enabled on so a reader never has to
+guess it from a database location. :mod:`hydromodpy.project.lockfile` documents
+why the project root, and not the workspace, owns the file.
 """
 
 from __future__ import annotations
@@ -39,6 +47,7 @@ from typing import Any
 
 import tomlkit
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 from hydromodpy.data.registry.migrations import target_version as _cache_target_version
@@ -46,20 +55,78 @@ from hydromodpy.data.registry.migrations import target_version as _cache_target_
 LOCKFILE_NAME = "hydromodpy.lock"
 LOCKFILE_VERSION = "2.0.0"
 
-# Process-wide frozen-mode flag. Consulted by data loaders to refuse
-# fresh downloads when a lockfile is authoritative.
+# Process-wide frozen-mode state. Consulted by data loaders to refuse fresh
+# downloads when a lockfile is authoritative, and to know which project's
+# lockfile that is.
 _FROZEN_MODE: bool = False
+_FROZEN_PROJECT_ROOT: Path | None = None
 
 
-def set_frozen_mode(enabled: bool) -> None:
-    """Toggle process-wide frozen mode (used by ``hmp run --frozen``)."""
-    global _FROZEN_MODE
-    _FROZEN_MODE = bool(enabled)
+def project_lockfile_path(project_root: Path | str) -> Path:
+    """Return ``<project_root>/hydromodpy.lock``, the one address of the lockfile."""
+    return Path(project_root).expanduser() / LOCKFILE_NAME
+
+
+def resolve_lockfile_root(project: Path | str | None = None) -> Path:
+    """Return the project root whose lockfile a command addresses.
+
+    An explicit ``project`` is the root. Otherwise the walk up from the current
+    directory is the one :func:`hydromodpy.core.state.paths.resolve_project_root`
+    owns, and only the miss differs: that helper answers with the starting
+    directory so a flat project still resolves, while a lockfile command
+    outside any project must not write ``hydromodpy.lock`` into whatever
+    directory the shell happened to sit in.
+
+    Every miss raises ``FileNotFoundError``, including the unanchored
+    ``configs/`` directory that helper reports as a ``ConfigError``: one
+    missing root, one exception type to catch.
+    """
+    from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, resolve_project_root
+
+    if project is not None:
+        return Path(project).expanduser().resolve()
+    start = Path.cwd().resolve()
+    try:
+        root = resolve_project_root(start)
+    except ConfigError as exc:
+        raise FileNotFoundError(str(exc)) from exc
+    if not (root / PROJECT_MARKER_FILENAME).is_file():
+        raise FileNotFoundError(
+            f"No {PROJECT_MARKER_FILENAME} at or above {start}: {LOCKFILE_NAME} lives at a "
+            "project root, so run from inside a project or name one explicitly."
+        )
+    return root
+
+
+def set_frozen_mode(enabled: bool, *, project_root: Path | str | None = None) -> None:
+    """Toggle process-wide frozen mode and bind the project it reads.
+
+    ``project_root`` is the directory holding ``hydromodpy.lock`` and is
+    required to enable: frozen mode without a project has no lockfile to read.
+    Disabling clears the binding.
+    """
+    global _FROZEN_MODE, _FROZEN_PROJECT_ROOT
+    if not enabled:
+        _FROZEN_MODE = False
+        _FROZEN_PROJECT_ROOT = None
+        return
+    if project_root is None:
+        raise ValueError(
+            "Enabling frozen mode requires project_root: hydromodpy.lock is read from "
+            "the project root, never guessed."
+        )
+    _FROZEN_MODE = True
+    _FROZEN_PROJECT_ROOT = Path(project_root).expanduser().resolve()
 
 
 def is_frozen_mode() -> bool:
     """Return whether frozen mode is currently active."""
     return _FROZEN_MODE
+
+
+def frozen_project_root() -> Path | None:
+    """Return the project root frozen mode reads the lockfile from, if bound."""
+    return _FROZEN_PROJECT_ROOT
 
 
 @dataclass(frozen=True)
@@ -182,7 +249,9 @@ def _resolve_artifact_path(
     return candidates[0]
 
 
-def _entry_to_locked(row: dict[str, Any], *, base_dir: Path | None) -> LockedArtifact | None:
+def _entry_to_locked(
+    row: dict[str, Any], *, base_dir: Path | None, fetched_at: str
+) -> LockedArtifact | None:
     path = _resolve_artifact_path(row["file_path"], base_dir, variable=row.get("variable"))
     if not path.is_file():
         return None
@@ -201,14 +270,14 @@ def _entry_to_locked(row: dict[str, Any], *, base_dir: Path | None) -> LockedArt
         if row.get("file_mtime") is not None
         else None,
         size_bytes=size,
-        fetched_at=_now_iso(),
+        fetched_at=fetched_at,
     )
 
 
 def _atomic_write_text(dest: Path, text: str) -> None:
     """Write *text* to *dest* atomically (tmp + fsync + replace)."""
     dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dest.parent / f".{dest.name}.tmp.{uuid.uuid4().hex}"
+    tmp = dest.parent / f".{dest.name}.tmp.{uuid.uuid4().hex[:8]}"
     try:
         fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
         try:
@@ -257,8 +326,14 @@ def _collect_binaries(*, solvers: dict[str, Path] | None) -> dict[str, dict[str,
 
 def _inputs_section(
     catalog: DataCatalogDuckDB,
+    *,
+    fetched_at: str,
 ) -> tuple[list[LockedArtifact], dict[str, dict[str, Any]]]:
-    """Return (locked artefacts, inputs-by-path mapping)."""
+    """Return (locked artefacts, inputs-by-path mapping).
+
+    ``fetched_at`` is read once per snapshot and stamped on every artefact,
+    so one lockfile carries one instant instead of one clock read per row.
+    """
     rows = catalog.backend.query(
         "SELECT variable, source, station_id, file_path, file_mtime, sha256 "
         "FROM entries ORDER BY variable, source, station_id, file_path"
@@ -267,7 +342,7 @@ def _inputs_section(
     locked: list[LockedArtifact] = []
     inputs: dict[str, dict[str, Any]] = {}
     for row in rows:
-        la = _entry_to_locked(row, base_dir=base_dir)
+        la = _entry_to_locked(row, base_dir=base_dir, fetched_at=fetched_at)
         if la is None:
             continue
         locked.append(la)
@@ -312,6 +387,9 @@ def write_lockfile(
 
     zarr_ver = zarr_schema_version or ZARR_SCHEMA_VERSION_DEFAULT
     parquet_ver = parquet_schema_version or PARQUET_SCHEMA_VERSION_DEFAULT
+    # One snapshot, one instant: every timestamp in the file comes from here,
+    # so a write that straddles a second boundary stays internally coherent.
+    stamped_at = _now_iso()
 
     doc = tomlkit.document()
 
@@ -328,7 +406,7 @@ def write_lockfile(
     hmp_table.add("catalog_schema_version", _cache_target_version())
     hmp_table.add("zarr_schema_version", zarr_ver)
     hmp_table.add("parquet_schema_version", parquet_ver)
-    hmp_table.add("generated_at", _now_iso())
+    hmp_table.add("generated_at", stamped_at)
     doc.add("hydromodpy", hmp_table)
 
     binaries_table = tomlkit.table()
@@ -353,7 +431,7 @@ def write_lockfile(
         schema_table.add("config_sha256", schema_sha256)
     doc.add("schema", schema_table)
 
-    locked_list, inputs_payload = _inputs_section(catalog)
+    locked_list, inputs_payload = _inputs_section(catalog, fetched_at=stamped_at)
 
     inputs_table = tomlkit.table()
     for rel_path, payload in inputs_payload.items():
@@ -535,7 +613,7 @@ def verify_inputs_strict(
 ) -> list[LockMismatch]:
     """Return only ``sha256`` mismatches found in the ``[inputs]`` section.
 
-    Used by ``hmp lock verify --strict`` to fail with exit 1 when any tracked
+    Used by ``hmp dev lock verify --strict`` to fail with exit 1 when any tracked
     input changed. Missing artefacts are reported with ``kind="missing"``.
     """
     expected = read_lockfile_inputs(lockfile)
@@ -681,12 +759,15 @@ __all__ = [
     "LockMismatch",
     "LockedArtifact",
     "archive_lockfile",
+    "frozen_project_root",
     "is_frozen_mode",
+    "project_lockfile_path",
     "read_lockfile",
     "read_lockfile_binaries",
     "read_lockfile_inputs",
     "read_lockfile_meta",
     "read_lockfile_schema_sha256",
+    "resolve_lockfile_root",
     "restore_archive",
     "set_frozen_mode",
     "sha256_of",

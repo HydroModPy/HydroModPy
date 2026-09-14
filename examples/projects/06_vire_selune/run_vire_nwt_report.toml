@@ -35,6 +35,3 @@ figures = [
   "hydrographic_network_generated_extra_only",
   "simulated_active_network_reference_overlay",
 ]
-
-[display.flow]
-budget = true

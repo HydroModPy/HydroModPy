@@ -9,7 +9,7 @@ TOML section: ``[workflow]``
 
 Pydantic model: ``WorkflowConfig`` defined in ``hydromodpy.config.hydromodpy_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L91>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L100>`__
 
 Workflow selector configuration.
 
@@ -36,9 +36,45 @@ Fields
         <code class="hmp-field-name">mode</code>
       </div>
 
-   :bdg-primary:`Literal['simulation', 'calibration', 'overview', 'comparison', 'testbed', 'site_selection']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L94>`__
+   :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L103>`__
 
       Workflow mode dispatched by `hmp run`.
+
+   .. rst-class:: hmp-field-values
+
+   ``"simulation"``
+      Runs one forward simulation and persists solver outputs, catalog rows, and result stores.
+
+   ``"calibration"``
+      Repeatedly proposes parameters, runs candidate simulations, and records the calibration history.
+
+   ``"overview"``
+      Loads geographic and data context and renders review maps without running a solver.
+
+   ``"comparison"``
+      Runs several child simulations from one shared base config and compares their observables.
+
+   ``"testbed"``
+      Expands a case matrix, delegates each case to a runner, and collects evidence artifacts.
+
+   ``"site_selection"``
+      Selects or rejects candidate catchments and produces an auditable HTML review report.
+
+
+.. index:: ! profile
+
+.. container:: hmp-field hmp-field-level-expert
+   :name: workflow-profile
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="workflow.profile">
+        <code class="hmp-field-name">profile</code>
+      </div>
+
+   :bdg-primary:`bool | str` :bdg-secondary:`default = False` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L135>`__
+
+      Profile the run with pyinstrument (honored by the hmp CLI; the --profile flag wins over this field). true writes <config>.profile.html next to the config; a string sets the HTML report path.
 
 
 Starter TOML snippet

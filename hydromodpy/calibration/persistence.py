@@ -1,8 +1,13 @@
-"""DuckDB persistence for calibration sessions and iterations.
+"""Persistence for calibration sessions and iterations.
 
-Writes through the injected calibration store connection. Each iteration
-becomes **one row** in ``calibration_iterations`` regardless of ``save_runs``
-mode.
+Two sinks, one shape. The session journal under ``sessions/<name>/`` is the
+truth: it is written as the calibration goes, so an interrupted run keeps its
+history, and :func:`hydromodpy.results.catalog.reindex.rebuild_index` reads it
+back. The DuckDB rows are the index over it, so each iteration becomes **one
+row** in ``calibration_iterations`` regardless of ``save_runs`` mode.
+
+The journal is written first, then the index: a failing database write costs a
+query, never a calibration history.
 """
 
 from __future__ import annotations
@@ -10,10 +15,12 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, Literal, Protocol
 
-from hydromodpy.calibration.optimizer import EvaluationResult, ParamSuggestion
+from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
+from hydromodpy.results.session_journal import SessionJournal, SessionTrial
 
 PersistDetail = Literal["none", "summary", "full"]
 
@@ -26,20 +33,25 @@ class CalibrationStore(Protocol):
 
 
 class CalibrationPersistence:
-    """Idempotent writer for calibration rows.
+    """Idempotent writer for one calibration session.
 
-    The shared :class:`PersistenceConfig` gates every DuckDB write. When
-    ``persistence.save_catalog`` is False, every method becomes a no-op,
-    so calibration sessions can run fully in-memory.
+    The shared :class:`PersistenceConfig` gates every write. When
+    ``persistence.save_catalog`` is False, every method becomes a no-op, so
+    calibration sessions can run fully in-memory. ``project_root`` names the
+    project owning ``sessions/``; without it the session is indexed but not
+    journalled, which is what a read-only report handle wants.
     """
 
     def __init__(
         self,
         catalog: CalibrationStore,
         persistence: PersistenceConfig | None = None,
+        project_root: Path | None = None,
     ):
         self._conn = catalog.connection
         self._persistence = persistence or PersistenceConfig()
+        self._project_root = project_root
+        self._journal: SessionJournal | None = None
 
     def start_session(
         self,
@@ -48,25 +60,57 @@ class CalibrationPersistence:
         project: str,
         method: str,
         objective_name: str,
+        search_space: dict[str, Any],
         config: dict,
+        parent_session_id: str | None = None,
+        root_session_id: str | None = None,
+        phase_name: str | None = None,
+        phase_index: int | None = None,
     ) -> None:
+        """Open a session, in the journal then in the index.
+
+        The four chaining arguments place the session in a phase chain and
+        stay empty for a standalone calibration.
+        """
         if not self._persistence.save_catalog:
             return
+        started_at = datetime.now(UTC)
+        if self._project_root is not None:
+            self._journal = SessionJournal.start(
+                self._project_root,
+                session_id=session_id,
+                project=project,
+                method=method,
+                objective_name=objective_name,
+                search_space=search_space,
+                config=config,
+                started_at=started_at,
+                parent_session_id=parent_session_id,
+                root_session_id=root_session_id,
+                phase_name=phase_name,
+                phase_index=phase_index,
+            )
         self._conn.execute(
             """
             INSERT INTO calibration_sessions
                 (session_id, project, method, objective_name,
-                 n_iterations, config, started_at, status_id)
+                 n_iterations, config, started_at, status_id,
+                 parent_session_id, root_session_id, phase_name, phase_index)
             VALUES (?, ?, ?, ?, 0, ?, ?,
-                    (SELECT id FROM statuses WHERE code = 'running'))
+                    (SELECT id FROM statuses WHERE code = 'running'),
+                    ?, ?, ?, ?)
             """,
             [
-                uuid.UUID(session_id) if len(session_id) == 32 else session_id,
+                _session_key(session_id),
                 project,
                 method,
                 objective_name,
                 json.dumps(config, default=str),
-                datetime.now(UTC),
+                started_at,
+                _session_key(parent_session_id),
+                _session_key(root_session_id),
+                phase_name,
+                None if phase_index is None else int(phase_index),
             ],
         )
 
@@ -80,20 +124,16 @@ class CalibrationPersistence:
     ) -> None:
         if not self._persistence.save_catalog:
             return
-        metadata = result.metadata or {}
-        parameter_payload = metadata.get("parameters")
-        if not isinstance(parameter_payload, dict):
-            parameter_payload = {
-                name: {"value": value} for name, value in dict(suggestion.values).items()
-            }
-        params_json = json.dumps(parameter_payload, default=str)
-        params_hash = metadata.get("params_hash")
-        metrics_json = _build_metrics_json(result, metadata, detail)
-        sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
+        trial = _build_trial(suggestion, result, detail)
+        if self._journal is not None:
+            self._journal.append(trial)
+        params_json = json.dumps(trial.parameters, default=str)
+        metrics_json = None if trial.metrics is None else json.dumps(trial.metrics, default=str)
+        sid = _session_key(session_id)
         sim_uuid = None
-        if result.sim_id:
+        if trial.sim_id:
             try:
-                sim_uuid = uuid.UUID(result.sim_id)
+                sim_uuid = uuid.UUID(trial.sim_id)
             except ValueError:
                 sim_uuid = None
         self._conn.execute(
@@ -114,20 +154,15 @@ class CalibrationPersistence:
             """,
             [
                 sid,
-                suggestion.trial_id,
+                trial.trial,
                 sim_uuid,
-                params_hash,
+                trial.params_hash,
                 params_json,
-                (
-                    result.objective_value
-                    if isinstance(result.objective_value, (int, float))
-                    and result.objective_value == result.objective_value
-                    else None
-                ),
+                trial.objective_value,
                 metrics_json,
-                result.status,
-                bool(result.from_cache),
-                float(result.duration_s),
+                trial.status,
+                trial.from_cache,
+                trial.duration_s,
             ],
         )
 
@@ -140,14 +175,33 @@ class CalibrationPersistence:
         duration_s: float,
         status: str = "completed",
         error: str | None = None,
+        best_sim_id: str | None = None,
     ) -> None:
+        """Close the session: outcome, best trial and promoted best run.
+
+        ``best_sim_id`` is the run promotion produced for the best trial; it
+        wins over the id the evaluation carried, which stays empty for the
+        lightweight trial loop.
+        """
         if not self._persistence.save_catalog:
             return
-        sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
+        ended_at = datetime.now(UTC)
+        best_run = best_sim_id or (best.sim_id if best else None)
+        if self._journal is not None:
+            self._journal.finish(
+                status=status,
+                duration_s=duration_s,
+                ended_at=ended_at,
+                best_trial=best.trial_id if best else None,
+                best_objective=best.objective_value if best else None,
+                best_sim_id=best_run,
+                error_message=error,
+            )
+        sid = _session_key(session_id)
         best_sim_uuid = None
-        if best and best.sim_id:
+        if best_run:
             try:
-                best_sim_uuid = uuid.UUID(best.sim_id)
+                best_sim_uuid = uuid.UUID(best_run)
             except ValueError:
                 best_sim_uuid = None
         self._conn.execute(
@@ -166,7 +220,7 @@ class CalibrationPersistence:
                 n_iterations,
                 best_sim_uuid,
                 best.objective_value if best else None,
-                datetime.now(UTC),
+                ended_at,
                 duration_s,
                 status,
                 error,
@@ -175,7 +229,7 @@ class CalibrationPersistence:
         )
 
     def load_iterations(self, session_id: str) -> list[dict]:
-        sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
+        sid = _session_key(session_id)
         rows = self._conn.execute(
             """
             SELECT iteration, sim_id, params_hash, parameters,
@@ -215,7 +269,7 @@ class CalibrationPersistence:
 
     def top_n(self, session_id: str, n: int) -> list[dict]:
         """Return the N best completed iterations (lowest objective)."""
-        sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
+        sid = _session_key(session_id)
         rows = self._conn.execute(
             """
             SELECT iteration, sim_id, params_hash, parameters,
@@ -245,14 +299,51 @@ class CalibrationPersistence:
         return out
 
 
-def _build_metrics_json(
+def _session_key(session_id: str | None) -> uuid.UUID | str | None:
+    """Return a session id in the form the index stores it.
+
+    A journal writes the identity as bare 32-character hex, which DuckDB
+    does not read as a UUID on its own; every other spelling it casts.
+    """
+    if session_id is None:
+        return None
+    return uuid.UUID(session_id) if len(session_id) == 32 else session_id
+
+
+def _build_trial(
+    suggestion: ParamSuggestion,
+    result: EvaluationResult,
+    detail: PersistDetail,
+) -> SessionTrial:
+    """Return the record one evaluation writes, to the journal and the index."""
+    metadata = result.metadata or {}
+    parameters = metadata.get("parameters")
+    if not isinstance(parameters, dict):
+        parameters = {name: {"value": value} for name, value in dict(suggestion.values).items()}
+    objective = result.objective_value
+    finite = isinstance(objective, (int, float)) and objective == objective
+    return SessionTrial(
+        trial=int(suggestion.trial_id),
+        parameters=parameters,
+        objective_value=float(objective) if finite else None,
+        status=result.status,
+        duration_s=float(result.duration_s),
+        from_cache=bool(result.from_cache),
+        metrics=_build_metrics(result, metadata, detail),
+        params_hash=metadata.get("params_hash"),
+        sim_id=result.sim_id,
+    )
+
+
+def _build_metrics(
     result: EvaluationResult,
     metadata: dict,
     detail: PersistDetail,
-) -> str | None:
+) -> dict[str, Any] | None:
+    """Return the metric payload of one trial at the requested detail."""
     if detail == "none":
         return None
-    payload: dict[str, object] = {}
+    payload: dict[str, Any] = {}
     if result.components:
         payload.update({str(k): v for k, v in dict(result.components).items()})
     overlay = metadata.get("materialized_overlay")
@@ -262,9 +353,10 @@ def _build_metrics_json(
         block_costs = metadata.get("block_costs")
         if isinstance(block_costs, dict) and block_costs:
             payload["block_costs"] = {str(k): v for k, v in block_costs.items()}
-    if not payload:
-        return None
-    return json.dumps(payload, default=str)
+    error = metadata.get("error")
+    if error:
+        payload["error"] = str(error)
+    return payload or None
 
 
 __all__ = ["CalibrationPersistence", "PersistDetail"]

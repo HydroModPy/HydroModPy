@@ -103,6 +103,7 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(
         json.dumps(normalized_payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
 
 
@@ -110,6 +111,7 @@ def _copy_text_artifact(source: Path, destination: Path) -> None:
     destination.write_text(
         normalize_public_path_text(source.read_text(encoding="utf-8")),
         encoding="utf-8",
+        newline="\n",
     )
 
 

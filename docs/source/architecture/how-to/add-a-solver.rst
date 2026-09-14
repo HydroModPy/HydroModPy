@@ -11,7 +11,7 @@ Contract
 --------
 
 A solver implements the ``SolverAdapter`` Protocol declared in
-``hydromodpy/solver/base/protocol.py``:
+``hydromodpy/solver/base/adapter_protocol.py``:
 
 .. code-block:: python
 
@@ -23,28 +23,27 @@ A solver implements the ``SolverAdapter`` Protocol declared in
        def validate(self, ctx: RunContext) -> None: ...
        def execute(self, ctx: RunContext) -> RunExecutionResult: ...
        def cleanup(self, ctx: RunContext) -> None: ...
-       def extract_calibration_series(
+       def extract_observables(
            self,
            ctx: RunContext,
            store,
+           requests: "Sequence[ObservableRequest]",
            *,
-           variable: str,
-           station_cells,
-           time_index,
-       ) -> "pandas.Series": ...
+           time_index=None,
+       ) -> "dict[str, ObservableResult]": ...
 
 ``RunExecutionResult`` is a small dataclass exposing
 ``success: bool`` and ``outputs: dict | None``.
 
-A separate **output adapter** ingests the persisted outputs into the
-catalog. It implements the dual contract:
+A separate **output adapter** (the *extractor*) ingests the persisted
+outputs into the catalog. It is registered on the same
+``(process_type, solver_name)`` pair as the adapter and implements:
 
 .. code-block:: python
 
    class SolverOutputAdapter:
-       solver_name: ClassVar[str]
-
        def extract(self, sim_id: str, solver_output_dir: Path, store) -> None: ...
+       def derive(self, sim_id: str, store, ...) -> None: ...
 
 Files to create
 ---------------
@@ -77,7 +76,7 @@ Minimal adapter skeleton
    # hydromodpy/solver/mysolver/adapters/flow.py
    from typing import ClassVar
 
-   from hydromodpy.solver.base.protocol import RunExecutionResult
+   from hydromodpy.solver.base.adapter_protocol import RunExecutionResult
 
 
    class MysolverFlowAdapter:
@@ -98,10 +97,10 @@ Minimal adapter skeleton
            # remove scratch files; leave persisted outputs alone
            ...
 
-       def extract_calibration_series(
-           self, ctx, store, *, variable, station_cells, time_index
-       ):
-           # cheap series extraction used inside the calibration loop
+       def extract_observables(self, ctx, store, requests, *, time_index=None):
+           # cheap extraction inside the calibration loop: the whole batch
+           # arrives at once, so each binary file is opened once. Refuse what
+           # the backend cannot produce with ObservableNotAvailableError.
            ...
 
 Registration
@@ -110,31 +109,53 @@ Registration
 Two paths, depending on whether the backend ships inside the
 HydroModPy repository or as an external plugin.
 
-**In-tree backend.** Register through the built-in path table in
-``hydromodpy/solver/base/registry.py``:
+**In-tree backend.** Register through the two built-in path tables in
+``hydromodpy/solver/base/registry.py``. Both tables are keyed on the
+**same ``(process_type, solver_name)`` tuple** — the extractor table is
+not keyed on the solver name alone, because one backend can carry a
+different extractor per process (flow vs transport for MODFLOW 6):
 
 .. code-block:: python
 
    _BUILTIN_PATHS[("flow", "mysolver")] = (
        "hydromodpy.solver.mysolver.adapters.flow:MysolverFlowAdapter"
    )
-   _BUILTIN_EXTRACTOR_PATHS["mysolver"] = (
+   _BUILTIN_EXTRACTOR_PATHS[("flow", "mysolver")] = (
        "hydromodpy.solver.mysolver.extractors.flow:MysolverOutputAdapter"
    )
 
-**External plugin.** Declare the entry point in your distribution's
-``pyproject.toml``:
+A string key such as ``_BUILTIN_EXTRACTOR_PATHS["mysolver"]`` registers
+nothing that ``get_extractor("flow", "mysolver")`` can find:
+``get_extractor_instance`` then returns ``None`` and ``post_run_results``
+treats it as a configuration error. The backend solves and the run is
+lost on the way to the catalog.
+
+**External plugin.** Declare the entry points in your distribution's
+``pyproject.toml``. Ship both groups, for the same reason:
 
 .. code-block:: toml
 
    [project.entry-points."hydromodpy.solver"]
    flow_mysolver = "mypkg.adapters:MysolverFlowAdapter"
 
-The runtime calls
-``hydromodpy.solver.base.registry.load_plugins()`` once at import
-time, then resolves the adapter through ``registry.get(process_type,
-solver_name)`` and instantiates it via
-``registry.get_solver_adapter(process_type, solver_name)``.
+   [project.entry-points."hydromodpy.solver.extractor"]
+   flow_mysolver = "mypkg.extractors:MysolverOutputAdapter"
+
+Entry-point names are split at the **first** underscore, so
+``flow_mysolver`` yields ``("flow", "mysolver")``. Never declare an
+in-tree backend through an entry point as well: ``flow_modflownwt``
+would mint a second pair ``flow/modflownwt`` next to the real
+``flow/modflow_nwt``, which the config accepts but which has an adapter
+and no extractor.
+
+Nothing is loaded at import time. ``registry.get(process_type,
+solver_name)`` serves explicit registrations first, then lazy-imports
+the ``_BUILTIN_PATHS`` entry, and only calls ``load_plugins()`` once if
+the pair is still unknown. Launchers may also call
+``SolverConfig.validate_registry()`` to force that scan up front and
+fail early on an unknown backend name. The runner instantiates the
+adapter through ``registry.get_solver_adapter(process_type,
+solver_name)``.
 
 Capabilities (optional but recommended)
 ---------------------------------------

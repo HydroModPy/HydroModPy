@@ -160,8 +160,8 @@ def _record(
             "validation_cases/calibration/shared/runtime.py",
             run_case_file,
             run_case_file.replace("run_case.py", "experiment.py"),
-            "hydromodpy/calibration/cli.py",
-            "hydromodpy/calibration/engine.py",
+            "hydromodpy/calibration/runners/cli_runner.py",
+            "hydromodpy/calibration/optim/engine.py",
         ]
     )
     return CalibrationCaseRecord(

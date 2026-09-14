@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString
 
-from hydromodpy.results import views
+from hydromodpy.results.derive import views
 from hydromodpy.results.run import Run
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
@@ -47,6 +47,9 @@ def _write_active_accumulation_flux_case(catalog, sid, *, write_plot_mesh=False)
             face_node_connectivity,
             np.array([100.0, 100.0, -9999.0, 100.0], dtype="float64"),
         )
+        # The frame the mesh coordinates live in, same as the network features
+        # below: network metrics overlay the two and refuse to guess.
+        catalog.write_geographic_metadata(sid, {"crs_proj": "EPSG:2154"})
     sz = catalog.open_zarr(sid)
     try:
         mesh = sz.root.require_group("mesh")

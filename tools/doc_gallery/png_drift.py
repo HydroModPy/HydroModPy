@@ -96,7 +96,11 @@ def write_baseline(
         "root": root_label,
         "files": dict(sorted(hashes.items())),
     }
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def compare_hashes(

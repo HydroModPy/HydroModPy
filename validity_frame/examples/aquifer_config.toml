@@ -1,0 +1,73 @@
+# Semantic model configuration — Nançon watershed aquifer study
+# Values taken directly from examples/projects/02_nancon_watershed/project.toml
+
+# ── Model structure: SM = ⟨IM, OM, Par_M, States_M⟩ ─────────────────────────
+[model.structure]
+inputs     = ["recharge", "etp", "boundary_head"]   # direct MODFLOW forcings
+outputs    = ["head", "flow_budget"]
+parameters = ["K", "Sy", "Ss"]                      # calibrated parameters
+states     = ["head_field"]                          # internal state computed by solver
+
+# ── Properties of interest: Π_M = ⟨Π_known, Π_unknown⟩ ─────────────────────
+[[properties_of_interest.known]]
+id          = "debit"
+name        = "Streamflow at outlet"
+description = "Simulated DRN baseflow + runoff compared to hydrometric station"
+unit        = "m3/s"
+min         = 0.0
+max         = 500.0
+
+[[properties_of_interest.known]]
+id          = "head_range"
+name        = "Head amplitude"
+description = "max(h) - min(h) across the domain — indicator of gradient consistency"
+unit        = "m"
+min         = 0.0
+max         = 100.0
+
+[[properties_of_interest.unknown]]
+id          = "K_eff_inferred"
+name        = "Inferred effective conductivity"
+description = "Global K the model implies over the catchment — not directly observed"
+
+# ── Influence factors: Γ_M = ⟨Γ_meas, Γ_nomeas⟩ ─────────────────────────────
+# These affect the REAL system but are OUTSIDE MODFLOW's internal equations.
+# (recharge and etp are INSIDE MODFLOW as forcings → they belong to SM.inputs above)
+
+[[influence_factors.measurable]]
+id          = "runoff"
+name        = "Surface runoff"
+description = "Estimated from data/runoff/EX04 — added to DRN baseflow for discharge comparison but NOT modeled by MODFLOW internally"
+unit        = "mm/d"
+min         = 0.0
+max         = 50.0
+
+[[influence_factors.non_measurable]]
+id          = "fracture_heterogeneity"
+name        = "Granite fracture heterogeneity"
+description = "Fine-scale fracturing in the Armorican massif — drives local K variability that the homogeneous K field cannot capture"
+
+# ── Context: CM ───────────────────────────────────────────────────────────────
+# Physical and geographic identity of the system under study.
+# All values from project.toml [geographic] and [domain].
+
+[context]
+system               = "nancon_watershed"
+crs                  = "EPSG:2154"
+outlet_x             = 389285.91      # Nançon gauging station — Lambert-93
+outlet_y             = 6816518.749
+aquifer_thickness_m  = 30.0           # constant thickness below topography
+family               = ["nancon_at_la_selle"]
+
+[context.geo_nature]
+dominant_lithology = "granite"
+dem_correction     = "breach"         # sink-filling method used on the DEM
+
+[context.attributes]
+alpha_granite   = 0.72
+alpha_limestone = 0.28
+
+# ── Validation: threshold τ and metric ────────────────────────────────────────
+[validation]
+metric    = "max_abs_mass_balance_percent_error"
+threshold = 5.0

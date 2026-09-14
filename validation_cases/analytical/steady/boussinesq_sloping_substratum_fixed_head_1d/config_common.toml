@@ -52,11 +52,11 @@ value = "1e-4 m/s"
 type = "custom"
 value = "10.0 m"
 
-[flow.bc.dirichlet.west_side]
+[flow.bc.west_side]
 kind = "dirichlet"
 value = "15.0 m"
 
-[flow.bc.dirichlet.east_side]
+[flow.bc.east_side]
 kind = "dirichlet"
 value = "5.0 m"
 

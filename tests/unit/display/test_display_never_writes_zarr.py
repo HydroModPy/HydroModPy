@@ -11,7 +11,7 @@ from __future__ import annotations
 import inspect
 
 from hydromodpy.display import list_figures
-from hydromodpy.display.catalog import get as get_figure
+from hydromodpy.display.figure_registry import get as get_figure
 
 _WRITE_TOKENS = (
     "write_",

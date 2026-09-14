@@ -20,8 +20,6 @@ snap_dist = "150 m"
 buff_area = "10%"
 
 [domain]
-zone_ids = ["geology"]
-
 [domain.depth_model]
 kind = "constant_thickness"
 thickness = "50.0 m"
@@ -71,9 +69,10 @@ value = "0.02 -"
 [flow.ic]
 type = "top"
 
-[flow.bc.cauchy.drainage]
+[flow.bc.drainage]
 application_domain = "top"
 value = "0.0 m2/s"
+kind = "cauchy"
 
 [flow.sinks_sources.recharge]
 first_clim = "mean"

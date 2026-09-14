@@ -101,7 +101,7 @@ class ProcessCallbacks:
 
     ``after_run`` is finer-grained: it fires after each individual solver
     execution completes, receiving the run and its result. This is the hook
-    point for SimulationCatalog ingestion.
+    point for Catalog ingestion.
     """
 
     before_process: Callable[[str], None] | None = None

@@ -25,6 +25,14 @@ from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 class SolverMesh:
     """Solver-agnostic 2D+layers mesh.
 
+    The mesh is PRISMATIC (vertically extruded): every layer shares the same
+    planar cells, with per-cell ``top`` / ``botm`` elevations. This is the data
+    model behind MODFLOW DIS (structured planar) and DISV (any planar topology):
+    ``to_dis_kwargs`` and ``to_disv_kwargs`` both export it. It does NOT represent
+    a fully unstructured 3D grid (DISU: per-layer-varying footprints, vertical
+    refinement, arbitrary node connectivity); that would need a non-prismatic mesh
+    type and an explicit connectivity export, added alongside this one.
+
     Parameters
     ----------
     planar_mesh : HydroMesh
@@ -105,15 +113,17 @@ class SolverMesh:
     # -- Geometry helpers -----------------------------------------------------
 
     def cell_centroids(self) -> np.ndarray:
-        """Return cell centroids as ndarray (n_cells, 2)."""
-        conn = self.planar_mesh.flat_connectivity
-        verts = np.asarray(self.planar_mesh.vertices, dtype=float)
-        centroids = np.zeros((self.n_cells, 2), dtype=float)
-        for ic in range(self.n_cells):
-            nodes = conn[ic]
-            centroids[ic, 0] = float(verts[nodes, 0].mean())
-            centroids[ic, 1] = float(verts[nodes, 1].mean())
-        return centroids
+        """Return cell centers as ndarray (n_cells, 2).
+
+        Delegates to the planar mesh, which returns the explicit DISV cell
+        centers (the Voronoi/PEBI generator seeds written to the DISV file) when
+        present, so LAK connection lengths, the watershed DRN mask and PRT release
+        points use the same centers MODFLOW 6 sees, and nearest-centroid lookup is
+        exact point-location on a Voronoi grid. Falls back to the per-cell vertex
+        mean (exact for parallelogram cells) otherwise.
+        """
+        xs, ys = self.planar_mesh.cell_centroids()
+        return np.column_stack([np.asarray(xs, dtype=float), np.asarray(ys, dtype=float)])
 
     def cell_areas(self) -> np.ndarray:
         """Return area of each planar cell."""

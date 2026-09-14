@@ -1,0 +1,683 @@
+"""Objective Protocol - computes a cost from observed vs simulated data.
+
+The calibration engine only requires an object with ``evaluate(sim) -> float``
+or ``evaluate(sim) -> dict`` (multi-objective). ``ObservationSet`` and
+``SimulationOutput`` are the standard payloads but any callable-like object
+matching the Protocol is accepted.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass, field
+from typing import Any, Protocol, runtime_checkable
+
+import numpy as np
+
+from hydromodpy.calibration.criteria.series import (
+    HIGHER_IS_BETTER,
+    LOG_METRICS,
+    clip_negatives_for_log_metric,
+)
+from hydromodpy.core.metrics import (
+    kge,
+    log_nse,
+    mae,
+    nse,
+    nse_delta,
+    nse_seasonal,
+    rmse,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ObservationSet:
+    """Observed time series used to score one simulated variable.
+
+    ``stations`` defines the station order, ``times`` defines the common time
+    axis, and ``values`` maps each station id to its observed vector. Optional
+    weights can be used by objectives that combine several stations.
+    """
+
+    stations: tuple[str, ...]
+    times: np.ndarray
+    values: Mapping[str, np.ndarray]
+    variable: str
+    weights: Mapping[str, float] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SimulationOutput:
+    """Simulated values aligned with an ``ObservationSet``.
+
+    The payload is intentionally small: a simulation id, station ids, a time
+    axis, and one vector per station. Metadata can carry backend-specific
+    details without changing the objective Protocol.
+    """
+
+    sim_id: str
+    stations: tuple[str, ...]
+    times: np.ndarray
+    values: Mapping[str, np.ndarray]
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class ObjectiveValue:
+    """Minimization cost returned by an objective.
+
+    ``total`` is the scalar value minimized by the optimizer. ``components``
+    stores named diagnostics such as station costs or block totals. ``vector``
+    is available for optimizers that need a multi-objective representation.
+    """
+
+    total: float
+    components: Mapping[str, float] = field(default_factory=dict)
+    vector: tuple[float, ...] | None = None
+
+
+@runtime_checkable
+class Objective(Protocol):
+    """Protocol for calibration objectives.
+
+    Implementations expose a ``name`` and an ``evaluate`` method accepting a
+    ``SimulationOutput``. The return value may be an ``ObjectiveValue``, a
+    scalar cost, or a mapping with a ``total`` key.
+    """
+
+    name: str
+
+    def evaluate(self, sim: SimulationOutput) -> ObjectiveValue | float | dict: ...
+
+
+# ---------------------------------------------------------------------------
+# Builtin metrics and a lightweight ScalarObjective
+# ---------------------------------------------------------------------------
+
+
+def _kge_score(sim: np.ndarray, obs: np.ndarray) -> float:
+    """Scalar KGE score; calibration needs a single number, not the decomposition."""
+    return float(kge(sim, obs)["kge"])
+
+
+# Window, in samples, over which the reservoir objective differences the level.
+# A day-to-day increment is wrecked by a two or three day phase shift even when the
+# filling and emptying are right; ten days keeps the flux signal while making such a
+# shift a perturbation rather than a sign flip.
+RESERVOIR_INCREMENT_STEP: int = 10
+
+
+# KGE is NOT offered on increments, on purpose. Its beta term is a ratio of means,
+# and the mean of an increment series is (last - first) / n, i.e. near zero by
+# construction, so the score swings wildly for one and the same run depending only
+# on where the series is cut. NSE has no such term and stays stable, so the
+# increment side of the objective uses it.
+
+
+def _reservoir_score(sim: np.ndarray, obs: np.ndarray) -> float:
+    """Half seasonal efficiency on the level, half efficiency on its increments.
+
+    Built for an impounded level, where the two usual metrics mislead in opposite
+    ways. ``nse`` on the level compares the model to a flat mean, a benchmark a
+    strongly seasonal signal beats on its own, so a run can score comfortably and
+    still be worse than the seasonal cycle. And a level is an integral, so
+    compensating flux errors cancel in it: a low-water bias and a high-water bias of
+    opposite signs hide behind a mean bias near zero while the increments stay
+    uncorrelated.
+
+    Pairing the two closes both holes: the seasonal term keeps the absolute level
+    honest and demands more than climatology, the increment term makes the water
+    balance count. Equal weights, no tuning knob, so the score stays readable.
+
+    The increments are taken over ``RESERVOIR_INCREMENT_STEP`` samples rather than
+    one, so a timing error of a few days is not punished as though the model had
+    filled when it should have emptied.
+    """
+    seasonal = nse_seasonal(sim, obs)
+    increments = nse_delta(sim, obs, step=RESERVOIR_INCREMENT_STEP)
+    if not np.isfinite(seasonal) or not np.isfinite(increments):
+        return float("nan")
+    return 0.5 * float(seasonal) + 0.5 * float(increments)
+
+
+def _distance_pair(simulated: np.ndarray) -> tuple[float, float]:
+    """Read the ``(D_so, D_os)`` pair a network output produces."""
+    values = np.asarray(simulated, dtype=float).ravel()
+    if values.size != 2:
+        raise ValueError(
+            "a distance metric scores the pair (D_so, D_os) a network output "
+            f"produces; got {values.size} value(s)."
+        )
+    return float(values[0]), float(values[1])
+
+
+def distance_gap(simulated: np.ndarray) -> float:
+    """``abs(D_so - D_os)``, Eq. 1: the cost the root search drives to zero.
+
+    It takes no observed vector, structurally: the criterion balances an excess
+    of simulated stream against a missing one, both simulated. That is why the
+    zero of this cost is an intersection and not a minimum of distance.
+    """
+    d_so, d_os = _distance_pair(simulated)
+    return abs(d_so - d_os)
+
+
+def distance_mean(simulated: np.ndarray) -> float:
+    """``(D_so + D_os) / 2``, Eq. 2. A diagnostic, and a cost only outside.
+
+    It is legitimate as a cost in the outer loop that picks between structures
+    already balanced at ``J = 0``; using it inside, in place of Eq. 1, is a
+    different estimator, and nothing puts its interior minimum at the crossing.
+    """
+    d_so, d_os = _distance_pair(simulated)
+    return 0.5 * (d_so + d_os)
+
+
+METRICS: dict[str, Callable[..., float]] = {
+    "nse": nse,
+    "rmse": rmse,
+    "mae": mae,
+    "kge": _kge_score,
+    "nse_delta": nse_delta,
+    "nse_seasonal": nse_seasonal,
+    "nse_log": log_nse,
+    "distance_gap": distance_gap,
+    "distance_mean": distance_mean,
+    "reservoir": _reservoir_score,
+}
+
+# Output supports whose values carry no time axis. A ``network`` output produces the
+# pair (D_so, D_os), two distances in metres, so nothing in it can be read as "the
+# first periods of the run". Compared as strings because this layer must not import
+# the config layer.
+TIMELESS_SUPPORTS: frozenset[str] = frozenset({"network"})
+
+
+class ScalarObjective:
+    """Single metric objective over one observation set.
+
+    The objective evaluates one metric such as NSE, KGE, RMSE, or MAE for each
+    available station, converts scores to minimization costs when needed, and
+    returns the weighted station average.
+    """
+
+    def __init__(
+        self,
+        observations: ObservationSet,
+        *,
+        metric: str = "nse",
+        station_weights: Mapping[str, float] | None = None,
+    ):
+        if metric not in METRICS:
+            raise ValueError(f"Unknown metric: {metric!r}. Choices: {sorted(METRICS)}")
+        self.name = metric
+        self._observations = observations
+        self._metric_fn = METRICS[metric]
+        self._higher_is_better = metric in HIGHER_IS_BETTER
+        self._weights = dict(station_weights) if station_weights else {}
+
+    def evaluate(self, sim: SimulationOutput) -> ObjectiveValue:
+        obs = self._observations
+        components: dict[str, float] = {}
+        weights: list[float] = []
+        costs: list[float] = []
+        for station in obs.stations:
+            o = obs.values[station]
+            s = sim.values.get(station)
+            if s is None:
+                continue
+            value = float(self._metric_fn(s, o))
+            cost = (1.0 - value) if self._higher_is_better else value
+            components[f"cost:{self.name}@{station}"] = cost
+            costs.append(cost)
+            weights.append(float(self._weights.get(station, 1.0)))
+        if not costs:
+            return ObjectiveValue(total=float("inf"), components={})
+        w = np.array(weights, dtype=float)
+        c = np.array(costs, dtype=float)
+        total = float(np.average(c, weights=w))
+        return ObjectiveValue(total=total, components=components)
+
+
+def evaluate_objective(obj: Objective, sim: SimulationOutput) -> ObjectiveValue:
+    """Normalize return types from user-defined Objective implementations."""
+    out = obj.evaluate(sim)
+    if isinstance(out, ObjectiveValue):
+        return out
+    if isinstance(out, (int, float)):
+        return ObjectiveValue(total=float(out))
+    if isinstance(out, Mapping):
+        total = float(out.get("total", out.get("value", float("inf"))))
+        comps = {k: float(v) for k, v in out.items() if k not in {"total", "value"}}
+        return ObjectiveValue(total=total, components=comps)
+    raise TypeError(f"Unsupported Objective return type: {type(out)}")
+
+
+# ---------------------------------------------------------------------------
+# CompositeObjective - weighted multi-block composite
+# ---------------------------------------------------------------------------
+
+
+def _transform_identity(cost: float) -> float:
+    return float(cost)
+
+
+def _transform_log(cost: float, *, epsilon: float = 1.0e-6) -> float:
+    """Apply a monotone log transform to a minimization cost."""
+    value = float(cost) + float(epsilon)
+    if value <= 0.0:
+        raise ValueError(
+            f"log transform requires cost + epsilon > 0 (got cost={cost}, epsilon={epsilon})"
+        )
+    return float(np.log10(value))
+
+
+def _transform_inverse(cost: float, *, epsilon: float = 1.0e-6) -> float:
+    """Apply a monotone inverse transform to a minimization cost."""
+    value = float(cost) + float(epsilon)
+    if value == 0.0:
+        raise ValueError("inverse transform requires cost + epsilon != 0")
+    return -1.0 / value
+
+
+_TRANSFORMS: dict[str, Callable[[float], float]] = {
+    "identity": _transform_identity,
+    "log": _transform_log,
+    "inverse": _transform_inverse,
+}
+
+
+def _resolve_transform(name: str) -> Callable[[float], float]:
+    key = str(name).strip().lower() if name is not None else "identity"
+    if key not in _TRANSFORMS:
+        raise ValueError(f"Unknown transform: {name!r}. Choices: {sorted(_TRANSFORMS)}")
+    return _TRANSFORMS[key]
+
+
+class CompositeObjective:
+    """Weighted composite of several :class:`ScalarObjective` blocks.
+
+    Each block is a ``(ScalarObjective, weight)`` tuple. ``evaluate()`` runs
+    every block on the same :class:`SimulationOutput`, optionally applies a
+    per-block ``transform`` to the block total cost, then returns a single
+    :class:`ObjectiveValue` whose ``.total`` is the weighted sum of the
+    transformed block totals and ``.components`` merges every block's
+    components. Weights are normalised so they sum to 1.0.
+
+    Parameters
+    ----------
+    blocks
+        Iterable of ``(ScalarObjective, weight)`` tuples. Weights must be
+        strictly positive and finite.
+    name
+        Optional label for the composite (default: ``"composite"``).
+    transform
+        One of ``"identity"``, ``"log"``, ``"inverse"`` (case-insensitive).
+        Applied to each block's cost before weighting. Default
+        ``"identity"``.
+
+    Notes
+    -----
+    This class implements the :class:`Objective` Protocol and can therefore
+    be plugged directly into the calibration engine wherever a
+    ``ScalarObjective`` would be accepted.
+    """
+
+    def __init__(
+        self,
+        blocks: Iterable[tuple[Objective, float]],
+        *,
+        name: str = "composite",
+        transform: str = "identity",
+    ) -> None:
+        parsed: list[tuple[Objective, float]] = []
+        for idx, item in enumerate(blocks):
+            try:
+                obj, weight = item
+            except (TypeError, ValueError) as exc:
+                raise TypeError(
+                    f"Each block must be a (ScalarObjective, weight) tuple; "
+                    f"got {item!r} at index {idx}"
+                ) from exc
+            if not hasattr(obj, "evaluate"):
+                raise TypeError(
+                    f"Block {idx}: first element must implement .evaluate() (Objective Protocol)"
+                )
+            w = float(weight)
+            if not np.isfinite(w) or w <= 0.0:
+                raise ValueError(f"Block {idx}: weight must be finite and > 0 (got {weight!r})")
+            parsed.append((obj, w))
+        if not parsed:
+            raise ValueError("CompositeObjective requires at least one block")
+
+        raw = np.asarray([w for _, w in parsed], dtype=float)
+        total_w = float(raw.sum())
+        if total_w <= 0.0:
+            raise ValueError("CompositeObjective requires a strictly positive total weight")
+        normalized = raw / total_w
+
+        self.name = str(name)
+        self._blocks: tuple[tuple[Objective, float, float], ...] = tuple(
+            (obj, float(raw_w), float(norm_w))
+            for (obj, raw_w), norm_w in zip(parsed, normalized, strict=True)
+        )
+        self._transform_name = str(transform).strip().lower() if transform else "identity"
+        self._transform_fn = _resolve_transform(self._transform_name)
+
+    @property
+    def blocks(self) -> tuple[tuple[Objective, float], ...]:
+        """Return blocks with their *normalized* weights (sum to 1.0)."""
+        return tuple((obj, norm_w) for obj, _raw, norm_w in self._blocks)
+
+    @property
+    def raw_weights(self) -> tuple[float, ...]:
+        """Return weights as supplied (before normalisation)."""
+        return tuple(raw_w for _obj, raw_w, _norm in self._blocks)
+
+    @property
+    def transform(self) -> str:
+        return self._transform_name
+
+    def evaluate(self, sim: SimulationOutput) -> ObjectiveValue:
+        merged_components: dict[str, float] = {}
+        total = 0.0
+        for idx, (obj, _raw_w, norm_w) in enumerate(self._blocks):
+            block_value = evaluate_objective(obj, sim)
+            transformed = float(self._transform_fn(block_value.total))
+            total += norm_w * transformed
+            block_label = getattr(obj, "name", f"block{idx}")
+            # Emit one "<block>.total" per block; if two blocks share the
+            # same label (e.g. two NSE blocks) disambiguate with the index.
+            total_key = f"{block_label}.total"
+            if total_key in merged_components:
+                total_key = f"{block_label}#{idx}.total"
+            merged_components[total_key] = transformed
+            # Merge per-block components. Collisions are disambiguated by
+            # prefixing with the block label (and, if needed, the index).
+            for key, value in block_value.components.items():
+                target_key = key
+                if target_key in merged_components:
+                    target_key = f"{block_label}.{key}"
+                if target_key in merged_components:
+                    target_key = f"{block_label}#{idx}.{key}"
+                merged_components[target_key] = float(value)
+        return ObjectiveValue(total=float(total), components=merged_components)
+
+
+def refuse_a_normalisation_that_means_nothing(block: str, metric: str) -> None:
+    """Refuse ``normalize_cost`` where dividing by a reference scale says nothing.
+
+    The verdict comes from the criterion itself: it declares whether its cost is
+    already a pure number, and whether it fits observations at all. Reading those
+    two answers rather than two lists held here is what stops the lists from
+    drifting away from the kernels they describe.
+    """
+    from hydromodpy.calibration.criteria import criterion_for
+
+    needs = criterion_for(metric).requirements()
+    if needs.cost_is_dimensionless:
+        raise ValueError(
+            f"Block {block!r}: normalize_cost = true divides the cost by the standard "
+            f"deviation of the observations, and {metric!r} is already a pure number. "
+            "Dividing it does not put two blocks on a common footing, it multiplies "
+            "this one's weight by a figure that belongs to its data. Set the share you "
+            "want in 'weight' and leave normalize_cost off."
+        )
+    if not needs.needs_observations:
+        raise ValueError(
+            f"Block {block!r}: normalize_cost = true has nothing to read a scale from "
+            f"for {metric!r}. That criterion balances two simulated quantities, so its "
+            "observed vector is a pair of zeros and the scale collapses to one. Set the "
+            "share you want in 'weight'."
+        )
+
+
+class ConfigBlockObjective:
+    """Objective for one ``[[calibration.objective_blocks]]`` declaration.
+
+    Concatenates the observed vectors of the referenced outputs, receives
+    the simulated vectors at evaluation time via ``sim.values``
+    (``Mapping[output_name, Sequence[float]]``), computes the block metric
+    and applies the configured normalisation and transform.
+
+    ``timeless_outputs`` names the outputs whose values carry no time axis, on
+    which a burn-in in samples is refused rather than applied.
+    """
+
+    def __init__(
+        self,
+        *,
+        name: str,
+        metric: str,
+        uses_outputs: Iterable[str],
+        observed_by_output: Mapping[str, Iterable[float]],
+        normalize_cost: bool = False,
+        transform: str = "identity",
+        warmup: int = 0,
+        timeless_outputs: Iterable[str] = (),
+    ) -> None:
+        from hydromodpy.calibration.criteria import criterion_for
+
+        metric_key = str(metric).strip().lower()
+        if metric_key not in METRICS:
+            raise ValueError(
+                f"Block {name!r}: unknown metric {metric!r}. Choices: {sorted(METRICS)}"
+            )
+        # The criterion owns the sign convention and the clipping, and declares
+        # whether it fits observations at all. The block asks it rather than
+        # re-deriving both from two frozensets held beside the registry.
+        criterion = criterion_for(metric_key)
+        needs = criterion.requirements()
+        outputs = tuple(str(output) for output in uses_outputs)
+        if not outputs:
+            raise ValueError(f"Block {name!r}: uses_outputs must not be empty")
+        scores_a_criterion = not needs.needs_observations
+        observed_parts: list[np.ndarray] = []
+        if not scores_a_criterion:
+            for output_name in outputs:
+                values = observed_by_output.get(output_name)
+                if values is None:
+                    raise ValueError(
+                        f"Block {name!r}: output {output_name!r} has no observed values. "
+                        "Name a station in 'observes', or write 'observed_values'."
+                    )
+                observed_parts.append(np.asarray(list(values), dtype=float).ravel())
+        observed = np.concatenate(observed_parts) if observed_parts else np.empty(0)
+        self.name = str(name)
+        self._scores_a_criterion = scores_a_criterion
+        self._metric = metric_key
+        self._criterion = criterion
+        self._outputs = outputs
+        self._observed = observed
+        self._observed_parts = observed_parts
+        self._warmup = max(0, int(warmup))
+        # A burn-in counts samples along a time axis. A network output carries none:
+        # it produces the pair (D_so, D_os), two distances in metres. Truncating it
+        # empties the pair and the block returns inf, which a staged run only ever
+        # shows as a phase that did not converge. Refusing here, at build time and by
+        # name, is the one behaviour that cannot return a wrong number: skipping the
+        # truncation in silence would score a block the user believes is burnt in.
+        timeless = sorted(set(outputs) & {str(item) for item in timeless_outputs})
+        if self._warmup > 0 and timeless:
+            raise ValueError(
+                f"Block {self.name!r}: warmup={self._warmup} cannot be dropped from "
+                f"output(s) {timeless}, which carry no time axis. Declare warmup = 0 on "
+                "this block to keep the calibration-wide burn-in for the others."
+            )
+        if normalize_cost:
+            refuse_a_normalisation_that_means_nothing(self.name, metric_key)
+        self._normalize_cost = bool(normalize_cost)
+        self._transform_name = str(transform).strip().lower() if transform else "identity"
+        self._transform_fn = _resolve_transform(self._transform_name)
+        self._reference_scale = self._compute_reference_scale(observed)
+
+    @staticmethod
+    def _compute_reference_scale(observed: np.ndarray) -> float:
+        if observed.size == 0:
+            return 1.0
+        std = float(np.nanstd(observed))
+        if std > 0.0 and np.isfinite(std):
+            return std
+        mean_abs = float(np.mean(np.abs(observed)))
+        return mean_abs if mean_abs > 0.0 else 1.0
+
+    @property
+    def metric(self) -> str:
+        return self._metric
+
+    @property
+    def uses_outputs(self) -> tuple[str, ...]:
+        return self._outputs
+
+    def evaluate(self, sim: SimulationOutput | Mapping[str, Iterable[float]]) -> ObjectiveValue:
+        if hasattr(sim, "values") and not isinstance(sim, Mapping):
+            sim_values = sim.values
+        else:
+            sim_values = sim
+        simulated_parts: list[np.ndarray] = []
+        for output_name in self._outputs:
+            part = sim_values.get(output_name) if isinstance(sim_values, Mapping) else None
+            if part is None:
+                return ObjectiveValue(
+                    total=float("inf"),
+                    components={f"{self.name}.missing": 1.0},
+                )
+            simulated_parts.append(np.asarray(list(part), dtype=float).ravel())
+        # Burn-in: drop the first _warmup periods of EACH output before concatenation, so the
+        # spin-up window (state still depending on the initial condition) does not enter the
+        # metric. Slicing per output keeps every series' own leading periods aligned. Outputs
+        # with no time axis never reach here with a burn-in: __init__ refuses that pairing.
+        if self._warmup > 0:
+            simulated = np.concatenate([part[self._warmup :] for part in simulated_parts])
+            observed = np.concatenate([part[self._warmup :] for part in self._observed_parts])
+        else:
+            simulated = np.concatenate(simulated_parts) if simulated_parts else np.empty(0)
+            observed = self._observed
+        if simulated.size == 0:
+            return ObjectiveValue(total=float("inf"), components={})
+        if self._scores_a_criterion:
+            scored = self._criterion.score(simulated)
+            observed = simulated
+        else:
+            if observed.size == 0:
+                return ObjectiveValue(total=float("inf"), components={})
+            if simulated.size != observed.size:
+                raise ValueError(
+                    f"Block {self.name!r}: simulated length {simulated.size} does not "
+                    f"match observed length {observed.size}"
+                )
+            scored = self._criterion.score(simulated, observed)
+        cost = scored.cost
+        n_clipped = int(scored.diagnostics.get("n_clipped", 0))
+        if not np.isfinite(cost):
+            return ObjectiveValue(
+                total=float("inf"),
+                components={f"{self.name}.raw_cost": float("inf")},
+            )
+        normalized = cost / self._reference_scale if self._normalize_cost else cost
+        transformed = float(self._transform_fn(normalized))
+        components = {
+            f"{self.name}.raw_cost": float(cost),
+            f"{self.name}.normalized_cost": float(normalized),
+            f"{self.name}.reference_scale": float(self._reference_scale),
+            f"{self.name}.n_values": float(observed.size),
+        }
+        if self._metric in LOG_METRICS:
+            components[f"{self.name}.n_clipped"] = float(n_clipped)
+        return ObjectiveValue(total=float(transformed), components=components)
+
+
+def build_objective_from_config(
+    cfg: Any,
+    *,
+    observed_by_output: Mapping[str, Iterable[float]] | None = None,
+) -> Objective:
+    """Assemble an :class:`Objective` from a :class:`CalibrationConfig`.
+
+    Each ``objective_block`` becomes one :class:`ConfigBlockObjective`
+    (metric + normalise + transform applied per block). When a single block
+    is declared, the block is returned directly; otherwise the blocks are
+    wrapped in a :class:`CompositeObjective` with normalised weights.
+
+    A block that inherits a burn-in while consuming an output with no time
+    axis is refused here, by name, rather than scored on a truncated vector.
+
+    ``observed_by_output`` supplies the observed vector of an output that names
+    a station rather than typing its values: the record is only known once it
+    has been aligned on a trial's simulated timestamps, so it arrives here
+    instead of being read off the declaration. What it names wins over
+    ``observed_values``; every other output is read from its declaration as
+    before.
+    """
+    blocks = getattr(cfg, "objective_blocks", None) or []
+    outputs = getattr(cfg, "outputs", None) or {}
+    if not blocks:
+        raise ValueError(
+            "cfg.objective_blocks is empty; declare [[calibration.objective_blocks]] "
+            "or populate cfg.outputs so the implicit block can be synthesised."
+        )
+    declared_observed: dict[str, tuple[float, ...]] = {}
+    timeless_outputs: set[str] = set()
+    for output_name, decl in outputs.items():
+        values = getattr(decl, "observed_values", None)
+        if values is not None:
+            declared_observed[str(output_name)] = tuple(float(v) for v in values)
+        if getattr(decl, "support", None) in TIMELESS_SUPPORTS:
+            timeless_outputs.add(str(output_name))
+    for output_name, values in (observed_by_output or {}).items():
+        declared_observed[str(output_name)] = tuple(float(v) for v in values)
+    # Burn-in periods excluded from every block's metric (spin-up window). A block
+    # overrides the calibration-wide default with its own ``warmup``; the test is on
+    # ``is None`` and not on truthiness, otherwise ``warmup = 0`` would fall back to
+    # the default and a block could never switch the burn-in off.
+    default_warmup = int(getattr(cfg, "warmup_periods", 0) or 0)
+    block_objectives: list[Objective] = []
+    for block in blocks:
+        name = str(block.name)
+        uses_outputs = tuple(block.uses_outputs)
+        metric = str(getattr(block, "metric", "rmse"))
+        normalize_cost = bool(getattr(block, "normalize_cost", False))
+        transform = str(getattr(block, "transform", "identity"))
+        block_warmup = getattr(block, "warmup", None)
+        warmup = default_warmup if block_warmup is None else int(block_warmup)
+        block_objectives.append(
+            ConfigBlockObjective(
+                name=name,
+                metric=metric,
+                uses_outputs=uses_outputs,
+                observed_by_output=declared_observed,
+                normalize_cost=normalize_cost,
+                transform=transform,
+                warmup=warmup,
+                timeless_outputs=timeless_outputs,
+            )
+        )
+    if len(block_objectives) == 1:
+        return block_objectives[0]
+    weights = [float(getattr(block, "weight", 1.0)) for block in blocks]
+    return CompositeObjective(
+        list(zip(block_objectives, weights, strict=True)),
+        name="config_composite",
+        transform="identity",
+    )
+
+
+__all__ = [
+    "Objective",
+    "ObjectiveValue",
+    "ObservationSet",
+    "SimulationOutput",
+    "ScalarObjective",
+    "CompositeObjective",
+    "ConfigBlockObjective",
+    "build_objective_from_config",
+    "METRICS",
+    "HIGHER_IS_BETTER",
+    "LOG_METRICS",
+    "TIMELESS_SUPPORTS",
+    "distance_gap",
+    "distance_mean",
+    "clip_negatives_for_log_metric",
+    "refuse_a_normalisation_that_means_nothing",
+    "evaluate_objective",
+]

@@ -9,6 +9,7 @@ import pytest
 
 from hydromodpy.results.export import build_context, build_stac_item, write_stac_item
 from hydromodpy.results.export.stac import STAC_VERSION
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from tests.integration.exports.conftest import populate_simulation
 
 
@@ -56,7 +57,7 @@ def test_stac_assets_contain_zarr(fair_catalog):
     assets = item["assets"]
     assert "zarr" in assets
     zarr_asset = assets["zarr"]
-    assert zarr_asset["href"].endswith(".zarr.zip")
+    assert zarr_asset["href"].endswith(FIELDS_STORE_NAME)
     assert "roles" in zarr_asset
 
 

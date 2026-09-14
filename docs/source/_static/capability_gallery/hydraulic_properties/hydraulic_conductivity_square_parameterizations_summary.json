@@ -49,7 +49,7 @@
       "caption": "Structured and triangular conductivity maps alongside depth-profile and inline-unit examples.",
       "alt_text": "Hydraulic conductivity parameterizations on square synthetic meshes",
       "doc_path": "/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations.png"
+      "repo_path": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations.png"
     }
   ],
   "metrics": [
@@ -135,9 +135,9 @@
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json",
-    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json",
     "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations.png"
+      "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations.png"
     ]
   },
   "parameter_docs": {
@@ -149,25 +149,25 @@
             "field": "property_case_kind",
             "meaning": "Hydraulic-property rendering mode used to build this gallery figure.",
             "value": "square_parameterizations",
-            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
+            "source": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
           },
           {
             "field": "parameter_ids",
             "meaning": "Hydraulic parameters illustrated by the case.",
             "value": "K, Sy, Ss",
-            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
+            "source": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
           },
           {
             "field": "parameterization_modes",
             "meaning": "Parameterization modes intentionally demonstrated by the case.",
             "value": "inline, heterogeneous, exponential, tabulated",
-            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
+            "source": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
           },
           {
             "field": "supports",
             "meaning": "Spatial supports used to render the field or compare variants.",
             "value": "structured, triangular_structured",
-            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
+            "source": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
           }
         ]
       },
@@ -219,25 +219,25 @@
             "field": "structured_cell_count",
             "meaning": "Metric displayed on this page.",
             "value": "64",
-            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
+            "source": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
           },
           {
             "field": "triangular_cell_count",
             "meaning": "Metric displayed on this page.",
             "value": "128",
-            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
+            "source": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
           },
           {
             "field": "k_min_m_per_day",
             "meaning": "Metric displayed on this page.",
             "value": "2.0 m/day",
-            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
+            "source": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
           },
           {
             "field": "k_max_m_per_day",
             "meaning": "Metric displayed on this page.",
             "value": "10.0 m/day",
-            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
+            "source": "docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
           }
         ]
       }

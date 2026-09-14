@@ -132,3 +132,14 @@ Provider replay
    The hydrometry part of the Hub'Eau replay shows why station metadata and
    chronicle coverage must be checked together. The discharge product should be
    readable before it becomes an objective or comparison target.
+
+See also
+--------
+
+Discharge chronicles become calibration targets through
+:ref:`observation.points <observation-points>`, which samples simulated output at the
+same station coordinates, and through a calibration output declared with
+``variable = "outlet_discharge"`` in :doc:`/user_guide/config_reference/calibration`.
+:doc:`/user_guide/workflows/calibration` walks through the full campaign that consumes
+that objective. The other observation families are :doc:`piezometry`,
+:doc:`water-quality`, and :doc:`intermittency`.

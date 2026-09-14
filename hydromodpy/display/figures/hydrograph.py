@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure_registry import register
 from hydromodpy.display.map_axes import style_date_axis
 
 if TYPE_CHECKING:

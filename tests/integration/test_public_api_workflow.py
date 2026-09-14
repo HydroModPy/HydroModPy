@@ -1,11 +1,12 @@
 """Integration tests for the ``hmp`` public surface.
 
-The only import allowed here is ``import hydromodpy as hmp``. These tests
-exercise the journey a downstream user would actually write - open a
-workspace, register a simulation, attach metrics, query the catalog -
-so any regression in the public API trips this file before it reaches
-end users. Workflows that need internal machinery belong in
-``tests/unit/`` or ``tests/e2e/``.
+Every call goes through ``import hydromodpy as hmp``. These tests exercise
+the journey a downstream user would actually write - open a workspace,
+register a simulation, attach metrics, query the catalog - so any regression
+in the public API trips this file before it reaches end users. Workflows that
+need internal machinery belong in ``tests/unit/`` or ``tests/e2e/``. Layout
+and catalog constants are imported from their canonical modules so the file
+never duplicates a path or station literal.
 """
 
 from __future__ import annotations
@@ -18,10 +19,16 @@ import pandas as pd
 import pytest
 
 import hydromodpy as hmp
+from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.results.catalog.constants import OUTLET_STATION
 
 
 def _register_demo_sim(catalog, *, project: str, nse: float, sim_name: str):
-    """Register a minimal simulation + one metric via the public surface only."""
+    """Register a minimal simulation + one metric via the public surface only.
+
+    ``find``/``rank`` score a run on its OUTLET metric, so the demo metric is
+    written at :data:`OUTLET_STATION` rather than at an arbitrary gauge.
+    """
     sim_id = str(uuid4())
     catalog.register_simulation(
         sim_id=sim_id,
@@ -30,7 +37,7 @@ def _register_demo_sim(catalog, *, project: str, nse: float, sim_name: str):
         name=sim_name,
         flow_regime="transient",
     )
-    catalog.write_metric(sim_id, station_id="P01", metric_name="nse", value=nse)
+    catalog.write_metric(sim_id, station_id=OUTLET_STATION, metric_name="nse", value=nse)
     catalog.finalize(sim_id, status="completed", duration_s=0.0)
     return sim_id
 
@@ -38,7 +45,7 @@ def _register_demo_sim(catalog, *, project: str, nse: float, sim_name: str):
 def test_open_returns_catalog_with_empty_dataframe(tmp_path: Path) -> None:
     """``hmp.open`` on a fresh directory yields an empty simulations table."""
     with hmp.open(tmp_path / "workspace", create=True) as catalog:
-        assert isinstance(catalog, hmp.SimulationCatalog)
+        assert isinstance(catalog, hmp.Catalog)
         df = catalog.simulations
         assert isinstance(df, pd.DataFrame)
         assert len(df) == 0
@@ -51,7 +58,7 @@ def test_catalog_supports_context_manager(tmp_path: Path) -> None:
     ws = tmp_path / "workspace"
     with hmp.open(ws, create=True) as catalog:
         assert catalog.workspace_path == ws
-    assert (ws / "catalog.duckdb").is_file()
+    assert catalog_path_for(ws).is_file()
 
 
 def test_register_write_query_roundtrip(tmp_path: Path) -> None:
@@ -67,13 +74,13 @@ def test_register_write_query_roundtrip(tmp_path: Path) -> None:
 
 
 def test_find_returns_simulation_group_filtered_by_metric(tmp_path: Path) -> None:
-    """``catalog.find(project=..., nse_gt=...)`` returns a SimulationGroup."""
+    """``catalog.find(project=..., nse_gt=...)`` returns a RunSet."""
     with hmp.open(tmp_path / "workspace", create=True) as catalog:
         sid_good = _register_demo_sim(catalog, project="demo", nse=0.92, sim_name="good")
         _register_demo_sim(catalog, project="demo", nse=0.45, sim_name="bad")
 
         group = catalog.find(project="demo", nse_gt=0.7)
-        assert isinstance(group, hmp.SimulationGroup)
+        assert isinstance(group, hmp.RunSet)
         assert group.sim_ids == [sid_good]
         assert len(group) == 1
 
@@ -102,9 +109,12 @@ def test_doctor_reports_expected_keys() -> None:
     assert isinstance(report["optional"], dict)
 
 
-def test_catalog_alias_is_not_exposed() -> None:
+@pytest.mark.parametrize("legacy_name", ["SimulationCatalog", "SimulationGroup"])
+def test_renamed_classes_keep_no_alias(legacy_name: str) -> None:
+    """The pre-rename names are gone: ``Catalog``/``RunSet`` are the only spellings."""
+    assert legacy_name not in hmp.__all__
     with pytest.raises(AttributeError):
-        hmp.Catalog  # noqa: B018
+        getattr(hmp, legacy_name)
 
 
 def test_open_register_query_roundtrip(tmp_path: Path) -> None:

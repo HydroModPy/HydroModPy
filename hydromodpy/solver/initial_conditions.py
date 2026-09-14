@@ -7,13 +7,28 @@ from typing import Any
 
 import numpy as np
 
-HEAD_INITIAL_CONDITION_TYPES = (
-    "top",
-    "top_offset",
-    "bottom",
-    "custom",
-    "steady_state",
-)
+
+def _head_initial_condition_types() -> tuple[str, ...]:
+    """Return the accepted ``flow.ic.type`` values, read off the union that defines them.
+
+    This was a hand-written tuple, and it is the THIRD copy of the same list the
+    repository carried: the config loader held two more. Adding a variant to the
+    union passed validation and then failed in the solver with a message listing the
+    variants the solver happened to know, which is a contradiction no reader can see.
+    ``solver`` may import ``physics``, and the sibling module already does.
+    """
+    from hydromodpy.physics.flow.initial_conditions_config import known_ic_types
+
+    return tuple(sorted(known_ic_types()))
+
+
+HEAD_INITIAL_CONDITION_TYPES = _head_initial_condition_types()
+
+_TYPES_STARTING_FROM_THE_TOP = frozenset({"top", "steady_state", "spinup_cyclic"})
+"""Types whose resolved array is the water table at the topographic surface.
+
+For the last two it is only the guess their auxiliary solve begins at; what they
+produce replaces it once that solve has run."""
 HEAD_INITIAL_CONDITION_TYPES_TEXT = ", ".join(HEAD_INITIAL_CONDITION_TYPES)
 
 
@@ -66,12 +81,15 @@ def build_head_initial_condition_array(
     """
     Resolve the canonical flow head IC into an array shaped for one backend.
 
-    ``steady_state`` uses the top surface as the auxiliary steady-solve initial
-    guess. The materialized steady heads are injected later by each same-solver
-    initialization path.
+    ``steady_state`` and ``spinup_cyclic`` both resolve to the top surface here,
+    because the array this returns is only the guess their auxiliary solves start
+    from: the state they actually produce is injected afterwards by the same-solver
+    initialization path, once it has run. A type added to the union without a branch
+    here lands in the final ``else`` and is refused by name, which is what a reader
+    wants over a silent fallback to the surface.
     """
     ic_type = head_initial_condition_type(initial_condition)
-    if ic_type in {"top", "steady_state"}:
+    if ic_type in _TYPES_STARTING_FROM_THE_TOP:
         base = np.asarray(top, dtype=float)
     elif ic_type == "top_offset":
         offset_m = head_initial_condition_value_m(

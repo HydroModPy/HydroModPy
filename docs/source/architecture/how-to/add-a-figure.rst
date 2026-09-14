@@ -23,6 +23,7 @@ method:
        title: str
        kind: str                          # "spatial" | "timeseries" | "balance" | "calibration" | ...
        required_fields: tuple[str, ...]
+       optional_fields: tuple[str, ...]
        required_tables: tuple[str, ...]
        default_figsize: tuple[float, float]
 
@@ -51,7 +52,7 @@ Skeleton:
 
    from matplotlib.axes import Axes
 
-   from hydromodpy.display.catalog import register
+   from hydromodpy.display.figure_registry import register
    from hydromodpy.display.figure import BaseFigure, FigureSpec
    from hydromodpy.results.run import Run
 
@@ -104,12 +105,18 @@ Listing requirements explicitly lets the registry pre-flight the
 plot before reading the disk:
 
 - ``required_fields`` -- Zarr dataset names that
-  ``Run.field(...)`` must be able to load.
+  ``Run.field(...)`` must be able to load. Missing one makes the figure
+  UNAVAILABLE: the gallery skips it and says which field is absent.
+- ``optional_fields`` -- fields the figure reads when they are there. They
+  are turned on for a run that asks for the figure, exactly like a required
+  one, but their absence does not make the figure unavailable: the figure
+  refuses in its own words instead, which is what a map over several
+  boundary packages needs when a run carries two of six.
 - ``required_tables`` -- Parquet-backed DuckDB tables (``timeseries``,
   ``budgets``, ``mass_balance``).
 
-A figure that depends on an optional product should declare it and
-fall back gracefully in ``render``.
+A figure that reads an optional product declares it in ``optional_fields``
+and says in ``unavailable_reason`` what it looked for and how to enable it.
 
 Auto-discovery
 --------------
@@ -126,8 +133,8 @@ Once registered, the figure is reachable from:
 
 .. code-block:: bash
 
-   hmp display <sim_ref> --figure my_figure
-   hmp display run.toml --session <session_id> --figure my_figure  # calibration
+   hmp viz show <sim_ref> my_figure
+   hmp viz gallery project.toml --only my_figure
 
 And from TOML:
 
@@ -139,9 +146,9 @@ And from TOML:
 Tests to add
 ------------
 
-- **Unit** under ``tests/unit/display/figures/`` against a synthetic
-  ``Run`` fixture: assert the figure produces a non-empty axes and
-  honours ``required_fields`` / ``required_tables``.
+- **Unit** under ``tests/unit/display/`` against a synthetic ``Run``
+  fixture: assert the figure produces a non-empty axes and honours
+  ``required_fields`` / ``required_tables``.
 - **Image regression** (optional): commit a small reference PNG and
   compare with ``matplotlib.testing.compare_images``.
 

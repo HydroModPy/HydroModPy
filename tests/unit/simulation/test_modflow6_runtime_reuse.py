@@ -95,10 +95,13 @@ def test_modflow6_flow_adapter_reuses_solver_instance(monkeypatch) -> None:
         }
     )
 
-    adapter.execute(ctx)
-    adapter.execute(ctx)
+    # Solver-model reuse is disabled (proven not output-equivalent): the flag now
+    # raises instead of silently returning stale objectives.
+    import pytest
 
-    assert build_calls == ["stable_runtime_model"]
+    with pytest.raises(NotImplementedError, match="reuse_solver_model.*disabled"):
+        adapter.execute(ctx)
+    assert build_calls == []
 
 
 def test_modflow6_processing_writes_only_dirty_packages() -> None:
@@ -129,6 +132,7 @@ def test_modflow6_processing_writes_only_dirty_packages() -> None:
     model.npf = _FakePackage()
     model.sto = _FakePackage()
     model.drn = _FakePackage()
+    model.nper = 1
     model._runtime_dirty_packages = ("npf", "sto")
 
     success = Modflow6.processing(

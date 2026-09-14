@@ -69,7 +69,7 @@ class FieldDescriptor:
         (defaults to ``"crs"``).
     derived_by:
         Either ``"solver"`` (written by a solver adapter) or ``"core"``
-        (derived by :mod:`hydromodpy.results.derived`).
+        (derived by :mod:`hydromodpy.results.derive.derived`).
     description:
         Free-form description used as fallback when the CF long_name is
         insufficient.
@@ -192,7 +192,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         csdms_standard_name="subsurface_water__recharge_volume_flux",
         long_name="Groundwater recharge volumetric flux",
         units="m3 s-1",
-        shape=SHAPE_TIME_FACE,
+        shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: mean area: mean",
         derived_by="solver",
     ),
@@ -203,7 +203,18 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         csdms_standard_name="subsurface_water__drain_volume_flux",
         long_name="Groundwater flux to drains (positive leaves aquifer)",
         units="m3 s-1",
-        shape=SHAPE_TIME_FACE,
+        shape=SHAPE_TIME_LAYER_FACE,
+        cell_methods="time: mean area: mean",
+        derived_by="solver",
+    ),
+    "drain_to_mover": FieldDescriptor(
+        public_name="drain_to_mover",
+        zarr_path="budget/drain_to_mover",
+        standard_name="",
+        csdms_standard_name="subsurface_water__drain_volume_flux",
+        long_name="Drain flux handed to the water mover (positive leaves aquifer)",
+        units="m3 s-1",
+        shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: mean area: mean",
         derived_by="solver",
     ),
@@ -258,7 +269,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         csdms_standard_name="subsurface_water__river_exchange_volume_flux",
         long_name="River leakage flux (positive enters aquifer)",
         units="m3 s-1",
-        shape=SHAPE_TIME_FACE,
+        shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: mean area: mean",
         derived_by="solver",
     ),
@@ -268,6 +279,39 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         standard_name="",
         csdms_standard_name="subsurface_water__well_volume_flux",
         long_name="Well withdrawal or injection flux",
+        units="m3 s-1",
+        shape=SHAPE_TIME_LAYER_FACE,
+        cell_methods="time: mean area: mean",
+        derived_by="solver",
+    ),
+    "stream": FieldDescriptor(
+        public_name="stream",
+        zarr_path="budget/stream",
+        standard_name="",
+        csdms_standard_name="subsurface_water__stream_exchange_volume_flux",
+        long_name="Streambed leakage flux exchanged with the SFR network",
+        units="m3 s-1",
+        shape=SHAPE_TIME_LAYER_FACE,
+        cell_methods="time: mean area: mean",
+        derived_by="solver",
+    ),
+    "lake": FieldDescriptor(
+        public_name="lake",
+        zarr_path="budget/lake",
+        standard_name="",
+        csdms_standard_name="subsurface_water__lake_exchange_volume_flux",
+        long_name="Lakebed leakage flux exchanged with the LAK package",
+        units="m3 s-1",
+        shape=SHAPE_TIME_LAYER_FACE,
+        cell_methods="time: mean area: mean",
+        derived_by="solver",
+    ),
+    "constant_head": FieldDescriptor(
+        public_name="constant_head",
+        zarr_path="budget/constant_head",
+        standard_name="",
+        csdms_standard_name="subsurface_water__constant_head_volume_flux",
+        long_name="Flux across constant-head cells (positive enters aquifer)",
         units="m3 s-1",
         shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: mean area: mean",
@@ -307,6 +351,31 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         shape=SHAPE_FACE,
         cell_methods="area: mean",
         derived_by="core",
+    ),
+    "streambed_top": FieldDescriptor(
+        public_name="streambed_top",
+        zarr_path="mesh/streambed_top",
+        standard_name="altitude",
+        csdms_standard_name="channel_bottom_water-sediment__elevation",
+        long_name="SFR streambed top elevation, NaN where no reach",
+        units="m",
+        shape=SHAPE_FACE,
+        cell_methods="area: point",
+        derived_by="solver",
+    ),
+    "streambed_connection": FieldDescriptor(
+        public_name="streambed_connection",
+        zarr_path="mesh/streambed_connection",
+        standard_name="altitude",
+        csdms_standard_name="channel_bottom_water-sediment__elevation",
+        long_name=(
+            "Head below which an SFR reach disconnects from the aquifer "
+            "(rtp - streambed thickness), NaN where no reach"
+        ),
+        units="m",
+        shape=SHAPE_FACE,
+        cell_methods="area: point",
+        derived_by="solver",
     ),
     "layer_thickness": FieldDescriptor(
         public_name="layer_thickness",

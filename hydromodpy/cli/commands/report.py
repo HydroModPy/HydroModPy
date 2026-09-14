@@ -2,8 +2,10 @@
 
 Sub-actions:
 
-- ``hmp report render <session_id>``: render the calibration HTML report for
-  a calibration session (UUID full or unambiguous prefix).
+- ``hmp report render [session_ref]``: render the calibration HTML report for
+  a calibration session. ``session_ref`` is a session id/prefix or a
+  calibration run id/prefix (mapped to its parent session); omit it to render
+  the most recent session. Federates across every project in the workspace.
 - ``hmp report compare <ref_a> <ref_b>``: side-by-side metric comparison of
   two simulations.
 - ``hmp report catchment <report_config>``: build a catchment HTML report from
@@ -16,13 +18,13 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import add_sim_ref, workspace_parser
+from hydromodpy.cli._conventions import workspace_parser
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
-    find_catalog_root,
 )
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core import progress
+from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
 from hydromodpy.display.catchment_report.cli import add_catchment_report_arguments
 
 NAME: str = "report"
@@ -40,7 +42,17 @@ def register(subparsers) -> argparse.ArgumentParser:
         epilog="Example:\n  hmp report render ab12cd34 --open",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    add_sim_ref(render_p, help="Calibration session UUID (full or unambiguous short prefix)")
+    render_p.add_argument(
+        "sim_ref",
+        nargs="?",
+        default=None,
+        metavar="SESSION_REF",
+        help=(
+            "Calibration session id/prefix, or a calibration run id/prefix "
+            "(an iteration or best run, mapped to its session). Omit to render "
+            "the most recent session in the workspace."
+        ),
+    )
     render_p.add_argument(
         "--open",
         action="store_true",
@@ -95,9 +107,10 @@ def _cmd_render(args: argparse.Namespace) -> None:
     import hydromodpy as hmp
     from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 
-    workspace_root = args.workspace or find_catalog_root(Path.cwd())
+    workspace_root = args.workspace or resolve_project_root(Path.cwd())
     try:
-        out_path = hmp.report(args.sim_ref, workspace=workspace_root)
+        with progress.status("Rendering calibration report"):
+            out_path = hmp.report(args.sim_ref, workspace=workspace_root)
     except ConfigMissingError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
@@ -118,10 +131,10 @@ def _cmd_compare(args: argparse.Namespace) -> None:
         SimulationNotFoundError,
     )
 
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
-    if not (workspace_root / CATALOG_FILENAME).exists():
+    if not (catalog_path_for(workspace_root)).exists():
         print(f"No catalog at {workspace_root}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 

@@ -31,11 +31,9 @@ def _build_payload(*, output_root: Path, run_simulations: bool) -> dict[str, Any
             # ([flow] first_period_steady = false); the numeric overlay forbids
             # repeating it here.
             "bc": {
-                "dirichlet": {
-                    "west_side": {
-                        "forcing": {
-                            "path_file": str(west_head_csv),
-                        }
+                "west_side": {
+                    "forcing": {
+                        "path_file": str(west_head_csv),
                     }
                 }
             },

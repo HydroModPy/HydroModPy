@@ -19,11 +19,16 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import TypedDict
 
 from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.core.io.filesystem import native_io_path
+from hydromodpy.core.io.geoparquet import GEOPARQUET_WRITE_DEFAULTS
+from hydromodpy.core.io.parquet import PARQUET_WRITE_DEFAULTS
 from hydromodpy.data.schemas import (
     StationCollectionSchema,
     TimeSeriesSchema,
+    validate_abacus,
     validate_warn_only,
 )
 
@@ -58,11 +63,21 @@ class TimeSeriesArtifact:
     source_path: Path
 
 
+class Station(TypedDict):
+    """One row of a locations CSV after parsing (``x``/``y`` are numeric)."""
+
+    id: str
+    x: float
+    y: float
+    crs: str
+    unit: str
+
+
 @dataclass(frozen=True, slots=True)
 class LocationsArtifact:
     """In-memory representation of a validated locations CSV."""
 
-    stations: list[dict[str, object]]
+    stations: list[Station]
     crs: str
     unit: str
     source_path: Path
@@ -149,6 +164,31 @@ def infer_station_id_from_filename(path: Path) -> str:
     return stem
 
 
+def _write_parquet_v2(table: object, dest: Path) -> Path:
+    """Write a pyarrow table to ``dest`` atomically with the v2 Parquet defaults.
+
+    Shared by the timeseries and abacus converters (ZSTD-5, page index, row-group
+    50k, dictionary + statistics) so both write the internal pivot identically.
+    """
+    import os
+    import uuid as _uuid
+
+    import pyarrow.parquet as pq
+
+    os.makedirs(native_io_path(dest.parent), exist_ok=True)
+    tmp_io = native_io_path(dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex[:8]}"))
+    try:
+        pq.write_table(table, tmp_io, **PARQUET_WRITE_DEFAULTS)
+    except Exception:
+        try:
+            os.unlink(tmp_io)
+        except FileNotFoundError:
+            pass
+        raise
+    os.replace(tmp_io, native_io_path(dest))
+    return dest
+
+
 def convert_timeseries_csv_to_parquet(
     src: str | Path,
     dest: str | Path,
@@ -158,18 +198,12 @@ def convert_timeseries_csv_to_parquet(
     The output respects the v2 Parquet write defaults (ZSTD-5, page index,
     row-group 50k) without crossing the layer boundary into ``results``.
     """
-    import os
-    import uuid as _uuid
+    import pandas as pd
+    import pyarrow as pa
 
     src = Path(src)
     dest = Path(dest)
     artifact = read_timeseries_csv(src)
-
-    dest.parent.mkdir(parents=True, exist_ok=True)
-
-    import pandas as pd
-    import pyarrow as pa
-    import pyarrow.parquet as pq
 
     frame = pd.DataFrame(
         {
@@ -192,25 +226,54 @@ def convert_timeseries_csv_to_parquet(
         ]
     )
     table = pa.Table.from_pandas(frame, schema=schema, preserve_index=False)
-    tmp = dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex}")
-    try:
-        pq.write_table(
-            table,
-            tmp,
-            compression="zstd",
-            compression_level=5,
-            row_group_size=50_000,
-            use_dictionary=True,
-            write_statistics=True,
-            write_page_index=True,
-            version="2.6",
-        )
-    except Exception:
-        if tmp.exists():
-            tmp.unlink()
-        raise
-    os.replace(tmp, dest)
-    return dest
+    return _write_parquet_v2(table, dest)
+
+
+def convert_abacus_to_parquet(
+    src: str | Path,
+    dest: str | Path,
+    *,
+    lake_id: str | None = None,
+) -> Path:
+    """Convert a lake stage-volume-area abacus (CSV or Parquet) into the pivot.
+
+    The source carries the abacus columns ``stage,volume,sarea`` and, optionally,
+    a ``lake_id`` column. When ``lake_id`` is absent it is injected from the
+    ``lake_id`` argument (or the file stem) so a single-lake source needs no
+    boilerplate column. Both ``.csv`` and ``.parquet`` sources are validated
+    against :data:`AbacusTableSchema` before being written with the v2 Parquet
+    defaults, so the data contract is the single gate whatever the input format.
+    """
+    import pandas as pd
+    import pyarrow as pa
+
+    src = Path(src)
+    dest = Path(dest)
+
+    if src.suffix.lower() == ".parquet":
+        frame = pd.read_parquet(src)
+    else:
+        frame = pd.read_csv(src, comment="#")
+    if "lake_id" not in frame.columns:
+        frame.insert(0, "lake_id", lake_id if lake_id is not None else src.stem)
+    frame["lake_id"] = frame["lake_id"].astype(str)
+
+    validated = validate_abacus(frame, context=src.name)
+
+    schema = pa.schema(
+        [
+            pa.field("lake_id", pa.string()),
+            pa.field("stage", pa.float64()),
+            pa.field("volume", pa.float64()),
+            pa.field("sarea", pa.float64()),
+        ]
+    )
+    table = pa.Table.from_pandas(
+        validated[["lake_id", "stage", "volume", "sarea"]],
+        schema=schema,
+        preserve_index=False,
+    )
+    return _write_parquet_v2(table, dest)
 
 
 def read_locations_csv(path: str | Path) -> LocationsArtifact:
@@ -244,7 +307,7 @@ def read_locations_csv(path: str | Path) -> LocationsArtifact:
             errors=[f"missing columns: {missing!r}"],
         )
 
-    stations: list[dict[str, object]] = []
+    stations: list[Station] = []
     seen_ids: set[str] = set()
     crs_values: set[str] = set()
     unit_values: set[str] = set()
@@ -308,7 +371,7 @@ def convert_locations_csv_to_geoparquet(
     if artifact.errors:
         raise TimeSeriesValidationError(src, artifact.errors)
 
-    dest.parent.mkdir(parents=True, exist_ok=True)
+    os.makedirs(native_io_path(dest.parent), exist_ok=True)
 
     import geopandas as gpd
     import pandas as pd
@@ -337,22 +400,16 @@ def convert_locations_csv_to_geoparquet(
             StationCollectionSchema,
             schema_name=f"StationCollectionSchema[{src.name}]",
         )
-    tmp = dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex}")
+    tmp_io = native_io_path(dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex[:8]}"))
     try:
-        gdf.to_parquet(
-            tmp,
-            compression="zstd",
-            compression_level=5,
-            schema_version="1.1.0",
-            geometry_encoding="WKB",
-            write_covering_bbox=True,
-            index=False,
-        )
+        gdf.to_parquet(tmp_io, **GEOPARQUET_WRITE_DEFAULTS)
     except Exception:
-        if tmp.exists():
-            tmp.unlink()
+        try:
+            os.unlink(tmp_io)
+        except FileNotFoundError:
+            pass
         raise
-    os.replace(tmp, dest)
+    os.replace(tmp_io, native_io_path(dest))
     return dest
 
 

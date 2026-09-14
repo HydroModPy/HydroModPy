@@ -348,8 +348,8 @@ Source Pointers
 - ``validation_cases/calibration/shared/runtime.py``
 - ``validation_cases/calibration/twin/transient/linearized_unconfined_recharge_step_1d/run_case.py``
 - ``validation_cases/calibration/twin/transient/linearized_unconfined_recharge_step_1d/experiment.py``
-- ``hydromodpy/calibration/cli.py``
-- ``hydromodpy/calibration/engine.py``
+- ``hydromodpy/calibration/runners/cli_runner.py``
+- ``hydromodpy/calibration/optim/engine.py``
 
 Artifacts
 ---------

@@ -1,0 +1,52 @@
+# ======================================================================
+# Nancon - replique example_04, en MENSUEL
+# ----------------------------------------------------------------------
+#   hmp calibrate examples/projects/21_nancon_network_calibration/ref_example04_monthly.toml
+#
+# Meme montage que `ref_example04.toml`, dont il herite tout : meme MNT a
+# 75 m, meme exutoire, meme couche de 30 m, meme drain plein a conductance
+# proportionnelle, memes bornes, meme Nelder-Mead, memes tolerances.
+# Une seule chose change, le pas de temps de l'etage 2.
+#
+# `freq_input = 'M'` est la valeur PAR DEFAUT de `--freq-input` dans le
+# script de reference ; c'est la ligne `freq_input = 'D'` codee en dur qui
+# la contredit. Ce fichier teste donc l'autre branche du script.
+#
+# 312 periodes mensuelles au lieu de 9497 journalieres, soit un facteur
+# 30 sur le solve et autant sur le post-traitement, qui domine le cout par
+# essai (mesure : 3 min de solveur contre 22 min de post-traitement sur la
+# version journaliere).
+#
+# Ce que la reference fait en mensuel et qui n'a PAS d'equivalent ici :
+# elle convertit `Qmod` de mm/jour en mm/mois par
+# `(Qmod + r*1000) * Qmod.index.day`, et son propre diagnostic signale que
+# l'addition avant multiplication est douteuse. HydroModPy reste en m3/s
+# d'un bout a l'autre et compare une moyenne mensuelle simulee a une
+# moyenne mensuelle observee, donc la question ne se pose pas.
+# ======================================================================
+
+base_config = "ref_example04.toml"
+
+[simulation]
+name = "nancon_ref_ex04_monthly"
+description = "Nancon - replique MF6 de example_04_calibration.py, pas mensuel."
+
+[simulation.time]
+step_unit = "month"
+
+
+[calibration]
+# `false` et non `true` comme le fichier parent. La cle de cache porte sur
+# les parametres et un contexte de configuration ; sur un premier test de
+# pas de temps, rien ne doit pouvoir resservir un cout calcule en
+# journalier. L'etage mensuel est assez court pour s'en passer.
+use_cache = false
+
+
+# --- Etage 2 : le meme, au pas mensuel ---
+# Rien a declarer. Le parent laisse le protocole ecrire ses deux etages :
+# l'etage 1 impose sa propre periode permanente unique et ne lit donc pas
+# `[simulation.time].step_unit`, et l'etage 2 n'impose que le regime
+# transitoire et herite du pas de temps ci-dessus. Le mensuel se declare
+# donc une fois, dans `[simulation.time]`, et non une seconde fois dans une
+# surcharge de phase.

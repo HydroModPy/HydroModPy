@@ -12,7 +12,7 @@ so the capability-gallery SHA-256 gate and the nightly refresh stay valid.
 
 Usage::
 
-    python tools/docs_pages_postbuild.py docs/build/html https://hydromodpy.github.io
+    python tools/docs_pages_postbuild.py docs/build/html https://docs.hydromodpy.fr
 """
 
 from __future__ import annotations
@@ -118,7 +118,7 @@ def main() -> int:
             index += 1
 
     html_root = Path(positional[0] if positional else "docs/build/html")
-    base_url = positional[1] if len(positional) > 1 else "https://hydromodpy.github.io"
+    base_url = positional[1] if len(positional) > 1 else "https://docs.hydromodpy.fr"
     if not html_root.is_dir():
         print(f"no html dir at {html_root}", file=sys.stderr)
         return 1

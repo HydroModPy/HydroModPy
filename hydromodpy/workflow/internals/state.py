@@ -43,10 +43,10 @@ if TYPE_CHECKING:
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.core.state.data import LoadedDataContext
     from hydromodpy.core.state.setup import SetupContext
-    from hydromodpy.data.plan import DataLoadPlan
+    from hydromodpy.data.managers.plan import DataLoadPlan
     from hydromodpy.results.zarr_store import SimulationZarr
     from hydromodpy.simulation.planning.plan import SimulationPlan
-    from hydromodpy.solver.base.protocol import RunResult
+    from hydromodpy.solver.base.adapter_protocol import RunResult
 
 
 T = TypeVar("T")

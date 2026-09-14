@@ -1,7 +1,9 @@
 validity_frame
 ==============
 
-``hydromodpy.validity_frame`` is experimental observability tooling. It
+``validity_frame`` is experimental observability tooling shipped as a
+standalone distribution at ``validity_frame/src/validity_frame/``, next
+to ``hydromodpy/`` and never inside it. It
 records runtime metadata and can ingest JSONL capture files into a
 DuckDB database for downstream inspection.
 
@@ -28,13 +30,15 @@ Sub-modules
   utilities.
 - ``validity_frame/probes/`` -- runtime, hardware, solver and system
   probes.
-- ``validity_frame/storage/`` -- JSONL-to-DuckDB ingestion helpers.
+- ``validity_frame/loader.py`` -- JSONL-to-DuckDB ingestion helper.
+- ``validity_frame/validity.py`` -- the capture entry point.
 
 Sequence diagram
 ----------------
 
-- :doc:`../process/diagrams/validity_frame_runtime_sequence` -- runtime
-  envelope showing capture before, during and after simulation.
+Runtime envelope showing capture before, during and after simulation:
+
+.. uml:: ../process/diagrams/validity_frame_runtime_sequence.puml
 
 Storage contract
 ----------------

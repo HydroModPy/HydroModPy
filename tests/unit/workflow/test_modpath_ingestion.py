@@ -46,7 +46,7 @@ def test_restore_seepage_raster_writes_tif(tmp_path: Path, monkeypatch) -> None:
     fake_store = _FakeStore(pd.DataFrame([{"sim_id": "abc"}]), array)
     monkeypatch.setattr(
         extract,
-        "SimulationCatalog",
+        "Catalog",
         lambda *_a, **_kw: fake_store,
     )
     monkeypatch.setattr(
@@ -97,7 +97,7 @@ def test_restore_seepage_raster_returns_false_when_catalog_empty(
     fake_store = _FakeStore(pd.DataFrame(columns=["sim_id"]), np.array([]))
     monkeypatch.setattr(
         extract,
-        "SimulationCatalog",
+        "Catalog",
         lambda *_a, **_kw: fake_store,
     )
     monkeypatch.setattr(

@@ -11,7 +11,7 @@ root = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_i
 name = "nancon_steady_mf6_irregular_network_methods__mf6_mesh_input_ref"
 run_id = "nancon_steady_mf6_irregular_network_methods__mf6_mesh_input_ref"
 description = "MODFLOW 6 Nancon steady reference on the precomputed irregular mesh-input bundle."
-on_collision = "replace"
+if_exists = "replace"
 
 [modflow6.runtime]
 mf6_ims_complexity = "COMPLEX"

@@ -25,14 +25,14 @@ def test_modflow6_post_processing_exports_native_unstructured_mesh_outputs(
     work_dir = _workspace_dir(tmp_path, "mf6_postprocess_native_mesh")
     model = _build_unstructured_model(work_dir)
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.bf.HeadFile", _DummyHeadFileUnstructured
+        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.HeadFile", _DummyHeadFileUnstructured
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.bf.CellBudgetFile",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.CellBudgetFile",
         _DummyBudgetFile,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.raster_io.export_tif",
         lambda *args, **kwargs: None,
     )
 
@@ -92,14 +92,14 @@ def test_modflow6_post_processing_accumulates_unstructured_flow_on_mesh(
     work_dir = _workspace_dir(tmp_path, "mf6_postprocess_unstructured_accumulation")
     model = _build_unstructured_model(work_dir, dem_values=np.asarray([10.0, 5.0], dtype=float))
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.bf.HeadFile", _DummyHeadFileUnstructured
+        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.HeadFile", _DummyHeadFileUnstructured
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.bf.CellBudgetFile",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.CellBudgetFile",
         _DummyBudgetFileWithDrn,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.raster_io.export_tif",
         lambda *args, **kwargs: None,
     )
 
@@ -128,14 +128,14 @@ def test_modflow6_post_processing_tolerates_missing_meshio_for_vtu_export(
     work_dir = _workspace_dir(tmp_path, "mf6_postprocess_missing_meshio")
     model = _build_unstructured_model(work_dir)
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.bf.HeadFile", _DummyHeadFileUnstructured
+        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.HeadFile", _DummyHeadFileUnstructured
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.bf.CellBudgetFile",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.CellBudgetFile",
         _DummyBudgetFile,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.raster_io.export_tif",
         lambda *args, **kwargs: None,
     )
 
@@ -191,14 +191,14 @@ def test_modflow6_post_processing_exports_runtime_support_overview(
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.bf.HeadFile", _DummyHeadFileUnstructured
+        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.HeadFile", _DummyHeadFileUnstructured
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.bf.CellBudgetFile",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.CellBudgetFile",
         _DummyBudgetFile,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.raster_io.export_tif",
         lambda *args, **kwargs: None,
     )
 

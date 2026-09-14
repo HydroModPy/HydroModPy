@@ -22,6 +22,7 @@ from hydromodpy.core.migrations import (
     ensure_schema,
     target_version,
 )
+from hydromodpy.core.migrations.runner import repair_hint_for
 
 
 def _write(versions_dir: Path, version: int, slug: str, sql: str) -> Path:
@@ -203,6 +204,26 @@ def test_ensure_schema_rejects_checksum_drift(versions_dir: Path) -> None:
             ensure_schema(connection, versions_dir=versions_dir, component=DEFAULT_COMPONENT)
     finally:
         connection.close()
+
+
+def test_checksum_drift_names_the_repair_command(versions_dir: Path) -> None:
+    """The message must carry the fix: a stale checksum is the first-run-after-upgrade trap."""
+    sql_path = _write(versions_dir, 1, "alpha", "CREATE TABLE alpha (id INTEGER);")
+    connection = duckdb.connect(":memory:")
+    try:
+        ensure_schema(connection, versions_dir=versions_dir, component="catalog")
+        sql_path.write_text("CREATE TABLE alpha_renamed (id INTEGER);", encoding="utf-8")
+        with pytest.raises(SchemaIntegrityError, match="hmp catalog reindex"):
+            ensure_schema(connection, versions_dir=versions_dir, component="catalog")
+    finally:
+        connection.close()
+
+
+def test_every_component_has_a_repair_hint() -> None:
+    assert "hmp catalog reindex" in repair_hint_for("catalog")
+    assert "hmp workspace register" in repair_hint_for("index")
+    assert "restore" in repair_hint_for("data_cache")
+    assert "delete the widgets database" in repair_hint_for("widgets")
 
 
 def test_apply_migration_rolls_back_on_failure(versions_dir: Path) -> None:

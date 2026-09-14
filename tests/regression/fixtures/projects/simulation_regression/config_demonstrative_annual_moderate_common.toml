@@ -44,9 +44,10 @@ value = "1e-10 m-1"
 kind = "homogeneous"
 value = "0.012 -"
 
-[flow.bc.cauchy.drainage]
+[flow.bc.drainage]
 application_domain = "top"
 value = "1.0e-5 m2/s"
+kind = "cauchy"
 
 [data]
 types = ["recharge"]

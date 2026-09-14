@@ -20,7 +20,7 @@ allowed:
   display:       [core, schema, results, display]
   analysis:      [core, schema, physics, data, results, display, analysis]
   # ``reporting`` hosts HTML composites (calibration session report,
-  # comparison web report, streamlit UI). It assembles figures from
+  # comparison web report). It assembles figures from
   # ``display`` and features from ``analysis`` so it sits above both.
   reporting:     [core, schema, config, results, display, analysis, reporting]
   workflow:      [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, reporting, workflow]

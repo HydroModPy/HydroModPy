@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.modflow6.prt_tracks import (
+from hydromodpy.solver.modflow6.extractors._prt_tracks import (
     read_prt_track_csv,
     read_time_units_from_tdis,
 )
@@ -100,7 +100,7 @@ class Modflow6PrtOutputAdapter:
         finally:
             sz.close()
 
-        logger.info(
+        logger.debug(
             "Extracted %d MODFLOW 6 PRT particle tracks (max %d steps) for sim %s",
             arrays.n_particles,
             arrays.max_steps,

@@ -25,31 +25,31 @@ The forcing path now separates three responsibilities:
   homogeneous or heterogeneous solver-ready forcing payloads.
 - ``hydromodpy.physics.forcing.time_alignment`` aligns series on simulation
   stress-period boundaries.
-- ``hydromodpy.simulation.forcing`` remains the stable re-export surface used
-  by orchestration code.
+- ``hydromodpy.physics.flow.time_forcing`` prepares the flow-side payload
+  handed to the solver adapters.
 
 Code map
 --------
 
-- ``hydromodpy/simulation/settings.py``:
+- ``hydromodpy/simulation/planning/config.py``:
   typed simulation settings and canonical time-window validation.
-- ``hydromodpy/process/hydrology/synthetic/forcing.py``:
+- ``hydromodpy/physics/hydrology/synthetic/forcing.py``:
   generator-side synthetic forcing helpers.
-- ``hydromodpy/process/forcing/forcing_bridge.py``:
+- ``hydromodpy/physics/forcing/forcing_bridge.py``:
   generic forcing conversion and unit handling.
-- ``hydromodpy/process/forcing/time_alignment.py``:
+- ``hydromodpy/physics/forcing/time_alignment.py``:
   stress-period aggregation.
-- ``hydromodpy/process/flow/time_forcing.py``:
+- ``hydromodpy/physics/flow/time_forcing.py``:
   flow-side forcing preparation before adapter dispatch.
 
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/simulation/settings.py``
-2. ``hydromodpy/process/hydrology/synthetic/forcing.py``
-3. ``hydromodpy/process/forcing/forcing_bridge.py``
-4. ``hydromodpy/process/forcing/time_alignment.py``
-5. ``hydromodpy/process/flow/time_forcing.py``
+1. ``hydromodpy/simulation/planning/config.py``
+2. ``hydromodpy/physics/hydrology/synthetic/forcing.py``
+3. ``hydromodpy/physics/forcing/forcing_bridge.py``
+4. ``hydromodpy/physics/forcing/time_alignment.py``
+5. ``hydromodpy/physics/flow/time_forcing.py``
 
 Class Diagram
 -------------

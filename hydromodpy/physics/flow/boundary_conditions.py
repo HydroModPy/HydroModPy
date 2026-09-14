@@ -34,6 +34,7 @@ from pydantic import Field, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr
+from hydromodpy.core.tracking import InputFile
 from hydromodpy.core.units import (
     canonical_unit_short_form,
     check_unit_compatible,
@@ -85,6 +86,10 @@ SIDE_DIRICHLET_BC_IDS = {
 _BOUNDARY_UNIT_TARGETS: dict[str, tuple[str, str]] = {
     "m": ("m", "length"),
     "m2/s": ("m**2/s", "hydraulic-conductance"),
+    # Length-rate (L/T): lake rainfall / open-water evaporation rates.
+    "m/s": ("m/s", "length-rate"),
+    # Leakance (1/T): lake-bed leakance feeding the LAK head-dependent exchange.
+    "1/s": ("1/s", "leakance"),
 }
 
 BoundaryKind: TypeAlias = Literal["dirichlet", "cauchy", "robin"]
@@ -192,7 +197,11 @@ class FlowBoundaryForcingCsvConfig(HydroModelBase):
         default="csv",
         description="Discriminator tag for the CSV-backed boundary-forcing variant.",
     )
-    path_file: Annotated[Path, Profile.DEV] = Field(
+    path_file: Annotated[
+        Path,
+        Profile.DEV,
+        InputFile(role="flow_bc", category="data"),
+    ] = Field(
         ...,
         description="CSV file path containing time-series boundary head values when mode='csv'.",
     )
@@ -248,7 +257,15 @@ class FlowBoundaryConditionConfig(HydroModelBase):
     id: Annotated[str, Profile.USER] = Field(..., description="Boundary-condition identifier.")
     value: Annotated[float | list[float] | None, Profile.USER] = Field(
         default=None,
-        description="Boundary-condition value, scalar or one value per stress period.",
+        description=(
+            "Boundary-condition value, scalar or one value per stress period. On a "
+            "drainage boundary it is a conductance in m2/s, and it may be left out: "
+            "the run then derives it from the conductivity, C = K * cell_area / "
+            "solver.drain_bed_thickness_m, which keeps the drain proportional to K "
+            "and makes K/R the quantity a network calibration searches. A zero or "
+            "negative number selects that same derivation, so it does NOT mean a "
+            "closed boundary; write a positive conductance to impose one."
+        ),
     )
     description: Annotated[str, Profile.USER] = Field(
         "", description="Boundary-condition description."
@@ -519,6 +536,14 @@ class _DrainageBC(FlowBoundaryConditionConfig):
             raise ValueError(f"{location_prefix}.kind must be '{expected_kind}'")
         payload["kind"] = expected_kind
 
+        # A drainage conductance may be left unsaid, and then it is derived from
+        # K: C = K * cell_area / bed_thickness. That proportionality is what
+        # makes K/R the quantity a network calibration searches, so it is the
+        # sensible default rather than an exotic mode. The backends select it on
+        # a non-positive number, which is why the omission lands on 0.0 here
+        # instead of on None: one representation, decided at the config edge.
+        if "value" not in payload:
+            payload["value"] = 0.0
         value, units = _coerce_boundary_value_and_units(
             payload=payload,
             location_prefix=location_prefix,
@@ -529,17 +554,39 @@ class _DrainageBC(FlowBoundaryConditionConfig):
         if "unit" in payload:
             payload.pop("unit")
 
+        # The registry owns where a canonical boundary lives, so the user need
+        # not retype it, and may not contradict it: a drainage pinned to a
+        # lateral side instead of the top targets other cells entirely.
+        from hydromodpy.physics.flow.boundary_condition_registry import boundary_definition
+
+        canonical = boundary_definition(bc_id)
+        canonical_domain = canonical.application_domain if canonical is not None else None
+
         raw_application_domain = payload.get("application_domain")
-        if not isinstance(raw_application_domain, str):
-            raise TypeError(f"{location_prefix}.application_domain must be a string")
-        application_domain = raw_application_domain.strip()
-        if application_domain == "":
-            raise ValueError(f"{location_prefix}.application_domain cannot be empty")
-        if application_domain not in ALLOWED_BC_APPLICATION_DOMAINS:
-            raise ValueError(
-                f"{location_prefix}.application_domain contains an invalid value: "
-                f"{application_domain}"
-            )
+        if raw_application_domain is None:
+            if canonical_domain is None:
+                raise ValueError(
+                    f"{location_prefix}.application_domain is required: {bc_id!r} is not a "
+                    "boundary the registry knows, so nothing can say where it applies."
+                )
+            application_domain = canonical_domain
+        else:
+            if not isinstance(raw_application_domain, str):
+                raise TypeError(f"{location_prefix}.application_domain must be a string")
+            application_domain = raw_application_domain.strip()
+            if application_domain == "":
+                raise ValueError(f"{location_prefix}.application_domain cannot be empty")
+            if application_domain not in ALLOWED_BC_APPLICATION_DOMAINS:
+                raise ValueError(
+                    f"{location_prefix}.application_domain contains an invalid value: "
+                    f"{application_domain}"
+                )
+            if canonical_domain is not None and application_domain != canonical_domain:
+                raise ValueError(
+                    f"{location_prefix}.application_domain is {application_domain!r} but a "
+                    f"{bc_id!r} boundary applies on {canonical_domain!r}. Drop the line to take "
+                    "the value the registry declares."
+                )
         payload["application_domain"] = application_domain
         payload["description"] = str(
             payload.get(

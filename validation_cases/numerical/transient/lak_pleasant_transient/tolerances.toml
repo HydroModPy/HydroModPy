@@ -1,0 +1,29 @@
+# Tolerances for the transient multi-layer LAK regression (see tests/TOLERANCES.md
+# row 41). The case has no external reference: it pins the HMP DISV LAK build's own
+# converged behaviour, so the residual is governed by solver / BLAS noise and the
+# committed golden values, not by an inter-model comparison.
+
+[stage]
+# Per-period lake stage agreement with the committed golden, in meters. The stage
+# equilibrates near the surrounding head and the abacus range (~339 m); solver
+# noise across platforms stays well under 1 cm.
+period_stage_abs_error_m = 0.05
+# The transient forcings (a wet pulse, then a dry-down) must move the lake stage by
+# at least this much; a flat series would mean the per-period drivers did nothing.
+min_stage_swing_m = 0.1
+
+[budget]
+# Per-period LAK water-balance closure (worst percent discrepancy reported by MF6).
+budget_percent_discrepancy = 1.0
+
+[structural]
+# The multi-layer CONNECTIONDATA must carry one VERTICAL leakage per lake column
+# (25, into layer 2) plus HORIZONTAL bank seepage in BOTH occupied layers (20 in
+# layer 0 + 20 in layer 1 = 40), proving the lake is incised across the top two
+# layers.
+n_connections = 65
+n_vertical = 25
+n_horizontal = 40
+horizontal_layer_0 = 20
+horizontal_layer_1 = 20
+occupied_layers = 2

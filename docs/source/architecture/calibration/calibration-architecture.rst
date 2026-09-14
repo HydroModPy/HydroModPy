@@ -14,17 +14,18 @@ Architecture map
 
 The current calibration stack is split into four layers:
 
-- ``hydromodpy/calibration/cli_runner.py`` owns the
+- ``hydromodpy/calibration/runners/cli_runner.py`` owns the
   ``hmp run <calibration.toml>`` workflow entry point: validates the
   config, builds the engine, runs the optimizer, writes the report.
-  ``programmatic_runner.py`` exposes the same flow for in-process use.
-- ``hydromodpy/simulation/execution/trial.py`` owns the prepare-once,
+  ``runners/programmatic_runner.py`` exposes the same flow for
+  in-process use.
+- ``hydromodpy/calibration/runners/trial.py`` owns the prepare-once,
   evaluate-many primitive used by every trial inside the ask/tell
   loop.
-- ``hydromodpy/calibration/`` (engine, parameters, objective,
-  optimizer, diagnostics, persistence) owns the reusable engine,
-  parameter sets, objective handling, method dispatch, and canonical
-  results.
+- ``hydromodpy/calibration/optim/`` (engine, parameters, objective,
+  optimizer, diagnostics) plus ``persistence.py`` own the reusable
+  engine, parameter sets, objective handling, method dispatch, and
+  canonical results.
 - ``hydromodpy/calibration/cases/`` owns runnable scientific cases
   that exercise the full calibration loop end to end.
 
@@ -35,17 +36,25 @@ When reading the code from the published docs:
 
 1. ``hydromodpy/cli/commands/run.py`` (``[workflow].mode =
    "calibration"`` dispatch)
-2. ``hydromodpy/calibration/cli_runner.py``
-3. ``hydromodpy/calibration/engine.py``
-4. ``hydromodpy/simulation/execution/trial.py``
+2. ``hydromodpy/calibration/runners/cli_runner.py``
+3. ``hydromodpy/calibration/optim/engine.py``
+4. ``hydromodpy/calibration/runners/trial.py``
 5. one case under ``hydromodpy/calibration/cases/``
 
 Companion files:
 
-- ``hydromodpy/calibration/README.md`` for the package map.
+- :doc:`../packages/calibration` for the package map.
 - :doc:`calibration-guide` for the end-to-end reference.
 - Case-local docstrings under ``hydromodpy/calibration/cases/`` for
   runnable examples.
+
+.. warning::
+
+   The PlantUML diagrams below were drawn against the pre-refactor
+   ``hydromodpy.analysis.calibration.core`` layout. The module paths and
+   several class names they show no longer exist; the current ones are the
+   four layers listed above. Read the diagrams for the shape of the flow,
+   not for import paths.
 
 Core classes (config)
 ---------------------
@@ -86,19 +95,11 @@ How one runnable calibration case plugs into the shared core.
 
 .. uml:: diagrams/reservoir_sequence.wsd
 
-Devkit sequence
----------------
-
-The developer tooling used to scaffold and validate new calibration
-cases.
-
-.. uml:: diagrams/devkit_sequence.wsd
-
 Case / core structure
 ---------------------
 
-How runnable calibration cases are organized around the shared
-calibration core: where ``core/`` ends and ``cases/`` begins.
+How runnable calibration cases are organized around the shared engine:
+where ``optim/`` ends and ``cases/`` begins.
 
 .. uml:: diagrams/case_core_structure.wsd
 
@@ -107,7 +108,8 @@ Notes:
 - Case packages under ``hydromodpy/calibration/cases`` are expected
   to stay thin adapters around the shared engine.
 - CLI-specific concerns such as manifests, reruns, and report
-  persistence are owned by ``hydromodpy/calibration/cli_runner.py`` and
+  persistence are owned by
+  ``hydromodpy/calibration/runners/cli_runner.py`` and
   the reporting helpers in
   ``hydromodpy/calibration/persistence.py`` and ``report.py``.
 

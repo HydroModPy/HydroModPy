@@ -1,7 +1,7 @@
 """CMA-ES optimizer adapter backed by the `cma` package.
 
 The adapter runs the CMA-ES search in the transformed parameter space exposed by
-:class:`~hydromodpy.calibration.parameters.ParameterSpace` and optionally
+:class:`~hydromodpy.calibration.optim.parameters.ParameterSpace` and optionally
 normalises the search domain into the unit cube.
 
 The ask/tell contract:
@@ -17,17 +17,19 @@ CMA generates ``popsize`` points, all points are scored, CMA updates, repeat.
 from __future__ import annotations
 
 import math
+from typing import Any
 
 import numpy as np
 
 from hydromodpy.calibration.adapters._prior_sampling import transformed_prior_center
-from hydromodpy.calibration.optimizer import (
+from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
+    EngineTraits,
     EvaluationResult,
     ParamSuggestion,
     register_optimizer,
 )
-from hydromodpy.calibration.parameters import ParameterSpace
+from hydromodpy.calibration.optim.parameters import ParameterSpace
 
 
 @register_optimizer("cma_es")
@@ -61,6 +63,8 @@ class CmaEsAdapter:
 
     name = "cma_es"
 
+    traits = EngineTraits(accepts_a_start_point=True)
+
     def __init__(
         self,
         space: ParameterSpace,
@@ -71,6 +75,7 @@ class CmaEsAdapter:
         normalize: bool = True,
         seed: int | None = None,
         restarts: int = 0,
+        start_at: Any | None = None,
     ) -> None:
         try:
             import cma
@@ -93,7 +98,11 @@ class CmaEsAdapter:
 
         self._lower = np.asarray([p.lower_transformed for p in space.parameters], dtype=float)
         self._upper = np.asarray([p.upper_transformed for p in space.parameters], dtype=float)
-        center = transformed_prior_center(space)
+        center = (
+            transformed_prior_center(space)
+            if start_at is None
+            else np.clip(np.asarray(start_at, dtype=float).ravel(), self._lower, self._upper)
+        )
 
         if self._normalize:
             span = self._upper - self._lower

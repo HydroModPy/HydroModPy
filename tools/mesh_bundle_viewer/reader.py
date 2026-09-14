@@ -19,6 +19,7 @@ from .bundle_contracts import (
     CatchmentMeshBundleGeologyFraction,
     CatchmentMeshBundleNode,
 )
+from .long_paths import filesystem_path
 
 
 def _parse_optional_float(raw_value: str) -> float | None:
@@ -40,23 +41,26 @@ def _parse_bool(raw_value: str) -> bool:
 
 
 def _load_csv_rows(path: Path) -> tuple[dict[str, str], ...]:
-    if not path.exists():
+    readable = filesystem_path(path)
+    if not readable.exists():
         return ()
-    with path.open("r", encoding="utf-8", newline="") as stream:
+    with readable.open("r", encoding="utf-8", newline="") as stream:
         reader = csv.DictReader(stream)
         return tuple(dict(row) for row in reader)
 
 
 def _load_required_json(path: Path, *, label: str) -> dict[str, Any]:
-    if not path.exists():
+    readable = filesystem_path(path)
+    if not readable.exists():
         raise FileNotFoundError(f"{label} not found: {path}")
-    return dict(json.loads(path.read_text(encoding="utf-8")))
+    return dict(json.loads(readable.read_text(encoding="utf-8")))
 
 
 def _load_optional_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
+    readable = filesystem_path(path)
+    if not readable.exists():
         return None
-    return dict(json.loads(path.read_text(encoding="utf-8")))
+    return dict(json.loads(readable.read_text(encoding="utf-8")))
 
 
 def _parse_node(row: dict[str, str]) -> CatchmentMeshBundleNode:

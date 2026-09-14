@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from hydromodpy.physics.flow.initial_conditions import (
     FlowICBottom,
@@ -82,3 +83,45 @@ def test_modflow6_accepts_bottom_initial_condition_name() -> None:
 
     # DISV: strt shape is (nlay, ncpl) - all layers start at deepest botm
     assert np.allclose(strt[0], botm_layer2.ravel())
+
+
+def test_read_restart_heads_reads_last_step_and_fills_inactive(tmp_path) -> None:
+    """Hotstart uses the prior run's last time step; inactive cells fall back to top."""
+    import zarr
+
+    from hydromodpy.solver.modflow6.builders.initial_conditions import read_restart_heads
+
+    prior = tmp_path / "prior.zarr"
+    root = zarr.open(str(prior), mode="w")
+    # two periods, two layers, three cells; the last step has one inactive (NaN) cell.
+    root["head"] = np.array(
+        [[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], [[1.0, 2.0, 3.0], [4.0, 5.0, np.nan]]]
+    )
+
+    strt = read_restart_heads(str(prior), nlay=2, ncpl=3, top_flat=np.array([10.0, 20.0, 30.0]))
+
+    assert np.array_equal(strt, [[1.0, 2.0, 3.0], [4.0, 5.0, 30.0]])
+
+
+def test_read_restart_heads_rejects_a_mismatched_mesh(tmp_path) -> None:
+    """A cell-count mismatch raises (rather than silently reindexing)."""
+    import zarr
+
+    from hydromodpy.solver.modflow6.builders.initial_conditions import read_restart_heads
+
+    prior = tmp_path / "prior.zarr"
+    zarr.open(str(prior), mode="w")["head"] = np.zeros((1, 2, 3))
+
+    with pytest.raises(ValueError, match="does not match"):
+        read_restart_heads(str(prior), nlay=2, ncpl=5, top_flat=np.zeros(5))
+
+
+def test_resolve_restart_from_reads_flow_config() -> None:
+    from hydromodpy.solver.modflow6.builders.initial_conditions import resolve_restart_from
+
+    with_source = SimpleNamespace(
+        flow=SimpleNamespace(config=SimpleNamespace(restart_from=" a.zarr "))
+    )
+    assert resolve_restart_from(with_source) == "a.zarr"
+    without = SimpleNamespace(flow=SimpleNamespace(config=SimpleNamespace(restart_from=None)))
+    assert resolve_restart_from(without) is None

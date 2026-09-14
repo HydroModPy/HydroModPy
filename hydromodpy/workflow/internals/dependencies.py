@@ -8,7 +8,9 @@ executed once, then shared across the ask/tell loop.
 
 ``earliest_affected_step`` performs a longest-prefix match between every
 override path and every step's declared ``config_sections``. The first
-step (lowest index) that owns a matching section wins.
+step (lowest index) that owns a matching section wins, and a path no step
+owns is refused: nothing would re-run, so the trial would score the previous
+model.
 
 All steps in ``steps[earliest:]`` must re-run, even those with empty
 ``config_sections``, because they consume the output state produced by
@@ -57,20 +59,22 @@ def earliest_affected_step(
     -------
     int
         The index of the first step whose ``config_sections`` owns any
-        override path. If no override path matches any section, returns
-        ``len(steps)`` (nothing needs to re-run).
+        override path.
 
     Raises
     ------
     ConfigError
-        When ``override_paths`` is empty or any step has a falsy
-        ``config_sections`` tuple entry.
+        When ``override_paths`` is empty, or when a path is owned by no step.
+        A path nothing consumes would leave every step shared across trials, so
+        each trial would evaluate the same model with a different number
+        attached to it and the search would report a value it never varied.
     """
     paths = [p for p in override_paths if p]
     if not paths:
         raise ConfigError("earliest_affected_step requires at least one override path")
 
     earliest = len(steps)
+    orphans: list[str] = []
     for path in paths:
         for index, step in enumerate(steps):
             sections = getattr(step, "config_sections", ()) or ()
@@ -78,6 +82,22 @@ def earliest_affected_step(
                 if index < earliest:
                     earliest = index
                 break
+        else:
+            orphans.append(path)
+    if orphans:
+        declared = sorted(
+            {
+                section
+                for step in steps
+                for section in (getattr(step, "config_sections", ()) or ())
+                if section
+            }
+        )
+        raise ConfigError(
+            f"no pipeline step reads {', '.join(sorted(orphans))}, so changing it would "
+            "re-run nothing and every trial would evaluate the same model. Sections a "
+            f"step declares: {', '.join(declared) or 'none'}."
+        )
     return earliest
 
 

@@ -116,7 +116,7 @@ def _build_property_from_flow_domain(
         support_label = "direct homogeneous mapping"
 
     values = np.asarray(solver_mesh.to_cell_values(mesh_values.cell_values), dtype=float)
-    logger.info(
+    logger.debug(
         "%s mapped from flow.%s using %s",
         property_label,
         selected_name,

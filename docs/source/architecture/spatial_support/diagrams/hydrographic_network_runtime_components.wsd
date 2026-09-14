@@ -20,7 +20,7 @@ package "Canonical geographic layer" {
 package "Persistence and reading" {
   component "prepare_solver.py\nreference persistence" as ReferencePersistence
   component "store_ingestion.py\ngenerated persistence" as StoreIngestion
-  database "SimulationCatalog" as SimulationCatalog
+  database "Catalog" as Catalog
   component "Run facade" as Run
 }
 
@@ -41,10 +41,10 @@ HydrographicNetworks --> GeographicDerivedFeatures
 
 GeographicDerivedFeatures --> ReferencePersistence : reference role
 GeographicDerivedFeatures --> StoreIngestion : generated role
-ReferencePersistence --> SimulationCatalog
-StoreIngestion --> SimulationCatalog
+ReferencePersistence --> Catalog
+StoreIngestion --> Catalog
 
-SimulationCatalog --> Run
+Catalog --> Run
 Run --> SingleFigures
 Run --> Comparison : when both roles exist
 Comparison --> ComparisonFigures

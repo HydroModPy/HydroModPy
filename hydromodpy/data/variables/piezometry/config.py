@@ -9,7 +9,7 @@ from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
-from hydromodpy.data.base_config import BaseVariableConfig
+from hydromodpy.data.managers.base_config import BaseVariableConfig
 from hydromodpy.data.variables.timeseries_variable_config import (
     SparseStationFallbackMixin,
     TimeseriesColumnsMixin,
@@ -28,7 +28,16 @@ class PiezometrySourceConfig(
     """
 
     source: Annotated[Literal["custom", "hubeau"], Profile.USER] = Field(
-        ..., description="Data provider."
+        ...,
+        description="Data provider.",
+        json_schema_extra={
+            "value_docs": {
+                "custom": (
+                    "Loads groundwater-level records from local station and chronicle files."
+                ),
+                "hubeau": "Downloads public groundwater-level observations from the Hub'Eau API.",
+            }
+        },
     )
 
     # --- Custom source fields ---

@@ -14,7 +14,9 @@ from pathlib import Path
 import duckdb
 import pytest
 
+from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.results.catalog.migrations import MIGRATIONS_DIR
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -72,9 +74,11 @@ def _seed_fixture(db_path: Path, recipe: dict) -> None:
     try:
         for entry in seed_simulations:
             sid = entry["sim_id"]
-            short = sid.replace("-", "")[:12]
-            zarr_path = entry.get("zarr_path", f"simulations/{short}.zarr")
-            storage_basename = entry.get("storage_basename", short)
+            run_name = entry.get("name") or sid.replace("-", "")[:12]
+            storage_basename = entry.get("storage_basename", run_name)
+            zarr_path = entry.get(
+                "zarr_path", f"{RUNS_DIRNAME}/{storage_basename}/{FIELDS_STORE_NAME}"
+            )
             conn.execute(
                 """INSERT INTO simulations
                    (sim_id, name, project,
@@ -95,27 +99,6 @@ def _seed_fixture(db_path: Path, recipe: dict) -> None:
             )
     finally:
         conn.close()
-
-
-@pytest.fixture
-def v1_fixture_path(tmp_path: Path, request: pytest.FixtureRequest) -> Path:
-    """Materialise a v1 DuckDB catalog from a fixture recipe.
-
-    Parametrise the test with the recipe stem (without the ``.recipe.json``
-    suffix) and call ``request.param`` to pick it up.
-    """
-    stem = request.param
-    recipe_file = FIXTURES_DIR / f"{stem}.recipe.json"
-    recipe = json.loads(recipe_file.read_text(encoding="utf-8"))
-    db_path = tmp_path / f"{stem}.duckdb"
-    _apply_v1_schema(db_path)
-    _seed_fixture(db_path, recipe)
-    return db_path
-
-
-@pytest.fixture
-def fixtures_dir() -> Path:
-    return FIXTURES_DIR
 
 
 def discover_fixture_stems() -> list[str]:
@@ -144,7 +127,5 @@ __all__ = [
     "FIXTURES_DIR",
     "copy_fixture",
     "discover_fixture_stems",
-    "fixtures_dir",
     "materialise_v1_db",
-    "v1_fixture_path",
 ]

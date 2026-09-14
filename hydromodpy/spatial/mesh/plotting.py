@@ -11,8 +11,8 @@ import matplotlib.collections as mcollections
 import matplotlib.tri as mtri
 import numpy as np
 
-from hydromodpy.spatial.mesh.cell_types import CellType
-from hydromodpy.spatial.mesh.hydro_mesh import HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
 
 
 def plot_cell_values(

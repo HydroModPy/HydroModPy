@@ -14,9 +14,9 @@ from datetime import datetime, timedelta
 import pandas as pd
 import requests
 
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import get_json
-from hydromodpy.data.common.progress import iter_progress, log_step
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 
@@ -87,7 +87,6 @@ def fetch(
     # Resolve station list
     if station_ids:
         ids = [_normalize_station_id(s) for s in station_ids]
-        ids = _limit_station_ids(ids, max_stations=max_stations)
     elif bbox is not None:
         ids = _discover_stations_in_bbox(
             bbox,
@@ -95,7 +94,6 @@ def fetch(
             date_end=date_end,
             require_observations=require_observations,
         )
-        ids = _limit_station_ids(ids, max_stations=max_stations)
         if not ids and fallback_search_radius_km:
             from hydromodpy.data.common.geo_helpers import expand_bbox
 
@@ -109,7 +107,6 @@ def fetch(
                 date_end=date_end,
                 require_observations=require_observations,
             )
-            ids = _limit_station_ids(ids, max_stations=max_stations)
     else:
         raise ValueError("Either bbox or station_ids must be provided.")
 
@@ -117,16 +114,23 @@ def fetch(
         logger.info("Hub'Eau: no stations found.")
         return []
 
-    log_step(
+    logger.debug(
         f"Hub'Eau: {len(ids)} stations "
         f"[{date_start.strftime('%Y-%m-%d')} -> {date_end.strftime('%Y-%m-%d')}]"
     )
 
     records: list[PointRecord] = []
-    for sid in iter_progress(ids, desc="Stations"):
+    empty: list[str] = []
+    for sid in progress.track(ids, "Fetching hydrometry stations"):
+        # max_stations caps the stations KEPT, not the ids tried: capping the ids
+        # first let stations with no data in the period consume the quota and
+        # crowd out the ones that have some.
+        if max_stations is not None and len(records) >= max_stations:
+            break
         location = _fetch_station_location(sid)
         obs_df = _download_observations(sid, product, date_start, date_end)
         if obs_df.empty:
+            empty.append(sid)
             continue
 
         unit = "m3/s" if product in _DISCHARGE_VARS else "m"
@@ -144,14 +148,20 @@ def fetch(
             )
         )
 
-    log_step(f"Hub'Eau: {len(records)} station records loaded")
+    if empty:
+        logger.warning(
+            "Hub'Eau: %d of %d stations returned no %s observation between %s and %s and were "
+            "dropped: %s. Their declared service period overlaps the window, which is all "
+            "require_observations can check before downloading.",
+            len(empty),
+            len(ids),
+            product,
+            date_start.strftime("%Y-%m-%d"),
+            date_end.strftime("%Y-%m-%d"),
+            ", ".join(empty[:10]) + (" ..." if len(empty) > 10 else ""),
+        )
+    logger.debug(f"Hub'Eau: {len(records)} station records loaded")
     return records
-
-
-def _limit_station_ids(ids: list[str], *, max_stations: int | None) -> list[str]:
-    if max_stations is None:
-        return ids
-    return ids[:max_stations]
 
 
 # ---------------------------------------------------------------------------

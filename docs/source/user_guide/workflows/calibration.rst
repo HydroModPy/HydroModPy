@@ -234,6 +234,34 @@ Persistence Strategy
      - Every candidate becomes a full persisted simulation.
      - Debugging, small synthetic benchmarks, or audit-heavy studies.
 
+Where The Calibration Lands
+---------------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 38 62
+
+   * - Path
+     - Content
+   * - ``sessions/<session_name>/session.json``
+     - Session descriptor: identity, project, search space, objective,
+       dates, best trial. Written before the first trial, rewritten
+       with the outcome at the end.
+   * - ``sessions/<session_name>/trials.jsonl``
+     - Trial log: one JSON object per evaluated trial, appended live.
+       An interrupted calibration keeps every trial it evaluated.
+   * - ``runs/<run_name>/``
+     - One full run directory per promoted trial, when
+       ``save_runs = "best_n"`` or ``"all"``.
+   * - ``share/reports/<session_name>/report.html``
+     - HTML report and its ``figures/`` sub-directory, rendered by
+       ``hmp report render``.
+
+The session directory is the source of truth for the history. The
+``calibration_sessions`` and ``calibration_iterations`` tables of
+``.hmp/index.duckdb`` are an index over those two files and are rebuilt
+from them by ``hmp catalog reindex``.
+
 Outputs To Inspect
 ------------------
 

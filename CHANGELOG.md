@@ -53,6 +53,24 @@ Each release section includes the following standard categories:
   `hydromodpy.config.schema_export` instead.
 
 ### Changed
+- Simulation identity keys renamed. `[simulation].run_id` and
+  `[simulation].on_collision` are removed and now hard-fail under
+  `extra="forbid"`. Use `[simulation].name` for the run identity and
+  `[simulation].if_exists` for name-collision behaviour. `if_exists`
+  defaults to `version` (mint the next `stem.vN`), replacing the old
+  `replace` default; `replace` and `fail` remain available. `hmp doctor
+  --fix-config FILE.toml` migrates old keys in place.
+- Unstructured MODFLOW 6 grids now build a Voronoi/PEBI dual by default
+  (exact CVFD orthogonality, about half the cells, XT3D off). The new
+  `grid_dual` field controls this; set `grid_dual = "triangle"` to restore
+  the previous triangle DISV grid. Upgrading an existing unstructured
+  MODFLOW 6 project changes its heads and budgets, and any calibration
+  `params_hash` cache must be invalidated after the upgrade to avoid
+  reusing stale objectives. MODFLOW-NWT (structured DIS) and Boussinesq
+  are unaffected.
+- Raster / VTU / shapefile auto-export now defaults to the last timestep
+  instead of the first. Set `[export].times = "first"` to keep the previous
+  behaviour.
 - Documented the release policy for SemVer/PEP 440 versions, alpha/beta/rc
   pre-releases, the new `main` default line, the frozen `archive-v1` branch,
   release branches, tags, and GitHub Releases.
@@ -80,6 +98,23 @@ Each release section includes the following standard categories:
   the solver. `persist_calibration_result` renamed to `promote_trial`.
 
 ### Added
+- MODFLOW 6 Lake (LAK) package support: model one or several lakes/reservoirs
+  as advanced boundary conditions with stage, bathymetry abacus, and bed
+  leakance, driven from the `[flow]` boundary configuration. LAK is a
+  MODFLOW 6 backend capability.
+- Streamflow Routing (SFR) support on the MODFLOW 6 backend, including
+  SFR-to-lake water movers (MVR) so routed streamflow can feed a LAK lake.
+- Horizontal flow barrier support, including a dam cutoff wall (HFB), to
+  reduce flow across a mapped line such as a grouting curtain under a dam.
+- Lake bathymetry bed carving: a bathymetry raster can lower the MODFLOW 6
+  cell bottoms under a lake so the aquifer grid follows the reservoir bed.
+- Lake-level calibration: calibrate against an observed MODFLOW 6 LAK stage
+  series (`variable = "lake_level"`) in addition to discharge and head.
+- Top-level `[export]` configuration section promoting the raster / VTU /
+  shapefile / time-series export toggles to a first-class config block.
+- New geographic `domain_extent` option (`box`, `watershed_buff`,
+  `watershed`) to select the modelled domain surface, and a mesh
+  `lake_refinement` block to refine cells around lakes and dams.
 - Calibration refactor - trial primitive plus step auto-invalidation:
   - `hydromodpy.simulation.execution.trial` with `TrialContext`,
     `prepare_trials`, `run_trial_light`, `promote_trial`.

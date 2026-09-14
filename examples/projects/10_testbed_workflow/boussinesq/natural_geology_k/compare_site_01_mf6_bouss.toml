@@ -159,11 +159,13 @@ root = "../../outputs/nwt_small_catchment_flux/comparisons/site_01_refined_mf6_v
 # solvers may ignore this field.
 runtime_backend = "scipy_sparse"
 
-[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+
+[comparison.simulation.overlay.flow.bc.drainage]
 value = "0.0 m2/s"
 description = "Boussinesq case 1: Cauchy drainage disabled; the upper free-surface obstacle remains active."
 
 # Observables to compare across the declared simulations. At least one entry required.
+kind = "cauchy"
 [[comparison.observable]]
 # Stable observable identifier. It becomes the group name used in metrics, differences, figures,
 # and HTML sections.

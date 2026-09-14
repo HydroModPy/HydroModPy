@@ -10,7 +10,7 @@ from pathlib import Path
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.store import DataStore
+from hydromodpy.data.loading.store import DataStore
 from hydromodpy.data.variables.dem.config import DemConfig
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
 

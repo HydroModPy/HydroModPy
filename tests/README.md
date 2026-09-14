@@ -9,7 +9,7 @@ budgets, and selection rules.
 ```
 tests/
 ├── conftest.py                  # shared scratch root, update-goldens flag, shared fixtures
-├── unit/                        # one module under test, < 2 s, no real I/O
+├── unit/                        # one module under test, 2 s target, no real I/O
 ├── integration/                 # cross-module workflows with shared fixtures, < 10 s
 ├── regression/                  # golden-reference tests for full workflows
 │   ├── fast/                    # routine non-regression tier
@@ -23,16 +23,18 @@ tests/
 ├── e2e/                         # subprocess-level command scenarios
 ├── performance/                 # pytest-benchmark storage-wrapper benchmarks
 ├── contract/                    # compatibility contracts across implementations
-├── validity_frame/              # experimental observability tooling (not run by CI)
 └── _helpers/                    # pytest-local helpers and shared builders
 ```
+
+`validity_frame/` is a separate installable package with its own
+`validity_frame/tests/`; it is not part of this suite.
 
 ## Tiers
 
 | Tier | Target budget | Purpose | Selection |
 |------|---------------|---------|-----------|
-| `unit`       | ≤ 1 min total, ≤ 2 s per test | One module under test, pure-Python logic, no external binaries, no real I/O outside `tmp_path`. | `pytest tests/unit/` |
-| `integration` | ≤ 10 s per test | Cross-module workflows exercising more than one HydroModPy subpackage via shared fixtures (`tmp_workspace`, `minimal_config`, …). No golden files. | `pytest tests/integration/` or `pytest -m integration` |
+| `unit`       | 2 s per test (design target), 60 s hard timeout | One module under test, pure-Python logic, no external binaries, no real I/O outside `tmp_path`. | `pytest tests/unit/` |
+| `integration` | ≤ 10 s per test | Cross-module workflows exercising more than one HydroModPy subpackage. Two shared fixtures are available from the root conftest (`tmp_workspace`, `minimal_config`); most tests build their own. No golden files. | `pytest tests/integration/` or `pytest -m integration` |
 | `regression/fast` | ≤ 5 min | Full launcher/pipeline workflows on mini fixtures, compared to committed golden signatures. | `pytest tests/regression/fast/` |
 | `regression/extensive` | ≤ 30 min | Deeper end-to-end golden checks with heavier fixtures. | `pytest tests/regression/extensive/` |
 | `validation` | ≤ 30 min | Numerical results vs analytical / MMS references with documented tolerances. | `pytest tests/validation/` |
@@ -50,7 +52,7 @@ Declared in the repository-root `pytest.ini`:
 | `steady`      | steady-state case |
 | `transient`   | transient case |
 | `fast`        | cheap tier (fast regression or quick validation) |
-| `slow`        | long-running test, skipped from fast CI |
+| `slow`        | long-running test; filtered out of the push gate by `-m "not slow"` in `main-ci.yml`, still runs in `ci-weekly.yml` |
 | `extensive`   | deeper regression tier |
 | `nwt`         | MODFLOW-NWT / MODPATH / MT3DMS |
 | `mf6`         | MODFLOW 6 / GWT |
@@ -178,10 +180,14 @@ parses the shared table for tests that need a named tolerance.
 ## Writing new tests
 
 - **unit/** - one importable module under test, one behaviour per test,
-  budget ≤ 2 s. No external binaries. Use `tmp_path` for any I/O.
+  2 s target. The hard limit enforced by `tests/conftest.py` is a 60 s
+  per-test timeout; anything that needs more must carry `@pytest.mark.slow`,
+  which takes it out of the push gate. No external binaries. Use `tmp_path`
+  for any I/O.
 - **integration/** - cross-module test (pipeline + catalog, planner +
-  adapters, …) backed by shared fixtures from the root conftest
-  (`tmp_workspace`, `minimal_config`). Budget ≤ 10 s, no golden files.
+  adapters, …). Budget ≤ 10 s, no golden files. Two shared fixtures are
+  available from the root conftest, `tmp_workspace` and `minimal_config`;
+  neither is mandatory.
 - **regression/** - exercise a full launcher / pipeline on a fixture, then
   compare a committed signature. Tag with `@pytest.mark.regression` and
   (if solver-specific) `@pytest.mark.nwt` or `@pytest.mark.mf6`.
@@ -206,7 +212,8 @@ usually hiding several independent suites.
 The active GitHub Actions gates are split across `.github/workflows/`:
 
 - **main-ci.yml** - PR + push gate: quality (ruff), secrets, architecture,
-  fast / unit / integration / regression-fast tiers, package-smoke, typing.
+  a `--collect-only` gate over the whole tree, fast / unit (`-m "not slow"`) /
+  contract / integration / regression-fast tiers, package-smoke, typing.
 - **ci-nightly.yml** - nightly extensive regression, validation (not petsc),
   integration with coverage.
 - **ci-weekly.yml** - cross-OS unit + fast-regression + analytical, serial

@@ -59,9 +59,7 @@ from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 
 mesh = HydroMesh(
     vertices=points_xy,
-    cell_blocks=(
-        CellBlock(CellType.TRIANGLE, connectivity),
-    ),
+    cell_blocks=(CellBlock(CellType.TRIANGLE, connectivity),),
 )
 ```
 

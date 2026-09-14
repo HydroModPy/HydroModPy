@@ -53,6 +53,8 @@ jobs:
 
       # Split whitebox backend out of the parallel run; the native library
       # segfaults under pytest-xdist.
+      # No marker filter here on purpose: the push gate runs `-m "not slow"`,
+      # so this weekly job is the only place the `slow` unit tests execute.
       - name: Run unit tests (parallel, without whitebox backend)
         shell: bash
         run: |

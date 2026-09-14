@@ -17,3 +17,15 @@ def test_api_reference_lists_required_public_api_pages() -> None:
 
 def test_user_guide_lists_required_topic_pages() -> None:
     assert check_docs_inventory.check_user_guide_pages() == []
+
+
+def test_authored_user_guide_pages_link_somewhere() -> None:
+    assert check_docs_inventory.check_user_guide_crossrefs() == []
+
+
+def test_data_family_pages_follow_the_shared_template() -> None:
+    assert check_docs_inventory.check_data_pages_follow_template() == []
+
+
+def test_api_reference_never_recurses() -> None:
+    assert check_docs_inventory.check_api_reference_is_not_recursive() == []

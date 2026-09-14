@@ -143,6 +143,18 @@ class ComparisonObservable(HydroModelBase):
         Field(
             default="point",
             description="Spatial support of the observable (point, outlet, boundary, mask, map).",
+            json_schema_extra={
+                "value_docs": {
+                    "point": "Reads a single cell picked by x/y, anchor_id, or cell_index.",
+                    "outlet": "Reads the outlet cell given by cell_index, x/y, or "
+                    "anchor_id, then sums it.",
+                    "boundary": "Sums the cells listed in cell_indices, or the whole "
+                    "domain when none are listed.",
+                    "cell_mask": "Same extraction as boundary: sums the cells listed "
+                    "in cell_indices.",
+                    "map": "Keeps the full spatial field with no reduction.",
+                }
+            },
         )
     )
     anchor_id: Annotated[str | None, Profile.USER] = Field(

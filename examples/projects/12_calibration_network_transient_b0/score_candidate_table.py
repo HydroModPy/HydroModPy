@@ -19,12 +19,12 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.calibration.network_transient_truth import (
+from hydromodpy.calibration.observations.network_transient_truth import (
     CandidateScore,
     score_network_transient_candidate,
     score_network_transient_candidate_from_runs,
 )
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 
 
 REQUIRED_COLUMNS = ("steady_catalog", "steady_ref", "transient_ref")
@@ -70,7 +70,7 @@ def score_candidate_specs(
 ) -> pd.DataFrame:
     """Score candidate specs against one B0 truth package."""
 
-    catalog_cache: dict[Path, SimulationCatalog] = {}
+    catalog_cache: dict[Path, Catalog] = {}
     rows: list[dict[str, Any]] = []
     try:
         for spec in specs:
@@ -100,7 +100,7 @@ def _score_one_spec(
     spec: dict[str, str],
     *,
     truth_dir: Path,
-    catalog_cache: dict[Path, SimulationCatalog],
+    catalog_cache: dict[Path, Catalog],
 ) -> dict[str, Any]:
     base = {
         "candidate_id": spec.get("candidate_id", ""),
@@ -179,10 +179,10 @@ def _score_from_runs_with_b0_fallback(
     )
 
 
-def _catalog_for(path_value: str, cache: dict[Path, SimulationCatalog]) -> SimulationCatalog:
+def _catalog_for(path_value: str, cache: dict[Path, Catalog]) -> Catalog:
     path = Path(path_value).expanduser().resolve()
     if path not in cache:
-        cache[path] = SimulationCatalog(path)
+        cache[path] = Catalog(path)
     return cache[path]
 
 

@@ -197,11 +197,44 @@ def snapshot_elapsed_seconds_from_payload(
     return axes.snapshot_elapsed_seconds
 
 
+def saturated_thickness_from_head_history(
+    head_history_m: np.ndarray,
+    *,
+    top_m: np.ndarray,
+    bottom_m: np.ndarray,
+) -> np.ndarray:
+    """Saturated thickness ``b(h)`` over a head history, one row per snapshot.
+
+    ``head_history_m`` is ``(n_snapshots, n_cells)``, ``top_m`` and ``bottom_m``
+    are ``(n_cells,)`` and bound the aquifer. The thickness is clipped into
+    ``[0, top - bottom]``, so a head above the surface does not inflate the
+    aquifer and a head below its base does not make it negative. A negative
+    aquifer (a bottom above its top) is read as zero thickness rather than
+    raising, because that is a mesh defect the caller reports elsewhere.
+
+    Solver-agnostic on purpose: the MODFLOW calibration extractors and the
+    comparison exports both need it and share no layer below ``physics``.
+    """
+    head = np.asarray(head_history_m, dtype=float)
+    if head.ndim != 2:
+        raise ValueError(f"head history must be (n_snapshots, n_cells), got shape {head.shape}.")
+    top = np.asarray(top_m, dtype=float).reshape(-1)
+    bottom = np.asarray(bottom_m, dtype=float).reshape(-1)
+    if not (head.shape[1] == top.size == bottom.size):
+        raise ValueError(
+            f"head history holds {head.shape[1]} cells but top holds {top.size} "
+            f"and bottom holds {bottom.size}."
+        )
+    aquifer_thickness = np.maximum(top - bottom, 0.0)
+    return np.clip(head - bottom[None, :], 0.0, aquifer_thickness[None, :])
+
+
 __all__ = [
     "TransientTimeAxes",
     "build_transient_time_axes",
     "elapsed_seconds_for_time_keys",
     "history_has_initial_snapshot",
+    "saturated_thickness_from_head_history",
     "snapshot_elapsed_seconds_from_payload",
     "step_end_elapsed_seconds_from_payload",
     "step_history_from_history",

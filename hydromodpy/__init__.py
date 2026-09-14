@@ -10,16 +10,17 @@ import importlib
 # so the verbs in `hydromodpy/_api` are re-exported here on purpose.
 from hydromodpy import catalog  # noqa: F401  --  expose ``hmp.catalog`` namespace
 from hydromodpy._api import (
-    audit_prune,
     calibrate,
     compare_pair,
     doctor,
     export,
+    figure,
     index,
     open,
     read,
     report,
     run,
+    spinup,
 )
 from hydromodpy._bootstrap import bootstrap  # noqa: F401  -- import registers the lazy hook
 from hydromodpy._lazy import LAZY_IMPORTS as _LAZY_IMPORTS
@@ -47,12 +48,13 @@ _DIRECT_EXPORTS = [
     "catalog",
     "read",
     "export",
+    "figure",
     "run",
     "calibrate",
+    "spinup",
     "index",
     "compare_pair",
     "report",
-    "audit_prune",
     "bootstrap_proj",
     "doctor",
     "log_manager",

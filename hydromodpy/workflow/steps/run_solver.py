@@ -93,6 +93,7 @@ class RunSolverStep:
         )
         from hydromodpy.simulation.extraction.post_run import record_run_execution_metrics
         from hydromodpy.simulation.planning.plan import RunContext
+        from hydromodpy.workflow.steps.prepare_solver.dispatch import refresh_run_environment
 
         ctx = state.get("ctx")
         if ctx is None:
@@ -118,6 +119,7 @@ class RunSolverStep:
                 result=result,
             )
         wall_seconds = time.monotonic() - t0
+        refresh_run_environment(ctx)
 
         return state.advance(
             step_index=state.step_index + 1,

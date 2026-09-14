@@ -1,4 +1,4 @@
-"""Unit tests for ``hydromodpy.calibration.engine``.
+"""Unit tests for ``hydromodpy.calibration.optim.engine``.
 
 Ports the behavioural intent of the old ``test_calibration2_core.py``
 to the new ask/tell architecture. The old engine took raw ``observed``
@@ -19,14 +19,14 @@ from collections.abc import Mapping
 
 import pytest
 
-from hydromodpy.calibration.cache import ParamsHashCache, params_hash
-from hydromodpy.calibration.engine import CalibrationEngine
-from hydromodpy.calibration.optimizer import (
+from hydromodpy.calibration.optim.cache import ParamsHashCache, params_hash
+from hydromodpy.calibration.optim.engine import CalibrationEngine
+from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     ParamSuggestion,
     build_optimizer,
 )
-from hydromodpy.calibration.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 
 
 def _unit_space() -> ParameterSpace:
@@ -242,7 +242,7 @@ class TestOnIterationCallback:
             optimizer=opt,
             evaluator=_simple_evaluator,
             max_iter=10,
-            on_iteration=lambda r: received.append(r.trial_id),
+            on_iteration=lambda _s, r: received.append(r.trial_id),
         )
         engine.run()
         assert received == [1, 2, 3, 4]
@@ -250,20 +250,41 @@ class TestOnIterationCallback:
     def test_callback_receives_evaluation_result_object(self):
         space = _unit_space()
         opt = build_optimizer("grid", space, points_per_dim=1)
-        captured: list[EvaluationResult] = []
+        captured: list[tuple[ParamSuggestion, EvaluationResult]] = []
 
         engine = CalibrationEngine(
             space=space,
             optimizer=opt,
             evaluator=_simple_evaluator,
             max_iter=10,
-            on_iteration=captured.append,
+            on_iteration=lambda s, r: captured.append((s, r)),
         )
         engine.run()
         assert len(captured) == 1
-        result = captured[0]
+        suggestion, result = captured[0]
         assert isinstance(result, EvaluationResult)
         assert result.status == "completed"
+        assert suggestion.trial_id == result.trial_id
+
+    def test_callback_fires_on_a_cache_hit(self):
+        """A cached trial is still an iteration: it must reach the persister."""
+        space = _unit_space()
+        cache = ParamsHashCache()
+        captured: list[tuple[ParamSuggestion, EvaluationResult]] = []
+
+        for _ in range(2):
+            engine = CalibrationEngine(
+                space=space,
+                optimizer=build_optimizer("grid", space, points_per_dim=2),
+                evaluator=_simple_evaluator,
+                max_iter=2,
+                cache=cache,
+                on_iteration=lambda s, r: captured.append((s, r)),
+            )
+            engine.run()
+
+        assert [result.from_cache for _s, result in captured] == [False, False, True, True]
+        assert all(suggestion.values for suggestion, _r in captured)
 
 
 # ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
+from hydromodpy.core.state.paths import scratch_dir_for
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
@@ -18,7 +19,7 @@ class _DummyWorkspace:
     def __init__(self, config) -> None:
         self.config = config
         self.project_root = Path(config.project_root)
-        self.solver_scratch_folder = self.project_root / ".solver_scratch"
+        self.solver_scratch_folder = scratch_dir_for(self.project_root)
 
 
 class _DummyBatchWorkspace:
@@ -26,7 +27,7 @@ class _DummyBatchWorkspace:
         self.config = config
         self.project_root = Path(config.project_root)
         self.catch_name = str(config.catch_name)
-        self.solver_scratch_folder = self.project_root / ".solver_scratch"
+        self.solver_scratch_folder = scratch_dir_for(self.project_root)
 
 
 class _DummyDomainGeographic:
@@ -53,11 +54,11 @@ def _patch_dummy_geographic_builders(
         else (lambda **_: _DummyGeographicFeatures(river_mesh_trace=river_mesh_trace))
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.build_geographic_derived_features",
+        "hydromodpy.spatial.mesh.launcher.runtime.build_geographic_derived_features",
         build_fn,
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.build_domain_geographic_context",
+        "hydromodpy.spatial.mesh.launcher.runtime.build_domain_geographic_context",
         lambda **kwargs: build_fn(**kwargs).to_domain_geographic_context(),
     )
 
