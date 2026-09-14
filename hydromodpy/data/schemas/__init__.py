@@ -10,6 +10,10 @@ Spec reference: ``architecture_cible/03_data_contracts.md``.
 
 from __future__ import annotations
 
+from hydromodpy.data.schemas.abacus import (
+    AbacusTableSchema,
+    validate_abacus,
+)
 from hydromodpy.data.schemas.catchment import (
     CatchmentPolygonSchema,
     validate_catchment,
@@ -41,6 +45,8 @@ __all__ = [
     "validate_dem",
     "LithologyTableSchema",
     "validate_lithology",
+    "AbacusTableSchema",
+    "validate_abacus",
     "CatchmentPolygonSchema",
     "validate_catchment",
     "validate_warn_only",

@@ -7,14 +7,23 @@ results identically.
 
 Public API:
 
-    >>> from hydromodpy.display import get, list_figures
-    >>> get("piezometric_map").plot(sim, save_path="head.png")
+    >>> from hydromodpy.display import get, list_figures, names
+    >>> "piezometric_map" in names()
+    True
+    >>> get("piezometric_map").spec.name
+    'piezometric_map'
+    >>> len(list_figures()) > 0
+    True
+
+    Rendering needs a Run backed by a simulation on disk:
+
+    >>> get("piezometric_map").plot(run, save_path="head.png")  # doctest: +SKIP
 """
 
 from __future__ import annotations
 
-from hydromodpy.display.catalog import get, list_figures, names, register
 from hydromodpy.display.figure import BaseFigure, Figure, FigureSpec
+from hydromodpy.display.figure_registry import get, list_figures, names, register
 
 __all__ = [
     "BaseFigure",

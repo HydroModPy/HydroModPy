@@ -197,7 +197,7 @@ def materialize_simulation_config(
     overlay = _deepcopy_jsonlike(simulation.overlay)
     simulation_overlay = overlay.setdefault("simulation", {})
     if isinstance(simulation_overlay, dict):
-        simulation_overlay.setdefault("run_id", simulation.id)
+        simulation_overlay.setdefault("name", simulation.id)
         if simulation.solver is not None and not _overlay_defines_process(overlay):
             process_overlay = _build_solver_process_overlay(
                 base_config_path=base_config_path,

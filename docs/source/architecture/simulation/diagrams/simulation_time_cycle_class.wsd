@@ -122,10 +122,11 @@ package "hydromodpy.physics.hydrology.synthetic.forcing" {
   }
 }
 
-package "hydromodpy.data.runtime_loader" {
+package "hydromodpy.data.loading.loader" {
   class DataManagersRuntimeLoader {
     +_resolve_simulation_time_window_dates(result)
-    +_apply_simulation_window_to_station_section(...)
+    +_apply_simulation_window_dates(section, result)
+    +_resolve_period_for_spec(cfg, spec, result)
   }
 }
 

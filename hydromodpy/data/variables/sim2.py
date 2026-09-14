@@ -46,6 +46,21 @@ def _require_fetch_context(
     return bbox, project_period
 
 
+def _clean_field(data_array: object, variable: str) -> object:
+    """Wrap one SIM2 data array as a clean (time, y, x) dataset named ``variable``."""
+    da = data_array
+    if getattr(da, "attrs", None) and "grid_mapping" in da.attrs:
+        da = da.copy()
+        da.attrs.pop("grid_mapping", None)
+    out = da.to_dataset(name=variable)
+    return out.drop_vars("spatial_ref", errors="ignore")
+
+
+def _sim2_dataset_field(ds: object, parameter: str, variable: str) -> object:
+    """Select one SIM2 parameter from a NetCDF dataset as a clean dataset."""
+    return _clean_field(ds[parameter], variable)
+
+
 def fetch_sim2_field(
     spec: Sim2FieldSpec,
     *,
@@ -57,21 +72,25 @@ def fetch_sim2_field(
 
     from hydromodpy.data.common.clients.sim2_edr import Sim2EDRClient
 
+    # NetCDF4, not CoverageJSON: the EDR cube CoverageJSON lists axisNames
+    # (y, x, t) that do not match its flat value ordering, which silently
+    # scrambles time with space and destroys the seasonal cycle. The NetCDF
+    # response carries the dimensions explicitly so xarray decodes it correctly.
     client = Sim2EDRClient(
         bbox=bbox,
         crs="EPSG:2154",
         date_range=_date_range(project_period),
-        output_format="CoverageJSON",
+        output_format="Netcdf4",
     )
-    cov_json = client.fetch_cube(parameters=[spec.parameter])
-    ds = Sim2EDRClient.coverage_json_to_dataset(cov_json)
+    ds = client.fetch_cube(parameters=[spec.parameter])
+    data = _sim2_dataset_field(ds, spec.parameter, spec.variable)
 
     return [
         FieldRecord(
             variable=spec.variable,
             source="sim2",
             unit=spec.unit,
-            data=ds[[spec.parameter]].rename({spec.parameter: spec.variable}),
+            data=data,
             bbox=bbox,
             crs="EPSG:2154",
             date_start=project_period[0],
@@ -102,14 +121,14 @@ def fetch_sim2_components(
 
     from hydromodpy.data.common.clients.sim2_edr import Sim2EDRClient
 
+    # NetCDF4, not CoverageJSON (see fetch_sim2_field for why).
     client = Sim2EDRClient(
         bbox=bbox,
         crs="EPSG:2154",
         date_range=_date_range(project_period),
-        output_format="CoverageJSON",
+        output_format="Netcdf4",
     )
-    cov_json = client.fetch_cube(parameters=parameters)
-    ds = Sim2EDRClient.coverage_json_to_dataset(cov_json)
+    ds = client.fetch_cube(parameters=parameters)
 
     records: list[FieldRecord] = []
     for component in selected:
@@ -124,7 +143,7 @@ def fetch_sim2_components(
                 variable=spec.variable,
                 source="sim2",
                 unit=spec.unit,
-                data=data_array.to_dataset(name=spec.variable),
+                data=_clean_field(data_array, spec.variable),
                 bbox=bbox,
                 crs="EPSG:2154",
                 date_start=project_period[0],

@@ -1,10 +1,10 @@
-"""Cover ``BoussinesqFlowAdapter.extract_calibration_series``.
+"""Cover ``BoussinesqFlowAdapter.extract_observables``.
 
-The Boussinesq adapter reads the simulated calibration series from the
+The Boussinesq adapter reads the simulated observables from the
 ``_boussinesq_state_history.npz`` file written by ``post_processing``. These
 tests exercise the contract directly against a synthetic state-history file:
-they fix the schema (shape, sign convention, station cell mapping) without
-depending on a full Boussinesq solve.
+they fix the schema (shape, sign convention, station cell mapping, units)
+without depending on a full Boussinesq solve.
 """
 
 from __future__ import annotations
@@ -16,7 +16,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.exceptions import ConfigError, SolverError
+from hydromodpy.core.contracts.observables import ObservableRequest
+from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverError
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
@@ -61,6 +62,10 @@ def _build_ctx(run_id: str, output_dir: Path) -> RunContext:
     )
 
 
+def _discharge_request() -> ObservableRequest:
+    return ObservableRequest(id="q", name="discharge", support="domain")
+
+
 def test_extract_discharge_returns_sum_per_timestep(tmp_path: Path) -> None:
     drainage = np.array(
         [
@@ -73,14 +78,15 @@ def test_extract_discharge_returns_sum_per_timestep(tmp_path: Path) -> None:
     _write_state_history(tmp_path, head_history=head, drainage_history=drainage)
     ctx = _build_ctx("flow_main::boussinesq", tmp_path)
 
-    series = BoussinesqFlowAdapter().extract_calibration_series(
-        ctx, store=None, variable="discharge"
-    )
+    served = BoussinesqFlowAdapter().extract_observables(ctx, None, [_discharge_request()])
 
-    assert isinstance(series, pd.Series)
-    assert series.name == "discharge"
-    assert series.shape == (2,)
-    assert series.to_numpy().tolist() == [3.0, 2.0]
+    assert set(served) == {"q"}
+    result = served["q"]
+    assert result.request_id == "q"
+    assert isinstance(result.values, np.ndarray)
+    assert result.values.shape == (2,)
+    np.testing.assert_array_equal(result.values, np.array([3.0, 2.0]))
+    assert result.units == "m3 s-1"
 
 
 def test_extract_discharge_ignores_negative_recharge_terms(tmp_path: Path) -> None:
@@ -89,11 +95,9 @@ def test_extract_discharge_ignores_negative_recharge_terms(tmp_path: Path) -> No
     _write_state_history(tmp_path, head_history=head, drainage_history=drainage)
     ctx = _build_ctx("flow_main::boussinesq", tmp_path)
 
-    series = BoussinesqFlowAdapter().extract_calibration_series(
-        ctx, store=None, variable="discharge"
-    )
+    served = BoussinesqFlowAdapter().extract_observables(ctx, None, [_discharge_request()])
 
-    assert series.to_numpy().tolist() == [4.0]
+    np.testing.assert_array_equal(served["q"].values, np.array([4.0]))
 
 
 def test_extract_discharge_aligns_with_time_index(tmp_path: Path) -> None:
@@ -103,12 +107,14 @@ def test_extract_discharge_aligns_with_time_index(tmp_path: Path) -> None:
     ctx = _build_ctx("flow_main::boussinesq", tmp_path)
 
     time_index = pd.DatetimeIndex(["2020-01-01", "2020-01-02", "2020-01-03"])
-    series = BoussinesqFlowAdapter().extract_calibration_series(
-        ctx, store=None, variable="discharge", time_index=time_index
+    served = BoussinesqFlowAdapter().extract_observables(
+        ctx, None, [_discharge_request()], time_index=time_index
     )
 
-    assert isinstance(series.index, pd.DatetimeIndex)
-    assert series.index.tolist() == time_index.tolist()
+    result = served["q"]
+    assert isinstance(result.times, pd.DatetimeIndex)
+    assert result.times.tolist() == time_index.tolist()
+    assert result.values.size == len(time_index)
 
 
 def test_extract_head_reads_history_at_cell(tmp_path: Path) -> None:
@@ -122,24 +128,18 @@ def test_extract_head_reads_history_at_cell(tmp_path: Path) -> None:
     _write_state_history(tmp_path, head_history=head)
     ctx = _build_ctx("flow_main::boussinesq", tmp_path)
 
-    series = BoussinesqFlowAdapter().extract_calibration_series(
-        ctx,
-        store=None,
-        variable="head",
-        station_cells={"P1": (0, 0, 1)},
-    )
+    request = ObservableRequest(id="P1", name="head", support="cell", cell=(0, 0, 1))
+    served = BoussinesqFlowAdapter().extract_observables(ctx, None, [request])
 
-    assert series.name == "head@P1"
-    assert series.to_numpy().tolist() == [11.0, 11.5]
+    result = served["P1"]
+    assert result.request_id == "P1"
+    np.testing.assert_array_equal(result.values, np.array([11.0, 11.5]))
+    assert result.units == "m"
 
 
-def test_extract_head_requires_station_cells(tmp_path: Path) -> None:
-    head = np.array([[1.0, 2.0]], dtype=float)
-    _write_state_history(tmp_path, head_history=head)
-    ctx = _build_ctx("flow_main::boussinesq", tmp_path)
-
-    with pytest.raises(ConfigError, match="head calibration requires station_cells"):
-        BoussinesqFlowAdapter().extract_calibration_series(ctx, store=None, variable="head")
+def test_head_request_on_cell_support_requires_a_cell() -> None:
+    with pytest.raises(ValueError, match="needs a .* cell"):
+        ObservableRequest(id="P1", name="head", support="cell")
 
 
 def test_extract_head_rejects_non_zero_layer(tmp_path: Path) -> None:
@@ -147,38 +147,45 @@ def test_extract_head_rejects_non_zero_layer(tmp_path: Path) -> None:
     _write_state_history(tmp_path, head_history=head)
     ctx = _build_ctx("flow_main::boussinesq", tmp_path)
 
+    request = ObservableRequest(id="P1", name="head", support="cell", cell=(1, 0, 0))
     with pytest.raises(ValueError, match="cell_id"):
-        BoussinesqFlowAdapter().extract_calibration_series(
-            ctx,
-            store=None,
-            variable="head",
-            station_cells={"P1": (1, 0, 0)},
-        )
+        BoussinesqFlowAdapter().extract_observables(ctx, None, [request])
 
 
-def test_extract_head_rejects_multiple_stations(tmp_path: Path) -> None:
+def test_extract_head_serves_several_stations_in_one_call(tmp_path: Path) -> None:
+    head = np.array(
+        [
+            [1.0, 2.0],
+            [1.5, 2.5],
+        ],
+        dtype=float,
+    )
+    _write_state_history(tmp_path, head_history=head)
+    ctx = _build_ctx("flow_main::boussinesq", tmp_path)
+
+    requests = [
+        ObservableRequest(id="P1", name="head", support="cell", cell=(0, 0, 0)),
+        ObservableRequest(id="P2", name="head", support="cell", cell=(0, 0, 1)),
+    ]
+    served = BoussinesqFlowAdapter().extract_observables(ctx, None, requests)
+
+    assert set(served) == {"P1", "P2"}
+    assert served["P1"].request_id == "P1"
+    assert served["P2"].request_id == "P2"
+    np.testing.assert_array_equal(served["P1"].values, np.array([1.0, 1.5]))
+    np.testing.assert_array_equal(served["P2"].values, np.array([2.0, 2.5]))
+    assert served["P1"].units == "m"
+    assert served["P2"].units == "m"
+
+
+def test_extract_unknown_observable_raises_not_available(tmp_path: Path) -> None:
     head = np.array([[1.0, 2.0]], dtype=float)
     _write_state_history(tmp_path, head_history=head)
     ctx = _build_ctx("flow_main::boussinesq", tmp_path)
 
-    with pytest.raises(ConfigError, match="single entry"):
-        BoussinesqFlowAdapter().extract_calibration_series(
-            ctx,
-            store=None,
-            variable="head",
-            station_cells={"P1": (0, 0, 0), "P2": (0, 0, 1)},
-        )
-
-
-def test_extract_unknown_variable_raises_not_implemented(tmp_path: Path) -> None:
-    head = np.array([[1.0, 2.0]], dtype=float)
-    _write_state_history(tmp_path, head_history=head)
-    ctx = _build_ctx("flow_main::boussinesq", tmp_path)
-
-    with pytest.raises(NotImplementedError, match="concentration"):
-        BoussinesqFlowAdapter().extract_calibration_series(
-            ctx, store=None, variable="concentration"
-        )
+    request = ObservableRequest(id="c", name="concentration", support="domain")
+    with pytest.raises(ObservableNotAvailableError, match="concentration"):
+        BoussinesqFlowAdapter().extract_observables(ctx, None, [request])
 
 
 def test_extract_raises_when_no_output_dir_recorded(tmp_path: Path) -> None:
@@ -202,4 +209,4 @@ def test_extract_raises_when_no_output_dir_recorded(tmp_path: Path) -> None:
     )
 
     with pytest.raises(SolverError, match="No solver output recorded"):
-        BoussinesqFlowAdapter().extract_calibration_series(ctx, store=None, variable="discharge")
+        BoussinesqFlowAdapter().extract_observables(ctx, None, [_discharge_request()])

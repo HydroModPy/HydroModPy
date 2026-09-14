@@ -41,25 +41,25 @@
     "hydromodpy/analysis/testbed/__init__.py",
     "hydromodpy/analysis/testbed/regional_lab_config.py",
     "hydromodpy/analysis/testbed/regional_lab.py",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_plan.json",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_report.json",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.md",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_site_inventory.csv",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_recipe_summary.csv",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_cluster_summary.csv",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_case_matrix.csv"
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_plan.json",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_report.json",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.md",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_site_inventory.csv",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_recipe_summary.csv",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_cluster_summary.csv",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_case_matrix.csv"
   ],
   "source_hashes": {
     "hydromodpy/analysis/testbed/__init__.py": "199376f72d11988af74a3fb860ddad35abb6f1452d47750aeb416a608e706895",
     "hydromodpy/analysis/testbed/regional_lab_config.py": "fba9d336e84677c50dd7c235f5f413c0bb4b7d0efbce556c78f5c51a13aa0d8e",
     "hydromodpy/analysis/testbed/regional_lab.py": "04a713bafe742f8d4c33860c7382ac7427806ba1370d0b74d3d1f068540505c0",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_plan.json": "719399979deb87955c89d7cae2c8e9be1006231c6522b8a71f2dec641606d9c9",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_report.json": "72d7308420dbdfef288e49cceacb0ada394c5c4361a70c31ba4e94ed6fae1919",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.md": "a6bbf402c25dad7d1c23943f99bc265c8609ec11067af1cd366d65d3079a49b3",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_site_inventory.csv": "d594d2eb321bc623d546527b074ca8a1c74ef7846efe77a568f9c610b7bc4fa4",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_recipe_summary.csv": "4a9f2e389a6182dfeefb2c608b48b54a656b7132fb39693180eaa787324f7ba8",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_cluster_summary.csv": "85e4895fc61b029a19539b07c9576b9791af26dcd04e5d3bec73ce23a06a08b7",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_case_matrix.csv": "3eac4c5b1ee5b3fcaf81324576cd7d818869400e664cf18c67ff3bef9d5b1faf"
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_plan.json": "719399979deb87955c89d7cae2c8e9be1006231c6522b8a71f2dec641606d9c9",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_report.json": "72d7308420dbdfef288e49cceacb0ada394c5c4361a70c31ba4e94ed6fae1919",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.md": "a6bbf402c25dad7d1c23943f99bc265c8609ec11067af1cd366d65d3079a49b3",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_site_inventory.csv": "d594d2eb321bc623d546527b074ca8a1c74ef7846efe77a568f9c610b7bc4fa4",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_recipe_summary.csv": "4a9f2e389a6182dfeefb2c608b48b54a656b7132fb39693180eaa787324f7ba8",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_cluster_summary.csv": "85e4895fc61b029a19539b07c9576b9791af26dcd04e5d3bec73ce23a06a08b7",
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_case_matrix.csv": "3eac4c5b1ee5b3fcaf81324576cd7d818869400e664cf18c67ff3bef9d5b1faf"
   },
   "docname": "cases/regional_lab_headwater_100km2_dry_plan",
   "images": [
@@ -68,13 +68,13 @@
       "caption": "Dry-plan synthesis for the committed regional-lab example: site/recipe matrix, recipe coverage, and planning summary.",
       "alt_text": "Regional lab dry-plan synthesis for the headwater 100 km2 example",
       "doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png"
+      "repo_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png"
     }
   ],
   "metrics": [],
   "metadata": {
-    "static_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
-    "regional_lab_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
+    "static_summary_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
+    "regional_lab_summary_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
     "study_area": "Brittany regional laboratory",
     "process_families": [
       "planning",
@@ -94,16 +94,16 @@
     ],
     "copied_assets": [
       {
-        "source_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png"
+        "source_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png",
+        "copied_to": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png"
       }
     ]
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
-    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
     "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png"
+      "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png"
     ]
   }
 }

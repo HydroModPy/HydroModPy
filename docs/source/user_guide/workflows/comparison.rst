@@ -317,6 +317,12 @@ inspect ``boussinesq_obstacle_diagnostics.csv``. It reports
 ``min(h-z_bot)``, potential negative storage volume, active ``q_dry``
 cells, and surface-excess cells for each saved snapshot.
 
+A comparison writes its artefacts under ``output_root``. When the
+comparison is rendered as a project deliverable, the HTML report lands
+in ``<project>/share/reports/<name>/`` like every other report;
+``share/`` is the publication directory and holds nothing that cannot
+be regenerated from ``runs/``.
+
 Each materialized comparison may also expose a browser-readable page at
 ``web/index.html``. Treat it as the standard access point for a first
 review: it links the audit, metrics, key figures, flux dashboard, and

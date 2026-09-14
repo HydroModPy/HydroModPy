@@ -85,6 +85,24 @@ class SimulationTimeConfig(HydroModelBase):
             "Optional forcing/stress-period base time unit used with step_value "
             "when step_value is provided without an inline unit."
         ),
+        json_schema_extra={
+            "value_docs": {
+                "hour": (
+                    "Treats step_value as whole hours, for sub-daily forcing and stress periods."
+                ),
+                "day": (
+                    "Treats step_value as whole days, the common granularity "
+                    "for daily forcing series."
+                ),
+                "month": (
+                    "Treats step_value as calendar months, so the step length varies by month."
+                ),
+                "year": (
+                    "Treats step_value as calendar years, so the step length "
+                    "varies with leap years."
+                ),
+            }
+        },
     )
     substeps_per_period: Annotated[int, Profile.DEV] = Field(
         default=1,
@@ -345,27 +363,29 @@ class SimulationConfig(HydroModelBase):
         )
 
     name: Annotated[str, Profile.USER] = Field(
-        default="", description="Human-readable simulation name."
-    )
-    run_id: Annotated[str, Profile.USER] = Field(
         default="",
         description=(
-            "Run identifier used as the output subfolder name under "
-            "results_simulations/. When empty, derived from the TOML "
-            "filename at load time (e.g. run_steady_nwt.toml -> steady_nwt)."
+            "Human-readable simulation name and the run's identity. When empty, "
+            "derived from the TOML filename at load time (run_steady_nwt.toml -> "
+            "steady_nwt); a programmatic run without a name gets a deterministic "
+            "memorable slug."
         ),
-        examples=["steady_nwt"],
+        examples=["cheze_baseline"],
     )
-    on_collision: Annotated[
+    tags: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        description="Free-text tags attached at registration; editable later via 'hmp catalog tag'.",
+    )
+    if_exists: Annotated[
         Literal["replace", "fail", "version"],
         Profile.USER,
     ] = Field(
-        default="replace",
+        default="version",
         description=(
-            "Behavior when registering a simulation whose ``name`` already "
-            "exists in this project. ``replace`` soft-replaces (the previous "
-            "sim keeps its UUID but loses its name), ``fail`` raises an "
-            "error, ``version`` auto-suffixes ``name.v2``, ``name.v3`` ..."
+            "Behavior when registering a simulation whose ``name`` already exists "
+            "in this project. ``version`` (default) mints the next ``stem.vN`` and "
+            "keeps every run addressable; ``replace`` trashes the predecessor "
+            "(restorable) and takes the name; ``fail`` raises an error."
         ),
     )
     description: Annotated[str, Profile.USER] = Field(
@@ -416,7 +436,7 @@ class SimulationConfig(HydroModelBase):
         default_factory=ResultsConfig,
         description=(
             "Results storage and export configuration loaded from "
-            "[simulation.results]. Controls SimulationCatalog, derived variables, "
+            "[simulation.results]. Controls Catalog, derived variables, "
             "and automated exports."
         ),
     )

@@ -90,6 +90,20 @@ def _load_fixture() -> _B0Defaults:
     )
 
 
+def report_facade():
+    """Return the ``network_transient_html`` facade module (live runtime config).
+
+    The facade rebinds ``SOURCE_TRANSIENT_CONFIG``, ``PATH_BASE``, ``REAL_ROOT``
+    and ``REFERENCE_RUN_ROOT`` at run time (``_configure_from_args``). Sibling
+    modules read them through this accessor so a single call-time import keeps
+    them a leaf: the facade imports this package at load, so it can only be
+    resolved once fully initialized.
+    """
+    from hydromodpy.calibration.reporting import network_transient_html
+
+    return network_transient_html
+
+
 _B0 = _load_fixture()
 
 DEFAULT_EXAMPLE_ROOT = _B0.example_root

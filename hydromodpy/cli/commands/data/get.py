@@ -6,6 +6,7 @@ import argparse
 import sys
 
 from hydromodpy.cli.helpers import EXIT_CONFIG
+from hydromodpy.core import progress
 
 NAME: str = "get"
 HELP: str = "Fetch an upstream variable and write a JSON sidecar next to the file"
@@ -49,9 +50,10 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.data import fetch_data_variable
 
     try:
-        result = fetch_data_variable(
-            args.variable, bbox=args.bbox, workspace=args.workspace, source=args.source
-        )
+        with progress.status(f"Fetching {args.variable}"):
+            result = fetch_data_variable(
+                args.variable, bbox=args.bbox, workspace=args.workspace, source=args.source
+            )
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_CONFIG)

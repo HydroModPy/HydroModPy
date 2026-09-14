@@ -35,6 +35,7 @@ from hydromodpy.results.exporters.hmp_package import (
     HMP_MAGIC,
     MANIFEST_NAME,
     RO_CRATE_METADATA_NAME,
+    ZARR_ARCHIVE_NAME,
 )
 
 # `hmp export-package` is not a registered CLI verb in this codebase: the
@@ -105,7 +106,7 @@ def test_export_package_layout_and_manifest_sha256(tmp_path: Path) -> None:
         assert f"{sim_id}/{MANIFEST_NAME}" in names
         assert f"{sim_id}/{RO_CRATE_METADATA_NAME}" in names
         assert any(name.endswith("catalog_snapshot.duckdb") for name in names)
-        assert any(name.endswith("simulation.zarr.zip") for name in names)
+        assert any(name.endswith(ZARR_ARCHIVE_NAME) for name in names)
 
         manifest = json.loads(tar.extractfile(f"{sim_id}/{MANIFEST_NAME}").read().decode("utf-8"))
 
@@ -171,8 +172,8 @@ def test_export_then_cli_import_roundtrip(tmp_path: Path) -> None:
         assert str(sims.iloc[0]["sim_id"]) == sim_id
 
         # Re-check the SHA-256 of the imported Zarr + Parquet artefacts.
-        zarr_path = target.zarr_path_for(sim_id)
-        parquet_dir = target.parquet_dir_for(sim_id)
+        zarr_path = target.fields_path_for(sim_id)
+        parquet_dir = target.tables_dir_for(sim_id)
         assert zarr_path.exists()
         assert parquet_dir.exists()
 

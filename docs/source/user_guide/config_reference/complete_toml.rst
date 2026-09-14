@@ -24,6 +24,8 @@ Sub-models are linked back to their per-section page.
       [workflow]
       # Workflow mode dispatched by `hmp run`.
       # mode = ""  # REQUIRED
+      # Profile the run with pyinstrument (honored by the hmp CLI; the --profile flag wins over this field). true writes <config>.profile.html next to the config; a string sets the HTML report path.
+      profile = false
 
 .. dropdown:: ``[workspace]`` (WorkspaceConfig)
    :icon: gear
@@ -39,13 +41,13 @@ Sub-models are linked back to their per-section page.
       # Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result catalogs stay project-local by default.
       # example: root = "../.."
       # root = ...  # default = None
-      # Explicit path to the project catalog.duckdb. Defaults to <project_root>/catalog.duckdb.
+      # Explicit path to the project index database. Defaults to <project_root>/.hmp/index.duckdb.
       # catalog_path = ...  # default = None
       # Explicit path to the workspace data directory. Defaults to <root>/data.
       # data_dir = ...  # default = None
-      # Explicit path to the simulations Zarr directory. Defaults to <project_root>/simulations.
-      # simulations_dir = ...  # default = None
-      # Root directory for per-project outputs (.solver_scratch/, figures/). Defaults to project_root when not set. Use this to redirect heavy outputs to a separate disk.
+      # Explicit path to the directory holding one sub-directory per run. Defaults to <project_root>/runs.
+      # runs_dir = ...  # default = None
+      # Root directory for per-project outputs (.hmp/scratch/, share/). Defaults to project_root when not set. Use this to redirect heavy outputs to a separate disk.
       # example: output_root = "outputs/run_a"
       # output_root = ...  # default = None
 
@@ -65,6 +67,8 @@ Sub-models are linked back to their per-section page.
       # crs_project = ...  # default = None
       # DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point.
       dem_correc_type = "breach"
+      # Selects the DEM surface used for the domain. 'box' (default) keeps the full buffered rectangular support. 'watershed' / 'watershed_buff' select the catchment (optionally with a buffer ring) surface. Note: the MODFLOW 6 mesh still covers the buffered box (the buffer stays active for inter-basin exchange); out-of-watershed drainage is kept out of the catchment discharge by the DRN watershed-routing, not by an idomain mask. Experimental.
+      domain_extent = "box"
       # Path to a raster representing the aquifer bottom elevation. Must share the same grid as the model domain.
       # bottom_path = ...  # default = None
       # Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed.
@@ -73,9 +77,15 @@ Sub-models are linked back to their per-section page.
       # synthetic = ...  # uses factory default
       # Optional DEM-derived river-network extraction settings. When disabled, no stream network is generated in geographic preprocessing.
       # river_network = ...  # uses factory default
+      # Optional stream burning of the routing DEM: lower the mapped network cells so the computed D8 paths follow the observed network, without touching the model grid top. Applied before the lake carve.
+      # enforce_streams = ...  # uses factory default
+      # Optional lake hydro-enforcement of the routing DEM: carve the lake footprints so streams route into the lakes and drain to the outlet, without touching the model grid top.
+      # enforce_lakes = ...  # uses factory default
+      # Optional dam structure-carve of the model-top DEM: lower the dam footprint to the valley floor so a cutoff wall sits at the dam on a raw DEM (mirror of enforce_lakes, on the top instead of the routing DEM).
+      # dam_carve = ...  # uses factory default
       # If true, reuse previously generated geographic artifacts when the cached fingerprint matches the current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated simulation runs in the same workspace.
       reuse_existing_outputs = false
-      # Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), results_stable/ is removed after ingestion into the simulation Zarr store.
+      # Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), .hmp/scratch/_preprocessing/ is removed after ingestion into the run field store.
       write_intermediates = false
 
 .. dropdown:: ``[domain]`` (DomainConfig)
@@ -86,7 +96,7 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [domain]
-      # Ordered list of zone identifiers loaded in the domain registry. Keep this list for actual runtime zones (for example 'catchment', 'geology', or custom zonations). Spatial-support declarations live under domain.supports.
+      # Zone identifiers Domain.set_zone is allowed to register. It is an allowlist, not a request: nothing here causes a zone to be built. 'catchment' and 'geology' are appended by the runtime because the binders write under those fixed names, and every support id is appended too, so what belongs here is a project's own zonations. Order is never read. Spatial-support declarations live under domain.supports.
       # zone_ids = ...  # uses factory default
       # Named spatial supports available to heterogeneous parameters. Each key is a support identifier referenced by field_spatial_id.
       # supports = ...  # uses factory default
@@ -103,7 +113,7 @@ Sub-models are linked back to their per-section page.
       [data]
       # EPSG code or WKT string of the project coordinate reference system. When set, all loaded data is reprojected to this CRS. Example: 'EPSG:2154' (Lambert-93).
       # project_crs = ...  # default = None
-      # Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
+      # Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
       # types = ...  # uses factory default
       # Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred type has no explicit data.<type> section (except geology, which can use its default typed config).
       inference_mode = "warn"
@@ -117,6 +127,20 @@ Sub-models are linked back to their per-section page.
       # hydrometry = ...  # default = None
       # Intermittency configuration (ONDE stream flow-state observations).
       # intermittency = ...  # default = None
+      # Lake abacus configuration (stage-volume-area lookup table).
+      # lake_abacus = ...  # default = None
+      # Lake bathymetry configuration (lake-bed elevation raster).
+      # lake_bathymetry = ...  # default = None
+      # Lake geometry configuration (lake/reservoir footprint vector).
+      # lake_geometry = ...  # default = None
+      # Lake inflow configuration (observed inflow volumetric time series).
+      # lake_inflow = ...  # default = None
+      # Lake levels configuration (observed water-level time series).
+      # lake_levels = ...  # default = None
+      # Lake outflow configuration (observed outflow volumetric time series).
+      # lake_outflow = ...  # default = None
+      # Lake withdrawal configuration (observed withdrawal volumetric time series).
+      # lake_withdrawal = ...  # default = None
       # Oceanic configuration used when 'oceanic' is listed in data.types.
       # oceanic = ...  # default = None
       # Piezometry configuration (groundwater level time-series).
@@ -189,7 +213,7 @@ Sub-models are linked back to their per-section page.
       # param = ...  # uses factory default
       # Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition).
       # ic = ...  # uses factory default
-      # Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.  **Supported TOML sections**  - ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side`` - ``[flow.bc.cauchy.drainage]`` - ``[flow.bc.robin.drainage]`` - ``[flow.bc.<custom_id>]`` for generic payloads  **Common keys**  - ``value`` (required): numeric or ``'<value> <unit>'`` - ``application_domain``: optional for dirichlet when ``<id>`` implies it (e.g. ``west_side`` -> ``'west side'``); required for ``cauchy`` and ``robin`` drainage  **Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.  **Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin.  **Cauchy vs Robin:** both map to the same MODFLOW ``DRN`` package; the distinction only matters for the Boussinesq solver, which uses two different surface-interaction closures (``cauchy`` for the linear formulation ``q = C(h - h_ref)``, ``robin`` for the regularized partition / complementarity variants selected by ``flow.surface_interaction_model``).
+      # Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.  **Supported TOML sections**  - ``[flow.bc.<id>]``, one block per boundary, keyed by what it is. Canonical ids: ``drainage``, ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side`` - a boundary the registry describes entirely needs NO block: listing it in ``flow.active_bc`` is enough  **Common keys**  - ``kind``: optional, the registry supplies it; write it only to depart from the default, and only within a family (``cauchy`` and ``robin`` may be swapped, a prescribed head may not) - ``value``: optional on a drainage, where leaving it out derives the conductance from K; required for a prescribed head - ``application_domain``: optional, the registry supplies it, and a value contradicting it is refused  **Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.  **Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin.  **Cauchy vs Robin:** both map to the same MODFLOW ``DRN`` package; the distinction only matters for the Boussinesq solver, which uses two different surface-interaction closures (``cauchy`` for the linear formulation ``q = C(h - h_ref)``, ``robin`` for the regularized partition / complementarity variants selected by ``flow.surface_interaction_model``).
       # bc = ...  # uses factory default
       # Typed sinks/sources payload (for example pumping wells).
       # sinks_sources = ...  # uses factory default
@@ -198,7 +222,7 @@ Sub-models are linked back to their per-section page.
       # example: active_sinks_sources = ["recharge", "wells"]
       # example: active_sinks_sources = ["etp"]
       # active_sinks_sources = ...  # uses factory default
-      # Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.
+      # Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage', 'lake', 'reservoir'. 'lake'/'reservoir' build a MODFLOW 6 LAK advanced package and are only supported by the modflow6 backend. An empty list means no boundary-condition package is assembled by the solver.
       # example: active_bc = ["ocean"]
       # example: active_bc = ["west_side", "east_side", "drainage"]
       # active_bc = ...  # uses factory default
@@ -210,6 +234,8 @@ Sub-models are linked back to their per-section page.
       # example: first_period_steady = true
       # example: first_period_steady = false
       first_period_steady = true
+      # Optional hotstart: path to a prior simulation Zarr store whose last time step seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior run must share this run's mesh, so enable [mesh_catchment] cache = true; otherwise the cell count differs and restart is refused. None keeps [flow.ic]. Read only by a backend that declares it can: elsewhere the run is refused rather than started from [flow.ic] without a word. This is one of the four ways to say where a transient starts, next to [flow.ic] type='steady_state' (equilibrium under the mean recharge, or under a rate you state with source='prescribed'), type='custom'/'top'/'bottom' (a level you write), and `hmp spinup` (repeat a representative window until the state stops moving, then point this key at its result).
+      # restart_from = ...  # default = None
 
 .. dropdown:: ``[transport]`` (TransportConfig)
    :icon: gear
@@ -240,13 +266,13 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [simulation]
-      # Human-readable simulation name.
+      # Human-readable simulation name and the run's identity. When empty, derived from the TOML filename at load time (run_steady_nwt.toml -> steady_nwt); a programmatic run without a name gets a deterministic memorable slug.
+      # example: name = "cheze_baseline"
       name = ""
-      # Run identifier used as the output subfolder name under results_simulations/. When empty, derived from the TOML filename at load time (e.g. run_steady_nwt.toml -> steady_nwt).
-      # example: run_id = "steady_nwt"
-      run_id = ""
-      # Behavior when registering a simulation whose ``name`` already exists in this project. ``replace`` soft-replaces (the previous sim keeps its UUID but loses its name), ``fail`` raises an error, ``version`` auto-suffixes ``name.v2``, ``name.v3`` ...
-      on_collision = "replace"
+      # Free-text tags attached at registration; editable later via 'hmp catalog tag'.
+      # tags = ...  # uses factory default
+      # Behavior when registering a simulation whose ``name`` already exists in this project. ``version`` (default) mints the next ``stem.vN`` and keeps every run addressable; ``replace`` trashes the predecessor (restorable) and takes the name; ``fail`` raises an error.
+      if_exists = "version"
       # Short free-text description of the simulation intent.
       description = ""
       # Scientific objective used for catalog and ML stratification.
@@ -265,7 +291,7 @@ Sub-models are linked back to their per-section page.
       # time = ...  # default = None
       # Ordered list of requested processes loaded from [[simulation.process]]. At most one process per type is supported.
       # process = ...  # uses factory default
-      # Results storage and export configuration loaded from [simulation.results]. Controls SimulationCatalog, derived variables, and automated exports.
+      # Results storage and export configuration loaded from [simulation.results]. Controls Catalog, derived variables, and automated exports.
       # results = ...  # uses factory default
       # Master RNG seed for the simulation. When set, every stochastic consumer (mesh point sampling, synthetic forcing, ...) derives its own deterministic sub-seed via ``hydromodpy.core.rng.RngManager``. Persisted in ``runs_environment.rng_seed`` so the run can be re-executed from the catalog snapshot.
       # rng_seed = ...  # default = None
@@ -280,6 +306,21 @@ Sub-models are linked back to their per-section page.
       [solver]
       # Active flow backend selector (discriminated union).
       # backend = ...  # uses factory default
+      # Dimensionless. Remove the drain from every cell sitting in a closed depression of the model top, by setting its DRN conductance to zero. A closed depression has no outlet, so water reaching it ponds instead of seeping into a stream, and a drain there invents a discharge point. The depressions are measured on the solver mesh, by a priority flood seeded on every cell water can leave the domain through; both MODFLOW backends read the same mask. This does NOT move the topography: no elevation is raised, no DEM is rewritten, and every other package sees the surface it would have seen. Refused when the mask cannot be built. The depressions are counted on the four shared faces MODFLOW connects, not on the eight neighbours a raster fill uses: measured on the Nancon, 4.56 per cent of the mesh against 2.12 per cent, a factor of two that is the neighbourhood and nothing else. NOT SANCTIONED BY ANY SOURCE: no manual, no USGS document and no guideline removes a discharge boundary where a pit is detected, and measured here it degrades both scores. The remedy the USGS does document for the same question is solver.drain_band_depth_m, which gives every cell a discharge band instead of taking the drain away. Default false, which drains every cell as before.
+      # example: sink_fill = false
+      # example: sink_fill = true
+      sink_fill = false
+      # Metres. Thickness of the drain BED in the fallback conductance C = K * cell_area / bed_thickness, used when no drainage conductance is declared. A drain bed is the clogging layer at the bottom of a watercourse, decimetres to a metre; it is NOT the aquifer, and the layer thickness this used to borrow (30 m on the Nancon) has no physical relation to it. The value matters because it sets how much head the drain itself imposes to pass the recharge: dh = R * bed_thickness / K, independent of the cell size. On the Nancon at R = 439 mm/yr, 30 m gives 4.17 m of head at K = 1e-7 m/s and makes the drain the limiting resistance over two decades of a [1e-7, 1e-3] search; 1 m gives 13.9 cm and 0.1 m gives 1.4 cm. In this method the drain is a seepage face, so it must never limit: K and the recharge decide where water surfaces, not the boundary condition. Proportionality to K is preserved either way, so the K/R invariance the network criterion rests on is untouched.
+      # example: drain_bed_thickness_m = 1.0
+      # example: drain_bed_thickness_m = 0.5
+      # example: drain_bed_thickness_m = 0.1
+      drain_bed_thickness_m = 1.0
+      # m2/s. Floor applied to every DRN conductance, whether declared or derived from hk. It exists for degenerate cells only, a zero-thickness or zero-conductivity cell whose formula would divide by zero or emit a zero-conductance drain MODFLOW reads as absent. It is not a physical choice and moving it does not tune anything: a real conductance on a real cell is many orders of magnitude above it. Raise it only to make a degenerate mesh audible.
+      drain_conductance_floor_m2_s = 1e-12
+      # Metres. Depth D of the sub-cell discharge band every drain cell gets instead of a single elevation: the drain sits at top - D/2 and its conductance is multiplied by top_layer_thickness / D. The multiplier is the thickness and not the cell area because the conductance it scales is already Kv*A/b, so scaling by b/D gives Kv*A/D, which is CDRN exactly; scaling by A/D would give an m3/s where a conductance is m2/s, too high by A/b. The cell therefore starts discharging before the head reaches its mean elevation, and discharges harder the higher the head climbs into the band. This answers the one question the USGS documents about a model top, that the land inside a cell is not flat: UZF1 exposes the same depth as SURFDEP, 'the average undulation depth within a finite-difference cell', and MODFLOW 6 carries it into DRN as DDRN, with HDRN = land surface - DDRN/2 and CDRN = Kv*A/DDRN. MODFLOW 6 solves its DDRN band with a smooth (linear then cubic) curve; the option here is the piecewise equivalent of the same idea, applied identically by both MODFLOW backends, so a later switch to the native smooth form is a documented refinement and not a surprise. It does NOT move the topography: no elevation is raised, no DEM is rewritten, and every other package sees the surface it would have seen. The seepage criterion is the one reader that cannot: a banded cell discharges at top - D/2 and never climbs back to top, so the mask follows the band and the run persists D in its store for every figure drawn afterwards. It classifies no cell: every drain cell gets the same band, so nothing has to be sorted into artefact and real. Pick D the way Feinstein et al. 2020 (Groundwater 58:524-534, doi:10.1111/gwat.12931) do, from the standard deviation of the fine land-surface elevations inside a cell; they obtain 0.61 m. Mutually exclusive with solver.sink_fill, which answers the same question by removing drains instead. Default 0.0: one elevation per drain, unchanged from every earlier run.
+      # example: drain_band_depth_m = 0.0
+      # example: drain_band_depth_m = 0.5
+      drain_band_depth_m = 0.0
 
 .. dropdown:: ``[modflownwt]`` (ModflowConfig)
    :icon: gear
@@ -331,22 +372,49 @@ Sub-models are linked back to their per-section page.
       show = false
       # Write rendered figures to disk under ``output_dir``.
       save = true
-      # Directory (relative to project root) for saved figures.
+      # Name of the figures directory inside the run directory (<project>/runs/<run>/<output_dir>/). Declared as a name, not a path, so it stays anchored to the run it describes.
       output_dir = "figures"
       # DPI used when saving raster figures.
       dpi = 150
-      # Default sequential colormap for spatial figures.
+      # Force ONE colormap onto every spatial figure. Writing it at all is the decision, not the value: each figure otherwise picks a scale suited to what it shows, reversed for a depth, diverging for a difference, discrete for an indicator, and this replaces all of them. Writing the default spelled out is therefore NOT a no-op, unlike everywhere else. Leave it out unless one scale for everything is what you want.
       cmap = "viridis"
-      # Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp display`). Empty list disables auto-rendering; figures can still be produced later with `hmp display <toml>`. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.
+      # Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp viz gallery`). Every name must exist in the figure registry; list them with `hmp viz list`. A figure whose requirements the run does not meet is skipped with an explicit reason. Empty list disables auto-rendering. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.
       # figures = ...  # uses factory default
+      # Behaviour when a figure that IS applicable fails while rendering. 'warn' logs and continues (default, keeps a long run alive); 'raise' propagates, which is what example and CI configs want so a broken figure cannot pass unnoticed.
+      on_error = "warn"
       # Per-figure keyword overrides, keyed by figure name (e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``).
       # overrides = ...  # uses factory default
-      # Flow figure switches.
-      # flow = ...  # uses factory default
-      # Particle figure switches.
-      # particles = ...  # uses factory default
-      # Transport figure switches.
-      # transport = ...  # uses factory default
+
+.. dropdown:: ``[export]`` (ExportConfig)
+   :icon: gear
+
+   See :doc:`export` for the full description.
+
+   .. code-block:: toml
+
+      [export]
+      # Export to NetCDF-4/UGRID.
+      netcdf = false
+      # Export time series to CSV at the end of the run. Off by default: the canonical time series lives in tables.parquet; CSV is an on-demand export.
+      csv_timeseries = false
+      # Export to VTU (ParaView).
+      vtu = false
+      # Export to GeoTIFF.
+      geotiff = false
+      # Export to Shapefile.
+      shapefile = false
+      # Also write a portable '<run>.hmp' archive (config, provenance, fields, timeseries, RO-Crate) after the run finalizes. The one-line switch for 'this run must be shareable forever'.
+      package = false
+      # Output directory for exports. Defaults to project results folder.
+      # output_dir = ...  # default = None
+      # Which variables to include in exports.
+      # variables = ...  # uses factory default
+      # Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps. A vtu, a geotiff and a shapefile hold ONE timestep per file, so a selector naming several collapses to the last for them and the run says so; only the NetCDF export carries the whole selection.
+      times = "last"
+      # GeoTIFF pixel size in CRS units for toggle exports. Auto-derived from the grid when omitted.
+      # resolution = ...  # default = None
+      # Explicit export artifacts: full control over variable, format, timestep and destination, beyond the format toggles above.
+      # artifacts = ...  # uses factory default
 
 .. dropdown:: ``[persistence]`` (PersistenceConfig)
    :icon: gear
@@ -362,12 +430,23 @@ Sub-models are linked back to their per-section page.
       save_zarr = true
       # Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files.
       save_parquet = true
-      # Generate and refresh the ``hydromodpy.lock`` reproducibility manifest after data ingestion.
-      save_lock = true
-      # Codec used for Zarr field arrays and Parquet tables. 'none' disables compression.
+      # Codec DECLARED for Zarr field arrays and Parquet tables. The writers carry their own codec (zstd) and do not read this field, so changing it changes nothing today; it records the intent and is the field a writer would read once the choice is threaded through.
       compression = "zstd"
-      # Compression level (codec-dependent). Ignored when compression='none'.
-      compression_level = 3
+      # Compression level DECLARED for those writers. Same as the codec: core/io/parquet.py and core/io/geoparquet.py hold level 5 and do not read this field. The default says 5 rather than 3 so the declaration at least matches the bytes actually written.
+      compression_level = 5
+
+.. dropdown:: ``[observation]`` (ObservationConfig)
+   :icon: gear
+
+   See :doc:`observation` for the full description.
+
+   .. code-block:: toml
+
+      [observation]
+      # Observation points sampled once the run has produced its fields.
+      # points = ...  # uses factory default
+      # Variables sampled at every point that does not name its own. Virtual fields (watertable_depth, seepage_mask ...) are accepted.
+      # variables = ...  # uses factory default
 
 .. dropdown:: ``[analysis]`` (AnalysisConfig)
    :icon: gear
@@ -394,9 +473,11 @@ Sub-models are linked back to their per-section page.
       [overview]
       # Watershed name.
       name = ""
-      # Global start date (YYYY-MM-DD).
+      # Start of the overview window (ISO date, e.g. '2019-01-01'). Overview mode has no [simulation.time], so this is the date declaration every [data.<type>] section without a window of its own inherits. Must be declared together with date_end.
+      # example: date_start = "2019-01-01"
       # date_start = ...  # default = None
-      # Global end date (YYYY-MM-DD).
+      # End of the overview window (ISO date, e.g. '2025-12-31'). Overview mode has no [simulation.time], so this is the date declaration every [data.<type>] section without a window of its own inherits. Must be declared together with date_start.
+      # example: date_end = "2025-12-31"
       # date_end = ...  # default = None
       # Label used for the regional location figure.
       # regional_context_label = ...  # default = None
@@ -413,7 +494,7 @@ Sub-models are linked back to their per-section page.
       [mesh_catchment]
       # Meshing compliance target. 'geology_only' conforms the mesh to geology interfaces only, 'rivers_only' conforms the mesh to river traces only, and 'geology_rivers' enforces both sets of constraints in one mesh.
       constraints_mode = "geology_rivers"
-      # Optional `.msh` output path for the generated planar mesh. When omitted, the launcher writes the mesh to `results_stable/mesh/mesh_catchment.msh` inside the active catchment workspace in standard layout, or directly to `workspace.project_root/mesh_catchment.msh` when `output_layout='flat'` is used.
+      # Optional `.msh` output path for the generated planar mesh. When omitted, the launcher writes the mesh to `.hmp/scratch/_preprocessing/mesh/mesh_catchment.msh` inside the active catchment workspace in standard layout, or directly to `workspace.project_root/mesh_catchment.msh` when `output_layout='flat'` is used.
       # output_mesh = ...  # default = None
       # Optional JSON sidecar path for QA metrics, cleaned-input diagnostics, and summary metadata describing the generated mesh. When omitted, the launcher writes it next to the default mesh output.
       # output_summary_json = ...  # default = None
@@ -425,15 +506,17 @@ Sub-models are linked back to their per-section page.
       figures_enabled = true
       # If true, export the solver-exchange mesh bundle next to the generated mesh. Set it to false for profiling or mesh-only runs that do not need bundle metadata. Downstream solvers that require runtime mesh support may fail without this bundle.
       export_exchange_bundle = true
+      # If true, reuse a previously generated mesh when its inputs (domain geometry, river constraint, lake/dam refinement, mesh and delineation configuration) are unchanged, instead of regenerating it. Gmsh is not reproducible run to run (it reseeds from the system clock), so regeneration yields a different mesh and makes results and calibration objectives irreproducible; caching pins the mesh. Default off (regenerate every run). See hydromodpy.spatial.mesh.mesh_cache.
+      cache = false
       # Pixel density used when rendering the main mesh overview figure. Increase it when you need to inspect mesh edges and constraints more closely in the saved PNG.
       figure_dpi = 300
       # Pixel density used when rendering the regional overview figure. Keep it lower than figure_dpi when you want detailed local mesh inspection without making the regional PNG too heavy.
       figure_regional_dpi = 220
-      # Dedicated-launcher output layout. Use 'standard' to keep final mesh artifacts under `results_stable/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate runtime folders out of that final directory.
+      # Dedicated-launcher output layout. Use 'standard' to keep final mesh artifacts under `.hmp/scratch/_preprocessing/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate runtime folders out of that final directory.
       output_layout = "standard"
       # If true, open the generated overview figure interactively at the end of the run. Keep it false for batch or headless execution.
       show_plot = false
-      # Control what happens to intermediate geographic preprocessing artifacts after the mesh run. Use 'keep' to preserve the canonical `results_stable/geographic` and `results_stable/demcorrecflow` folders, or 'cleanup' to delete them at the end of the dedicated mesh launcher once the mesh outputs and exchange bundle have been written.
+      # Control what happens to intermediate geographic preprocessing artifacts after the mesh run. Use 'keep' to preserve the canonical `.hmp/scratch/_preprocessing/geographic` and `.hmp/scratch/_preprocessing/demcorrecflow` folders, or 'cleanup' to delete them at the end of the dedicated mesh launcher once the mesh outputs and exchange bundle have been written.
       geographic_outputs_mode = "keep"
       # River-constraint section used when constraints_mode includes rivers. The default behavior is to reuse the in-memory river trace already built by the geographic pipeline.
       # rivers = ...  # uses factory default
@@ -447,6 +530,10 @@ Sub-models are linked back to their per-section page.
       # domain = ...  # uses factory default
       # Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, and interface refinement. Defaults are valid, but project examples typically override them to target a desired number of cells.
       # zone_meshing = ...  # uses factory default
+      # Optional local refinement on the lake shoreline band and the hydraulic structures (cutoff wall, sill, dam outlet). Disabled by default; set enabled = true to add the lake size fields.
+      # lake_refinement = ...  # uses factory default
+      # User-provided zones of interest for local refinement. Each entry names one vector layer (polygons = zones, points / lines = corridors) and a target cell size; declare entries as [[mesh_catchment.refinement_zone]] tables.
+      # refinement_zone = ...  # uses factory default
 
 .. dropdown:: ``[mesh_input]`` (MeshInputConfig)
    :icon: gear
@@ -469,14 +556,26 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [calibration]
-      # Optimization method. Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.
+      # Published calibration method this file runs, named instead of retyped. A protocol writes the stages, their criteria and the model regimes they need, so the file states only what belongs to the site. Write the name alone, or a table carrying it plus the names this file uses for the parameters and outputs the method moves. Registered: 'matching_hydrographic_network' (Abherve et al., 2023, doi:10.5194/hess-27-3221-2023). A file that declares its own phases or objective blocks cannot also name a protocol.
+      # protocol = ...  # default = None
+      # Optimization method. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.
       method = "grid"
       # Maximum number of calibration iterations.
       max_iter = 100
+      # How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a log-transformed parameter that is a ratio, which is how a conductivity is known in the first place, and it holds wherever the value sits; on any other transform there is no scale on the value to be relative to before the search has one, so it reads as a fraction of the declared interval. Each engine's own stopping option is written from it, so the same number survives a change of engine, and the engine's own option stays available for reproducing a published call verbatim. Unset, the engine's default applies. An engine that stops on its budget rather than on a precision refuses this rather than ignore it.
+      # tolerance = ...  # default = None
       # Number of suggestions drawn per ask (for parallel optimizers).
       batch_size = 1
       # Number of trials evaluated concurrently inside one batch via a thread pool. parallel=1 keeps the legacy sequential loop.
       parallel = 1
+      # Percent water-balance discrepancy past which a trial is rejected instead of scored. The solver reports the figure on every run; unset, it is recorded and nothing acts on it, so a run at twelve per cent is ranked beside one that closed even though part of the water it routed came from nowhere. There is no default because there is no universal value: a steady solve on a coarse mesh closes to a fraction of a per cent, a transient one with a lake and a routed network legitimately sits higher.
+      # reject_water_budget_above = ...  # default = None
+      # Spin-up (burn-in) periods excluded from every objective block. The first warmup_periods of each observed/simulated series are dropped before the metric, so the window where the state still depends on the initial condition does not bias the calibration. Default 0 (no exclusion). Size it by increasing it until the objective stops changing (initial-condition insensitivity), not a fixed guess.
+      warmup_periods = 0
+      # Dates bounding the samples every metric is computed on. Mutually exclusive with warmup_periods, which counts samples instead of dates.
+      # scoring_window = ...  # default = None
+      # Stages run one after the other, each calibrating its own parameters and freezing them for the next. Declaring this table is what switches the runner to staged mode; without it nothing changes for an existing configuration. The default is None and not an empty list on purpose: the resume lock hashes the configuration with exclude_none, so an absent table leaves that hash untouched and checkpoints stay resumable.
+      # phases = ...  # default = None
       # Random seed for reproducibility.
       # seed = ...  # default = None
       # How much to persist per iteration: - 'none': 1 DuckDB row per iteration, no Zarr. - 'best_n': same + promote top N to full simulations after the loop. - 'all': every iteration becomes a full simulation (Zarr included).
@@ -487,10 +586,12 @@ Sub-models are linked back to their per-section page.
       use_cache = true
       # Skip Parquet/Zarr writes for lumped models (GR4J, ...) and read simulated series from the per-trial RAM cache instead. Only the promoted runs go through the catalog write path.
       lightweight_extraction = true
-      # Metric key used by the default ScalarObjective.
+      # Metric scoring the single simulated series, when no objective block is declared. Same vocabulary as a block's 'metric'; typed here so a bad value is reported against the key that was written.
       objective = "nse"
       # Observed variable (for ObservationSet).
       variable = "head"
+      # Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one.
+      # observed_station_id = ...  # default = None
       # Extra keyword arguments forwarded to the optimizer adapter.
       # optimizer_kwargs = ...  # uses factory default
       # Per-parameter declarations (bounds, transform, prior, path).
@@ -509,8 +610,31 @@ Sub-models are linked back to their per-section page.
       materialize_candidates = false
       # Directory for per-candidate overlay TOMLs. Required when materialize_candidates is True.
       # candidates_root = ...  # default = None
+      # How several scored targets become one cost: what made them comparable, how nested gauges are read, and what one unscorable member does.
+      # aggregate = ...  # uses factory default
+      # How wide the search reports its own answer to be. The calibrated value is unaffected; this only decides the interval printed beside it.
+      # uncertainty = ...  # uses factory default
       # Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for calibration outputs.
       # persistence = ...  # uses factory default
+
+.. dropdown:: ``[spinup]`` (SpinupConfig)
+   :icon: gear
+
+   See :doc:`spinup` for the full description.
+
+   .. code-block:: toml
+
+      [spinup]
+      # Maximum spin-up cycles before the loop stops without converging.
+      max_cycles = 10
+      # Head convergence tolerance [m]. The loop converges when the largest absolute head change between two cycles (L-inf over active cells) is below this.
+      tol_head = 0.01
+      # Lake-stage convergence tolerance [m]. The loop converges when the largest absolute stage change between two cycles, over every lake, is below this. Ignored when the model has no lake.
+      tol_stage = 0.01
+      # Cycle window start (ISO datetime, e.g. '2019-01-01'). The representative forcing period each cycle repeats. None reuses [simulation.time].
+      # window_start = ...  # default = None
+      # Cycle window end (ISO datetime). None reuses [simulation.time]. Set both window bounds to spin up on a shorter representative period than the production chronicle.
+      # window_end = ...  # default = None
 
 .. dropdown:: ``[testbed]`` (TestbedConfig)
    :icon: gear
@@ -596,10 +720,10 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [hydrometry]
-      # Project start date (ISO format, e.g. '2019-01-01').
+      # Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than the simulation, typically a cache shared by several runs. Must be declared together with date_end.
       # example: date_start = "2019-01-01"
       # date_start = ...  # default = None
-      # Project end date (ISO format, e.g. '2025-12-31').
+      # End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the simulation, typically a cache shared by several runs. Must be declared together with date_start.
       # example: date_end = "2025-12-31"
       # date_end = ...  # default = None
       # At least one data source.

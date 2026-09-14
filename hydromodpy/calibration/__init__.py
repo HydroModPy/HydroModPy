@@ -18,9 +18,8 @@ from hydromodpy.calibration.config import (
     CalibrationConfig,
     validate_calib_output,
 )
-from hydromodpy.calibration.engine import CalibrationEngine, CalibrationSession
-from hydromodpy.calibration.materialize import materialize_candidate
-from hydromodpy.calibration.objective import (
+from hydromodpy.calibration.optim.engine import CalibrationEngine, CalibrationSession
+from hydromodpy.calibration.optim.objective import (
     CompositeObjective,
     ConfigBlockObjective,
     Objective,
@@ -30,7 +29,7 @@ from hydromodpy.calibration.objective import (
     SimulationOutput,
     build_objective_from_config,
 )
-from hydromodpy.calibration.optimizer import (
+from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     Optimizer,
     ParamSuggestion,
@@ -38,7 +37,7 @@ from hydromodpy.calibration.optimizer import (
     build_optimizer,
     register_optimizer,
 )
-from hydromodpy.calibration.parameters import (
+from hydromodpy.calibration.optim.parameters import (
     CalibParameter,
     Calibrable,
     ParameterSpace,
@@ -46,6 +45,7 @@ from hydromodpy.calibration.parameters import (
     discover_calibrable,
 )
 from hydromodpy.calibration.report import CalibrationReport
+from hydromodpy.calibration.runners.materialize import materialize_candidate
 
 __all__ = [
     "CalibrationEngine",

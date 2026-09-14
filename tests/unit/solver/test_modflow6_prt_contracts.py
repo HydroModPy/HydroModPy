@@ -9,12 +9,12 @@ import flopy
 import numpy as np
 import zarr
 
-from hydromodpy.display.figures.particle_tracks import _read_particles
+from hydromodpy.display.figures.particle_tracks import read_particle_tracks
 from hydromodpy.physics.transport.transport import Transport
 from hydromodpy.physics.transport.transport_config import TransportConfig
+from hydromodpy.solver.modflow6.extractors._prt_tracks import read_prt_track_csv
 from hydromodpy.solver.modflow6.extractors.prt import Modflow6PrtOutputAdapter
 from hydromodpy.solver.modflow6.prt import Modflow6Prt
-from hydromodpy.solver.modflow6.prt_tracks import read_prt_track_csv
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 
@@ -444,9 +444,9 @@ def test_particle_tracks_reader_supports_vectorized_layout(tmp_path: Path) -> No
         handle.close()
 
     sim = SimpleNamespace(_catalog=store, sim_id="sim_b")
-    tracks = _read_particles(sim)
+    tracks = read_particle_tracks(sim)
 
     assert len(tracks) == 2
-    assert tracks[0].shape == (2, 3)
+    assert tracks[0].shape == (2, 4)
     assert np.allclose(tracks[0][:, :2], [[0.0, 0.0], [1.0, 0.0]])
-    assert tracks[1].shape == (3, 3)
+    assert tracks[1].shape == (3, 4)

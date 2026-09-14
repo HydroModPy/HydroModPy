@@ -59,10 +59,8 @@ def run_boussinesq_sloping_substratum_constant_thickness_case(
             "active_sinks_sources": [],
             "active_bc": ["west_side", "east_side"],
             "bc": {
-                "dirichlet": {
-                    "west_side": {"value": float(reference_cfg["west_head"])},
-                    "east_side": {"value": float(reference_cfg["east_head"])},
-                }
+                "west_side": {"value": float(reference_cfg["west_head"])},
+                "east_side": {"value": float(reference_cfg["east_head"])},
             },
         },
         plan_name="Boussinesq sloping-substratum constant-thickness validation",

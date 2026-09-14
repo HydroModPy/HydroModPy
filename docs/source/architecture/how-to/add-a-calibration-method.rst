@@ -50,19 +50,19 @@ Skeleton:
 
 .. code-block:: python
 
-   from typing import ClassVar
-
-   from hydromodpy.calibration.adapters.base import (
-       CalibrationMethodAdapter, EvaluationResult, ParamSuggestion, ParameterSpace,
+   from hydromodpy.calibration.optim.optimizer import (
+       EvaluationResult,
+       ParamSuggestion,
+       register_optimizer,
    )
+   from hydromodpy.calibration.optim.parameters import ParameterSpace
 
 
-   class MyMethodAdapter:
-       method_name: ClassVar[str] = "mymethod"
-
-       def configure(self, params: ParameterSpace, options: dict) -> None:
-           self._params = params
-           self._max_iter = int(options.get("max_iter", 100))
+   @register_optimizer("mymethod")
+   class MyMethodOptimizer:
+       def __init__(self, space: ParameterSpace, *, max_iter: int = 100) -> None:
+           self._space = space
+           self._max_iter = max_iter
            self._iter = 0
            self._best: EvaluationResult | None = None
 
@@ -78,39 +78,159 @@ Skeleton:
        def best(self) -> EvaluationResult | None:
            return self._best
 
-Register in the engine
-----------------------
+       def converged(self) -> bool:
+           return self._iter >= self._max_iter
 
-The engine resolves adapters through a name-keyed registry in
-``hydromodpy/calibration/adapters/__init__.py``. Add the entry:
+Registration
+------------
+
+There is no registry dict to edit. ``@register_optimizer("mymethod")``
+publishes the class under the name accepted by
+``CalibrationConfig.method`` and by ``build_optimizer``. The registry
+(``hydromodpy/calibration/optim/optimizer.py``) auto-discovers every
+module under ``hydromodpy/calibration/adapters/`` on the first
+``build_optimizer`` call, so dropping the file in that package is all
+the wiring required.
+
+Third-party methods shipped outside the repository register through the
+``hydromodpy.optimizer`` entry-point group instead.
+
+Saying what the engine can be handed
+------------------------------------
+
+An engine refuses an impossible pairing in its constructor, which is right but
+late: a staged calibration builds phase two's optimizer only when phase two
+starts, after phase one has spent its whole solve budget. A class attribute
+``traits = EngineTraits(...)`` states the same facts where a check can read them
+before anything solves.
 
 .. code-block:: python
 
-   from hydromodpy.calibration.adapters.mymethod import MyMethodAdapter
+   from hydromodpy.calibration.optim.optimizer import EngineTraits
 
-   _ADAPTERS = {
-       ...,
-       MyMethodAdapter.method_name: MyMethodAdapter,
-   }
+
+   @register_optimizer("mymethod")
+   class MyMethodOptimizer:
+       traits = EngineTraits(
+           max_parameters=1,            # None means any number
+           required_transform="log",    # the variable the stopping rule is written in
+           needs_signed_residual=True,  # the criterion has to publish one
+           supports_parallel=False,
+           tolerance_option="rel_tol",       # this engine's own stopping option
+           tolerance_reads="relative_value",  # how that option reads its number
+       )
+
+The last two are what lets a file state its precision once. ``calibration.tolerance``
+is a relative precision on the parameter, and it is translated into whichever
+option the engine names:
+
+``tolerance_reads="relative_value"``
+   the option is already a relative width on the parameter's own value, so the
+   number passes through unconverted. Declare it only on an engine that also
+   declares ``required_transform="log"``, where a ratio and a width in the search
+   variable are the same statement.
+
+``tolerance_reads="search_width"``
+   the option is an absolute width in the variable the search walks, so the
+   precision is converted into that variable: ``log10(1 + tolerance)`` decades on
+   a log-transformed parameter, a fraction of the declared interval on any other,
+   and the strictest of them when the search moves several.
+
+An engine that stops on its evaluation budget, or on the spread of its own
+population, declares neither and leaves them ``None``. A precision handed to it
+is then refused with a message naming what does bound it, rather than accepted
+and dropped: a run reporting that it honoured a request it never read is worse
+than a run refusing the request.
+
+Everything a stopping rule needs beyond that precision stays in
+``optimizer_kwargs``, in the engine's own units, which is how a published call is
+reproduced verbatim. Stating both the precision and the option it writes is
+refused, before the first solve.
+
+What a restart-based uncertainty asks of an engine
+--------------------------------------------------
+
+``[calibration.uncertainty] method = "multistart"`` runs the whole search several
+times and reports the spread of the optima it reaches. Two traits decide what an
+engine may be handed.
+
+``restarts_explore_differently``
+   whether repeating this engine can land anywhere else. Permissive by default: a
+   stochastic sampler explores differently on a new seed and declares nothing.
+   ``grid`` and ``bisection`` declare ``False``, because an exhaustive sweep and a
+   root search are the same computation twice, and reporting the spread of
+   identical runs as an uncertainty states a certainty nothing established. A file
+   asking for restarts on one of them is refused, in the preflight, before the
+   first solve.
+
+``accepts_a_start_point``
+   whether the engine takes ``start_at``, a coordinate per calibrated parameter in
+   transformed space. Only ``scipy_nelder_mead`` and ``cma_es`` do, and they are
+   exactly the engines a new seed cannot move: the simplex is built around
+   ``transformed_prior_center(space)`` and would otherwise return the same answer
+   every time. Accept the keyword and begin there instead of at your own default.
+
+The first restart is left with the engine's own start and the file's own seed, so
+it is the single search it replaces: the answer a file already published stays in
+the set and the others are added around it. The remaining starts are drawn from the
+declared priors with a seeded generator, so a rerun draws the same set.
+
+The constraint the method obeys is stated by the project: a calibration always
+reports one manipulable value, and an interval sits beside it, never in its place.
+So the best restart IS the answer, unchanged in kind from a single search, and the
+spread is reported next to it, with a parameter whose optima span more than a
+factor ten flagged as not identified by that calibration.
+
+The linearized width beside it
+------------------------------
+
+``method = "linearized"`` reads derivatives around the answer instead of searching
+again: one model run per parameter, and it is the only declared method that also
+says which parameters trade off against which. Two parameters correlated at 0.99
+were not identified separately, whatever their individual widths look like, and a
+spread of optima cannot tell you that.
+
+It asks nothing of an engine. What it needs is the simulated value *at each
+observation*, and it reads that through ``build_paired_vector_capture``, a second
+reader over the same two public steps the scoring path uses,
+``extract_outputs`` and ``pair_outputs_with_observations``. The metric function's
+return stays ``(float, dict[str, float])``: nothing widened to make room for a
+vector.
+
+Three refusals carry the method's honesty, and a new one should follow the same
+rule of saying which:
+
+- an output that names no station: there are no residuals, refused in the
+  preflight before the search runs;
+- fewer observations than parameters: no degrees of freedom, so no residual
+  variance to give the covariance its scale;
+- a singular ``J'J``: the data cannot separate the parameters, so the value is
+  reported and no width is.
+
+The first-order caveat is stated rather than buried. The covariance is exact where
+the model is linear about the optimum and approximate in proportion to the
+curvature, and it is not a posterior: it carries no prior. The unit test holds it
+against the closed form on a linear model, which is the only place the two must
+agree exactly.
 
 Optional dependencies
 ---------------------
 
 If your method depends on a heavy or optional package
-(``cma``, ``cmaes``, ``scikit-learn``, ``torch``), import it
-inside ``configure`` and raise a clear ``ImportError`` when it is
-missing:
+(``cma``, ``cmaes``, ``scikit-learn``, ``torch``), import it at module
+level and let the ``ImportError`` propagate: auto-discovery treats an
+adapter that fails to import as simply unregistered, so a missing
+optional never breaks the other methods.
 
 .. code-block:: python
 
-   def configure(self, params, options):
-       try:
-           import cma  # noqa: F401
-       except ImportError as exc:
-           raise ImportError(
-               "method 'mymethod' requires the 'calibration' extra "
-               "(pip install -e \".[calibration]\")"
-           ) from exc
+   try:
+       import cma  # noqa: F401
+   except ImportError as exc:
+       raise ImportError(
+           "method 'mymethod' requires the 'calibration' extra "
+           "(pip install -e \".[calibration]\")"
+       ) from exc
 
 Sampling-space coordinates
 --------------------------
@@ -136,7 +256,7 @@ Add a new figure if your method has unusual diagnostics; see
 Tests to add
 ------------
 
-- **Unit** under ``tests/unit/calibration/adapters/`` for
+- **Unit** under ``tests/unit/calibration/`` for
   ``configure`` (option parsing), ``ask`` (point generation),
   ``tell`` (state update), ``best`` (post-loop selection).
 - **Synthetic benchmark** under
@@ -144,7 +264,7 @@ Tests to add
   ``recession_brutsaert`` or ``groundwater_1d``: assert the method
   recovers the truth within a method-specific
   ``METHOD_ABS_TOL`` tolerance.
-- **Integration** under ``tests/integration/calibration/`` for a
+- **Integration** under ``tests/integration/`` for a
   short ``hmp run`` calibration on a tiny case.
 
 Pitfalls flagged by the layer matrix

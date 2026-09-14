@@ -1,0 +1,50 @@
+# Tiny end-to-end validation of PARALLEL calibration on the in-process API
+# runner (marnage / exposed_band). 4 trials, parallel = 2, weekly 2019. Inherits
+# the two-lake structure (reservoir + pre-retenue + reciprocal sill weirs +
+# cutoff wall + bed reconstruction + exposed_band) from project_preretenue.toml.
+# This is NOT the production calibration; it only proves api + parallel works.
+
+base_config = "project_preretenue.toml"
+
+[workflow]
+mode = "calibration"
+
+[workspace]
+project_root = "."
+
+[simulation]
+name = "cheze_calib_apitest"
+description = "API-parallel calibration smoke test (two-lake, exposed_band)."
+
+[data]
+types = ["recharge", "precipitation", "etp", "runoff", "lake_geometry", "lake_abacus", "lake_bathymetry", "lake_inflow", "lake_withdrawal", "lake_levels"]
+
+[data.lake_levels]
+date_start = "2019-01-01"
+date_end = "2019-12-31"
+[[data.lake_levels.sources]]
+source = "custom"
+path = "lake_levels"
+
+[calibration]
+method = "optuna"
+max_iter = 2
+batch_size = 2
+parallel = 2          # was rejected with the api runner; now isolated per trial
+seed = 7
+objective = "kge"
+variable = "lake_level"
+save_runs = "none"
+use_cache = false
+
+[calibration.parameters.bedleak]
+bounds = [1e-8, 1e-5]
+transform = "log"
+path = "flow.sinks_sources.lakes.reservoir_cheze.bedleak"
+units = "1/s"
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+transform = "log"
+path = "flow.param.K.field.value"
+units = "m/s"

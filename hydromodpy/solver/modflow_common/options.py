@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 
 @dataclass(slots=True)
@@ -12,6 +12,9 @@ class ModflowPreprocessOptions:
 
     box: bool = True
     sink_fill: bool = False
+    drain_band_depth_m: float = 0.0
+    drain_bed_thickness_m: float = 1.0
+    drain_conductance_floor_m2_s: float = 1e-12
     check_grid: bool = True
     time_grid: Any = None
 
@@ -24,6 +27,7 @@ class ModflowRunOptions:
     run_model: bool = False
     link_mt3dms: bool = False
     verbose: bool = True
+    runner: Literal["subprocess", "api"] = "subprocess"
 
 
 @dataclass(slots=True)

@@ -28,7 +28,7 @@ class _MultiStepHeadFile:
 
     n_steps = 4
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, precision: str = "double"):
         self.path = path
 
     def get_times(self):
@@ -44,17 +44,19 @@ class _MultiStepHeadFile:
 
 def _patch_flow_readers(monkeypatch, head_cls, budget_cls) -> None:
     # Do NOT patch get_water_table: the real function runs on clean heads.
-    monkeypatch.setattr("hydromodpy.solver.modflow6.postprocess.bf.HeadFile", head_cls)
-    monkeypatch.setattr("hydromodpy.solver.modflow6.postprocess.bf.CellBudgetFile", budget_cls)
+    monkeypatch.setattr("hydromodpy.solver.modflow6.postprocess.pipeline.bf.HeadFile", head_cls)
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.CellBudgetFile", budget_cls
+    )
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.postprocess.pipeline.raster_io.export_tif",
         lambda *args, **kwargs: None,
     )
 
 
 def test_mf6_flow_postprocess_indexes_drn_by_real_timestep_nstp_gt_1(monkeypatch, tmp_path) -> None:
     class _DrnByStep:
-        def __init__(self, path: str):
+        def __init__(self, path: str, precision: str = "double"):
             self.path = path
 
         def get_data(self, *, kstpkper, text, totim=None):
@@ -80,7 +82,7 @@ def test_mf6_flow_postprocess_indexes_drn_by_real_timestep_nstp_gt_1(monkeypatch
 
 def test_mf6_flow_postprocess_chd_outlet_indexed_by_timestep(monkeypatch, tmp_path) -> None:
     class _ChdByStep:
-        def __init__(self, path: str):
+        def __init__(self, path: str, precision: str = "double"):
             self.path = path
 
         def get_data(self, *, kstpkper, text, totim=None):
@@ -111,7 +113,7 @@ def test_mf6_flow_postprocess_chd_outlet_indexed_by_timestep(monkeypatch, tmp_pa
 
 def test_mf6_flow_postprocess_warns_on_budget_count_mismatch(monkeypatch, tmp_path) -> None:
     class _HeadThreeTimesTwoSteps:
-        def __init__(self, path: str):
+        def __init__(self, path: str, precision: str = "double"):
             self.path = path
 
         def get_times(self):
@@ -125,7 +127,7 @@ def test_mf6_flow_postprocess_warns_on_budget_count_mismatch(monkeypatch, tmp_pa
             return np.array([[[9.0, 8.5], [8.0, 7.5]]], dtype=float)
 
     class _NoDrn:
-        def __init__(self, path: str):
+        def __init__(self, path: str, precision: str = "double"):
             self.path = path
 
         def get_data(self, *, kstpkper, text, totim=None):
@@ -140,7 +142,7 @@ def test_mf6_flow_postprocess_warns_on_budget_count_mismatch(monkeypatch, tmp_pa
 
     warnings_logged: list[str] = []
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.logger.warning",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.logger.warning",
         lambda msg, *args: warnings_logged.append(str(msg) % args if args else str(msg)),
     )
 
@@ -152,7 +154,7 @@ def test_mf6_flow_postprocess_warns_on_budget_count_mismatch(monkeypatch, tmp_pa
 
 
 class _TwoSliceUcn:
-    def __init__(self, path: str, data: np.ndarray):
+    def __init__(self, path: str, data: np.ndarray, precision: str = "double"):
         self.path = path
         self._data = data
 
@@ -178,11 +180,11 @@ def _run_transport(monkeypatch, tmp_path, name, ucn_data, outflow_drain, **kwarg
     (Path(flow_model.full_path) / "_postprocess").mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.bf.UcnFile",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.UcnFile",
         lambda path: _TwoSliceUcn(path, ucn_data),
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.raster_io.export_tif",
         lambda *args, **kwargs: None,
     )
     transport_model.post_processing(transport_model, **kwargs)

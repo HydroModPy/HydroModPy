@@ -12,9 +12,9 @@ Convert process-level objects into solver-level data structures:
 
 The class is a thin facade. Concerns are split across:
 
-- ``_chd_payloads.py``: initial heads, side BC, ocean CHD, side CHD, BAS validation.
-- ``_well_drainage_payloads.py``: WEL and DRN stress-period payloads.
-- ``_recharge_etp_payloads.py``: RCH and EVT payloads (homogeneous and heterogeneous).
+- ``payloads/chd.py``: initial heads, side BC, ocean CHD, side CHD, BAS validation.
+- ``payloads/well_drainage.py``: WEL and DRN stress-period payloads.
+- ``payloads/recharge_etp.py``: RCH and EVT payloads (homogeneous and heterogeneous).
 
 The adapter does not instantiate FLOPY packages. Package construction is done
 by ``ModflowNwt`` after adaptation is complete.
@@ -39,25 +39,35 @@ from hydromodpy.solver.modflow_common.property_mapping import (
     resolve_required_flow_properties,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.solver.modflow_nwt.nwt._chd_payloads import (
+from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import (
     build_initial_heads_and_sides,
     build_ocean_chd,
     build_side_chd,
     merge_chd_payloads,
     validate_ibound_strt_contract,
 )
-from hydromodpy.solver.modflow_nwt.nwt._recharge_etp_payloads import (
+from hydromodpy.solver.modflow_nwt.nwt.payloads.recharge_etp import (
     build_etp_payload,
     build_recharge_payload,
     resolve_flow_regime,
 )
-from hydromodpy.solver.modflow_nwt.nwt._well_drainage_payloads import (
+from hydromodpy.solver.modflow_nwt.nwt.payloads.well_drainage import (
     build_drainage_spd,
     build_well_stress_period_data,
 )
 
 if TYPE_CHECKING:
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
+
+
+def _sink_mask_on_grid(solver_mesh: SolverMesh, sink: np.ndarray) -> np.ndarray:
+    """Return the flat closed-depression mask reshaped to the structured grid."""
+    mask = np.asarray(sink, dtype=bool).reshape(-1)
+    if mask.size != solver_mesh.n_cells:
+        raise ValueError(
+            f"the sink mask holds {mask.size} cells, the solver mesh {solver_mesh.n_cells}."
+        )
+    return solver_mesh.reshape_to_grid(mask)
 
 
 @dataclass(slots=True)
@@ -99,8 +109,8 @@ class FlowToModflowAdapter:
     by the caller (`ModflowNwt`), after adaptation is complete.
 
     The class delegates concern-specific work to private modules in this
-    package: see ``_chd_payloads``, ``_well_drainage_payloads``, and
-    ``_recharge_etp_payloads``.
+    package: see ``payloads.chd``, ``payloads.well_drainage``, and
+    ``payloads.recharge_etp``.
     """
 
     def __init__(
@@ -113,7 +123,10 @@ class FlowToModflowAdapter:
         grid: GridReference | None = None,
         simulation_window: ResolvedSimulationTimeWindow | None = None,
         sink_fill: bool,
-        sink=None,
+        sink: np.ndarray | None = None,
+        drain_band_depth_m: float = 0.0,
+        drain_bed_thickness_m: float = 1.0,
+        drain_conductance_floor_m2_s: float = 1e-12,
         flow_runtime_overrides: Mapping[str, object] | None = None,
     ):
         """Store adaptation context and normalize primitive arrays/scalars."""
@@ -144,7 +157,10 @@ class FlowToModflowAdapter:
             self.characteristic_length = float(self.grid.characteristic_length)
         self.resolution = float(self.characteristic_length)
         self.sink_fill = bool(sink_fill)
-        self.sink = None if sink is None else np.asarray(sink, dtype=float)
+        self.sink = None if sink is None else _sink_mask_on_grid(solver_mesh, sink)
+        self.drain_band_depth_m = float(drain_band_depth_m)
+        self.drain_bed_thickness_m = float(drain_bed_thickness_m)
+        self.drain_conductance_floor_m2_s = float(drain_conductance_floor_m2_s)
         self.inactive_mask = solver_mesh.reshape_to_grid(solver_mesh.inactive_mask[0])
         self.flow_runtime_overrides = (
             None if flow_runtime_overrides is None else dict(flow_runtime_overrides)

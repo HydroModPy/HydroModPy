@@ -9,7 +9,7 @@ TOML section: ``[site_selection]``
 
 Pydantic model: ``SiteSelectionConfig`` defined in ``hydromodpy.spatial.site_selection.config.models``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L877>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1142>`__
 
 Top-level site-selection workflow configuration.
 
@@ -27,6 +27,8 @@ Fields
 
 .. rst-class:: hmp-config-fields
 
+.. index:: ! selection_id
+
 .. container:: hmp-field hmp-field-level-user
    :name: site-selection-selection-id
 
@@ -36,10 +38,12 @@ Fields
         <code class="hmp-field-name">selection_id</code>
       </div>
 
-   :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L882>`__
+   :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1147>`__
 
       Stable identifier for this selection campaign.
 
+
+.. index:: ! output_root
 
 .. container:: hmp-field hmp-field-level-user
    :name: site-selection-output-root
@@ -50,10 +54,12 @@ Fields
         <code class="hmp-field-name">output_root</code>
       </div>
 
-   :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L887>`__
+   :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1152>`__
 
       Output directory for all site-selection artifacts.
 
+
+.. index:: ! random_seed
 
 .. container:: hmp-field hmp-field-level-user
    :name: site-selection-random-seed
@@ -64,10 +70,12 @@ Fields
         <code class="hmp-field-name">random_seed</code>
       </div>
 
-   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L891>`__
+   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1156>`__
 
       Optional seed used by stochastic candidate thinning.
 
+
+.. index:: ! strategy
 
 .. container:: hmp-field hmp-field-level-user
    :name: site-selection-strategy
@@ -80,13 +88,15 @@ Fields
         <code class="hmp-field-toml">[site_selection.strategy]</code>
       </div>
 
-   :bdg-primary:`StrategyConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L895>`__
+   :bdg-primary:`StrategyConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1160>`__
 
    .. dropdown:: Fields of ``StrategyConfig``
       :icon: list-unordered
       :animate: fade-in-slide-down
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. index:: ! principle
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-strategy-principle
@@ -97,10 +107,20 @@ Fields
               <code class="hmp-field-name">principle</code>
             </div>
 
-         :bdg-primary:`Literal['observation_led', 'criteria_crossing']` :bdg-secondary:`default = "criteria_crossing"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L53>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "criteria_crossing"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L90>`__
 
             Selection principle: observation-led or direct criteria crossing.
 
+         .. rst-class:: hmp-field-values
+
+         ``"observation_led"``
+            Builds candidates from imported observation outlets, such as flow stations.
+
+         ``"criteria_crossing"``
+            Crosses the declared spatial and physical criteria directly, with no observation-led outlets.
+
+
+      .. index:: ! profile
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-strategy-profile
@@ -111,10 +131,16 @@ Fields
               <code class="hmp-field-name">profile</code>
             </div>
 
-         :bdg-primary:`Optional[Literal['area_only', 'gauged_downstream_station']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L57>`__
+         :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L105>`__
 
             Optional selection profile. Short-term supported profiles are 'area_only' and 'gauged_downstream_station'.
 
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"area_only"`` ``"gauged_downstream_station"``
+
+
+      .. index:: ! primary_axes
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-strategy-primary-axes
@@ -125,10 +151,12 @@ Fields
               <code class="hmp-field-name">primary_axes</code>
             </div>
 
-         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L64>`__
+         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L112>`__
 
             Physical or spatial axes that drive a criteria_crossing selection.
 
+
+      .. index:: ! observation_role
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-strategy-observation-role
@@ -139,10 +167,32 @@ Fields
               <code class="hmp-field-name">observation_role</code>
             </div>
 
-         :bdg-primary:`Literal['primary', 'bonus', 'score', 'stratify', 'report_only', 'ignore']` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L68>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L116>`__
 
             How observations influence a criteria_crossing campaign.
 
+         .. rst-class:: hmp-field-values
+
+         ``"primary"``
+            Accepted and recorded in the manifest; no code reads it, so a run is unchanged.
+
+         ``"bonus"``
+            Accepted and recorded in the manifest; no code reads it, so a run is unchanged.
+
+         ``"score"``
+            Accepted and recorded in the manifest; no code reads it, so a run is unchanged.
+
+         ``"stratify"``
+            Accepted and recorded in the manifest; no code reads it, so a run is unchanged.
+
+         ``"report_only"``
+            Recorded but never read; one of the two values profile='area_only' accepts.
+
+         ``"ignore"``
+            Recorded but never read; the other value profile='area_only' accepts.
+
+
+      .. index:: ! geology_role
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-strategy-geology-role
@@ -153,10 +203,32 @@ Fields
               <code class="hmp-field-name">geology_role</code>
             </div>
 
-         :bdg-primary:`Literal['primary', 'bonus', 'score', 'stratify', 'report_only', 'ignore']` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L72>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L121>`__
 
             How geology influences a criteria_crossing campaign.
 
+         .. rst-class:: hmp-field-values
+
+         ``"primary"``
+            Accepted and recorded in the manifest; no code reads it, so a run is unchanged.
+
+         ``"bonus"``
+            Accepted and recorded in the manifest; no code reads it, so a run is unchanged.
+
+         ``"score"``
+            Accepted and recorded in the manifest; no code reads it, so a run is unchanged.
+
+         ``"stratify"``
+            Accepted and recorded in the manifest; no code reads it, so a run is unchanged.
+
+         ``"report_only"``
+            Recorded but never read; one of the two values profile='area_only' accepts.
+
+         ``"ignore"``
+            Recorded but never read; the other value profile='area_only' accepts.
+
+
+      .. index:: ! primary_observation_type
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-strategy-primary-observation-type
@@ -167,10 +239,12 @@ Fields
               <code class="hmp-field-name">primary_observation_type</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L76>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L126>`__
 
             Observation family required by an observation_led strategy.
 
+
+      .. index:: ! observation_source
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-strategy-observation-source
@@ -181,10 +255,12 @@ Fields
               <code class="hmp-field-name">observation_source</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L80>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L130>`__
 
             Provider or normalized source used for primary observations.
 
+
+      .. index:: ! candidate_mode
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-strategy-candidate-mode
@@ -195,12 +271,22 @@ Fields
               <code class="hmp-field-name">candidate_mode</code>
             </div>
 
-         :bdg-primary:`Optional[Literal['network_sampling', 'station_outlets']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L84>`__
+         :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L134>`__
 
             Optional strategy-level candidate generation mode.
 
+         .. rst-class:: hmp-field-values
+
+         ``"network_sampling"``
+            Generates candidate outlets by sampling the DEM-derived stream network.
+
+         ``"station_outlets"``
+            Uses imported observation station locations, such as flow stations, as candidate outlets.
 
 
+
+
+.. index:: ! territory
 
 .. container:: hmp-field hmp-field-level-user
    :name: site-selection-territory
@@ -213,7 +299,7 @@ Fields
         <code class="hmp-field-toml">[site_selection.territory]</code>
       </div>
 
-   :bdg-primary:`TerritoryConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L896>`__
+   :bdg-primary:`TerritoryConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1161>`__
 
       Territory where candidate basins are searched.
 
@@ -232,10 +318,26 @@ Fields
               <code class="hmp-field-name">mode</code>
             </div>
 
-         :bdg-primary:`Literal['admin_regions', 'admin_departments', 'polygon_file', 'bbox']` :bdg-secondary:`default = "bbox"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L132>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "bbox"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L183>`__
 
             Territory resolver mode.
 
+         .. rst-class:: hmp-field-values
+
+         ``"admin_regions"``
+            Bounds the territory to the bounding box of the named administrative regions.
+
+         ``"admin_departments"``
+            Bounds the territory to the bounding box of the named departments.
+
+         ``"polygon_file"``
+            Bounds the territory to the bounding box of a user-supplied polygon file.
+
+         ``"bbox"``
+            Bounds the territory to an explicit xmin, ymin, xmax, ymax box.
+
+
+      .. index:: ! country
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-territory-country
@@ -246,10 +348,12 @@ Fields
               <code class="hmp-field-name">country</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L141>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L209>`__
 
             Country code used by administrative territory modes.
 
+
+      .. index:: ! regions
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-territory-regions
@@ -260,10 +364,12 @@ Fields
               <code class="hmp-field-name">regions</code>
             </div>
 
-         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L145>`__
+         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L213>`__
 
             Administrative regions used when mode='admin_regions'.
 
+
+      .. index:: ! departments
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-territory-departments
@@ -274,10 +380,12 @@ Fields
               <code class="hmp-field-name">departments</code>
             </div>
 
-         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L149>`__
+         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L217>`__
 
             Administrative departments used when mode='admin_departments'.
 
+
+      .. index:: ! polygon_file
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-territory-polygon-file
@@ -288,10 +396,12 @@ Fields
               <code class="hmp-field-name">polygon_file</code>
             </div>
 
-         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L153>`__
+         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L221>`__
 
             User polygon file used when mode='polygon_file'.
 
+
+      .. index:: ! bbox
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-territory-bbox
@@ -302,10 +412,12 @@ Fields
               <code class="hmp-field-name">bbox</code>
             </div>
 
-         :bdg-primary:`tuple[float, float, float, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L157>`__
+         :bdg-primary:`tuple[float, float, float, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L225>`__
 
             Territory bounds as xmin, ymin, xmax, ymax.
 
+
+      .. index:: ! clip_to_territory
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-territory-clip-to-territory
@@ -316,12 +428,14 @@ Fields
               <code class="hmp-field-name">clip_to_territory</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L161>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L229>`__
 
             Clip candidate basins or outlets to the requested territory.
 
 
 
+
+.. index:: ! dem
 
 .. container:: hmp-field hmp-field-level-user
    :name: site-selection-dem
@@ -334,7 +448,7 @@ Fields
         <code class="hmp-field-toml">[site_selection.dem]</code>
       </div>
 
-   :bdg-primary:`DemConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L900>`__
+   :bdg-primary:`DemConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1165>`__
 
    .. dropdown:: Fields of ``DemConfig``
       :icon: list-unordered
@@ -351,9 +465,13 @@ Fields
               <code class="hmp-field-name">source</code>
             </div>
 
-         :bdg-primary:`Literal['custom', 'data', 'ign_geoplateforme_dem']` :bdg-secondary:`default = "custom"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L184>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "custom"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L252>`__
 
             DEM source identifier: custom path, data section, or ign_geoplateforme_dem.
+
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"custom"`` ``"data"`` ``"ign_geoplateforme_dem"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -365,10 +483,12 @@ Fields
               <code class="hmp-field-name">path</code>
             </div>
 
-         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L188>`__
+         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L256>`__
 
             Local DEM path when source='custom'.
 
+
+      .. index:: ! resolution_m
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-dem-resolution-m
@@ -379,10 +499,12 @@ Fields
               <code class="hmp-field-name">resolution_m</code>
             </div>
 
-         :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L192>`__
+         :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L260>`__
 
             DEM resolution in metres.
 
+
+      .. index:: ! cache_policy
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-dem-cache-policy
@@ -393,10 +515,12 @@ Fields
               <code class="hmp-field-name">cache_policy</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "use_cache_else_download"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L197>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "use_cache_else_download"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L265>`__
 
             Data cache policy.
 
+
+      .. index:: ! margin_km
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-dem-margin-km
@@ -407,10 +531,12 @@ Fields
               <code class="hmp-field-name">margin_km</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L201>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L269>`__
 
             DEM request margin around the territory in kilometres.
 
+
+      .. index:: ! request_extent
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-dem-request-extent
@@ -421,10 +547,16 @@ Fields
               <code class="hmp-field-name">request_extent</code>
             </div>
 
-         :bdg-primary:`Literal['territory', 'outlets']` :bdg-secondary:`default = "territory"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L206>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "territory"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L274>`__
 
             Spatial extent used when a DEM is loaded through [data.dem]. 'territory' requests the configured selection territory; 'outlets' requests the bounding box of imported outlets expanded by margin_km.
 
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"territory"`` ``"outlets"``
+
+
+      .. index:: ! map_background_extent
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-dem-map-background-extent
@@ -435,9 +567,20 @@ Fields
               <code class="hmp-field-name">map_background_extent</code>
             </div>
 
-         :bdg-primary:`Literal['none', 'delineation', 'territory']` :bdg-secondary:`default = "delineation"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L214>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "delineation"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L282>`__
 
             DEM extent used only for review-map background. 'delineation' reuses the DEM used to calculate basin contours; 'territory' loads a regional DEM through [data.dem] without using it for delineation.
+
+         .. rst-class:: hmp-field-values
+
+         ``"none"``
+            Skips loading any DEM background for the review map.
+
+         ``"delineation"``
+            Reuses the DEM already used to delineate basin contours as background.
+
+         ``"territory"``
+            Loads a separate regional DEM over the full territory for the background.
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -449,12 +592,14 @@ Fields
               <code class="hmp-field-name">force_refresh</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L225>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L304>`__
 
             Ignore existing cached data when supported by the provider.
 
 
 
+
+.. index:: ! hydrology
 
 .. container:: hmp-field hmp-field-level-user
    :name: site-selection-hydrology
@@ -467,13 +612,15 @@ Fields
         <code class="hmp-field-toml">[site_selection.hydrology]</code>
       </div>
 
-   :bdg-primary:`HydrologyConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L901>`__
+   :bdg-primary:`HydrologyConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1166>`__
 
    .. dropdown:: Fields of ``HydrologyConfig``
       :icon: list-unordered
       :animate: fade-in-slide-down
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. index:: ! method
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-hydrology-method
@@ -484,10 +631,12 @@ Fields
               <code class="hmp-field-name">method</code>
             </div>
 
-         :bdg-primary:`Literal['dem_only']` :bdg-secondary:`default = "dem_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L234>`__
+         :bdg-primary:`Literal['dem_only']` :bdg-secondary:`default = "dem_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L313>`__
 
             Hydrologic product generation method.
 
+
+      .. index:: ! flow_algorithm
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-hydrology-flow-algorithm
@@ -498,10 +647,12 @@ Fields
               <code class="hmp-field-name">flow_algorithm</code>
             </div>
 
-         :bdg-primary:`Literal['d8']` :bdg-secondary:`default = "d8"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L238>`__
+         :bdg-primary:`Literal['d8']` :bdg-secondary:`default = "d8"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L317>`__
 
             Flow routing algorithm used by existing spatial products.
 
+
+      .. index:: ! hydrologic_conditioning
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-hydrology-hydrologic-conditioning
@@ -512,10 +663,23 @@ Fields
               <code class="hmp-field-name">hydrologic_conditioning</code>
             </div>
 
-         :bdg-primary:`Literal['existing_default', 'fill', 'breach']` :bdg-secondary:`default = "existing_default"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L242>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "existing_default"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L321>`__
 
             DEM conditioning strategy forwarded to existing flow products.
 
+         .. rst-class:: hmp-field-values
+
+         ``"existing_default"``
+            Forwards 'fill' to the flow products; it is the site-selection default.
+
+         ``"fill"``
+            Raises each depression to its spill elevation before routing flow.
+
+         ``"breach"``
+            Carves a channel through each depression, preserving natural flow paths.
+
+
+      .. index:: ! network_threshold_area_km2
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-hydrology-network-threshold-area-km2
@@ -526,10 +690,12 @@ Fields
               <code class="hmp-field-name">network_threshold_area_km2</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L249>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L339>`__
 
             Contributing-area threshold used to extract the stream network.
 
+
+      .. index:: ! compute_strahler
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-hydrology-compute-strahler
@@ -540,12 +706,14 @@ Fields
               <code class="hmp-field-name">compute_strahler</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L254>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L344>`__
 
             Request Strahler diagnostics if existing spatial primitives support them.
 
 
 
+
+.. index:: ! dem_area_light
 
 .. container:: hmp-field hmp-field-level-user
    :name: site-selection-dem-area-light
@@ -558,7 +726,7 @@ Fields
         <code class="hmp-field-toml">[site_selection.dem_area_light]</code>
       </div>
 
-   :bdg-primary:`DemAreaLightConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L902>`__
+   :bdg-primary:`DemAreaLightConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1167>`__
 
       Compact settings for DEM-only automatic small-basin selection.
 
@@ -567,6 +735,8 @@ Fields
       :animate: fade-in-slide-down
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. index:: ! target_area_km2
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-dem-area-light-target-area-km2
@@ -577,10 +747,12 @@ Fields
               <code class="hmp-field-name">target_area_km2</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 100.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L271>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 100.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L361>`__
 
             Preferred upstream basin area for DEM-only candidate outlets.
 
+
+      .. index:: ! min_area_km2
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-dem-area-light-min-area-km2
@@ -591,10 +763,12 @@ Fields
               <code class="hmp-field-name">min_area_km2</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 75.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L276>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 75.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L366>`__
 
             Minimum accepted upstream basin area.
 
+
+      .. index:: ! max_area_km2
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-dem-area-light-max-area-km2
@@ -605,10 +779,12 @@ Fields
               <code class="hmp-field-name">max_area_km2</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 125.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L281>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 125.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L371>`__
 
             Maximum accepted upstream basin area.
 
+
+      .. index:: ! n_basins
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-dem-area-light-n-basins
@@ -619,10 +795,12 @@ Fields
               <code class="hmp-field-name">n_basins</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 50` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L286>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 50` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L376>`__
 
             Target number of basins selected by the greedy light workflow.
 
+
+      .. index:: ! max_candidates_before_delineation
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-dem-area-light-max-candidates-before-delineation
@@ -633,12 +811,14 @@ Fields
               <code class="hmp-field-name">max_candidates_before_delineation</code>
             </div>
 
-         :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L291>`__
+         :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L381>`__
 
             Optional cap on DEM-area outlet candidates delineated before final selection. Lower values make examples faster but can leave fewer accepted basins after spatial filtering.
 
 
 
+
+.. index:: ! input
 
 .. container:: hmp-field hmp-field-level-user
    :name: site-selection-input
@@ -651,7 +831,7 @@ Fields
         <code class="hmp-field-toml">[site_selection.input]</code>
       </div>
 
-   :bdg-primary:`SiteSelectionInputConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L906>`__
+   :bdg-primary:`SiteSelectionInputConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1171>`__
 
    .. dropdown:: Fields of ``SiteSelectionInputConfig``
       :icon: list-unordered
@@ -668,10 +848,29 @@ Fields
               <code class="hmp-field-name">mode</code>
             </div>
 
-         :bdg-primary:`Literal['plan_only', 'hydrometry', 'delineated_catchments', 'generated_candidates', 'dem_area_light']` :bdg-secondary:`default = "plan_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L461>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "plan_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L598>`__
 
             Explicit workflow input mode.
 
+         .. rst-class:: hmp-field-values
+
+         ``"plan_only"``
+            Writes the selection-plan manifest and report, loading no data and delineating nothing.
+
+         ``"hydrometry"``
+            Loads flow stations through HydroModPy data managers, then delineates their catchments.
+
+         ``"delineated_catchments"``
+            Reuses pre-delineated catchments and outlets supplied as catchments_csv.
+
+         ``"generated_candidates"``
+            Samples high-accumulation DEM/network cells to generate candidate outlets.
+
+         ``"dem_area_light"``
+            Generates DEM-only candidate outlets around a target upstream drainage area.
+
+
+      .. index:: ! catchments_csv
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-input-catchments-csv
@@ -682,10 +881,12 @@ Fields
               <code class="hmp-field-name">catchments_csv</code>
             </div>
 
-         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L465>`__
+         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L623>`__
 
             Pre-delineated catchments CSV used when mode='delineated_catchments'.
 
+
+      .. index:: ! region_id
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-input-region-id
@@ -696,10 +897,12 @@ Fields
               <code class="hmp-field-name">region_id</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L469>`__
+         :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L627>`__
 
             Optional region identifier written to regional-lab CSV outputs.
 
+
+      .. index:: ! workspace_root
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-input-workspace-root
@@ -710,10 +913,12 @@ Fields
               <code class="hmp-field-name">workspace_root</code>
             </div>
 
-         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L473>`__
+         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L631>`__
 
             Optional workspace root forwarded to data-manager based loading.
 
+
+      .. index:: ! data_root
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-input-data-root
@@ -724,10 +929,12 @@ Fields
               <code class="hmp-field-name">data_root</code>
             </div>
 
-         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L477>`__
+         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L635>`__
 
             Optional data root forwarded to data-manager based loading.
 
+
+      .. index:: ! write_plan_manifest
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-input-write-plan-manifest
@@ -738,10 +945,12 @@ Fields
               <code class="hmp-field-name">write_plan_manifest</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L481>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L639>`__
 
             Write site_selection_plan.json when the workflow is run in plan mode.
 
+
+      .. index:: ! delineate_from_outlets
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-input-delineate-from-outlets
@@ -752,12 +961,14 @@ Fields
               <code class="hmp-field-name">delineate_from_outlets</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L485>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L643>`__
 
             When using catchments_csv, compute watershed contours from outlet coordinates and DEM flow products instead of trusting watershed_shp.
 
 
 
+
+.. index:: ! outlets
 
 .. container:: hmp-field hmp-field-level-user
    :name: site-selection-outlets
@@ -770,7 +981,7 @@ Fields
         <code class="hmp-field-toml">[site_selection.outlets]</code>
       </div>
 
-   :bdg-primary:`OutletsConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L909>`__
+   :bdg-primary:`OutletsConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1174>`__
 
    .. dropdown:: Fields of ``OutletsConfig``
       :icon: list-unordered
@@ -787,10 +998,20 @@ Fields
               <code class="hmp-field-name">candidate_mode</code>
             </div>
 
-         :bdg-primary:`Literal['network_sampling', 'station_outlets']` :bdg-secondary:`default = "network_sampling"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L313>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "network_sampling"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L403>`__
 
             How candidate outlets are generated.
 
+         .. rst-class:: hmp-field-values
+
+         ``"network_sampling"``
+            Generates candidate outlets by sampling the DEM-derived stream network.
+
+         ``"station_outlets"``
+            Uses imported observation station locations, such as flow stations, as candidate outlets.
+
+
+      .. index:: ! min_distance_between_outlets_km
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-outlets-min-distance-between-outlets-km
@@ -801,10 +1022,12 @@ Fields
               <code class="hmp-field-name">min_distance_between_outlets_km</code>
             </div>
 
-         :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L317>`__
+         :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L408>`__
 
             Minimum distance between generated outlets.
 
+
+      .. index:: ! allow_nested_basins
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-outlets-allow-nested-basins
@@ -815,10 +1038,12 @@ Fields
               <code class="hmp-field-name">allow_nested_basins</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L322>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L413>`__
 
             Allow nested candidate basins before final selection.
 
+
+      .. index:: ! max_generated_candidates
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-outlets-max-generated-candidates
@@ -829,10 +1054,12 @@ Fields
               <code class="hmp-field-name">max_generated_candidates</code>
             </div>
 
-         :bdg-primary:`int | None` :bdg-secondary:`default = 200` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L326>`__
+         :bdg-primary:`int | None` :bdg-secondary:`default = 200` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L417>`__
 
             Maximum number of DEM/network-generated candidates to delineate.
 
+
+      .. index:: ! max_rejected_candidate_audit_records
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-outlets-max-rejected-candidate-audit-records
@@ -843,10 +1070,12 @@ Fields
               <code class="hmp-field-name">max_rejected_candidate_audit_records</code>
             </div>
 
-         :bdg-primary:`int | None` :bdg-secondary:`default = 5000` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L331>`__
+         :bdg-primary:`int | None` :bdg-secondary:`default = 5000` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L422>`__
 
             Maximum number of rejected DEM/network candidate cells written to the candidate-generation audit JSONL.
 
+
+      .. index:: ! max_generated_network_cells
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-outlets-max-generated-network-cells
@@ -857,10 +1086,12 @@ Fields
               <code class="hmp-field-name">max_generated_network_cells</code>
             </div>
 
-         :bdg-primary:`int | None` :bdg-secondary:`default = 50000` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L339>`__
+         :bdg-primary:`int | None` :bdg-secondary:`default = 50000` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L430>`__
 
             Maximum number of DEM-derived stream cells exported to the generated network vector layer. Highest-accumulation cells are kept first.
 
+
+      .. index:: ! snap_to_generated_stream
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-outlets-snap-to-generated-stream
@@ -871,10 +1102,12 @@ Fields
               <code class="hmp-field-name">snap_to_generated_stream</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L347>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L438>`__
 
             Snap outlets to the DEM-derived stream network when applicable.
 
+
+      .. index:: ! snap_strategy
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-outlets-snap-strategy
@@ -885,10 +1118,16 @@ Fields
               <code class="hmp-field-name">snap_strategy</code>
             </div>
 
-         :bdg-primary:`Literal['dem_accumulation', 'bdtopage_then_dem']` :bdg-secondary:`default = "dem_accumulation"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L351>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "dem_accumulation"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L442>`__
 
             Outlet snapping strategy. 'dem_accumulation' snaps directly on the DEM-derived accumulation raster. 'bdtopage_then_dem' first projects the station to BD Topage, then snaps locally on the DEM raster.
 
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"dem_accumulation"`` ``"bdtopage_then_dem"``
+
+
+      .. index:: ! snap_dist_m
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-outlets-snap-dist-m
@@ -899,10 +1138,12 @@ Fields
               <code class="hmp-field-name">snap_dist_m</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 150` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L359>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 150` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L450>`__
 
             Maximum snapping distance in metres for outlet-based delineation.
 
+
+      .. index:: ! reference_network_source
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-outlets-reference-network-source
@@ -913,10 +1154,20 @@ Fields
               <code class="hmp-field-name">reference_network_source</code>
             </div>
 
-         :bdg-primary:`Literal['bdtopage', 'custom']` :bdg-secondary:`default = "bdtopage"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L364>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "bdtopage"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L455>`__
 
             Reference hydrographic network used by bdtopage_then_dem.
 
+         .. rst-class:: hmp-field-values
+
+         ``"bdtopage"``
+            Downloads the reference stream network from the BD Topage WFS service.
+
+         ``"custom"``
+            Uses the local vector file at reference_network_path as the reference network.
+
+
+      .. index:: ! reference_network_path
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-outlets-reference-network-path
@@ -927,10 +1178,12 @@ Fields
               <code class="hmp-field-name">reference_network_path</code>
             </div>
 
-         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L368>`__
+         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L469>`__
 
             Local vector network used when reference_network_source='custom'.
 
+
+      .. index:: ! reference_network_max_distance_m
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-outlets-reference-network-max-distance-m
@@ -941,10 +1194,12 @@ Fields
               <code class="hmp-field-name">reference_network_max_distance_m</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 100.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L372>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 100.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L473>`__
 
             Maximum accepted distance from candidate outlet to the reference network.
 
+
+      .. index:: ! reference_network_fetch_margin_m
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-outlets-reference-network-fetch-margin-m
@@ -955,10 +1210,12 @@ Fields
               <code class="hmp-field-name">reference_network_fetch_margin_m</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 500.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L377>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 500.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L478>`__
 
             Extra margin around outlets when downloading a BD Topage reference network.
 
+
+      .. index:: ! reference_network_page_size
 
       .. container:: hmp-field hmp-field-level-dev
          :name: site-selection-outlets-reference-network-page-size
@@ -969,10 +1226,12 @@ Fields
               <code class="hmp-field-name">reference_network_page_size</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 2000` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L382>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 2000` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L483>`__
 
             BD Topage WFS page size used for the reference network download.
 
+
+      .. index:: ! reference_network_force_refresh
 
       .. container:: hmp-field hmp-field-level-dev
          :name: site-selection-outlets-reference-network-force-refresh
@@ -983,12 +1242,14 @@ Fields
               <code class="hmp-field-name">reference_network_force_refresh</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L387>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L488>`__
 
             Redownload BD Topage even if the run output already contains a network file.
 
 
 
+
+.. index:: ! spatial_selection
 
 .. container:: hmp-field hmp-field-level-user
    :name: site-selection-spatial-selection
@@ -1001,13 +1262,15 @@ Fields
         <code class="hmp-field-toml">[site_selection.spatial_selection]</code>
       </div>
 
-   :bdg-primary:`SpatialSelectionConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L910>`__
+   :bdg-primary:`SpatialSelectionConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1175>`__
 
    .. dropdown:: Fields of ``SpatialSelectionConfig``
       :icon: list-unordered
       :animate: fade-in-slide-down
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. index:: ! max_selected_sites
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-spatial-selection-max-selected-sites
@@ -1018,7 +1281,7 @@ Fields
               <code class="hmp-field-name">max_selected_sites</code>
             </div>
 
-         :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L409>`__
+         :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L510>`__
 
             Maximum number of catchments kept after ranking and spatial thinning.
 
@@ -1032,10 +1295,12 @@ Fields
               <code class="hmp-field-name">allow_nested_basins</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L414>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L515>`__
 
             Allow selected basins to be nested.
 
+
+      .. index:: ! min_outlet_distance_km
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-spatial-selection-min-outlet-distance-km
@@ -1046,10 +1311,12 @@ Fields
               <code class="hmp-field-name">min_outlet_distance_km</code>
             </div>
 
-         :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L418>`__
+         :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L519>`__
 
             Minimum spacing between selected outlets.
 
+
+      .. index:: ! max_pairwise_basin_overlap_fraction
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-spatial-selection-max-pairwise-basin-overlap-fraction
@@ -1060,10 +1327,12 @@ Fields
               <code class="hmp-field-name">max_pairwise_basin_overlap_fraction</code>
             </div>
 
-         :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L423>`__
+         :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L524>`__
 
             Maximum allowed overlap fraction between selected basins.
 
+
+      .. index:: ! overlap_reference
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-spatial-selection-overlap-reference
@@ -1074,10 +1343,23 @@ Fields
               <code class="hmp-field-name">overlap_reference</code>
             </div>
 
-         :bdg-primary:`Literal['smaller_basin', 'candidate', 'selected']` :bdg-secondary:`default = "smaller_basin"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L429>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "smaller_basin"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L530>`__
 
             Denominator used for overlap fraction.
 
+         .. rst-class:: hmp-field-values
+
+         ``"smaller_basin"``
+            Divides the intersection area by the area of the smaller of the two basins.
+
+         ``"candidate"``
+            Divides the intersection area by the candidate basin's own area.
+
+         ``"selected"``
+            Divides the intersection area by the already-selected basin's own area.
+
+
+      .. index:: ! overlap_mode
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-spatial-selection-overlap-mode
@@ -1088,10 +1370,26 @@ Fields
               <code class="hmp-field-name">overlap_mode</code>
             </div>
 
-         :bdg-primary:`Literal['hard_reject', 'warning', 'score', 'report_only']` :bdg-secondary:`default = "hard_reject"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L432>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "hard_reject"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L547>`__
 
             How overlap violations affect selection.
 
+         .. rst-class:: hmp-field-values
+
+         ``"hard_reject"``
+            Rejects a candidate whose basin overlap exceeds the configured threshold.
+
+         ``"warning"``
+            Flags excess basin overlap as a warning without rejecting the candidate.
+
+         ``"score"``
+            Behaves like warning here: flags excess overlap without computing a score.
+
+         ``"report_only"``
+            Behaves like warning here: flags excess overlap rather than only recording it.
+
+
+      .. index:: ! spatial_quota_mode
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-spatial-selection-spatial-quota-mode
@@ -1102,10 +1400,20 @@ Fields
               <code class="hmp-field-name">spatial_quota_mode</code>
             </div>
 
-         :bdg-primary:`Literal['none', 'grid']` :bdg-secondary:`default = "none"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L436>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "none"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L567>`__
 
             Optional coarse spatial quota applied after ranking.
 
+         .. rst-class:: hmp-field-values
+
+         ``"none"``
+            Applies no spatial quota; ranking alone decides which sites are kept.
+
+         ``"grid"``
+            Rejects extra candidates once a grid cell already holds its site quota.
+
+
+      .. index:: ! spatial_quota_cell_size_km
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-spatial-selection-spatial-quota-cell-size-km
@@ -1116,10 +1424,12 @@ Fields
               <code class="hmp-field-name">spatial_quota_cell_size_km</code>
             </div>
 
-         :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L440>`__
+         :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L577>`__
 
             Grid cell size used when spatial_quota_mode='grid'.
 
+
+      .. index:: ! spatial_quota_max_sites_per_cell
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-spatial-selection-spatial-quota-max-sites-per-cell
@@ -1130,12 +1440,14 @@ Fields
               <code class="hmp-field-name">spatial_quota_max_sites_per_cell</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L445>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L582>`__
 
             Maximum selected sites allowed in one spatial quota cell.
 
 
 
+
+.. index:: ! criteria
 
 .. container:: hmp-field hmp-field-level-user
    :name: site-selection-criteria
@@ -1148,13 +1460,15 @@ Fields
         <code class="hmp-field-toml">[site_selection.criteria]</code>
       </div>
 
-   :bdg-primary:`CriteriaConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L913>`__
+   :bdg-primary:`CriteriaConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1178>`__
 
    .. dropdown:: Fields of ``CriteriaConfig``
       :icon: list-unordered
       :animate: fade-in-slide-down
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. index:: ! ruleset
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-criteria-ruleset
@@ -1165,8 +1479,10 @@ Fields
               <code class="hmp-field-name">ruleset</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "site_selection_v1"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L790>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "site_selection_v1"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1047>`__
 
+
+      .. index:: ! hard_reject
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-criteria-hard-reject
@@ -1177,8 +1493,10 @@ Fields
               <code class="hmp-field-name">hard_reject</code>
             </div>
 
-         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L791>`__
+         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1048>`__
 
+
+      .. index:: ! warning
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-criteria-warning
@@ -1189,8 +1507,10 @@ Fields
               <code class="hmp-field-name">warning</code>
             </div>
 
-         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L792>`__
+         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1049>`__
 
+
+      .. index:: ! soft_score
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-criteria-soft-score
@@ -1201,8 +1521,10 @@ Fields
               <code class="hmp-field-name">soft_score</code>
             </div>
 
-         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L793>`__
+         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1050>`__
 
+
+      .. index:: ! report_only
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-criteria-report-only
@@ -1213,8 +1535,10 @@ Fields
               <code class="hmp-field-name">report_only</code>
             </div>
 
-         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L794>`__
+         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1051>`__
 
+
+      .. index:: ! area
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-criteria-area
@@ -1227,7 +1551,7 @@ Fields
               <code class="hmp-field-toml">[site_selection.criteria.area]</code>
             </div>
 
-         :bdg-primary:`AreaCriteriaConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L795>`__
+         :bdg-primary:`AreaCriteriaConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1052>`__
 
          .. dropdown:: Fields of ``AreaCriteriaConfig``
             :icon: list-unordered
@@ -1244,9 +1568,26 @@ Fields
                     <code class="hmp-field-name">mode</code>
                   </div>
 
-               :bdg-primary:`Literal['hard_reject', 'warning', 'score', 'stratify', 'report_only']` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L532>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L690>`__
 
                   How basin area contributes to selection.
+
+               .. rst-class:: hmp-field-values
+
+               ``"hard_reject"``
+                  Rejects candidates that fail the configured basin area check.
+
+               ``"warning"``
+                  Flags candidates that fail the configured basin area check, without rejecting them.
+
+               ``"score"``
+                  Scores candidates by closeness of their area to preferred_area_km2.
+
+               ``"stratify"``
+                  Makes basin area available for grouping candidates into strata.
+
+               ``"report_only"``
+                  Records basin area evidence without any automatic accept or reject decision.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1258,10 +1599,12 @@ Fields
                     <code class="hmp-field-name">target_area_km2</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L536>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L700>`__
 
                   Named target area used for reporting or strict area profiles.
 
+
+            .. index:: ! preferred_area_km2
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-area-preferred-area-km2
@@ -1272,10 +1615,12 @@ Fields
                     <code class="hmp-field-name">preferred_area_km2</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L541>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L705>`__
 
                   Preferred area used by score-based campaigns.
 
+
+            .. index:: ! score_half_width_fraction
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-area-score-half-width-fraction
@@ -1286,10 +1631,12 @@ Fields
                     <code class="hmp-field-name">score_half_width_fraction</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L546>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L710>`__
 
                   Relative half-width of the area score around preferred_area_km2.
 
+
+            .. index:: ! hard_min_area_km2
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-area-hard-min-area-km2
@@ -1300,10 +1647,12 @@ Fields
                     <code class="hmp-field-name">hard_min_area_km2</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L551>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L715>`__
 
                   Hard lower area bound when configured.
 
+
+            .. index:: ! hard_max_area_km2
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-area-hard-max-area-km2
@@ -1314,10 +1663,12 @@ Fields
                     <code class="hmp-field-name">hard_max_area_km2</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L556>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L720>`__
 
                   Hard upper area bound when configured.
 
+
+            .. index:: ! ranges
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-area-ranges
@@ -1330,7 +1681,7 @@ Fields
                     <code class="hmp-field-toml">[[site_selection.criteria.area.ranges]]</code>
                   </div>
 
-               :bdg-primary:`list[AreaRangeConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L561>`__
+               :bdg-primary:`list[AreaRangeConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L725>`__
 
                   Explicit area ranges used for hard rejection, warnings or stratification. Prefer this over target/preferred area fields when the campaign is defined by minimum and maximum basin sizes.
 
@@ -1339,6 +1690,8 @@ Fields
                   :animate: fade-in-slide-down
 
                   .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                  .. index:: ! range_id
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-area-ranges-range-id
@@ -1349,10 +1702,12 @@ Fields
                           <code class="hmp-field-name">range_id</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L503>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L661>`__
 
                         Stable identifier for the area range.
 
+
+                  .. index:: ! label
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-area-ranges-label
@@ -1363,7 +1718,7 @@ Fields
                           <code class="hmp-field-name">label</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L507>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L665>`__
 
                         Human-readable area range label.
 
@@ -1377,7 +1732,7 @@ Fields
                           <code class="hmp-field-name">min_area_km2</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L511>`__
+                     :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L669>`__
 
                         Minimum basin area for this range.
 
@@ -1391,7 +1746,7 @@ Fields
                           <code class="hmp-field-name">max_area_km2</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L516>`__
+                     :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L674>`__
 
                         Maximum basin area for this range.
 
@@ -1399,6 +1754,8 @@ Fields
 
 
 
+
+      .. index:: ! observations
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-criteria-observations
@@ -1411,13 +1768,15 @@ Fields
               <code class="hmp-field-toml">[site_selection.criteria.observations]</code>
             </div>
 
-         :bdg-primary:`ObservationsCriteriaConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L796>`__
+         :bdg-primary:`ObservationsCriteriaConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1053>`__
 
          .. dropdown:: Fields of ``ObservationsCriteriaConfig``
             :icon: list-unordered
             :animate: fade-in-slide-down
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. index:: ! flow_station_mode
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-observations-flow-station-mode
@@ -1428,8 +1787,27 @@ Fields
                     <code class="hmp-field-name">flow_station_mode</code>
                   </div>
 
-               :bdg-primary:`Literal['hard_reject', 'warning', 'score', 'stratify', 'report_only']` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L673>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L864>`__
 
+               .. rst-class:: hmp-field-values
+
+               ``"hard_reject"``
+                  Rejects candidates that fail the configured flow-station check.
+
+               ``"warning"``
+                  Flags candidates that fail the configured flow-station check, without rejecting them.
+
+               ``"score"``
+                  Scores candidates by record length and station-to-outlet distance.
+
+               ``"stratify"``
+                  Makes flow-station available for grouping candidates into strata.
+
+               ``"report_only"``
+                  Records flow-station evidence without any automatic accept or reject decision.
+
+
+            .. index:: ! flow_station_max_distance_km
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-observations-flow-station-max-distance-km
@@ -1440,8 +1818,10 @@ Fields
                     <code class="hmp-field-name">flow_station_max_distance_km</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L674>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L873>`__
 
+
+            .. index:: ! piezometer_mode
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-observations-piezometer-mode
@@ -1452,8 +1832,27 @@ Fields
                     <code class="hmp-field-name">piezometer_mode</code>
                   </div>
 
-               :bdg-primary:`Literal['hard_reject', 'warning', 'score', 'stratify', 'report_only']` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L678>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L877>`__
 
+               .. rst-class:: hmp-field-values
+
+               ``"hard_reject"``
+                  Rejects candidates that fail the configured piezometer check.
+
+               ``"warning"``
+                  Flags candidates that fail the configured piezometer check, without rejecting them.
+
+               ``"score"``
+                  Scores candidates by distance to the nearest piezometer, or piezometer count.
+
+               ``"stratify"``
+                  Makes piezometer available for grouping candidates into strata.
+
+               ``"report_only"``
+                  Records piezometer evidence without any automatic accept or reject decision.
+
+
+            .. index:: ! piezometer_max_distance_km
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-observations-piezometer-max-distance-km
@@ -1464,8 +1863,10 @@ Fields
                     <code class="hmp-field-name">piezometer_max_distance_km</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L679>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L886>`__
 
+
+            .. index:: ! flow_station
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-observations-flow-station
@@ -1478,7 +1879,7 @@ Fields
                     <code class="hmp-field-toml">[site_selection.criteria.observations.flow_station]</code>
                   </div>
 
-               :bdg-primary:`FlowStationCriteriaConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L683>`__
+               :bdg-primary:`FlowStationCriteriaConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L890>`__
 
                .. dropdown:: Fields of ``FlowStationCriteriaConfig``
                   :icon: list-unordered
@@ -1487,7 +1888,6 @@ Fields
                   .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: site-selection-criteria-observations-flow-station-mode
 
                      .. raw:: html
 
@@ -1495,8 +1895,27 @@ Fields
                           <code class="hmp-field-name">mode</code>
                         </div>
 
-                     :bdg-primary:`Literal['hard_reject', 'warning', 'score', 'stratify', 'report_only']` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L597>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L761>`__
 
+                     .. rst-class:: hmp-field-values
+
+                     ``"hard_reject"``
+                        Rejects candidates that fail the configured flow-station check.
+
+                     ``"warning"``
+                        Flags candidates that fail the configured flow-station check, without rejecting them.
+
+                     ``"score"``
+                        Scores candidates by record length and station-to-outlet distance.
+
+                     ``"stratify"``
+                        Makes flow-station available for grouping candidates into strata.
+
+                     ``"report_only"``
+                        Records flow-station evidence without any automatic accept or reject decision.
+
+
+                  .. index:: ! min_record_years
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-observations-flow-station-min-record-years
@@ -1507,8 +1926,10 @@ Fields
                           <code class="hmp-field-name">min_record_years</code>
                         </div>
 
-                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L598>`__
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L770>`__
 
+
+                  .. index:: ! max_station_to_outlet_distance_km
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-observations-flow-station-max-station-to-outlet-distance-km
@@ -1519,8 +1940,10 @@ Fields
                           <code class="hmp-field-name">max_station_to_outlet_distance_km</code>
                         </div>
 
-                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L599>`__
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L771>`__
 
+
+                  .. index:: ! require_station_inside_or_at_outlet
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-observations-flow-station-require-station-inside-or-at-outlet
@@ -1531,10 +1954,12 @@ Fields
                           <code class="hmp-field-name">require_station_inside_or_at_outlet</code>
                         </div>
 
-                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L603>`__
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L775>`__
 
 
 
+
+            .. index:: ! station_influence
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-observations-station-influence
@@ -1547,7 +1972,7 @@ Fields
                     <code class="hmp-field-toml">[site_selection.criteria.observations.station_influence]</code>
                   </div>
 
-               :bdg-primary:`StationInfluenceCriteriaConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L686>`__
+               :bdg-primary:`StationInfluenceCriteriaConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L893>`__
 
                .. dropdown:: Fields of ``StationInfluenceCriteriaConfig``
                   :icon: list-unordered
@@ -1564,7 +1989,24 @@ Fields
                           <code class="hmp-field-name">mode</code>
                         </div>
 
-                     :bdg-primary:`Literal['hard_reject', 'warning', 'score', 'stratify', 'report_only']` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L609>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L781>`__
+
+                     .. rst-class:: hmp-field-values
+
+                     ``"hard_reject"``
+                        Rejects candidates that fail the configured station-influence check.
+
+                     ``"warning"``
+                        Flags candidates that fail the configured station-influence check, without rejecting them.
+
+                     ``"score"``
+                        Scores candidates by influence status: 1.0 if none, 0.5 if unknown, 0.0 if influenced.
+
+                     ``"stratify"``
+                        Makes station-influence available for grouping candidates into strata.
+
+                     ``"report_only"``
+                        Records station-influence evidence without any automatic accept or reject decision.
 
 
                   .. container:: hmp-field hmp-field-level-user
@@ -1576,8 +2018,10 @@ Fields
                           <code class="hmp-field-name">source</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "hubeau_station_metadata"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L610>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "hubeau_station_metadata"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L790>`__
 
+
+                  .. index:: ! warn_if_general_influence
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-observations-station-influence-warn-if-general-influence
@@ -1588,8 +2032,10 @@ Fields
                           <code class="hmp-field-name">warn_if_general_influence</code>
                         </div>
 
-                     :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L611>`__
+                     :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L791>`__
 
+
+                  .. index:: ! warn_if_local_influence
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-observations-station-influence-warn-if-local-influence
@@ -1600,8 +2046,10 @@ Fields
                           <code class="hmp-field-name">warn_if_local_influence</code>
                         </div>
 
-                     :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L612>`__
+                     :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L792>`__
 
+
+                  .. index:: ! warn_if_comment_keyword
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-observations-station-influence-warn-if-comment-keyword
@@ -1612,10 +2060,12 @@ Fields
                           <code class="hmp-field-name">warn_if_comment_keyword</code>
                         </div>
 
-                     :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L613>`__
+                     :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L793>`__
 
                         Report comment keyword matches as warnings. Comment keywords are not treated as hard-reject evidence.
 
+
+                  .. index:: ! unknown_policy
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-observations-station-influence-unknown-policy
@@ -1626,8 +2076,18 @@ Fields
                           <code class="hmp-field-name">unknown_policy</code>
                         </div>
 
-                     :bdg-primary:`Literal['neutral', 'warning']` :bdg-secondary:`default = "neutral"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L620>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "neutral"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L800>`__
 
+                     .. rst-class:: hmp-field-values
+
+                     ``"neutral"``
+                        Does not raise a warning when station influence metadata is missing or unknown.
+
+                     ``"warning"``
+                        Raises a warning when station influence metadata is missing or unknown.
+
+
+                  .. index:: ! comment_keywords
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-observations-station-influence-comment-keywords
@@ -1638,12 +2098,14 @@ Fields
                           <code class="hmp-field-name">comment_keywords</code>
                         </div>
 
-                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L623>`__
+                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L814>`__
 
                         Keywords searched in station influence comments.
 
 
 
+
+            .. index:: ! piezometer_layers
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-observations-piezometer-layers
@@ -1656,7 +2118,7 @@ Fields
                     <code class="hmp-field-toml">[[site_selection.criteria.observations.piezometer_layers]]</code>
                   </div>
 
-               :bdg-primary:`list[PiezometerLayerConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L689>`__
+               :bdg-primary:`list[PiezometerLayerConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L896>`__
 
                   Optional vector layers used to compute piezometer evidence.
 
@@ -1675,7 +2137,7 @@ Fields
                           <code class="hmp-field-name">name</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L643>`__
+                     :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L834>`__
 
                         Human-readable piezometer layer name.
 
@@ -1689,10 +2151,12 @@ Fields
                           <code class="hmp-field-name">path</code>
                         </div>
 
-                     :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L648>`__
+                     :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L839>`__
 
                         Vector file containing piezometer features.
 
+
+                  .. index:: ! id_field
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-observations-piezometer-layers-id-field
@@ -1703,10 +2167,12 @@ Fields
                           <code class="hmp-field-name">id_field</code>
                         </div>
 
-                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L652>`__
+                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L843>`__
 
                         Optional source-feature identifier field.
 
+
+                  .. index:: ! label_field
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-observations-piezometer-layers-label-field
@@ -1717,10 +2183,12 @@ Fields
                           <code class="hmp-field-name">label_field</code>
                         </div>
 
-                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L656>`__
+                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L847>`__
 
                         Optional source-feature label field.
 
+
+                  .. index:: ! record_years_field
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-observations-piezometer-layers-record-years-field
@@ -1731,10 +2199,12 @@ Fields
                           <code class="hmp-field-name">record_years_field</code>
                         </div>
 
-                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L660>`__
+                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L851>`__
 
                         Optional field containing available record length in years.
 
+
+                  .. index:: ! quality_field
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-observations-piezometer-layers-quality-field
@@ -1745,7 +2215,7 @@ Fields
                           <code class="hmp-field-name">quality_field</code>
                         </div>
 
-                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L664>`__
+                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L855>`__
 
                         Optional field containing a quality/status label.
 
@@ -1753,6 +2223,8 @@ Fields
 
 
 
+
+      .. index:: ! influence
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-criteria-influence
@@ -1765,7 +2237,7 @@ Fields
               <code class="hmp-field-toml">[site_selection.criteria.influence]</code>
             </div>
 
-         :bdg-primary:`InfluenceCriteriaConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L799>`__
+         :bdg-primary:`InfluenceCriteriaConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1056>`__
 
          .. dropdown:: Fields of ``InfluenceCriteriaConfig``
             :icon: list-unordered
@@ -1782,8 +2254,27 @@ Fields
                     <code class="hmp-field-name">mode</code>
                   </div>
 
-               :bdg-primary:`Literal['hard_reject', 'warning', 'score', 'stratify', 'report_only']` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L735>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L955>`__
 
+               .. rst-class:: hmp-field-values
+
+               ``"hard_reject"``
+                  Rejects a candidate when a configured influence rejection flag is present.
+
+               ``"warning"``
+                  Flags a configured influence flag as a warning without rejecting the candidate.
+
+               ``"score"``
+                  Behaves like warning here: flags influence without computing a score.
+
+               ``"stratify"``
+                  Behaves like warning here: flags influence without grouping by class.
+
+               ``"report_only"``
+                  Records influence evidence without any automatic accept or reject decision.
+
+
+            .. index:: ! reject_major_dam_upstream
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-influence-reject-major-dam-upstream
@@ -1794,8 +2285,10 @@ Fields
                     <code class="hmp-field-name">reject_major_dam_upstream</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L736>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L976>`__
 
+
+            .. index:: ! reject_major_withdrawal_upstream
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-influence-reject-major-withdrawal-upstream
@@ -1806,8 +2299,10 @@ Fields
                     <code class="hmp-field-name">reject_major_withdrawal_upstream</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L737>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L977>`__
 
+
+            .. index:: ! reject_major_regulated_reach
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-influence-reject-major-regulated-reach
@@ -1818,8 +2313,10 @@ Fields
                     <code class="hmp-field-name">reject_major_regulated_reach</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L738>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L978>`__
 
+
+            .. index:: ! influence_search_radius_km
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-influence-influence-search-radius-km
@@ -1830,8 +2327,10 @@ Fields
                     <code class="hmp-field-name">influence_search_radius_km</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L739>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L979>`__
 
+
+            .. index:: ! layers
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-influence-layers
@@ -1844,7 +2343,7 @@ Fields
                     <code class="hmp-field-toml">[[site_selection.criteria.influence.layers]]</code>
                   </div>
 
-               :bdg-primary:`list[InfluenceLayerConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L743>`__
+               :bdg-primary:`list[InfluenceLayerConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L983>`__
 
                   Optional vector layers used to compute influence flags automatically.
 
@@ -1863,7 +2362,7 @@ Fields
                           <code class="hmp-field-name">name</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L698>`__
+                     :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L905>`__
 
                         Human-readable influence layer name.
 
@@ -1877,10 +2376,12 @@ Fields
                           <code class="hmp-field-name">path</code>
                         </div>
 
-                     :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L703>`__
+                     :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L910>`__
 
                         Vector file containing influence features.
 
+
+                  .. index:: ! influence_type
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-influence-layers-influence-type
@@ -1891,9 +2392,20 @@ Fields
                           <code class="hmp-field-name">influence_type</code>
                         </div>
 
-                     :bdg-primary:`Literal['major_dam_upstream', 'major_withdrawal_upstream', 'major_regulated_reach']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L707>`__
+                     :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L914>`__
 
                         Normalized influence flag filled when features match a basin.
+
+                     .. rst-class:: hmp-field-values
+
+                     ``"major_dam_upstream"``
+                        Marks matching basins as having a major dam upstream of the outlet.
+
+                     ``"major_withdrawal_upstream"``
+                        Marks matching basins as having a major water withdrawal upstream.
+
+                     ``"major_regulated_reach"``
+                        Marks matching basins as having a major regulated reach upstream.
 
 
                   .. container:: hmp-field hmp-field-level-user
@@ -1905,7 +2417,7 @@ Fields
                           <code class="hmp-field-name">id_field</code>
                         </div>
 
-                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L711>`__
+                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L931>`__
 
                         Optional source-feature identifier field.
 
@@ -1919,10 +2431,12 @@ Fields
                           <code class="hmp-field-name">label_field</code>
                         </div>
 
-                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L715>`__
+                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L935>`__
 
                         Optional source-feature label field.
 
+
+                  .. index:: ! severity_field
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-influence-layers-severity-field
@@ -1933,10 +2447,12 @@ Fields
                           <code class="hmp-field-name">severity_field</code>
                         </div>
 
-                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L719>`__
+                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L939>`__
 
                         Optional field used to classify major features.
 
+
+                  .. index:: ! major_values
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-influence-layers-major-values
@@ -1947,7 +2463,7 @@ Fields
                           <code class="hmp-field-name">major_values</code>
                         </div>
 
-                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L723>`__
+                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L943>`__
 
                         Values considered major in severity_field. When empty, every matched feature is considered major.
 
@@ -1955,6 +2471,8 @@ Fields
 
 
 
+
+      .. index:: ! geology
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-criteria-geology
@@ -1967,7 +2485,7 @@ Fields
               <code class="hmp-field-toml">[site_selection.criteria.geology]</code>
             </div>
 
-         :bdg-primary:`GeologyCriteriaConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L802>`__
+         :bdg-primary:`GeologyCriteriaConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1059>`__
 
          .. dropdown:: Fields of ``GeologyCriteriaConfig``
             :icon: list-unordered
@@ -1984,8 +2502,27 @@ Fields
                     <code class="hmp-field-name">mode</code>
                   </div>
 
-               :bdg-primary:`Literal['hard_reject', 'warning', 'score', 'stratify', 'report_only']` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L779>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "report_only"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1019>`__
 
+               .. rst-class:: hmp-field-values
+
+               ``"hard_reject"``
+                  Behaves like report_only here: geology cannot yet reject a candidate.
+
+               ``"warning"``
+                  Behaves like report_only here: geology cannot yet raise a warning.
+
+               ``"score"``
+                  Gives a full score when a geology class is found, none otherwise.
+
+               ``"stratify"``
+                  Makes the geology class available for grouping candidates into strata.
+
+               ``"report_only"``
+                  Records geology evidence without any automatic accept or reject decision.
+
+
+            .. index:: ! prefer_diversity
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-criteria-geology-prefer-diversity
@@ -1996,7 +2533,7 @@ Fields
                     <code class="hmp-field-name">prefer_diversity</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L780>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1037>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -2010,7 +2547,7 @@ Fields
                     <code class="hmp-field-toml">[[site_selection.criteria.geology.layers]]</code>
                   </div>
 
-               :bdg-primary:`list[GeologyLayerConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L781>`__
+               :bdg-primary:`list[GeologyLayerConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1038>`__
 
                   Optional polygon layers used to compute geology evidence.
 
@@ -2029,7 +2566,7 @@ Fields
                           <code class="hmp-field-name">name</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L752>`__
+                     :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L992>`__
 
                         Human-readable geology layer name.
 
@@ -2043,10 +2580,12 @@ Fields
                           <code class="hmp-field-name">path</code>
                         </div>
 
-                     :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L757>`__
+                     :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L997>`__
 
                         Vector polygon file containing geology units.
 
+
+                  .. index:: ! class_field
 
                   .. container:: hmp-field hmp-field-level-user
                      :name: site-selection-criteria-geology-layers-class-field
@@ -2057,7 +2596,7 @@ Fields
                           <code class="hmp-field-name">class_field</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L761>`__
+                     :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1001>`__
 
                         Feature field containing the geology class.
 
@@ -2071,7 +2610,7 @@ Fields
                           <code class="hmp-field-name">id_field</code>
                         </div>
 
-                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L766>`__
+                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1006>`__
 
                         Optional source-feature identifier field.
 
@@ -2085,7 +2624,7 @@ Fields
                           <code class="hmp-field-name">label_field</code>
                         </div>
 
-                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L770>`__
+                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1010>`__
 
                         Optional source-feature label field.
 
@@ -2095,6 +2634,8 @@ Fields
 
 
 
+
+.. index:: ! output
 
 .. container:: hmp-field hmp-field-level-user
    :name: site-selection-output
@@ -2107,13 +2648,15 @@ Fields
         <code class="hmp-field-toml">[site_selection.output]</code>
       </div>
 
-   :bdg-primary:`OutputConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L914>`__
+   :bdg-primary:`OutputConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1179>`__
 
    .. dropdown:: Fields of ``OutputConfig``
       :icon: list-unordered
       :animate: fade-in-slide-down
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. index:: ! write_rejected
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-output-write-rejected
@@ -2124,8 +2667,10 @@ Fields
               <code class="hmp-field-name">write_rejected</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L829>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1086>`__
 
+
+      .. index:: ! write_selected
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-output-write-selected
@@ -2136,8 +2681,10 @@ Fields
               <code class="hmp-field-name">write_selected</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L830>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1087>`__
 
+
+      .. index:: ! write_geojson
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-output-write-geojson
@@ -2148,8 +2695,10 @@ Fields
               <code class="hmp-field-name">write_geojson</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L831>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1088>`__
 
+
+      .. index:: ! write_geoparquet
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-output-write-geoparquet
@@ -2160,8 +2709,10 @@ Fields
               <code class="hmp-field-name">write_geoparquet</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L832>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1089>`__
 
+
+      .. index:: ! write_geopackage
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-output-write-geopackage
@@ -2172,8 +2723,10 @@ Fields
               <code class="hmp-field-name">write_geopackage</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L833>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1090>`__
 
+
+      .. index:: ! write_csv
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-output-write-csv
@@ -2184,8 +2737,10 @@ Fields
               <code class="hmp-field-name">write_csv</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L834>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1091>`__
 
+
+      .. index:: ! write_regional_lab_csv
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-output-write-regional-lab-csv
@@ -2196,8 +2751,10 @@ Fields
               <code class="hmp-field-name">write_regional_lab_csv</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L835>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1092>`__
 
+
+      .. index:: ! write_report_html
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-output-write-report-html
@@ -2208,8 +2765,10 @@ Fields
               <code class="hmp-field-name">write_report_html</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L836>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1093>`__
 
+
+      .. index:: ! keep_intermediate_rasters
 
       .. container:: hmp-field hmp-field-level-user
          :name: site-selection-output-keep-intermediate-rasters
@@ -2220,12 +2779,14 @@ Fields
               <code class="hmp-field-name">keep_intermediate_rasters</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L837>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1094>`__
 
             Keep intermediate GeoTIFF rasters such as flow products and per-candidate watershed masks after final outputs are written.
 
 
 
+
+.. index:: ! map_context
 
 .. container:: hmp-field hmp-field-level-user
    :name: site-selection-map-context
@@ -2238,7 +2799,7 @@ Fields
         <code class="hmp-field-toml">[site_selection.map_context]</code>
       </div>
 
-   :bdg-primary:`MapContextConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L915>`__
+   :bdg-primary:`MapContextConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1180>`__
 
    .. dropdown:: Fields of ``MapContextConfig``
       :icon: list-unordered
@@ -2257,7 +2818,7 @@ Fields
               <code class="hmp-field-toml">[[site_selection.map_context.layers]]</code>
             </div>
 
-         :bdg-primary:`list[MapContextLayerConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L871>`__
+         :bdg-primary:`list[MapContextLayerConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1136>`__
 
             Context vector layers drawn behind selection artifacts.
 
@@ -2276,7 +2837,7 @@ Fields
                     <code class="hmp-field-name">name</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L849>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1106>`__
 
                   Human-readable layer name used in the map/report manifest.
 
@@ -2290,10 +2851,12 @@ Fields
                     <code class="hmp-field-name">path</code>
                   </div>
 
-               :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L854>`__
+               :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1111>`__
 
                   GeoJSON file used as static map context.
 
+
+            .. index:: ! role
 
             .. container:: hmp-field hmp-field-level-user
                :name: site-selection-map-context-layers-role
@@ -2304,9 +2867,23 @@ Fields
                     <code class="hmp-field-name">role</code>
                   </div>
 
-               :bdg-primary:`Literal['territory', 'hydrography', 'geology', 'other']` :bdg-secondary:`default = "other"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L858>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "other"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1115>`__
 
                   Visual role controlling the default map style.
+
+               .. rst-class:: hmp-field-values
+
+               ``"territory"``
+                  Drawn as a dashed grey outline, styled as the territory boundary.
+
+               ``"hydrography"``
+                  Drawn as thin blue lines, styled as the stream network.
+
+               ``"geology"``
+                  Drawn as pale yellow polygons, styled as geology units.
+
+               ``"other"``
+                  Drawn as neutral grey polygons and lines with no special role.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -2318,7 +2895,7 @@ Fields
                     <code class="hmp-field-name">label_field</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L862>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1127>`__
 
                   Optional feature-property field used for future labels.
 

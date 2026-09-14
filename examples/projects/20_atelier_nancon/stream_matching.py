@@ -16,7 +16,7 @@ import geopandas as gpd
 import numpy as np
 
 import hydromodpy as hmp
-from hydromodpy.calibration.natural_observations import natural_network_cost
+from hydromodpy.calibration.observations.natural_observations import natural_network_cost
 
 here = Path(__file__).resolve().parent
 catalog = hmp.open(here)

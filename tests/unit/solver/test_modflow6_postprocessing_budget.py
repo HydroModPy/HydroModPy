@@ -18,7 +18,7 @@ from ._test_modflow6_postprocessing_builders import (
 
 
 class _DummyBudgetFileWithDrnAndChd:
-    def __init__(self, path: str):
+    def __init__(self, path: str, precision: str = "double"):
         self.path = path
 
     def get_data(self, *, kstpkper, text: str, totim=None):
@@ -42,7 +42,7 @@ class _DummyBudgetFileWithDrnAndChd:
 
 
 class _DummyBudgetFileUnexpectedValueError:
-    def __init__(self, path: str):
+    def __init__(self, path: str, precision: str = "double"):
         self.path = path
 
     def get_data(self, *, kstpkper, text: str, totim=None):
@@ -164,7 +164,7 @@ def test_modflow6_post_processing_routes_accumulation_flux_via_masstransfer(
             masstransfer_calls[-1]["trace_cumulated_called"] = True
 
     class _FakeRasterReader:
-        def __init__(self, path: str):
+        def __init__(self, path: str, precision: str = "double"):
             self.path = path
 
         def __enter__(self):
@@ -178,15 +178,15 @@ def test_modflow6_post_processing_routes_accumulation_flux_via_masstransfer(
             return accumulated
 
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.raster_io.export_tif",
         _fake_export_tif,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.masstransfer.Masstransfer",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.masstransfer.Masstransfer",
         _FakeMasstransfer,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.rasterio.open",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.rasterio.open",
         lambda path: _FakeRasterReader(path),
     )
     monkeypatch.setattr(

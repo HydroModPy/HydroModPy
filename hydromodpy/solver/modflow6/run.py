@@ -3,17 +3,35 @@
 from __future__ import annotations
 
 import time
+import warnings
 
-from hydromodpy.solver.modflow6.steady_initial_conditions import (
+from hydromodpy.core import progress
+from hydromodpy.core.logging import get_logger
+from hydromodpy.solver.base.api_isolation import (
+    api_isolation_enabled,
+    api_isolation_timeout_s,
+)
+from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
+from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
+    apply_modflow6_cyclic_spinup_heads,
     apply_modflow6_steady_state_initial_heads,
+    flow_uses_cyclic_spinup,
     flow_uses_steady_state_initial_condition,
+    run_modflow6_cyclic_spinup,
     run_modflow6_steady_state_initialization,
 )
 from hydromodpy.solver.modflow_common import ModflowRunOptions
+from hydromodpy.solver.modflow_common.progress import (
+    run_simulation_with_progress,
+    write_listing_status,
+)
+
+logger = get_logger(__name__)
 
 
 def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
     """Write packages and run the MODFLOW 6 simulation. Returns success flag."""
+    install_flopy_header_cache()
     if options is None:
         options = ModflowRunOptions()
     elif not isinstance(options, ModflowRunOptions):
@@ -25,12 +43,36 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
         and getattr(model, "flow_regime", None) == "transient"
         and flow_uses_steady_state_initial_condition(getattr(model, "flow", None))
     ):
-        steady_heads = run_modflow6_steady_state_initialization(
-            model,
-            verbose=bool(options.verbose),
-        )
+        with progress.status("Steady-state initialization"):
+            steady_heads = run_modflow6_steady_state_initialization(
+                model,
+                verbose=bool(options.verbose),
+            )
         apply_modflow6_steady_state_initial_heads(model, steady_heads)
         steady_initial_heads_applied = True
+
+    if (
+        options.run_model
+        and getattr(model, "flow_regime", None) == "transient"
+        and flow_uses_cyclic_spinup(getattr(model, "flow", None))
+    ):
+        with progress.status("Cyclic spin-up"):
+            heads, cycles, settled = run_modflow6_cyclic_spinup(
+                model, verbose=bool(options.verbose)
+            )
+        apply_modflow6_cyclic_spinup_heads(model, heads)
+        steady_initial_heads_applied = True
+        if settled:
+            logger.info("Cyclic spin-up settled after %d cycle(s).", cycles)
+        else:
+            warnings.warn(
+                f"the cyclic spin-up ran its {cycles} allowed cycle(s) without the head "
+                "field settling, and the run starts from the last one anyway. Raise "
+                "flow.ic.max_cycles, or loosen flow.ic.tol_head, and say in the write-up "
+                "that the antecedent state did not converge.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
     if options.write_model:
         dirty_packages = tuple(getattr(model, "_runtime_dirty_packages", ()) or ())
@@ -44,7 +86,8 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
                 model.ic.write()
             model._runtime_dirty_packages = ()
         else:
-            model.sim.write_simulation(silent=not options.verbose)
+            with write_listing_status():
+                model.sim.write_simulation(silent=False)
     elif steady_initial_heads_applied:
         model.ic.write()
 
@@ -53,7 +96,94 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
     if options.run_model:
         solve_start = time.perf_counter()
         try:
-            success_model, _ = model.sim.run_simulation(silent=not options.verbose)
+            if getattr(options, "runner", "subprocess") == "api":
+                success_model = _run_via_api(model, verbose=bool(options.verbose))
+            else:
+                success_model, _ = run_simulation_with_progress(model.sim, int(model.nper))
         finally:
             model.last_flow_solve_time_seconds = time.perf_counter() - solve_start
     return success_model
+
+
+# Whether a solve runs isolated is asked for in ``solver/base/api_isolation``:
+# libmf6 holds global Fortran state, so concurrent in-process solves corrupt each
+# other and the parallel calibration loop turns the switch on. The switch itself
+# lives in the neutral module because that loop runs whatever backend the run
+# selected, and importing it must not cost a MODFLOW binding.
+
+
+def _warn_mf6_version_parity(lib_path: str, bin_path: object) -> None:
+    """Warn once when the resolved libmf6 and the mf6 executable versions differ."""
+    from pathlib import Path
+
+    from hydromodpy.solver.modflow_common.binaries import (
+        exe_filename,
+        locate_solver_binary,
+        managed_bin_dir,
+        warn_on_mf6_version_mismatch,
+    )
+
+    try:
+        bindir = Path(bin_path).expanduser() if bin_path else managed_bin_dir()
+        exe = locate_solver_binary(bindir, "mf6") or (bindir / exe_filename("mf6"))
+        warn_on_mf6_version_mismatch(exe, lib_path)
+    except Exception:  # pragma: no cover - a version probe must never break a solve
+        pass
+
+
+def _run_via_api(model, *, verbose: bool) -> bool:
+    """Drive the already-written workspace through libmf6 instead of the exe.
+
+    The simulation is written exactly as in the subprocess path, so the OC and
+    LAK packages produce the same .hds/.cbc/obs/stage outputs the extractors
+    read. Only the solve engine differs.
+
+    The solve runs IN-PROCESS by default (keeping the live "Solving stress
+    periods" progress bar and avoiding a process spawn). Under a parallel
+    calibration session (:func:`api_isolation_context`) the production solve
+    instead runs in a dedicated ``spawn`` child process so concurrent threads
+    each get a private libmf6 instance; the exposed-band callback is rebuilt in
+    the child from the picklable specs.
+
+    A custom, non-serializable developer callback attached as
+    ``_mf6_api_callback`` always stays IN-PROCESS (it cannot cross the process
+    boundary); ``_mf6_api_lib_path`` overrides the library path on either path.
+    """
+    from hydromodpy.solver.modflow_common.binaries import ensure_solver_library
+
+    bin_path = getattr(model, "bin_path", None)
+    lib_path = getattr(model, "_mf6_api_lib_path", None)
+    if lib_path is None:
+        # Resolve libmf6 with the model's bin_path (like the exe), so the api and
+        # subprocess paths pull from the same directory.
+        lib_path = str(ensure_solver_library("libmf6", bin_path=bin_path))
+    _warn_mf6_version_parity(lib_path, bin_path)
+    callback = getattr(model, "_mf6_api_callback", None)
+
+    if callback is None and api_isolation_enabled():
+        from hydromodpy.solver.modflow6.api.api_subprocess import run_mf6_api_isolated
+
+        return run_mf6_api_isolated(
+            model.full_path,
+            band_specs=getattr(model, "_exposed_band_runoff_specs", None),
+            lib_path=lib_path,
+            timeout=api_isolation_timeout_s(model),
+            label=getattr(model, "model_name", None),
+        )
+
+    from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext, run_mf6_api
+
+    if callback is None:
+        band_specs = getattr(model, "_exposed_band_runoff_specs", None)
+        if band_specs:
+            from hydromodpy.solver.modflow6.support.lake_band_runoff import (
+                make_exposed_band_runoff_callback,
+            )
+
+            callback = make_exposed_band_runoff_callback(band_specs)
+        else:
+
+            def callback(ctx: Mf6ApiContext) -> None:
+                return None
+
+    return run_mf6_api(model.full_path, callback, lib_path=lib_path, verbose=verbose)

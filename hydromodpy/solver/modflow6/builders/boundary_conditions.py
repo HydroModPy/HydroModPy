@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from numbers import Real
 
 import numpy as np
 
@@ -18,7 +17,10 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     is_boundary_condition_active,
 )
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
-from hydromodpy.solver.modflow_common.drain_conductance import hk_fallback_drain_conductance
+from hydromodpy.solver.modflow_common.drain_conductance import (
+    drain_discharge_band,
+    hk_fallback_drain_conductance,
+)
 
 
 def is_scalar_number(value: object) -> bool:
@@ -375,36 +377,106 @@ def build_drain_stress_period_data(
 
     When no conductance is configured, the fallback conductance is
     ``C = hk * cell_area / top_layer_thickness`` (m2/s), shared with NWT.
+
+    With ``sink_fill=True``, a cell in a closed depression keeps its row and
+    gets zero conductance, the same rule the NWT backend applies: the ponded
+    water of a pit has no outlet, so its drain must not discharge.
+
+    With ``drain_band_depth_m = D > 0``, every row is turned into a discharge
+    band of depth D by ``drain_discharge_band``, the same rule the NWT backend
+    applies.
+
+    The drain geometry and elevation are static, so the per-cell conductance is a
+    pure function of the period's configured conductance value. A period is
+    emitted only when that value changes (period 0 always); MF6 reuses the
+    last-specified stress_period_data for the omitted periods. This keeps a static
+    drain from rewriting all its rows for every period of a long daily run.
     """
+    sink_flat = _sink_mask_flat(model, n_cells=int(model.ncpl)) if model.sink_fill else None
+    band_depth = float(model.drain_band_depth_m)
+    conductance_floor = float(model.drain_conductance_floor_m2_s)
+    bed_thickness = float(model.drain_bed_thickness_m)
     drn_spd: dict[int, list[list[float]]] = {}
     top_flat = solver_mesh.top
     dem_mask_flat = np.asarray(model.dem_mask, dtype=bool).reshape(-1)
     ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
     stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
     cell_areas = solver_mesh.cell_areas()
-    top_thickness = solver_mesh.layer_thicknesses()[0]
+    previous_cond: float | None = None
     for kper in range(int(model.nper)):
-        period_cells: list[list[float]] = []
         configured_cond_value = float(drainage_cond_series[kper])
+        if previous_cond is not None and configured_cond_value == previous_cond:
+            continue
+        previous_cond = configured_cond_value
+        period_cells: list[list[float]] = []
         for cid in range(int(model.ncpl)):
             if dem_mask_flat[cid] or ocean_mask_flat[cid] or stream_mask_flat[cid]:
                 continue
-            if configured_cond_value > 0.0:
-                cond_value = max(configured_cond_value, 1e-12)
+            if sink_flat is not None and sink_flat[cid]:
+                cond_value = 0.0
+            elif configured_cond_value > 0.0:
+                cond_value = max(configured_cond_value, conductance_floor)
             else:
                 cond_value = hk_fallback_drain_conductance(
                     hk=float(model.hk[0, cid]),
                     cell_area=float(cell_areas[cid]),
-                    top_thickness=float(top_thickness[cid]),
+                    bed_thickness=bed_thickness,
+                    floor_m2_s=conductance_floor,
                 )
-            period_cells.append([0, cid, float(top_flat[cid]), cond_value])
+            elevation, cond_value = drain_discharge_band(
+                top=float(top_flat[cid]),
+                conductance=cond_value,
+                bed_thickness=bed_thickness,
+                band_depth=band_depth,
+            )
+            period_cells.append([0, cid, elevation, cond_value])
         drn_spd[kper] = period_cells
     return drn_spd
 
 
-# Re-exported for the recharge/EVT builder which needs Real-aware coercion.
+def _sink_mask_flat(model, *, n_cells: int) -> np.ndarray:
+    """Return the model's closed-depression mask, or refuse by name."""
+    sink = model.sink
+    if sink is None:
+        raise ValueError(
+            "solver.sink_fill is on but no closed-depression mask reached the DRN "
+            "builder; the drains of every depression would discharge as if it were off."
+        )
+    mask = np.asarray(sink, dtype=bool).reshape(-1)
+    if mask.size != n_cells:
+        raise ValueError(f"the sink mask holds {mask.size} cells, the mesh {n_cells}.")
+    return mask
+
+
+def _period_payloads_equal(left: object, right: object) -> bool:
+    """Compare two stress-period payloads (row lists or array data)."""
+    if isinstance(left, np.ndarray) or isinstance(right, np.ndarray):
+        return np.array_equal(np.asarray(left), np.asarray(right))
+    return bool(left == right)
+
+
+def collapse_identical_periods(spd: dict[int, object]) -> dict[int, object]:
+    """Drop stress periods whose payload equals the previous emitted period.
+
+    MF6 reuses the most recently specified PERIOD data, so emitting only the
+    periods where the payload changes (period 0 always) is equivalent to
+    repeating it. Handles list rows and array payloads alike; fewer blocks
+    also keeps FloPy's per-period block-header bookkeeping (quadratic in the
+    number of provided periods) off long daily chronicles.
+    """
+    collapsed: dict[int, object] = {}
+    previous: object = None
+    has_previous = False
+    for kper in sorted(spd):
+        payload = spd[kper]
+        if not has_previous or not _period_payloads_equal(previous, payload):
+            collapsed[kper] = payload
+        previous = payload
+        has_previous = True
+    return collapsed
+
+
 __all__ = [
-    "Real",
     "apply_side_boundary_start_heads",
     "boundary_attr",
     "boundary_conditions_mapping",
@@ -416,6 +488,7 @@ __all__ = [
     "build_side_boundary_chd_spd",
     "build_stream_boundary_chd_spd",
     "coerce_conductance_series_to_m2_per_s",
+    "collapse_identical_periods",
     "coerce_length_series_to_m",
     "forcing_units",
     "is_bc_active",

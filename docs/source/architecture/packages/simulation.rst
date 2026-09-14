@@ -76,7 +76,7 @@ Key public symbols
 - ``hydromodpy.simulation.planning.plan.{SimulationPlan, ProcessRun}``
 - ``hydromodpy.simulation.execution.runner.SimulationRunner``
 - ``hydromodpy.simulation.extraction.post_run.post_run_results``
-- ``hydromodpy.simulation.execution.trial.{prepare_trials,
+- ``hydromodpy.calibration.runners.trial.{prepare_trials,
   run_trial_light, promote_trial}`` (used by calibration).
 
 Recommended reading path
@@ -87,7 +87,7 @@ Recommended reading path
 3. ``hydromodpy/simulation/planning/plan.py``
 4. ``hydromodpy/simulation/execution/runner.py``
 5. ``hydromodpy/simulation/extraction/post_run.py``
-6. ``hydromodpy/simulation/execution/trial.py`` for the
+6. ``hydromodpy/calibration/runners/trial.py`` for the
    ``prepare-once / evaluate-many`` primitive used by calibration.
 
 Layer-matrix neighbours

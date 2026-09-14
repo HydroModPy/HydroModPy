@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.run import Run
 from tests._helpers.fixtures_catalog import simulation_catalog
 
@@ -25,7 +25,7 @@ def _make_dem(nrow: int = 5, ncol: int = 4) -> np.ndarray:
 
 
 def _register_sim(
-    catalog: SimulationCatalog,
+    catalog: Catalog,
     *,
     mesh_topology: str = "structured_3d",
     with_metadata: bool = True,
@@ -234,7 +234,9 @@ class TestFields:
         run = Run(sid, catalog)
 
         fields = run.array.list_fields()
-        assert fields == ["head", "watertable_depth"]
+        # Persisted names plus the head-derived fields rebuilt on read. This
+        # store has no surface elevation, so depth and seepage stay out.
+        assert fields == ["head", "watertable_depth", "watertable_elevation"]
         # every listed name is readable through run.field
         for name in fields:
             assert run.field(name, timestep=0).size == n_cells

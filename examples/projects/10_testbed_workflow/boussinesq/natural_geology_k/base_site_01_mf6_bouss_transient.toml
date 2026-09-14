@@ -26,7 +26,7 @@ description = "Shared refined natural site_01 recharge-response case for MF6 ver
 # Behavior when registering a simulation whose ``name`` already exists in this project.
 # ``replace`` soft-replaces (the previous sim keeps its UUID but loses its name), ``fail`` raises
 # an error, ``version`` auto-suffixes ``name.v2``, ``name.v3`` ...
-on_collision = "replace"
+if_exists = "replace"
 
 # Optional canonical simulation window used to align solver temporal settings and validate forcing
 # coverage. Required for launcher flow processes and for runtime features that explicitly consume
@@ -59,7 +59,7 @@ type = "flow"
 solvers = ["modflow6"]
 
 # Results storage and export configuration loaded from [simulation.results]. Controls
-# SimulationCatalog, derived variables, and automated exports.
+# Catalog, derived variables, and automated exports.
 
 [simulation.results]
 # Keep raw solver output files (.hds, .cbc, .lst) after ingestion.
@@ -148,11 +148,6 @@ all_vertices = true
 # Domain configuration.
 
 [domain]
-# Ordered list of zone identifiers loaded in the domain registry. Keep this list for actual
-# runtime zones (for example 'catchment', 'geology', or custom zonations). Spatial-support
-# declarations live under domain.supports.
-zone_ids = ["geology"]
-
 [domain.supports.field_geology]
 kind = "geology"
 
@@ -305,13 +300,13 @@ source = "mean_recharge"
 recharge_statistic = "time_mean"
 boundary_condition_policy = "first_period"
 
-[flow.bc.cauchy.drainage]
-id = "drainage"
+[flow.bc.drainage]
 application_domain = "top"
 description = "Cauchy drainage on the aquifer top face."
 value = "0.0 m2/s"
 
 # Diffuse recharge configuration. None = zero recharge for all periods.
+kind = "cauchy"
 
 [flow.sinks_sources.recharge]
 # Period-0 policy for the transient forcing.

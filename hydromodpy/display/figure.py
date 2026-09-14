@@ -43,15 +43,37 @@ class FigureSpec:
 
     ``required_fields`` lists Zarr fields the figure reads (e.g. ``"head"``).
     ``required_tables`` lists DuckDB tables (e.g. ``"timeseries"``).
-    These hints let the catalog and the CLI validate compatibility before
-    calling ``render``.
+    ``required_solvers`` restricts the figure to specific solver backends
+    (empty means any). Together they define whether one figure applies to a
+    given run: :meth:`BaseFigure.unavailable_reason` turns them into a
+    human-readable reason, so a figure that does not fit the configured
+    processes is skipped explicitly instead of failing at render time.
+
+    ``optional_fields`` lists fields the figure reads when they are there and
+    does without otherwise. Required means "cannot render without"; optional
+    means "compute it when this figure is asked for, but refuse with a
+    sentence rather than be reported unavailable". A categorical map over a
+    family of packages needs the family computed, not every member of it, so
+    it declares the family here and its own ``unavailable_reason`` decides
+    what a run missing all of them is told.
     """
 
     name: str
     title: str
+    former_names: tuple[str, ...] = ()
+    """What this figure used to be called.
+
+    A figure name is written in ``[display].figures`` and checked against the
+    registry, so a rename refuses every project file that already lists it.
+    Declaring the old spelling here keeps those files loading and warns with
+    both names, which is the only way a reader learns what to write.
+    """
+
     kind: FigureKind = "spatial"
     required_fields: tuple[str, ...] = ()
+    optional_fields: tuple[str, ...] = ()
     required_tables: tuple[str, ...] = ()
+    required_solvers: tuple[str, ...] = ()
     default_figsize: tuple[float, float] = (7.0, 5.0)
 
 
@@ -65,6 +87,8 @@ class Figure(Protocol):
 
     def plot(self, sim: Run, **opts) -> MplFigure: ...
 
+    def unavailable_reason(self, sim: Run) -> str | None: ...
+
 
 class BaseFigure(ABC):
     """ABC providing the universal ``plot()`` boilerplate."""
@@ -76,6 +100,28 @@ class BaseFigure(ABC):
         raise NotImplementedError(
             "render must be implemented by subclasses (defines how the figure draws itself onto the given axes)."
         )
+
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Return why this figure cannot render ``sim``, or None when it can.
+
+        Checks the declared ``spec`` requirements against what the run
+        actually persisted. This is what lets a project list every figure it
+        may want and get only the ones its solver and processes produced: a
+        run without particle tracking reports ``particle_tracks`` as
+        unavailable rather than drawing an empty axes.
+        """
+        solvers = self.spec.required_solvers
+        if solvers:
+            solver = str(getattr(sim, "solver", "") or "")
+            if solver and solver not in solvers:
+                return f"requires solver {' or '.join(solvers)}, run used '{solver}'"
+        missing_fields = [name for name in self.spec.required_fields if not sim.has_field(name)]
+        if missing_fields:
+            return f"missing result field(s): {', '.join(missing_fields)}"
+        missing_tables = [name for name in self.spec.required_tables if not sim.has_table(name)]
+        if missing_tables:
+            return f"missing catalog table(s): {', '.join(missing_tables)}"
+        return None
 
     def plot(
         self,

@@ -15,7 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.calibration.natural_observations import (  # noqa: E402
+from hydromodpy.calibration.observations.natural_observations import (  # noqa: E402
     score_natural_network_transient_candidate,
     write_natural_observation_package,
 )

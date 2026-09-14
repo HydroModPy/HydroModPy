@@ -7,12 +7,10 @@ on:
     branches: [main, dev]
     paths:
       - ".github/workflows/**"
-      - ".github/actions/**"
   pull_request:
     branches: [main, dev]
     paths:
       - ".github/workflows/**"
-      - ".github/actions/**"
   workflow_dispatch:
 
 concurrency:

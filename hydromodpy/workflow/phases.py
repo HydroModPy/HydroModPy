@@ -69,8 +69,8 @@ STANDARD_PIPELINE_PHASES: tuple[WorkflowPhase, ...] = (
         "extract", "pipeline", "Ingest complementary observations after solver execution."
     ),
     WorkflowPhase("derive", "pipeline", "Compute derived result fields."),
-    WorkflowPhase("export", "pipeline", "Finalize storage and export artifacts."),
     WorkflowPhase("display", "pipeline", "Render configured figures."),
+    WorkflowPhase("export", "pipeline", "Finalize storage and export artifacts."),
 )
 
 PROJECT_MODEL_PHASE_NAMES: tuple[str, ...] = tuple(phase.name for phase in PROJECT_MODEL_PHASES)
@@ -88,8 +88,8 @@ PIPELINE_RUN_STEP_NAMES: tuple[str, ...] = (
     "run_solver",
     "extract",
     "derive",
-    "export",
     "display",
+    "export",
 )
 
 

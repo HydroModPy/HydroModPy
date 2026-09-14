@@ -1,5 +1,4 @@
 {
-  "_schema_version": "1.0",
   "base": {
     "catchment_area_km2": 1.594375,
     "mean_elevation_catchment_m": 120.91462171697374,
@@ -47,10 +46,10 @@
     "nodata_pixel_count_box_buff": 0
   },
   "nancon": {
-    "catchment_area_km2": 64.603125,
-    "mean_elevation_catchment_m": 155.5691598482842,
+    "catchment_area_km2": 64.614375,
+    "mean_elevation_catchment_m": 155.57010541112075,
     "mean_elevation_box_buff_m": 156.56468641555915,
-    "std_elevation_catchment_m": 18.040295732818105,
+    "std_elevation_catchment_m": 18.038867480631772,
     "std_elevation_box_buff_m": 20.426430467855315,
     "min_elevation_catchment_m": 106.69999694824219,
     "max_elevation_catchment_m": 235.0,
@@ -62,10 +61,10 @@
     "q05_elevation_box_buff_m": 126.0,
     "q50_elevation_box_buff_m": 155.6999969482422,
     "q95_elevation_box_buff_m": 190.8000030517578,
-    "sum_elevation_catchment_m": 1786711.800857544,
+    "sum_elevation_catchment_m": 1787033.800857544,
     "sum_elevation_box_buff_m": 5320694.303146362,
-    "valid_pixel_count_catchment": 11485,
-    "nodata_pixel_count_catchment": 22499,
+    "valid_pixel_count_catchment": 11487,
+    "nodata_pixel_count_catchment": 22497,
     "valid_pixel_count_box_buff": 33984,
     "nodata_pixel_count_box_buff": 0
   },

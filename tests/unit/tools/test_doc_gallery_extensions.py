@@ -16,6 +16,7 @@ from tools.doc_gallery.gallery_simulation_comparison_specs import (
 )
 from tools.doc_gallery.update_gallery import (
     _build_index_page,
+    _filesystem_path,
     _generate_case,
     _should_preserve_previous_case_summary,
 )
@@ -234,7 +235,7 @@ def test_generate_square_property_case_smoke(tmp_path: Path) -> None:
         "Exponential",
         "Tabulated",
     ]
-    assert (
+    assert _filesystem_path(
         tmp_path
         / "_static"
         / "capability_gallery"
@@ -251,7 +252,7 @@ def test_generate_irregular_property_case_smoke(tmp_path: Path) -> None:
     assert summary["category"] == "hydraulic_properties"
     assert len(summary["metrics"]) == 4
     assert summary["metadata"]["irregular_mesh_seed"] == 23
-    assert (
+    assert _filesystem_path(
         tmp_path
         / "_static"
         / "capability_gallery"
@@ -267,7 +268,7 @@ def test_generate_depth_property_case_smoke(tmp_path: Path) -> None:
 
     assert summary["category"] == "hydraulic_properties"
     assert summary["metadata"]["depth_profiles"] == ["exponential", "tabulated"]
-    assert (
+    assert _filesystem_path(
         tmp_path
         / "_static"
         / "capability_gallery"
@@ -292,14 +293,14 @@ def _simulation_comparison_generation_spec(tmp_path: Path, *, publish_full_artif
         "example12_map_simulation_comparison_observables.csv": "observables.csv",
     }
     committed_root = tmp_path / "simulation_comparison" / "example12_map_simulation_comparison"
-    committed_root.mkdir(parents=True)
+    _filesystem_path(committed_root).mkdir(parents=True)
     for source_name, target_name in artifact_map.items():
         source_path = static_root / source_name
         assert source_path.exists()
-        copyfile(source_path, committed_root / target_name)
+        copyfile(_filesystem_path(source_path), _filesystem_path(committed_root / target_name))
 
     config_path = tmp_path / "run_comparison_example12_map_existing.toml"
-    config_path.write_text(
+    _filesystem_path(config_path).write_text(
         f"""
 [comparison]
 comparison_id = "example12_map_simulation_comparison"
@@ -363,10 +364,12 @@ def test_generate_simulation_comparison_case_smoke(tmp_path: Path) -> None:
         / "simulation_comparison"
         / "example12_map_simulation_comparison_observables.csv"
     )
-    header = public_observables.read_text(encoding="utf-8").splitlines()[0].split(",")
+    header = (
+        _filesystem_path(public_observables).read_text(encoding="utf-8").splitlines()[0].split(",")
+    )
     assert "source_path" not in header
     assert "run_folder" not in header
-    public_manifest = (
+    public_manifest = _filesystem_path(
         tmp_path
         / "_static"
         / "capability_gallery"
@@ -376,7 +379,7 @@ def test_generate_simulation_comparison_case_smoke(tmp_path: Path) -> None:
     assert "run_folder" not in public_manifest
     assert "config_path" not in public_manifest
     assert ":\\\\" not in public_manifest
-    assert (
+    assert _filesystem_path(
         tmp_path
         / "_static"
         / "capability_gallery"
@@ -390,14 +393,14 @@ def test_generate_simulation_comparison_case_can_publish_compact_static_artifact
 ) -> None:
     spec = _simulation_comparison_generation_spec(tmp_path, publish_full_artifacts=False)
     static_dir = tmp_path / "_static" / "capability_gallery" / "simulation_comparison"
-    static_dir.mkdir(parents=True)
+    _filesystem_path(static_dir).mkdir(parents=True)
     stale_names = (
         "example12_map_simulation_comparison_comparison_metrics.json",
         "example12_map_simulation_comparison_observables.csv",
         "example12_map_simulation_comparison_difference_metrics.csv",
     )
     for name in stale_names:
-        (static_dir / name).write_text("stale\n", encoding="utf-8")
+        _filesystem_path(static_dir / name).write_text("stale\n", encoding="utf-8")
 
     summary = _generate_case(spec, tmp_path)
 

@@ -49,7 +49,19 @@ def write_variable_examples(
         return _geology_examples(var_dir, file_prefix)
     if category == "hydrography":
         return _hydrography_examples(var_dir, file_prefix)
+    if category == "table":
+        return _table_examples(var_dir, file_prefix)
     return []
+
+
+def _table_examples(var_dir: Path, prefix: str) -> list[Path]:
+    path = var_dir / f"{prefix}_custom_EXAMPLE.csv"
+    if not path.exists():
+        path.write_text(
+            "stage,volume,sarea\n85.0,0.0,0.0\n87.0,2.0e5,1.0e5\n90.0,1.2e6,4.0e5\n",
+            encoding="utf-8",
+        )
+    return [path]
 
 
 # ---------------------------------------------------------------------------

@@ -100,8 +100,16 @@ def format_validation_error(
     *,
     source_path: Path | str | None = None,
     text: str | None = None,
+    loc_prefix: Sequence[str] = (),
 ) -> str:
-    """Return a multi-line message mapping each error to a TOML location."""
+    """Return a multi-line message mapping each error to a TOML location.
+
+    ``loc_prefix`` names the table a caller validated a sub-mapping of. Pydantic
+    reports a ``loc`` relative to what it was handed, so validating
+    ``raw["calibration"]`` yields ``("objective",)`` and the locator would look
+    for that key at the top of the file. Passing ``("calibration",)`` puts the
+    error back where the reader wrote it.
+    """
     if text is None and source_path is not None:
         try:
             text = Path(source_path).read_text(encoding="utf-8-sig")
@@ -113,7 +121,7 @@ def format_validation_error(
         f"{error.error_count()} validation error(s) in {location_label}:",
     ]
     for err in error.errors():
-        loc = err.get("loc", ())
+        loc = (*loc_prefix, *err.get("loc", ()))
         msg = err.get("msg", "")
         rendered_loc = format_loc(loc) or "<root>"
         line_no = locate_loc(text, loc) if text else None

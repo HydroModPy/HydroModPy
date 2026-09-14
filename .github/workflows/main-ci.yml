@@ -111,6 +111,11 @@ jobs:
       - name: Install solver binaries for fast tests
         run: python -m hydromodpy install-binaries --subset mf6,mfnwt --quiet || true
 
+      # A single bad import aborts the whole pytest session, which silently
+      # turns a tier into zero executed tests. This step fails loudly instead.
+      - name: Collection gate
+        run: python -m pytest tests/ --collect-only -q
+
       - name: Run fast marker suite
         run: |
           python -m pytest -m fast \
@@ -118,6 +123,11 @@ jobs:
             --max-worker-restart=0 \
             --timeout=300 \
             -q
+
+      # tests/contract/ is the only coverage of DuckDBCacheBackend and of the
+      # catalog backend compatibility surface. It was in no workflow before.
+      - name: Run contract tests
+        run: python -m pytest tests/contract/ -q
 
   unit:
     name: Tests / unit py3.13
@@ -142,54 +152,44 @@ jobs:
       - name: Install external validity_frame package
         run: pip install -e validity_frame
 
+      # Docstring examples were never executed, so they drifted: two showed a
+      # wrong repr, one named the wrong exception class, one called an attribute
+      # that does not exist. Scoped to the modules that carry examples - a
+      # blanket --doctest-modules on hydromodpy/ would import every
+      # optional-dependency module and fail for unrelated reasons.
+      - name: Run docstring examples
+        run: |
+          python -m pytest --doctest-modules -q \
+            hydromodpy/_api.py \
+            hydromodpy/core/io/proj_bootstrap.py \
+            hydromodpy/core/logging.py \
+            hydromodpy/core/state/global_index.py \
+            hydromodpy/core/units/types.py \
+            hydromodpy/display/__init__.py \
+            hydromodpy/display/viz.py \
+            hydromodpy/project/facade.py \
+            hydromodpy/results/catalog/facade.py \
+            hydromodpy/results/exporters/ \
+            hydromodpy/results/run/ \
+            hydromodpy/spatial/field/core/physical_bounds.py
+
+      # The whitebox-heavy tiers (backends, geographic, delineation) used to run
+      # outside this pass: one serial step plus one fresh process per file. They
+      # run here now that tests/conftest.py pins the Whitebox fd-level stdio
+      # redirect off in every pytest process.
       - name: Run unit tests in parallel
         run: |
           python -m pytest tests/unit/ \
             --ignore=tests/unit/architecture \
-            --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
-            --ignore=tests/unit/geographic \
-            --ignore=tests/unit/delineation \
+            -m "not slow" \
             -n 2 --dist loadgroup \
             --max-worker-restart=0 \
             --timeout=300 \
+            --durations=25 \
             --cov=hydromodpy \
             --cov-report= \
             --cov-fail-under=0 \
             -q
-
-      - name: Run whitebox backend tests
-        run: |
-          python -m pytest tests/unit/backends/test_whitebox_workflows_backend.py \
-            --timeout=300 \
-            --cov=hydromodpy \
-            --cov-append \
-            --cov-report= \
-            --cov-fail-under=0 \
-            -q
-
-      - name: Run delineation tests in fresh processes
-        run: |
-          for f in tests/unit/delineation/test_*.py; do
-            python -m pytest "$f" \
-              --timeout=300 \
-              --cov=hydromodpy \
-              --cov-append \
-              --cov-report= \
-              --cov-fail-under=0 \
-              -q || exit 1
-          done
-
-      - name: Run geographic tests in fresh processes
-        run: |
-          for f in tests/unit/geographic/test_*.py; do
-            python -m pytest "$f" \
-              --timeout=300 \
-              --cov=hydromodpy \
-              --cov-append \
-              --cov-report= \
-              --cov-fail-under=0 \
-              -q || exit 1
-          done
 
       - name: Write unit coverage XML
         if: always()
@@ -225,7 +225,7 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test]"
+          pip install -e ".[test,calibration,delineation]"
 
       - name: Install solver binaries for integration tests
         run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true

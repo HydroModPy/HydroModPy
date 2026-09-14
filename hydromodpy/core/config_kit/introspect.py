@@ -5,7 +5,7 @@ Central location for logic that reads ``Annotated[...]`` metadata off
 display, and any future metadata tags.
 
 Kept separate from :mod:`hydromodpy.core.toml_io.generator` and
-:mod:`hydromodpy.core.toml_io.io` so TOML, Streamlit, and JSON Schema
+:mod:`hydromodpy.core.toml_io.io` so TOML and JSON Schema
 paths can share the same source of truth.
 """
 

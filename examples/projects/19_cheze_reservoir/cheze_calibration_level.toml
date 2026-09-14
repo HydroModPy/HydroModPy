@@ -1,0 +1,95 @@
+# ======================================================================
+# Cheze reservoir - lake-level calibration (production run).
+#
+# Calibrates the aquifer + lake parameters against the OBSERVED lake level
+# (data/lake_levels). Inherits the full daily chronicle setup (LAK + SFR +
+# SIM2 forcings) from project_chronicle.toml and only overrides what a
+# calibration needs: the workflow mode, a calibration window, the observed
+# data family, and the [calibration] block.
+#
+# Outputs (catalog + promoted runs + lock) land in project_root; input data
+# is read from the shared examples/data tree (nothing is written there).
+#
+# RUN IT (two steps, as a user would):
+#   cd /home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres
+#   PYTHONPATH=$PWD python -m hydromodpy calibrate cheze_calibration_level.toml
+#   PYTHONPATH=$PWD python -m hydromodpy report render <SESSION_ID> \
+#       -w cheze_calibration_out --open
+# (calibrate prints the session id; report render builds the HTML with the
+#  convergence/trace/posterior/landscape/pairplot figures AND the observed-vs-
+#  simulated lake-level fit panel.)
+#
+# COST KNOBS (this default ~ a few dozen daily-year solves):
+#   - simulation.time window below (1 year daily). Widen to 2007-2025 for the
+#     definitive calibration (expect hours: ~6940 periods per trial).
+#   - calibration.max_iter (optimizer budget).
+#   - modflow6.sgrid.planar nx/ny inherited from the base (60x60).
+# ======================================================================
+
+base_config = "project_chronicle.toml"
+
+[workflow]
+mode = "calibration"
+
+# Outputs here, data read from the shared tree. Both absolute so the run is
+# independent of the current working directory.
+[workspace]
+project_root = "."
+
+[simulation]
+name = "cheze_calib_level"
+description = "Cheze reservoir lake-level calibration (K, Sy, bedleak vs observed stage)."
+
+# Calibration window. One full daily year by default; widen for the real run.
+[simulation.time]
+start_datetime = "2019-01-01"
+end_datetime = "2019-12-31"
+step_value = "1 day"
+coverage_policy = "warn"
+
+# Add the observed lake-level family (absent from the base project).
+[data]
+types = ["recharge", "precipitation", "etp", "runoff", "lake_geometry", "lake_abacus", "lake_inflow", "lake_withdrawal", "lake_levels"]
+inference_mode = "warn"
+
+[data.lake_levels]
+date_start = "2019-01-01"
+date_end = "2019-12-31"
+[[data.lake_levels.sources]]
+source = "custom"
+path = "lake_levels"
+
+# ---------------------------------------------------------------------- calibration
+[calibration]
+method = "optuna"          # Bayesian TPE; installed by default.
+max_iter = 24
+seed = 42
+objective = "kge"          # nse | kge | rmse | mae (KGE fairer for lake level)
+variable = "lake_level"    # time-aligns simulated LAK stage to observed level
+save_runs = "best_n"       # promote the best runs to full simulations (Zarr/Parquet)
+save_best_n = 3
+use_cache = true
+
+# Lakebed leakance: the dominant lake-aquifer exchange handle.
+[calibration.parameters.bedleak]
+bounds = [1e-7, 1e-5]
+transform = "log"
+prior = "log_uniform"
+path = "flow.sinks_sources.lakes.reservoir_cheze.bedleak"
+units = "1/s"
+
+# Aquifer hydraulic conductivity.
+[calibration.parameters.K]
+bounds = [1e-5, 1e-3]
+transform = "log"
+prior = "log_uniform"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+# Specific yield (drainable porosity).
+[calibration.parameters.Sy]
+bounds = [1e-4, 1e-1]
+transform = "log"
+prior = "log_uniform"
+path = "flow.param.Sy.field.value"
+units = "-"

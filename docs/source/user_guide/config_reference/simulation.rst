@@ -9,7 +9,7 @@ TOML section: ``[simulation]``
 
 Pydantic model: ``SimulationConfig`` defined in ``hydromodpy.simulation.planning.config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L294>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L312>`__
 
 Minimal orchestration block declared under ``[simulation]``.
 
@@ -36,40 +36,50 @@ Fields
         <code class="hmp-field-name">name</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L304>`__
+   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L322>`__
 
-      Human-readable simulation name.
+      Human-readable simulation name and the run's identity. When empty, derived from the TOML filename at load time (run_steady_nwt.toml -> steady_nwt); a programmatic run without a name gets a deterministic memorable slug.
 
+   **Example:** ``"cheze_baseline"``
+
+
+.. index:: ! tags
 
 .. container:: hmp-field hmp-field-level-user
-   :name: simulation-run-id
+   :name: simulation-tags
 
    .. raw:: html
 
-      <div class="hmp-field-header" data-toml-path="simulation.run_id">
-        <code class="hmp-field-name">run_id</code>
+      <div class="hmp-field-header" data-toml-path="simulation.tags">
+        <code class="hmp-field-name">tags</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L350>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L375>`__
 
-      Run identifier used as the output subfolder name under results_simulations/. When empty, derived from the TOML filename at load time (e.g. run_steady_nwt.toml -> steady_nwt).
+      Free-text tags attached at registration; editable later via 'hmp catalog tag'.
 
-   **Example:** ``"steady_nwt"``
 
+.. index:: ! if_exists
 
 .. container:: hmp-field hmp-field-level-user
-   :name: simulation-on-collision
+   :name: simulation-if-exists
 
    .. raw:: html
 
-      <div class="hmp-field-header" data-toml-path="simulation.on_collision">
-        <code class="hmp-field-name">on_collision</code>
+      <div class="hmp-field-header" data-toml-path="simulation.if_exists">
+        <code class="hmp-field-name">if_exists</code>
       </div>
 
-   :bdg-primary:`Literal['replace', 'fail', 'version']` :bdg-secondary:`default = "replace"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L359>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "version"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L379>`__
 
-      Behavior when registering a simulation whose ``name`` already exists in this project. ``replace`` soft-replaces (the previous sim keeps its UUID but loses its name), ``fail`` raises an error, ``version`` auto-suffixes ``name.v2``, ``name.v3`` ...
+      Behavior when registering a simulation whose ``name`` already exists in this project. ``version`` (default) mints the next ``stem.vN`` and keeps every run addressable; ``replace`` trashes the predecessor (restorable) and takes the name; ``fail`` raises an error.
 
+   .. rst-class:: hmp-field-values
+
+   **One of:** ``"replace"`` ``"fail"`` ``"version"``
+
+
+.. index:: ! description
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-description
@@ -80,10 +90,12 @@ Fields
         <code class="hmp-field-name">description</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L352>`__
+   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L367>`__
 
       Short free-text description of the simulation intent.
 
+
+.. index:: ! scientific_objective
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-scientific-objective
@@ -94,10 +106,12 @@ Fields
         <code class="hmp-field-name">scientific_objective</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L375>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L395>`__
 
       Scientific objective used for catalog and ML stratification.
 
+
+.. index:: ! contact_email
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-contact-email
@@ -108,10 +122,12 @@ Fields
         <code class="hmp-field-name">contact_email</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L379>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L399>`__
 
       Contact email for the simulation metadata.
 
+
+.. index:: ! doi
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-doi
@@ -122,10 +138,12 @@ Fields
         <code class="hmp-field-name">doi</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L383>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L403>`__
 
       DOI or reference identifier for the simulation metadata.
 
+
+.. index:: ! study_area_name
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-study-area-name
@@ -136,10 +154,12 @@ Fields
         <code class="hmp-field-name">study_area_name</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L387>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L407>`__
 
       Human-readable study area name.
 
+
+.. index:: ! outlet_x
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-outlet-x
@@ -150,10 +170,12 @@ Fields
         <code class="hmp-field-name">outlet_x</code>
       </div>
 
-   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L391>`__
+   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L411>`__
 
       Outlet X coordinate in the project CRS units.
 
+
+.. index:: ! outlet_y
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-outlet-y
@@ -164,10 +186,12 @@ Fields
         <code class="hmp-field-name">outlet_y</code>
       </div>
 
-   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L395>`__
+   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L415>`__
 
       Outlet Y coordinate in the project CRS units.
 
+
+.. index:: ! time
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-time
@@ -180,7 +204,7 @@ Fields
         <code class="hmp-field-toml">[simulation.time]</code>
       </div>
 
-   :bdg-primary:`SimulationTimeConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L301>`__
+   :bdg-primary:`SimulationTimeConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L319>`__
 
       Optional canonical simulation window used to align solver temporal settings and validate forcing coverage. Required for launcher flow processes and for runtime features that explicitly consume simulation-window dates.
 
@@ -189,6 +213,8 @@ Fields
       :animate: fade-in-slide-down
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. index:: ! start_datetime
 
       .. container:: hmp-field hmp-field-level-user
          :name: simulation-time-start-datetime
@@ -206,6 +232,8 @@ Fields
          **Example:** ``"2019-01-01"``
 
 
+      .. index:: ! end_datetime
+
       .. container:: hmp-field hmp-field-level-user
          :name: simulation-time-end-datetime
 
@@ -221,6 +249,8 @@ Fields
 
          **Example:** ``"2025-12-31"``
 
+
+      .. index:: ! step_value
 
       .. container:: hmp-field hmp-field-level-user
          :name: simulation-time-step-value
@@ -242,6 +272,8 @@ Fields
             * ``"10 day"``
 
 
+      .. index:: ! step_unit
+
       .. container:: hmp-field hmp-field-level-user
          :name: simulation-time-step-unit
 
@@ -251,10 +283,26 @@ Fields
               <code class="hmp-field-name">step_unit</code>
             </div>
 
-         :bdg-primary:`Optional[Literal['hour', 'day', 'month', 'year']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L82>`__
+         :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L82>`__
 
             Optional forcing/stress-period base time unit used with step_value when step_value is provided without an inline unit.
 
+         .. rst-class:: hmp-field-values
+
+         ``"hour"``
+            Treats step_value as whole hours, for sub-daily forcing and stress periods.
+
+         ``"day"``
+            Treats step_value as whole days, the common granularity for daily forcing series.
+
+         ``"month"``
+            Treats step_value as calendar months, so the step length varies by month.
+
+         ``"year"``
+            Treats step_value as calendar years, so the step length varies with leap years.
+
+
+      .. index:: ! substeps_per_period
 
       .. container:: hmp-field hmp-field-level-dev
          :name: simulation-time-substeps-per-period
@@ -265,10 +313,12 @@ Fields
               <code class="hmp-field-name">substeps_per_period</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L89>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L107>`__
 
             Number of solver time steps within each stress period. Higher values improve transient accuracy (e.g., 30 for daily substeps inside monthly stress periods).
 
+
+      .. index:: ! coverage_policy
 
       .. container:: hmp-field hmp-field-level-dev
          :name: simulation-time-coverage-policy
@@ -279,12 +329,18 @@ Fields
               <code class="hmp-field-name">coverage_policy</code>
             </div>
 
-         :bdg-primary:`Literal['error', 'warn', 'ignore']` :bdg-secondary:`default = "error"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L98>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "error"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L116>`__
 
             Behavior when recharge does not fully cover the declared simulation window bounds [start_datetime, end_datetime]: 'error' raises, 'warn' emits a warning, 'ignore' skips checks.
 
+         .. rst-class:: hmp-field-values
+
+         **One of:** ``"error"`` ``"warn"`` ``"ignore"``
 
 
+
+
+.. index:: ! process
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-process
@@ -297,7 +353,7 @@ Fields
         <code class="hmp-field-toml">[[simulation.process]]</code>
       </div>
 
-   :bdg-primary:`type = "flow" | "transport" | "mesh"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L324>`__
+   :bdg-primary:`type = "flow" | "transport" | "mesh"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L342>`__
 
       Ordered list of requested processes loaded from [[simulation.process]]. At most one process per type is supported.
 
@@ -307,36 +363,38 @@ Fields
 
       .. tab-item:: flow
 
-         TOML: ``[simulation.process.flow]`` -- model ``FlowProcessConfig`` (set ``type = "flow"``).
+         TOML: ``[[simulation.process]]`` with ``type = "flow"`` -- model ``FlowProcessConfig``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-flow-id
+               :name: simulation-process-id
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="simulation.process.flow.id">
+                  <div class="hmp-field-header" data-toml-path="simulation.process.id">
                     <code class="hmp-field-name">id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L171>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L189>`__
 
                   User-facing identifier for the process. This id is required and must be unique within the simulation.
 
                **Example:** ``"flow_main"``
 
 
+            .. index:: ! solvers
+
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-flow-solvers
+               :name: simulation-process-solvers
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="simulation.process.flow.solvers">
+                  <div class="hmp-field-header" data-toml-path="simulation.process.solvers">
                     <code class="hmp-field-name">solvers</code>
                   </div>
 
-               :bdg-primary:`list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L178>`__
+               :bdg-primary:`list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L196>`__
 
                   Ordered list of active flow solver names. At least one solver is required for flow processes.
 
@@ -344,20 +402,19 @@ Fields
 
       .. tab-item:: transport
 
-         TOML: ``[simulation.process.transport]`` -- model ``TransportProcessConfig`` (set ``type = "transport"``).
+         TOML: ``[[simulation.process]]`` with ``type = "transport"`` -- model ``TransportProcessConfig``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-transport-id
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="simulation.process.transport.id">
+                  <div class="hmp-field-header" data-toml-path="simulation.process.id">
                     <code class="hmp-field-name">id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L207>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L225>`__
 
                   User-facing identifier for the process. This id is required and must be unique within the simulation.
 
@@ -365,15 +422,14 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-transport-solvers
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="simulation.process.transport.solvers">
+                  <div class="hmp-field-header" data-toml-path="simulation.process.solvers">
                     <code class="hmp-field-name">solvers</code>
                   </div>
 
-               :bdg-primary:`list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L214>`__
+               :bdg-primary:`list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L232>`__
 
                   Ordered list of active transport solver names. At least one solver is required for transport processes.
 
@@ -381,55 +437,57 @@ Fields
 
       .. tab-item:: mesh
 
-         TOML: ``[simulation.process.mesh]`` -- model ``MeshProcessConfig`` (set ``type = "mesh"``).
+         TOML: ``[[simulation.process]]`` with ``type = "mesh"`` -- model ``MeshProcessConfig``.
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-mesh-id
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="simulation.process.mesh.id">
+                  <div class="hmp-field-header" data-toml-path="simulation.process.id">
                     <code class="hmp-field-name">id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L243>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L261>`__
 
                   User-facing identifier for the process. This id is required and must be unique within the simulation.
 
                **Example:** ``"flow_main"``
 
 
+            .. index:: ! backend
+
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-mesh-backend
+               :name: simulation-process-backend
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="simulation.process.mesh.backend">
+                  <div class="hmp-field-header" data-toml-path="simulation.process.backend">
                     <code class="hmp-field-name">backend</code>
                   </div>
 
-               :bdg-primary:`Literal['catchment']` :bdg-secondary:`default = "catchment"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L250>`__
+               :bdg-primary:`Literal['catchment']` :bdg-secondary:`default = "catchment"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L268>`__
 
                   Backend used by the mesh process. Currently only 'catchment' is supported (delegates to the [mesh_catchment] runtime).
 
 
             .. container:: hmp-field hmp-field-level-user
-               :name: simulation-process-mesh-solvers
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="simulation.process.mesh.solvers">
+                  <div class="hmp-field-header" data-toml-path="simulation.process.solvers">
                     <code class="hmp-field-name">solvers</code>
                   </div>
 
-               :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L257>`__
+               :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L275>`__
 
                   Reserved for future use. Mesh processes must not declare solvers; set 'backend' instead.
 
 
 
+
+.. index:: ! results
 
 .. container:: hmp-field hmp-field-level-dev
    :name: simulation-results
@@ -442,15 +500,17 @@ Fields
         <code class="hmp-field-toml">[simulation.results]</code>
       </div>
 
-   :bdg-primary:`ResultsConfig` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L415>`__
+   :bdg-primary:`ResultsConfig` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L435>`__
 
-      Results storage and export configuration loaded from [simulation.results]. Controls SimulationCatalog, derived variables, and automated exports.
+      Results storage and export configuration loaded from [simulation.results]. Controls Catalog, derived variables, and automated exports.
 
    .. dropdown:: Fields of ``ResultsConfig``
       :icon: list-unordered
       :animate: fade-in-slide-down
 
       .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. index:: ! persistence
 
       .. container:: hmp-field hmp-field-level-user
          :name: simulation-results-persistence
@@ -463,15 +523,17 @@ Fields
               <code class="hmp-field-toml">[simulation.results.persistence]</code>
             </div>
 
-         :bdg-primary:`PersistenceConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L155>`__
+         :bdg-primary:`PersistenceConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L99>`__
 
-            Simulation-run persistence switch passed to the result catalog (DuckDB rows, Zarr fields, Parquet tables, lockfile).
+            Simulation-run persistence switch passed to the result catalog (DuckDB rows, Zarr fields, Parquet tables).
 
          .. dropdown:: Fields of ``PersistenceConfig``
             :icon: list-unordered
             :animate: fade-in-slide-down
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. index:: ! save_catalog
 
             .. container:: hmp-field hmp-field-level-user
                :name: simulation-results-persistence-save-catalog
@@ -482,10 +544,12 @@ Fields
                     <code class="hmp-field-name">save_catalog</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L29>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L28>`__
 
                   Persist DuckDB rows (simulations, parameters, metrics, calibration_iterations). When False, catalog writes are skipped.
 
+
+            .. index:: ! save_zarr
 
             .. container:: hmp-field hmp-field-level-user
                :name: simulation-results-persistence-save-zarr
@@ -496,10 +560,12 @@ Fields
                     <code class="hmp-field-name">save_zarr</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L34>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L33>`__
 
                   Persist per-simulation field arrays (head, concentration, derived) into the Zarr store.
 
+
+            .. index:: ! save_parquet
 
             .. container:: hmp-field hmp-field-level-user
                :name: simulation-results-persistence-save-parquet
@@ -510,24 +576,12 @@ Fields
                     <code class="hmp-field-name">save_parquet</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L39>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L38>`__
 
                   Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files.
 
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: simulation-results-persistence-save-lock
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="simulation.results.persistence.save_lock">
-                    <code class="hmp-field-name">save_lock</code>
-                  </div>
-
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L44>`__
-
-                  Generate and refresh the ``hydromodpy.lock`` reproducibility manifest after data ingestion.
-
+            .. index:: ! compression
 
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-persistence-compression
@@ -538,10 +592,16 @@ Fields
                     <code class="hmp-field-name">compression</code>
                   </div>
 
-               :bdg-primary:`Literal['none', 'zstd', 'lz4', 'gzip', 'snappy']` :bdg-secondary:`default = "zstd"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L49>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "zstd"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43>`__
 
-                  Codec used for Zarr field arrays and Parquet tables. 'none' disables compression.
+                  Codec DECLARED for Zarr field arrays and Parquet tables. The writers carry their own codec (zstd) and do not read this field, so changing it changes nothing today; it records the intent and is the field a writer would read once the choice is threaded through.
 
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"none"`` ``"zstd"`` ``"lz4"`` ``"gzip"`` ``"snappy"``
+
+
+            .. index:: ! compression_level
 
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-persistence-compression-level
@@ -552,12 +612,14 @@ Fields
                     <code class="hmp-field-name">compression_level</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 3` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L54>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 5` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L52>`__
 
-                  Compression level (codec-dependent). Ignored when compression='none'.
+                  Compression level DECLARED for those writers. Same as the codec: core/io/parquet.py and core/io/geoparquet.py hold level 5 and do not read this field. The default says 5 rather than 3 so the declaration at least matches the bytes actually written.
 
 
 
+
+      .. index:: ! keep_solver_files
 
       .. container:: hmp-field hmp-field-level-dev
          :name: simulation-results-keep-solver-files
@@ -568,24 +630,12 @@ Fields
               <code class="hmp-field-name">keep_solver_files</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L162>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L106>`__
 
             Keep raw solver output files (.hds, .cbc, .lst) after ingestion.
 
 
-      .. container:: hmp-field hmp-field-level-dev
-         :name: simulation-results-solver-scratch
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="simulation.results.solver_scratch">
-              <code class="hmp-field-name">solver_scratch</code>
-            </div>
-
-         :bdg-primary:`str` :bdg-secondary:`default = ".solver_scratch"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L166>`__
-
-            Directory for temporary solver files, relative to the project. Use an absolute path (e.g. /scratch/$USER/hmp) for HPC.
-
+      .. index:: ! derived
 
       .. container:: hmp-field hmp-field-level-user
          :name: simulation-results-derived
@@ -598,7 +648,7 @@ Fields
               <code class="hmp-field-toml">[simulation.results.derived]</code>
             </div>
 
-         :bdg-primary:`DerivedConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L173>`__
+         :bdg-primary:`DerivedConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L110>`__
 
             Derived variable computation toggles.
 
@@ -607,6 +657,8 @@ Fields
             :animate: fade-in-slide-down
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. index:: ! watertable_elevation
 
             .. container:: hmp-field hmp-field-level-user
                :name: simulation-results-derived-watertable-elevation
@@ -617,10 +669,12 @@ Fields
                     <code class="hmp-field-name">watertable_elevation</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L18>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L25>`__
 
-                  Compute water-table elevation from uppermost saturated layer.
+                  Persist water-table elevation (uppermost saturated layer) as a Zarr field. Off by default: figures recompute it on the fly from the stored head.
 
+
+            .. index:: ! watertable_depth
 
             .. container:: hmp-field hmp-field-level-user
                :name: simulation-results-derived-watertable-depth
@@ -631,10 +685,12 @@ Fields
                     <code class="hmp-field-name">watertable_depth</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L22>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L32>`__
 
-                  Compute water-table depth (surface minus water-table elevation).
+                  Persist water-table depth (surface minus water-table elevation) as a Zarr field. Off by default: recomputed on the fly from head at render time.
 
+
+            .. index:: ! seepage_areas
 
             .. container:: hmp-field hmp-field-level-user
                :name: simulation-results-derived-seepage-areas
@@ -645,24 +701,12 @@ Fields
                     <code class="hmp-field-name">seepage_areas</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L26>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L39>`__
 
-                  Identify seepage areas where water table >= surface elevation.
+                  Persist the seepage mask (water table >= surface elevation) as a Zarr field. Off by default: recomputed on the fly from head at render time.
 
 
-            .. container:: hmp-field hmp-field-level-dev
-               :name: simulation-results-derived-groundwater-flux
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="simulation.results.derived.groundwater_flux">
-                    <code class="hmp-field-name">groundwater_flux</code>
-                  </div>
-
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L30>`__
-
-                  Magnitude of inter-cell flow (right/front/lower face). Volumetric.
-
+            .. index:: ! release_flux
 
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-derived-release-flux
@@ -673,10 +717,12 @@ Fields
                     <code class="hmp-field-name">release_flux</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L34>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L46>`__
 
                   Positive total groundwater release flux from drains and surface excess.
 
+
+            .. index:: ! accumulation_flux
 
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-derived-accumulation-flux
@@ -687,10 +733,12 @@ Fields
                     <code class="hmp-field-name">accumulation_flux</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L38>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L50>`__
 
                   Drain flux routed on the drainage network.
 
+
+            .. index:: ! release_accumulation_flux
 
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-derived-release-accumulation-flux
@@ -701,10 +749,12 @@ Fields
                     <code class="hmp-field-name">release_accumulation_flux</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L42>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L54>`__
 
                   Release flux routed on surface drainage paths.
 
+
+            .. index:: ! outflow_drain
 
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-derived-outflow-drain
@@ -715,10 +765,12 @@ Fields
                     <code class="hmp-field-name">outflow_drain</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L46>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L58>`__
 
                   Positive per-cell drain outflow summed over layers.
 
+
+            .. index:: ! concentration_seepage
 
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-derived-concentration-seepage
@@ -729,10 +781,12 @@ Fields
                     <code class="hmp-field-name">concentration_seepage</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L50>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L62>`__
 
                   Concentration at seepage cells only. Requires transport.
 
+
+            .. index:: ! mass_seepage
 
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-derived-mass-seepage
@@ -743,10 +797,12 @@ Fields
                     <code class="hmp-field-name">mass_seepage</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L54>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L66>`__
 
                   Mass flux at seepage cells. Requires transport + budget.
 
+
+            .. index:: ! mass_accumulated
 
             .. container:: hmp-field hmp-field-level-dev
                :name: simulation-results-derived-mass-accumulated
@@ -757,14 +813,16 @@ Fields
                     <code class="hmp-field-name">mass_accumulated</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L58>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L70>`__
 
                   Cumulative mass_seepage over time.
 
 
 
 
-      .. container:: hmp-field hmp-field-level-dev
+      .. index:: ! budget
+
+      .. container:: hmp-field hmp-field-level-user
          :name: simulation-results-budget
 
          .. raw:: html
@@ -775,7 +833,7 @@ Fields
               <code class="hmp-field-toml">[simulation.results.budget]</code>
             </div>
 
-         :bdg-primary:`BudgetConfig` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L177>`__
+         :bdg-primary:`BudgetConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L114>`__
 
             Budget extraction configuration.
 
@@ -785,7 +843,9 @@ Fields
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-            .. container:: hmp-field hmp-field-level-dev
+            .. index:: ! spatial_fields
+
+            .. container:: hmp-field hmp-field-level-user
                :name: simulation-results-budget-spatial-fields
 
                .. raw:: html
@@ -794,363 +854,16 @@ Fields
                     <code class="hmp-field-name">spatial_fields</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L141>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L79>`__
 
-                  Extract per-cell budget fields (DRN, RCH, etc.) into Zarr.
+                  Persist per-cell budget fields (DRN, RCH, etc.) into Zarr. Off by default: the lumped per-component budget still lands in the budgets table, and the catchment scalars (discharge, well pumping) are derived from it. Turn it on to map or export a per-cell flux, at the cost of the heaviest arrays a run can hold.
 
 
 
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: simulation-results-export
 
-         .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="simulation.results.export">
-              <code class="hmp-field-name">export</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">[simulation.results.export]</code>
-            </div>
-
-         :bdg-primary:`ExportConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L181>`__
-
-            Automated export configuration.
-
-         .. dropdown:: Fields of ``ExportConfig``
-            :icon: list-unordered
-            :animate: fade-in-slide-down
-
-            .. rst-class:: hmp-config-fields hmp-config-fields-nested
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: simulation-results-export-netcdf
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="simulation.results.export.netcdf">
-                    <code class="hmp-field-name">netcdf</code>
-                  </div>
-
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L97>`__
-
-                  Export to NetCDF-4/UGRID.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: simulation-results-export-csv-timeseries
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="simulation.results.export.csv_timeseries">
-                    <code class="hmp-field-name">csv_timeseries</code>
-                  </div>
-
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L100>`__
-
-                  Export time series to CSV.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: simulation-results-export-vtu
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="simulation.results.export.vtu">
-                    <code class="hmp-field-name">vtu</code>
-                  </div>
-
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L103>`__
-
-                  Export to VTU (ParaView).
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: simulation-results-export-geotiff
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="simulation.results.export.geotiff">
-                    <code class="hmp-field-name">geotiff</code>
-                  </div>
-
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L106>`__
-
-                  Export to GeoTIFF.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: simulation-results-export-shapefile
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="simulation.results.export.shapefile">
-                    <code class="hmp-field-name">shapefile</code>
-                  </div>
-
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L107>`__
-
-                  Export to Shapefile.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: simulation-results-export-output-dir
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="simulation.results.export.output_dir">
-                    <code class="hmp-field-name">output_dir</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L110>`__
-
-                  Output directory for exports. Defaults to project results folder.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: simulation-results-export-variables
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="simulation.results.export.variables">
-                    <code class="hmp-field-name">variables</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">[simulation.results.export.variables]</code>
-                  </div>
-
-               :bdg-primary:`ExportVariablesConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L114>`__
-
-                  Which variables to include in exports.
-
-               .. dropdown:: Fields of ``ExportVariablesConfig``
-                  :icon: list-unordered
-                  :animate: fade-in-slide-down
-
-                  .. rst-class:: hmp-config-fields hmp-config-fields-nested
-
-                  .. container:: hmp-field hmp-field-level-user
-                     :name: simulation-results-export-variables-head
-
-                     .. raw:: html
-
-                        <div class="hmp-field-header" data-toml-path="simulation.results.export.variables.head">
-                          <code class="hmp-field-name">head</code>
-                        </div>
-
-                     :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L67>`__
-
-                        Export head field.
-
-
-                  .. container:: hmp-field hmp-field-level-user
-                     :name: simulation-results-export-variables-concentration
-
-                     .. raw:: html
-
-                        <div class="hmp-field-header" data-toml-path="simulation.results.export.variables.concentration">
-                          <code class="hmp-field-name">concentration</code>
-                        </div>
-
-                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L68>`__
-
-                        Export concentration field.
-
-
-                  .. container:: hmp-field hmp-field-level-dev
-                     :name: simulation-results-export-variables-budget
-
-                     .. raw:: html
-
-                        <div class="hmp-field-header" data-toml-path="simulation.results.export.variables.budget">
-                          <code class="hmp-field-name">budget</code>
-                        </div>
-
-                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L71>`__
-
-                        Export spatial budget fields.
-
-
-                  .. container:: hmp-field hmp-field-level-dev
-                     :name: simulation-results-export-variables-pathlines
-
-                     .. raw:: html
-
-                        <div class="hmp-field-header" data-toml-path="simulation.results.export.variables.pathlines">
-                          <code class="hmp-field-name">pathlines</code>
-                        </div>
-
-                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L74>`__
-
-                        Export pathline data.
-
-
-                  .. container:: hmp-field hmp-field-level-user
-                     :name: simulation-results-export-variables-derived
-
-                     .. raw:: html
-
-                        <div class="hmp-field-header" data-toml-path="simulation.results.export.variables.derived">
-                          <code class="hmp-field-name">derived</code>
-                        </div>
-
-                     :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L77>`__
-
-                        Export derived variables (watertable_depth, seepage_mask, etc.).
-
-
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: simulation-results-export-resolution
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="simulation.results.export.resolution">
-                    <code class="hmp-field-name">resolution</code>
-                  </div>
-
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L118>`__
-
-                  GeoTIFF pixel size in CRS units for toggle exports. Auto-derived from the grid when omitted.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: simulation-results-export-artifacts
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="simulation.results.export.artifacts">
-                    <code class="hmp-field-name">artifacts</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">[[simulation.results.export.artifacts]]</code>
-                  </div>
-
-               :bdg-primary:`list[ExportSpec]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L125>`__
-
-                  Explicit export artifacts: full control over variable, format, timestep and destination, beyond the format toggles above.
-
-               .. dropdown:: Fields of ``ExportSpec``
-                  :icon: list-unordered
-                  :animate: fade-in-slide-down
-
-                  .. rst-class:: hmp-config-fields hmp-config-fields-nested
-
-                  .. container:: hmp-field hmp-field-level-user
-                     :name: simulation-results-export-artifacts-var
-
-                     .. raw:: html
-
-                        <div class="hmp-field-header" data-toml-path="simulation.results.export.artifacts.var">
-                          <code class="hmp-field-name">var</code>
-                        </div>
-
-                     :bdg-primary:`str | list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L65>`__
-
-                        Variable name, list of names, or '*' (all timeseries, csv only).
-
-
-                  .. container:: hmp-field hmp-field-level-user
-                     :name: simulation-results-export-artifacts-dest
-
-                     .. raw:: html
-
-                        <div class="hmp-field-header" data-toml-path="simulation.results.export.artifacts.dest">
-                          <code class="hmp-field-name">dest</code>
-                        </div>
-
-                     :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L68>`__
-
-                        Output file path. Its extension can imply 'fmt'.
-
-
-                  .. container:: hmp-field hmp-field-level-user
-                     :name: simulation-results-export-artifacts-fmt
-
-                     .. raw:: html
-
-                        <div class="hmp-field-header" data-toml-path="simulation.results.export.artifacts.fmt">
-                          <code class="hmp-field-name">fmt</code>
-                        </div>
-
-                     :bdg-primary:`ExportFormat | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L71>`__
-
-                        Output format. Inferred from the 'dest' extension when omitted.
-
-
-                  .. container:: hmp-field hmp-field-level-user
-                     :name: simulation-results-export-artifacts-time
-
-                     .. raw:: html
-
-                        <div class="hmp-field-header" data-toml-path="simulation.results.export.artifacts.time">
-                          <code class="hmp-field-name">time</code>
-                        </div>
-
-                     :bdg-primary:`Union[int, list[int], Literal['first', 'last', 'all'], NoneType]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L75>`__
-
-                        Timestep selector: index, list of indices, 'first', 'last', 'all', or None (per-format default: all timesteps for netcdf, last for rasters).
-
-
-                  .. container:: hmp-field hmp-field-level-dev
-                     :name: simulation-results-export-artifacts-layer
-
-                     .. raw:: html
-
-                        <div class="hmp-field-header" data-toml-path="simulation.results.export.artifacts.layer">
-                          <code class="hmp-field-name">layer</code>
-                        </div>
-
-                     :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L82>`__
-
-                        Layer index for 3D fields.
-
-
-                  .. container:: hmp-field hmp-field-level-dev
-                     :name: simulation-results-export-artifacts-resolution
-
-                     .. raw:: html
-
-                        <div class="hmp-field-header" data-toml-path="simulation.results.export.artifacts.resolution">
-                          <code class="hmp-field-name">resolution</code>
-                        </div>
-
-                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L86>`__
-
-                        GeoTIFF pixel size in CRS units. Auto-derived from the grid when omitted.
-
-
-                  .. container:: hmp-field hmp-field-level-dev
-                     :name: simulation-results-export-artifacts-crs
-
-                     .. raw:: html
-
-                        <div class="hmp-field-header" data-toml-path="simulation.results.export.artifacts.crs">
-                          <code class="hmp-field-name">crs</code>
-                        </div>
-
-                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L90>`__
-
-                        Output CRS (e.g. 'EPSG:2154'). Auto-filled from the simulation when omitted.
-
-
-                  .. container:: hmp-field hmp-field-level-dev
-                     :name: simulation-results-export-artifacts-nodata
-
-                     .. raw:: html
-
-                        <div class="hmp-field-header" data-toml-path="simulation.results.export.artifacts.nodata">
-                          <code class="hmp-field-name">nodata</code>
-                        </div>
-
-                     :bdg-primary:`float` :bdg-secondary:`default = -9999.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L94>`__
-
-                        Nodata fill value for raster formats.
-
-
-
-
-
-
-
+.. index:: ! rng_seed
 
 .. container:: hmp-field hmp-field-level-user
    :name: simulation-rng-seed
@@ -1161,7 +874,7 @@ Fields
         <code class="hmp-field-name">rng_seed</code>
       </div>
 
-   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L423>`__
+   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L443>`__
 
       Master RNG seed for the simulation. When set, every stochastic consumer (mesh point sampling, synthetic forcing, ...) derives its own deterministic sub-seed via ``hydromodpy.core.rng.RngManager``. Persisted in ``runs_environment.rng_seed`` so the run can be re-executed from the catalog snapshot.
 
@@ -1181,8 +894,8 @@ Starter TOML snippet
 
       [simulation]
       # name = ""
-      # run_id = ""
-      # on_collision = "replace"
+      # tags = ...  # uses factory default
+      # if_exists = "version"
       # description = ""
       # scientific_objective = ...  # default = None
       # contact_email = ...  # default = None

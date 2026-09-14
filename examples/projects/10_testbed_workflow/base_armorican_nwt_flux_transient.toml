@@ -95,8 +95,7 @@ value = "0.05 -"
 [flow.ic]
 type = "top"
 
-[flow.bc.cauchy.drainage]
-id = "drainage"
+[flow.bc.drainage]
 kind = "cauchy"
 application_domain = "top"
 description = "Cauchy drainage on the aquifer top face."
@@ -109,7 +108,7 @@ negative_to_evt = true
 [simulation]
 name = "nwt_flux_armorican_base"
 description = "Regional MODFLOW-NWT transient flux testbed base with synthetic monthly recharge."
-on_collision = "replace"
+if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2000-01-01"

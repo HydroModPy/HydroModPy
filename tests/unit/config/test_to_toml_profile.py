@@ -148,4 +148,6 @@ def test_json_schema_exports_examples_metadata() -> None:
     assert schema["$defs"]["FlowConfig"]["properties"]["param_list"]["examples"] == [
         ["K", "Sy", "Ss"]
     ]
-    assert schema["$defs"]["SimulationConfig"]["properties"]["run_id"]["examples"] == ["steady_nwt"]
+    assert schema["$defs"]["SimulationConfig"]["properties"]["name"]["examples"] == [
+        "cheze_baseline"
+    ]

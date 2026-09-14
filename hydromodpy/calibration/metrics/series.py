@@ -12,7 +12,7 @@ from typing import Any
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.time_alignment import observed_on_simulation_index
+from hydromodpy.core.time.period_aggregation import period_mean_on_index
 
 logger = get_logger(__name__)
 
@@ -30,11 +30,15 @@ def load_observed(ctx: Any, variable: str) -> list[ObservedSeries]:
     """Pull observation timeseries from the loaded-data context.
 
     ``variable`` is the calibration-target variable (``"discharge"``,
-    ``"head"``). Discharge comes from ``hydrometry``, head from
-    ``piezometry``. Returns one ``ObservedSeries`` per station so
-    multi-station calibration works uniformly.
+    ``"head"``, ``"lake_level"``). Discharge comes from ``hydrometry``, head
+    from ``piezometry``, lake level from ``lake_levels``. Returns one
+    ``ObservedSeries`` per station so multi-station calibration works uniformly.
     """
-    field_name = {"discharge": "hydrometry", "head": "piezometry"}.get(variable)
+    field_name = {
+        "discharge": "hydrometry",
+        "head": "piezometry",
+        "lake_level": "lake_levels",
+    }.get(variable)
     if field_name is None:
         return []
     result = getattr(ctx.loaded_data, field_name, None)
@@ -72,9 +76,11 @@ def resolve_time_index(ctx: Any, n_timesteps: int = 0) -> pd.DatetimeIndex | Non
 
     Returns the stress-period end timestamps. ``n_timesteps > 0`` truncates the
     index. ``None`` is returned when boundaries are not available so callers
-    fall back to a positional series.
+    fall back to a positional series. A context carrying no ``setup`` at all is
+    one of those cases: it says there is no time grid to read, which is the same
+    answer as an empty one.
     """
-    time_grid = getattr(ctx.setup, "time_grid", None)
+    time_grid = getattr(getattr(ctx, "setup", None), "time_grid", None)
     if time_grid is None:
         return None
     boundaries = getattr(time_grid, "boundaries", None)
@@ -92,14 +98,26 @@ def resolve_time_index(ctx: Any, n_timesteps: int = 0) -> pd.DatetimeIndex | Non
 _RUNOFF_WARNING_EMITTED: set[int] = set()
 
 
-def add_runoff_to_discharge(simulated: pd.Series, ctx: Any) -> pd.Series:
+def add_runoff_to_discharge(
+    simulated: pd.Series,
+    ctx: Any,
+    *,
+    area_m2: float | None = None,
+) -> pd.Series:
     """Add the surface-runoff forcing to a baseflow series in m³/s.
 
     The runoff data manager exposes one or more station time-series in
-    ``mm/day``. Stations are averaged, resampled to the simulated stress-period
-    index, and converted to ``m³/s`` using the catchment area read from the
-    geographic runtime. When no runoff is loaded, a one-shot warning is
-    emitted and the baseflow is returned unchanged.
+    ``mm/day``. Stations are averaged, then averaged OVER each stress period by
+    the one rule the derived catchment discharge also uses
+    (``core.time.period_aggregation.period_mean_on_index``), and converted to
+    ``m³/s`` using the catchment area read from the geographic runtime. When no runoff is loaded, a
+    one-shot warning is emitted and the baseflow is returned unchanged.
+
+    ``area_m2`` overrides that catchment area, which is what a gauge away from
+    the outlet needs: it sees the runoff of the area it drains, not of the whole
+    basin. The runoff is spatially uniform here, one rate averaged over its
+    stations, so scaling that rate by the upstream area is the exact
+    generalisation of the whole-basin formula and adds no assumption.
     """
     runoff = getattr(getattr(ctx, "loaded_data", None), "runoff", None)
     points = getattr(runoff, "points", None) if runoff is not None else None
@@ -114,15 +132,22 @@ def add_runoff_to_discharge(simulated: pd.Series, ctx: Any) -> pd.Series:
             _RUNOFF_WARNING_EMITTED.add(ctx_id)
         return simulated
 
-    geo = getattr(getattr(ctx, "setup", None), "geographic", None)
-    catch_area_km2 = float(getattr(geo, "catch_area", 0.0) or 0.0)
-    if catch_area_km2 <= 0.0:
-        logger.warning(
-            "calibration discharge: catchment area unavailable in setup.geographic; "
-            "skipping runoff addition."
-        )
-        return simulated
-    catch_area_m2 = catch_area_km2 * 1e6
+    if area_m2 is not None:
+        catch_area_m2 = float(area_m2)
+        if catch_area_m2 <= 0.0:
+            raise ValueError(
+                f"the upstream area a gauge drains must be positive, got {area_m2} m2."
+            )
+    else:
+        geo = getattr(getattr(ctx, "setup", None), "geographic", None)
+        catch_area_km2 = float(getattr(geo, "catch_area", 0.0) or 0.0)
+        if catch_area_km2 <= 0.0:
+            logger.warning(
+                "calibration discharge: catchment area unavailable in setup.geographic; "
+                "skipping runoff addition."
+            )
+            return simulated
+        catch_area_m2 = catch_area_km2 * 1e6
 
     series_list: list[pd.Series] = []
     for rec in points:
@@ -146,7 +171,15 @@ def add_runoff_to_discharge(simulated: pd.Series, ctx: Any) -> pd.Series:
         runoff_mm_per_d = runoff_mm_per_d.tz_localize(None)
     elif runoff_index.tz is not None and target_index.tz is not None:
         runoff_mm_per_d = runoff_mm_per_d.tz_convert(target_index.tz)
-    aligned = observed_on_simulation_index(runoff_mm_per_d, pd.DatetimeIndex(target_index))
+    # The canonical rule, called directly and not through the observation
+    # helper: a runoff FORCING is not an observation chronicle. The helper picks
+    # between a per-period mean and a nearest sample on the MEDIAN spacing of
+    # the two indices, which sends a single steady period, or one long period
+    # followed by short ones, to the nearest sample: the phase-one steady stage
+    # would then be scored on the runoff of one day. The derived catchment
+    # discharge already averages, and what a run is scored on has to be what it
+    # reports.
+    aligned = period_mean_on_index(runoff_mm_per_d, pd.DatetimeIndex(target_index))
     runoff_m3_per_s = aligned * 1e-3 * catch_area_m2 / 86400.0
     return simulated.add(runoff_m3_per_s, fill_value=0.0)
 

@@ -20,8 +20,6 @@ snap_dist = "150 m"
 buff_area = "10%"
 
 [domain]
-zone_ids = ["geology"]
-
 [domain.supports.field_geology]
 kind = "geology"
 
@@ -83,7 +81,7 @@ value = "0.02 -"
 [flow.ic]
 type = "top"
 
-[flow.bc.cauchy.drainage]
+[flow.bc.drainage]
 application_domain = "top"
 kind = "cauchy"
 value = "0.0 m2/s"
@@ -96,10 +94,3 @@ negative_to_evt = true
 enabled = true
 show = false
 save = true
-
-[display.flow]
-enabled = true
-watertable_map = true
-cross_section = false
-streamflow = false
-piezometry = false

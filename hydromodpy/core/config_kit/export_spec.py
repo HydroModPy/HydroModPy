@@ -2,7 +2,7 @@
 
 One :class:`ExportSpec` == one output artifact. The same model is built from
 the Python facade (``run.export``), the CLI, and the TOML
-``[[simulation.results.export.artifacts]]`` section, so selection and
+``[[export.artifacts]]`` section, so selection and
 validation live in exactly one place. It mirrors the ``hmp.read`` selector
 (``var`` / ``time`` / ``layer``) and adds the output format, destination, and
 raster options.
@@ -31,6 +31,7 @@ class ExportFormat(StrEnum):
     netcdf = "netcdf"
     geotiff = "geotiff"
     shapefile = "shapefile"
+    geopackage = "geopackage"
     vtu = "vtu"
     hmp = "hmp"
 
@@ -42,12 +43,20 @@ _SUFFIX_TO_FORMAT: dict[str, ExportFormat] = {
     ".tif": ExportFormat.geotiff,
     ".tiff": ExportFormat.geotiff,
     ".shp": ExportFormat.shapefile,
+    ".gpkg": ExportFormat.geopackage,
     ".vtu": ExportFormat.vtu,
     ".hmp": ExportFormat.hmp,
 }
 
 # Formats that render exactly one timestep per file.
-_SINGLE_TIMESTEP = frozenset({ExportFormat.geotiff, ExportFormat.shapefile, ExportFormat.vtu})
+_SINGLE_TIMESTEP = frozenset(
+    {
+        ExportFormat.geotiff,
+        ExportFormat.shapefile,
+        ExportFormat.geopackage,
+        ExportFormat.vtu,
+    }
+)
 
 
 def format_from_path(path: str | Path) -> ExportFormat | None:
@@ -107,6 +116,18 @@ class ExportSpec(HydroModelBase):
                     f"({', '.join(sorted(_SUFFIX_TO_FORMAT))})."
                 )
             object.__setattr__(self, "fmt", inferred)
+        else:
+            # A declared format and a destination extension are two statements
+            # about one file. Left unchecked, the bytes of one land under the
+            # name of the other and nothing says so: a csv written as .tif opens
+            # in no raster reader and looks like a corrupt file, not a mistake.
+            inferred = format_from_path(self.dest)
+            if inferred is not None and inferred != self.fmt:
+                raise ValueError(
+                    f"fmt={self.fmt.value!r} writes {self.fmt.value} bytes but dest "
+                    f"{self.dest!r} names a {inferred.value} file. Drop 'fmt' to take the "
+                    "extension, or give dest the extension the format writes."
+                )
         if self.fmt in _SINGLE_TIMESTEP and (self.time == "all" or isinstance(self.time, list)):
             raise ValueError(
                 f"time={self.time!r} selects multiple timesteps, invalid for "

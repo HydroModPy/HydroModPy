@@ -32,11 +32,12 @@ else (no)
 endif
 
 :Load data managers;
-if (oceanic/hydrometry/piezometry\nuse_simulation_time_window?) then (yes)
+if ([data.<type>] declares date_start/date_end?) then (yes)
+  :Keep the declared window;
+else (no)
   :resolve_simulation_time_window_dates();
   if (window unresolved?) then (yes)
-    :Raise ValueError;
-    stop
+    :Leave the section without a window\n(manager falls back to source coverage);
   else (no)
     :Inject canonical date_start/date_end;
   endif

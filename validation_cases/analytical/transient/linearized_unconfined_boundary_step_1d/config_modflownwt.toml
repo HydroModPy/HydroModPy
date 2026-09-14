@@ -68,15 +68,15 @@ value = "0.10 -"
 type = "custom"
 value = "10.0 m"
 
-[flow.bc.dirichlet.west_side]
+[flow.bc.west_side]
 kind = "dirichlet"
 
-[flow.bc.dirichlet.west_side.forcing]
+[flow.bc.west_side.forcing]
 mode = "csv"
 path_file = "west_head_step.csv"
 aggregate = "last"
 
-[flow.bc.dirichlet.east_side]
+[flow.bc.east_side]
 kind = "dirichlet"
 value = "10.0 m"
 

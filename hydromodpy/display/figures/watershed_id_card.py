@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure_registry import register
 from hydromodpy.display.geo import GeoFigureMixin
 from hydromodpy.display.map_axes import (
     overlay_watershed_contour,
@@ -22,8 +22,8 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure as MplFigure
 
-    from hydromodpy.results.contracts import RasterField
     from hydromodpy.results.run import Run
+    from hydromodpy.results.run.contracts import RasterField
 
 
 # Raster keys written by ``persist_geographic_to_store``. The historical
@@ -155,7 +155,13 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
         return None, None
 
     def _mark_outlet(self, ax: Axes, sim: Run) -> None:
-        """Plot a small red star at the outlet station when available."""
+        """Mark the outlet the catchment was delineated from, and the declared one.
+
+        The two are not the same point: the snap moves the declared coordinate
+        onto the strongest accumulation cell within ``snap_dist``, and the
+        catchment comes from the moved one. Drawing only the declared point put
+        the star where the run never started.
+        """
         try:
             # geographic_metadata stores outlet coordinates as x_outlet / y_outlet.
             meta = sim._catalog.read_geographic_metadata(sim.sim_id)
@@ -167,9 +173,28 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
         y_out = _as_float(meta.get("y_outlet"))
         if x_out is None or y_out is None:
             return
+
+        x_snap = _as_float(meta.get("x_outlet_snapped"))
+        y_snap = _as_float(meta.get("y_outlet_snapped"))
+        moved = _as_float(meta.get("outlet_snap_distance_m"))
+        snapped = x_snap is not None and y_snap is not None
+
+        if snapped and moved is not None and moved > 0.0:
+            # A hollow marker on the declared point, so the gap is visible.
+            ax.plot(
+                x_out,
+                y_out,
+                marker="o",
+                markersize=7,
+                markerfacecolor="none",
+                markeredgecolor="red",
+                linestyle="None",
+                label=f"declared outlet ({moved:.0f} m away)",
+                zorder=9,
+            )
         ax.plot(
-            x_out,
-            y_out,
+            x_snap if snapped else x_out,
+            y_snap if snapped else y_out,
             marker="*",
             markersize=12,
             color="red",

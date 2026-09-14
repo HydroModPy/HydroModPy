@@ -43,10 +43,8 @@ def run_boussinesq_linearized_unconfined_boundary_step_case(
         "active_sinks_sources": [],
         "active_bc": ["west_side", "east_side"],
         "bc": {
-            "dirichlet": {
-                "west_side": {"value": float(reference_cfg["west_head_m"])},
-                "east_side": {"value": base_head_m},
-            }
+            "west_side": {"value": float(reference_cfg["west_head_m"])},
+            "east_side": {"value": base_head_m},
         },
     }
     if surface_interaction_model is not None:

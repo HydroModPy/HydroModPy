@@ -1,0 +1,146 @@
+# Reference calibration 2 of 3: several targets, weighted against each other.
+#
+# A catchment rarely offers one observation. Here the model is scored at once on
+# the outlet hydrograph, on a piezometer, and on a lake level, each with its own
+# metric and its own share of the cost. Two parameters move together.
+#
+# The weights are the modelling decision this file exists to make explicit: they
+# say what the calibration is for. Read them as shares of the total cost.
+
+# This file is an overlay: it carries the calibration and inherits the
+# catchment, the data and the solver from the project it points at. Every
+# calibration in the repository is written this way, so the same model is
+# run and calibrated from one description.
+base_config = "project.toml"
+
+[workflow]
+mode = "calibration"
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2005-12-31"
+step_value = 1
+step_unit = "day"
+
+[calibration]
+method = "optuna"
+max_iter = 200
+seed = 42
+# A window in dates rather than warmup_periods in samples: it says the same
+# thing whatever the output frequency. The two are mutually exclusive.
+# Every scored output names a station, so the samples carry dates and the window
+# applies exactly. Without `observes` this would be refused: there would be no
+# time axis to cut on. 2000 is the spin-up year, simulated and not scored.
+save_runs = "best_n"
+save_best_n = 5
+rerun_best_with_outputs = true
+# 'full' keeps the per-block raw and normalized costs of every trial, which is
+# what makes a weighting argument checkable after the fact.
+persist_iteration_detail = "full"
+
+[calibration.scoring_window]
+start = "2001-01-01"
+end = "2005-12-31"
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+transform = "log"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+[calibration.parameters.Sy]
+bounds = [5e-3, 0.35]
+transform = "log"
+path = "flow.param.Sy.field.value"
+units = "-"
+
+# --- What is observed -------------------------------------------------------
+#
+# `observes` names a station the project loaded. Its record is aligned on the
+# simulated timestamps, so a block scores a real chronicle rather than a vector
+# transcribed into this file. The data family follows `variable`: discharge from
+# hydrometry, head from piezometry, stage from lake_levels.
+
+[calibration.outputs.outlet_discharge]
+variable = "discharge"
+support = "boundary"
+boundary_id = "outlet"
+observes = "J7branch"
+
+[calibration.outputs.piezometer_p1]
+variable = "head"
+support = "point"
+x = 348120.0
+y = 6812450.0
+observes = "BSS001ABCD"
+
+[calibration.outputs.lake_level]
+variable = "stage"
+support = "lake"
+lake_id = "cheze"
+observes = "cheze_staff_gauge"
+
+# --- How each target is scored, and for how much -----------------------------
+#
+# Three blocks summing to 1.0, so each weight reads directly as a share:
+# the hydrograph carries 65 %, the piezometer 25 %, the lake 10 %.
+#
+# normalize_cost matters here and not in the single-target file: an RMSE on
+# heads is in metres, an NSE cost is dimensionless, and summing them raw would
+# let the unit decide the weighting instead of the weight. It applies to the
+# piezometer block alone, because that is the only cost carrying a unit; on an
+# efficiency score it is refused rather than silently reweighting the block.
+#
+# Each block reports `<output>.n_paired`: how many dated samples the alignment
+# actually kept. A weight of 65 % on three surviving days is not what the file
+# says it is, and that number is where it shows.
+
+[[calibration.objective_blocks]]
+name = "hydrograph"
+metric = "nse_log"
+weight = 0.65
+uses_outputs = ["outlet_discharge"]
+
+[[calibration.objective_blocks]]
+name = "piezometry"
+metric = "rmse"
+weight = 0.25
+uses_outputs = ["piezometer_p1"]
+normalize_cost = true
+
+[[calibration.objective_blocks]]
+name = "lake"
+# 'reservoir' is half nse_seasonal and half nse_delta: an impounded level is
+# beaten by its own seasonal cycle under a plain NSE, and its flux errors show
+# in the increments. Both halves are efficiency scores, so there is no unit in
+# the cost to remove and normalize_cost is refused here: the share is the weight.
+metric = "reservoir"
+weight = 0.10
+uses_outputs = ["lake_level"]
+
+
+# ---------------------------------------------------------------------------
+# How wide the answer is
+# ---------------------------------------------------------------------------
+# `multistart` runs the whole search `restarts` times from `restarts` different
+# starting points and reports the spread of the optima it reaches. It is the only
+# declared method that can see a second basin: `cost_profile` reads one search's
+# own trace, so it says what that search could not tell apart and never what it
+# never visited.
+#
+# What it costs is not hidden: four restarts of a two-hundred-evaluation search is
+# eight hundred model runs. Start from `cost_profile`, which is free, and pay for
+# this one when a parameter matters enough that you need to know whether another
+# optimum exists.
+#
+# The calibrated value does not move: it is the best of the restarts, still one
+# number you can write into a report. The spread sits beside it, and a parameter
+# whose restarts landed more than a factor ten apart is flagged as not identified
+# by this calibration, however tight any single restart looked.
+#
+# Refused on `grid` and `bisection`: an exhaustive sweep and a root search return
+# the same answer every time, so their spread would state a certainty nothing
+# established.
+[calibration.uncertainty]
+method = "multistart"
+restarts = 4

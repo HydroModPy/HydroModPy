@@ -9,7 +9,7 @@ root = "../../"
 [simulation]
 name = "10km2_natural_mesh_recharge_shared_case"
 description = "Reduced steady-flow recharge case on a precomputed 10 km2 natural triangular mesh."
-on_collision = "replace"
+if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2020-01-01 00:00:00"
@@ -65,11 +65,11 @@ value = "1e-5 m/s"
 type = "custom"
 value = "190.0 m"
 
-[flow.bc.dirichlet.west_side]
+[flow.bc.west_side]
 kind = "dirichlet"
 value = "210.0 m"
 
-[flow.bc.dirichlet.east_side]
+[flow.bc.east_side]
 kind = "dirichlet"
 value = "170.0 m"
 

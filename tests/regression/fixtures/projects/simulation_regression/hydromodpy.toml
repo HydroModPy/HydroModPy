@@ -74,13 +74,15 @@ min_factor = 5e-2
 [flow.ic]
 type = "top"
 
-[flow.bc.cauchy.drainage]
-application_domain = "top"
-value = "0.0 m2/s"
-
-[flow.bc.dirichlet.ocean]
+[flow.bc.ocean]
 value = "1.0 m"
 data_value = true
+kind = "dirichlet"
+
+[flow.bc.drainage]
+application_domain = "top"
+value = "0.0 m2/s"
+kind = "cauchy"
 
 [flow.sinks_sources.wells.W1]
 units = "m3/day"

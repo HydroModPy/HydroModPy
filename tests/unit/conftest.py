@@ -10,6 +10,10 @@ The hook is caller-aware: transitive stdlib subprocess calls (e.g.
 ``platform.processor``, triggered indirectly by h5py's cython bindings
 during import) are allowed through, so the ban only fires when user or
 HydroModPy code is the one issuing the shell-out.
+
+Hermetic also means order-independent, which is what the runtime bootstrap
+fixture below buys: a unit test must not need another test module to have
+initialized the physics runtime first.
 """
 
 from __future__ import annotations
@@ -108,3 +112,26 @@ def _forbid_subprocess_in_unit(request, monkeypatch):
         monkeypatch.setattr(requests.Session, "request", _deny)
 
     yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _bootstrap_runtime_providers():
+    """Install the runtime providers once per session, before any unit test.
+
+    ``bootstrap()`` is what wires the ``FieldParamLike`` factory, the solver
+    registry and the other Protocol providers, and the library calls it from
+    its public entry points. A unit test that builds a ``Flow`` or asks the
+    solver registry for an adapter needs it, and a handful of modules call it
+    themselves; the others used to be rescued by whichever module ran before
+    them. That works in a single process and breaks under xdist, where a worker
+    can get such a module on its own. Measured on 2026-08-21: 21 of the 739 unit
+    test files fail run on their own, all on the same missing factory, and the
+    full parallel run failed intermittently on a different one each time.
+
+    Bootstrapping here is idempotent (``test_bootstrap.py`` asserts it) and does
+    not weaken the deferred-import guarantee, which
+    ``tests/integration/test_import_latency.py`` checks in a subprocess.
+    """
+    import hydromodpy
+
+    hydromodpy.bootstrap()

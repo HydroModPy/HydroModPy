@@ -69,7 +69,7 @@
       "caption": "Boussinesq Hillslope Recharge-Step Interception 1D rendered with Boussinesq for the analytical gallery.",
       "alt_text": "Boussinesq Hillslope Recharge-Step Interception 1D validation figure for Boussinesq",
       "doc_path": "/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png"
+      "repo_path": "docs/source/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png"
     }
   ],
   "metrics": [],
@@ -108,9 +108,9 @@
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d_summary.json",
-    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d_summary.json",
     "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png"
+      "docs/source/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png"
     ]
   },
   "solver_runs": [
@@ -136,7 +136,7 @@
         "caption": "Boussinesq Hillslope Recharge-Step Interception 1D rendered with Boussinesq for the analytical gallery.",
         "alt_text": "Boussinesq Hillslope Recharge-Step Interception 1D validation figure for Boussinesq",
         "doc_path": "/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png",
-        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png"
+        "repo_path": "docs/source/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png"
       },
       "metadata": {
         "observable_name": "watertable_elevation",

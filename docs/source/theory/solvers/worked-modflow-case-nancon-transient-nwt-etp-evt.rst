@@ -181,7 +181,7 @@ How HydroModPy Builds RCH And EVT On This Case
 ----------------------------------------------
 
 The NWT adapter path is concentrated in
-``hydromodpy/solver/modflow_nwt/modflow/flow_to_modflow_adapter.py``.
+``hydromodpy/solver/modflow_nwt/nwt/flow_to_modflow_adapter.py``.
 
 The sequence is:
 
@@ -203,7 +203,7 @@ The sequence is:
    - ``evt_extinction_depth``
 
 5. ``Modflow.pre_processing(...)`` in
-   ``hydromodpy/solver/modflow_nwt/modflow/nwt_solver.py`` converts those SI
+   ``hydromodpy/solver/modflow_nwt/nwt/nwt_solver.py`` converts those SI
    rates to solver time units and assembles:
 
    - ``flopy.modflow.ModflowRch(self.mf, rech=rch_data_solver)``

@@ -153,6 +153,13 @@ class RegionalLabCatalogConfig(HydroModelBase):
     format: Annotated[Literal["auto", "csv", "jsonl"], Profile.USER] = Field(
         default="auto",
         description="Catalog format. 'auto' infers from suffix.",
+        json_schema_extra={
+            "value_docs": {
+                "auto": "Infers the format from the file suffix (.csv, or .jsonl/.ndjson).",
+                "csv": "Parses the catalog as comma-separated values, one site per row.",
+                "jsonl": "Parses the catalog as one JSON object per line, one site per line.",
+            }
+        },
     )
     site_id_field: Annotated[str, Profile.USER] = Field(
         default="site_id",
@@ -481,7 +488,15 @@ class RegionalLabRecipeConfig(HydroModelBase):
     id: Annotated[str, Profile.USER] = Field(description="Unique recipe identifier.")
     label: Annotated[str, Profile.USER] = Field(description="Human-readable recipe label.")
     launcher: Annotated[Literal["simulation", "comparison"], Profile.USER] = Field(
-        description="Child launcher dispatched per site."
+        description="Child launcher dispatched per site.",
+        json_schema_extra={
+            "value_docs": {
+                "simulation": "Runs each site's generated config through the "
+                "simulation workflow, one forward run.",
+                "comparison": "Runs each site's generated config through the "
+                "comparison workflow, several child runs.",
+            }
+        },
     )
     config_path_template: Annotated[str, Profile.USER] = Field(
         description="Template producing the child config path from a site context."

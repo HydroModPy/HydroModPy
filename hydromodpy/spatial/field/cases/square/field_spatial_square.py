@@ -15,6 +15,7 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.spatial.field.core.cell_sampling import sample_points_in_cell
 from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh
 from hydromodpy.spatial.field.core.field_spatial import Field, _get_nested_section
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
@@ -117,38 +118,6 @@ class FieldSquare(Field):
             zone2_name=self.zone2_name,
         )
 
-    @staticmethod
-    def _sample_points_in_cell(cell, *, n_sub_per_axis: int):
-        """Generate deterministic interior sample points for one cell."""
-        n = max(2, int(n_sub_per_axis))
-        verts = np.asarray(cell.vertices, dtype=float)
-
-        if cell.kind == "quadrilateral":
-            u = (np.arange(n, dtype=float) + 0.5) / float(n)
-            v = (np.arange(n, dtype=float) + 0.5) / float(n)
-            uu, vv = np.meshgrid(u, v, indexing="xy")
-            w0 = (1.0 - uu) * (1.0 - vv)
-            w1 = uu * (1.0 - vv)
-            w2 = uu * vv
-            w3 = (1.0 - uu) * vv
-            x = w0 * verts[0, 0] + w1 * verts[1, 0] + w2 * verts[2, 0] + w3 * verts[3, 0]
-            y = w0 * verts[0, 1] + w1 * verts[1, 1] + w2 * verts[2, 1] + w3 * verts[3, 1]
-            return x.ravel(), y.ravel()
-
-        if cell.kind == "triangle":
-            u = (np.arange(n, dtype=float) + 0.5) / float(n)
-            v = (np.arange(n, dtype=float) + 0.5) / float(n)
-            uu, vv = np.meshgrid(u, v, indexing="xy")
-            mask = (uu + vv) < 1.0
-            uu = uu[mask]
-            vv = vv[mask]
-            p0, p1, p2 = verts[0], verts[1], verts[2]
-            x = p0[0] + uu * (p1[0] - p0[0]) + vv * (p2[0] - p0[0])
-            y = p0[1] + uu * (p1[1] - p0[1]) + vv * (p2[1] - p0[1])
-            return x, y
-
-        raise ValueError(f"Unsupported cell kind '{cell.kind}'")
-
     def on_mesh(self, mesh: BaseFieldMesh, *, cell_samples_per_axis: int = 10):
         """
         Build field-to-mesh discretization using intra-cell sampling fractions.
@@ -157,7 +126,7 @@ class FieldSquare(Field):
         frac_zone2 = np.empty(mesh.n_cells, dtype=float)
 
         for cell in mesh.cells:
-            x_s, y_s = self._sample_points_in_cell(cell, n_sub_per_axis=cell_samples_per_axis)
+            x_s, y_s = sample_points_in_cell(cell, n_sub_per_axis=cell_samples_per_axis)
             zones = self.zone_id(x_s, y_s)
 
             c1 = int(np.count_nonzero(zones == self.zone1_name))

@@ -11,24 +11,42 @@ free of hidden state.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.core.field_routing import DRAIN_BAND_DEPTH_ATTR, drain_band_depth
+from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 
 if TYPE_CHECKING:
     from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
+logger = get_logger(__name__)
+
+_DASK_FALLBACK_WARNED = False
+
 
 def _optional_dask_array():
-    """Return ``dask.array`` when installed, otherwise ``None``."""
+    """Return ``dask.array`` when installed, otherwise ``None``.
+
+    Warns once when dask is absent: the xarray/field views then load eagerly
+    (full ``np.asarray``), which can OOM on a large multi-year store.
+    """
+    global _DASK_FALLBACK_WARNED
     try:
         import dask.array as da
     except ModuleNotFoundError as exc:
         if exc.name != "dask":
             raise
+        if not _DASK_FALLBACK_WARNED:
+            logger.warning(
+                "dask is not installed: field/xarray views load eagerly into RAM "
+                "and can OOM on large stores. Install dask for lazy access."
+            )
+            _DASK_FALLBACK_WARNED = True
         return None
     return da
 
@@ -48,6 +66,25 @@ def set_geographic_fingerprint(store_obj: SimulationZarr, value: str | None) -> 
         store_obj._root.attrs["geographic_fingerprint"] = str(value)
 
 
+def get_drain_band_depth(store_obj: SimulationZarr) -> float:
+    """Return the sub-cell discharge band the run gave its drains, 0.0 if none."""
+    return drain_band_depth(store_obj._root)
+
+
+def set_drain_band_depth(store_obj: SimulationZarr, value: float) -> None:
+    """Persist the discharge band so a reader can rebuild the seepage criterion.
+
+    Cleared when it is not strictly positive, so an unbanded run leaves no
+    attribute and reads exactly like every run written before the option.
+    """
+    depth = float(value)
+    if not math.isfinite(depth) or depth <= 0.0:
+        if DRAIN_BAND_DEPTH_ATTR in store_obj._root.attrs:
+            del store_obj._root.attrs[DRAIN_BAND_DEPTH_ATTR]
+        return
+    store_obj._root.attrs[DRAIN_BAND_DEPTH_ATTR] = depth
+
+
 def resolve_geographic_dir(store_obj: SimulationZarr, workspace_path: Path | str) -> Path | None:
     """Resolve the workspace-level cache dir tied to this store's fingerprint."""
     fp = get_geographic_fingerprint(store_obj)
@@ -58,6 +95,21 @@ def resolve_geographic_dir(store_obj: SimulationZarr, workspace_path: Path | str
     return GeographicCache(workspace_path).path_for(fp)
 
 
+def _is_time_resolved(variable: str) -> bool:
+    """Return True when the registered field carries a leading time axis.
+
+    Static geometry (``topography``, ``layer_thickness``) has no time
+    dimension, so indexing it by timestep would silently return one layer or
+    raise. Unregistered variables are assumed time-resolved, which is the
+    historical behaviour for solver-specific arrays.
+    """
+    from hydromodpy.results import field_registry
+
+    if not field_registry.has(variable):
+        return True
+    return field_registry.get(variable).shape.startswith("time")
+
+
 def read_field(
     store_obj: SimulationZarr,
     variable: str,
@@ -66,17 +118,25 @@ def read_field(
     subgroup: str | None = None,
     layer: int | None = None,
 ) -> np.ndarray:
-    """Read one timestep slice of ``variable`` from ``subgroup`` (or auto)."""
+    """Read ``variable`` from ``subgroup`` (or auto), sliced at ``timestep``.
+
+    ``timestep`` is ignored for static fields (see :func:`_is_time_resolved`).
+    """
+    time_resolved = _is_time_resolved(variable)
+
+    def _select(array) -> np.ndarray:
+        return array[int(timestep)] if time_resolved else array[:]
+
     if subgroup:
         target = store_obj._root[subgroup]
         if variable not in target:
             raise KeyError(f"Variable '{variable}' not found in subgroup '{subgroup}'")
-        data = target[variable][int(timestep)]
+        data = _select(target[variable])
     else:
-        for loc_name in (None, "state", "derived", "budget"):
+        for loc_name in (None, "state", "derived", "budget", "mesh"):
             loc = store_obj._root if loc_name is None else store_obj._root.get(loc_name)
             if loc is not None and variable in loc:
-                data = loc[variable][int(timestep)]
+                data = _select(loc[variable])
                 break
         else:
             raise KeyError(f"Variable '{variable}' not found")
@@ -105,6 +165,26 @@ def read_forcing_timeseries(
     values = np.asarray(sta_grp["values"][:], dtype="float64")
     attrs = dict(sta_grp.attrs)
     return timestamps, values, attrs
+
+
+def read_lake_abacus(store_obj: SimulationZarr, lake_id: str) -> dict:
+    """Read the reference vs simulated abacus arrays for one lake."""
+    grp = store_obj._root.get("lake_abacus")
+    if grp is None or lake_id not in grp:
+        raise KeyError(f"Lake abacus '{lake_id}' not found")
+    lake = grp[lake_id]
+    out: dict = {
+        name: np.asarray(lake[name][:], dtype="float64")
+        for name in ("stage", "real_volume", "real_sarea", "sim_volume", "sim_sarea")
+    }
+    out.update(dict(lake.attrs))
+    return out
+
+
+def lake_abacus_lakes(store_obj: SimulationZarr) -> list[str]:
+    """Return the lake ids with a persisted abacus comparison."""
+    grp = store_obj._root.get("lake_abacus")
+    return [] if grp is None else sorted(grp.keys())
 
 
 def read_geographic_raster(store_obj: SimulationZarr, name: str) -> tuple[np.ndarray, dict]:
@@ -202,10 +282,14 @@ __all__ = [
     "get_geographic_fingerprint",
     "is_consolidated",
     "read_field",
+    "lake_abacus_lakes",
     "read_forcing_timeseries",
     "read_geographic_raster",
+    "read_lake_abacus",
     "resolve_geographic_dir",
+    "get_drain_band_depth",
     "root_attrs_json",
+    "set_drain_band_depth",
     "set_geographic_fingerprint",
     "to_xarray",
 ]

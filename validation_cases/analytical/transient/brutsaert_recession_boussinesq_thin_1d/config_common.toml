@@ -67,10 +67,10 @@ value = "0.10 -"
 type = "custom"
 value = "1.0 m"
 
-[flow.bc.dirichlet.east_side]
+[flow.bc.east_side]
 kind = "dirichlet"
 
-[flow.bc.dirichlet.east_side.forcing]
+[flow.bc.east_side.forcing]
 mode = "constant"
 value = 1.0
 units = "m"

@@ -121,9 +121,7 @@ def run_boussinesq_brutsaert_recession_case(
                         }
                     },
                     "bc": {
-                        "dirichlet": {
-                            "east_side": {"value": float(east_head_m)},
-                        }
+                        "east_side": {"value": float(east_head_m)},
                     },
                 },
                 flow_regime="steady",
@@ -160,9 +158,7 @@ def run_boussinesq_brutsaert_recession_case(
                     "ic": {"type": "custom", "value": float(east_head_m)},
                     "active_bc": ["east_side"],
                     "bc": {
-                        "dirichlet": {
-                            "east_side": {"value": float(east_head_m)},
-                        }
+                        "east_side": {"value": float(east_head_m)},
                     },
                 },
                 flow_regime="transient",

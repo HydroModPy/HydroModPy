@@ -31,6 +31,10 @@ from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HydrographicNetwork,
     HydrographicNetworks,
 )
+from hydromodpy.spatial.geographic.core.lake_enforcement import (
+    capture_from_config,
+    routing_dem_from_config,
+)
 from hydromodpy.spatial.geographic.core.pipeline_steps import (
     build_standard_catchment,
     build_standard_domain_polygons,
@@ -39,6 +43,14 @@ from hydromodpy.spatial.geographic.core.pipeline_steps import (
 from hydromodpy.spatial.geographic.core.river_network import (
     RiverNetworkProducts,
     build_river_network_products,
+)
+from hydromodpy.spatial.geographic.core.stream_dem_agreement import (
+    report_network_dem_agreement,
+)
+from hydromodpy.spatial.geographic.core.stream_enforcement import (
+    burned_dem_from_config,
+    catchment_area_without_burn,
+    check_catchment_area_drift,
 )
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
 from hydromodpy.spatial.surface import Surface
@@ -120,6 +132,71 @@ def build_domain_geographic_context(
     ).to_domain_geographic_context()
 
 
+def _delineate(*, config: GeographicConfig, setup, routing_dem_path: str):
+    """Run flow products + catchment (breach->fill retry) + river network on one DEM.
+
+    Returns ``(flow, effective_dem_correc_type, river_network_products)``. Safe to call
+    twice per run: every step overwrites its fixed output rasters in place.
+    """
+    effective = str(config.dem_correc_type)
+    flow = build_regional_flow_products(
+        dem_init_path=routing_dem_path,
+        dem_out_dir_path=setup.paths.correcflow_path,
+        dem_correc_type=effective,
+        crs_project=setup.crs_project,
+    )
+    try:
+        build_standard_catchment(
+            config=config,
+            paths=setup.paths,
+            direc_path=flow.direc,
+            acc_path=flow.acc,
+            direc_data=flow.direc_data,
+            acc_data=flow.acc_data,
+            crs_project=setup.crs_project,
+        )
+    except ValueError as exc:
+        if not _should_retry_with_fill(config=config, error=exc):
+            raise
+        logger.warning(
+            "Catchment delineation returned an empty polygon with dem_correc_type='breach'; "
+            "retrying geographic preprocessing with dem_correc_type='fill'."
+        )
+        effective = "fill"
+        flow = build_regional_flow_products(
+            dem_init_path=routing_dem_path,
+            dem_out_dir_path=setup.paths.correcflow_path,
+            dem_correc_type=effective,
+            crs_project=setup.crs_project,
+        )
+        build_standard_catchment(
+            config=config,
+            paths=setup.paths,
+            direc_path=flow.direc,
+            acc_path=flow.acc,
+            direc_data=flow.direc_data,
+            acc_data=flow.acc_data,
+            crs_project=setup.crs_project,
+        )
+    products = build_river_network_products(
+        river_network=config.river_network,
+        dem_correc_path=flow.correc,
+        d8_pointer_path=flow.direc,
+        watershed_shp=setup.paths.watershed_shp,
+        geographic_dir=setup.paths.geographic_path,
+        correcflow_dir=setup.paths.correcflow_path,
+        dem_res_m=float(setup.dem_res),
+        streams_tif_path=setup.paths.river_streams_tif,
+        streams_pruned_tif_path=setup.paths.river_streams_pruned_tif,
+        stream_order_strahler_tif_path=setup.paths.river_stream_order_strahler_tif,
+        stream_link_id_tif_path=setup.paths.river_stream_link_id_tif,
+        network_shp_path=setup.paths.hydrographic_network_generated_shp,
+        summary_json_path=setup.paths.hydrographic_network_generated_summary_json,
+        network_crs=setup.crs_project,
+    )
+    return flow, effective, products
+
+
 def build_geographic_derived_features(
     *,
     config: GeographicConfig,
@@ -180,49 +257,42 @@ def build_geographic_derived_features(
     if config.buff_area is None:
         raise ValueError("geographic.buff_area is required")
 
-    effective_dem_correc_type = str(config.dem_correc_type)
-    flow = build_regional_flow_products(
-        dem_init_path=setup.dem_init_path,
-        dem_out_dir_path=setup.paths.correcflow_path,
-        dem_correc_type=effective_dem_correc_type,
-        crs_project=setup.crs_project,
+    # Routing DEM for delineation, conditioned in order: burn the observed stream
+    # network, then carve the lakes, then (in _delineate) fill or breach and D8. The
+    # model top (clip below) stays on the raw DEM, so neither step touches the
+    # aquifer geometry.
+    reference_area_km2 = catchment_area_without_burn(config=config, setup=setup)
+    routing_dem_path = routing_dem_from_config(
+        config, setup, dem_in_path=burned_dem_from_config(config, setup)
     )
 
-    try:
-        build_standard_catchment(
-            config=config,
-            paths=setup.paths,
-            direc_path=flow.direc,
-            acc_path=flow.acc,
-            direc_data=flow.direc_data,
-            acc_data=flow.acc_data,
-            crs_project=setup.crs_project,
-        )
-    except ValueError as exc:
-        if not _should_retry_with_fill(config=config, error=exc):
-            raise
-        logger.warning(
-            "Catchment delineation returned an empty polygon with dem_correc_type='breach'; "
-            "retrying geographic preprocessing with dem_correc_type='fill'."
-        )
-        effective_dem_correc_type = "fill"
-        flow = build_regional_flow_products(
-            dem_init_path=setup.dem_init_path,
-            dem_out_dir_path=setup.paths.correcflow_path,
-            dem_correc_type=effective_dem_correc_type,
-            crs_project=setup.crs_project,
-        )
-        build_standard_catchment(
-            config=config,
-            paths=setup.paths,
-            direc_path=flow.direc,
-            acc_path=flow.acc,
-            direc_data=flow.direc_data,
-            acc_data=flow.acc_data,
-            crs_project=setup.crs_project,
+    flow, effective_dem_correc_type, generated_hydrographic_network_products = _delineate(
+        config=config, setup=setup, routing_dem_path=routing_dem_path
+    )
+
+    # Second pass: carve near-miss streams (dead-ending over a flat forebay short of a
+    # lake) into the routing DEM and re-delineate so their channels reach the shoreline.
+    captured_dem = capture_from_config(
+        config,
+        setup,
+        flow_direc=flow.direc,
+        link_id_tif=getattr(
+            generated_hydrographic_network_products, "stream_link_id_full_tif", None
+        ),
+        dem_in_path=routing_dem_path,
+    )
+    if captured_dem is not None:
+        flow, effective_dem_correc_type, generated_hydrographic_network_products = _delineate(
+            config=config, setup=setup, routing_dem_path=captured_dem
         )
 
     catchment_area_km2 = compute_catchment_area_km2(setup.paths.watershed_shp)
+    check_catchment_area_drift(
+        config=config,
+        reference_area_km2=reference_area_km2,
+        burned_area_km2=float(catchment_area_km2),
+    )
+    report_network_dem_agreement(config, setup, d8_pointer_path=flow.direc)
 
     build_standard_domain_polygons(
         config=config,
@@ -237,23 +307,6 @@ def build_geographic_derived_features(
         output_dem_path=setup.paths.watershed_box_buff_dem,
         crs_project=setup.crs_project,
         nodata=-9999.0,
-    )
-
-    generated_hydrographic_network_products = build_river_network_products(
-        river_network=config.river_network,
-        dem_correc_path=flow.correc,
-        d8_pointer_path=flow.direc,
-        watershed_shp=setup.paths.watershed_shp,
-        geographic_dir=setup.paths.geographic_path,
-        correcflow_dir=setup.paths.correcflow_path,
-        dem_res_m=float(setup.dem_res),
-        streams_tif_path=setup.paths.river_streams_tif,
-        streams_pruned_tif_path=setup.paths.river_streams_pruned_tif,
-        stream_order_strahler_tif_path=setup.paths.river_stream_order_strahler_tif,
-        stream_link_id_tif_path=setup.paths.river_stream_link_id_tif,
-        network_shp_path=setup.paths.hydrographic_network_generated_shp,
-        summary_json_path=setup.paths.hydrographic_network_generated_summary_json,
-        network_crs=setup.crs_project,
     )
 
     surface_topo = build_surface_topo_from_dem(setup.paths.watershed_box_buff_dem)

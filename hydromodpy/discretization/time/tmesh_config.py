@@ -35,6 +35,18 @@ class TMeshConfig(HydroModelBase):
             "Temporal generation method. In launcher mode stress periods come from "
             "[simulation.time], so this field is mirrored only for compatibility."
         ),
+        json_schema_extra={
+            "value_docs": {
+                "synthetic_regular": (
+                    "Builds nper stress periods from lenper and itmuni, ignoring "
+                    "any chronicle file."
+                ),
+                "from_chron": (
+                    "Derives stress-period lengths from consecutive timestamps "
+                    "in the chronicle file at chron_path."
+                ),
+            }
+        },
     )
     nper: Annotated[PositiveInt, Profile.USER] = Field(
         default=1,

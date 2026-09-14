@@ -128,3 +128,16 @@ Provider replay
    The intermittency part of the Hub'Eau replay shows categorical state values,
    not a continuous hydrological flux. That distinction should be visible
    before ONDE-style data are compared with a simulated active network.
+
+See also
+--------
+
+The simulated active network these states are compared against has a dedicated
+calibration output: set ``support = "network"`` in
+:doc:`/user_guide/config_reference/calibration` to score a simulated ``release_flux``
+field against a mapped stream network, the same active-network comparison this page's
+local run and Hub'Eau replay show qualitatively. :ref:`observation.points
+<observation-points>` remains the way to sample point-based variables when the
+comparison is not network-wide. :doc:`/user_guide/workflows/calibration` documents the
+full campaign. The other observation families are :doc:`hydrometry`, :doc:`piezometry`,
+and :doc:`water-quality`.

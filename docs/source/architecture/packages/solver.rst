@@ -26,7 +26,13 @@ Sub-modules
 - ``solver/modflow6/`` -- FloPy-backed MODFLOW 6 wrapper. Flow
   through ``adapters/flow.py``, transport through
   ``adapters/transport.py``, output extraction through
-  ``extractors/``.
+  ``extractors/``. Advanced packages are built by dedicated builder
+  modules: ``builders/lake.py`` (LAK) and ``builders/sfr.py`` (SFR)
+  are mutually independent and couple only through the
+  package-agnostic ``builders/mvr.py`` water-mover records that
+  ``build.py`` instantiates last. The SFR builder consumes the reach
+  trace delineated in ``spatial`` (a legal ``solver -> spatial``
+  edge) and never imports the lake builder.
 - ``solver/modflow_nwt/`` -- legacy MODFLOW-NWT wrapper plus
   Modpath / MT3DMS transport adapters.
 - ``calibration/lumped/`` -- GR4J adapter and extractor. This lives
@@ -57,7 +63,7 @@ Every solver implements ``SolverAdapter`` from
        def validate(self, ctx) -> None: ...
        def execute(self, ctx) -> RunExecutionResult: ...
        def cleanup(self, ctx) -> None: ...
-       def extract_calibration_series(self, ctx, store, *, variable, ...) -> "pd.Series": ...
+       def extract_observables(self, ctx, store, requests, *, time_index=None) -> "dict[str, ObservableResult]": ...
 
 Output adapters implement the dual contract:
 
@@ -88,7 +94,7 @@ queryable through ``capabilities(process_type, solver_name)``.
 Key public symbols
 ------------------
 
-- ``hydromodpy.solver.base.protocol.SolverAdapter``
+- ``hydromodpy.solver.base.adapter_protocol.SolverAdapter``
 - ``hydromodpy.solver.base.registry.{register, get, get_solver_adapter,
   register_extractor, get_extractor, list_pairs, capabilities,
   required_bindings, load_plugins}``
@@ -103,7 +109,7 @@ Key public symbols
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/solver/base/protocol.py`` and ``registry.py``.
+1. ``hydromodpy/solver/base/adapter_protocol.py`` and ``registry.py``.
 2. ``hydromodpy/solver/modflow6/adapters/flow.py`` for a concrete
    adapter.
 3. ``hydromodpy/solver/modflow_common/flow_adapter_helpers.py`` for

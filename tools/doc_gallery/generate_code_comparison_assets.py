@@ -499,6 +499,7 @@ def _write_variant_summary(
     output_json.write_text(
         __import__("json").dumps(payload, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
 
 

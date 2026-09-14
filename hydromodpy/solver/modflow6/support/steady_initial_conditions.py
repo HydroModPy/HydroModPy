@@ -1,0 +1,306 @@
+"""Same-solver steady-state initial-condition support for MODFLOW 6."""
+
+from __future__ import annotations
+
+import re
+import warnings
+from pathlib import Path
+
+import flopy
+import numpy as np
+
+from hydromodpy.core import progress
+from hydromodpy.core.time.steady_initialization import (
+    single_period_mean_forcing_time_grid,
+)
+from hydromodpy.solver.modflow_common import ModflowPreprocessOptions, ModflowRunOptions
+from hydromodpy.solver.steady_initial_conditions import (
+    cycles_have_settled,
+    cyclic_flow_copy_for_initialization,
+    cyclic_spinup_strategy,
+    flow_uses_cyclic_spinup,
+    flow_uses_steady_state_initial_condition,
+    steady_flow_copy_for_initialization,
+)
+
+_STEADY_INIT_DVCLOSE_MIN = 1e-3
+_STEADY_INIT_MAXIMUM_MIN = 1000
+_STEADY_INIT_PERCENT_DISCREPANCY_TOL = 0.1
+_PERCENT_DISCREPANCY_RE = re.compile(r"PERCENT\s+DISCREPANCY\s*=\s*([-+0-9.Ee]+)")
+
+
+def _modflow_config_for_steady_initialization(model: object) -> object:
+    config = getattr(model, "modflow_config", None)
+    runtime = getattr(config, "runtime", None)
+    if config is None or runtime is None:
+        return config
+    if not hasattr(config, "model_copy") or not hasattr(runtime, "model_copy"):
+        return config
+    # The auxiliary steady solve only materializes an initial condition. A
+    # millimetric closure avoids rejecting physically balanced starts that do
+    # not satisfy the stricter transient-run tolerance.
+    runtime_copy = runtime.model_copy(
+        update={
+            "mf6_executable_name": str(model.exe),
+            "mf6_outer_dvclose": max(
+                float(getattr(runtime, "mf6_outer_dvclose", _STEADY_INIT_DVCLOSE_MIN)),
+                _STEADY_INIT_DVCLOSE_MIN,
+            ),
+            "mf6_inner_dvclose": max(
+                float(getattr(runtime, "mf6_inner_dvclose", _STEADY_INIT_DVCLOSE_MIN)),
+                _STEADY_INIT_DVCLOSE_MIN,
+            ),
+            "mf6_outer_maximum": max(
+                int(getattr(runtime, "mf6_outer_maximum", _STEADY_INIT_MAXIMUM_MIN)),
+                _STEADY_INIT_MAXIMUM_MIN,
+            ),
+            "mf6_inner_maximum": max(
+                int(getattr(runtime, "mf6_inner_maximum", _STEADY_INIT_MAXIMUM_MIN)),
+                _STEADY_INIT_MAXIMUM_MIN,
+            ),
+            "mf6_newton": True,
+            "mf6_newton_under_relaxation": True,
+            # The auxiliary solve forces Newton, which MF6 forbids with NPF
+            # rewetting. Disable rewet here so a user-valid newton=False +
+            # rewet=True transient config does not trip the NEWTON+REWET guard
+            # during steady spin-up.
+            "mf6_enable_rewet": False,
+            # Forcing Newton also makes the Jacobian non-symmetric, so a
+            # user-valid newton=False + linear_acceleration='CG' config must not
+            # inherit CG here (it would trip the NEWTON+CG guard). Force BICGSTAB.
+            "mf6_linear_acceleration": "BICGSTAB",
+        }
+    )
+    return config.model_copy(update={"runtime": runtime_copy})
+
+
+def _read_final_head(head_path: Path, *, nlay: int, ncpl: int) -> np.ndarray:
+    head_file = flopy.utils.HeadFile(str(head_path))
+    try:
+        times = head_file.get_times()
+        if not times:
+            raise RuntimeError(f"No head times were written by steady initialization: {head_path}")
+        raw = np.asarray(head_file.get_data(totim=times[-1]), dtype=float)
+    finally:
+        head_file.close()
+
+    if raw.ndim == 3:
+        raw = raw.reshape(int(nlay), -1)
+    elif raw.ndim == 2:
+        raw = raw.reshape(int(nlay), -1)
+    else:
+        raise ValueError(
+            f"Steady initialization head array must be 2D or 3D; got shape {raw.shape}."
+        )
+    if raw.shape != (int(nlay), int(ncpl)):
+        raise ValueError(
+            "Steady initialization head array shape mismatch: "
+            f"{raw.shape} vs expected {(int(nlay), int(ncpl))}."
+        )
+    return np.asarray(raw, dtype=float)
+
+
+def _read_final_percent_discrepancy(list_path: Path) -> float | None:
+    if not list_path.is_file():
+        return None
+    last_value: float | None = None
+    for line in list_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        match = _PERCENT_DISCREPANCY_RE.search(line)
+        if match is None:
+            continue
+        try:
+            last_value = float(match.group(1))
+        except ValueError:
+            continue
+    return last_value
+
+
+def _steady_initialization_balance_is_acceptable(list_path: Path) -> bool:
+    discrepancy = _read_final_percent_discrepancy(list_path)
+    return discrepancy is not None and abs(discrepancy) <= _STEADY_INIT_PERCENT_DISCREPANCY_TOL
+
+
+def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) -> np.ndarray:
+    """Run one auxiliary steady MF6 model and return heads for the transient IC."""
+    # Keep the auxiliary workspace short. On Windows, MF6 still fails on long
+    # nested paths when writing DISV binary grid files.
+    init_root = Path(str(model.full_path)) / "_ssic"
+    init_name = "ssic"
+    steady_model = model.__class__(
+        geographic=model.geographic,
+        modflow_config=_modflow_config_for_steady_initialization(model),
+        model_folder=str(init_root),
+        model_name=init_name,
+        preprocess_options=ModflowPreprocessOptions(
+            box=bool(getattr(model.preprocess_options, "box", True)),
+            sink_fill=bool(getattr(model.preprocess_options, "sink_fill", False)),
+            drain_band_depth_m=float(getattr(model.preprocess_options, "drain_band_depth_m", 0.0)),
+            drain_bed_thickness_m=float(
+                getattr(model.preprocess_options, "drain_bed_thickness_m", 1.0)
+            ),
+            drain_conductance_floor_m2_s=float(
+                getattr(model.preprocess_options, "drain_conductance_floor_m2_s", 1e-12)
+            ),
+            check_grid=bool(getattr(model.preprocess_options, "check_grid", True)),
+            time_grid=single_period_mean_forcing_time_grid(getattr(model, "time_grid", None)),
+        ),
+    )
+    steady_model.pre_processing(
+        flow=steady_flow_copy_for_initialization(model.flow),
+        domain=model.domain,
+        mesh_planar=getattr(model, "runtime_mesh_planar", None),
+        mesh_support=getattr(model, "runtime_mesh_support", None),
+        flow_runtime_overrides=getattr(model, "_flow_runtime_overrides", None),
+    )
+    # Auxiliary single-period solve: keep it out of the live display.
+    with progress.suppressed():
+        success = steady_model.processing(
+            ModflowRunOptions(write_model=True, run_model=True, verbose=bool(verbose))
+        )
+
+    output_name = str(getattr(steady_model, "model_output_name", steady_model.model_name))
+    head_path = Path(str(steady_model.full_path)) / f"{output_name}.hds"
+    list_path = Path(str(steady_model.full_path)) / f"{output_name}.lst"
+    if not success:
+        if not _steady_initialization_balance_is_acceptable(list_path):
+            raise RuntimeError("MODFLOW 6 steady-state initial-condition solve failed.")
+        warnings.warn(
+            "MODFLOW 6 steady-state initial-condition solve did not satisfy "
+            "solver convergence, but the final water budget is closed; using "
+            "the final balanced heads as transient initial conditions.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    head = _read_final_head(head_path, nlay=int(model.nlay), ncpl=int(model.ncpl))
+    artifact_path = Path(str(model.full_path)) / "_steady_state_initial_conditions.npz"
+    artifact_path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(
+        artifact_path,
+        head_m=head,
+        solver=np.asarray(["modflow6"]),
+        source=np.asarray(["flow.ic.steady_state"]),
+    )
+    return head
+
+
+def _preprocess_options_like(model: object, *, time_grid: object) -> ModflowPreprocessOptions:
+    """Return the run's own preprocess options with one time grid substituted.
+
+    The steady path and the cyclic one build an auxiliary model that has to mesh and
+    burn exactly as the real one does; only the time grid differs, a single averaged
+    period for the first and the run's own periods for the second.
+    """
+    options = model.preprocess_options
+    return ModflowPreprocessOptions(
+        box=bool(getattr(options, "box", True)),
+        sink_fill=bool(getattr(options, "sink_fill", False)),
+        drain_band_depth_m=float(getattr(options, "drain_band_depth_m", 0.0)),
+        drain_bed_thickness_m=float(getattr(options, "drain_bed_thickness_m", 1.0)),
+        drain_conductance_floor_m2_s=float(getattr(options, "drain_conductance_floor_m2_s", 1e-12)),
+        check_grid=bool(getattr(options, "check_grid", True)),
+        time_grid=time_grid,
+    )
+
+
+def run_modflow6_cyclic_spinup(model: object, *, verbose: bool) -> tuple[np.ndarray, int, bool]:
+    """Repeat the run's own period until its head field stops moving.
+
+    Returns the last cycle's heads, how many cycles ran, and whether the loop
+    settled. A loop that ran out of cycles still returns its last state, and the
+    caller says so: chaining a production run from a state that did not settle is
+    reported rather than assumed, the same rule ``hmp spinup`` already follows.
+
+    Each cycle is an auxiliary model in its own folder, built exactly as the steady
+    initialization is, so this works inside a lightweight calibration trial: the
+    cycles never touch the run's store.
+    """
+    strategy = cyclic_spinup_strategy(getattr(model, "flow", None))
+    if strategy is None:
+        raise ValueError("run_modflow6_cyclic_spinup called on a flow that does not ask for it")
+
+    seed: np.ndarray | None = None
+    if strategy.first_cycle_from == "steady_state":
+        seed = run_modflow6_steady_state_initialization(model, verbose=verbose)
+
+    previous: np.ndarray | None = None
+    head: np.ndarray | None = None
+    settled = False
+    cycles = 0
+    for cycle in range(int(strategy.max_cycles)):
+        head = _run_one_spinup_cycle(model, cycle=cycle, seed=seed, verbose=verbose)
+        cycles = cycle + 1
+        if cycles_have_settled(previous, head, tol_head_m=strategy.tol_head_m):
+            settled = True
+            break
+        previous = head
+        seed = head
+    assert head is not None  # max_cycles >= 1, so the loop body ran
+    return head, cycles, settled
+
+
+def _run_one_spinup_cycle(
+    model: object, *, cycle: int, seed: np.ndarray | None, verbose: bool
+) -> np.ndarray:
+    """Run one cycle over the run's own period and return the heads it ended on."""
+    init_root = Path(str(model.full_path)) / f"_cyc{cycle}"
+    init_name = f"cyc{cycle}"
+    cycle_model = model.__class__(
+        geographic=model.geographic,
+        modflow_config=_modflow_config_for_steady_initialization(model),
+        model_folder=str(init_root),
+        model_name=init_name,
+        preprocess_options=_preprocess_options_like(
+            model, time_grid=getattr(model, "time_grid", None)
+        ),
+    )
+    cycle_model.pre_processing(
+        flow=cyclic_flow_copy_for_initialization(model.flow),
+        domain=model.domain,
+        mesh_planar=getattr(model, "runtime_mesh_planar", None),
+        mesh_support=getattr(model, "runtime_mesh_support", None),
+        flow_runtime_overrides=getattr(model, "_flow_runtime_overrides", None),
+    )
+    if seed is not None:
+        # The cycle starts where the previous one ended. Setting strt after the
+        # packages are built is the same injection the steady path already makes.
+        cycle_model.ic.strt.set_data(
+            np.asarray(seed, dtype=float).reshape(int(model.nlay), int(model.ncpl))
+        )
+    with progress.suppressed():
+        success = cycle_model.processing(
+            ModflowRunOptions(write_model=True, run_model=True, verbose=bool(verbose))
+        )
+    output_name = str(getattr(cycle_model, "model_output_name", cycle_model.model_name))
+    head_path = Path(str(cycle_model.full_path)) / f"{output_name}.hds"
+    list_path = Path(str(cycle_model.full_path)) / f"{output_name}.lst"
+    if not success and not _steady_initialization_balance_is_acceptable(list_path):
+        raise RuntimeError(
+            f"MODFLOW 6 spin-up cycle {cycle} failed to converge and its water budget does "
+            "not close, so its final heads are not a state to start anything from."
+        )
+    return _read_final_head(head_path, nlay=int(model.nlay), ncpl=int(model.ncpl))
+
+
+def apply_modflow6_cyclic_spinup_heads(model: object, head_m: np.ndarray) -> None:
+    """Inject the last cycle's heads into the already-built MF6 IC package."""
+    head = np.asarray(head_m, dtype=float).reshape(int(model.nlay), int(model.ncpl))
+    model.ic.strt.set_data(head)
+    model._cyclic_spinup_initial_heads_m = head.copy()
+
+
+def apply_modflow6_steady_state_initial_heads(model: object, head_m: np.ndarray) -> None:
+    """Inject materialized steady heads into the already-built MF6 IC package."""
+    head = np.asarray(head_m, dtype=float).reshape(int(model.nlay), int(model.ncpl))
+    model.ic.strt.set_data(head)
+    model._steady_state_initial_heads_m = head.copy()
+    model._steady_state_initialization_solver = "modflow6"
+
+
+__all__ = [
+    "apply_modflow6_cyclic_spinup_heads",
+    "apply_modflow6_steady_state_initial_heads",
+    "flow_uses_cyclic_spinup",
+    "flow_uses_steady_state_initial_condition",
+    "run_modflow6_cyclic_spinup",
+    "run_modflow6_steady_state_initialization",
+]

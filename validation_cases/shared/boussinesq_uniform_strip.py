@@ -51,39 +51,23 @@ def build_flow_config(
     sequence_boundary_values: dict[str, list[float]] = {}
     raw_bc = merged_flow.get("bc")
     if isinstance(raw_bc, dict):
-        dirichlet = raw_bc.get("dirichlet")
-        if isinstance(dirichlet, dict):
-            for bc_id, payload in dirichlet.items():
-                if not isinstance(payload, dict):
-                    continue
-                raw_value = payload.get("value")
-                if isinstance(raw_value, (list, tuple, np.ndarray)):
-                    values = [
-                        float(item) for item in np.asarray(raw_value, dtype=float).reshape(-1)
-                    ]
-                    sequence_boundary_values[str(bc_id)] = values
         for bc_id, payload in raw_bc.items():
-            if bc_id in {"dirichlet", "cauchy", "robin"} or not isinstance(payload, dict):
+            if not isinstance(payload, dict):
                 continue
             raw_value = payload.get("value")
             if isinstance(raw_value, (list, tuple, np.ndarray)):
                 values = [float(item) for item in np.asarray(raw_value, dtype=float).reshape(-1)]
                 sequence_boundary_values[str(bc_id)] = values
 
+    # FlowConfig takes one scalar head per boundary, so a time series is handed
+    # to it as its first value and restored on the built config below.
     validation_flow = dict(merged_flow)
     if sequence_boundary_values and isinstance(raw_bc, dict):
         validation_bc = dict(raw_bc)
-        validation_dirichlet = dict(validation_bc.get("dirichlet", {}))
         for bc_id, values in sequence_boundary_values.items():
-            if bc_id in validation_dirichlet and isinstance(validation_dirichlet[bc_id], dict):
-                payload = dict(validation_dirichlet[bc_id])
-                payload["value"] = float(values[0])
-                validation_dirichlet[bc_id] = payload
-            elif bc_id in validation_bc and isinstance(validation_bc[bc_id], dict):
-                payload = dict(validation_bc[bc_id])
-                payload["value"] = float(values[0])
-                validation_bc[bc_id] = payload
-        validation_bc["dirichlet"] = validation_dirichlet
+            payload = validation_bc.get(bc_id)
+            if isinstance(payload, dict):
+                validation_bc[bc_id] = {**payload, "value": float(values[0])}
         validation_flow["bc"] = validation_bc
 
     config = FlowConfig.from_toml_section(validation_flow, base_dir=base_dir)

@@ -124,7 +124,8 @@ nlay = 1
 firstpersteady = false
 
 # MODFLOW 6 drainage boundary-condition override.
-[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+
+[comparison.simulation.overlay.flow.bc.drainage]
 # Use a shared top-drain conductance so MF6 and Boussinesq compare the same
 # surface-exchange physics.
 value = "0.1 m2/s"
@@ -132,6 +133,7 @@ value = "0.1 m2/s"
 description = "Shared top-drain conductance used by MF6 and Boussinesq."
 
 # Second child simulation: Boussinesq PETSc SNESVI candidate.
+kind = "cauchy"
 [[comparison.simulation]]
 # Stable child identifier.
 id = "bouss_candidate"
@@ -158,13 +160,15 @@ vi_substep_on_failure = true
 vi_max_adaptive_substeps = 32
 
 # Boussinesq drainage boundary-condition override.
-[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+
+[comparison.simulation.overlay.flow.bc.drainage]
 # Use the same top-drain conductance as the MF6 reference.
 value = "0.1 m2/s"
 # Human-readable note carried into generated child TOMLs.
 description = "Shared top-drain conductance used by MF6 and Boussinesq; the VI upper obstacle is relaxed by the positive drainage conductance."
 
 # Initial hydraulic-head map comparison.
+kind = "cauchy"
 [[comparison.observable]]
 # Observable identifier used in metrics, differences and figures.
 name = "head_map_first_computed"

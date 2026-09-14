@@ -1,55 +1,22 @@
+"""Unit tests for the field visual review launcher.
+
+The registry API it shares with the other ``cases/review_cases.py`` modules
+is asserted once in ``tests/contract/test_case_review_contract.py``. Only the
+field-specific demo runner is tested here.
+"""
+
 from __future__ import annotations
 
 import shutil
 from pathlib import Path
 
-import pytest
-
-from hydromodpy.spatial.field.cases import review_cases
 from hydromodpy.spatial.field.cases.square import FieldMeshSquare, FieldSquare
 from hydromodpy.spatial.field.cases.square.run_field_demo import run_field_demo_case
 from hydromodpy.spatial.field.core.field_param import FieldParam
 
 
-def test_run_case_reviews_uses_registry_order_for_selected_cases(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    calls: list[str] = []
-    messages: list[str] = []
-
-    def _runner(name: str):
-        def _call() -> dict[str, str]:
-            calls.append(name)
-            return {"name": name}
-
-        return _call
-
-    monkeypatch.setattr(
-        review_cases,
-        "CASE_REVIEW_SPECS",
-        (
-            review_cases.CaseReviewSpec("case_b", "Second case.", _runner("case_b")),
-            review_cases.CaseReviewSpec("case_a", "First selected case.", _runner("case_a")),
-            review_cases.CaseReviewSpec("case_c", "Third selected case.", _runner("case_c")),
-        ),
-    )
-
-    selected = review_cases.run_case_reviews(
-        ["case_c", "case_a"],
-        printer=messages.append,
-    )
-
-    assert [spec.name for spec in selected] == ["case_a", "case_c"]
-    assert calls == ["case_a", "case_c"]
-    assert any("Close the figure window(s)" in message for message in messages)
-
-
-def test_resolve_case_review_specs_rejects_unknown_case() -> None:
-    with pytest.raises(ValueError, match="unknown_case"):
-        review_cases.resolve_case_review_specs(["unknown_case"])
-
-
 def test_run_field_demo_case_writes_output_without_show() -> None:
+    """The demo case must write its figure even with show_plot disabled."""
     field_param = FieldParam.from_dict(
         {
             "id": "K",

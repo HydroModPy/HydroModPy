@@ -16,8 +16,8 @@ from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
+    from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.simulation.planning.plan import SimulationPlan
-    from hydromodpy.workflow.context import WorkflowContext
 
 logger = get_logger(__name__)
 
@@ -67,6 +67,9 @@ def collect_registration_kwargs(ctx: WorkflowContext) -> dict:
             value = getattr(sim_cfg, field_name, None)
             if value is not None and value != "":
                 kwargs[field_name] = value
+        tags = getattr(sim_cfg, "tags", None)
+        if tags:
+            kwargs["tags"] = list(tags)
 
     mesh = ctx.setup.mesh_planar
     if mesh is not None:
@@ -139,7 +142,7 @@ def _store_sim_artifacts(ctx: WorkflowContext, sim_id: str) -> tuple[str, ...]:
         return ()
     found: list[str] = []
     try:
-        zarr_path = store.zarr_path_for(sim_id)
+        zarr_path = store.fields_path_for(sim_id)
     except Exception:
         zarr_path = None
     if zarr_path is not None and zarr_path.exists():
@@ -147,7 +150,7 @@ def _store_sim_artifacts(ctx: WorkflowContext, sim_id: str) -> tuple[str, ...]:
         if rel is not None:
             found.append(rel)
     try:
-        parquet_dir = store.parquet_dir_for(sim_id)
+        parquet_dir = store.tables_dir_for(sim_id)
     except Exception:
         parquet_dir = None
     if parquet_dir is not None and parquet_dir.exists():

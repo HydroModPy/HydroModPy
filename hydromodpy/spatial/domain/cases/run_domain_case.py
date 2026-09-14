@@ -34,6 +34,7 @@ if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.spatial.domain import Domain
+from hydromodpy.spatial.domain.zone_arming import arm_runtime_zone_ids
 from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
     DomainGeographicContext,
     build_domain_geographic_context,
@@ -123,8 +124,8 @@ def run_domain_case_from_toml(
     config_toml:
         Path to the HydroModPy configuration file.
     build_geology:
-        If ``True``, attempt to build and attach the ``geology`` zone when
-        ``domain.zone_ids`` or ``domain.supports`` declare a geology-backed zone.
+        Kept for the CLI surface. Geology is attached by the data-loading step,
+        so this script only reports why it holds no geology zone.
 
     Returns
     -------
@@ -154,17 +155,7 @@ def run_domain_case_from_toml(
 
     # 2) Build the domain from prepared topography support.
     surface_topo = geographic_context.surface_topo
-    domain_cfg = cfg.domain.model_copy(deep=True)
-    if "catchment" not in domain_cfg.zone_ids:
-        domain_cfg.zone_ids.append("catchment")
-    geology_requested = "geology" in {
-        str(zone_id).strip().lower() for zone_id in domain_cfg.zone_ids
-    } or any(
-        str(getattr(support_cfg, "kind", "")).strip().lower() == "geology"
-        for support_cfg in getattr(domain_cfg, "supports", {}).values()
-    )
-    if geology_requested and "geology" not in domain_cfg.zone_ids:
-        domain_cfg.zone_ids.append("geology")
+    domain_cfg = arm_runtime_zone_ids(cfg.domain.model_copy(deep=True))
     domain = Domain(
         config=domain_cfg,
         surface_topo=surface_topo,
@@ -174,21 +165,16 @@ def run_domain_case_from_toml(
         domain.set_zone("catchment", catchment_zone_field)
         catchment_zone_loaded = True
 
-    # 3) Optionally attach the geology zone if requested and configured.
+    # 3) Geology is not attached here. Building a GeologyField needs the data
+    # manager's FieldRecord, which only the data-loading step produces; the
+    # branch that used to stand here called a constructor that does not exist.
     geology_loaded = False
     geology_reason: str | None = None
-    if build_geology and geology_requested:
-        if cfg.data.geology is None:
-            geology_reason = "Geology-backed domain declarations require [data.geology]"
-        else:
-            from hydromodpy.spatial.field.geology.geology_field import GeologyField
-
-            geology = GeologyField.from_watershed_config(
-                cfg.data.geology,
-                raster_support=surface_topo.support,
-            )
-            domain.set_zone("geology", geology)
-            geology_loaded = True
+    if build_geology:
+        geology_reason = (
+            "Geology is attached by the data-loading step, not by this case script. "
+            "Run the project through 'hmp run' to get the geology zone."
+        )
 
     # 4) Return a small summary payload used by CLI logs/tests.
     summary = {

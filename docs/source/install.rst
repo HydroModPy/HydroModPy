@@ -181,7 +181,7 @@ them inside one ``pip install`` command, for example
      - ``ruff`` and ``pre-commit`` for linting and Git hooks.
        Contributor-only.
    * - ``[docs]``
-     - Sphinx, the PyData theme, ``myst-parser``, ``nbsphinx``, plus
+     - Sphinx, the PyData theme, ``myst-parser``, plus
        the extensions used to build this documentation. Pure wheels,
        no system Graphviz needed. Contributor-only.
    * - ``[docs-uml]``

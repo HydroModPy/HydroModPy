@@ -9,7 +9,7 @@ data_dir = "../../outputs/boussinesq_synthetic_heterogeneous/data_cache"
 [simulation]
 name = "synthetic_patchy_mf6_bouss_shared_case"
 description = "Shared synthetic patchy 2D recharge-response case for MF6 versus Boussinesq comparison."
-on_collision = "replace"
+if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2020-09-01"
@@ -56,8 +56,6 @@ base_elevation = 20.0
 right_to_left_amplitude = 20.0
 
 [domain]
-zone_ids = ["geology"]
-
 [domain.supports.field_geology]
 kind = "geology"
 
@@ -144,8 +142,7 @@ source = "mean_recharge"
 recharge_statistic = "time_mean"
 boundary_condition_policy = "first_period"
 
-[flow.bc.cauchy.drainage]
-id = "drainage"
+[flow.bc.drainage]
 kind = "cauchy"
 application_domain = "top"
 description = "Synthetic top drainage without imposed lateral head."

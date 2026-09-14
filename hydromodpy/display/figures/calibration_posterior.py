@@ -4,31 +4,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._trial_diagnostics import trial_table
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure as MplFigure
 
     from hydromodpy.results.run import Run
-
-
-_META_COLUMNS = frozenset(
-    {
-        "iter",
-        "iteration",
-        "i",
-        "session_id",
-        "sim_id",
-        "params_hash",
-        "status",
-        "from_cache",
-        "duration_s",
-        "metrics",
-        "parameters",
-    }
-)
 
 
 @register
@@ -66,7 +50,7 @@ class CalibrationPosteriorFigure(BaseFigure):
         sim: Run,
         *,
         parameters: list[str] | None = None,
-        objective: str = "objective",
+        objective: str | None = None,
         session_id: str | None = None,
         bins: int = 20,
         cmap: str = "viridis",
@@ -77,32 +61,30 @@ class CalibrationPosteriorFigure(BaseFigure):
     ) -> MplFigure:
         import matplotlib.pyplot as plt
         import numpy as np
-        import pandas as pd
         from matplotlib import cm
         from matplotlib.colors import Normalize
 
-        iters = getattr(sim, "calibration_iterations", None)
-        if iters is None:
-            raise ValueError("calibration_posterior: simulation has no calibration_iterations")
-        df = pd.DataFrame(iters)
-        if session_id is not None and "session_id" in df.columns:
-            df = df[df["session_id"].astype(str) == str(session_id)]
-        if len(df) == 0:
-            raise ValueError("calibration_posterior: no iteration rows available")
+        table = trial_table(sim, session_id=session_id)
+        names = list(parameters) if parameters is not None else list(table.parameters)
+        if not names:
+            raise ValueError(
+                "calibration_posterior: no parameter columns found; the session recorded "
+                f"{', '.join(sorted(table.frame.columns))}"
+            )
+        sampled = [table.parameter_values(name) for name in names]
 
-        if parameters is None:
-            parameters = [c for c in df.columns if c not in _META_COLUMNS and c != objective]
-        if not parameters:
-            raise ValueError("calibration_posterior: no parameter columns found")
-
-        obj = df[objective].to_numpy(dtype=float) if objective in df.columns else None
+        objective_name, obj = (
+            table.objective_values(objective)
+            if objective is not None or table.has_objective()
+            else (None, None)
+        )
         norm = None
         colormap = plt.get_cmap(cmap)
         if obj is not None and np.any(np.isfinite(obj)):
             finite = obj[np.isfinite(obj)]
             norm = Normalize(vmin=float(finite.min()), vmax=float(finite.max()))
 
-        n = len(parameters)
+        n = len(sampled)
         ncols = min(3, n)
         nrows = (n + ncols - 1) // ncols
         fig, axes = plt.subplots(
@@ -113,8 +95,7 @@ class CalibrationPosteriorFigure(BaseFigure):
             constrained_layout=True,
         )
         axes = np.atleast_1d(axes).ravel()
-        for ax, name in zip(axes, parameters, strict=False):
-            values = df[name].to_numpy(dtype=float)
+        for ax, (name, values) in zip(axes, sampled, strict=False):
             counts, edges, patches = ax.hist(
                 values, bins=bins, color="steelblue", edgecolor="white", linewidth=0.5
             )
@@ -132,7 +113,7 @@ class CalibrationPosteriorFigure(BaseFigure):
             fig.colorbar(
                 cm.ScalarMappable(norm=norm, cmap=colormap),
                 ax=axes.tolist(),
-                label=f"mean {objective}",
+                label=f"mean {objective_name}",
                 shrink=0.7,
             )
         fig.suptitle(f"Parameter posteriors - {sim.name or sim.sim_id}")

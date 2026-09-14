@@ -31,7 +31,8 @@ type = "steady_state"
 first_clim = "first"
 negative_to_evt = true
 
-[flow.bc.cauchy.drainage]
+[flow.bc.drainage]
+kind = "cauchy"
 value = "0.2 m2/s"
 """
 
@@ -359,7 +360,8 @@ type = "steady_state"
 first_clim = "first"
 negative_to_evt = true
 
-[flow.bc.cauchy.drainage]
+[flow.bc.drainage]
+kind = "cauchy"
 value = "0.2 m2/s"
 """,
         encoding="utf-8",
@@ -370,7 +372,8 @@ value = "0.2 m2/s"
 flow_regime = "transient"
 active_bc = ["drainage"]
 
-[flow.bc.cauchy.drainage]
+[flow.bc.drainage]
+kind = "cauchy"
 value = "0.2 m2/s"
 """,
         encoding="utf-8",
@@ -383,7 +386,8 @@ runtime_backend = "petsc"
 surface_interaction_model = "ts_vi_obstacle"
 active_bc = ["drainage"]
 
-[flow.bc.cauchy.drainage]
+[flow.bc.drainage]
+kind = "cauchy"
 value = "0.0 m2/s"
 """,
         encoding="utf-8",

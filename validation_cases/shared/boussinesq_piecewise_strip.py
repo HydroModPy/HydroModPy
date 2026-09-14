@@ -436,7 +436,6 @@ def write_piecewise_strip_launcher_config(
         "[simulation]",
         f"name = {json.dumps(str(simulation_name))}",
         f"description = {json.dumps(str(simulation_description))}",
-        f"run_id = {json.dumps(str(run_id))}",
         "",
         "[simulation.time]",
         'start_datetime = "2000-01-01 00:00:00"',
@@ -467,8 +466,7 @@ def write_piecewise_strip_launcher_config(
         lines.extend(
             [
                 "",
-                "[flow.bc.dirichlet.west_side]",
-                'kind = "dirichlet"',
+                "[flow.bc.west_side]",
                 f"value = {float(west_head_m):.12g}",
             ]
         )
@@ -476,8 +474,7 @@ def write_piecewise_strip_launcher_config(
         lines.extend(
             [
                 "",
-                "[flow.bc.dirichlet.east_side]",
-                'kind = "dirichlet"',
+                "[flow.bc.east_side]",
                 f"value = {float(east_head_m):.12g}",
             ]
         )
@@ -576,7 +573,7 @@ def run_piecewise_strip_boussinesq_launcher_case(
     store, sim_id = _discover_result_store(out_path)
     if store is None or sim_id is None:
         raise AssertionError(
-            f"hmp run did not produce a SimulationCatalog result for {case_id} in {out_path}"
+            f"hmp run did not produce a Catalog result for {case_id} in {out_path}"
         )
 
     try:

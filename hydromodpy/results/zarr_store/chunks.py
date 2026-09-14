@@ -1,4 +1,4 @@
-"""Balanced chunk and sharding heuristics for Zarr v2 stores."""
+"""Balanced chunk and sharding heuristics for Zarr v3 stores."""
 
 from __future__ import annotations
 

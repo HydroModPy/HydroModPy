@@ -2,8 +2,8 @@
   "schema_version": "regional_lab_report_v2",
   "generated_at_utc": "<generated_at_utc>",
   "lab_id": "headwater_100km2_lab_backend_compare",
-  "config_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
-  "site_catalog_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
+  "config_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
+  "site_catalog_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
   "output_root": "<regional_lab_output_root>",
   "execute": false,
   "continue_on_error": true,
@@ -45,9 +45,9 @@
       ],
       "enabled": true,
       "resolved_paths": {
-        "simulation_reference_config": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
-        "backend_comparison_config": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
-        "transient_backend_comparison_config": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json"
+        "simulation_reference_config": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
+        "backend_comparison_config": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
+        "transient_backend_comparison_config": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json"
       },
       "raw": {
         "site_id": "headwater_100km2_outlet_2",
@@ -274,14 +274,14 @@
       "recipe_id": "backend_compare",
       "recipe_label": "Backend comparison",
       "launcher": "comparison",
-      "config_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
+      "config_path": "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
       "command": [
         "/home/bb/miniforge3/envs/hmp_refact/bin/python",
         "-m",
         "launchers",
         "comparison",
         "run",
-        "/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json"
+        "/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json"
       ],
       "status": "planned",
       "returncode": null,
@@ -354,9 +354,9 @@
     "summary_markdown": "regional_lab_outputs/regional_lab_summary.md"
   },
   "source_paths": [
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json"
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json"
   ],
   "source_hashes": {
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json": "1589d5f2f7846e82660d5c8b1d3da9480e7c24fb826064042a7bee5f015d3449"
+    "docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json": "1589d5f2f7846e82660d5c8b1d3da9480e7c24fb826064042a7bee5f015d3449"
   }
 }

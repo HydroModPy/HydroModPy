@@ -387,9 +387,7 @@ def run_boussinesq_hillslope_overflow_case(
             }
         },
         "bc": {
-            "dirichlet": {
-                "east_side": {"value": float(geometry_cfg["east_head_m"])},
-            }
+            "east_side": {"value": float(geometry_cfg["east_head_m"])},
         },
         "surface_interaction_model": str(variant.surface_interaction_model),
     }

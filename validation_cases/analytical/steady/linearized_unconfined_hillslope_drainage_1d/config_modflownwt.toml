@@ -52,15 +52,15 @@ value = "1e-4 m/s"
 type = "custom"
 value = "6.25 m"
 
-[flow.bc.dirichlet.west_side]
+[flow.bc.west_side]
 kind = "dirichlet"
 value = "7.25 m"
 
-[flow.bc.dirichlet.east_side]
+[flow.bc.east_side]
 kind = "dirichlet"
 value = "5.25 m"
 
-[flow.bc.cauchy.drainage]
+[flow.bc.drainage]
 application_domain = "top"
 kind = "cauchy"
 value = "1e-5 m2/s"

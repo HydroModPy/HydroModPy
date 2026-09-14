@@ -286,7 +286,8 @@ def _domain_head_profile_series(
             continue
         try:
             from hydromodpy.analysis.comparison.runtime import load_variable_series
-            from hydromodpy.results.catalog import SimulationCatalog
+            from hydromodpy.core.state.paths import catalog_path_for
+            from hydromodpy.results.catalog import Catalog
         except Exception:
             continue
         simulation_id = str(simulation.get("id", "") or "")
@@ -294,7 +295,11 @@ def _domain_head_profile_series(
         solver = str(simulation.get("solver", "") or "")
         store = None
         try:
-            store = SimulationCatalog(run_folder)
+            # Read-only, and only when the folder really indexes runs: a
+            # writable open would create an empty index inside a scratch
+            # folder just to read a series the files already carry.
+            if (catalog_path_for(run_folder)).is_file():
+                store = Catalog(run_folder, read_only=True)
             series = load_variable_series(
                 run_folder=run_folder,
                 variable="watertable_elevation",

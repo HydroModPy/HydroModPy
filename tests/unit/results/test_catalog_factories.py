@@ -1,9 +1,9 @@
-"""Factory entry points on :class:`SimulationCatalog`.
+"""Factory entry points on :class:`Catalog`.
 
 S05-10 introduces ``from_toml`` / ``from_json`` / ``from_dict`` so a single
 :class:`HydroModPyConfig` source spawns either a :class:`Project` or a
-:class:`SimulationCatalog`. A :class:`Run` view is then created with
-``SimulationCatalog(...)`` + ``Run(sim_id, catalog)``.
+:class:`Catalog`. A :class:`Run` view is then created with
+``Catalog(...)`` + ``Run(sim_id, catalog)``.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.run import Run
 
 _CATALOG_TOML = """\
@@ -46,7 +46,7 @@ def _build_payload(tmp_path: Path) -> dict:
 
 def test_simulation_catalog_from_toml_opens_workspace(tmp_path: Path) -> None:
     config_path = _write_minimal_toml(tmp_path)
-    cat = SimulationCatalog.from_toml(config_path)
+    cat = Catalog.from_toml(config_path)
     try:
         assert cat.workspace_path == tmp_path.resolve()
     finally:
@@ -55,7 +55,7 @@ def test_simulation_catalog_from_toml_opens_workspace(tmp_path: Path) -> None:
 
 def test_simulation_catalog_from_dict_opens_workspace(tmp_path: Path) -> None:
     payload = _build_payload(tmp_path)
-    cat = SimulationCatalog.from_dict(payload)
+    cat = Catalog.from_dict(payload)
     try:
         assert cat.workspace_path == tmp_path.resolve()
     finally:
@@ -64,7 +64,7 @@ def test_simulation_catalog_from_dict_opens_workspace(tmp_path: Path) -> None:
 
 def test_simulation_catalog_from_json_opens_workspace(tmp_path: Path) -> None:
     payload = json.dumps(_build_payload(tmp_path))
-    cat = SimulationCatalog.from_json(payload)
+    cat = Catalog.from_json(payload)
     try:
         assert cat.workspace_path == tmp_path.resolve()
     finally:
@@ -73,7 +73,7 @@ def test_simulation_catalog_from_json_opens_workspace(tmp_path: Path) -> None:
 
 def test_run_from_toml_returns_view(tmp_path: Path) -> None:
     config_path = _write_minimal_toml(tmp_path)
-    cat = SimulationCatalog.from_toml(config_path)
+    cat = Catalog.from_toml(config_path)
     try:
         run = Run("missing-sim", cat)
         assert run.sim_id == "missing-sim"
@@ -84,7 +84,7 @@ def test_run_from_toml_returns_view(tmp_path: Path) -> None:
 
 def test_run_from_dict_returns_view(tmp_path: Path) -> None:
     payload = _build_payload(tmp_path)
-    cat = SimulationCatalog.from_dict(payload)
+    cat = Catalog.from_dict(payload)
     try:
         run = Run("missing-sim", cat)
         assert run.sim_id == "missing-sim"
@@ -95,7 +95,7 @@ def test_run_from_dict_returns_view(tmp_path: Path) -> None:
 
 def test_run_from_json_returns_view(tmp_path: Path) -> None:
     payload = json.dumps(_build_payload(tmp_path))
-    cat = SimulationCatalog.from_json(payload)
+    cat = Catalog.from_json(payload)
     try:
         run = Run("missing-sim", cat)
         assert run.sim_id == "missing-sim"

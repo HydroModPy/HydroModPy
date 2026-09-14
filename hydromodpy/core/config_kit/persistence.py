@@ -1,8 +1,7 @@
 """Single-switch persistence configuration (Principe 8).
 
 ``PersistenceConfig`` is the orthogonal save/no-save knob shared by every
-write path: the DuckDB SimulationCatalog, the per-sim Zarr and Parquet
-artifacts, and the reproducibility lockfile.
+write path: the DuckDB Catalog and the per-run Zarr and Parquet artifacts.
 """
 
 from __future__ import annotations
@@ -23,7 +22,7 @@ class PersistenceConfig(HydroModelBase):
     Toggles are independent: disabling ``save_zarr`` does not silence the
     catalog, and vice versa. ``save_catalog`` is the master switch for the
     project DuckDB; when False, every write through
-    :class:`SimulationCatalog` becomes a no-op.
+    :class:`Catalog` becomes a no-op.
     """
 
     save_catalog: Annotated[bool, Profile.USER] = Field(
@@ -41,21 +40,25 @@ class PersistenceConfig(HydroModelBase):
         description="Persist per-simulation tabular outputs (timeseries, "
         "budgets, mass_balance) as Parquet files.",
     )
-    save_lock: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Generate and refresh the ``hydromodpy.lock`` reproducibility "
-        "manifest after data ingestion.",
-    )
     compression: Annotated[CompressionCodec, Profile.DEV] = Field(
         default="zstd",
-        description="Codec used for Zarr field arrays and Parquet tables. "
-        "'none' disables compression.",
+        description=(
+            "Codec DECLARED for Zarr field arrays and Parquet tables. The writers "
+            "carry their own codec (zstd) and do not read this field, so changing "
+            "it changes nothing today; it records the intent and is the field a "
+            "writer would read once the choice is threaded through."
+        ),
     )
     compression_level: Annotated[int, Profile.DEV] = Field(
-        default=3,
+        default=5,
         ge=0,
         le=22,
-        description="Compression level (codec-dependent). Ignored when compression='none'.",
+        description=(
+            "Compression level DECLARED for those writers. Same as the codec: "
+            "core/io/parquet.py and core/io/geoparquet.py hold level 5 and do not "
+            "read this field. The default says 5 rather than 3 so the declaration "
+            "at least matches the bytes actually written."
+        ),
     )
 
 

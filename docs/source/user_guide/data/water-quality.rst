@@ -127,3 +127,15 @@ Provider replay
    the other observation families: chemistry shares the station/time-series
    contract, but parameter identity and units decide whether the values are
    usable.
+
+See also
+--------
+
+Chemistry chronicles are read with the same station/time-series contract as the other
+observation families: :doc:`hydrometry`, :doc:`piezometry`, and :doc:`intermittency`.
+:ref:`observation.points <observation-points>` samples a simulated field, such as
+``concentration``, at the same coordinates, and a point or cell output declared in
+:doc:`/user_guide/config_reference/calibration` can score against a chemistry series
+through its ``variable`` field. :doc:`/user_guide/workflows/calibration` documents the
+campaign these observations feed when the selected parameters are meaningful for the
+study.

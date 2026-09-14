@@ -13,8 +13,11 @@ import hydromodpy as hmp
 from hydromodpy.cli._workers.catalog import (
     list_simulations,
     query_catalog,
+    rename_simulation,
     show_simulation,
+    trash_simulation,
 )
+from hydromodpy.results.catalog.registration import DuplicateSimulationNameError
 
 
 def _seed_workspace(tmp_path: Path) -> tuple[Path, str]:
@@ -23,7 +26,6 @@ def _seed_workspace(tmp_path: Path) -> tuple[Path, str]:
     (workspace / "data").mkdir()
     project_dir = workspace / "projects" / "demo"
     project_dir.mkdir(parents=True)
-    (project_dir / "simulations").mkdir()
 
     sim_id = str(uuid4())
     with hmp.open(project_dir, create=True) as catalog:
@@ -43,7 +45,6 @@ def _seed_workspace(tmp_path: Path) -> tuple[Path, str]:
 def _seed_project(tmp_path: Path) -> tuple[Path, str]:
     project_dir = tmp_path / "ws" / "projects" / "demo"
     project_dir.mkdir(parents=True)
-    (project_dir / "simulations").mkdir()
     sim_id = str(uuid4())
     with hmp.open(project_dir, create=True) as catalog:
         catalog.register_simulation(
@@ -62,7 +63,6 @@ def _seed_project(tmp_path: Path) -> tuple[Path, str]:
 def _seed_project_catalog(tmp_path: Path) -> Path:
     project_dir = tmp_path / "ws" / "projects" / "demo"
     project_dir.mkdir(parents=True)
-    (project_dir / "simulations").mkdir()
     with hmp.open(project_dir, create=True):
         pass
     return project_dir
@@ -146,3 +146,49 @@ def test_query_catalog_limit_clause(tmp_path: Path) -> None:
         "SELECT 1 AS x UNION SELECT 2 UNION SELECT 3", workspace=project_dir, limit=2
     )
     assert len(df) == 2
+
+
+def _seed_named(project_dir: Path, name: str) -> str:
+    sim_id = str(uuid4())
+    with hmp.open(project_dir, create=True) as catalog:
+        catalog.register_simulation(sim_id=sim_id, project="demo", solver="modflow6", name=name)
+        catalog.finalize(sim_id, status="completed", duration_s=0.1)
+    return sim_id
+
+
+# ---------------------------------------------------------------------------
+# rename worker
+# ---------------------------------------------------------------------------
+
+
+def test_rename_worker_happy_path(tmp_path: Path) -> None:
+    project_dir, sim_id = _seed_project(tmp_path)
+    result = rename_simulation(sim_id, workspace=project_dir, new_name="renamed")
+    assert result == {"sim_id": sim_id, "name": "renamed"}
+    with hmp.open(project_dir) as catalog:
+        assert catalog[sim_id].name == "renamed"
+
+
+def test_rename_worker_collision_raises(tmp_path: Path) -> None:
+    project_dir, first = _seed_project(tmp_path)  # name 'baseline'
+    second = _seed_named(project_dir, "other")
+    with pytest.raises(DuplicateSimulationNameError):
+        rename_simulation(second, workspace=project_dir, new_name="baseline")
+
+
+def test_rename_worker_prefix_ref(tmp_path: Path) -> None:
+    project_dir, sim_id = _seed_project(tmp_path)
+    prefix = sim_id.replace("-", "")[:8]
+    result = rename_simulation(prefix, workspace=project_dir, new_name="by_prefix")
+    assert result["sim_id"] == sim_id
+    assert result["name"] == "by_prefix"
+
+
+def test_rename_worker_trashed_sim(tmp_path: Path) -> None:
+    project_dir, sim_id = _seed_project(tmp_path)
+    trash_simulation(sim_id, workspace=project_dir)
+    # A trashed run has name NULL; it resolves by id and rename still applies.
+    result = rename_simulation(sim_id, workspace=project_dir, new_name="revived")
+    assert result["sim_id"] == sim_id
+    with hmp.open(project_dir) as catalog:
+        assert catalog[sim_id].name == "revived"

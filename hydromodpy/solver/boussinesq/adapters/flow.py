@@ -9,16 +9,32 @@ file stays symmetrical with the MODFLOW adapters.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-from hydromodpy.core.exceptions import ConfigError, SolverDivergedError, SolverError
+from hydromodpy.core.contracts.observables import (
+    ObservableRequest,
+    ObservableResult,
+    require_unique_request_ids,
+)
+from hydromodpy.core.exceptions import (
+    ObservableNotAvailableError,
+    SolverDivergedError,
+    SolverError,
+)
+from hydromodpy.core.state.paths import share_dir_for
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
+from hydromodpy.solver.base.observable_support import (
+    ObservableSupport,
+    servable,
+    unavailable,
+)
+from hydromodpy.solver.base.observables import series_observable
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.calibration_extractors import (
     extract_discharge_history,
@@ -47,59 +63,104 @@ class BoussinesqFlowAdapter:
     def validate(self, ctx: RunContext) -> None:
         """No precondition checks for Boussinesq flow runs."""
 
+    def declared_observables(self, config: object) -> tuple[ObservableSupport, ...]:
+        """Say what this run can serve, and why two things are out of reach.
+
+        Boussinesq already computes a saturation excess per cell and its mesh
+        carries the connectivity, the areas and the elevations, so the
+        stream-network criterion is reachable here. Lakes and routed reaches are
+        not: this solver has no advanced-package concept to build them from, which
+        is a different verdict from an adapter that is merely incomplete.
+        """
+        del config
+        return (
+            servable("head", "read at any cell from the solver output"),
+            servable("discharge", "integrated over the domain"),
+            servable(
+                "release_flux",
+                "per-cell saturation excess, which the solver already computes",
+            ),
+            unavailable(
+                "stage",
+                "the Boussinesq solver has no lake package, so there is no lake state "
+                "to read. Use the modflow6 backend for a lake.",
+            ),
+            unavailable(
+                "routed_discharge",
+                "the Boussinesq solver routes no stream reaches, so no reach outflow exists.",
+            ),
+        )
+
+    def locate_cell(self, ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
+        """Return the nearest cell on the mesh this run actually wrote."""
+        from hydromodpy.solver.base.cell_lookup import locate_cell_on_solver_mesh
+
+        return locate_cell_on_solver_mesh(ctx, x, y)
+
     def cleanup(self, ctx: RunContext) -> None:
         """Remove the scratch directory written by this run, if any."""
         solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
         if solver_output_dir is not None:
             cleanup_solver_files(solver_output_dir)
 
-    def extract_calibration_series(
+    def extract_observables(
         self,
         ctx: RunContext,
         store: Any,
+        requests: Sequence[ObservableRequest],
         *,
-        variable: str,
-        station_cells: Mapping[str, tuple[int, int, int]] | None = None,
         time_index: pd.DatetimeIndex | None = None,
-    ) -> pd.Series:
-        """Read the simulated calibration series from the Boussinesq scratch dir.
+    ) -> dict[str, ObservableResult]:
+        """Read observables from the Boussinesq scratch directory.
 
         Discharge is reconstructed from ``drainage_flux_history_m3_s`` summed
-        over all cells per timestep (matches the MODFLOW DRAIN convention).
+        over all cells per timestep, which is the MODFLOW DRAIN convention.
         Heads are read at flattened cell indices: the Boussinesq mesh is one
-        layer unstructured, so the ``(k, i, j)`` station tuple is interpreted
-        as ``cell_id = j``. ``store`` is accepted for Protocol uniformity but
-        unused on the scratch-dir path.
+        unstructured layer, so a ``(k, i, j)`` cell is read as ``cell_id = j``.
+        Every head request is served in one pass over the history.
         """
         del store
+        if not requests:
+            return {}
+        require_unique_request_ids(requests)
         output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
         if output_dir is None:
             raise SolverError(f"No solver output recorded for run {ctx.run.id!r}")
         output_dir = Path(output_dir)
 
-        if variable == "discharge":
-            return extract_discharge_history(output_dir, time_index=time_index)
-        if variable == "head":
-            if not station_cells:
-                raise ConfigError("head calibration requires station_cells")
+        served: dict[str, ObservableResult] = {}
+        head_requests = [r for r in requests if r.name == "head" and r.support == "cell"]
+        discharge_requests = [
+            r for r in requests if r.name == "discharge" and r.support == "domain"
+        ]
+        handled = {id(r) for r in head_requests + discharge_requests}
+        for request in requests:
+            if id(request) not in handled:
+                raise ObservableNotAvailableError(
+                    f"Boussinesq does not produce observable {request.name!r} on support "
+                    f"{request.support!r}."
+                )
+
+        if discharge_requests:
+            series = extract_discharge_history(output_dir, time_index=time_index)
+            for request in discharge_requests:
+                served[request.id] = series_observable(request, series, units="m3 s-1")
+
+        if head_requests:
+            station_cells = {r.id: r.cell for r in head_requests}
             series_by_station = extract_head_history_at_cells(
                 output_dir,
                 station_cells=station_cells,
                 time_index=time_index,
             )
-            if len(station_cells) == 1:
-                station_id = next(iter(station_cells))
+            for request in head_requests:
                 try:
-                    return series_by_station[station_id]
+                    series = series_by_station[request.id]
                 except KeyError as exc:
-                    raise KeyError(f"No head series extracted for station {station_id!r}") from exc
-            raise ConfigError(
-                "extract_calibration_series returns one series; pass station_cells "
-                "with a single entry per call for head calibration."
-            )
-        raise NotImplementedError(
-            f"Boussinesq calibration extraction is not implemented for variable {variable!r}."
-        )
+                    raise KeyError(f"No head series extracted for station {request.id!r}") from exc
+                served[request.id] = series_observable(request, series, units="m")
+
+        return served
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one Boussinesq flow run."""
@@ -174,7 +235,7 @@ class BoussinesqFlowAdapter:
         except json.JSONDecodeError:
             return
         run_id = str(getattr(ctx.state.setup, "run_id", "") or ctx.run.id)
-        diagnostics_dir = Path(project_root) / "exports" / run_id / "solver_diagnostics"
+        diagnostics_dir = share_dir_for(Path(project_root)) / run_id / "solver_diagnostics"
         write_vi_obstacle_diagnostic_files(diagnostics_dir, summary)
         write_ts_vi_obstacle_diagnostic_files(diagnostics_dir, summary)
 

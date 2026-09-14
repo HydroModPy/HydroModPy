@@ -74,7 +74,7 @@ Often imported by other layers:
   aliases.
 - ``hydromodpy.core.workspace.workspace.Workspace`` -- workspace
   facade.
-- ``hydromodpy.core.metrics.goodness_of_fit.{nse, kge, rmse, ...}``
+- ``hydromodpy.core.metrics.{nse, kge, rmse, ...}``
   -- canonical metrics.
 - ``hydromodpy.core.io.{json_dumps, json_loads, HTTPClient}`` --
   deterministic JSON, HTTP client.
@@ -95,7 +95,7 @@ Recommended reading path
    for the four-branch resolution.
 4. ``hydromodpy/core/state/__init__.py`` for the cross-layer
    contexts.
-5. ``hydromodpy/core/metrics/goodness_of_fit.py`` for the metric
+5. ``hydromodpy/core/metrics.py`` for the metric
    contract.
 
 Auth backend

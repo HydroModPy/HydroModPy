@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import hashlib
-import shutil
-import uuid
+import json
 from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.state.paths import runs_dir_for
 from hydromodpy.display.catchment_report import (
     GENERIC_REPORT_PRESET,
     CatchmentReportConfig,
@@ -14,6 +14,7 @@ from hydromodpy.display.catchment_report import (
 )
 from hydromodpy.display.catchment_report.artifacts import DEFAULT_ARTIFACT_SPECS
 from hydromodpy.display.catchment_report.block_specs import DEFAULT_BLOCK_SPECS
+from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 NANCON_EXAMPLE_DIR = REPO_ROOT / "examples" / "projects" / "16_nancon_natural_calibration"
@@ -202,11 +203,9 @@ def test_generic_inputs_support_separate_simulation_workspace_and_observed_serie
         inputs.simulation_workspace_dir == inputs.watershed_project_dir / "outputs" / "selune_nwt"
     )
     assert inputs.simulation_figures == (
-        inputs.simulation_workspace_dir / "figures" / "selune_nwt_report"
+        runs_dir_for(inputs.simulation_workspace_dir) / "selune_nwt_report" / RUN_FIGURES_DIRNAME
     )
-    assert inputs.simulation_export == (
-        inputs.simulation_workspace_dir / "exports" / "selune_nwt_report" / "timeseries.csv"
-    )
+    assert not hasattr(inputs, "simulation_export")
     assert inputs.observed_discharge_station_id == "I922102001"
     assert inputs.preset_name is None
     assert inputs.pipeline_run_overview is True
@@ -224,42 +223,106 @@ def test_generic_inputs_support_separate_simulation_workspace_and_observed_serie
     assert config.preset is GENERIC_REPORT_PRESET
 
 
-@pytest.mark.regression
-def test_report_catchment_cli_regenerates_existing_nancon_report(
-    tmp_path,
-) -> None:
+def _write_synthetic_report_config(config_path: Path, root: Path, output_dir: Path) -> None:
+    """Lay out the smallest project the report pipeline accepts, on tmp_path.
+
+    The real Nancon inputs live under ``examples/**/outputs/``, which
+    ``.gitignore`` excludes, so a test that reads them can only ever skip.
+    Everything the builder needs is either a directory it globs for figures
+    (empty is legal) or one small JSON, so the whole thing fits in tmp_path.
+    """
+    watershed = root / "watershed"
+    context = root / "context"
+    data_overview = root / "data_overview"
+    simulation = root / "sim_workspace"
+    for directory in (watershed, data_overview, simulation):
+        directory.mkdir(parents=True, exist_ok=True)
+    (context / "context").mkdir(parents=True, exist_ok=True)
+    (context / "web" / "assets").mkdir(parents=True, exist_ok=True)
+    (context / "context" / "site_gauged_context_summary.json").write_text(
+        json.dumps({"configuration": {"site": "synthetic", "epsg": 2154}}),
+        encoding="utf-8",
+    )
+    # CatchmentReportInputs resolves these two against watershed_project_dir
+    # and data_overview_project_dir, not against the simulation workspace.
+    (watershed / "transient.toml").write_text('[simulation]\nname = "t"\n', encoding="utf-8")
+    (data_overview / "overview.toml").write_text('[simulation]\nname = "o"\n', encoding="utf-8")
+
+    config_path.write_text(
+        "\n".join(
+            [
+                "[report]",
+                'site_label = "synthetic"',
+                'station_label = "S1"',
+                f'output_dir = "{output_dir.as_posix()}"',
+                "",
+                "[layout]",
+                f'watershed_project_dir = "{watershed.as_posix()}"',
+                f'context_outputs_dir = "{context.as_posix()}"',
+                f'data_overview_project_dir = "{data_overview.as_posix()}"',
+                f'simulation_workspace_dir = "{simulation.as_posix()}"',
+                'simulation_name = "t"',
+                'context_summary_name = "site_gauged_context_summary.json"',
+                'transient_config_name = "transient.toml"',
+                'overview_config_name = "overview.toml"',
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
+REPORT_PAGES = (
+    Path("web") / "index.html",
+    Path("web_review") / "compact" / "index.html",
+    Path("web_review") / "standard" / "index.html",
+    Path("web_review") / "audit" / "index.html",
+    Path("web_review") / "by_block" / "index.html",
+)
+
+
+def test_report_catchment_cli_builds_every_page(tmp_path) -> None:
+    """`hmp report catchment --report-only` emits the five documented pages.
+
+    This is the only test in the suite that reaches ``build_catchment_report``
+    without a monkeypatch: every other report test stubs the builder out.
+    """
     from hydromodpy.cli.main import main as hmp_cli_main
 
-    reference = NANCON_REPORT_INPUTS.output_dir
-    required_reference_files = (
-        reference / "web" / "index.html",
-        reference / "web_review" / "compact" / "index.html",
-        reference / "web_review" / "standard" / "index.html",
-        reference / "web_review" / "audit" / "index.html",
-        reference / "web_review" / "by_block" / "index.html",
-    )
-    if not all(path.exists() for path in required_reference_files):
-        pytest.skip("Local Nancon HTML outputs are not available.")
-    if not (reference / "web" / "figures").exists():
-        pytest.skip("Local Nancon report figures are not available.")
-    if not NANCON_REPORT_INPUTS.context_summary.exists():
-        pytest.skip("Local Nancon generic context summary is not available.")
+    output_dir = tmp_path / "report"
+    config_path = tmp_path / "catchment_report.toml"
+    _write_synthetic_report_config(config_path, tmp_path / "project", output_dir)
 
-    generated = reference.parent / f"_nancon_regen_test_{uuid.uuid4().hex}"
-    shutil.rmtree(generated, ignore_errors=True)
-    try:
-        config_path = tmp_path / "catchment_report.toml"
-        _write_nancon_cli_report_config(config_path, generated)
-        hmp_cli_main(["report", "catchment", str(config_path), "--report-only"])
+    hmp_cli_main(["report", "catchment", str(config_path), "--report-only"])
 
-        for reference_html in required_reference_files:
-            generated_html = generated / reference_html.relative_to(reference)
-            assert generated_html.read_text(encoding="utf-8") == reference_html.read_text(
-                encoding="utf-8"
-            )
+    for page in REPORT_PAGES:
+        rendered = output_dir / page
+        assert rendered.is_file(), f"missing report page: {page}"
+        assert "<html" in rendered.read_text(encoding="utf-8").lower()
 
-        assert _fingerprints(generated / "web" / "figures") == _fingerprints(
-            reference / "web" / "figures"
-        )
-    finally:
-        shutil.rmtree(generated, ignore_errors=True)
+
+def test_report_catchment_cli_regeneration_is_byte_identical(tmp_path) -> None:
+    """Regenerating from unchanged inputs must not perturb a single byte.
+
+    A timestamp, a dict iteration order or an unseeded colour ramp leaking into
+    the HTML would show up here as a diff. This used to be checked against a
+    developer's local Nancon outputs, so it never ran anywhere.
+    """
+    from hydromodpy.cli.main import main as hmp_cli_main
+
+    config_path = tmp_path / "catchment_report.toml"
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+
+    _write_synthetic_report_config(config_path, tmp_path / "project", first)
+    hmp_cli_main(["report", "catchment", str(config_path), "--report-only"])
+
+    _write_synthetic_report_config(config_path, tmp_path / "project", second)
+    hmp_cli_main(["report", "catchment", str(config_path), "--report-only"])
+
+    for page in REPORT_PAGES:
+        assert (second / page).read_text(encoding="utf-8") == (first / page).read_text(
+            encoding="utf-8"
+        ), f"non-deterministic report page: {page}"
+
+    assert _fingerprints(second / "web" / "figures") == _fingerprints(first / "web" / "figures")

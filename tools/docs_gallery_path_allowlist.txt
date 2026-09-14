@@ -1,0 +1,26 @@
+# Dead repository paths inside committed gallery summaries.
+#
+# The generator now emits the right paths (tools/doc_gallery/calibration_case_registry.py
+# was corrected), but these artifacts were written by an older run and regenerating them
+# requires the simulation outputs, which only a machine that has run the cases holds.
+# Regenerate the gallery there, then delete the lines that stop failing.
+# This list only shrinks: a line that no longer applies fails the check.
+docs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json: hydromodpy/calibration/cli.py
+docs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json: hydromodpy/calibration/engine.py
+docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json: hydromodpy/calibration/cli.py
+docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json: hydromodpy/calibration/engine.py
+docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json: hydromodpy/calibration/cli.py
+docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json: hydromodpy/calibration/engine.py
+docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json: hydromodpy/calibration/cli.py
+docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json: hydromodpy/calibration/engine.py
+docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json: hydromodpy/calibration/cli.py
+docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json: hydromodpy/calibration/engine.py
+docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_summary.json: examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/hydrograph.png
+docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_summary.json: examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/hydrographic_network_comparison.png
+docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_summary.json: examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/manifest.json
+docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_summary.json: examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/piezometric_map.png
+docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_summary.json: examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/simulated_active_network_reference_overlay.png
+docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_summary.json: examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/water_budget.png
+docs/source/_static/capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss_summary.json: examples/projects/09_capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss/comparison.toml
+docs/source/_static/capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss_summary.json: examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison.toml
+docs/source/_static/capability_gallery/validation/modflow6_irregular_tri_xt3d_method_choice_summary.json: tests/unit/solver/test_modflow6_boundary_conditions.py

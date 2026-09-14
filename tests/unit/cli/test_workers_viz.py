@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -9,17 +10,23 @@ import pandas as pd
 import pytest
 
 from hydromodpy.cli._workers import viz as viz_worker
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import RUNS_DIRNAME
+from hydromodpy.display.runs import FigureRenderReport, SkippedFigure
+from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 from tests._helpers.cli_runner import CliRunner
 
 
-def test_render_figure_resolves_catalog_and_default_output(monkeypatch, tmp_path) -> None:
+def test_render_figure_defaults_to_the_figures_dir_of_the_run(monkeypatch, tmp_path) -> None:
     workspace = tmp_path / "workspace"
     catalog_root = tmp_path / "catalog"
+    run_dir = catalog_root / RUNS_DIRNAME / "sim_a"
     calls: dict[str, object] = {}
 
     class FakeCatalog:
-        def __init__(self, root: Path) -> None:
+        def __init__(self, root: Path, *, read_only: bool = False) -> None:
             calls["catalog_root"] = root
+            calls["read_only"] = read_only
 
         def __enter__(self):
             return self
@@ -27,8 +34,16 @@ def test_render_figure_resolves_catalog_and_default_output(monkeypatch, tmp_path
         def __exit__(self, *exc_info: object) -> None:
             calls["closed"] = True
 
-        def __getitem__(self, sim_ref: str) -> SimpleNamespace:
+        def resolve(self, sim_ref: str) -> str:
             calls["sim_ref"] = sim_ref
+            return "sim-001"
+
+        def run_dir_for(self, sid: str) -> Path:
+            calls["run_dir_for"] = sid
+            return run_dir
+
+        def __getitem__(self, sid: str) -> SimpleNamespace:
+            calls["sim_id"] = sid
             return SimpleNamespace(name="sim-a")
 
     class FakeFigure:
@@ -36,23 +51,28 @@ def test_render_figure_resolves_catalog_and_default_output(monkeypatch, tmp_path
             calls["plot"] = {"sim": sim.name, "save_path": save_path}
             save_path.write_bytes(b"png")
 
-    def fake_find_catalog_root(start: Path) -> Path:
+    def fake_resolve_project_root(start: Path) -> Path:
         calls["catalog_search_start"] = start
         return catalog_root
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("hydromodpy.cli.helpers.find_catalog_root", fake_find_catalog_root)
-    monkeypatch.setattr("hydromodpy.results.catalog.SimulationCatalog", FakeCatalog)
+    monkeypatch.setattr(
+        "hydromodpy.core.state.paths.resolve_project_root", fake_resolve_project_root
+    )
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
     monkeypatch.setattr("hydromodpy.display.get", lambda name: FakeFigure())
 
     output = viz_worker.render_figure("abc123", "head_map", workspace=workspace)
 
-    expected_output = tmp_path / "figures" / "head_map.png"
+    expected_output = run_dir / RUN_FIGURES_DIRNAME / "head_map.png"
     assert output == expected_output
     assert calls == {
         "catalog_search_start": workspace.resolve(),
         "catalog_root": catalog_root,
+        "read_only": True,
         "sim_ref": "abc123",
+        "run_dir_for": "sim-001",
+        "sim_id": "sim-001",
         "plot": {"sim": "sim-a", "save_path": expected_output},
         "closed": True,
     }
@@ -84,8 +104,9 @@ def test_render_gallery_selects_sim_prefix_and_forwards_display_options(
             return cls(raw)
 
     class FakeCatalog:
-        def __init__(self, root: Path) -> None:
+        def __init__(self, root: Path, *, read_only: bool = False) -> None:
             calls["project_root"] = root
+            calls["read_only"] = read_only
 
         def __enter__(self):
             return self
@@ -96,6 +117,12 @@ def test_render_gallery_selects_sim_prefix_and_forwards_display_options(
         def list_simulations(self, **kwargs: object) -> pd.DataFrame:
             calls["list_kwargs"] = kwargs
             return simulations
+
+        def resolve(self, ref: str, *, project: str | None = None) -> str:
+            matches = [
+                s for s in simulations["sim_id"].astype(str) if s.lower().startswith(ref.lower())
+            ]
+            return matches[0]
 
         def __getitem__(self, sim_id: str) -> SimpleNamespace:
             calls["selected_sim_id"] = sim_id
@@ -122,21 +149,25 @@ def test_render_gallery_selects_sim_prefix_and_forwards_display_options(
         *,
         output_dir: Path,
         figure_names: list[str] | None,
-    ) -> list[Path]:
+    ) -> FigureRenderReport:
         calls["render_request"] = {
             "sim": sim.name,
             "show": display_cfg.show,
             "output_dir": output_dir,
             "figure_names": figure_names,
         }
-        return [output_dir / "head.png", output_dir / "budget.png"]
+        return FigureRenderReport(
+            requested=("head", "budget"),
+            rendered=("head", "budget"),
+            written=(output_dir / "head.png", output_dir / "budget.png"),
+        )
 
     monkeypatch.setattr(
         "hydromodpy.core.toml_io.loader.load_toml_with_base_config",
         lambda path: {"display": {"show": True}},
     )
     monkeypatch.setattr("hydromodpy.display.config.DisplayConfig", FakeDisplayConfig)
-    monkeypatch.setattr("hydromodpy.results.catalog.SimulationCatalog", FakeCatalog)
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
     monkeypatch.setattr(
         "hydromodpy.display.runs.resolve_run_output_dir",
         fake_resolve_run_output_dir,
@@ -157,8 +188,9 @@ def test_render_gallery_selects_sim_prefix_and_forwards_display_options(
     assert paths == [expected_dir / "head.png", expected_dir / "budget.png"]
     assert calls["project_root"] == tmp_path
     assert calls["display_raw"] == {"show": True}
+    # Project-relative, never absolute: a copied project must recognise its runs.
     assert calls["list_kwargs"] == {
-        "config_source": str(config.resolve()),
+        "config_source": config.name,
         "order_by": "created_at DESC",
     }
     assert calls["selected_sim_id"] == "ABCD1234"
@@ -177,6 +209,81 @@ def test_render_gallery_selects_sim_prefix_and_forwards_display_options(
     assert calls["closed"] is True
 
 
+def test_render_gallery_summarizes_a_figure_it_could_not_produce(monkeypatch, tmp_path) -> None:
+    # Same contract as the run path: the gallery never drops a requested
+    # figure without a visible line naming it and why.
+    config = tmp_path / "model.toml"
+    config.write_text("[display]\n", encoding="utf-8")
+
+    class FakeDisplayConfig:
+        show = True
+
+        @classmethod
+        def model_validate(cls, raw: dict[str, object]):
+            return cls()
+
+    class FakeCatalog:
+        def __init__(self, root: Path, *, read_only: bool = False) -> None:
+            self.root = root
+            self.read_only = read_only
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc_info: object) -> None:
+            return None
+
+        def list_simulations(self, **kwargs: object) -> pd.DataFrame:
+            return pd.DataFrame({"sim_id": ["abcd1111"], "name": ["baseline"]})
+
+        def __getitem__(self, sim_id: str) -> SimpleNamespace:
+            return SimpleNamespace(name="baseline")
+
+    monkeypatch.setattr(
+        "hydromodpy.core.toml_io.loader.load_toml_with_base_config",
+        lambda path: {"display": {}},
+    )
+    monkeypatch.setattr("hydromodpy.display.config.DisplayConfig", FakeDisplayConfig)
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
+    monkeypatch.setattr(
+        "hydromodpy.display.runs.resolve_run_output_dir",
+        lambda cfg, *, project_root, run_name, sim_id: project_root / "figures" / run_name,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.display.runs.render_figures_for_run",
+        lambda sim, cfg, *, output_dir, figure_names: FigureRenderReport(
+            requested=("piezometric_map", "calibration_convergence"),
+            rendered=("piezometric_map",),
+            written=(output_dir / "piezometric_map.png",),
+            skipped=(
+                SkippedFigure(
+                    name="calibration_convergence",
+                    reason="missing catalog table(s): calibration_trials",
+                ),
+            ),
+        ),
+    )
+
+    records: list[logging.LogRecord] = []
+    handler = logging.Handler()
+    handler.emit = records.append
+    summary_logger = get_logger("hydromodpy.display.runs")
+    summary_logger.addHandler(handler)
+    try:
+        paths = viz_worker.render_gallery(config, no_show=True)
+    finally:
+        summary_logger.removeHandler(handler)
+
+    assert paths == [tmp_path / "figures" / "baseline" / "piezometric_map.png"]
+    summaries = [r for r in records if "figure(s)" in r.getMessage()]
+    assert [r.levelname for r in summaries] == ["WARNING"]
+    assert summaries[0].getMessage().startswith("Rendered 1/2 figure(s)")
+    assert (
+        "1 skipped: calibration_convergence (missing catalog table(s): calibration_trials)"
+        in summaries[0].getMessage()
+    )
+
+
 def test_render_gallery_rejects_ambiguous_sim_prefix(monkeypatch, tmp_path) -> None:
     config = tmp_path / "model.toml"
     config.write_text("[display]\n", encoding="utf-8")
@@ -187,8 +294,9 @@ def test_render_gallery_rejects_ambiguous_sim_prefix(monkeypatch, tmp_path) -> N
             return cls()
 
     class FakeCatalog:
-        def __init__(self, root: Path) -> None:
+        def __init__(self, root: Path, *, read_only: bool = False) -> None:
             self.root = root
+            self.read_only = read_only
 
         def __enter__(self):
             return self
@@ -199,14 +307,28 @@ def test_render_gallery_rejects_ambiguous_sim_prefix(monkeypatch, tmp_path) -> N
         def list_simulations(self, **kwargs: object) -> pd.DataFrame:
             return pd.DataFrame({"sim_id": ["abcd1111", "abcd2222"], "name": ["a", "b"]})
 
+        def resolve(self, ref: str, *, project: str | None = None) -> str:
+            from hydromodpy.results.catalog import AmbiguousReferenceError
+
+            matches = [
+                s
+                for s in self.list_simulations()["sim_id"].astype(str)
+                if s.lower().startswith(ref.lower())
+            ]
+            if len(matches) > 1:
+                raise AmbiguousReferenceError(ref, [(m, None) for m in matches])
+            return matches[0]
+
     monkeypatch.setattr(
         "hydromodpy.core.toml_io.loader.load_toml_with_base_config",
         lambda path: {"display": {}},
     )
     monkeypatch.setattr("hydromodpy.display.config.DisplayConfig", FakeDisplayConfig)
-    monkeypatch.setattr("hydromodpy.results.catalog.SimulationCatalog", FakeCatalog)
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
 
-    with pytest.raises(ValueError, match="ambiguous"):
+    from hydromodpy.results.catalog import AmbiguousReferenceError
+
+    with pytest.raises(AmbiguousReferenceError):
         viz_worker.render_gallery(config, sim_ref="abcd")
 
 

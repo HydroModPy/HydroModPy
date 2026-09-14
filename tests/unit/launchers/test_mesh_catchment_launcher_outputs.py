@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
 
 from ._mesh_catchment_builders import (
@@ -29,7 +30,7 @@ def test_mesh_catchment_launcher_cleanup_mode_removes_geographic_outputs(
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             minimal_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else minimal_cfg.geographic
@@ -45,12 +46,12 @@ def test_mesh_catchment_launcher_cleanup_mode_removes_geographic_outputs(
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.Workspace",
+        "hydromodpy.spatial.mesh.launcher.runtime.Workspace",
         _DummyWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch)
 
-    _stable = minimal_cfg.workspace.project_root / ".solver_scratch/_preprocessing"
+    _stable = minimal_cfg.workspace.project_root / PREPROCESSING_DIR
 
     def _fake_run_case(config_toml, **kwargs):
         (_stable / "geographic" / "tmp").mkdir(parents=True, exist_ok=True)
@@ -60,11 +61,11 @@ def test_mesh_catchment_launcher_cleanup_mode_removes_geographic_outputs(
         return {"summary_schema_version": "zone_conformal_sidecar_v1"}
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_zone_conformal_meshing_from_toml",
         _fake_run_case,
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.export_catchment_mesh_bundle",
+        "hydromodpy.spatial.mesh.launcher.runtime.export_catchment_mesh_bundle",
         lambda **_: {"bundle_dir": str(tmp_path / "bundle")},
     )
 
@@ -89,7 +90,7 @@ def test_mesh_catchment_launcher_keep_mode_preserves_geographic_outputs(
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             minimal_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else minimal_cfg.geographic
@@ -100,12 +101,12 @@ def test_mesh_catchment_launcher_keep_mode_preserves_geographic_outputs(
         lambda _: {"mesh_catchment": {"constraints_mode": "rivers_only"}},
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.Workspace",
+        "hydromodpy.spatial.mesh.launcher.runtime.Workspace",
         _DummyWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch)
 
-    _stable = minimal_cfg.workspace.project_root / ".solver_scratch/_preprocessing"
+    _stable = minimal_cfg.workspace.project_root / PREPROCESSING_DIR
 
     def _fake_run_case(config_toml, **kwargs):
         (_stable / "geographic" / "tmp").mkdir(parents=True, exist_ok=True)
@@ -115,11 +116,11 @@ def test_mesh_catchment_launcher_keep_mode_preserves_geographic_outputs(
         return {"summary_schema_version": "zone_conformal_sidecar_v1"}
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_zone_conformal_meshing_from_toml",
         _fake_run_case,
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.export_catchment_mesh_bundle",
+        "hydromodpy.spatial.mesh.launcher.runtime.export_catchment_mesh_bundle",
         lambda **_: {"bundle_dir": str(tmp_path / "bundle")},
     )
 
@@ -138,7 +139,7 @@ def test_mesh_catchment_launcher_requires_mesh_section(monkeypatch, tmp_path: Pa
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             minimal_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else minimal_cfg.geographic
@@ -176,7 +177,7 @@ def test_mesh_catchment_launcher_geology_mode_skips_river_trace_requirement(
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             minimal_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else minimal_cfg.geographic
@@ -192,7 +193,7 @@ def test_mesh_catchment_launcher_geology_mode_skips_river_trace_requirement(
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.Workspace",
+        "hydromodpy.spatial.mesh.launcher.runtime.Workspace",
         _DummyWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch, river_mesh_trace=None)
@@ -203,7 +204,7 @@ def test_mesh_catchment_launcher_geology_mode_skips_river_trace_requirement(
         return {"summary_schema_version": "zone_conformal_sidecar_v1"}
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_zone_conformal_meshing_from_toml",
         _fake_run_case,
     )
 
@@ -224,7 +225,7 @@ def test_mesh_catchment_launcher_requires_constraints_mode(
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             minimal_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else minimal_cfg.geographic

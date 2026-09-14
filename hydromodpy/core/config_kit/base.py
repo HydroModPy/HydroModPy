@@ -13,9 +13,11 @@ field on the same model (catches refactor drift).
 
 from __future__ import annotations
 
+import warnings
+from collections.abc import Mapping
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal, get_args, get_origin
+from typing import Any, ClassVar, Literal, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, model_validator
 from pydantic_core import PydanticUndefined
@@ -81,6 +83,44 @@ class HydroModelBase(BaseModel):
         arbitrary_types_allowed=True,
         ser_json_inf_nan="strings",
     )
+
+    model_legacy_keys: ClassVar[Mapping[str, str]] = {}
+    """What a key used to be called, mapped to what it is called now.
+
+    ``extra="forbid"`` makes any rename a hard break for every file that already
+    uses the old spelling, so a key that says the wrong thing tends to keep its
+    name forever. Declaring the rename here keeps those files loading and warns
+    with both spellings, which is the only way a reader learns what to write.
+
+    Only the spellings listed here are accepted; an unknown key is refused as
+    before. Writing both spellings of one key is refused too: it is a
+    contradiction, and picking a winner silently would hide it.
+    """
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_legacy_keys(cls, data: Any) -> Any:
+        renames = cls.model_legacy_keys
+        if not renames or not isinstance(data, Mapping):
+            return data
+        present = {old: new for old, new in renames.items() if old in data}
+        if not present:
+            return data
+        migrated = dict(data)
+        for old, new in present.items():
+            if new in migrated:
+                raise ValueError(
+                    f"{cls.__name__} was given both {old!r} and {new!r}; {old!r} is the "
+                    f"old spelling of {new!r}, so keep one."
+                )
+            warnings.warn(
+                f"{old!r} is now called {new!r} ({cls.__name__}); the old spelling still "
+                "loads and will stop being read in a later version.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            migrated[new] = migrated.pop(old)
+        return migrated
 
     @classmethod
     def __get_pydantic_json_schema__(

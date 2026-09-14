@@ -102,18 +102,26 @@ def test_modflow6_enables_xt3d_when_requested() -> None:
         pytest.param(
             None,
             None,
-            "auto_unstructured",
-            True,
-            ["XT3D"],
-            id="test_modflow6_auto_enables_xt3d_on_unstructured_mesh",
+            "auto_off",
+            False,
+            None,
+            id="test_modflow6_auto_disables_xt3d_on_near_orthogonal_unstructured_mesh",
         ),
         pytest.param(
             False,
             False,
-            "explicit_false",
+            "explicit_off",
             False,
             None,
             id="test_modflow6_explicit_false_disables_xt3d_on_unstructured_mesh",
+        ),
+        pytest.param(
+            True,
+            True,
+            "explicit_on",
+            True,
+            ["XT3D"],
+            id="test_modflow6_explicit_true_enables_xt3d_on_unstructured_mesh",
         ),
     ],
 )
@@ -148,7 +156,7 @@ def test_modflow6_forces_complex_ims_when_xt3d_is_active() -> None:
     model.modflow_config = model.modflow_config.model_copy(
         update={
             "runtime": model.modflow_config.runtime.model_copy(
-                update={"mf6_ims_complexity": "SIMPLE"}
+                update={"mf6_ims_complexity": "SIMPLE", "mf6_enable_xt3d": True}
             )
         }
     )

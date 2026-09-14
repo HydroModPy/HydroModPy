@@ -24,10 +24,13 @@ class DomainConfig(HydroModelBase):
     zone_ids: Annotated[list[IdentifierStr], Profile.USER] = Field(
         default_factory=list,
         description=(
-            "Ordered list of zone identifiers loaded in the domain registry. "
-            "Keep this list for actual runtime zones (for example 'catchment', "
-            "'geology', or custom zonations). Spatial-support declarations live "
-            "under domain.supports."
+            "Zone identifiers Domain.set_zone is allowed to register. It is an "
+            "allowlist, not a request: nothing here causes a zone to be built. "
+            "'catchment' and 'geology' are appended by the runtime because the "
+            "binders write under those fixed names, and every support id is "
+            "appended too, so what belongs here is a project's own zonations. "
+            "Order is never read. Spatial-support declarations live under "
+            "domain.supports."
         ),
     )
     supports: Annotated[dict[IdentifierStr, DomainSupportConfig], Profile.USER] = Field(

@@ -6,8 +6,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._trial_diagnostics import trial_table
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -39,20 +40,41 @@ class CalibrationConvergenceFigure(BaseFigure):
             df = sim.timeseries(objective, station="_calibration")
         except (KeyError, AttributeError):
             df = None
-        if df is None or len(df) == 0:
-            if hasattr(sim, "calibration_iterations"):
-                df = sim.calibration_iterations  # type: ignore[attr-defined]
-        if df is None or len(df) == 0:
-            raise ValueError("calibration_convergence: no iteration data available")
-        values = np.asarray(getattr(df, "values", df), dtype=float)
+        if df is not None and len(df) > 0:
+            label = objective
+            values = np.asarray(getattr(df, "values", df), dtype=float)
+            iters = np.arange(values.size, dtype="float64")
+        else:
+            # No objective series was recorded: read the trials, and take the
+            # cost BY COLUMN. The frame also carries the session and simulation
+            # ids, which are UUIDs, so casting the whole frame raises.
+            table = trial_table(sim)
+            iters = table.iterations()
+            if table.has_objective():
+                label, values = table.objective_values()
+            else:
+                # A bare column of costs, under no name the table knows.
+                numeric = table.frame.select_dtypes("number")
+                if numeric.shape[1] != 1:
+                    raise ValueError(
+                        "calibration_convergence: no trial recorded an objective, and "
+                        f"the session holds {numeric.shape[1]} numeric columns. Name "
+                        "the one to read with objective=."
+                    )
+                label = str(numeric.columns[0])
+                values = np.asarray(numeric.iloc[:, 0], dtype=float)
         if values.ndim > 1:
             values = values.ravel()
-        iters = np.arange(values.size)
-        best = np.minimum.accumulate(values)
+        if values.size == 0:
+            raise ValueError("calibration_convergence: no iteration data available")
+        # A trial that failed publishes no cost. Carrying its NaN forward would
+        # flatten the best-so-far curve from that trial on.
+        best = np.fmin.accumulate(np.where(np.isnan(values), np.inf, values))
+        best[~np.isfinite(best)] = np.nan
         ax.plot(iters, values, color="#999", lw=0.8, label="iteration")
         ax.plot(iters, best, color="steelblue", lw=1.5, label="best so far")
         ax.set_xlabel("Iteration")
-        ax.set_ylabel(objective)
+        ax.set_ylabel(label)
         ax.grid(True, ls=":", lw=0.4)
         ax.set_title(f"Calibration convergence - {sim.name or sim.sim_id}")
         ax.legend()

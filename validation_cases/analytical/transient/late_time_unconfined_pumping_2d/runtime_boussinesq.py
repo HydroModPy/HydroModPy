@@ -335,12 +335,10 @@ def run_boussinesq_late_time_unconfined_pumping_case(
                                 }
                             },
                             "bc": {
-                                "dirichlet": {
-                                    "west_side": {"value": base_head_m},
-                                    "east_side": {"value": base_head_m},
-                                    "north_side": {"value": base_head_m},
-                                    "south_side": {"value": base_head_m},
-                                }
+                                "west_side": {"value": base_head_m},
+                                "east_side": {"value": base_head_m},
+                                "north_side": {"value": base_head_m},
+                                "south_side": {"value": base_head_m},
                             },
                         },
                         flow_regime="transient",

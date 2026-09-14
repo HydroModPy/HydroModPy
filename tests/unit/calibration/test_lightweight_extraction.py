@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -19,10 +20,16 @@ from hydromodpy.calibration.lumped import (
     load_series,
     stash_series,
 )
+from hydromodpy.core.contracts.observables import ObservableRequest
 
 
 def _make_ctx(execution) -> SimpleNamespace:
     return SimpleNamespace(state=SimpleNamespace(execution=execution), run=None)
+
+
+def _discharge_request() -> ObservableRequest:
+    """GR4J is lumped, so discharge sits on the domain support."""
+    return ObservableRequest(id="q", name="discharge", support="domain")
 
 
 def test_calibration_config_has_lightweight_extraction_default_true() -> None:
@@ -59,9 +66,10 @@ def test_gr4j_adapter_reads_ram_cache_when_store_is_none() -> None:
     ctx = _make_ctx(execution)
     adapter = Gr4jAdapter()
 
-    out = adapter.extract_calibration_series(ctx, None, variable="discharge")
-    assert isinstance(out, pd.Series)
-    assert list(out.values) == [0.1, 0.2, 0.3, 0.4]
+    served = adapter.extract_observables(ctx, None, [_discharge_request()])
+    result = served["q"]
+    assert isinstance(result.values, np.ndarray)
+    np.testing.assert_array_equal(result.values, np.array([0.1, 0.2, 0.3, 0.4]))
 
 
 def test_gr4j_adapter_raises_when_ram_cache_missing_series() -> None:
@@ -71,4 +79,4 @@ def test_gr4j_adapter_raises_when_ram_cache_missing_series() -> None:
     adapter = Gr4jAdapter()
 
     with pytest.raises(KeyError, match="No GR4J RAM-cached series"):
-        adapter.extract_calibration_series(ctx, None, variable="discharge")
+        adapter.extract_observables(ctx, None, [_discharge_request()])

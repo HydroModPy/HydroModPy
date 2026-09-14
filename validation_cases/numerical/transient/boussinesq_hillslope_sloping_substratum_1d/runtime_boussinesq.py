@@ -124,18 +124,13 @@ def run_boussinesq_hillslope_sloping_substratum_case(
                 }
             },
             "bc": {
-                "dirichlet": {
-                    "east_side": {
-                        "type": "dirichlet",
-                        "value": EAST_HEAD_M,
-                    }
+                "east_side": {
+                    "value": EAST_HEAD_M,
                 },
-                "cauchy": {
-                    "drainage": {
-                        "application_domain": "top",
-                        "kind": "cauchy",
-                        "value": DRAINAGE_CONDUCTANCE_M2_S,
-                    }
+                "drainage": {
+                    "application_domain": "top",
+                    "kind": "cauchy",
+                    "value": DRAINAGE_CONDUCTANCE_M2_S,
                 },
             },
         },

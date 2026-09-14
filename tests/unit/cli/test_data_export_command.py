@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.state.paths import catalog_path_for, share_dir_for
 from tests._helpers.cli_runner import CliRunner
 
 
@@ -21,7 +21,9 @@ def test_data_export_missing_catalog_returns_not_found(tmp_path) -> None:
 def test_data_export_sim_defaults_to_csv_and_prints_export_count(monkeypatch, tmp_path) -> None:
     project = tmp_path / "ProjectA"
     project.mkdir()
-    (project / CATALOG_FILENAME).write_bytes(b"catalog")
+    catalog_path = catalog_path_for(project)
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
+    catalog_path.write_bytes(b"catalog")
     calls: dict[str, object] = {}
 
     class FakeConnection:
@@ -49,11 +51,11 @@ def test_data_export_sim_defaults_to_csv_and_prints_export_count(monkeypatch, tm
         def close(self) -> None:
             calls["closed"] = True
 
-    monkeypatch.setattr("hydromodpy.results.catalog.SimulationCatalog", FakeCatalog)
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
 
     result = CliRunner().invoke(["data", "export", str(project), "--sim", "run-one"])
 
-    out = project.resolve() / "exports" / "run-one" / "timeseries.csv"
+    out = share_dir_for(project.resolve()) / "run-one" / "timeseries.csv"
     assert result.exit_code == 0
     assert calls["catalog_root"] == project.resolve()
     assert calls["resolve"] == {"sim_ref": "run-one", "project": "ProjectA"}
@@ -71,7 +73,9 @@ def test_data_export_geotiff_requires_resolution_and_closes_catalog(
 ) -> None:
     project = tmp_path / "ProjectA"
     project.mkdir()
-    (project / CATALOG_FILENAME).write_bytes(b"catalog")
+    catalog_path = catalog_path_for(project)
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
+    catalog_path.write_bytes(b"catalog")
     calls: dict[str, object] = {}
 
     class FakeConnection:
@@ -97,7 +101,7 @@ def test_data_export_geotiff_requires_resolution_and_closes_catalog(
         def close(self) -> None:
             calls["closed"] = True
 
-    monkeypatch.setattr("hydromodpy.results.catalog.SimulationCatalog", FakeCatalog)
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
 
     result = CliRunner().invoke(["data", "export", str(project), "--sim", "run-one", "--geotiff"])
 

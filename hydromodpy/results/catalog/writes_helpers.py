@@ -8,10 +8,12 @@ import cycles between the per-sink mixin modules.
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import pyarrow as pa
 
@@ -94,6 +96,40 @@ def _normalize_geometry_kind(geom_type: str | None) -> str | None:
     return mapping.get(geom_type, "polygon")
 
 
+def geographic_feature_description(gdf: Any) -> tuple[str | None, str, dict[str, Any]]:
+    """Return ``(geometry_kind, crs, properties)`` describing a feature layer.
+
+    Shared by the writer and by the index rebuild, so one GeoParquet file
+    always yields the same catalog row whether it was described when written
+    or read back from disk afterwards. The CRS is rendered through
+    ``to_string()``: a layer read back from GeoParquet carries its CRS as
+    PROJJSON, and only the canonical form matches the authority code the
+    writer saw in memory.
+    """
+    from shapely.ops import unary_union
+
+    union_geom = unary_union([g for g in gdf.geometry if g is not None and not g.is_empty])
+    geometry_kind = _normalize_geometry_kind(union_geom.geom_type)
+    if gdf.crs is None:
+        raise ValueError("Geographic feature CRS is required.")
+    crs = gdf.crs.to_string()
+    schema_payload = {
+        "columns": [str(col) for col in gdf.columns if col != gdf.geometry.name],
+        "geometry_kind": geometry_kind,
+        "crs": crs,
+    }
+    properties = {
+        "n_features": int(len(gdf)),
+        "bbox": [float(value) for value in gdf.total_bounds],
+        "geometry_encoding": "WKB",
+        "schema_sha256": hashlib.sha256(
+            json.dumps(schema_payload, sort_keys=True).encode("utf-8")
+        ).hexdigest(),
+        "geoparquet_version": "1.1.0",
+    }
+    return geometry_kind, crs, properties
+
+
 def _epsg_from_crs(crs: str | None) -> int | None:
     if not crs:
         return None
@@ -158,6 +194,66 @@ def _table_from_records(
     ).replace_schema_metadata(schema.metadata)
 
 
+def _is_column_array(value: Any) -> bool:
+    """Return True for per-row array-likes; str/bytes and scalars broadcast."""
+    return isinstance(value, np.ndarray | list | tuple | pd.Series | pd.Index)
+
+
+def _timestamp_array_ms(value: Any, n_rows: int, dtype: pa.DataType) -> pa.Array:
+    """Build a millisecond-resolution timestamp array; naive input is UTC."""
+    if value is None:
+        return pa.nulls(n_rows, dtype)
+    if not _is_column_array(value):
+        ts = _coerce_timestamp_utc(value)
+        ms = None if ts is None else int(ts.value // 1_000_000)
+        return pa.array([ms] * n_rows, type=dtype)
+    index = pd.DatetimeIndex(value)
+    index = index.tz_localize("UTC") if index.tz is None else index.tz_convert("UTC")
+    return pa.array(index.as_unit("ms").asi8, type=dtype, mask=index.isna())
+
+
+def _table_from_columns(
+    columns: Mapping[str, Any],
+    schema: pa.Schema,
+    *,
+    defaults: Mapping[str, Any] | None = None,
+) -> pa.Table:
+    """Columnar sibling of :func:`_table_from_records`.
+
+    ``columns`` maps schema column names to equal-length per-row arrays;
+    scalar values broadcast and missing columns fall back to ``defaults`` or
+    null. This skips the per-record Python loop entirely, which matters for
+    multi-million-row solver series.
+    """
+    field_names = [field.name for field in schema]
+    unknown = set(columns) - set(field_names)
+    if unknown:
+        raise ValueError(f"columns not in schema: {sorted(unknown)}")
+    n_rows = None
+    for value in columns.values():
+        if _is_column_array(value):
+            n_rows = len(value)
+            break
+    if n_rows is None:
+        raise ValueError("at least one column must be a per-row array")
+    arrays: list[pa.Array] = []
+    for field in schema:
+        value = columns.get(field.name)
+        if value is None and defaults is not None and field.name in defaults:
+            value = defaults[field.name]
+        if pa.types.is_timestamp(field.type):
+            arrays.append(_timestamp_array_ms(value, n_rows, field.type))
+        elif value is None:
+            arrays.append(pa.nulls(n_rows, field.type))
+        elif _is_column_array(value):
+            if len(value) != n_rows:
+                raise ValueError(f"column '{field.name}' has {len(value)} rows, expected {n_rows}")
+            arrays.append(pa.array(value, type=field.type, from_pandas=True))
+        else:
+            arrays.append(pa.array([value] * n_rows, type=field.type))
+    return pa.Table.from_arrays(arrays, names=field_names).replace_schema_metadata(schema.metadata)
+
+
 def _merge_with_existing(target: Path, new_table: pa.Table, pk_cols: Sequence[str]) -> pa.Table:
     """Last-write-wins merge of an existing Parquet file with ``new_table``.
 
@@ -168,7 +264,12 @@ def _merge_with_existing(target: Path, new_table: pa.Table, pk_cols: Sequence[st
     """
     import pyarrow.parquet as pq
 
+    from hydromodpy.results.storage.parquet_schemas import check_schema_version
+
     existing = pq.read_table(target)
+    # Reject a stale/version-less Parquet before appending to it: union_by_name
+    # would otherwise silently NULL-fill or coerce a schema-drifted older file.
+    check_schema_version(existing.schema.metadata)
     # Ensure columns line up: project new_table onto existing's column order
     # when both share the same names, otherwise rely on concat_tables' promote.
     combined = pa.concat_tables([existing, new_table], promote_options="default")
@@ -191,5 +292,7 @@ __all__ = [
     "_python_value_type",
     "_sha256_directory",
     "_sha256_streaming",
+    "_table_from_columns",
     "_table_from_records",
+    "geographic_feature_description",
 ]

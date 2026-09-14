@@ -8,7 +8,8 @@ This page documents one concrete numerical policy already encoded in the
 MODFLOW 6 backend:
 
 - XT3D is left disabled by default on structured meshes,
-- XT3D is auto-enabled by default on unstructured runtime meshes,
+- on an unstructured runtime mesh, XT3D is auto-enabled only when the mesh
+  non-orthogonality or the horizontal K tensor crosses a fixed trigger,
 - users can still override that choice explicitly.
 
 That policy deserves a scientific note because it affects both accuracy and
@@ -18,7 +19,8 @@ Current HydroModPy Policy
 -------------------------
 
 The current MODFLOW 6 runtime configuration accepts
-``modflow6.runtime.mf6_enable_xt3d``.
+``modflow6.runtime.mf6_enable_xt3d``, documented in
+:doc:`/user_guide/config_reference/modflow6`.
 
 Its behaviour is:
 
@@ -34,10 +36,14 @@ Its behaviour is:
      - ``None``
      - Disabled
      - Keep the simpler default path on orthogonal-style grids
-   * - Runtime irregular mesh
+   * - Runtime irregular mesh, high non-orthogonality or anisotropic K
      - ``None``
      - Enabled
-     - Prefer the more robust option on non-orthogonal cell geometries
+     - Prefer the more robust option once the geometry or the K tensor earns it
+   * - Runtime irregular mesh, near-orthogonal and isotropic K
+     - ``None``
+     - Disabled
+     - The two-point flux is still accurate; XT3D would only add cost
    * - Any mesh
      - ``True``
      - Enabled
@@ -46,6 +52,12 @@ Its behaviour is:
      - ``False``
      - Disabled
      - Force the simpler path explicitly
+
+The auto trigger fires when more than 5% of cell connections exceed 30
+degrees of non-orthogonality, when the p95 non-orthogonality itself exceeds
+30 degrees, or when the horizontal K tensor is anisotropic or angled. The
+last branch is a forward hook: NPF currently writes only ``k`` and ``k33``,
+so the horizontal plane is isotropic and the geometry decides today.
 
 HydroModPy also adjusts the IMS complexity logic accordingly. If XT3D is
 active and the user asked for ``SIMPLE``, the backend upgrades the effective
@@ -71,8 +83,9 @@ HydroModPy therefore chooses the following default:
 
 - on structured grids, keep the simpler path unless the user explicitly wants
   XT3D;
-- on irregular runtime meshes, spend more computation to reduce the risk that
-  geometry-induced error dominates the comparison.
+- on irregular runtime meshes, spend more computation once the mesh
+  non-orthogonality or an anisotropic K tensor crosses the auto trigger, to
+  reduce the risk that geometry-induced error dominates the comparison.
 
 This is a deliberate "accuracy first" policy for the unstructured path.
 

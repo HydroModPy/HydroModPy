@@ -9,18 +9,18 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
-def fair_catalog(tmp_path: Path) -> SimulationCatalog:
-    """A live :class:`SimulationCatalog` with one finalised simulation row."""
-    cat = SimulationCatalog(tmp_path / "ws")
-    yield cat
-    cat.close()
+def fair_catalog(tmp_path: Path) -> Catalog:
+    """A live :class:`Catalog` over a fresh project root."""
+    with simulation_catalog(tmp_path / "ws") as cat:
+        yield cat
 
 
-def populate_simulation(catalog: SimulationCatalog, *, project: str = "test") -> str:
+def populate_simulation(catalog: Catalog, *, project: str = "test") -> str:
     """Insert one simulation with metrics, timeseries, parameters and provenance."""
     sid = str(uuid.uuid4())
     reg = catalog.register_simulation(

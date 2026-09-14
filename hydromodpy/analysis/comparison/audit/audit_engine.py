@@ -64,16 +64,10 @@ def _flow_bc_without_method_specific_drainage_conductance(value: Any) -> tuple[A
     if not isinstance(normalized, dict):
         return normalized, ignored
 
-    for family in ("cauchy", "robin"):
-        family_payload = normalized.get(family)
-        if not isinstance(family_payload, dict):
-            continue
-        drainage = family_payload.get("drainage")
-        if not isinstance(drainage, dict):
-            continue
-        if "value" in drainage:
-            drainage["value"] = "<method-specific-drainage-conductance>"
-            ignored = True
+    drainage = normalized.get("drainage")
+    if isinstance(drainage, dict) and "value" in drainage:
+        drainage["value"] = "<method-specific-drainage-conductance>"
+        ignored = True
     return normalized, ignored
 
 

@@ -70,3 +70,19 @@ def test_no_unknown_keys_in_json_schema_extra_across_codebase() -> None:
     assert not offenders, "Unknown json_schema_extra keys detected: " + ", ".join(
         f"{path}={sorted(keys)}" for path, keys in offenders.items()
     )
+
+
+def test_no_field_description_names_a_dead_results_folder() -> None:
+    """``results_stable/`` was replaced by ``.hmp/scratch/_preprocessing/``.
+
+    A field description is the only documentation many users read, so it must
+    not send them to a directory the code stopped writing.
+    """
+    offenders = [
+        f"{cls.__module__}.{cls.__name__}.{field_name}"
+        for cls in _iter_basemodel_classes()
+        for field_name, info in cls.model_fields.items()
+        if "results_stable" in (info.description or "")
+    ]
+
+    assert not offenders, "Dead 'results_stable/' path in: " + ", ".join(offenders)

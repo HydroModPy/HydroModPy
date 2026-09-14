@@ -44,19 +44,20 @@ class DynamicFlowExamples:
 
         out.append("")
         out.append("# " + "-" * 70)
-        out.append("# Flow boundary conditions - one block per id listed in")
-        out.append("# [flow].active_bc. Canonical ids are defined by the flow")
-        out.append("# boundary-condition registry. Supported sections include")
-        out.append("# [flow.bc.dirichlet.<side>],")
-        out.append("# [flow.bc.cauchy.drainage], [flow.bc.robin.drainage].")
-        out.append("# Example: a top-domain Cauchy drainage BC.")
+        out.append("# Flow boundary conditions. A boundary is keyed by WHAT IT IS,")
+        out.append("# [flow.bc.<id>], with the canonical ids and their kind, domain")
+        out.append("# and units held by the flow boundary-condition registry.")
+        out.append("# A boundary the registry describes entirely needs no block at")
+        out.append("# all: listing it in [flow].active_bc is enough. Write a block")
+        out.append("# only to depart from that default, for instance to impose a")
+        out.append("# conductance, or kind = 'robin' instead of the drainage default.")
         out.append("# " + "-" * 70)
         out.extend(
             section_renderer(
-                "flow.bc.cauchy.drainage",
+                "flow.bc.drainage",
                 FlowBoundaryConditionConfig,
                 threshold,
-                values={"application_domain": "top", "kind": "cauchy", "unit": "m2/s"},
+                values={"unit": "m2/s"},
                 _depth=0,
             )
         )

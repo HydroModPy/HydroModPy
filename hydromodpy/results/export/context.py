@@ -1,7 +1,7 @@
 """Shared context object that gathers data from the catalog for FAIR exports.
 
 A :class:`FairExportContext` is a pure-data view of one simulation. It is
-built once from the live :class:`SimulationCatalog` and then handed to the
+built once from the live :class:`Catalog` and then handed to the
 specialised RO-Crate / STAC / PROV-O builders. Keeping a single
 collector here means the rest of the exporters never touch DuckDB directly,
 which also makes the layer matrix (``results -> core/schema/results/spatial``)
@@ -24,6 +24,7 @@ from pydantic import ValidationError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import WORKSPACE_TOML_FILENAME
 from hydromodpy.core.workspace.workspace_toml import load_workspace_toml
+from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
 
 logger = get_logger(__name__)
 
@@ -225,46 +226,37 @@ def _collect_assets(
     assets: list[AssetEntry] = []
     zarr_rel = sim_row.get("zarr_path")
     if zarr_rel:
-        zarr_path = workspace_path / str(zarr_rel)
-        sha = _sha256_file(zarr_path) if zarr_path.is_file() else None
-        size = zarr_path.stat().st_size if zarr_path.is_file() else None
-        media = (
-            "application/zip" if str(zarr_rel).endswith(".zarr.zip") else "application/x.zarr-store"
-        )
+        # The field store is a Zarr directory: it has no single checksum and
+        # no single size, so both stay unset.
         assets.append(
             AssetEntry(
                 key="zarr",
                 relative_path=str(zarr_rel).replace("\\", "/"),
-                media_type=media,
+                media_type="application/x.zarr-store",
                 roles=("data", "fields"),
-                sha256=sha,
-                size_bytes=size,
+                sha256=None,
+                size_bytes=None,
                 description="Zarr store with spatial fields, mesh and forcings.",
             )
         )
 
-    parquet_root = getattr(catalog, "parquet_dir_for", None)
-    if callable(parquet_root):
-        try:
-            pq_dir = Path(parquet_root(sim_row["sim_id"]))
-        except Exception:
-            pq_dir = None
-        if pq_dir and pq_dir.is_dir():
-            # ``pq_dir`` is the per-sim container; only single-file payloads
-            # inside are valid asset entries.
-            for pq in sorted(p for p in pq_dir.glob("*.parquet") if p.is_file()):
-                rel = pq.relative_to(workspace_path) if workspace_path in pq.parents else pq.name
-                assets.append(
-                    AssetEntry(
-                        key=f"parquet:{pq.stem}",
-                        relative_path=str(rel).replace("\\", "/"),
-                        media_type="application/vnd.apache.parquet",
-                        roles=("data", "metadata"),
-                        sha256=_sha256_file(pq),
-                        size_bytes=pq.stat().st_size,
-                        description=f"Per-simulation Parquet table: {pq.stem}.",
-                    )
+    pq_dir = catalog.tables_dir_for(sim_row["sim_id"])
+    if pq_dir.is_dir():
+        # ``pq_dir`` groups the run's Parquet payloads; only single-file
+        # payloads inside are valid asset entries.
+        for pq in sorted(p for p in pq_dir.glob(f"*{PARQUET_FILE_SUFFIX}") if p.is_file()):
+            rel = pq.relative_to(workspace_path) if workspace_path in pq.parents else pq.name
+            assets.append(
+                AssetEntry(
+                    key=f"parquet:{pq.stem}",
+                    relative_path=str(rel).replace("\\", "/"),
+                    media_type="application/vnd.apache.parquet",
+                    roles=("data", "metadata"),
+                    sha256=_sha256_file(pq),
+                    size_bytes=pq.stat().st_size,
+                    description=f"Per-simulation Parquet table: {pq.stem}.",
                 )
+            )
 
     project = sim_row.get("project")
     if project:

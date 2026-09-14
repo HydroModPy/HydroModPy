@@ -61,7 +61,7 @@ class HelpOutput:
 
     def load_from_hdf5(self, path_to_hdf5: str):
         """Read data and grid from an HDF5 file at the specified location."""
-        logger.info("Loading water budget dataset from %s", path_to_hdf5)
+        logger.debug("Loading water budget dataset from %s", path_to_hdf5)
         hdf5 = h5py.File(path_to_hdf5, mode="r+")
         try:
             # Load the data.
@@ -73,11 +73,11 @@ class HelpOutput:
                 self.data[key] = values
         finally:
             hdf5.close()
-        logger.info("Water budget dataset loaded in memory")
+        logger.debug("Water budget dataset loaded in memory")
 
     def save_to_hdf5(self, path_to_hdf5: str):
         """Save the data and grid to an HDF5 file at the specified location."""
-        logger.info("Writing water budget dataset to %s", osp.basename(path_to_hdf5))
+        logger.debug("Writing water budget dataset to %s", osp.basename(path_to_hdf5))
         hdf5file = h5py.File(path_to_hdf5, mode="w")
         try:
             # Save the data.
@@ -92,7 +92,7 @@ class HelpOutput:
                     group.create_dataset(key, data=self.data[key])
         finally:
             hdf5file.close()
-        logger.info("Water budget dataset written successfully")
+        logger.debug("Water budget dataset written successfully")
 
     def save_to_csv(
         self, path_to_csv: str, year_from: int = -np.inf, year_to: int = np.inf
@@ -110,7 +110,7 @@ class HelpOutput:
             Maximum year of the period over which the average annual values
             are calculated. The default is np.inf.
         """
-        logger.info("Exporting annual averages to %s", osp.basename(path_to_csv))
+        logger.debug("Exporting annual averages to %s", osp.basename(path_to_csv))
         df = pd.DataFrame(index=self.data["cid"])
         df.index.name = "cid"
 
@@ -122,7 +122,7 @@ class HelpOutput:
             df[key] = value
 
         df.to_csv(path_to_csv, encoding="utf8")
-        logger.info("Annual averages exported successfully")
+        logger.debug("Annual averages exported successfully")
 
     # ---- Calcul
     def calc_area_monthly_avg(self):

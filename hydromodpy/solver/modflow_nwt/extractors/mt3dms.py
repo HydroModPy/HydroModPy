@@ -6,6 +6,6 @@ from hydromodpy.solver.modflow_common.mt3dms_extractor_base import Mt3dmsExtract
 
 
 class Mt3dmsOutputAdapter(Mt3dmsExtractorBase):
-    """Ingest MT3DMS concentration outputs into a SimulationCatalog."""
+    """Ingest MT3DMS concentration outputs into a Catalog."""
 
     solver_name = "mt3dms"

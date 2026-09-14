@@ -64,7 +64,7 @@
       "caption": "Before/after XT3D comparison on the 11 steady analytical validation cases that use MODFLOW 6 irregular triangles.",
       "alt_text": "RMSE and runtime comparison for MODFLOW 6 irregular triangles with and without XT3D",
       "doc_path": "/_static/capability_gallery/validation/modflow6_irregular_tri_xt3d_method_choice_tradeoff.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/modflow6_irregular_tri_xt3d_method_choice_tradeoff.png"
+      "repo_path": "docs/source/_static/capability_gallery/validation/modflow6_irregular_tri_xt3d_method_choice_tradeoff.png"
     }
   ],
   "metrics": [
@@ -124,12 +124,12 @@
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/validation/modflow6_irregular_tri_xt3d_method_choice_summary.json",
-    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/modflow6_irregular_tri_xt3d_method_choice_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/validation/modflow6_irregular_tri_xt3d_method_choice_summary.json",
     "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/validation/modflow6_irregular_tri_xt3d_method_choice_tradeoff.png"
+      "docs/source/_static/capability_gallery/validation/modflow6_irregular_tri_xt3d_method_choice_tradeoff.png"
     ],
     "extra_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/validation/modflow6_irregular_tri_xt3d_method_choice_report.json"
+      "docs/source/_static/capability_gallery/validation/modflow6_irregular_tri_xt3d_method_choice_report.json"
     ]
   },
   "parameter_docs": {
