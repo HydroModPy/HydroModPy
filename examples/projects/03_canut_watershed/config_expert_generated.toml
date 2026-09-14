@@ -1200,7 +1200,7 @@ param_list = []
 param = {}
 
 # Mapping of flow boundary-condition payloads parsed from [flow.bc].
-# Supported sections are: [flow.bc.dirichlet.<id>] with <id> in ocean, stream, north_side, south_side, east_side, west_side; [flow.bc.cauchy.drainage]; [flow.bc.robin.drainage]; and generic [flow.bc.<custom_id>] payloads.
+# Every boundary is keyed by what it is: [flow.bc.<id>], with <id> in ocean, stream, north_side, south_side, east_side, west_side, drainage, or a custom id. The registry supplies the kind, and kind = 'robin' on a drainage is the only departure worth writing.
 # Common required key: value (numeric or '<value> <unit>').
 # Dirichlet keys may omit application_domain when <id> implies it (for example west_side -> 'west side').
 # Drainage (cauchy/robin) requires application_domain explicitly.
