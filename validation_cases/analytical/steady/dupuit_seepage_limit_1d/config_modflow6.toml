@@ -73,9 +73,9 @@ runoff_ratio = 0.0
 [modflow6.runtime]
 mf_verbose = false
 mf6_ims_complexity = "COMPLEX"
-mf6_outer_dvclose = 1e-8
-mf6_inner_dvclose = 1e-9
-mf6_inner_rclose = 1e-11
+mf6_outer_dvclose = 1e-6
+mf6_inner_dvclose = 1e-7
+mf6_inner_rclose = 1e-9
 mf6_outer_maximum = 500
 mf6_inner_maximum = 500
 
