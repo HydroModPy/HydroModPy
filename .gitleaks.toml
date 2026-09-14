@@ -6,12 +6,26 @@ useDefault = true
 [[rules]]
 id = "generic-api-key"
 
+# A citation key is <author><year><word>: three lowercase-letter runs and a
+# 4-digit year, which no credential shape can satisfy. Exempting the whole
+# protocols/ directory on the generic key=" pattern instead would have
+# swallowed a real `key = "ghp_..."` typed anywhere under it, measured.
 [[rules.allowlists]]
-description = "Bibliography and gallery metadata keys are not credentials."
+description = "A bibliography citation key is not a credential."
 condition = "AND"
 regexTarget = "line"
 paths = [
     '''(^|/)hydromodpy/calibration/protocols/.*\.py$''',
+]
+regexes = [
+    '''^\s*key="[a-z]+[0-9]{4}[a-z]*",?\s*$''',
+]
+
+[[rules.allowlists]]
+description = "Generated gallery metadata keys are not credentials."
+condition = "AND"
+regexTarget = "line"
+paths = [
     '''(^|/)docs/source/_static/capability_gallery/.*_summary\.json$''',
     '''(^|/)examples/projects/07_mesh_gallery/.*/case\.json$''',
     '''(^|/)examples/projects/09_capability_gallery/.*/case\.json$''',
