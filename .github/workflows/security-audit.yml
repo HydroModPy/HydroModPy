@@ -12,7 +12,7 @@ on:
       - "requirements*.txt"
       - "install/*.yml"
       - "install/*.yaml"
-      - "docs/readthedocs_requirements.txt"
+      - "docs/requirements.txt"
   schedule:
     - cron: "20 5 * * 1"
   workflow_dispatch:

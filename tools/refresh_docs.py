@@ -1,4 +1,4 @@
-"""Refresh the versioned inputs that feed the Read the Docs site.
+"""Refresh the versioned inputs that feed the documentation site.
 
 This script is the "full refresh" companion to the targeted gallery helpers.
 It recomputes the capability-gallery artifacts and XT3D diagnostics that are

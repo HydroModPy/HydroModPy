@@ -27,19 +27,19 @@ Generate or refresh the committed gallery artifacts:
 python -m tools.doc_gallery
 ```
 
-For the whole Read the Docs refresh chain, use the dedicated orchestration
+For the whole documentation refresh chain, use the dedicated orchestration
 script. It recomputes validation reports, the XT3D note payload, the gallery
 artifacts, runs the gallery drift check, then rebuilds Sphinx locally:
 
 ```bash
-python -m tools.refresh_readthedocs
+python -m tools.refresh_docs
 ```
 
 Add `--install-solver-binaries` on clean CI machines that do not already have
 the MODFLOW executables cached:
 
 ```bash
-python -m tools.refresh_readthedocs --install-solver-binaries
+python -m tools.refresh_docs --install-solver-binaries
 ```
 
 To enforce that such a refresh only touched the generated docs artifacts, use:
