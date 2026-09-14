@@ -125,24 +125,40 @@ class TestTheBudgetOpensAtEitherPrecision:
             cal.open_cell_budget("broken.cbc")
 
     def test_nothing_opens_a_budget_without_going_through_the_helper(self) -> None:
-        """The regression to catch: a bare CellBudgetFile call coming back."""
+        """The regression to catch: a bare CellBudgetFile call coming back.
+
+        The exemption is the body of ``open_cell_budget`` and nothing else.
+        Exempting its whole module instead let a bare call sitting next to the
+        helper pass unseen, which a mutation test caught.
+        """
+        import ast
         import pathlib
         import re
 
         root = pathlib.Path(cal_root := "hydromodpy/solver")
         helper_module = root / "modflow_common" / "calibration_extractors.py"
+        helper = next(
+            (
+                node
+                for node in ast.walk(ast.parse(helper_module.read_text(encoding="utf-8")))
+                if isinstance(node, ast.FunctionDef) and node.name == "open_cell_budget"
+            ),
+            None,
+        )
+        assert helper is not None, f"open_cell_budget is gone from {helper_module}"
+        exempt = range(helper.lineno, (helper.end_lineno or helper.lineno) + 1)
+
         offenders = []
         for path in root.rglob("*.py"):
-            if path == helper_module:
-                # The helper is where the widths are tried; that is its job.
-                continue
             text = path.read_text(encoding="utf-8")
-            for line in text.splitlines():
+            for number, line in enumerate(text.splitlines(), start=1):
+                if path == helper_module and number in exempt:
+                    continue
                 stripped = line.strip()
                 if stripped.startswith("#") or "precision=" in line:
                     continue
                 if re.search(r"CellBudgetFile\s*\(", line):
-                    offenders.append(f"{path.relative_to(cal_root)}: {stripped}")
+                    offenders.append(f"{path.relative_to(cal_root)}:{number}: {stripped}")
 
         assert not offenders, (
             "these open a budget file without a precision and will raise OSError on a "
