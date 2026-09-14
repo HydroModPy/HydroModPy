@@ -55,9 +55,7 @@ def run_boussinesq_dupuit_divide_river_case(
                 }
             },
             "bc": {
-                "dirichlet": {
-                    "east_side": {"value": river_head_m},
-                }
+                "east_side": {"value": river_head_m},
             },
         },
         plan_name="Boussinesq Dupuit divide-river validation",

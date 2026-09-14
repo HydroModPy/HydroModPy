@@ -91,10 +91,8 @@ def run_boussinesq_linearized_unconfined_recharge_periodic_case(
                 }
             },
             "bc": {
-                "dirichlet": {
-                    "west_side": {"value": base_head_m},
-                    "east_side": {"value": base_head_m},
-                }
+                "west_side": {"value": base_head_m},
+                "east_side": {"value": base_head_m},
             },
         },
         plan_name="Boussinesq periodic-recharge validation",

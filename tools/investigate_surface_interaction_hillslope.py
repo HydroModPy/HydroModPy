@@ -221,7 +221,6 @@ def _apply_scenario_to_launcher_payload(
     dirichlet.pop("west_side", None)
     dirichlet["east_side"] = {
         **dict(dirichlet.get("east_side", {})),
-        "type": "dirichlet",
         "value": f"{EAST_HEAD_M:.6f} m",
     }
     cauchy["drainage"] = {
@@ -405,18 +404,13 @@ def _run_boussinesq_scenario(
                     }
                 },
                 "bc": {
-                    "dirichlet": {
-                        "east_side": {
-                            "type": "dirichlet",
-                            "value": EAST_HEAD_M,
-                        },
+                    "east_side": {
+                        "value": EAST_HEAD_M,
                     },
-                    "cauchy": {
-                        "drainage": {
-                            "application_domain": "top",
-                            "kind": "cauchy",
-                            "value": scenario.drainage_conductance_m2_per_s,
-                        }
+                    "drainage": {
+                        "application_domain": "top",
+                        "kind": "cauchy",
+                        "value": scenario.drainage_conductance_m2_per_s,
                     },
                 },
             },

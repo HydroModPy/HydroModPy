@@ -31,9 +31,7 @@ VARIANTS = (
 
 
 def test_the_config_loader_accepts_exactly_the_union_s_discriminators() -> None:
-    assert known_ic_types() == {
-        str(variant.model_fields["type"].default) for variant in VARIANTS
-    }
+    assert known_ic_types() == {str(variant.model_fields["type"].default) for variant in VARIANTS}
 
 
 def test_the_solver_accepts_exactly_the_same_ones() -> None:

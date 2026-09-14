@@ -72,8 +72,9 @@ nlay = 1
 [comparison.simulation.overlay.modflow6.tgrid]
 firstpersteady = false
 
-[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+[comparison.simulation.overlay.flow.bc.drainage]
 value = "0.1 m2/s"
+kind = "cauchy"
 
 [[comparison.simulation]]
 id = "bouss_unstructured_same_mesh"
@@ -90,8 +91,9 @@ ts_vi_adapt = false
 ts_vi_type = "beuler"
 ts_vi_snes_type = "vinewtonrsls"
 
-[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+[comparison.simulation.overlay.flow.bc.drainage]
 value = "0.0 m2/s"
+kind = "cauchy"
 
 [[comparison.simulation]]
 id = "mf6_regular_120"
@@ -130,8 +132,9 @@ nlay = 1
 [comparison.simulation.overlay.modflow6.tgrid]
 firstpersteady = false
 
-[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+[comparison.simulation.overlay.flow.bc.drainage]
 value = "0.1 m2/s"
+kind = "cauchy"
 
 [[comparison.simulation]]
 id = "mf6_regular_180"
@@ -170,8 +173,9 @@ nlay = 1
 [comparison.simulation.overlay.modflow6.tgrid]
 firstpersteady = false
 
-[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+[comparison.simulation.overlay.flow.bc.drainage]
 value = "0.1 m2/s"
+kind = "cauchy"
 
 [[comparison.simulation]]
 id = "mf6_unstructured_350m"
@@ -212,8 +216,9 @@ nlay = 1
 [comparison.simulation.overlay.modflow6.tgrid]
 firstpersteady = false
 
-[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+[comparison.simulation.overlay.flow.bc.drainage]
 value = "0.1 m2/s"
+kind = "cauchy"
 
 [[comparison.observable]]
 name = "head_map_wet_year1"

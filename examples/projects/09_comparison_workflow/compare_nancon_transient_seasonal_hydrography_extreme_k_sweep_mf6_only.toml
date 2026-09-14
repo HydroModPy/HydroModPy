@@ -63,8 +63,9 @@ value = "1e-4 m-1"
 [comparison.simulation.overlay.flow.param.Sy.field]
 value = "0.05 -"
 
-[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+[comparison.simulation.overlay.flow.bc.drainage]
 value = "3e-3 m2/s"
+kind = "cauchy"
 
 [[comparison.simulation]]
 id = "k_2e5"
@@ -103,8 +104,9 @@ value = "1e-4 m-1"
 [comparison.simulation.overlay.flow.param.Sy.field]
 value = "0.05 -"
 
-[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+[comparison.simulation.overlay.flow.bc.drainage]
 value = "3e-3 m2/s"
+kind = "cauchy"
 
 [[comparison.simulation]]
 id = "k_2e4"
@@ -143,8 +145,9 @@ value = "1e-4 m-1"
 [comparison.simulation.overlay.flow.param.Sy.field]
 value = "0.05 -"
 
-[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+[comparison.simulation.overlay.flow.bc.drainage]
 value = "3e-3 m2/s"
+kind = "cauchy"
 
 [[comparison.simulation]]
 id = "k_3e4"
@@ -183,8 +186,9 @@ value = "1e-4 m-1"
 [comparison.simulation.overlay.flow.param.Sy.field]
 value = "0.05 -"
 
-[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+[comparison.simulation.overlay.flow.bc.drainage]
 value = "3e-3 m2/s"
+kind = "cauchy"
 
 [[comparison.simulation]]
 id = "k_2e2"
@@ -223,8 +227,9 @@ value = "1e-4 m-1"
 [comparison.simulation.overlay.flow.param.Sy.field]
 value = "0.05 -"
 
-[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+[comparison.simulation.overlay.flow.bc.drainage]
 value = "3e-3 m2/s"
+kind = "cauchy"
 
 [[comparison.simulation]]
 id = "k_1e1"
@@ -263,8 +268,9 @@ value = "1e-4 m-1"
 [comparison.simulation.overlay.flow.param.Sy.field]
 value = "0.05 -"
 
-[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+[comparison.simulation.overlay.flow.bc.drainage]
 value = "3e-3 m2/s"
+kind = "cauchy"
 
 [[comparison.observable]]
 name = "head_map_after_first_week"

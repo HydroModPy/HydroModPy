@@ -165,7 +165,7 @@ value = "0.05 -"
 [flow.ic]
 type = "top"
 
-[flow.bc.cauchy.drainage]
+[flow.bc.drainage]
 application_domain = "top"
 value = "0.0 m2/s"
 

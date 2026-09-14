@@ -101,9 +101,7 @@ class CmaEsAdapter:
         center = (
             transformed_prior_center(space)
             if start_at is None
-            else np.clip(
-                np.asarray(start_at, dtype=float).ravel(), self._lower, self._upper
-            )
+            else np.clip(np.asarray(start_at, dtype=float).ravel(), self._lower, self._upper)
         )
 
         if self._normalize:

@@ -449,9 +449,7 @@ def attach_a_linearized_width(
             item.parameter,
             item.value,
             item.sigma,
-            ""
-            if tradeoff is None
-            else f", correlated {tradeoff[1]:+.2f} with {tradeoff[0]}",
+            "" if tradeoff is None else f", correlated {tradeoff[1]:+.2f} with {tradeoff[0]}",
         )
     return replace(report, parameter_uncertainty=widths)
 

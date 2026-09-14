@@ -52,10 +52,8 @@ def run_boussinesq_linearized_unconfined_recharge_step_case(
             }
         },
         "bc": {
-            "dirichlet": {
-                "west_side": {"value": base_head_m},
-                "east_side": {"value": base_head_m},
-            }
+            "west_side": {"value": base_head_m},
+            "east_side": {"value": base_head_m},
         },
     }
     if surface_interaction_model is not None:

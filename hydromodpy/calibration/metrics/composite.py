@@ -495,7 +495,7 @@ def build_paired_vector_capture(
     if not observed_records:
         raise ValueError(
             "a linearized covariance is built from residuals, and no calibration output "
-            "names a station to be compared against. Declare observes = \"<station>\" on "
+            'names a station to be compared against. Declare observes = "<station>" on '
             "the outputs this calibration is fitted to."
         )
     captured: dict[str, Any] = {}

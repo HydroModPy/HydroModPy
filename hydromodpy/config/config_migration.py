@@ -15,6 +15,7 @@ once. The runtime itself never accepts the old keys (``extra="forbid"``).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -120,6 +121,29 @@ def _drop_the_modflow6_time_grid(doc: Any) -> list[str]:
     return changes
 
 
+def _flow_tables(doc: Any) -> list[tuple[str, Any]]:
+    """Return every ``(path, table)`` pair holding a flow section.
+
+    A comparison or testbed file carries no top-level ``[flow]``: it patches
+    one per case, under ``overlay``. Those overlays reach the same loader and
+    are refused by the same rule, so a migration that only looked at the root
+    left the file broken and reported nothing to fix.
+    """
+    tables = [("flow", doc.get("flow"))]
+    for owner, member in (("comparison", "simulation"), ("testbed", "case")):
+        entries = (doc.get(owner) or {}).get(member)
+        if entries is None:
+            continue
+        if isinstance(entries, Mapping):
+            entries = [entries]
+        for index, entry in enumerate(entries):
+            overlay = (entry or {}).get("overlay")
+            if overlay is None:
+                continue
+            tables.append((f"{owner}.{member}[{index}].overlay.flow", overlay.get("flow")))
+    return [(path, table) for path, table in tables if table is not None]
+
+
 def _flatten_boundary_conditions(doc: Any) -> list[str]:
     """Rewrite ``[flow.bc.<kind>.<id>]`` as ``[flow.bc.<id>]`` with a kind field.
 
@@ -128,30 +152,31 @@ def _flatten_boundary_conditions(doc: Any) -> list[str]:
     The nested form said the same thing twice and let the two disagree.
     """
     changes: list[str] = []
-    flow = doc.get("flow")
-    if flow is None:
-        return changes
-    bc = flow.get("bc")
-    if bc is None:
-        return changes
-
-    for kind in ("dirichlet", "cauchy", "robin"):
-        nested = bc.get(kind)
-        if nested is None:
+    for prefix, flow in _flow_tables(doc):
+        bc = flow.get("bc")
+        if bc is None:
             continue
-        for bc_id in list(nested):
-            entry = nested[bc_id]
-            if bc_id in bc:
-                changes.append(f"flow.bc.{kind}.{bc_id} dropped (flow.bc.{bc_id} already set)")
+        for kind in ("dirichlet", "cauchy", "robin"):
+            nested = bc.get(kind)
+            if nested is None:
                 continue
-            try:
-                entry["kind"] = kind
-                entry.pop("id", None)
-            except (TypeError, AttributeError):
-                pass
-            bc[bc_id] = entry
-            changes.append(f"flow.bc.{kind}.{bc_id} -> flow.bc.{bc_id} (kind = {kind!r})")
-        del bc[kind]
+            for bc_id in list(nested):
+                entry = nested[bc_id]
+                if bc_id in bc:
+                    changes.append(
+                        f"{prefix}.bc.{kind}.{bc_id} dropped ({prefix}.bc.{bc_id} already set)"
+                    )
+                    continue
+                try:
+                    entry["kind"] = kind
+                    entry.pop("id", None)
+                except (TypeError, AttributeError):
+                    pass
+                bc[bc_id] = entry
+                changes.append(
+                    f"{prefix}.bc.{kind}.{bc_id} -> {prefix}.bc.{bc_id} (kind = {kind!r})"
+                )
+            del bc[kind]
     return changes
 
 

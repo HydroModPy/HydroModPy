@@ -466,8 +466,7 @@ def write_piecewise_strip_launcher_config(
         lines.extend(
             [
                 "",
-                "[flow.bc.dirichlet.west_side]",
-                'kind = "dirichlet"',
+                "[flow.bc.west_side]",
                 f"value = {float(west_head_m):.12g}",
             ]
         )
@@ -475,8 +474,7 @@ def write_piecewise_strip_launcher_config(
         lines.extend(
             [
                 "",
-                "[flow.bc.dirichlet.east_side]",
-                'kind = "dirichlet"',
+                "[flow.bc.east_side]",
                 f"value = {float(east_head_m):.12g}",
             ]
         )
