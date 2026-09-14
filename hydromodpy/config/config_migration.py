@@ -171,6 +171,9 @@ def _flatten_boundary_conditions(doc: Any) -> list[str]:
                     entry["kind"] = kind
                     entry.pop("id", None)
                 except (TypeError, AttributeError):
+                    # A scalar or list under a family key is not a boundary
+                    # payload. The loader refuses it with its own message, so
+                    # carry it across unchanged rather than mask that error here.
                     pass
                 bc[bc_id] = entry
                 changes.append(

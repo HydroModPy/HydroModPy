@@ -194,3 +194,42 @@ def test_a_flat_entry_already_there_wins_over_the_nested_one(tmp_path: Path) -> 
 def test_a_file_with_no_flow_section_is_left_alone(tmp_path: Path) -> None:
     path = _write(tmp_path, '[simulation]\nname = "plain"\n')
     assert fix_config_file(path) == []
+
+
+def test_a_single_comparison_table_migrates_like_an_array_of_one(tmp_path: Path) -> None:
+    """``[comparison.simulation]`` instead of ``[[comparison.simulation]]`` still migrates.
+
+    Writing the single-table form is a common slip. The loader has its own
+    opinion about it; the migration's job is to reach the boundary either way
+    rather than skip the file and report nothing to fix.
+    """
+    path = _write(
+        tmp_path,
+        '[comparison.simulation]\nid = "only"\n'
+        '[comparison.simulation.overlay.flow.bc.cauchy.drainage]\nvalue = "1e-7 m2/s"\n',
+    )
+
+    changes = fix_config_file(path)
+    bc = tomllib.loads(path.read_text(encoding="utf-8"))["comparison"]["simulation"]["overlay"][
+        "flow"
+    ]["bc"]
+
+    assert bc["drainage"] == {"value": "1e-7 m2/s", "kind": "cauchy"}
+    assert len(changes) == 1
+
+
+def test_a_case_that_patches_nothing_is_skipped(tmp_path: Path) -> None:
+    """An entry with no overlay must not stop the ones that follow it."""
+    path = _write(
+        tmp_path,
+        '[[testbed.case]]\nid = "control"\n\n'
+        '[[testbed.case]]\nid = "patched"\n'
+        "[testbed.case.overlay.flow.bc.dirichlet.east_side]\nvalue = 2.5\n",
+    )
+
+    changes = fix_config_file(path)
+    cases = tomllib.loads(path.read_text(encoding="utf-8"))["testbed"]["case"]
+
+    assert "overlay" not in cases[0]
+    assert cases[1]["overlay"]["flow"]["bc"]["east_side"] == {"value": 2.5, "kind": "dirichlet"}
+    assert len(changes) == 1
