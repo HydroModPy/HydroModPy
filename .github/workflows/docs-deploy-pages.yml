@@ -50,7 +50,11 @@ jobs:
     timeout-minutes: 60
 
     steps:
+      # sphinx-last-updated-by-git needs the full history: on a shallow
+      # clone it warns once per page, and -W turns that into 465 errors.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
