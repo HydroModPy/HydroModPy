@@ -15251,7 +15251,7 @@
           },
           "mf6_ats": {
             "default": false,
-            "description": "Enable MODFLOW 6 adaptive time stepping (ATS) on transient periods. Each stress period starts at its full length and MF6 subdivides only the periods the solver cannot converge in one step (e.g. littoral wet/dry under Newton), instead of carrying budget error at nstp=1. When on, OC saves per period end so the extraction still sees one record per period. Default off (baseline).",
+            "description": "Enable MODFLOW 6 adaptive time stepping (ATS) on transient periods. Each period starts at the step simulation.time.substeps_per_period asked for and MF6 subdivides below it only where the solver cannot converge (e.g. littoral wet/dry under Newton); it never grows past that step, so turning ATS on cannot coarsen a run. When on, OC saves per period end so the extraction still sees one record per period. Default off (baseline).",
             "examples": [
               false
             ],
@@ -19987,7 +19987,7 @@
           },
           "substeps_per_period": {
             "default": 1,
-            "description": "Number of solver time steps within each stress period. Higher values improve transient accuracy (e.g., 30 for daily substeps inside monthly stress periods).",
+            "description": "Number of solver time steps within each stress period. Higher values improve transient accuracy (e.g., 30 for daily substeps inside monthly stress periods). Consumed by the MODFLOW backends as DIS NSTP / TDIS nstp; the Boussinesq backend has its own [flow].vi_substeps_per_period.",
             "examples": [
               1
             ],

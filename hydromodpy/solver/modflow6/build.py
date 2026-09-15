@@ -94,6 +94,50 @@ from hydromodpy.solver.modflow_grid import (
 logger = get_logger(__name__)
 
 
+# ATS cuts the step by this factor after a failed solve. Growth is capped at the
+# declared step through dtmax, so no growth is useful; MF6 wants a positive
+# dtadj and 1.0 means "do not grow".
+_ATS_DTADJ = 1.0
+_ATS_DTFAILADJ = 5.0
+
+
+def build_ats_perioddata(
+    *,
+    perlen: np.ndarray,
+    nstp: np.ndarray,
+    steady: np.ndarray,
+    dtmin_s: float,
+) -> list[tuple[int, float, float, float, float, float]]:
+    """Adaptive time-stepping records for the transient periods.
+
+    Each record is ``(iper, dt0, dtmin, dtmax, dtadj, dtfailadj)``. ``iper`` is
+    0-based here because FloPy adds one when it writes the ATS file; passing a
+    1-based index shifts every record one period late and drops the last one off
+    the end of the simulation.
+
+    A period ATS covers ignores its TDIS NSTP, so ``dt0`` and ``dtmax`` are the
+    step NSTP asked for rather than the whole period. ATS can then only go below
+    it, which is its one useful power: recovering from a solve that failed.
+    Leaving ``dtmax`` at ``perlen`` lets it grow past the requested resolution
+    and collapse the period back to the single step NSTP was raised to avoid.
+
+    Steady periods are left out: they carry no time step to adapt.
+    """
+    declared_steps = np.asarray(perlen, dtype=float) / np.asarray(nstp, dtype=float)
+    return [
+        (
+            index,
+            float(declared_steps[index]),
+            float(dtmin_s),
+            float(declared_steps[index]),
+            _ATS_DTADJ,
+            _ATS_DTFAILADJ,
+        )
+        for index in range(int(declared_steps.size))
+        if not bool(steady[index])
+    ]
+
+
 def mf6_safe_name(name: str, max_len: int = 16) -> str:
     """Return a safe MODFLOW 6 model name: no whitespace, hashed when too long.
 
@@ -708,6 +752,10 @@ def run_pre_processing(  # noqa: PLR0915
     model.tdis = flopy.mf6.ModflowTdis(
         model.sim,
         nper=int(model.nper),
+        # TSMULT stays 1.0. Within one stress period the forcing is constant, so
+        # the backward-Euler state at the period end depends only on the set of
+        # step sizes and not on their order, and equal steps minimise its error.
+        # simulation.time.substeps_per_period is the knob that buys accuracy here.
         perioddata=[
             (float(model.perlen[i]), int(model.nstp[i]), 1.0) for i in range(int(model.nper))
         ],
@@ -715,22 +763,12 @@ def run_pre_processing(  # noqa: PLR0915
         start_date_time=start_date_time,
     )
     if runtime.mf6_ats:
-        # Adaptive time stepping on the transient periods: (iper, dt0, dtmin, dtmax,
-        # dtadj, dtfailadj). Each period starts at its full length (dt0=perlen) and MF6
-        # subdivides only when the solver fails, instead of carrying budget error at
-        # nstp=1. iper is 1-based. OC below saves per period end so one record/period.
-        ats_perioddata = [
-            (
-                i + 1,
-                float(model.perlen[i]),
-                float(runtime.mf6_ats_dtmin_s),
-                float(model.perlen[i]),
-                2.0,
-                5.0,
-            )
-            for i in range(int(model.nper))
-            if not bool(model.steady[i])
-        ]
+        ats_perioddata = build_ats_perioddata(
+            perlen=model.perlen,
+            nstp=model.nstp,
+            steady=model.steady,
+            dtmin_s=float(runtime.mf6_ats_dtmin_s),
+        )
         if ats_perioddata:
             flopy.mf6.ModflowUtlats(
                 model.tdis,

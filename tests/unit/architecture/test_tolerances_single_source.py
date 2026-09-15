@@ -1,7 +1,7 @@
 """Guard the single-source tolerance policy.
 
 ``tests/TOLERANCES.md`` is the one source of truth for numerical tolerances.
-``tests/_helpers/tolerances.py::tol`` loads the 34 single-scalar rows from that
+``tests/_helpers/tolerances.py::tol`` loads the 37 single-scalar rows from that
 table. This test prevents two kinds of drift:
 
 1. A ``tol("...")`` call that points at a typo / dangling key (it would resolve
@@ -9,7 +9,7 @@ table. This test prevents two kinds of drift:
 2. An INLINE row whose value is hard-coded at its assertion site again, so the
    row could diverge from the table without anyone noticing.
 
-The 34 loadable rows split into three enforcement classes (W5 classification):
+The 37 loadable rows split into three enforcement classes (W5 classification):
 
 * INLINE  - the value is asserted at a validation/regression call site; the
             literal was replaced by ``tol(<slug>)``. Every INLINE row MUST be
@@ -47,7 +47,7 @@ _SCAN_EXCLUDE: frozenset[str] = frozenset(
 )
 
 # --------------------------------------------------------------------------- #
-# W5 classification of the 34 loadable TOLERANCES.md rows.
+# W5 classification of the 37 loadable TOLERANCES.md rows.
 # --------------------------------------------------------------------------- #
 
 # INLINE: literal replaced by tol(); must be referenced by >= 1 tol() call.
@@ -63,6 +63,11 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "signature_stats_post_v0_5__atol",
         "mf6_prt_uniform_velocity_streamline__max_relative_position_error_x_x_exp_x_exp_x0",
         "mf6_gwt_first_order_decay_0d__max_relative_concentration_error_vs_c0_exp_k_t",
+        # Stress-period sub-stepping and the ATS bounds, asserted in
+        # tests/validation/analytical/transient/test_stress_period_substepping.py.
+        "stress_period_sub_stepping_mf6__rmse_ratio_between_nstp_1_and_nstp_10",
+        "stress_period_sub_stepping_mf6__rmse_difference_between_tsmult_r_and_1_r",
+        "adaptive_time_stepping_mf6__rmse_relative_difference_ats_on_against_ats_off",
         # SFR standalone budget closure + SFR->LAK MVR reciprocity, asserted in
         # tests/integration/solver/test_sfr_standalone.py and test_sfr_lak_mvr.py.
         "sfr_standalone_budget_closure_mf6__gwf_listing_percent_discrepancy",
@@ -177,7 +182,7 @@ def test_classification_partitions_all_loadable_rows() -> None:
     """INLINE, CASE_TOML and UNUSED partition exactly the 34 loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 34, sorted(loadable)
+    assert len(loadable) == 37, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"

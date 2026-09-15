@@ -49,6 +49,17 @@ Each release section includes the following standard categories:
   `ResolvedSimulationTimeGrid`, not reviving a parallel temporal model.
 
 ### Fixed
+- MODFLOW 6 adaptive time stepping targeted the wrong stress period. FloPy
+  converts an ATS `iper` to 1-based when it writes the file and the builder was
+  already 1-based, so every record landed one period late and the last one fell
+  off the end of the simulation. The first transient period never got ATS at
+  all.
+- Adaptive time stepping no longer discards the requested sub-stepping. MF6
+  ignores the TDIS NSTP of a period ATS covers, and the record declared
+  `dt0 = dtmax = perlen`, so a run asking for ten steps per period got one:
+  0.0481 m of RMSE against the erfc closed form instead of 0.0035 m. Both bounds
+  are now the step `simulation.time.substeps_per_period` asked for, so ATS can
+  only cut below it, which is the failure recovery it exists for.
 - `hmp doctor --fix-config` reads a config carrying a byte-order mark. tomlkit
   parsed the BOM as an empty key on line 1, so the whole fix aborted and nine
   validation configs in this repository could not be migrated at all.

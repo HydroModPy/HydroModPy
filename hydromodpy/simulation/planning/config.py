@@ -110,7 +110,9 @@ class SimulationTimeConfig(HydroModelBase):
         description=(
             "Number of solver time steps within each stress period. "
             "Higher values improve transient accuracy (e.g., 30 for daily "
-            "substeps inside monthly stress periods)."
+            "substeps inside monthly stress periods). "
+            "Consumed by the MODFLOW backends as DIS NSTP / TDIS nstp; the "
+            "Boussinesq backend has its own [flow].vi_substeps_per_period."
         ),
     )
     coverage_policy: Annotated[CoveragePolicy, Profile.DEV] = Field(

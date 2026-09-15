@@ -11025,7 +11025,7 @@
     "section": "simulation",
     "anchor": "simulation-name",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L322",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L324",
     "description": "Human-readable simulation name and the run's identity. When empty, derived from the TOML filename at load time (run_steady_nwt.toml -> steady_nwt); a programmatic run without a name gets a deterministic memorable slug.",
     "examples": [
       "\"cheze_baseline\""
@@ -11040,7 +11040,7 @@
     "section": "simulation",
     "anchor": "simulation-tags",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L375",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L377",
     "description": "Free-text tags attached at registration; editable later via 'hmp catalog tag'."
   },
   {
@@ -11052,7 +11052,7 @@
     "section": "simulation",
     "anchor": "simulation-if-exists",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L379",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L381",
     "description": "Behavior when registering a simulation whose ``name`` already exists in this project. ``version`` (default) mints the next ``stem.vN`` and keeps every run addressable; ``replace`` trashes the predecessor (restorable) and takes the name; ``f"
   },
   {
@@ -11064,7 +11064,7 @@
     "section": "simulation",
     "anchor": "simulation-description",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L367",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L369",
     "description": "Short free-text description of the simulation intent."
   },
   {
@@ -11076,7 +11076,7 @@
     "section": "simulation",
     "anchor": "simulation-scientific-objective",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L395",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L397",
     "description": "Scientific objective used for catalog and ML stratification."
   },
   {
@@ -11088,7 +11088,7 @@
     "section": "simulation",
     "anchor": "simulation-contact-email",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L399",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L401",
     "description": "Contact email for the simulation metadata."
   },
   {
@@ -11100,7 +11100,7 @@
     "section": "simulation",
     "anchor": "simulation-doi",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L403",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L405",
     "description": "DOI or reference identifier for the simulation metadata."
   },
   {
@@ -11112,7 +11112,7 @@
     "section": "simulation",
     "anchor": "simulation-study-area-name",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L407",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L409",
     "description": "Human-readable study area name."
   },
   {
@@ -11124,7 +11124,7 @@
     "section": "simulation",
     "anchor": "simulation-outlet-x",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L411",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L413",
     "description": "Outlet X coordinate in the project CRS units."
   },
   {
@@ -11136,7 +11136,7 @@
     "section": "simulation",
     "anchor": "simulation-outlet-y",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L415",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L417",
     "description": "Outlet Y coordinate in the project CRS units."
   },
   {
@@ -11148,7 +11148,7 @@
     "section": "simulation",
     "anchor": "simulation-time",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L319",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L321",
     "description": "Optional canonical simulation window used to align solver temporal settings and validate forcing coverage. Required for launcher flow processes and for runtime features that explicitly consume simulation-window dates."
   },
   {
@@ -11219,7 +11219,7 @@
     "anchor": "simulation-time-substeps-per-period",
     "page": "simulation.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L107",
-    "description": "Number of solver time steps within each stress period. Higher values improve transient accuracy (e.g., 30 for daily substeps inside monthly stress periods)."
+    "description": "Number of solver time steps within each stress period. Higher values improve transient accuracy (e.g., 30 for daily substeps inside monthly stress periods). Consumed by the MODFLOW backends as DIS NSTP / TDIS nstp; the Boussinesq backend ha"
   },
   {
     "path": "simulation.time.coverage_policy",
@@ -11230,7 +11230,7 @@
     "section": "simulation",
     "anchor": "simulation-time-coverage-policy",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L116",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L118",
     "description": "Behavior when recharge does not fully cover the declared simulation window bounds [start_datetime, end_datetime]: 'error' raises, 'warn' emits a warning, 'ignore' skips checks."
   },
   {
@@ -11242,7 +11242,7 @@
     "section": "simulation",
     "anchor": "simulation-process",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L342",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L344",
     "description": "Ordered list of requested processes loaded from [[simulation.process]]. At most one process per type is supported."
   },
   {
@@ -11254,7 +11254,7 @@
     "section": "simulation",
     "anchor": "simulation-process-id",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L189",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L191",
     "description": "User-facing identifier for the process. This id is required and must be unique within the simulation.",
     "examples": [
       "\"flow_main\""
@@ -11269,7 +11269,7 @@
     "section": "simulation",
     "anchor": "simulation-process",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L192",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L194",
     "description": "Discriminator selecting the 'flow' process family."
   },
   {
@@ -11281,7 +11281,7 @@
     "section": "simulation",
     "anchor": "simulation-process-solvers",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L196",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L198",
     "description": "Ordered list of active flow solver names. At least one solver is required for flow processes."
   },
   {
@@ -11293,7 +11293,7 @@
     "section": "simulation",
     "anchor": "simulation-process-backend",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L268",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L270",
     "description": "Backend used by the mesh process. Currently only 'catchment' is supported (delegates to the [mesh_catchment] runtime)."
   },
   {
@@ -11305,7 +11305,7 @@
     "section": "simulation",
     "anchor": "simulation-results",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L435",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L437",
     "description": "Results storage and export configuration loaded from [simulation.results]. Controls Catalog, derived variables, and automated exports."
   },
   {
@@ -11557,7 +11557,7 @@
     "section": "simulation",
     "anchor": "simulation-rng-seed",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L443",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L445",
     "description": "Master RNG seed for the simulation. When set, every stochastic consumer (mesh point sampling, synthetic forcing, ...) derives its own deterministic sub-seed via ``hydromodpy.core.rng.RngManager``. Persisted in ``runs_environment.rng_seed`` "
   },
   {
@@ -12446,7 +12446,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L241",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L242",
     "description": "MODFLOW 6 runtime options."
   },
   {
@@ -12687,7 +12687,7 @@
     "anchor": "modflow6-runtime-mf6-ats",
     "page": "modflow6.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L154",
-    "description": "Enable MODFLOW 6 adaptive time stepping (ATS) on transient periods. Each stress period starts at its full length and MF6 subdivides only the periods the solver cannot converge in one step (e.g. littoral wet/dry under Newton), instead of car"
+    "description": "Enable MODFLOW 6 adaptive time stepping (ATS) on transient periods. Each period starts at the step simulation.time.substeps_per_period asked for and MF6 subdivides below it only where the solver cannot converge (e.g. littoral wet/dry under "
   },
   {
     "path": "modflow6.runtime.mf6_ats_dtmin_s",
@@ -12698,7 +12698,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-ats-dtmin-s",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L164",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L165",
     "description": "Minimum ATS time step in seconds (only used when mf6_ats is true)."
   },
   {
@@ -12710,7 +12710,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-enable-xt3d",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L168",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L169",
     "description": "Enable MF6 NPF XT3D terms. When left to None, XT3D is auto-enabled only when the mesh is significantly non-orthogonal or anisotropic K is configured; the default Voronoi/PEBI dual grid is near-orthogonal, so XT3D stays off there. It adds co"
   },
   {
@@ -12722,7 +12722,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-wetfct",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L178",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L179",
     "description": "MF6 NPF rewet WETFCT factor."
   },
   {
@@ -12734,7 +12734,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-iwetit",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L182",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L183",
     "description": "MF6 NPF rewet IWETIT interval."
   },
   {
@@ -12746,7 +12746,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-ihdwet",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L186",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L187",
     "description": "MF6 NPF rewet IHDWET flag."
   },
   {
@@ -12758,7 +12758,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-wetdry",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L190",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L191",
     "description": "MF6 NPF WETDRY threshold used when rewetting is active."
   },
   {
@@ -12770,7 +12770,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L245",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L246",
     "description": "Process-specific controls for MODFLOW 6 flow packages."
   },
   {
@@ -12782,7 +12782,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific-vka",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L199",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L200",
     "description": "Uniform vertical anisotropy ratio kh/kv (dimensionless, > 0); k33 = k / vka. Default 1.0 is vertically isotropic. For spatial control declare a per-cell 'Kv' flow parameter instead, which is mutually exclusive with a non-unit vka and is a d"
   },
   {
@@ -12794,7 +12794,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific-evt-extinction-depth",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L210",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L211",
     "description": "Meters; extinction depth for the EVT sink used when recharge negatives are routed to EVT. The routed deficit tapers linearly from the cell top to this depth and stops below it, so a sustained climatic deficit can saturate near this value."
   },
   {
@@ -12806,7 +12806,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific-lak-forcing-mode",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L219",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L220",
     "description": "How time-varying LAK forcings are written. 'inline' expands values into the LAK PERIOD block, emitting one row per stress period whenever the value changes. 'ts6' always routes non-constant forcings to external MF6 TS6 files. 'auto' keeps c"
   },
   {
@@ -12818,7 +12818,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific-ts6-min-periods",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L229",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L230",
     "description": "Period count above which 'auto' mode offloads a non-constant LAK forcing to a TS6 file."
   },
   {
@@ -12830,7 +12830,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L249",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L250",
     "description": "Solver-grid payload split into planar and vertical sections."
   },
   {

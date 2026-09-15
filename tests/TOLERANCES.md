@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 64 tolerances enforced today. Every tolerance
+The table below records the 67 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -92,6 +92,9 @@ must carry a rationale before it is merged.
 | 62 | Dupuit seepage limit 1D (MF6) | head-profile max abs error vs the closed form | `0.02 m` | **Derived.** A DRN cell only discharges above its elevation, so the seeping water table sits `(R/K + slope**2) * z` above the surface (6.4 mm at the divide relief of 7.95 m); that offset propagates upslope as a constant in `h**2` | Measured 6.2 mm (reference and both scaled scenarios) to 7.9 mm (K-only control); the band is 2.5x the worst case |
 | 63 | Dupuit seepage limit 1D, K/R invariance | water-table max abs difference across the K/R sweep | `2e-3 m` | **Derived.** IMS closes on an ABSOLUTE flux residual, so a 1e4 span on the forcing is not solved to one relative precision: the residual budget `n_cells * inner_rclose / (R * area)` allows 4e-4 on the x0.01 scenario, i.e. ~1.2e-3 m of head | Measured 1.1e-4 m (x0.01) and 1.1e-6 m (x100), masks identical cell for cell. 2e-3 m of head displaces the seepage limit by 2 m (0.4 cell): the head band cannot let the mask move |
 | 64 | Dupuit seepage limit 1D, K-only control | total drain-outflow relative drift | `1e-4` | **Derived.** Steady mass balance pins the drain outflow at `R * area` whatever K does; the only drift is the solver residual, bounded by `n_cells * inner_rclose / (R * area)` = 4e-6, so the band is 25x the numerical floor | Measured 5e-8 while a factor 2 on K alone moves 70 cells of the seepage mask. This row exists to document WHY the invariance is never asserted on the discharge |
+| 65 | Stress-period sub-stepping (MF6) | RMSE ratio between `nstp=1` and `nstp=10` | `> 10x` | **Derived.** Backward Euler is first order in time, so halving the step halves the error; ten steps should gain about an order of magnitude on a smooth relaxation, and the assertion is the weakest form of that (a strict factor 10) rather than a fitted ratio | Measured 13.6x (0.0481 m against 0.0035 m on the erfc profile). The point of the row is that the shipped default of one step per period is the expensive choice, not a neutral one |
+| 66 | Stress-period sub-stepping (MF6) | RMSE difference between TSMULT `r` and `1/r` | `1e-6 m` | **Derived.** Within a stress period the forcing is constant, so the backward-Euler end state is a product of commuting operators over the steps: it depends on the multiset of step sizes and not on their order, and a ratio and its reciprocal only reverse that order. The identity is exact in exact arithmetic, so the band is the iterative closure, declared at DVCLOSE = 1e-3 m by COMPLEXITY SIMPLE | Measured 2e-8 m, i.e. 50x inside the band and five orders inside the solver closure. This row is why no `tsmult` field is exposed: a non-uniform partition can only degrade the one state HydroModPy stores |
+| 67 | Adaptive time stepping (MF6) | RMSE relative difference, ATS on against ATS off | `1e-12` | **Machine epsilon.** Nothing fails on this column, so ATS never cuts, and with `dt0 = dtmax = perlen / nstp` it replays the declared partition step for step. The two runs are the same arithmetic in the same order | Measured bit-identical. With `dtmax = perlen`, the value shipped before, ATS grows past the request and lands on the `nstp=1` error of 0.0481 m instead of 0.0035 m |
 
 ## Update policy
 
