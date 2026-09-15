@@ -60,19 +60,38 @@ jobs:
         run: |
           python -m pytest tests/unit/ \
             --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
+            --ignore=tests/unit/geographic/test_catchment_from_point.py \
+            --ignore=tests/unit/geographic/test_reference_river_network_nancon_case.py \
             -n auto --dist loadgroup -q
 
       - name: Run whitebox backend tests (serial)
         shell: bash
-        run: python -m pytest tests/unit/backends/test_whitebox_workflows_backend.py -q
+        run: |
+          python -m pytest \
+            tests/unit/backends/test_whitebox_workflows_backend.py \
+            tests/unit/geographic/test_catchment_from_point.py \
+            tests/unit/geographic/test_reference_river_network_nancon_case.py \
+            -q
 
       - name: Install solver binaries
         shell: bash
         run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
 
+      # The Whitebox native binding dies outright when several DEM workflows run
+      # in one long-lived xdist worker, and --dist loadgroup is what puts them
+      # there: tests/conftest.py groups every Whitebox test under one name, so
+      # they all land on the same node. Run them in their own serial session
+      # instead, like the weekly job already does for the backend unit tests.
       - name: Run fast regression
         shell: bash
-        run: python -m pytest tests/regression/fast/ -n auto --dist loadgroup -q
+        run: |
+          python -m pytest tests/regression/fast/ \
+            --ignore=tests/regression/fast/geographic \
+            -n auto --dist loadgroup -q
+
+      - name: Run Whitebox-backed fast regression (serial)
+        shell: bash
+        run: python -m pytest tests/regression/fast/geographic -q
 
       - name: Run analytical validation
         shell: bash
@@ -157,5 +176,19 @@ jobs:
       - name: Install solver binaries
         run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
 
+      # Same Whitebox split as the fast regression job above: the native binding
+      # dies when several DEM workflows share one long-lived xdist worker, and
+      # the xdist group is what puts them there.
       - name: Run full regression
-        run: python -m pytest tests/regression/ -n auto --dist loadgroup -q
+        run: |
+          python -m pytest tests/regression/ \
+            --ignore=tests/regression/fast/geographic \
+            --ignore=tests/regression/extensive/test_run_geographic_case_regression.py \
+            -n auto --dist loadgroup -q
+
+      - name: Run Whitebox-backed regression (serial)
+        run: |
+          python -m pytest \
+            tests/regression/fast/geographic \
+            tests/regression/extensive/test_run_geographic_case_regression.py \
+            -q

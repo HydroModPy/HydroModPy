@@ -19765,7 +19765,7 @@
         },
         "substeps_per_period": {
           "default": 1,
-          "description": "Number of solver time steps within each stress period. Higher values improve transient accuracy (e.g., 30 for daily substeps inside monthly stress periods). Consumed by the MODFLOW backends as DIS NSTP / TDIS nstp; the Boussinesq backend has its own [flow].vi_substeps_per_period.",
+          "description": "Number of solver time steps within each stress period, the one knob that buys transient accuracy. The default of 1 integrates a whole period in a single backward-Euler step, which is not a neutral choice: on a seasonally recharged hillslope drained by DRN cells it moves the monthly discharge by 4 to 28 % against a refined run, across the whole plausible bedrock range, and a calibration scored on discharge absorbs that into the fitted parameters. The right count compares the aquifer response time `tau = L^2 S / (K b)` with the period length, and the solver cost is linear in it; 30 gives daily steps inside monthly periods. Consumed by the MODFLOW backends as DIS NSTP / TDIS nstp; the Boussinesq backend has its own [flow].vi_substeps_per_period.",
           "examples": [
             1
           ],

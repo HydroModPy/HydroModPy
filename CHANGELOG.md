@@ -48,6 +48,29 @@ Each release section includes the following standard categories:
   calendar-aware step, and restoring variable periods means extending
   `ResolvedSimulationTimeGrid`, not reviving a parallel temporal model.
 
+### Changed
+- `simulation.time.substeps_per_period` documents what its default costs. One
+  backward-Euler step per stress period moves the monthly discharge by 4 to
+  28 % against a refined run on a seasonally recharged hillslope drained by DRN
+  cells, across the whole plausible bedrock range, and a calibration scored on
+  discharge absorbs that into the fitted parameters. The default stays at 1:
+  the right count is a property of the model (`tau = L^2 S / (K b)` against the
+  period length) and the solver cost is linear in it, so raising it silently
+  would rewrite every existing result and multiply every calibration budget.
+  A validation case now states the size of the drift.
+
+### Fixed
+- CI no longer runs the Whitebox-backed tests inside an xdist worker. The native
+  binding dies outright when several DEM workflows share one long-lived worker,
+  and the `xdist_group` that stops two workers touching the backend at once is
+  exactly what puts them on the same node; `Tests / fast marker py3.12` lost
+  `gw1` on `main` this way. Every parallel step in `main-ci`, `ci-weekly` and
+  `ci-nightly` now excludes them and a serial step runs them, and a contract
+  test parses the workflows so the split cannot drift back.
+- `test_run_geographic_case_river_network_regression.py` was still listed in the
+  Whitebox xdist group after being deleted in 298c08b9d, so the entry guarded
+  nothing.
+
 ### Fixed
 - MODFLOW 6 adaptive time stepping targeted the wrong stress period. FloPy
   converts an ATS `iper` to 1-based when it writes the file and the builder was
