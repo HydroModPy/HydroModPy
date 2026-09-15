@@ -233,3 +233,55 @@ def test_a_case_that_patches_nothing_is_skipped(tmp_path: Path) -> None:
     assert "overlay" not in cases[0]
     assert cases[1]["overlay"]["flow"]["bc"]["east_side"] == {"value": 2.5, "kind": "dirichlet"}
     assert len(changes) == 1
+
+
+def test_drops_both_solver_time_grids_at_the_root(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        "[modflow6]\nrelax_steady = true\n\n[modflow6.tgrid]\nnper = 1\n\n"
+        '[modflownwt]\n\n[modflownwt.tgrid]\nitmuni = "days"\nnper = 1\n',
+    )
+
+    changes = fix_config_file(path)
+
+    assert any("modflow6.tgrid dropped" in c for c in changes)
+    assert any("modflownwt.tgrid dropped" in c for c in changes)
+    parsed = tomllib.loads(path.read_text())
+    assert "tgrid" not in parsed["modflow6"]
+    assert "tgrid" not in parsed["modflownwt"]
+    assert parsed["modflow6"]["relax_steady"] is True
+
+
+def test_drops_a_solver_time_grid_hidden_in_a_comparison_overlay(tmp_path: Path) -> None:
+    """A comparison file patches its solver sections under overlay, not at the root."""
+    path = _write(
+        tmp_path,
+        "[[comparison.simulation]]\n"
+        'label = "nwt"\n\n'
+        "[comparison.simulation.overlay.modflownwt.tgrid]\n"
+        "nper = 12\n\n"
+        "[[comparison.simulation]]\n"
+        'label = "mf6"\n\n'
+        "[comparison.simulation.overlay.modflow6.tgrid]\n"
+        "nper = 12\n",
+    )
+
+    changes = fix_config_file(path)
+
+    assert any("comparison.simulation[0].overlay.modflownwt.tgrid dropped" in c for c in changes)
+    assert any("comparison.simulation[1].overlay.modflow6.tgrid dropped" in c for c in changes)
+    # The overlays held nothing else, so the emptied tables go with the key.
+    parsed = tomllib.loads(path.read_text())["comparison"]["simulation"]
+    assert parsed[0] == {"label": "nwt"}
+    assert parsed[1] == {"label": "mf6"}
+
+
+def test_migrates_a_config_carrying_a_byte_order_mark(tmp_path: Path) -> None:
+    """tomlkit reads a BOM as an empty key, which used to abort the whole fix."""
+    path = tmp_path / "project.toml"
+    path.write_text("\ufeff[modflownwt.tgrid]\nnper = 1\n", encoding="utf-8")
+
+    changes = fix_config_file(path)
+
+    assert any("modflownwt.tgrid dropped" in c for c in changes)
+    assert tomllib.loads(path.read_text()) == {}

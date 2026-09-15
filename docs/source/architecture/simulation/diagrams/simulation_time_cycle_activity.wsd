@@ -19,7 +19,6 @@ if (Has [simulation.time]?) then (yes)
     stop
   endif
 
-  :apply_explicit_time_window_to_tgrids();
   :require_flow_simulation_time_grid();
   :Store time_grid in run_state.setup.time_grid;
 else (no)

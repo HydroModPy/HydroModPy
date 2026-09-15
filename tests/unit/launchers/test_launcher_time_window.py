@@ -9,7 +9,6 @@ import pytest
 
 from hydromodpy.core.time import (
     ResolvedSteadySimulationTimeGrid,
-    apply_explicit_time_window_to_tgrids,
     require_flow_simulation_time_grid,
     resolve_simulation_time_grid,
     resolve_simulation_time_window,
@@ -38,27 +37,22 @@ def _make_cfg_with_time(
                 SimpleNamespace(type="flow", solvers=["modflow_nwt"]),
             ],
         ),
-        modflownwt=SimpleNamespace(
-            tgrid=SimpleNamespace(start_datetime=None, end_datetime=None),
-        ),
         flow=SimpleNamespace(flow_regime="transient"),
     )
 
 
-def test_apply_simulation_time_window_updates_solver_tgrids() -> None:
+def test_simulation_time_window_drives_the_canonical_grid() -> None:
+    """Neither backend carries a tgrid section: both read this grid."""
     cfg = _make_cfg_with_time()
 
-    apply_explicit_time_window_to_tgrids(cfg)
+    grid = resolve_simulation_time_grid(cfg)
 
-    assert str(cfg.modflownwt.tgrid.start_datetime).startswith("2020-01-01")
-    assert str(cfg.modflownwt.tgrid.end_datetime).startswith("2020-01-03")
-    assert cfg.modflownwt.tgrid.nper == 3
-    assert cfg.modflownwt.tgrid.lenper == [86400.0, 86400.0, 86400.0]
-    assert cfg.modflownwt.tgrid.itmuni == "seconds"
-    assert cfg.modflownwt.tgrid.ntsp == 1
-    assert cfg.modflownwt.tgrid.tsmult == 1.0
-    # MODFLOW 6 has no tgrid section: it reads stress periods from [simulation.time].
-    assert not hasattr(cfg, "modflow6")
+    assert grid is not None
+    assert str(grid.window.start).startswith("2020-01-01")
+    assert str(grid.window.end).startswith("2020-01-03")
+    assert grid.nper == 3
+    assert grid.period_lengths_seconds == (86400.0, 86400.0, 86400.0)
+    assert grid.nstp_per_period == 1
 
 
 def test_get_simulation_time_window_rejects_from_modflow_mode() -> None:
@@ -116,15 +110,17 @@ def test_validate_recharge_coverage_accepts_period_aligned_series() -> None:
     validate_recharge_coverage(recharge, window)
 
 
-def test_apply_simulation_time_window_monthly_calendar_lengths() -> None:
+def test_monthly_step_keeps_calendar_period_lengths() -> None:
     cfg = _make_cfg_with_time(step_value=1, step_unit="month")
     cfg.simulation.time.start_datetime = "2020-01-01 00:00:00"
     cfg.simulation.time.end_datetime = "2020-03-31 00:00:00"
 
-    apply_explicit_time_window_to_tgrids(cfg)
+    grid = resolve_simulation_time_grid(cfg)
 
-    assert cfg.modflownwt.tgrid.nper == 3
-    assert cfg.modflownwt.tgrid.lenper == [2678400.0, 2505600.0, 2678400.0]
+    assert grid is not None
+    assert grid.nper == 3
+    # February 2020 is a leap month: the middle period is genuinely shorter.
+    assert grid.period_lengths_seconds == (2678400.0, 2505600.0, 2678400.0)
 
 
 def test_resolve_simulation_time_grid_explicit_mode() -> None:
@@ -182,23 +178,24 @@ def test_require_flow_simulation_time_grid_returns_dedicated_steady_grid_without
     assert grid.period_lengths_seconds == (1.0,)
 
 
-def test_apply_simulation_time_window_raises_when_end_not_aligned_with_step() -> None:
+def test_resolve_simulation_time_grid_raises_when_end_not_aligned_with_step() -> None:
     cfg = _make_cfg_with_time(step_value=2, step_unit="day")
     cfg.simulation.time.start_datetime = "2020-01-01 00:00:00"
     cfg.simulation.time.end_datetime = "2020-01-03 00:00:00"
 
     with pytest.raises(ValueError, match="not aligned with step_value/step_unit"):
-        apply_explicit_time_window_to_tgrids(cfg)
+        resolve_simulation_time_grid(cfg)
 
 
-def test_apply_simulation_time_window_accepts_inline_step_value_unit() -> None:
+def test_resolve_simulation_time_grid_accepts_inline_step_value_unit() -> None:
     cfg = _make_cfg_with_time(step_value=1, step_unit="day")
     cfg.simulation.time.step_value = "30 day"
     cfg.simulation.time.step_unit = None
     cfg.simulation.time.start_datetime = "2020-01-01 00:00:00"
     cfg.simulation.time.end_datetime = "2020-03-30 00:00:00"
 
-    apply_explicit_time_window_to_tgrids(cfg)
+    grid = resolve_simulation_time_grid(cfg)
 
-    assert cfg.modflownwt.tgrid.nper == 3
-    assert cfg.modflownwt.tgrid.lenper == [2592000.0, 2592000.0, 2592000.0]
+    assert grid is not None
+    assert grid.nper == 3
+    assert grid.period_lengths_seconds == (2592000.0, 2592000.0, 2592000.0)

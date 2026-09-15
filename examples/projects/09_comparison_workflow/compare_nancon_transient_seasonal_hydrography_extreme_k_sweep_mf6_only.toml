@@ -51,9 +51,6 @@ vka = 1.0
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
 
-[comparison.simulation.overlay.modflow6.tgrid]
-firstpersteady = false
-
 [comparison.simulation.overlay.flow.param.K.field]
 value = "2e-6 m/s"
 
@@ -91,9 +88,6 @@ vka = 1.0
 
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
-
-[comparison.simulation.overlay.modflow6.tgrid]
-firstpersteady = false
 
 [comparison.simulation.overlay.flow.param.K.field]
 value = "2e-5 m/s"
@@ -133,9 +127,6 @@ vka = 1.0
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
 
-[comparison.simulation.overlay.modflow6.tgrid]
-firstpersteady = false
-
 [comparison.simulation.overlay.flow.param.K.field]
 value = "2e-4 m/s"
 
@@ -173,9 +164,6 @@ vka = 1.0
 
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
-
-[comparison.simulation.overlay.modflow6.tgrid]
-firstpersteady = false
 
 [comparison.simulation.overlay.flow.param.K.field]
 value = "3e-4 m/s"
@@ -215,9 +203,6 @@ vka = 1.0
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
 
-[comparison.simulation.overlay.modflow6.tgrid]
-firstpersteady = false
-
 [comparison.simulation.overlay.flow.param.K.field]
 value = "2e-2 m/s"
 
@@ -255,9 +240,6 @@ vka = 1.0
 
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
-
-[comparison.simulation.overlay.modflow6.tgrid]
-firstpersteady = false
 
 [comparison.simulation.overlay.flow.param.K.field]
 value = "1e-1 m/s"

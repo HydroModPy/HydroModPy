@@ -358,12 +358,8 @@ def prepare_trials(
     # it on its own.
     if getattr(ctx.setup, "time_grid", None) is None:
         try:
-            from hydromodpy.core.time import (
-                apply_explicit_time_window_to_tgrids,
-                require_flow_simulation_time_grid,
-            )
+            from hydromodpy.core.time import require_flow_simulation_time_grid
 
-            apply_explicit_time_window_to_tgrids(cfg)
             ctx.setup.time_grid = require_flow_simulation_time_grid(cfg)
         except Exception:
             logger.debug("prepare_trials: could not resolve time_grid eagerly")

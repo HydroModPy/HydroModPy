@@ -9,7 +9,7 @@ TOML section: ``[modflownwt]``
 
 Pydantic model: ``ModflowConfig`` defined in ``hydromodpy.solver.modflow_nwt.nwt.nwt_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L224>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L223>`__
 
 Expert-level MODFLOW configuration organized by concern.
 
@@ -40,7 +40,7 @@ Fields
         <code class="hmp-field-toml">[modflownwt.runtime]</code>
       </div>
 
-   :bdg-primary:`ModflowRuntimeConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L227>`__
+   :bdg-primary:`ModflowRuntimeConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L226>`__
 
       MODFLOW runtime package options grouped by package.
 
@@ -63,7 +63,7 @@ Fields
               <code class="hmp-field-toml">[modflownwt.runtime.nwt]</code>
             </div>
 
-         :bdg-primary:`NwtSolverConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L173>`__
+         :bdg-primary:`NwtSolverConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L172>`__
 
             NWT solver and executable settings.
 
@@ -84,7 +84,7 @@ Fields
                     <code class="hmp-field-name">version</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "mfnwt"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L21>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "mfnwt"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L20>`__
 
                   MODFLOW executable/version identifier passed to FloPy.
 
@@ -100,7 +100,7 @@ Fields
                     <code class="hmp-field-name">listunit</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 2` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L25>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 2` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L24>`__
 
                   Fortran unit number used for the MODFLOW list file.
 
@@ -116,7 +116,7 @@ Fields
                     <code class="hmp-field-name">verbose</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L29>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L28>`__
 
                   Enable verbose FloPy logging for model setup.
 
@@ -132,7 +132,7 @@ Fields
                     <code class="hmp-field-name">headtol</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0001` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L33>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0001` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L32>`__
 
                   Head closure criterion for the NWT nonlinear solver.
 
@@ -148,7 +148,7 @@ Fields
                     <code class="hmp-field-name">fluxtol</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 500.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L37>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 500.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L36>`__
 
                   Flux closure criterion for the NWT nonlinear solver.
 
@@ -164,7 +164,7 @@ Fields
                     <code class="hmp-field-name">maxiterout</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 5000` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L41>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 5000` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L40>`__
 
                   Maximum outer nonlinear iterations in the NWT solver.
 
@@ -180,7 +180,7 @@ Fields
                     <code class="hmp-field-name">thickfact</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 1e-05` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L45>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 1e-05` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L44>`__
 
                   NWT wetting/thickness factor controlling nonlinear updates.
 
@@ -196,7 +196,7 @@ Fields
                     <code class="hmp-field-name">linmeth</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L49>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L48>`__
 
                   Linear solver choice for NWT (see MODFLOW-NWT documentation).
 
@@ -212,7 +212,7 @@ Fields
                     <code class="hmp-field-name">iprnwt</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L53>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L52>`__
 
                   NWT print flag controlling iteration diagnostics in listing outputs.
 
@@ -228,7 +228,7 @@ Fields
                     <code class="hmp-field-name">ibotav</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L57>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L56>`__
 
                   NWT option for averaging saturated thickness at the cell bottom.
 
@@ -244,7 +244,7 @@ Fields
                     <code class="hmp-field-name">options</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "COMPLEX"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L61>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "COMPLEX"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L60>`__
 
                   NWT nonlinear option keyword (for example SIMPLE or COMPLEX).
 
@@ -260,7 +260,7 @@ Fields
                     <code class="hmp-field-name">continue_run</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L65>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L64>`__
 
                   If true, continue NWT iterations on partially converged stress periods.
 
@@ -276,7 +276,7 @@ Fields
                     <code class="hmp-field-name">backflag</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L69>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L68>`__
 
                   NWT backtracking activation flag.
 
@@ -292,7 +292,7 @@ Fields
                     <code class="hmp-field-name">stoptol</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 1e-10` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L73>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 1e-10` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L72>`__
 
                   NWT backtracking stopping tolerance.
 
@@ -312,7 +312,7 @@ Fields
               <code class="hmp-field-toml">[modflownwt.runtime.dis]</code>
             </div>
 
-         :bdg-primary:`DisConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L177>`__
+         :bdg-primary:`DisConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L176>`__
 
             DIS package settings.
 
@@ -333,7 +333,7 @@ Fields
                     <code class="hmp-field-name">itmuni</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L82>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L81>`__
 
                   DIS time unit code (ITMUNI). Recorded, not obeyed: the launcher writes seconds because [simulation.time] already materializes every period length in seconds, so the run is in seconds whatever this says.
 
@@ -353,7 +353,7 @@ Fields
               <code class="hmp-field-toml">[modflownwt.runtime.bas]</code>
             </div>
 
-         :bdg-primary:`BasConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L181>`__
+         :bdg-primary:`BasConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L180>`__
 
             BAS package settings.
 
@@ -374,7 +374,7 @@ Fields
                     <code class="hmp-field-name">hnoflo</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = -9999.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L95>`__
+               :bdg-primary:`float` :bdg-secondary:`default = -9999.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L94>`__
 
                   BAS no-flow head sentinel value (HNOFLO).
 
@@ -394,7 +394,7 @@ Fields
               <code class="hmp-field-toml">[modflownwt.runtime.upw]</code>
             </div>
 
-         :bdg-primary:`UpwConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L185>`__
+         :bdg-primary:`UpwConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L184>`__
 
             UPW package settings.
 
@@ -415,7 +415,7 @@ Fields
                     <code class="hmp-field-name">iphdry</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L104>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L103>`__
 
                   UPW dry-cell head output flag (IPHDRY).
 
@@ -431,7 +431,7 @@ Fields
                     <code class="hmp-field-name">hdry</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = -100.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L108>`__
+               :bdg-primary:`float` :bdg-secondary:`default = -100.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L107>`__
 
                   UPW dry-cell head value (HDRY).
 
@@ -447,7 +447,7 @@ Fields
                     <code class="hmp-field-name">layvka</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L112>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L111>`__
 
                   UPW flag controlling VKA interpretation per layer (LAYVKA).
 
@@ -467,7 +467,7 @@ Fields
               <code class="hmp-field-toml">[modflownwt.runtime.evt]</code>
             </div>
 
-         :bdg-primary:`EvtConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L189>`__
+         :bdg-primary:`EvtConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L188>`__
 
             EVT package settings.
 
@@ -488,7 +488,7 @@ Fields
                     <code class="hmp-field-name">nevtop</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 3` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L121>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 3` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L120>`__
 
                   EVT option code that defines how ET extinction depth is applied (NEVTOP).
 
@@ -504,7 +504,7 @@ Fields
                     <code class="hmp-field-name">ievt</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L125>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L124>`__
 
                   EVT integer array selector used when NEVTOP requires layer indices (IEVT).
 
@@ -520,7 +520,7 @@ Fields
                     <code class="hmp-field-name">ipakcb</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L129>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L128>`__
 
                   EVT cell-by-cell budget output flag (IPAKCB).
 
@@ -540,7 +540,7 @@ Fields
               <code class="hmp-field-toml">[modflownwt.runtime.oc]</code>
             </div>
 
-         :bdg-primary:`OcConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L193>`__
+         :bdg-primary:`OcConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L192>`__
 
             OC package settings.
 
@@ -561,7 +561,7 @@ Fields
                     <code class="hmp-field-name">compact</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L138>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L137>`__
 
                   Enable compact budget format in OC outputs.
 
@@ -581,7 +581,7 @@ Fields
               <code class="hmp-field-toml">[modflownwt.runtime.wel]</code>
             </div>
 
-         :bdg-primary:`WelConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L197>`__
+         :bdg-primary:`WelConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L196>`__
 
             WEL package settings.
 
@@ -600,7 +600,7 @@ Fields
                     <code class="hmp-field-name">ipakcb</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L147>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L146>`__
 
                   WEL cell-by-cell budget output flag (IPAKCB).
 
@@ -620,7 +620,7 @@ Fields
               <code class="hmp-field-toml">[modflownwt.runtime.lmt]</code>
             </div>
 
-         :bdg-primary:`LmtConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L201>`__
+         :bdg-primary:`LmtConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L200>`__
 
             LMT package settings.
 
@@ -641,7 +641,7 @@ Fields
                     <code class="hmp-field-name">output_file_name</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "mt3d_link.ftl"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L156>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "mt3d_link.ftl"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L155>`__
 
                   LMT output filename used to couple MODFLOW to MT3DMS.
 
@@ -657,7 +657,7 @@ Fields
                     <code class="hmp-field-name">extension</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "lmt8"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L160>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "lmt8"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L159>`__
 
                   LMT package filename extension.
 
@@ -673,7 +673,7 @@ Fields
                     <code class="hmp-field-name">output_format</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "unformatted"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L164>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "unformatted"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L163>`__
 
                   LMT file format (typically 'formatted' or 'unformatted').
 
@@ -695,7 +695,7 @@ Fields
         <code class="hmp-field-toml">[modflownwt.process_specific]</code>
       </div>
 
-   :bdg-primary:`ModflowProcessSpecificConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L231>`__
+   :bdg-primary:`ModflowProcessSpecificConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L230>`__
 
       Process-specific package controls (currently UPW/EVT knobs).
 
@@ -716,7 +716,7 @@ Fields
               <code class="hmp-field-name">vka</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L210>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L209>`__
 
             Vertical hydraulic conductivity control passed to the UPW package (VKA).
 
@@ -732,7 +732,7 @@ Fields
               <code class="hmp-field-name">exdp</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L214>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L213>`__
 
             Extinction depth (metres) used by the EVT package (EXDP). Accepts inline units, e.g. '1 m', '50 cm'.
 
@@ -752,7 +752,7 @@ Fields
         <code class="hmp-field-toml">[modflownwt.sgrid]</code>
       </div>
 
-   :bdg-primary:`SolverSGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L235>`__
+   :bdg-primary:`SolverSGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L234>`__
 
       Spatial-grid payload split into `[...sgrid.planar]` and `[...sgrid.vertical]`.
 
@@ -1259,245 +1259,6 @@ Fields
 
 
 
-.. index:: ! tgrid
-
-.. container:: hmp-field hmp-field-level-user
-   :name: modflownwt-tgrid
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="modflownwt.tgrid">
-        <code class="hmp-field-name">tgrid</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">[modflownwt.tgrid]</code>
-      </div>
-
-   :bdg-primary:`TMeshConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L241>`__
-
-      Optional temporal discretization payload as one validated `TMeshConfig` model. In launcher mode, stress periods are driven by [simulation.time]; steady/transient policy is driven by [flow].flow_regime and [flow].first_period_steady.
-
-   .. dropdown:: Fields of ``TMeshConfig``
-      :icon: list-unordered
-      :animate: fade-in-slide-down
-
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
-
-      .. container:: hmp-field hmp-field-level-dev
-         :name: modflownwt-tgrid-itmuni
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="modflownwt.tgrid.itmuni">
-              <code class="hmp-field-name">itmuni</code>
-            </div>
-
-         :bdg-primary:`str` :bdg-secondary:`default = "d"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L25>`__
-
-            Time unit used to interpret lenper values. In launcher mode stress periods come from [simulation.time], so this field is mirrored only for compatibility.
-
-
-      .. index:: ! genmtd
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: modflownwt-tgrid-genmtd
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="modflownwt.tgrid.genmtd">
-              <code class="hmp-field-name">genmtd</code>
-            </div>
-
-         :bdg-primary:`str` :bdg-secondary:`default = "synthetic_regular"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L32>`__
-
-            Temporal generation method. In launcher mode stress periods come from [simulation.time], so this field is mirrored only for compatibility.
-
-         .. rst-class:: hmp-field-values
-
-         ``"synthetic_regular"``
-            Builds nper stress periods from lenper and itmuni, ignoring any chronicle file.
-
-         ``"from_chron"``
-            Derives stress-period lengths from consecutive timestamps in the chronicle file at chron_path.
-
-
-      .. index:: ! nper
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: modflownwt-tgrid-nper
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="modflownwt.tgrid.nper">
-              <code class="hmp-field-name">nper</code>
-            </div>
-
-         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L51>`__
-
-            Stress-period count. In launcher mode this is mirrored from [simulation.time] and is not the authoritative source.
-
-
-      .. index:: ! lenper
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: modflownwt-tgrid-lenper
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="modflownwt.tgrid.lenper">
-              <code class="hmp-field-name">lenper</code>
-            </div>
-
-         :bdg-primary:`float | int | list[int] | list[float] | None` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L58>`__
-
-            Stress-period length(s) interpreted with itmuni. Scalar means one regular step length repeated nper times; list means one explicit value per stress period. In launcher mode this is mirrored from [simulation.time] and is not the authoritative source.
-
-
-      .. index:: ! chron_path
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: modflownwt-tgrid-chron-path
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="modflownwt.tgrid.chron_path">
-              <code class="hmp-field-name">chron_path</code>
-            </div>
-
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L67>`__
-
-            Chronicle file path used when genmtd='from_chron'. In launcher mode this field is generally not used.
-
-
-      .. index:: ! chron_dateformat
-
-      .. container:: hmp-field hmp-field-level-dev
-         :name: modflownwt-tgrid-chron-dateformat
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="modflownwt.tgrid.chron_dateformat">
-              <code class="hmp-field-name">chron_dateformat</code>
-            </div>
-
-         :bdg-primary:`str` :bdg-secondary:`default = "%Y-%m-%d %H:%M:%S"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L74>`__
-
-            Date format string used to parse the chronicle file.
-
-
-      .. index:: ! chron_colsep
-
-      .. container:: hmp-field hmp-field-level-dev
-         :name: modflownwt-tgrid-chron-colsep
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="modflownwt.tgrid.chron_colsep">
-              <code class="hmp-field-name">chron_colsep</code>
-            </div>
-
-         :bdg-primary:`str` :bdg-secondary:`default = "	"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L78>`__
-
-            Column separator used in the chronicle file.
-
-
-      .. index:: ! chron_time_col
-
-      .. container:: hmp-field hmp-field-level-dev
-         :name: modflownwt-tgrid-chron-time-col
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="modflownwt.tgrid.chron_time_col">
-              <code class="hmp-field-name">chron_time_col</code>
-            </div>
-
-         :bdg-primary:`str` :bdg-secondary:`default = "Date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L82>`__
-
-            Name of the time/date column in the chronicle file.
-
-
-      .. index:: ! start_datetime
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: modflownwt-tgrid-start-datetime
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="modflownwt.tgrid.start_datetime">
-              <code class="hmp-field-name">start_datetime</code>
-            </div>
-
-         :bdg-primary:`Any | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L86>`__
-
-            Lower datetime bound used by the temporal mesh. In launcher mode this field is mirrored from [simulation.time] and is not the authoritative source.
-
-
-      .. index:: ! end_datetime
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: modflownwt-tgrid-end-datetime
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="modflownwt.tgrid.end_datetime">
-              <code class="hmp-field-name">end_datetime</code>
-            </div>
-
-         :bdg-primary:`Any | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L93>`__
-
-            Upper datetime bound used by the temporal mesh. In launcher mode this field is mirrored from [simulation.time] and is not the authoritative source.
-
-
-      .. index:: ! tsmult
-
-      .. container:: hmp-field hmp-field-level-dev
-         :name: modflownwt-tgrid-tsmult
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="modflownwt.tgrid.tsmult">
-              <code class="hmp-field-name">tsmult</code>
-            </div>
-
-         :bdg-primary:`int | float | list[int] | list[float]` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L100>`__
-
-            Time-step multiplier per stress period (scalar or list). In launcher mode this field is currently forced to 1.0 and generally not intended for manual editing.
-
-
-      .. index:: ! ntsp
-
-      .. container:: hmp-field hmp-field-level-dev
-         :name: modflownwt-tgrid-ntsp
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="modflownwt.tgrid.ntsp">
-              <code class="hmp-field-name">ntsp</code>
-            </div>
-
-         :bdg-primary:`int | list[int]` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L107>`__
-
-            Number of time steps per stress period (scalar or list). In launcher mode this field is currently forced to 1 and generally not intended for manual editing.
-
-
-      .. index:: ! temporal_nodata
-
-      .. container:: hmp-field hmp-field-level-dev
-         :name: modflownwt-tgrid-temporal-nodata
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="modflownwt.tgrid.temporal_nodata">
-              <code class="hmp-field-name">temporal_nodata</code>
-            </div>
-
-         :bdg-primary:`float` :bdg-secondary:`default = -9999.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L114>`__
-
-            No-data sentinel value for temporal data.
-
-
-
-
 Starter TOML snippet
 --------------------
 
@@ -1520,14 +1281,6 @@ Starter TOML snippet
       # condition_top = false
       # condition_top_epsilon = 0.001
       # top_sampling = ...  # factory default
-
-      [modflownwt.tgrid]
-      # genmtd = "synthetic_regular"
-      # nper = 1
-      # lenper = 1
-      # chron_path = ...  # default = None
-      # start_datetime = ...  # default = None
-      # end_datetime = ...  # default = None
 
 Cases using this section
 ------------------------
@@ -1555,17 +1308,3 @@ Validation gallery cases that reference fields from this section:
 - :doc:`/capability_gallery/cases/linearized_unconfined_recharge_periodic_1d`
 - :doc:`/capability_gallery/cases/linearized_unconfined_recharge_step_1d`
 - :doc:`/capability_gallery/cases/linearized_unconfined_recharge_step_deep_1d`
-
-Entity-relationship diagram
----------------------------
-
-.. container:: hmp-er-wrapper hmp-er-thumbnail
-
-   .. image:: _diagrams/modflownwt.svg
-      :alt: ER diagram for ModflowConfig
-      :class: er-diagram hmp-zoomable
-      :target: _diagrams/modflownwt.svg
-
-   .. container:: hmp-er-hint
-
-      Click to zoom and pan. Press *Esc* or click outside to close.

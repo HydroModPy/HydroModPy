@@ -1,10 +1,10 @@
 """Shared simulation time-window resolution helpers."""
 
 from hydromodpy.core.time.window import (
+    SIMULATION_TIME_UNIT,
     ResolvedSimulationTimeGrid,
     ResolvedSimulationTimeWindow,
     ResolvedSteadySimulationTimeGrid,
-    apply_explicit_time_window_to_tgrids,
     build_simulation_time_boundaries,
     has_flow_simulation_process,
     require_flow_simulation_time_grid,
@@ -16,10 +16,10 @@ from hydromodpy.core.time.window import (
 )
 
 __all__ = [
+    "SIMULATION_TIME_UNIT",
     "ResolvedSimulationTimeGrid",
     "ResolvedSimulationTimeWindow",
     "ResolvedSteadySimulationTimeGrid",
-    "apply_explicit_time_window_to_tgrids",
     "build_simulation_time_boundaries",
     "has_flow_simulation_process",
     "require_flow_simulation_time_grid",

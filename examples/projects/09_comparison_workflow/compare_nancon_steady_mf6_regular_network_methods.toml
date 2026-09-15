@@ -52,9 +52,6 @@ mf_verbose = false
 [comparison.simulation.overlay.modflow6.process_specific]
 vka = 1.0
 
-[comparison.simulation.overlay.modflow6.tgrid]
-firstpersteady = true
-
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
 
@@ -90,9 +87,6 @@ resampling = "nearest"
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
 
-[comparison.simulation.overlay.modflow6.tgrid]
-firstpersteady = true
-
 [[comparison.simulation]]
 id = "mf6_structured_180"
 label = "MODFLOW 6 structured 180x180 Nancon steady candidate"
@@ -124,9 +118,6 @@ resampling = "nearest"
 
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
-
-[comparison.simulation.overlay.modflow6.tgrid]
-firstpersteady = true
 
 [[comparison.observable]]
 name = "head_map_last"

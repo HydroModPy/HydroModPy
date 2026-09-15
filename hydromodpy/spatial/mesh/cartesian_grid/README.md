@@ -380,9 +380,10 @@ Behavior:
 
 ### Temporal grid
 
-Temporal discretization is now separated from cartesian mesh tools and lives in:
-
-- `hydromodpy/discretization/time/tmesh_generation.py`
+Temporal discretization is separate from the cartesian mesh tools. Stress
+periods come from `[simulation.time]` through
+`hydromodpy/core/time/window.py`, and the MODFLOW arrays are assembled in
+`hydromodpy/solver/modflow_grid/discretization_temporal.py`.
 
 ## Minimal Example (Spatial Grid)
 

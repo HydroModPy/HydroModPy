@@ -19,83 +19,10 @@ import pandas as pd
 
 from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.units.time import factor_to_seconds
 from hydromodpy.physics.flow.history_contract import saturated_thickness_from_head_history
+from hydromodpy.solver.modflow_common.time_units import seconds_per_solver_time_unit
 
 logger = get_logger(__name__)
-
-
-def _seconds_per_itmuni(itmuni: int) -> float:
-    """Seconds per MODFLOW ITMUNI code; 0 (undefined) means seconds."""
-    if itmuni == 0:
-        return 1.0
-    try:
-        return factor_to_seconds(int(itmuni))
-    except ValueError:
-        return 1.0
-
-
-def _read_time_units_from_tdis(tdis_path: Path) -> str | None:
-    """Return the MF6 TDIS TIME_UNITS token, or None when unreadable."""
-    if not tdis_path.is_file():
-        return None
-    try:
-        with tdis_path.open("r", encoding="utf-8") as fh:
-            for raw in fh:
-                tokens = raw.strip().split()
-                if len(tokens) >= 2 and tokens[0].upper() == "TIME_UNITS":
-                    return tokens[1].upper()
-    except OSError:
-        return None
-    return None
-
-
-def _resolve_seconds_per_unit(output_dir: Path, model_name: str) -> float:
-    """Seconds per native solver time unit, to convert CBC fluxes to m3/s.
-
-    MODFLOW 6 declares the unit as TIME_UNITS in ``{stem}.tdis`` (the TDIS file
-    name may differ from the CBC stem, so glob for it). MODFLOW-NWT declares it
-    as ITMUNI in ``{model_name}.dis``. Defaults to seconds (1.0).
-    """
-    tdis_path = output_dir / f"{model_name}.tdis"
-    if not tdis_path.is_file():
-        tdis_path = next(iter(output_dir.glob("*.tdis")), tdis_path)
-    token = _read_time_units_from_tdis(tdis_path)
-    if token is not None:
-        if token in ("", "UNKNOWN"):
-            return 1.0
-        try:
-            return factor_to_seconds(token)
-        except ValueError:
-            return 1.0
-    return _seconds_per_itmuni(_read_itmuni_from_dis(output_dir / f"{model_name}.dis"))
-
-
-def _read_itmuni_from_dis(dis_path: Path) -> int:
-    """Return the ITMUNI integer declared in a MODFLOW DIS file.
-
-    Falls back to ``1`` (seconds) when the file is missing or unparseable.
-    """
-    if not dis_path.is_file():
-        return 1
-    try:
-        with dis_path.open("r", encoding="utf-8") as fh:
-            header_lines: list[str] = []
-            for raw in fh:
-                stripped = raw.strip()
-                if not stripped or stripped.startswith("#"):
-                    continue
-                header_lines.append(stripped)
-                if len(header_lines) >= 2:
-                    break
-        if len(header_lines) < 2:
-            return 1
-        tokens = header_lines[1].split()
-        if len(tokens) >= 2:
-            return int(tokens[1])
-    except (OSError, ValueError):
-        return 1
-    return 1
 
 
 def _resolve_cbc_path(output_dir: Path, model_name: str) -> Path:
@@ -138,7 +65,7 @@ def extract_discharge_from_cbc(
     if not mask.any():
         raise ValueError("the catchment mask of a discharge observable holds no cell.")
     cbc_path = _resolve_cbc_path(output_dir, model_name)
-    seconds_per_unit = _resolve_seconds_per_unit(output_dir, model_name)
+    seconds_per_unit = seconds_per_solver_time_unit(output_dir, model_name)
 
     cbb = open_cell_budget(cbc_path)
     try:
@@ -467,7 +394,7 @@ def extract_release_flux_by_cell_from_cbc(
         raise ValueError("extract_release_flux_by_cell_from_cbc needs at least one package.")
 
     cbc_path = _resolve_cbc_path(output_dir, model_name)
-    seconds_per_unit = _resolve_seconds_per_unit(output_dir, model_name)
+    seconds_per_unit = seconds_per_solver_time_unit(output_dir, model_name)
 
     cbb = open_cell_budget(cbc_path)
     try:

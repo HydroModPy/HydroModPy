@@ -127,6 +127,12 @@ def test_modflow6_prt_domain_nonriver_release_spreads_cells() -> None:
 def test_modflow6_prt_extractor_writes_vectorized_particles(tmp_path: Path) -> None:
     output_dir = tmp_path / "solver"
     output_dir.mkdir()
+    # Track times below are days, so the run has to say so: an undeclared unit
+    # means the launcher unit, seconds.
+    (output_dir / "case.tdis").write_text(
+        "BEGIN options\n  TIME_UNITS  days\nEND options\n",
+        encoding="utf-8",
+    )
     (output_dir / "case_prt.trk.csv").write_text(
         "\n".join(
             [

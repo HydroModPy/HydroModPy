@@ -12,6 +12,7 @@ import flopy
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.units import to_modflow6_time_units
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow6.builders import (
@@ -91,6 +92,50 @@ from hydromodpy.solver.modflow_grid import (
 )
 
 logger = get_logger(__name__)
+
+
+# ATS cuts the step by this factor after a failed solve. Growth is capped at the
+# declared step through dtmax, so no growth is useful; MF6 wants a positive
+# dtadj and 1.0 means "do not grow".
+_ATS_DTADJ = 1.0
+_ATS_DTFAILADJ = 5.0
+
+
+def build_ats_perioddata(
+    *,
+    perlen: np.ndarray,
+    nstp: np.ndarray,
+    steady: np.ndarray,
+    dtmin_s: float,
+) -> list[tuple[int, float, float, float, float, float]]:
+    """Adaptive time-stepping records for the transient periods.
+
+    Each record is ``(iper, dt0, dtmin, dtmax, dtadj, dtfailadj)``. ``iper`` is
+    0-based here because FloPy adds one when it writes the ATS file; passing a
+    1-based index shifts every record one period late and drops the last one off
+    the end of the simulation.
+
+    A period ATS covers ignores its TDIS NSTP, so ``dt0`` and ``dtmax`` are the
+    step NSTP asked for rather than the whole period. ATS can then only go below
+    it, which is its one useful power: recovering from a solve that failed.
+    Leaving ``dtmax`` at ``perlen`` lets it grow past the requested resolution
+    and collapse the period back to the single step NSTP was raised to avoid.
+
+    Steady periods are left out: they carry no time step to adapt.
+    """
+    declared_steps = np.asarray(perlen, dtype=float) / np.asarray(nstp, dtype=float)
+    return [
+        (
+            index,
+            float(declared_steps[index]),
+            float(dtmin_s),
+            float(declared_steps[index]),
+            _ATS_DTADJ,
+            _ATS_DTFAILADJ,
+        )
+        for index in range(int(declared_steps.size))
+        if not bool(steady[index])
+    ]
 
 
 def mf6_safe_name(name: str, max_len: int = 16) -> str:
@@ -500,6 +545,32 @@ def resolve_flow_regime(model) -> str | None:
     return normalize_flow_regime(flow_regime)
 
 
+FLOW_PROPERTY_SIDECAR_SUFFIX = ".flow_properties.npz"
+"""Name of the file the builder leaves beside the model for the extractor."""
+
+
+def _save_flow_property_sidecar(model) -> None:
+    """Leave the resolved K, Sy and Ss arrays beside the MODFLOW 6 model.
+
+    The extractor reads the model folder, not the builder, and MODFLOW never
+    writes its own input back out. Without this file a run keeps no trace of
+    the conductivity field it was actually given, so nothing can draw it.
+    Arrays are (nlay, n_cells) in SI units, the clock MF6 runs on.
+    """
+    try:
+        np.savez(
+            os.path.join(
+                model.full_path,
+                f"{model.model_output_name}{FLOW_PROPERTY_SIDECAR_SUFFIX}",
+            ),
+            hydraulic_conductivity=np.atleast_2d(np.asarray(model.hk, dtype="float64")),
+            specific_yield=np.atleast_2d(np.asarray(model.sy, dtype="float64")),
+            specific_storage=np.atleast_2d(np.asarray(model.ss, dtype="float64")),
+        )
+    except OSError:
+        logger.debug("Could not write flow property sidecar", exc_info=True)
+
+
 def validate_pre_processing_inputs(model) -> None:
     """Validate that flow, domain and time grid are configured for pre_processing."""
     if model.flow is None:
@@ -513,7 +584,7 @@ def validate_pre_processing_inputs(model) -> None:
     if model.time_grid is None and model.flow_regime != "steady":
         raise ValueError(
             "Launcher flow preprocessing requires preprocess_options.time_grid "
-            "derived from [simulation.time] for transient flow runs. Solver tgrid fallback is no longer supported."
+            "derived from [simulation.time] for transient flow runs."
         )
 
 
@@ -611,10 +682,11 @@ def run_pre_processing(  # noqa: PLR0915
     model.nper = temporal.nper
     model.nstp = temporal.nstp
     model.steady = temporal.steady
-    # MF6 runs in SI seconds: the launcher delivers perlen in seconds, so TDIS
-    # declares SECONDS and the output budget factor stays exactly 1.0. The flow
-    # extractor converts fluxes back from this declared unit.
-    time_units = "seconds"
+    # TDIS declares the unit the temporal builder actually produced, not a
+    # literal. The launcher delivers perlen in SI seconds, so the output budget
+    # factor stays exactly 1.0; the flow extractor reads this token back and
+    # converts fluxes from it, so the two sides can no longer disagree.
+    time_units = to_modflow6_time_units(temporal.time_units)
     finalize_pending_recharge_evt(model)
 
     model.grid_ctx = build_spatial_discretization(
@@ -665,6 +737,7 @@ def run_pre_processing(  # noqa: PLR0915
         label="flow vertical anisotropy",
     )
     log_xt3d_resolution(model, solver_mesh)
+    _save_flow_property_sidecar(model)
 
     runtime = model.modflow_config.runtime
     sim_name = model.model_name_mf6
@@ -679,6 +752,10 @@ def run_pre_processing(  # noqa: PLR0915
     model.tdis = flopy.mf6.ModflowTdis(
         model.sim,
         nper=int(model.nper),
+        # TSMULT stays 1.0. Within one stress period the forcing is constant, so
+        # the backward-Euler state at the period end depends only on the set of
+        # step sizes and not on their order, and equal steps minimise its error.
+        # simulation.time.substeps_per_period is the knob that buys accuracy here.
         perioddata=[
             (float(model.perlen[i]), int(model.nstp[i]), 1.0) for i in range(int(model.nper))
         ],
@@ -686,22 +763,12 @@ def run_pre_processing(  # noqa: PLR0915
         start_date_time=start_date_time,
     )
     if runtime.mf6_ats:
-        # Adaptive time stepping on the transient periods: (iper, dt0, dtmin, dtmax,
-        # dtadj, dtfailadj). Each period starts at its full length (dt0=perlen) and MF6
-        # subdivides only when the solver fails, instead of carrying budget error at
-        # nstp=1. iper is 1-based. OC below saves per period end so one record/period.
-        ats_perioddata = [
-            (
-                i + 1,
-                float(model.perlen[i]),
-                float(runtime.mf6_ats_dtmin_s),
-                float(model.perlen[i]),
-                2.0,
-                5.0,
-            )
-            for i in range(int(model.nper))
-            if not bool(model.steady[i])
-        ]
+        ats_perioddata = build_ats_perioddata(
+            perlen=model.perlen,
+            nstp=model.nstp,
+            steady=model.steady,
+            dtmin_s=float(runtime.mf6_ats_dtmin_s),
+        )
         if ats_perioddata:
             flopy.mf6.ModflowUtlats(
                 model.tdis,

@@ -38,7 +38,6 @@ def configure(
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.core.time import (
-        apply_explicit_time_window_to_tgrids,
         require_flow_simulation_time_grid,
     )
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
@@ -69,7 +68,6 @@ def configure(
     project._solver = solver or detect_solver(project)
     ensure_simulation_block(project)
 
-    apply_explicit_time_window_to_tgrids(project._cfg)
     project._time_grid = require_flow_simulation_time_grid(project._cfg)
 
     if project._config_path is not None:

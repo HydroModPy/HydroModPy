@@ -34,6 +34,52 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Removed
+- `[modflownwt.tgrid]` is gone from the schema, following `[modflow6.tgrid]`.
+  No backend ever read it back: `apply_explicit_time_window_to_tgrids()`
+  overwrote it from `[simulation.time]` and nothing consumed the result, so a
+  file could declare `itmuni = "days"` next to a run executing in seconds.
+  `hmp doctor --fix-config` drops the section, at the root and under a
+  comparison or testbed overlay, which the MODFLOW 6 migration did not reach.
+- `hydromodpy/discretization/` was deleted. `[modflownwt.tgrid]` was its last
+  importer, through `TMeshConfig`; `TmeshGenerator` and `TimeGrid` had already
+  been unreachable since `build_temporal_discretization()` lost its caller.
+  Chronicle-driven stress periods (`genmtd = "from_chron"`) and per-period
+  `ntsp`/`tsmult` go with it: `[simulation.time]` expresses a regular
+  calendar-aware step, and restoring variable periods means extending
+  `ResolvedSimulationTimeGrid`, not reviving a parallel temporal model.
+
+### Fixed
+- MODFLOW 6 adaptive time stepping targeted the wrong stress period. FloPy
+  converts an ATS `iper` to 1-based when it writes the file and the builder was
+  already 1-based, so every record landed one period late and the last one fell
+  off the end of the simulation. The first transient period never got ATS at
+  all.
+- Adaptive time stepping no longer discards the requested sub-stepping. MF6
+  ignores the TDIS NSTP of a period ATS covers, and the record declared
+  `dt0 = dtmax = perlen`, so a run asking for ten steps per period got one:
+  0.0481 m of RMSE against the erfc closed form instead of 0.0035 m. Both bounds
+  are now the step `simulation.time.substeps_per_period` asked for, so ATS can
+  only cut below it, which is the failure recovery it exists for.
+- `hmp doctor --fix-config` reads a config carrying a byte-order mark. tomlkit
+  parsed the BOM as an empty key on line 1, so the whole fix aborted and nine
+  validation configs in this repository could not be migrated at all.
+- Two example report builders read `firstpersteady` from a solver `tgrid`
+  section that never held it, and the Nancon sweep script wrote it into the
+  configs it generates, producing files the runtime refuses. All three now use
+  `[flow].first_period_steady`.
+- MODPATH pathline and endpoint times are now converted to the unit the
+  `particles` group declares. The MODFLOW-NWT extractor stored raw model time,
+  seconds, while labelling it `days`, so every stored travel time and every
+  residence-time figure built from it was off by a factor 86400.
+- `ITMUNI` is now read from the first non-comment record of a MODFLOW DIS file,
+  where it actually sits. The previous reader parsed the LAYCBD line below it
+  and always fell through to its default, so a MODFLOW-NWT run declaring
+  anything but seconds had its calibration fluxes left unscaled.
+- The MODFLOW 6 PRT readers no longer fall back to `DAYS` when a run declares
+  no time unit. An undeclared unit now means `SIMULATION_TIME_UNIT`, the unit
+  the launcher builds every run in.
+
+### Removed
 - `DomainGeographicContext.river_mesh_trace` and the direct
   `CatchmentDelineation.river_mesh_trace` runtime attribute were removed.
   Mesh river constraints now read `GeographicDerivedFeatures.rivers.river_mesh_trace`

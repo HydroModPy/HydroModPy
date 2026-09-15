@@ -5,6 +5,8 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
 - ``on_collision`` -> ``if_exists``
 - ``run_id`` -> ``name`` (when ``name`` is not already set)
 - ``[simulation.results.export]`` -> top-level ``[export]``
+- ``[modflow6.tgrid]`` and ``[modflownwt.tgrid]`` dropped: neither backend
+  read them, at the root and under a comparison or testbed overlay
 - ``solver_scratch`` and ``persistence.save_lock`` dropped: both drove
   nothing. The solver scratch directory is ``<project>/.hmp/scratch`` and
   the lockfile is written on every run.
@@ -21,6 +23,8 @@ from typing import Any
 
 import tomlkit
 
+_SOLVER_SECTIONS = ("modflow6", "modflownwt")
+
 
 def fix_config_file(path: str | Path) -> list[str]:
     """Rewrite legacy ``[simulation]`` keys in ``path`` in place.
@@ -33,7 +37,9 @@ def fix_config_file(path: str | Path) -> list[str]:
     if not path.is_file():
         raise FileNotFoundError(f"No TOML file at {path}")
 
-    doc = tomlkit.parse(path.read_text(encoding="utf-8"))
+    # utf-8-sig: several configs in this repository carry a BOM, and tomlkit
+    # reads it as an empty key on line 1, so the doctor could not fix them.
+    doc = tomlkit.parse(path.read_text(encoding="utf-8-sig"))
     changes = migrate_config_doc(doc)
     if changes:
         path.write_text(tomlkit.dumps(doc), encoding="utf-8")
@@ -51,7 +57,7 @@ def migrate_config_doc(doc: Any) -> list[str]:
     """
     changes: list[str] = _drop_dead_result_options(doc)
     changes.extend(_flatten_boundary_conditions(doc))
-    changes.extend(_drop_the_modflow6_time_grid(doc))
+    changes.extend(_drop_the_solver_time_grids(doc))
 
     simulation = doc.get("simulation")
     if simulation is None:
@@ -104,21 +110,43 @@ def _drop_dead_export_toggles(doc: Any) -> list[str]:
     return changes
 
 
-def _drop_the_modflow6_time_grid(doc: Any) -> list[str]:
-    """Drop [modflow6.tgrid], removed from the schema as an inert mirror.
+def _drop_the_solver_time_grids(doc: Any) -> list[str]:
+    """Drop ``[modflow6.tgrid]`` and ``[modflownwt.tgrid]``, both removed.
 
-    The table mirrored a temporal discretization the MODFLOW 6 backend never
-    read; ba4a75512 removed the field and the runtime now refuses the section
-    outright, so a file still carrying it does not load at all. Its only key in
-    this repository, firstpersteady, exists nowhere in the code.
+    Neither backend ever read the section back. MODFLOW 6 lost it first and the
+    runtime refuses it outright, so a file still carrying it does not load at
+    all. MODFLOW-NWT kept it longer as a mirror the launcher overwrote from
+    ``[simulation.time]``, which made it worse than inert: a file could declare
+    ``itmuni = "days"`` next to a run executing in seconds.
+
+    A comparison or testbed file patches its solver sections under ``overlay``,
+    and those reach the same loader, so the root alone is not enough.
     """
     changes: list[str] = []
-    modflow6 = doc.get("modflow6")
-    if modflow6 is None or "tgrid" not in modflow6:
-        return changes
-    del modflow6["tgrid"]
-    changes.append("modflow6.tgrid dropped (removed from the schema, never read)")
+    for path, table in _solver_tables(doc):
+        if "tgrid" not in table:
+            continue
+        del table["tgrid"]
+        changes.append(f"{path}.tgrid dropped (removed from the schema, never read)")
     return changes
+
+
+def _solver_tables(doc: Any) -> list[tuple[str, Any]]:
+    """Return every ``(path, table)`` pair holding a MODFLOW solver section."""
+    tables: list[tuple[str, Any]] = [(name, doc.get(name)) for name in _SOLVER_SECTIONS]
+    for owner, member in (("comparison", "simulation"), ("testbed", "case")):
+        entries = (doc.get(owner) or {}).get(member)
+        if entries is None:
+            continue
+        if isinstance(entries, Mapping):
+            entries = [entries]
+        for index, entry in enumerate(entries):
+            overlay = (entry or {}).get("overlay")
+            if overlay is None:
+                continue
+            for name in _SOLVER_SECTIONS:
+                tables.append((f"{owner}.{member}[{index}].overlay.{name}", overlay.get(name)))
+    return [(path, table) for path, table in tables if table is not None]
 
 
 def _flow_tables(doc: Any) -> list[tuple[str, Any]]:

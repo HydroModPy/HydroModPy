@@ -98,6 +98,5 @@ resampling = "nearest"
 [modflownwt.sgrid.vertical]
 nlay = 1
 
-[modflownwt.tgrid]
 [display]
 enabled = false

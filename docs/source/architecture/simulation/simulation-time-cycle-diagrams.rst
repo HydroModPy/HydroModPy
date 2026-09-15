@@ -15,7 +15,7 @@ They focus on:
 - typed validation of ``[recharge_chronicle]`` payloads before runtime use,
 - propagation toward forcing preparation and flow solvers,
 - generator-based forcing built at fine resolution then aggregated to stress periods,
-- runtime coordination between canonical ``time_grid`` and solver ``tgrid``.
+- how the canonical ``time_grid`` reaches each solver backend.
 
 The forcing path now separates three responsibilities:
 

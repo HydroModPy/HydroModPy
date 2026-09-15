@@ -120,14 +120,6 @@ vka = 1.0
 # Number of layers (required for constant/decay, ignored for list).
 nlay = 1
 
-# Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are
-# driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps
-# `firstpersteady`.
-[comparison.simulation.overlay.modflow6.tgrid]
-# Whether the first stress period is treated as steady-state.
-firstpersteady = false
-
-# Generated child simulations to run in the comparison. At least one entry required.
 [[comparison.simulation]]
 # Stable child simulation identifier inside this comparison. It is used in generated file names,
 # run names, metrics, figure labels, and observable rows.

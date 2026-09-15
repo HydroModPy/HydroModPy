@@ -137,7 +137,6 @@ class ModflowNwt:
 
         self._params: ModflowSpecifParams = specif_params
         self.sgrid_config: SolverSGridConfig | None = specif_params.sgrid
-        self.tgrid_config = specif_params.tgrid
         self.grid_ctx: SolverGridContext | None = None
         self.routing_ctx: SolverRoutingContext | None = None
 
@@ -216,8 +215,7 @@ class ModflowNwt:
         if launcher_time_grid is None and self.flow_regime != "steady":
             raise ValueError(
                 "Launcher flow preprocessing requires preprocess_options.time_grid "
-                "derived from [simulation.time] for transient flow runs. "
-                "Solver tgrid fallback is no longer supported."
+                "derived from [simulation.time] for transient flow runs."
             )
 
     def _initialize_solver_packages(self) -> None:
@@ -248,7 +246,7 @@ class ModflowNwt:
         )
 
     def _build_temporal_discretization(self) -> dict[str, object]:
-        """Build temporal discretization arrays from tgrid configuration."""
+        """Build temporal discretization arrays from the launcher time grid."""
         launcher_time_grid = getattr(self.preprocess_options, "time_grid", None)
         result = build_temporal_discretization_from_time_grid(
             time_grid=launcher_time_grid,

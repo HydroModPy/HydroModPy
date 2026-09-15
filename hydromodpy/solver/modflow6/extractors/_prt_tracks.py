@@ -8,7 +8,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.units.time import SECONDS_PER_DAY, factor_to_seconds
+from hydromodpy.core.time import SIMULATION_TIME_UNIT
+from hydromodpy.solver.modflow_common.time_units import factor_to_tracking_unit
 
 
 @dataclass(frozen=True)
@@ -31,34 +32,6 @@ class PrtTrackArrays:
     @property
     def max_steps(self) -> int:
         return int(self.x.shape[1])
-
-
-def read_time_units_from_tdis(tdis_path: Path) -> str:
-    """Read MODFLOW 6 TDIS time units, falling back to days."""
-
-    if not tdis_path.is_file():
-        return "DAYS"
-    try:
-        with tdis_path.open("r", encoding="utf-8") as handle:
-            for raw in handle:
-                tokens = raw.strip().split()
-                if len(tokens) >= 2 and tokens[0].upper() == "TIME_UNITS":
-                    return tokens[1].upper()
-    except OSError:
-        return "DAYS"
-    return "DAYS"
-
-
-def time_factor_to_days(time_units: str) -> float:
-    """Return the factor that converts model time units to days."""
-
-    token = (time_units or "").strip().upper()
-    if token in ("", "UNKNOWN"):
-        return 1.0
-    try:
-        return factor_to_seconds(token) / SECONDS_PER_DAY
-    except ValueError:
-        return 1.0
 
 
 def normalise_prt_columns(frame: pd.DataFrame) -> pd.DataFrame:
@@ -100,7 +73,9 @@ def particle_group_columns(frame: pd.DataFrame) -> list[str]:
     return [single] if single is not None else []
 
 
-def read_prt_track_csv(csv_path: Path, *, time_units: str = "DAYS") -> PrtTrackArrays | None:
+def read_prt_track_csv(
+    csv_path: Path, *, time_units: str = SIMULATION_TIME_UNIT
+) -> PrtTrackArrays | None:
     """Read a MODFLOW 6 PRT track CSV into padded particle arrays.
 
     The returned arrays are shaped ``(n_particles, max_steps)`` and use NaN
@@ -122,7 +97,7 @@ def read_prt_track_csv(csv_path: Path, *, time_units: str = "DAYS") -> PrtTrackA
         frame["_hm_time"] = np.arange(len(frame), dtype=float)
         t_col = "_hm_time"
     else:
-        factor = time_factor_to_days(time_units)
+        factor = factor_to_tracking_unit(time_units)
         frame[t_col] = pd.to_numeric(frame[t_col], errors="coerce") * factor
         if "trelease" in frame.columns:
             frame["trelease"] = pd.to_numeric(frame["trelease"], errors="coerce") * factor

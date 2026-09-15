@@ -28,10 +28,8 @@ REPO_ROOT = EXAMPLE_ROOT.parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.solver.modflow6.extractors._prt_tracks import (
-    read_prt_track_csv,
-    read_time_units_from_tdis,
-)
+from hydromodpy.solver.modflow6.extractors._prt_tracks import read_prt_track_csv
+from hydromodpy.solver.modflow_common.time_units import resolve_solver_time_unit
 
 DEFAULT_RUN_CONFIG = EXAMPLE_ROOT / "run_nancon_steady_mf6_prt_pathlines.toml"
 DEFAULT_WORKSPACE = EXAMPLE_ROOT / "outputs" / "mf6_prt_pathlines" / "workspace"
@@ -129,10 +127,11 @@ def read_prt_pathlines_from_zarr(zarr_path: Path) -> PrtPathlineData:
 
 
 def read_prt_pathlines_from_track_csv(csv_path: Path) -> PrtPathlineData:
-    tdis_path = next(
-        iter(Path(csv_path).parent.glob("*.tdis")), Path(csv_path).parent / "mfsim.tdis"
+    solver_output_dir = Path(csv_path).parent
+    arrays = read_prt_track_csv(
+        csv_path,
+        time_units=resolve_solver_time_unit(solver_output_dir, Path(csv_path).stem),
     )
-    arrays = read_prt_track_csv(csv_path, time_units=read_time_units_from_tdis(tdis_path))
     if arrays is None:
         raise ValueError(f"Empty MODFLOW 6 PRT track CSV: {csv_path}")
     return PrtPathlineData(
@@ -283,7 +282,6 @@ def read_flow_configuration_cards(config_path: Path) -> list[tuple[str, str, str
 
     modflow6 = config.get("modflow6", {})
     runtime = modflow6.get("runtime", {})
-    tgrid = modflow6.get("tgrid", {})
     sgrid = modflow6.get("sgrid", {})
     vertical = sgrid.get("vertical", {}) if isinstance(sgrid, dict) else {}
     process_entries = config.get("simulation", {}).get("process", [])
@@ -318,7 +316,7 @@ def read_flow_configuration_cards(config_path: Path) -> list[tuple[str, str, str
         (
             "Flow solver",
             flow_solvers,
-            f"steady first period: {bool(tgrid.get('firstpersteady', False))}",
+            f"steady first period: {bool(config.get('flow', {}).get('first_period_steady', False))}",
         ),
         (
             "Flow numerics",

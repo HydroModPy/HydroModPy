@@ -155,10 +155,11 @@ class Modflow6RuntimeConfig(HydroModelBase):
         default=False,
         description=(
             "Enable MODFLOW 6 adaptive time stepping (ATS) on transient periods. Each "
-            "stress period starts at its full length and MF6 subdivides only the periods "
-            "the solver cannot converge in one step (e.g. littoral wet/dry under Newton), "
-            "instead of carrying budget error at nstp=1. When on, OC saves per period end "
-            "so the extraction still sees one record per period. Default off (baseline)."
+            "period starts at the step simulation.time.substeps_per_period asked for and "
+            "MF6 subdivides below it only where the solver cannot converge (e.g. littoral "
+            "wet/dry under Newton); it never grows past that step, so turning ATS on "
+            "cannot coarsen a run. When on, OC saves per period end so the extraction "
+            "still sees one record per period. Default off (baseline)."
         ),
     )
     mf6_ats_dtmin_s: Annotated[PositiveFloat, Profile.EXPERT] = Field(

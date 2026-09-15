@@ -12,7 +12,6 @@ from .discretization_spatial import (
 )
 from .discretization_temporal import (
     TemporalDiscretizationResult,
-    build_temporal_discretization,
     build_temporal_discretization_from_time_grid,
     resolve_first_period_steady,
 )
@@ -24,7 +23,6 @@ __all__ = [
     "SolverMesh",
     "TemporalDiscretizationResult",
     "build_spatial_discretization",
-    "build_temporal_discretization",
     "build_temporal_discretization_from_time_grid",
     "grid_reference_from_solver_mesh",
     "project_surfaces_to_planar_grid",

@@ -7,7 +7,6 @@ component "HydroModPyConfig\n(Pydantic tree)" as TypedConfig
 component "Time Core\nhydromodpy.core.time.window" as TimeCore
 component "Project Facade\nhydromodpy.Project" as Project
 component "Runtime State\nsetup.time_grid" as RuntimeState
-component "Solver TGrid Sections\nmodflownwt.tgrid / modflow6.tgrid" as SolverTgrid
 component "Data Managers Runtime Loader\nruntime_loader" as DataLoader
 component "Recharge Chronicle Config\nforcing.recharge_chronicle_config" as RechargeConfig
 component "Recharge Chronicle Builder\nforcing.recharge_chronicle" as RechargeBuilder
@@ -22,9 +21,6 @@ TypedConfig --> TimeCore : resolve_simulation_time_window/grid
 TimeCore --> Project : ResolvedSimulationTimeGrid
 Project --> TimeCore : require_flow_simulation_time_grid()
 Project --> RuntimeState : persist canonical grid
-
-Project --> TimeCore : apply_explicit_time_window_to_tgrids()
-TimeCore --> SolverTgrid : sync nper,lenper,itmuni,genmtd,ntsp,tsmult
 
 Project --> DataLoader : load_all(run_state)
 DataLoader --> TimeCore : resolve_simulation_time_window_dates()

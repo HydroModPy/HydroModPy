@@ -132,9 +132,7 @@ def test_a_routed_reach_carries_the_discharge_under_each_gauge_cell(tmp_path: Pa
     import flopy
 
     from hydromodpy.solver.modflow6.extractors.sfr import reach_flow_by_cell
-    from hydromodpy.solver.modflow_common.calibration_extractors import (
-        _resolve_seconds_per_unit,
-    )
+    from hydromodpy.solver.modflow_common.time_units import seconds_per_solver_time_unit
 
     out_path = _run(tmp_path)
     output_dir, model_name = _solver_run(out_path)
@@ -144,7 +142,7 @@ def test_a_routed_reach_carries_the_discharge_under_each_gauge_cell(tmp_path: Pa
         output_dir,
         model_name,
         times=times,
-        seconds_per_time_unit=_resolve_seconds_per_unit(output_dir, model_name),
+        seconds_per_time_unit=seconds_per_solver_time_unit(output_dir, model_name),
     )
 
     assert by_cell, "the routed network yielded no reach flow keyed by mesh cell"
@@ -183,9 +181,7 @@ def test_the_reaches_carry_at_least_the_water_the_lake_receives(tmp_path: Path) 
     import flopy
 
     from hydromodpy.solver.modflow6.extractors.sfr import reach_flow_by_cell
-    from hydromodpy.solver.modflow_common.calibration_extractors import (
-        _resolve_seconds_per_unit,
-    )
+    from hydromodpy.solver.modflow_common.time_units import seconds_per_solver_time_unit
 
     out_path = _run(tmp_path)
     output_dir, model_name = _solver_run(out_path)
@@ -194,7 +190,7 @@ def test_the_reaches_carry_at_least_the_water_the_lake_receives(tmp_path: Path) 
         output_dir,
         model_name,
         times=times,
-        seconds_per_time_unit=_resolve_seconds_per_unit(output_dir, model_name),
+        seconds_per_time_unit=seconds_per_solver_time_unit(output_dir, model_name),
     )
     assert by_cell
 

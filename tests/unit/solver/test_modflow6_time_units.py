@@ -261,7 +261,8 @@ def test_mf6_calibration_tdis_takes_precedence_over_dis(tmp_path, monkeypatch) -
     (tmp_path / "flow.tdis").write_text(
         "BEGIN OPTIONS\n  TIME_UNITS DAYS\nEND OPTIONS\n", encoding="utf-8"
     )
-    (tmp_path / "flow.dis").write_text("1 1 1\n1 1\n", encoding="utf-8")
+    # NLAY NROW NCOL NPER ITMUNI LENUNI, then LAYCBD. ITMUNI=1, SECONDS.
+    (tmp_path / "flow.dis").write_text("# DIS\n1 1 1 1 1 2\n0\n", encoding="utf-8")
     series = cal.extract_discharge_from_cbc(tmp_path, "flow", catchment_mask=np.ones(3, dtype=bool))
     assert float(series.iloc[0]) == pytest.approx(1.0)
 
@@ -270,7 +271,8 @@ def test_nwt_calibration_discharge_still_uses_dis_itmuni(tmp_path, monkeypatch) 
     _write_drain_cbc_fixtures(tmp_path, monkeypatch)
     # NWT: ITMUNI=4 (DAYS) in .dis, NO .tdis file.
     (tmp_path / "model.cbc").write_text("", encoding="utf-8")
-    (tmp_path / "model.dis").write_text("1 1 1\n1 4\n", encoding="utf-8")
+    # NLAY NROW NCOL NPER ITMUNI LENUNI, then LAYCBD. ITMUNI=4, DAYS.
+    (tmp_path / "model.dis").write_text("# DIS\n1 1 1 1 4 2\n0\n", encoding="utf-8")
 
     class _FakeCBC:
         def __init__(self, path, precision: str = "double") -> None:

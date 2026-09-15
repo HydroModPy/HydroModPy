@@ -532,16 +532,6 @@ mf_verbose = false
 # Vertical anisotropy factor used to derive k33 from k.
 vka = 1.0
 
-# Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are
-# driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps
-# `firstpersteady`.
-
-[modflow6.tgrid]
-# Whether the first stress period is treated as steady-state.
-firstpersteady = false
-
-# Vertical layering of the solver grid.
-
 [modflow6.sgrid.vertical]
 # Vertical-layering strategy.
 genmtd_lay = "decay"
