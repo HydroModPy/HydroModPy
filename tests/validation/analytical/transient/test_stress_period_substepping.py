@@ -18,7 +18,16 @@ three statements that are easy to get backwards:
    of a period ATS covers, so the ATS record has to carry the declared step as
    both its starting and its maximum value.
 
-Tolerances: ``tests/TOLERANCES.md`` rows 65-67.
+A fourth test leaves the closed form for HydroModPy's own configuration, a
+seasonal recharge on a hillslope drained by surface DRN cells and a river. There
+the default of one step per period is not a small bias: it moves the monthly
+discharge, the quantity a calibration scores against, by tens of percent. The
+default is left at 1 because the right count is a property of the model
+(``tau = L**2 S / (K b)`` against the period length) and the cost is linear in
+it, but a run that leaves it there is making a choice, not accepting a neutral
+value.
+
+Tolerances: ``tests/TOLERANCES.md`` rows 65-68.
 """
 
 from __future__ import annotations
@@ -187,4 +196,114 @@ def test_adaptive_stepping_preserves_the_declared_substeps(tmp_path: Path) -> No
     assert adaptive == pytest.approx(
         plain,
         rel=tol("adaptive_time_stepping_mf6__rmse_relative_difference_ats_on_against_ats_off"),
+    )
+
+
+# A hillslope in HydroModPy's own configuration: seasonal recharge, a river at
+# the toe, and a DRN on every other cell so the water table seeps once it reaches
+# the land surface. Confined storage with Ss = S / b keeps the storativity at the
+# bedrock value while the closed-form-free comparison is against a refined run.
+_SLOPE_NCOL = 40
+_SLOPE_DX = 5.0  # m
+_SLOPE_THICKNESS = 30.0  # m
+_SLOPE_STORATIVITY = 0.01
+_RIVER_HEAD = 28.0  # m
+_DRAIN_CONDUCTANCE = 1.0e-3 * _SLOPE_DX  # m2/s per cell
+_MONTH_DAYS = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+_MONTH_RECHARGE_MM = (90, 75, 60, 45, 25, 10, 5, 8, 30, 60, 85, 95)
+# K = 3e-6 m/s puts tau at about 1.7 months, the band where one step per period
+# is furthest from the refined answer.
+_SLOPE_K = 3.0e-6
+
+
+def _run_seasonal_hillslope(workspace: Path, *, nstp: int) -> np.ndarray:
+    """Total outflow per month, river plus seepage, for one sub-step count."""
+    from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
+
+    workspace.mkdir(parents=True, exist_ok=True)
+    perlen = [days * 86400.0 for days in _MONTH_DAYS]
+    recharge = {index: mm * 1.0e-3 / perlen[index] for index, mm in enumerate(_MONTH_RECHARGE_MM)}
+
+    sim = flopy.mf6.MFSimulation(
+        sim_name="slope",
+        sim_ws=str(workspace),
+        exe_name=str(ensure_solver_binary("mf6")),
+        version="mf6",
+    )
+    flopy.mf6.ModflowTdis(
+        sim,
+        nper=len(perlen),
+        perioddata=[(length, nstp, 1.0) for length in perlen],
+        time_units="seconds",
+    )
+    flopy.mf6.ModflowIms(sim, complexity="MODERATE", outer_maximum=200, inner_maximum=300)
+    gwf = flopy.mf6.ModflowGwf(sim, modelname="slope", save_flows=True)
+    flopy.mf6.ModflowGwfdis(
+        gwf,
+        nlay=1,
+        nrow=1,
+        ncol=_SLOPE_NCOL,
+        delr=_SLOPE_DX,
+        delc=1.0,
+        top=_SLOPE_THICKNESS,
+        botm=0.0,
+    )
+    flopy.mf6.ModflowGwfic(gwf, strt=_RIVER_HEAD)
+    flopy.mf6.ModflowGwfnpf(gwf, icelltype=0, k=_SLOPE_K)
+    flopy.mf6.ModflowGwfsto(
+        gwf,
+        iconvert=0,
+        ss=_SLOPE_STORATIVITY / _SLOPE_THICKNESS,
+        transient=dict.fromkeys(range(len(perlen)), True),
+    )
+    flopy.mf6.ModflowGwfchd(gwf, stress_period_data=[((0, 0, 0), _RIVER_HEAD)])
+    flopy.mf6.ModflowGwfdrn(
+        gwf,
+        stress_period_data=[
+            ((0, 0, col), _SLOPE_THICKNESS, _DRAIN_CONDUCTANCE) for col in range(1, _SLOPE_NCOL)
+        ],
+    )
+    flopy.mf6.ModflowGwfrcha(gwf, recharge=recharge)
+    flopy.mf6.ModflowGwfoc(
+        gwf,
+        head_filerecord="slope.hds",
+        budget_filerecord="slope.cbc",
+        saverecord=[("HEAD", "LAST"), ("BUDGET", "LAST")],
+    )
+    sim.write_simulation(silent=True)
+    success, buff = sim.run_simulation(silent=True)
+    if not success:
+        raise AssertionError(f"MODFLOW 6 did not converge for nstp={nstp}: {buff}")
+
+    budget = flopy.utils.CellBudgetFile(str(workspace / "slope.cbc"))
+    try:
+        monthly = []
+        for kstpkper in budget.get_kstpkper():
+            total = 0.0
+            for text in (b"DRN", b"CHD"):
+                records = budget.get_data(text=text, kstpkper=kstpkper)
+                total += float(sum(record["q"].sum() for record in records))
+            monthly.append(total)
+    finally:
+        budget.close()
+    return np.asarray(monthly, dtype=float)
+
+
+@pytest.mark.validation
+@pytest.mark.analytical
+@pytest.mark.transient
+@pytest.mark.slow
+def test_one_step_per_period_moves_the_discharge_a_calibration_scores(tmp_path: Path) -> None:
+    """The shipped default is a choice, not a neutral value."""
+    assert_required_executables(
+        require_modflow=False, require_modflow6=True, require_modpath=False, require_mt3dms=False
+    )
+
+    single = _run_seasonal_hillslope(tmp_path / "nstp1", nstp=1)
+    refined = _run_seasonal_hillslope(tmp_path / "nstp30", nstp=30)
+
+    drift = float(np.max(np.abs((single - refined) / refined)))
+
+    assert drift > tol(
+        "one_step_per_stress_period_mf6__monthly_discharge_drift_against_a_refined_run"
     )

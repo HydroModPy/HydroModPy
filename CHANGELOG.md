@@ -48,6 +48,17 @@ Each release section includes the following standard categories:
   calendar-aware step, and restoring variable periods means extending
   `ResolvedSimulationTimeGrid`, not reviving a parallel temporal model.
 
+### Changed
+- `simulation.time.substeps_per_period` documents what its default costs. One
+  backward-Euler step per stress period moves the monthly discharge by 4 to
+  28 % against a refined run on a seasonally recharged hillslope drained by DRN
+  cells, across the whole plausible bedrock range, and a calibration scored on
+  discharge absorbs that into the fitted parameters. The default stays at 1:
+  the right count is a property of the model (`tau = L^2 S / (K b)` against the
+  period length) and the solver cost is linear in it, so raising it silently
+  would rewrite every existing result and multiply every calibration budget.
+  A validation case now states the size of the drift.
+
 ### Fixed
 - MODFLOW 6 adaptive time stepping targeted the wrong stress period. FloPy
   converts an ATS `iper` to 1-based when it writes the file and the builder was

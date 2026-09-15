@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 67 tolerances enforced today. Every tolerance
+The table below records the 68 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -95,6 +95,7 @@ must carry a rationale before it is merged.
 | 65 | Stress-period sub-stepping (MF6) | RMSE ratio between `nstp=1` and `nstp=10` | `> 10x` | **Derived.** Backward Euler is first order in time, so halving the step halves the error; ten steps should gain about an order of magnitude on a smooth relaxation, and the assertion is the weakest form of that (a strict factor 10) rather than a fitted ratio | Measured 13.6x (0.0481 m against 0.0035 m on the erfc profile). The point of the row is that the shipped default of one step per period is the expensive choice, not a neutral one |
 | 66 | Stress-period sub-stepping (MF6) | RMSE difference between TSMULT `r` and `1/r` | `1e-6 m` | **Derived.** Within a stress period the forcing is constant, so the backward-Euler end state is a product of commuting operators over the steps: it depends on the multiset of step sizes and not on their order, and a ratio and its reciprocal only reverse that order. The identity is exact in exact arithmetic, so the band is the iterative closure, declared at DVCLOSE = 1e-3 m by COMPLEXITY SIMPLE | Measured 2e-8 m, i.e. 50x inside the band and five orders inside the solver closure. This row is why no `tsmult` field is exposed: a non-uniform partition can only degrade the one state HydroModPy stores |
 | 67 | Adaptive time stepping (MF6) | RMSE relative difference, ATS on against ATS off | `1e-12` | **Machine epsilon.** Nothing fails on this column, so ATS never cuts, and with `dt0 = dtmax = perlen / nstp` it replays the declared partition step for step. The two runs are the same arithmetic in the same order | Measured bit-identical. With `dtmax = perlen`, the value shipped before, ATS grows past the request and lands on the `nstp=1` error of 0.0481 m instead of 0.0035 m |
+| 68 | One step per stress period (MF6) | monthly discharge drift against a refined run | `0.10` | **Derived.** Backward Euler is first order, so the drift scales with the step; on the hillslope this case builds it is measured at 28 % with one step per month against thirty, and it stays above 10 % across the whole plausible bedrock range (K from 1e-7 to 1e-4 m/s gave 4 % to 28 %). The floor is set at 10 %, well inside the measured band, because the row exists to state that the drift is large and not to pin its exact value | The assertion runs the wrong way round on purpose: it fails if one step per period ever becomes harmless, which would mean the shipped default changed or the hillslope stopped being representative. `simulation.time.substeps_per_period` stays at 1 because the right count is a property of the model (`tau = L**2 S / (K b)` against the period length) and the cost is linear in it, but a run that leaves it there is biasing the quantity a calibration scores against |
 
 ## Update policy
 
