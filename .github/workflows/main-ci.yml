@@ -116,13 +116,22 @@ jobs:
       - name: Collection gate
         run: python -m pytest tests/ --collect-only -q
 
+      # The Whitebox native binding dies outright when several DEM workflows run
+      # in one long-lived xdist worker, and --dist loadgroup is what puts them
+      # there: tests/conftest.py groups every Whitebox test under one name, so
+      # they all land on the same node. Run them in their own serial session
+      # instead, like the weekly job already does for the backend unit tests.
       - name: Run fast marker suite
         run: |
           python -m pytest -m fast \
+            --ignore=tests/regression/fast/geographic \
             -n 2 --dist loadgroup \
             --max-worker-restart=0 \
             --timeout=300 \
             -q
+
+      - name: Run Whitebox-backed fast tests (serial)
+        run: python -m pytest -m fast tests/regression/fast/geographic --timeout=300 -q
 
       # tests/contract/ is the only coverage of DuckDBCacheBackend and of the
       # catalog backend compatibility surface. It was in no workflow before.
@@ -173,14 +182,18 @@ jobs:
             hydromodpy/results/run/ \
             hydromodpy/spatial/field/core/physical_bounds.py
 
-      # The whitebox-heavy tiers (backends, geographic, delineation) used to run
-      # outside this pass: one serial step plus one fresh process per file. They
-      # run here now that tests/conftest.py pins the Whitebox fd-level stdio
-      # redirect off in every pytest process.
+      # The whitebox-heavy tiers ran here for a while, on the assumption that
+      # pinning the Whitebox fd-level stdio redirect off in tests/conftest.py made
+      # them safe under xdist. It did not: a worker still died on main. The native
+      # binding cannot share a long-lived worker with other DEM workflows, so it
+      # gets its own serial step again.
       - name: Run unit tests in parallel
         run: |
           python -m pytest tests/unit/ \
             --ignore=tests/unit/architecture \
+            --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
+            --ignore=tests/unit/geographic/test_catchment_from_point.py \
+            --ignore=tests/unit/geographic/test_reference_river_network_nancon_case.py \
             -m "not slow" \
             -n 2 --dist loadgroup \
             --max-worker-restart=0 \
@@ -190,6 +203,14 @@ jobs:
             --cov-report= \
             --cov-fail-under=0 \
             -q
+
+      - name: Run Whitebox-backed unit tests (serial)
+        run: |
+          python -m pytest \
+            tests/unit/backends/test_whitebox_workflows_backend.py \
+            tests/unit/geographic/test_catchment_from_point.py \
+            tests/unit/geographic/test_reference_river_network_nancon_case.py \
+            -m "not slow" --timeout=300 -q
 
       - name: Write unit coverage XML
         if: always()
@@ -261,8 +282,19 @@ jobs:
       - name: Install solver binaries for regression tests
         run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet
 
+      # The Whitebox native binding dies outright when several DEM workflows run
+      # in one long-lived xdist worker, and --dist loadgroup is what puts them
+      # there: tests/conftest.py groups every Whitebox test under one name, so
+      # they all land on the same node. Run them in their own serial session
+      # instead, like the weekly job already does for the backend unit tests.
       - name: Run fast regression suite
-        run: python -m pytest tests/regression/fast/ -n 2 --dist loadgroup --max-worker-restart=0 --timeout=600 -q
+        run: |
+          python -m pytest tests/regression/fast/ \
+            --ignore=tests/regression/fast/geographic \
+            -n 2 --dist loadgroup --max-worker-restart=0 --timeout=600 -q
+
+      - name: Run Whitebox-backed fast regression (serial)
+        run: python -m pytest tests/regression/fast/geographic --timeout=600 -q
 
   package-smoke:
     name: Package / wheel smoke py3.12

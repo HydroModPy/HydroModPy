@@ -60,6 +60,18 @@ Each release section includes the following standard categories:
   A validation case now states the size of the drift.
 
 ### Fixed
+- CI no longer runs the Whitebox-backed tests inside an xdist worker. The native
+  binding dies outright when several DEM workflows share one long-lived worker,
+  and the `xdist_group` that stops two workers touching the backend at once is
+  exactly what puts them on the same node; `Tests / fast marker py3.12` lost
+  `gw1` on `main` this way. Every parallel step in `main-ci`, `ci-weekly` and
+  `ci-nightly` now excludes them and a serial step runs them, and a contract
+  test parses the workflows so the split cannot drift back.
+- `test_run_geographic_case_river_network_regression.py` was still listed in the
+  Whitebox xdist group after being deleted in 298c08b9d, so the entry guarded
+  nothing.
+
+### Fixed
 - MODFLOW 6 adaptive time stepping targeted the wrong stress period. FloPy
   converts an ATS `iper` to 1-based when it writes the file and the builder was
   already 1-based, so every record landed one period late and the last one fell
