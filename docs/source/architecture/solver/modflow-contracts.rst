@@ -119,9 +119,10 @@ Required invariants:
 
 The temporal builder consumes:
 
-- ``tgrid_config.to_builder_kwargs()``
+- ``time_grid``, the ``ResolvedSimulationTimeGrid`` derived from
+  ``[simulation.time]``
 - ``flow_regime``
-- ``default_itmuni``
+- ``first_period_steady``
 
 The spatial builder consumes:
 

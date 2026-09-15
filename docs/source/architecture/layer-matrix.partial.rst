@@ -5,7 +5,7 @@
 Layer matrix
 ------------
 
-19 layers, 148 granted edges. A layer always implicitly allows imports targeting itself; anything absent from a row
+18 layers, 142 granted edges. A layer always implicitly allows imports targeting itself; anything absent from a row
 is forbidden and fails CI.
 
 .. list-table::
@@ -16,9 +16,9 @@ is forbidden and fails CI.
      - Allowed import targets
    * - ``<root>``
      - ``<root>``, ``core``, ``schema``, ``config``, ``physics``,
-       ``data``, ``spatial``, ``discretization``, ``simulation``,
-       ``solver``, ``calibration``, ``results``, ``display``,
-       ``analysis``, ``reporting``, ``workflow``, ``catalog``, ``cli``
+       ``data``, ``spatial``, ``simulation``, ``solver``, ``calibration``,
+       ``results``, ``display``, ``analysis``, ``reporting``,
+       ``workflow``, ``catalog``, ``cli``
    * - ``core``
      - ``core``
    * - ``schema``
@@ -34,14 +34,12 @@ is forbidden and fails CI.
      - ``core``, ``schema``, ``data``, ``spatial``
    * - ``spatial``
      - ``core``, ``schema``, ``spatial``
-   * - ``discretization``
-     - ``core``, ``schema``, ``discretization``
    * - ``simulation``
      - ``core``, ``schema``, ``physics``, ``spatial``, ``data``,
        ``simulation``
    * - ``solver``
-     - ``core``, ``schema``, ``physics``, ``spatial``, ``discretization``,
-       ``solver``, ``simulation``
+     - ``core``, ``schema``, ``physics``, ``spatial``, ``solver``,
+       ``simulation``
    * - ``calibration``
      - ``core``, ``schema``, ``physics``, ``data``, ``spatial``,
        ``solver``, ``simulation``, ``calibration``, ``results``
@@ -69,10 +67,9 @@ is forbidden and fails CI.
        ``workflow``, ``catalog``, ``project``
    * - ``cli``
      - ``<root>``, ``core``, ``schema``, ``config``, ``physics``,
-       ``data``, ``spatial``, ``discretization``, ``simulation``,
-       ``solver``, ``calibration``, ``results``, ``display``,
-       ``analysis``, ``reporting``, ``workflow``, ``catalog``,
-       ``project``, ``cli``
+       ``data``, ``spatial``, ``simulation``, ``solver``, ``calibration``,
+       ``results``, ``display``, ``analysis``, ``reporting``,
+       ``workflow``, ``catalog``, ``project``, ``cli``
 
 Documented tolerances
 ---------------------

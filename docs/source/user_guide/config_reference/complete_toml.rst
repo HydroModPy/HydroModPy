@@ -336,8 +336,6 @@ Sub-models are linked back to their per-section page.
       # process_specific = ...  # uses factory default
       # Spatial-grid payload split into `[...sgrid.planar]` and `[...sgrid.vertical]`.
       # sgrid = ...  # uses factory default
-      # Optional temporal discretization payload as one validated `TMeshConfig` model. In launcher mode, stress periods are driven by [simulation.time]; steady/transient policy is driven by [flow].flow_regime and [flow].first_period_steady.
-      # tgrid = ...  # default = None
 
 .. dropdown:: ``[modflow6]`` (Modflow6Config)
    :icon: gear

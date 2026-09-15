@@ -4,8 +4,8 @@ solver
 ``hydromodpy.solver`` exposes the backend abstraction (``base/``)
 plus three concrete backends: MODFLOW 6, MODFLOW-NWT, and Boussinesq.
 It also hosts shared helpers (``modflow_common``, ``modflow_grid``)
-that stay backend-agnostic. Time-grid primitives now live in
-``hydromodpy.discretization.time``.
+that stay backend-agnostic. Stress periods come from
+``hydromodpy.core.time``: no backend carries a temporal section of its own.
 
 GR4J is not a fourth ``hydromodpy.solver`` backend in V1. It is a
 calibration-side lumped catchment model under
@@ -43,9 +43,7 @@ Sub-modules
   calibration extractors).
 - ``solver/modflow_grid/`` -- backend-agnostic grid primitives:
   ``SolverMesh``, ``SolverGridContext``, ``build_spatial_discretization``,
-  ``build_temporal_discretization``.
-- ``discretization/time/`` -- ``TimeGrid``,
-  ``TmeshGenerator``, ``TMeshConfig`` for stress-period generation.
+  ``build_temporal_discretization_from_time_grid``.
 
 Adapter contract
 ----------------
@@ -99,12 +97,10 @@ Key public symbols
   register_extractor, get_extractor, list_pairs, capabilities,
   required_bindings, load_plugins}``
 - ``hydromodpy.solver.modflow_grid.{SolverMesh, SolverGridContext,
-  build_spatial_discretization, build_temporal_discretization}``
-- ``hydromodpy.discretization.time.{TimeGrid, TmeshGenerator, TMeshConfig,
-  load_tmesh_toml, validate_tmesh_config_data}``
+  build_spatial_discretization, build_temporal_discretization_from_time_grid}``
 - ``hydromodpy.solver.modflow_common.{flow_adapter_helpers,
   calibration_extractors, flow_translator, binaries,
-  boundary_packages, executables, runtime_arrays}``
+  boundary_packages, executables, runtime_arrays, time_units}``
 
 Recommended reading path
 ------------------------
