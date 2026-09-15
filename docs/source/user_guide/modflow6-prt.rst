@@ -158,10 +158,16 @@ flux, so particles travel farther in the same simulation time.
 Version Requirements
 --------------------
 
-Use a recent MODFLOW 6 executable with PRT support. The Nancon PRT demonstrator
-has been verified with MODFLOW 6.7.0. If HydroModPy resolves an older cached
-``mf6`` binary, set an explicit path with ``[modflow6.runtime]`` (see
-:doc:`/user_guide/config_reference/modflow6`):
+The PRT model shipped with MODFLOW 6.5.0. The Nancon PRT demonstrator has been
+verified with MODFLOW 6.7.0. Check the executable HydroModPy actually resolves:
+
+.. code-block:: bash
+
+   hmp doctor --prt
+
+If it reports an older cached ``mf6`` binary, either refresh the cache with
+``hmp install-binaries --mf6-prt --upgrade`` or set an explicit path with
+``[modflow6.runtime]`` (see :doc:`/user_guide/config_reference/modflow6`):
 
 .. code-block:: toml
 

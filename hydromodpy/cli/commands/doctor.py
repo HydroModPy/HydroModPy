@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import importlib
 import platform
+import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -33,6 +35,10 @@ _OPTIONAL_DEPS = ("gmsh", "whitebox_workflows", "geopandas", "pyvista")
 
 _SOLVER_BINARIES = ("mfnwt", "mf6", "mp6", "mp7", "mt3dusgs")
 
+# The PRT model shipped with MODFLOW 6.5.0. Older executables resolve and run,
+# but reject a PRT name file. See docs/source/user_guide/modflow6-prt.rst.
+_PRT_MIN_MF6_VERSION = (6, 5, 0)
+
 
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
@@ -50,6 +56,11 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--lifecycle",
         action="store_true",
         help="Surface lifecycle issues (orphan sims, tmp parquet, stale running rows)",
+    )
+    parser.add_argument(
+        "--prt",
+        action="store_true",
+        help="Check that the resolved MODFLOW 6 build supports particle tracking (PRT)",
     )
     parser.add_argument(
         "--fix-config",
@@ -88,6 +99,8 @@ def run(args: argparse.Namespace) -> None:
         report["checks"].extend(_cross_catalog_checks(args.workspace))
     if getattr(args, "lifecycle", False):
         report["checks"].extend(_lifecycle_checks(args.workspace))
+    if getattr(args, "prt", False):
+        report["checks"].extend(_prt_checks())
 
     if args.json:
         import json as _json
@@ -797,6 +810,113 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
                 "status": "OK",
                 "detail": formatted,
                 "hint": None,
+            }
+        )
+    return checks
+
+
+def _locate_mf6() -> Path | None:
+    """Return the ``mf6`` executable doctor would hand to a simulation."""
+    try:
+        from hydromodpy.core.workspace.workspace import resolve_bin_path
+        from hydromodpy.solver.modflow_common.binaries import locate_solver_binary
+
+        located = locate_solver_binary(Path(resolve_bin_path()), "mf6")
+    except Exception:  # pragma: no cover - defensive, falls back to PATH
+        located = None
+    if located:
+        return Path(located)
+    path_hit = shutil.which("mf6")
+    return Path(path_hit) if path_hit else None
+
+
+def _mf6_version(executable: Path) -> tuple[str, tuple[int, ...] | None]:
+    """Return the raw ``mf6 -v`` banner and its parsed (major, minor, patch)."""
+    try:
+        completed = subprocess.run(
+            [str(executable), "-v"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"could not run {executable}: {exc}", None
+    banner = (completed.stdout + completed.stderr).strip()
+    match = re.search(r"(\d+)\.(\d+)\.(\d+)", banner)
+    if match is None:
+        return banner, None
+    return banner, tuple(int(group) for group in match.groups())
+
+
+def _prt_checks() -> list[dict]:
+    """Report whether the local MODFLOW 6 build can run a PRT model."""
+    minimum = ".".join(str(part) for part in _PRT_MIN_MF6_VERSION)
+
+    executable = _locate_mf6()
+    if executable is None:
+        return [
+            {
+                "name": "prt:mf6",
+                "status": "KO",
+                "detail": "not cached, not on PATH",
+                "hint": "Run 'hmp install-binaries --mf6-prt'",
+            }
+        ]
+
+    banner, version = _mf6_version(executable)
+    checks = [
+        {
+            "name": "prt:mf6",
+            "status": "OK",
+            "detail": str(executable),
+            "hint": None,
+        }
+    ]
+
+    if version is None:
+        checks.append(
+            {
+                "name": "prt:mf6_version",
+                "status": "WARN",
+                "detail": f"unreadable version banner: {banner or 'empty'}",
+                "hint": f"PRT needs MODFLOW {minimum} or newer",
+            }
+        )
+    else:
+        readable = ".".join(str(part) for part in version)
+        supported = version >= _PRT_MIN_MF6_VERSION
+        checks.append(
+            {
+                "name": "prt:mf6_version",
+                "status": "OK" if supported else "KO",
+                "detail": f"{readable} (PRT needs >= {minimum})",
+                "hint": None if supported else "Run 'hmp install-binaries --mf6-prt --upgrade'",
+            }
+        )
+
+    try:
+        import flopy
+
+        has_prt = hasattr(flopy.mf6, "ModflowPrt")
+    except ImportError as exc:
+        checks.append(
+            {
+                "name": "prt:flopy",
+                "status": "KO",
+                "detail": f"{exc}",
+                "hint": "pip install -e . (re-install editable)",
+            }
+        )
+    else:
+        checks.append(
+            {
+                "name": "prt:flopy",
+                "status": "OK" if has_prt else "KO",
+                "detail": (
+                    "flopy.mf6.ModflowPrt available" if has_prt else "flopy.mf6.ModflowPrt missing"
+                ),
+                "hint": None if has_prt else "Upgrade flopy",
             }
         )
     return checks

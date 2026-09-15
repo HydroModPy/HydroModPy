@@ -89,8 +89,8 @@ mesh = ["gmsh>=4.15.2,<5"]
 duckdb = ["duckdb"]
 metrics = ["psutil", "pynvml"]
 mf6api = [
-    "modflowapi @ git+https://github.com/HydroModPy/modflowapi.git@hydromodpy",
-    "xmipy @ git+https://github.com/HydroModPy/xmipy.git@hydromodpy",
+    "modflowapi>=0.2",
+    "xmipy>=1.5",
 ]
 all = ["duckdb", "psutil", "pynvml"]
 viz = [
@@ -193,8 +193,6 @@ parallel = true
 omit = [
     "hydromodpy/**/cases/*",
     "hydromodpy/**/examples/*",
-    "hydromodpy/validity_frame/*",
-    "hydromodpy/validity_frame/**/*",
     "hydromodpy/physics/hydrology/pyhelp/*",
     "hydromodpy/physics/hydrology/pyhelp/**/*",
     "examples/*",
