@@ -4,15 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.core.time import SIMULATION_TIME_UNIT
 from hydromodpy.core.units import to_modflow_itmuni
 from hydromodpy.physics.flow.regime import normalize_flow_regime
-
-if TYPE_CHECKING:
-    from hydromodpy.discretization.time.tmesh_config import TMeshConfig
 
 
 @dataclass(slots=True)
@@ -20,6 +17,10 @@ class TemporalDiscretizationResult:
     """Typed temporal discretization container ready for solver assembly."""
 
     itmuni: int
+    # Canonical text form of ``itmuni``. MF6 declares TDIS TIME_UNITS as text
+    # and NWT declares DIS ITMUNI as a code, so both read the same field here
+    # instead of restating the unit at their own call site.
+    time_units: str
     nper: int
     perlen: np.ndarray
     nstp: np.ndarray
@@ -131,7 +132,8 @@ def build_temporal_discretization_from_time_grid(
         start_datetime = start_datetime.to_pydatetime()
 
     return TemporalDiscretizationResult(
-        itmuni=1,
+        itmuni=to_modflow_itmuni(SIMULATION_TIME_UNIT),
+        time_units=SIMULATION_TIME_UNIT,
         nper=nper,
         perlen=perlen,
         nstp=nstp,

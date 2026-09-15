@@ -8,6 +8,11 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.solver.modflow_common.time_units import (
+    TRACKING_TIME_UNIT,
+    factor_to_tracking_unit,
+    resolve_solver_time_unit,
+)
 
 logger = get_logger(__name__)
 
@@ -34,24 +39,31 @@ class ModpathOutputAdapter:
         """Read MODPATH output files and write pathlines into the store."""
 
         solver_output_dir = Path(solver_output_dir)
+        # MODPATH reports tracking time in the flow model time unit, which the
+        # DIS file it was run against declares as ITMUNI.
+        to_tracking_unit = factor_to_tracking_unit(
+            resolve_solver_time_unit(solver_output_dir, model_name or "")
+        )
 
         pth_files = list(solver_output_dir.glob("*.mppth")) + list(
             solver_output_dir.glob("*pathline*")
         )
         if pth_files:
-            self._extract_pathlines(sim_id, store, pth_files[0])
+            self._extract_pathlines(sim_id, store, pth_files[0], to_tracking_unit=to_tracking_unit)
 
         ept_files = list(solver_output_dir.glob("*.mpend")) + list(
             solver_output_dir.glob("*endpoint*")
         )
         if ept_files:
-            self._extract_endpoints(sim_id, store, ept_files[0])
+            self._extract_endpoints(sim_id, store, ept_files[0], to_tracking_unit=to_tracking_unit)
 
     def _extract_pathlines(
         self,
         sim_id: str,
         store: Any,
         pth_path: Path,
+        *,
+        to_tracking_unit: float,
     ) -> None:
         """Read pathline file and write x/y/z/time arrays to Zarr."""
         from flopy.utils import PathlineFile
@@ -76,7 +88,7 @@ class ModpathOutputAdapter:
             x[i, :n] = particle["x"]
             y[i, :n] = particle["y"]
             z[i, :n] = particle["z"]
-            t[i, :n] = particle["time"]
+            t[i, :n] = np.asarray(particle["time"], dtype="float64") * to_tracking_unit
 
         sz = store.open_zarr(sim_id)
         try:
@@ -88,10 +100,10 @@ class ModpathOutputAdapter:
                     overwrite=True,
                 )
             particles_grp.attrs["source_solver"] = self.solver_name
-            # MODPATH reports tracking time in the flow model time unit, which
-            # the MODFLOW-NWT backend always builds in days. Recording it makes
-            # the store self-describing, like the MODFLOW 6 PRT extractor.
-            particles_grp.attrs["time_units"] = "days"
+            # Converted to days above, matching the MODFLOW 6 PRT extractor.
+            # Declared so readers never assume the SI seconds the simulation
+            # time axis uses.
+            particles_grp.attrs["time_units"] = TRACKING_TIME_UNIT
         finally:
             sz.close()
 
@@ -107,6 +119,8 @@ class ModpathOutputAdapter:
         sim_id: str,
         store: Any,
         ept_path: Path,
+        *,
+        to_tracking_unit: float,
     ) -> None:
         """Read endpoint file and write as a single-step pathline."""
         from flopy.utils import EndpointFile
@@ -138,7 +152,7 @@ class ModpathOutputAdapter:
             )
             particles_grp.create_array(
                 "endpoint_time",
-                data=all_data["time"].astype("float64"),
+                data=all_data["time"].astype("float64") * to_tracking_unit,
                 overwrite=True,
             )
         finally:

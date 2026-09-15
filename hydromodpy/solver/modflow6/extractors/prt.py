@@ -6,9 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.modflow6.extractors._prt_tracks import (
-    read_prt_track_csv,
-    read_time_units_from_tdis,
+from hydromodpy.solver.modflow6.extractors._prt_tracks import read_prt_track_csv
+from hydromodpy.solver.modflow_common.time_units import (
+    TRACKING_TIME_UNIT,
+    resolve_solver_time_unit,
 )
 
 logger = get_logger(__name__)
@@ -36,18 +37,16 @@ class Modflow6PrtOutputAdapter:
     ) -> None:
         """Read the first PRT track CSV file found in *solver_output_dir*."""
 
-        del model_name
         solver_output_dir = Path(solver_output_dir)
         csv_path = self._find_track_csv(solver_output_dir)
         if csv_path is None:
             logger.warning("No MODFLOW 6 PRT track CSV found in %s", solver_output_dir)
             return
-        tdis_path = next(iter(solver_output_dir.glob("*.tdis")), solver_output_dir / "mfsim.tdis")
         self._extract_track_csv(
             sim_id,
             store,
             csv_path,
-            time_units=read_time_units_from_tdis(tdis_path),
+            time_units=resolve_solver_time_unit(solver_output_dir, model_name or ""),
         )
 
     @staticmethod
@@ -96,7 +95,10 @@ class Modflow6PrtOutputAdapter:
             particles_grp.attrs["source_solver"] = self.solver_name
             particles_grp.attrs["source_file"] = csv_path.name
             particles_grp.attrs["source_time_units"] = arrays.source_time_units
-            particles_grp.attrs["time_units"] = "days"
+            # Tracking clocks are the one product stored in days rather than in
+            # the SI seconds of the simulation time axis: a residence time is
+            # read in days and years. Declared so readers never assume.
+            particles_grp.attrs["time_units"] = TRACKING_TIME_UNIT
         finally:
             sz.close()
 

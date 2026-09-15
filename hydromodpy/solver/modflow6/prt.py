@@ -9,6 +9,7 @@ from collections.abc import Mapping, Sequence
 import flopy
 import numpy as np
 
+from hydromodpy.core.time import SIMULATION_TIME_UNIT
 from hydromodpy.core.units.time import SECONDS_PER_DAY, factor_to_seconds
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
 from hydromodpy.solver.modflow6.build import mf6_safe_name
@@ -116,8 +117,13 @@ class Modflow6Prt:
         self.write_track_binary = bool(prt_params.get("write_track_binary", True))
 
     def _model_time_unit_seconds(self) -> float:
-        """Seconds per model TDIS time unit. Defaults to DAYS when TDIS is absent."""
-        raw_units = "DAYS"
+        """Seconds per model TDIS time unit.
+
+        Falls back to the launcher unit, which the model this reads was built
+        in, rather than to days: a wrong fallback here scales every PRT release
+        and tracking time by 86400 with nothing to show for it.
+        """
+        raw_units = SIMULATION_TIME_UNIT
         tdis = getattr(self.model_modflow, "tdis", None)
         units = getattr(tdis, "time_units", None)
         if hasattr(units, "get_data"):
@@ -126,11 +132,11 @@ class Modflow6Prt:
             raw_units = str(units)
         token = raw_units.strip().upper()
         if token == "UNKNOWN":
-            return 1.0
+            return factor_to_seconds(SIMULATION_TIME_UNIT)
         try:
             return factor_to_seconds(token)
         except ValueError:
-            return SECONDS_PER_DAY
+            return factor_to_seconds(SIMULATION_TIME_UNIT)
 
     def _days_to_model_time(self, value: float | None) -> float | None:
         if value is None:

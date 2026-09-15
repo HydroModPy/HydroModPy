@@ -36,6 +36,9 @@ Fields of ``TemporalDiscretizationResult``:
    * - ``itmuni``
      - ``int``
      - MODFLOW time-unit code passed to DIS
+   * - ``time_units``
+     - ``str``
+     - Same unit as canonical text, read by the MODFLOW 6 TDIS builder
    * - ``nper``
      - ``int``
      - Number of stress periods, strictly positive
@@ -58,6 +61,14 @@ Required invariants:
 - ``nstp.size == nper``
 - ``steady.size == nper``
 - ``nper > 0``
+- ``itmuni`` and ``time_units`` denote the same unit
+
+Launcher runs are built in ``hydromodpy.core.time.SIMULATION_TIME_UNIT``, that
+is SI seconds: ``ResolvedSimulationTimeGrid`` carries period lengths in
+seconds, so declaring anything else would rescale every extracted flux. Both
+backends take the declaration from this single field rather than restating it,
+and the extractors read it back from the run's own TDIS or DIS file through
+``hydromodpy.solver.modflow_common.time_units``.
 
 Conversion to FloPy kwargs goes through
 ``TemporalDiscretizationResult.as_dis_kwargs()``, which exposes the keys

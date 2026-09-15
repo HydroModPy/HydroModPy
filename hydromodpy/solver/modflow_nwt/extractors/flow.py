@@ -13,7 +13,6 @@ from hydromodpy.core.units.time import (
     CF_EPOCH,
     CF_TIME_UNITS,
     cf_time_axis_seconds,
-    factor_to_seconds,
 )
 from hydromodpy.solver.modflow_common.budget_components import (
     canonical_budget_component,
@@ -21,49 +20,12 @@ from hydromodpy.solver.modflow_common.budget_components import (
 )
 from hydromodpy.solver.modflow_common.calibration_extractors import open_cell_budget
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
+from hydromodpy.solver.modflow_common.time_units import (
+    read_itmuni_from_dis,
+    seconds_per_itmuni,
+)
 
 logger = get_logger(__name__)
-
-
-def _seconds_per_itmuni(itmuni: int) -> float:
-    """Seconds per MODFLOW ITMUNI code; 0 (undefined) means seconds (1.0)."""
-    if itmuni == 0:
-        return 1.0
-    try:
-        return factor_to_seconds(int(itmuni))
-    except ValueError:
-        return 1.0
-
-
-def _read_itmuni(dis_path: Path) -> int:
-    """Return the ITMUNI integer declared in a MODFLOW DIS file.
-
-    The DIS header is two free-format integer lines: the first carries
-    NLAY/NROW/NCOL/NPER, the second NSTP-related and ITMUNI/LENUNI. We
-    parse only what we need and fall back to ``1`` (seconds) when the
-    file is missing or malformed.
-    """
-    if not dis_path.is_file():
-        return 1
-    try:
-        with dis_path.open("r", encoding="utf-8") as fh:
-            header_lines: list[str] = []
-            for raw in fh:
-                stripped = raw.strip()
-                if not stripped or stripped.startswith("#"):
-                    continue
-                header_lines.append(stripped)
-                if len(header_lines) >= 2:
-                    break
-        if len(header_lines) < 2:
-            return 1
-        tokens = header_lines[1].split()
-        # Layout: NSTP_or_dummy ITMUNI LENUNI ... (free format).
-        if len(tokens) >= 2:
-            return int(tokens[1])
-    except (OSError, ValueError):
-        return 1
-    return 1
 
 
 def _write_time_coordinate(
@@ -77,7 +39,7 @@ def _write_time_coordinate(
     writer = getattr(store, "write_time", None)
     if writer is None:
         raise TypeError("Simulation store must implement write_time().")
-    relative = np.asarray(times, dtype=float) * _seconds_per_itmuni(itmuni)
+    relative = np.asarray(times, dtype=float) * seconds_per_itmuni(itmuni)
     values = cf_time_axis_seconds(relative, start_datetime)
     writer(sim_id, values, epoch=CF_EPOCH, units=CF_TIME_UNITS)
 
@@ -147,8 +109,8 @@ class ModflowNwtOutputAdapter:
         times = head_file.get_times()
         kstpkpers = head_file.get_kstpkper()
         n_timesteps = len(times)
-        itmuni = _read_itmuni(solver_output_dir / f"{model_name}.dis")
-        flux_scale_to_m3_s = 1.0 / _seconds_per_itmuni(itmuni)
+        itmuni = read_itmuni_from_dis(solver_output_dir / f"{model_name}.dis") or 0
+        flux_scale_to_m3_s = 1.0 / seconds_per_itmuni(itmuni)
         # Write /time at field-array resolution. MODFLOW-2005/NWT output carries
         # no start date, so anchor to the launcher start_datetime so the CF axis
         # decodes to real dates instead of relative seconds since 1970.

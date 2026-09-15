@@ -12,6 +12,7 @@ import flopy
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.units import to_modflow6_time_units
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow6.builders import (
@@ -611,10 +612,11 @@ def run_pre_processing(  # noqa: PLR0915
     model.nper = temporal.nper
     model.nstp = temporal.nstp
     model.steady = temporal.steady
-    # MF6 runs in SI seconds: the launcher delivers perlen in seconds, so TDIS
-    # declares SECONDS and the output budget factor stays exactly 1.0. The flow
-    # extractor converts fluxes back from this declared unit.
-    time_units = "seconds"
+    # TDIS declares the unit the temporal builder actually produced, not a
+    # literal. The launcher delivers perlen in SI seconds, so the output budget
+    # factor stays exactly 1.0; the flow extractor reads this token back and
+    # converts fluxes from it, so the two sides can no longer disagree.
+    time_units = to_modflow6_time_units(temporal.time_units)
     finalize_pending_recharge_evt(model)
 
     model.grid_ctx = build_spatial_discretization(

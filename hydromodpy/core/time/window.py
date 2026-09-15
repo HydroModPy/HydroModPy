@@ -36,6 +36,13 @@ _VALID_POLICIES = {"error", "warn", "ignore"}
 _VALID_MODES = {"explicit"}
 _VALID_STEP_UNITS = {"hour", "day", "month", "year"}
 
+# Both launcher time grids below carry their period lengths in seconds, so this
+# is the unit every solver backend declares to MODFLOW. Single-sourced here so
+# the MF6 TDIS token, the MODFLOW-NWT ITMUNI code and the tracking clock the
+# extractors store cannot drift apart: a mismatch between any two of them is a
+# silent factor 86400 on fluxes or travel times.
+SIMULATION_TIME_UNIT = "seconds"
+
 
 @dataclass(frozen=True)
 class ResolvedSimulationTimeWindow:

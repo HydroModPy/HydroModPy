@@ -256,9 +256,7 @@ def _reach_flow_by_cell(output_dir: Path, model_name: str) -> dict[int, Any] | N
     import flopy
 
     from hydromodpy.solver.modflow6.extractors.sfr import reach_flow_by_cell
-    from hydromodpy.solver.modflow_common.calibration_extractors import (
-        _resolve_seconds_per_unit,
-    )
+    from hydromodpy.solver.modflow_common.time_units import seconds_per_solver_time_unit
 
     head_path = output_dir / f"{model_name}.hds"
     if not head_path.is_file():
@@ -268,7 +266,7 @@ def _reach_flow_by_cell(output_dir: Path, model_name: str) -> dict[int, Any] | N
         output_dir,
         model_name,
         times=times,
-        seconds_per_time_unit=_resolve_seconds_per_unit(output_dir, model_name),
+        seconds_per_time_unit=seconds_per_solver_time_unit(output_dir, model_name),
     )
 
 
@@ -285,9 +283,7 @@ def _routed_discharge_series(
     import flopy
 
     from hydromodpy.solver.modflow6.extractors.sfr import routed_outflow_series
-    from hydromodpy.solver.modflow_common.calibration_extractors import (
-        _resolve_seconds_per_unit,
-    )
+    from hydromodpy.solver.modflow_common.time_units import seconds_per_solver_time_unit
 
     head_path = output_dir / f"{model_name}.hds"
     if not head_path.is_file():
@@ -297,7 +293,7 @@ def _routed_discharge_series(
         output_dir,
         model_name,
         times=times,
-        seconds_per_time_unit=_resolve_seconds_per_unit(output_dir, model_name),
+        seconds_per_time_unit=seconds_per_solver_time_unit(output_dir, model_name),
     )
     if values is None:
         return None
