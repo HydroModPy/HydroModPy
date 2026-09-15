@@ -1,4 +1,4 @@
-"""Tests for the P10 extensions to ``hmp doctor`` (--cross-catalog, --lifecycle)."""
+"""Tests for the ``hmp doctor`` extension flags (--cross-catalog, --lifecycle, --prt)."""
 
 from __future__ import annotations
 
@@ -51,6 +51,7 @@ def test_doctor_help_lists_new_flags(monkeypatch, capsys) -> None:
     out = capsys.readouterr().out
     assert "--cross-catalog" in out
     assert "--lifecycle" in out
+    assert "--prt" in out
 
 
 def test_doctor_lifecycle_on_clean_workspace(monkeypatch, tmp_path, capsys, isolated_state) -> None:
@@ -76,3 +77,51 @@ def test_doctor_cross_catalog_on_workspace(monkeypatch, tmp_path, capsys, isolat
     assert code in (0, 1)
     out = capsys.readouterr().out
     assert "cross_catalog:" in out
+
+
+@pytest.fixture
+def doctor_module():
+    return importlib.import_module("hydromodpy.cli.commands.doctor")
+
+
+def test_doctor_prt_accepts_a_recent_mf6(monkeypatch, tmp_path, capsys, doctor_module) -> None:
+    mf6 = tmp_path / "mf6"
+    mf6.touch()
+    monkeypatch.setattr(doctor_module, "_locate_mf6", lambda: mf6)
+    monkeypatch.setattr(doctor_module, "_mf6_version", lambda _exe: ("mf6: 6.6.3", (6, 6, 3)))
+
+    checks = {entry["name"]: entry for entry in doctor_module._prt_checks()}
+    assert checks["prt:mf6"]["status"] == "OK"
+    assert checks["prt:mf6_version"]["status"] == "OK"
+    assert checks["prt:flopy"]["status"] == "OK"
+
+
+def test_doctor_prt_rejects_a_pre_prt_mf6(monkeypatch, tmp_path, doctor_module) -> None:
+    mf6 = tmp_path / "mf6"
+    mf6.touch()
+    monkeypatch.setattr(doctor_module, "_locate_mf6", lambda: mf6)
+    monkeypatch.setattr(doctor_module, "_mf6_version", lambda _exe: ("mf6: 6.4.1", (6, 4, 1)))
+
+    checks = {entry["name"]: entry for entry in doctor_module._prt_checks()}
+    assert checks["prt:mf6_version"]["status"] == "KO"
+    assert "install-binaries" in checks["prt:mf6_version"]["hint"]
+
+
+def test_doctor_prt_reports_a_missing_mf6(monkeypatch, doctor_module) -> None:
+    monkeypatch.setattr(doctor_module, "_locate_mf6", lambda: None)
+
+    checks = doctor_module._prt_checks()
+    assert [entry["status"] for entry in checks] == ["KO"]
+    assert checks[0]["name"] == "prt:mf6"
+
+
+def test_doctor_prt_renders_in_the_report(monkeypatch, tmp_path, capsys, doctor_module) -> None:
+    mf6 = tmp_path / "mf6"
+    mf6.touch()
+    monkeypatch.setattr(doctor_module, "_locate_mf6", lambda: mf6)
+    monkeypatch.setattr(doctor_module, "_mf6_version", lambda _exe: ("mf6: 6.6.3", (6, 6, 3)))
+
+    code = _run(monkeypatch, ["hmp", "doctor", "--workspace", str(tmp_path), "--prt", "--json"])
+    assert code in (0, 1)
+    out = capsys.readouterr().out
+    assert "prt:mf6_version" in out
