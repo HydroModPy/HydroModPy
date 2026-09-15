@@ -97,12 +97,6 @@ resampling = "nearest"
 [comparison.simulation.overlay.modflownwt.sgrid.vertical]
 nlay = 1
 
-[comparison.simulation.overlay.modflownwt.tgrid]
-itmuni = "days"
-genmtd = "synthetic_regular"
-nper = 1
-lenper = 1.0
-
 [[comparison.observable]]
 name = "head_map_last"
 variable = "watertable_elevation"

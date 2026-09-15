@@ -52,9 +52,6 @@ vka = 1.0
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
 
-[comparison.simulation.overlay.modflow6.tgrid]
-firstpersteady = false
-
 [[comparison.simulation]]
 id = "bouss_candidate"
 label = "Boussinesq synthetic patchy candidate"

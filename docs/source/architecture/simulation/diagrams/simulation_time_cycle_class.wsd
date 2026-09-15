@@ -35,7 +35,6 @@ package "hydromodpy.core.time.window" {
     +resolve_simulation_time_window(cfg)
     +resolve_simulation_time_grid(cfg)
     +require_flow_simulation_time_grid(cfg)
-    +apply_explicit_time_window_to_tgrids(cfg)
     +resolve_simulation_time_window_dates(cfg)
     +validate_recharge_coverage(recharge, window)
   }

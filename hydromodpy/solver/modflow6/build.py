@@ -501,6 +501,32 @@ def resolve_flow_regime(model) -> str | None:
     return normalize_flow_regime(flow_regime)
 
 
+FLOW_PROPERTY_SIDECAR_SUFFIX = ".flow_properties.npz"
+"""Name of the file the builder leaves beside the model for the extractor."""
+
+
+def _save_flow_property_sidecar(model) -> None:
+    """Leave the resolved K, Sy and Ss arrays beside the MODFLOW 6 model.
+
+    The extractor reads the model folder, not the builder, and MODFLOW never
+    writes its own input back out. Without this file a run keeps no trace of
+    the conductivity field it was actually given, so nothing can draw it.
+    Arrays are (nlay, n_cells) in SI units, the clock MF6 runs on.
+    """
+    try:
+        np.savez(
+            os.path.join(
+                model.full_path,
+                f"{model.model_output_name}{FLOW_PROPERTY_SIDECAR_SUFFIX}",
+            ),
+            hydraulic_conductivity=np.atleast_2d(np.asarray(model.hk, dtype="float64")),
+            specific_yield=np.atleast_2d(np.asarray(model.sy, dtype="float64")),
+            specific_storage=np.atleast_2d(np.asarray(model.ss, dtype="float64")),
+        )
+    except OSError:
+        logger.debug("Could not write flow property sidecar", exc_info=True)
+
+
 def validate_pre_processing_inputs(model) -> None:
     """Validate that flow, domain and time grid are configured for pre_processing."""
     if model.flow is None:
@@ -514,7 +540,7 @@ def validate_pre_processing_inputs(model) -> None:
     if model.time_grid is None and model.flow_regime != "steady":
         raise ValueError(
             "Launcher flow preprocessing requires preprocess_options.time_grid "
-            "derived from [simulation.time] for transient flow runs. Solver tgrid fallback is no longer supported."
+            "derived from [simulation.time] for transient flow runs."
         )
 
 
@@ -667,6 +693,7 @@ def run_pre_processing(  # noqa: PLR0915
         label="flow vertical anisotropy",
     )
     log_xt3d_resolution(model, solver_mesh)
+    _save_flow_property_sidecar(model)
 
     runtime = model.modflow_config.runtime
     sim_name = model.model_name_mf6

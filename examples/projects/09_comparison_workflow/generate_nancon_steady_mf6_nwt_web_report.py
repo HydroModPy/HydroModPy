@@ -2093,16 +2093,15 @@ def _diagnostic_config_rows(
         config_path = Path(str(config_path_raw)) if config_path_raw else None
         payload = _load_toml(config_path) if config_path is not None else {}
         solver = str(simulation.get("solver", ""))
-        solver_section = payload.get(solver, {}) if isinstance(payload, dict) else {}
-        tgrid = solver_section.get("tgrid", {}) if isinstance(solver_section, dict) else {}
-        ic = payload.get("flow", {}).get("ic", {}) if isinstance(payload, dict) else {}
+        flow_section = payload.get("flow", {}) if isinstance(payload, dict) else {}
+        ic = flow_section.get("ic", {})
         rows.append(
             {
                 "simulation_id": str(simulation.get("id", "")),
                 "solver": solver,
                 "cell_count": cell_counts.get(str(simulation.get("id", "")), ""),
                 "ic": f"{ic.get('type', '')} {ic.get('value', '')}".strip(),
-                "firstpersteady": str(tgrid.get("firstpersteady", "")),
+                "first_period_steady": str(flow_section.get("first_period_steady", "")),
                 "status": str(simulation.get("status", "")),
             }
         )
@@ -2139,15 +2138,14 @@ def _diagnostic_overview_rows(base: dict[str, Any], config: dict[str, Any]) -> l
         for observable in observables
         if isinstance(observable, dict) and observable.get("support") == "outlet"
     )
-    tgrid_values: list[str] = []
+    first_period_steady_values: list[str] = []
     for simulation in config.get("comparison", {}).get("simulation", []):
         if not isinstance(simulation, dict):
             continue
-        solver = str(simulation.get("solver", ""))
-        solver_overlay = simulation.get("overlay", {}).get(solver, {})
-        tgrid = solver_overlay.get("tgrid", {}) if isinstance(solver_overlay, dict) else {}
-        if "firstpersteady" in tgrid:
-            tgrid_values.append(f"{simulation.get('id')}: {tgrid.get('firstpersteady')}")
+        flow_overlay = simulation.get("overlay", {}).get("flow", {})
+        if isinstance(flow_overlay, dict) and "first_period_steady" in flow_overlay:
+            value = flow_overlay["first_period_steady"]
+            first_period_steady_values.append(f"{simulation.get('id')}: {value}")
 
     return [
         {
@@ -2168,7 +2166,7 @@ def _diagnostic_overview_rows(base: dict[str, Any], config: dict[str, Any]) -> l
             "value": (
                 f"{flow.get('ic', {}).get('type', '')}; "
                 f"value={flow.get('ic', {}).get('value', '')}; "
-                f"firstpersteady={'; '.join(tgrid_values)}"
+                f"first_period_steady={'; '.join(first_period_steady_values)}"
             ),
             "comment": "On evite le premier equilibre steady propre a chaque maillage.",
         },
@@ -2656,7 +2654,7 @@ def _build_transient_diagnostic_page() -> Path | None:
             ("solver", "Solver"),
             ("cell_count", "Mailles"),
             ("ic", "Condition initiale"),
-            ("firstpersteady", "firstpersteady"),
+            ("first_period_steady", "first_period_steady"),
             ("status", "Statut"),
         ),
         empty="Configuration diagnostic non disponible.",

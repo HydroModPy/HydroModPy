@@ -382,9 +382,8 @@ def require_flow_simulation_time_grid(
 ) -> ResolvedSimulationTimeGrid | ResolvedSteadySimulationTimeGrid | None:
     """Return canonical launcher time-grid, enforcing it for flow runs.
 
-    Launcher flow solvers no longer accept solver ``tgrid`` sections as a
-    fallback source for stress periods. When at least one flow process is
-    declared, ``[simulation.time]`` must therefore resolve to one canonical
+    ``[simulation.time]`` is the only source of stress periods. When at least
+    one flow process is declared, it must resolve to one canonical
     ``ResolvedSimulationTimeGrid``.
 
     Exception
@@ -401,8 +400,7 @@ def require_flow_simulation_time_grid(
     if grid is None:
         raise ValueError(
             "Launcher flow processes require a valid [simulation.time] section. "
-            "Steady flow runs may omit it, but transient runs still require it. "
-            "Solver tgrid fallback is no longer supported."
+            "Steady flow runs may omit it, but transient runs still require it."
         )
     return grid
 
@@ -454,8 +452,8 @@ def simulation_time_pandas_frequency(
 def resolve_simulation_time_window(cfg: Any) -> ResolvedSimulationTimeWindow | None:
     """Resolve and validate the canonical simulation window.
 
-    This function performs normalization only; it does not mutate solver tgrid
-    sections. Use :func:`apply_explicit_time_window_to_tgrids` for propagation.
+    Normalization only: no solver section is mutated. Both MODFLOW backends
+    read their stress periods from the grid this window feeds.
     """
     time_cfg = _simulation_time_config(cfg)
     if time_cfg is None:
@@ -485,49 +483,6 @@ def resolve_simulation_time_window(cfg: Any) -> ResolvedSimulationTimeWindow | N
         step_unit=step_unit,
         coverage_policy=coverage_policy,
     )
-
-
-def apply_explicit_time_window_to_tgrids(
-    cfg: Any,
-) -> ResolvedSimulationTimeWindow | None:
-    """Apply resolved ``simulation.time`` to the MODFLOW-NWT ``tgrid`` section.
-
-    The launcher keeps temporal authority in ``[simulation.time]`` and writes
-    synchronized values into ``modflownwt.tgrid`` when present. The MODFLOW 6
-    build reads its stress periods from ``[simulation.time]`` directly and has no
-    ``tgrid`` section.
-    """
-    time_cfg = _simulation_time_config(cfg)
-    if time_cfg is None:
-        return None
-    _normalize_mode(getattr(time_cfg, "mode", "explicit"))
-    window = resolve_simulation_time_window(cfg)
-    if window is None:
-        return None
-
-    grid = resolve_simulation_time_grid(cfg)
-    if grid is None:
-        return window
-    perlen_seconds = list(grid.period_lengths_seconds)
-    nper = grid.nper
-
-    for solver_section_name in ("modflownwt",):
-        solver_cfg = getattr(cfg, solver_section_name, None)
-        tgrid_cfg = getattr(solver_cfg, "tgrid", None) if solver_cfg is not None else None
-        if tgrid_cfg is None:
-            continue
-        # Persist the same canonical window in each active flow solver section.
-        tgrid_cfg.start_datetime = window.start.to_pydatetime()
-        tgrid_cfg.end_datetime = window.end.to_pydatetime()
-        # Launcher temporal mesh is materialized in seconds for SI consistency.
-        tgrid_cfg.itmuni = "seconds"
-        tgrid_cfg.genmtd = "synthetic_regular"
-        tgrid_cfg.nper = nper
-        tgrid_cfg.lenper = perlen_seconds
-        # Keep launcher temporal control centralized in [simulation.time].
-        tgrid_cfg.ntsp = int(getattr(time_cfg, "substeps_per_period", 1))
-        tgrid_cfg.tsmult = 1.0
-    return window
 
 
 def resolve_simulation_time_window_dates(

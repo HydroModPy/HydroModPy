@@ -118,12 +118,6 @@ vka = 1.0
 nlay = 1
 
 # MODFLOW 6 temporal discretization compatibility settings.
-[comparison.simulation.overlay.modflow6.tgrid]
-# No steady initial stress period in this transient comparison.
-firstpersteady = false
-
-# MODFLOW 6 drainage boundary-condition override.
-
 [comparison.simulation.overlay.flow.bc.drainage]
 # Use a high top-drain conductance in MF6 to approximate an efficient surface outlet.
 value = "0.1 m2/s"

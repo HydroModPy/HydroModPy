@@ -49,9 +49,6 @@ mf_verbose = false
 [comparison.simulation.overlay.modflow6.process_specific]
 vka = 1.0
 
-[comparison.simulation.overlay.modflow6.tgrid]
-firstpersteady = true
-
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
 
@@ -107,13 +104,6 @@ resampling = "nearest"
 [comparison.simulation.overlay.modflownwt.sgrid.vertical]
 nlay = 1
 
-[comparison.simulation.overlay.modflownwt.tgrid]
-firstpersteady = true
-itmuni = "days"
-genmtd = "synthetic_regular"
-nper = 1
-lenper = 365.0
-
 [[comparison.simulation]]
 id = "nwt_structured_180"
 label = "MODFLOW-NWT structured 180x180 Nancon steady candidate"
@@ -165,13 +155,6 @@ resampling = "nearest"
 
 [comparison.simulation.overlay.modflownwt.sgrid.vertical]
 nlay = 1
-
-[comparison.simulation.overlay.modflownwt.tgrid]
-firstpersteady = true
-itmuni = "days"
-genmtd = "synthetic_regular"
-nper = 1
-lenper = 365.0
 
 [[comparison.observable]]
 name = "head_map_last"

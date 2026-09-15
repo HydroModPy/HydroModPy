@@ -119,12 +119,6 @@ vka = 1.0
 nlay = 1
 
 # MODFLOW 6 temporal discretization compatibility settings.
-[comparison.simulation.overlay.modflow6.tgrid]
-# No steady initial stress period in this transient comparison.
-firstpersteady = false
-
-# MODFLOW 6 drainage boundary-condition override.
-
 [comparison.simulation.overlay.flow.bc.drainage]
 # Use a shared top-drain conductance so MF6 and Boussinesq compare the same
 # surface-exchange physics.

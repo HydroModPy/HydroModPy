@@ -256,9 +256,10 @@ def _materialize_comparison_config(
         workspace["root"] = str(EXAMPLES_ROOT.resolve())
         workspace["project_root"] = str((case_root / f"workspace_{sim_id}").resolve())
         if sim_id == "mf6_ref" and "mf6_firstpersteady" in spec:
-            modflow6 = overlay.setdefault("modflow6", {})
-            tgrid = modflow6.setdefault("tgrid", {})
-            tgrid["firstpersteady"] = bool(spec["mf6_firstpersteady"])
+            # Steady/transient policy lives in [flow]; the solver tgrid sections
+            # that once carried a firstpersteady key are gone from the schema.
+            flow = overlay.setdefault("flow", {})
+            flow["first_period_steady"] = bool(spec["mf6_firstpersteady"])
 
     config_dir = CONFIG_ROOT / case_id
     config_dir.mkdir(parents=True, exist_ok=True)

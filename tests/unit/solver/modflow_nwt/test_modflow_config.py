@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.discretization.time.tmesh_config import TMeshConfig
 from hydromodpy.solver.modflow6 import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt import (
     ModflowConfig,
@@ -26,7 +25,6 @@ def test_modflow_config_defaults_match_runtime_defaults():
     assert isinstance(params.sgrid, SolverSGridConfig)
     assert params.sgrid.planar.mode == "keep_native"
     assert params.sgrid.vertical.nlay == 1
-    assert params.tgrid is None
 
 
 def test_modflow6_runtime_defaults_keep_xt3d_in_auto_mode():
@@ -86,13 +84,6 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
                 "nlay = 3",
                 "lay_decay = 1.8",
                 "",
-                "[modflownwt.tgrid]",
-                'itmuni = "d"',
-                'genmtd = "synthetic_regular"',
-                "nper = 4",
-                "lenper = 2.0",
-                "ntsp = [1, 2, 2, 3]",
-                "tsmult = [1.0, 1.1, 1.1, 1.2]",
             ]
         ),
         encoding="utf-8",
@@ -112,9 +103,6 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
     assert cfg.modflownwt.sgrid.vertical.genmtd_lay == "decay"
     assert cfg.modflownwt.sgrid.vertical.nlay == 3
     assert cfg.modflownwt.sgrid.vertical.lay_decay == 1.8
-    assert isinstance(cfg.modflownwt.tgrid, TMeshConfig)
-    assert cfg.modflownwt.tgrid.nper == 4
-    assert cfg.modflownwt.tgrid.ntsp == [1, 2, 2, 3]
 
 
 def test_hydromodpy_config_rejects_legacy_flat_sgrid_payload(tmp_path: Path):
@@ -322,3 +310,9 @@ def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
     assert cfg.modflow6.runtime.mf6_enable_xt3d is True
     assert cfg.modflow6.runtime.mf6_rewet_wetdry == pytest.approx(0.05)
     assert cfg.modflow6.process_specific.evt_extinction_depth == pytest.approx(2.5)
+
+
+def test_modflownwt_rejects_the_removed_tgrid_section():
+    """[modflownwt.tgrid] was a mirror nothing read back; the schema refuses it."""
+    with pytest.raises(ValueError, match="tgrid"):
+        ModflowConfig.model_validate({"tgrid": {"nper": 1}})

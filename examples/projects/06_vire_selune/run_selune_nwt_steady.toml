@@ -51,8 +51,3 @@ genmtd_lay = "decay"
 nlay = 5
 lay_decay = 1.5
 
-[modflownwt.tgrid]
-itmuni = "days"
-genmtd = "synthetic_regular"
-nper = 1
-lenper = 1.0

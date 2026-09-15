@@ -11,7 +11,6 @@ from pydantic import Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import LengthMeters
-from hydromodpy.discretization.time.tmesh_config import TMeshConfig
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 
 
@@ -238,15 +237,6 @@ class ModflowConfig(HydroModelBase):
             "Spatial-grid payload split into `[...sgrid.planar]` and `[...sgrid.vertical]`."
         ),
     )
-    tgrid: Annotated[TMeshConfig | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Optional temporal discretization payload as one validated "
-            "`TMeshConfig` model. In launcher mode, stress periods are "
-            "driven by [simulation.time]; steady/transient policy is driven "
-            "by [flow].flow_regime and [flow].first_period_steady."
-        ),
-    )
 
 
 def _coerce_modflow_config(
@@ -274,7 +264,6 @@ class ModflowSpecifParams:
         default_factory=ModflowProcessSpecificConfig,
     )
     sgrid: SolverSGridConfig = field(default_factory=SolverSGridConfig)
-    tgrid: TMeshConfig | None = None
 
     @classmethod
     def from_config(
@@ -287,5 +276,4 @@ class ModflowSpecifParams:
             runtime=validated.runtime,
             process_specific=validated.process_specific,
             sgrid=validated.sgrid,
-            tgrid=validated.tgrid,
         )
