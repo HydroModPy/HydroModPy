@@ -32,11 +32,22 @@ from hydromodpy.spatial.geographic.geographic_io import ensure_crs
 
 
 def _parse_length_meters(token: str, *, label: str) -> float:
-    """Convert a length string (e.g. '500 m', '2 km') to metres."""
+    """Convert a length string (e.g. '500 m', '2 km') to metres.
+
+    The config validator already normalizes a declared distance to metres and
+    hands the number back as a string, which is what tells a distance from a
+    percentage further down. Such a token carries no unit any more, so a
+    dimensionless quantity here is metres, not an error.
+    """
     quantity = UREG(token.strip())
     if not hasattr(quantity, "magnitude"):
         return float(quantity)
-    return float(quantity.to("m").magnitude)
+    if quantity.dimensionless:
+        return float(quantity.magnitude)
+    try:
+        return float(quantity.to("m").magnitude)
+    except Exception as exc:
+        raise ValueError(f"{label}: '{token}' is not a length.") from exc
 
 
 @dataclass(frozen=True)
