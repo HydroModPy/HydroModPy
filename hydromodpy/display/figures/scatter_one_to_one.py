@@ -9,6 +9,7 @@ import numpy as np
 from hydromodpy.core.units.labels import axis_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._observed import observed_series
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -35,22 +36,21 @@ class ScatterOneToOne(BaseFigure):
         *,
         station: str = "_catchment",
         variable: str = "discharge",
+        observed_station: str | None = None,
         **_,
     ) -> Axes:
-        sim_ts = sim.timeseries(variable, station=station)
-        obs_df = sim.observed(variable, station=station)
         import pandas as pd
 
-        obs_ts = pd.Series(
-            obs_df["value"].to_numpy(dtype=float),
-            index=pd.DatetimeIndex(obs_df["datetime"]),
-            name=variable,
+        sim_ts = sim.timeseries(variable, station=station)
+        obs_ts, obs_station = observed_series(
+            sim, variable, station=observed_station, label="scatter_one_to_one"
         )
 
         joined = pd.concat([sim_ts.rename("sim"), obs_ts.rename("obs")], axis=1).dropna()
         if joined.empty:
             raise ValueError(
-                f"scatter_one_to_one: no overlapping sim/obs samples for '{variable}' @ '{station}'"
+                f"scatter_one_to_one: the simulated {variable!r} at {station!r} and the "
+                f"observed one at {obs_station!r} share no timestamp"
             )
         s = joined["sim"].to_numpy(dtype=float)
         o = joined["obs"].to_numpy(dtype=float)

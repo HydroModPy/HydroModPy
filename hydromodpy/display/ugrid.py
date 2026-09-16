@@ -21,6 +21,7 @@ from hydromodpy.display.map_axes import (
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.collections import PolyCollection
+    from matplotlib.colors import Colormap
 
     from hydromodpy.results.run import Run
 
@@ -30,12 +31,18 @@ def render_face_field(
     sim: Run,
     values: np.ndarray,
     *,
-    cmap: str = "viridis",
+    cmap: str | Colormap = "viridis",
     vmin: float | None = None,
     vmax: float | None = None,
     cbar_label: str | None = None,
+    colorbar: bool = True,
 ) -> PolyCollection:
-    """Draw ``values`` (one scalar per face) as colored polygons on ``ax``."""
+    """Draw ``values`` (one scalar per face) as colored polygons on ``ax``.
+
+    ``colorbar=False`` leaves the ramp undrawn, for a map whose values are
+    classes rather than a quantity: a continuous bar beside three categories
+    invites reading a distance between them that does not exist.
+    """
     from matplotlib.collections import PolyCollection
 
     mesh = sim.mesh
@@ -62,10 +69,11 @@ def render_face_field(
     ax.add_collection(coll)
     ax.set_aspect("equal", adjustable="datalim")
     ax.autoscale_view()
-    cbar = ax.figure.colorbar(coll, ax=ax, fraction=0.046, pad=0.04)
-    if cbar_label:
-        cbar.set_label(cbar_label, fontsize=RELATIVE_MAP_COLORBAR_LABEL_SIZE)
-    cbar.ax.tick_params(labelsize=RELATIVE_MAP_COLORBAR_TICK_SIZE)
+    if colorbar:
+        cbar = ax.figure.colorbar(coll, ax=ax, fraction=0.046, pad=0.04)
+        if cbar_label:
+            cbar.set_label(cbar_label, fontsize=RELATIVE_MAP_COLORBAR_LABEL_SIZE)
+        cbar.ax.tick_params(labelsize=RELATIVE_MAP_COLORBAR_TICK_SIZE)
     return coll
 
 

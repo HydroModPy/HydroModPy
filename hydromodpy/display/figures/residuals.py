@@ -10,6 +10,7 @@ import numpy as np
 from hydromodpy.core.units.labels import axis_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._observed import observed_series
 from hydromodpy.display.map_axes import style_date_axis
 
 if TYPE_CHECKING:
@@ -55,6 +56,7 @@ class Residuals(BaseFigure):
         *,
         station: str = "_catchment",
         variable: str = "discharge",
+        observed_station: str | None = None,
         bins: int = 30,
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
@@ -65,16 +67,14 @@ class Residuals(BaseFigure):
         import pandas as pd
 
         sim_ts = sim.timeseries(variable, station=station)
-        obs_df = sim.observed(variable, station=station)
-        obs_ts = pd.Series(
-            obs_df["value"].to_numpy(dtype=float),
-            index=pd.DatetimeIndex(obs_df["datetime"]),
-            name=variable,
+        obs_ts, obs_station = observed_series(
+            sim, variable, station=observed_station, label="residuals"
         )
         joined = pd.concat([sim_ts.rename("sim"), obs_ts.rename("obs")], axis=1).dropna()
         if joined.empty:
             raise ValueError(
-                f"residuals: no overlapping sim/obs samples for '{variable}' @ '{station}'"
+                f"residuals: the simulated {variable!r} at {station!r} and the observed "
+                f"one at {obs_station!r} share no timestamp"
             )
         residuals = (joined["sim"] - joined["obs"]).to_numpy(dtype=float)
 

@@ -257,7 +257,7 @@ def test_sim_obs_figures_reject_missing_overlap(mpl) -> None:
     mpl.close(fig)
 
     fig, ax = mpl.subplots()
-    with pytest.raises(ValueError, match="no overlapping sim/obs samples"):
+    with pytest.raises(ValueError, match="share no timestamp"):
         ScatterOneToOne().render(_NoOverlapRun(), ax)
     mpl.close(fig)
 
