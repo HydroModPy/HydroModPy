@@ -289,7 +289,8 @@ format from the destination suffix, or from an explicit ``fmt``.
      - Time series and tables.
    * - NetCDF
      - ``.nc``
-     - Gridded fields, every timestep unless ``time`` narrows it.
+     - NetCDF-4 with a UGRID-1.0 mesh, every timestep unless ``time``
+       narrows it. Opens in QGIS as a mesh layer; see the note below.
    * - GeoTIFF
      - ``.tif``
      - Cloud-optimised raster. Requires a CRS on the run; pass
@@ -316,10 +317,32 @@ The same surface from the command line:
    hmp data export <project> --sim <ref> --var watertable_elevation --geotiff --resolution 50
    hmp data export <project> --raster watershed_dem --geotiff
 
+``--list`` prints the field names ``--var`` accepts, the geographic rasters
+and features, then every run of the project. Fields, rasters and features are
+read from one run, named in each heading: the one ``--sim`` selects when given,
+otherwise the last live one. Two runs of the same project rarely expose the
+same fields, since ``[simulation.results]`` decides what each one persists.
+
 ``hmp data export`` writes into a **directory** (``--output``, default
 ``share/<name>/``), one file per variable and per timestep. ``--geotiff``
 requires ``--resolution`` here, unlike the Python call which derives the
 pixel size from the grid.
+
+Opening a NetCDF export in QGIS
+-------------------------------
+
+Add the ``.nc`` as a **mesh** layer, not a raster or a vector one: QGIS reads
+it through MDAL, which understands the UGRID topology the file carries. Each
+field becomes one dataset group with its own time steps, and the layer comes
+georeferenced, so it lands on the catchment rather than in the project CRS.
+
+MDAL binds a dataset to the mesh faces and nothing else, so a field stored per
+layer is written one variable per layer: ``head`` on a single-layer model,
+``head_layer1`` and ``head_layer2`` above it. Reading the file back with
+``hmp`` puts the layers together again.
+
+Re-exporting over a file a QGIS layer still has open is safe, but QGIS keeps
+showing the version it opened: reload the layer to see the new one.
 
 Packaging a run for exchange
 ----------------------------

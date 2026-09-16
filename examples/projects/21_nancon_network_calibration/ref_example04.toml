@@ -274,7 +274,7 @@ steady_max_iter = 60
 # ramene a `maxiter`.
 # `xatol: 0.05` normalise sur six decades -> 0,05 x 6,0 = 0,30 decade de K.
 # `fatol: 0.05` : le cout est une distance en metres, non normalisee.
-[calibration.protocol.steady_optimizer_kwargs]
+[calibration.protocol.steady_engine_options]
 maxiter = 30
 maxfev = 60
 xatol = 0.30
@@ -285,7 +285,7 @@ fatol = 0.05
 # comme dans la reference. `fatol: 1e-5`, cout 1 - NSE_log sans dimension.
 # Aucune `scoring_window` : la reference score toute la periode de calage,
 # sans annee d'amorce ecartee, et sans masque saisonnier.
-[calibration.protocol.transient_optimizer_kwargs]
+[calibration.protocol.transient_engine_options]
 maxiter = 120
 maxfev = 120
 xatol = 3.7e-5

@@ -75,6 +75,11 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
         "spatial",
         ("concentration",),
     ),
+    "concentration_boxplot": (
+        "hydromodpy.display.figures.concentration_boxplot.ConcentrationBoxplot",
+        "timeseries",
+        ("concentration",),
+    ),
     "conditioning_impact_map": (
         "hydromodpy.display.figures.conditioning_impact_map.ConditioningImpactMap",
         "comparison",
@@ -111,6 +116,16 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
         "hydromodpy.display.figures.flow_direction_map.FlowDirectionMap",
         "spatial",
         (),
+    ),
+    "flow_intermittence_map": (
+        "hydromodpy.display.figures.flow_intermittence_map.FlowIntermittenceMap",
+        "spatial",
+        ("accumulation_flux",),
+    ),
+    "flow_persistence_map": (
+        "hydromodpy.display.figures.flow_persistence_map.FlowPersistenceMap",
+        "spatial",
+        ("accumulation_flux",),
     ),
     "flux_timeseries": ("hydromodpy.display.figures.flux_timeseries.FluxTimeseries", "balance", ()),
     "hydrograph": ("hydromodpy.display.figures.hydrograph.Hydrograph", "timeseries", ()),
@@ -164,6 +179,11 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
         "comparison",
         (),
     ),
+    "mass_balance_error": (
+        "hydromodpy.display.figures.mass_balance_error.MassBalanceError",
+        "balance",
+        (),
+    ),
     "matching_hydrographic_network_card": (
         "hydromodpy.display.figures.matching_hydrographic_network_card.MatchingHydrographicNetworkCard",
         "comparison",
@@ -174,6 +194,16 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
         "hydromodpy.display.figures.parameter_cost_profile.ParameterCostProfileFigure",
         "timeseries",
         (),
+    ),
+    "parameter_map": (
+        "hydromodpy.display.figures.parameter_map.ParameterMap",
+        "spatial",
+        ("hydraulic_conductivity",),
+    ),
+    "parameter_section": (
+        "hydromodpy.display.figures.parameter_section.ParameterSection",
+        "section",
+        ("hydraulic_conductivity", "layer_thickness", "topography"),
     ),
     "particle_tracks": (
         "hydromodpy.display.figures.particle_tracks.ParticleTracks",
@@ -192,10 +222,20 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
     ),
     "piper_diagram": ("hydromodpy.display.figures.piper_diagram.PiperDiagramFigure", "table", ()),
     "recession": ("hydromodpy.display.figures.recession.RecessionCurveFigure", "timeseries", ()),
+    "recession_power_law": (
+        "hydromodpy.display.figures.recession_power_law.RecessionPowerLaw",
+        "timeseries",
+        (),
+    ),
     "recharge_map": (
         "hydromodpy.display.figures.recharge_map.RechargeMap",
         "spatial",
         ("recharge",),
+    ),
+    "residence_time_distribution": (
+        "hydromodpy.display.figures.residence_time_distribution.ResidenceTimeDistribution",
+        "particles",
+        ("particles",),
     ),
     "residuals": ("hydromodpy.display.figures.residuals.Residuals", "comparison", ()),
     "roptim_validity_chart": (

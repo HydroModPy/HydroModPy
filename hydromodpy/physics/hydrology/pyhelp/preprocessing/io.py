@@ -333,14 +333,20 @@ def export_daily_outputs_to_netcdf(
         ds.createVariable("y", "f8", ("y",))[:] = y_coords
         ds.createVariable("x", "f8", ("x",))[:] = x_coords
 
-        # spatial metadata
+        # Spatial metadata, in the CF form every reader of this file expects:
+        # a grid-mapping variable carrying the WKT under both spellings, and a
+        # grid_mapping attribute on each field pointing at it. Without the
+        # pointer, rioxarray finds no CRS and the grid is refused on load.
+        has_crs = False
         try:
             if grid.crs:
-                ds.createVariable("spatial_ref", "i4").spatial_ref = CRS.from_user_input(
-                    grid.crs
-                ).to_wkt()
+                wkt = CRS.from_user_input(grid.crs).to_wkt()
+                grid_mapping = ds.createVariable("spatial_ref", "i4")
+                grid_mapping.crs_wkt = wkt
+                grid_mapping.spatial_ref = wkt
+                has_crs = True
         except Exception:
-            pass
+            logger.warning("PyHELP NetCDF written without CRS metadata", exc_info=True)
         ds.GeoTransform = f"{T.c}, {T.a}, {T.b}, {T.f}, {T.d}, {T.e}"
 
         chunks = (1, min(512, H), min(512, W))
@@ -351,11 +357,20 @@ def export_daily_outputs_to_netcdf(
             fill_value=np.nan,
         )
 
+        # Named after the data families that read them back: a grid a project
+        # points at as [[data.recharge.sources]] is looked up by the family
+        # name, so a variable called anything else is a file nobody can use.
         v_runoff = ds.createVariable("runoff", "f4", ("time", "y", "x"), **vkw)
         v_evapo = ds.createVariable("evapo", "f4", ("time", "y", "x"), **vkw)
-        v_rechg = ds.createVariable("rechg", "f4", ("time", "y", "x"), **vkw)
+        v_rechg = ds.createVariable("recharge", "f4", ("time", "y", "x"), **vkw)
         for v in (v_runoff, v_evapo, v_rechg):
             v.units = "mm/day"
+            # _FillValue is decoded away by xarray, so a reader that asks the
+            # attributes what a missing cell looks like finds nothing. Say it
+            # once more, in an attribute that survives decoding.
+            v.nodata = "nan"
+            if has_crs:
+                v.grid_mapping = "spatial_ref"
 
         for (cid, fp), r, c in zip(cells, rows, cols, strict=False):
             data = read_daily_help_output(str(fp))

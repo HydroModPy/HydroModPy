@@ -89,6 +89,33 @@ def unit_to_m_per_s_factor(unit: str) -> float:
     return factor_to_m_per_s(resolved_unit)
 
 
+def pick_field_variable(ds: object) -> str | None:
+    """Return the data variable of a gridded dataset that carries the field.
+
+    A CF dataset stores its coordinate reference as a scalar data variable
+    sitting next to the field, and a land-surface export carries several
+    fields at once. Taking the first variable blindly picks the grid mapping,
+    which has no dimension at all: skip anything a field points at as its
+    ``grid_mapping``, skip anything with fewer than two dimensions, and keep
+    the first of what is left.
+    """
+    data_vars = list(getattr(ds, "data_vars", ()) or ())
+    if not data_vars:
+        return None
+    grid_mappings = {
+        str(ds[name].attrs.get("grid_mapping"))
+        for name in data_vars
+        if ds[name].attrs.get("grid_mapping")
+    }
+    for name in data_vars:
+        if str(name) in grid_mappings:
+            continue
+        if len(ds[name].dims) < 2:
+            continue
+        return str(name)
+    return str(data_vars[0])
+
+
 def find_xy_dims(da: object) -> tuple[str, str]:
     """Identify X and Y dimension names in a DataArray."""
     dims = [str(d) for d in da.dims]

@@ -529,6 +529,27 @@ def write_field(
             arr[int(timestep), :, :] = values
 
 
+def write_static_field(
+    store_obj: SimulationZarr,
+    variable: str,
+    values: np.ndarray,
+    *,
+    subgroup: str | None = None,
+) -> None:
+    """Write a field that has no time axis, such as a model input parameter.
+
+    ``write_field`` and ``write_field_stack`` both open the array with a
+    leading time dimension. A conductivity field has one value per cell for
+    the whole run, so storing it with a time axis would repeat it at every
+    step and make every reader slice a dimension that carries no information.
+    """
+    with store_obj._guard_write():
+        target = _field_target(store_obj, subgroup)
+        data = mask_sentinels(np.asarray(values))
+        arr = _write_array(store_obj, target, variable, data)
+        update_attrs(arr, attrs_for_field(variable, arr.dtype))
+
+
 def write_field_stack(
     store_obj: SimulationZarr,
     variable: str,
@@ -795,6 +816,7 @@ __all__ = [
     "write_geographic_raster",
     "write_lake_abacus",
     "write_mesh",
+    "write_static_field",
     "write_time",
     "write_topography",
 ]

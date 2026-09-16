@@ -8,7 +8,10 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_grid_utils import find_xy_dims
+from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_grid_utils import (
+    find_xy_dims,
+    pick_field_variable,
+)
 
 if TYPE_CHECKING:
     import xarray as xr
@@ -46,10 +49,10 @@ def _ensure_finite_source_values(values: object, *, label: str) -> np.ndarray:
 
 def spatial_mean_from_xarray(ds: xr.Dataset) -> pd.Series | None:
     """Spatial mean of an xarray Dataset returned as pd.Series."""
-    data_vars = list(ds.data_vars)
-    if not data_vars:
+    var_name = pick_field_variable(ds)
+    if var_name is None:
         return None
-    da = ds[data_vars[0]]
+    da = ds[var_name]
     x_dim, y_dim = find_xy_dims(da)
     del x_dim, y_dim  # values are not needed; identification validates dims.
     _ensure_finite_source_values(da.values, label="recharge gridded forcing values")

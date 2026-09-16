@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from uuid import uuid4
 
 import numpy as np
@@ -87,12 +88,17 @@ class TestNetCDFExport:
         assert result.exists()
 
         ds = xr.open_dataset(out, decode_times=False)
-        assert "head" in ds
         assert "mesh2d" in ds
         assert "node_x" in ds
         assert "face_nodes" in ds
-        assert ds["head"].dims == ("time", "layer", "n_face")
-        assert ds["head"].shape == (3, 2, 6)
+        # MDAL, what QGIS reads a mesh with, binds a dataset to the face
+        # dimension and ignores an array carrying a third one, so a layered
+        # field is written one variable per layer.
+        assert "head" not in ds
+        assert ds["head_layer1"].dims == ("time", "n_face")
+        assert ds["head_layer1"].shape == (3, 6)
+        assert ds["head_layer2"].shape == (3, 6)
+        assert "layer" not in ds.dims
         ds.close()
 
     def test_multi_variable(self, catalog_with_data):
@@ -112,7 +118,7 @@ class TestNetCDFExport:
         out = tmp_path / "multi.nc"
         catalog.export(sid, ExportSpec(var=["head", "watertable_depth"], fmt="netcdf", dest=out))
         ds = xr.open_dataset(out, decode_times=False)
-        assert "head" in ds
+        assert "head_layer1" in ds
         assert "watertable_depth" in ds
         assert ds["watertable_depth"].dims == ("time", "n_face")
         ds.close()
@@ -122,7 +128,7 @@ class TestNetCDFExport:
         out = tmp_path / "subset.nc"
         catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out, time=[0, 2]))
         ds = xr.open_dataset(out, decode_times=False)
-        assert ds["head"].shape[0] == 2
+        assert ds["head_layer1"].shape[0] == 2
         np.testing.assert_array_equal(ds["time"].values, np.array([0, 172800]))
         ds.close()
 
@@ -247,3 +253,98 @@ class TestExportErrors:
         out = tmp_path / "missing.nc"
         with pytest.raises(UnknownFieldError, match="nonexistent_field"):
             catalog.export(sid, ExportSpec(var="nonexistent_field", fmt="netcdf", dest=out))
+
+
+class TestNetCDFForQgis:
+    """What MDAL, the driver QGIS reads a mesh with, needs to find in the file."""
+
+    def test_crs_is_restated_the_way_mdal_reads_it(self, catalog_with_data):
+        from pyproj import CRS
+
+        catalog, sid, tmp_path = catalog_with_data
+        catalog.write_crs(sid, crs_wkt=CRS.from_epsg(2154).to_wkt(), epsg_code=2154)
+
+        out = tmp_path / "crs.nc"
+        catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out))
+
+        ds = xr.open_dataset(out, decode_times=False)
+        try:
+            # The CF grid mapping stays, and carries WKT2 as it should.
+            assert ds["crs"].attrs["crs_wkt"].startswith("PROJCRS[")
+            # MDAL looks this variable up by name and parses WKT1 only: handed
+            # WKT2 it keeps no CRS at all and QGIS draws the mesh nowhere near
+            # the catchment.
+            mdal = ds["projected_coordinate_system"].attrs
+            assert mdal["epsg"] == 2154
+            assert mdal["wkt"].startswith("PROJCS[")
+        finally:
+            ds.close()
+
+    def test_crs_without_a_readable_wkt_still_carries_the_epsg_code(self, catalog_with_data):
+        catalog, sid, tmp_path = catalog_with_data
+        # The fixture stores "EPSG:2154" in place of a WKT, which pyproj cannot
+        # turn into WKT1. The code has to survive on its own.
+        out = tmp_path / "crs_epsg_only.nc"
+        catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out))
+
+        ds = xr.open_dataset(out, decode_times=False)
+        try:
+            mdal = ds["projected_coordinate_system"].attrs
+            assert mdal["epsg"] == 2154
+            assert "wkt" not in mdal
+        finally:
+            ds.close()
+
+    def test_face_coordinates_are_declared_on_the_mesh(self, catalog_with_data):
+        catalog, sid, tmp_path = catalog_with_data
+        out = tmp_path / "mesh.nc"
+        catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out))
+
+        ds = xr.open_dataset(out, decode_times=False)
+        try:
+            # Undeclared, the centroids read as two datasets to plot.
+            assert ds["mesh2d"].attrs["face_coordinates"] == "face_x face_y"
+        finally:
+            ds.close()
+
+    def test_a_failed_export_leaves_the_previous_file_alone(self, catalog_with_data, monkeypatch):
+        catalog, sid, tmp_path = catalog_with_data
+        out = tmp_path / "kept.nc"
+        catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out))
+        before = out.read_bytes()
+
+        def fail_midway(self, path, *args, **kwargs):
+            Path(path).write_bytes(b"half a file")
+            raise OSError("no space left on device")
+
+        monkeypatch.setattr(xr.Dataset, "to_netcdf", fail_midway)
+        with pytest.raises(OSError):
+            catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out))
+
+        assert out.read_bytes() == before
+        assert not (tmp_path / "kept.nc.tmp").exists()
+
+    def test_a_single_layer_field_keeps_its_bare_name(self, catalog_with_data):
+        catalog, sid, tmp_path = catalog_with_data
+        rng = np.random.default_rng(1)
+        for t in range(3):
+            catalog.write_field(
+                sid,
+                "recharge",
+                t,
+                rng.random((1, 6)),
+                n_timesteps=3 if t == 0 else None,
+                subgroup="budget",
+            )
+
+        out = tmp_path / "one_layer.nc"
+        catalog.export(sid, ExportSpec(var="recharge", fmt="netcdf", dest=out))
+
+        ds = xr.open_dataset(out, decode_times=False)
+        try:
+            # Most catchment models run on one layer: naming it 'recharge_layer1'
+            # would suffix every variable of every file for nothing.
+            assert ds["recharge"].dims == ("time", "n_face")
+            assert "recharge_layer1" not in ds
+        finally:
+            ds.close()

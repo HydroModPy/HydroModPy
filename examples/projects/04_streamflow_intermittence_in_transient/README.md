@@ -37,12 +37,16 @@ and which is then reused.
 
 ## Intermittence
 
-`run_manual.py` counts seepage cells for each month. Over this period, the
-wet network goes from ~450 cells (dry month) to ~1670 (wet month): about
-**1200 cells switch on and off** over time. These are the intermittent
-reaches; the core that stays active throughout is the perennial network.
-The script renders `seepage_map` for the wettest and the driest month (same
-figure, two `timestep` values).
+At the values in the config, the seeping network goes from 364 cells in
+October 2002, the driest month of the record, to 1 399 in January 2001, the
+wettest: about **1 000 cells switch on and off**. Those are the intermittent
+reaches, and the core that never stops is the perennial network. Counted on
+the drained network rather than on the seepage cells, 1 567 cells carried
+flow at some point over the three years and only 381 carried it at every
+timestep of 2002.
+
+`run_manual.py` counts them month by month and renders `seepage_map` for the
+wettest and the driest month (same figure, two `timestep` values).
 
 ## Calibrating it
 
@@ -87,28 +91,53 @@ conductivity, dividing by the `R_mean_m_s` every trial reports.
 
 ## Figures
 
+Eight, and each answers a question the others do not. A run that draws
+twenty is not more informative than one that draws eight: it just leaves the
+reader to find out which two of five hydrograph panels carry the argument.
+What was dropped is listed below with the reason, and any of them still
+renders on demand:
+
+```bash
+hmp viz show @last duration_curve --workspace examples/projects/04_streamflow_intermittence_in_transient
+```
+
 | Figure | What it shows |
 |---|---|
-| `watershed_id_card` | catchment identity card |
-| `mesh_map` | solver grid |
-| `piezometric_map` | watertable elevation (last timestep) |
-| `watertable_depth_map` | watertable depth + seepage |
-| `seepage_map` | seepage zones (time-varying) |
-| `flow_persistence_map` | share of the run each cell carried flow |
-| `flow_intermittence_map` | perennial, intermittent and dry cells over one year |
-| `simulated_active_network` | active draining network |
-| `simulated_active_network_reference_overlay` | the same, over the mapped network |
-| `hydrographic_network_reference` | the mapped stream network |
-| `hydrograph` | simulated discharge over time |
-| `hydrograph_sim_obs` | simulated against the gauged discharge |
-| `scatter_one_to_one` | simulated against observed, one point per timestep |
-| `residuals` | simulated minus observed over time |
-| `duration_curve` | flow duration, simulated and observed |
-| `seasonal_boxplot` | discharge spread month by month |
-| `flux_timeseries` | water budget per timestep |
-| `cross_section` | topography / watertable cross section |
-| `water_budget` | cumulative budget per component |
-| `mass_balance_error` | percent closure error per timestep |
+| `watershed_id_card` | the catchment, its topography and the run's identity |
+| `flux_timeseries` | recharge in and drainage out, month by month |
+| `hydrograph_log_nse` | simulated against the NANCON gauge, on the log axis the recessions are read on |
+| `cross_section` | the water table under the interfluves, south to north |
+| `seepage_map` | the seeping cells in October 2002, the driest month |
+| `flow_persistence_map` | the share of the three years each cell carried flow |
+| `flow_intermittence_map` | perennial, intermittent and dry cells over 2002 |
+| `seepage_network_confusion_map` | simulated against mapped: valid, excess, missing |
+
+Four more are declared and apply only to a run the calibration promoted:
+`downslope_distance_crossing`, `bisection_bracket_trace`,
+`parameter_cost_profile` and `matching_hydrographic_network_card`. On a plain
+`hmp run` they skip themselves and say why.
+
+Every figure that draws one instant draws the same instant, step 34 of 36,
+which is October 2002. The default, the last timestep, is a December with a
+nearly full network, and a map of intermittence taken at the wettest moment
+of the year shows none.
+
+| Dropped | Why |
+|---|---|
+| `hydrograph` | the same simulated series, without the gauge |
+| `hydrograph_sim_obs` | the same two series on a linear axis, where an etiage is a flat line |
+| `scatter_one_to_one`, `residuals` | the same 36 residuals as the hydrograph, folded two more ways |
+| `duration_curve` | 36 monthly points, and the simulated series alone |
+| `seasonal_boxplot` | a box per month over three values |
+| `water_budget` | a sum of timestep rates, which is not a volume |
+| `mass_balance_error` | flat at 0 % here: a sentence, not a figure |
+| `mesh_map` | the same topography as the id card, under a grid |
+| `piezometric_map` | the elevation `cross_section` shows in section |
+| `watertable_depth_map` | `seepage_map` is this map at the threshold that matters |
+| `simulated_active_network` | the perennial class of `flow_intermittence_map` |
+| `simulated_active_network_reference_overlay` | `seepage_network_confusion_map` names the three cases instead of overlaying two layers |
+| `hydrographic_network_reference` | the mapped network, already under the confusion map |
+| `downslope_distance_map` | the calibration criterion, and `03` is where it is explained |
 
 ## How intermittence is read
 
@@ -121,6 +150,18 @@ same phenomenon read as a time series rather than as a map.
 
 The legacy `persistency_index` and `intermittency_monthly` rasters are the
 first two. Both read `accumulation_flux`, not a field of their own.
+
+**The two maps do not cover the same window, and their titles say so.**
+Persistence answers over 2000-01 to 2002-12, intermittence classifies inside
+2002-01 to 2002-12. 787 cells carried flow during the wet years and none at
+all in 2002: they are pale blue on one map and grey on the other, which is a
+dry year and not a disagreement. To read the two side by side over the same
+window, pass the same cycle to both:
+
+```python
+hmp.figure(run, "flow_persistence_map")                # the whole record
+hmp.figure(run, "flow_persistence_map", cycle="2002")  # the year classified
+```
 
 
 ## What the legacy example did that this one now does again
@@ -147,9 +188,10 @@ period and Newton cannot close it in one step; adaptive time stepping splits
 only the months that fail, and leaves the other two specific yields untouched.
 
 The gauge itself is now declared too: `[data.hydrometry]` loads the daily
-discharge at the Nancon station, which `hydrograph_sim_obs`, `scatter_one_to_one`
-and `residuals` compare the simulated baseflow to, and which the run scores with
-eleven fit metrics of its own.
+discharge at the Nancon station, which `hydrograph_log_nse` compares the
+simulated baseflow to, and which the run scores with eleven fit metrics of its
+own. The other four comparison figures read those same 36 pairs, so the gallery
+keeps one and leaves the rest to `hmp viz show`.
 
 The ONDE observers who record whether a site still flows are not declared here:
 their record on this catchment starts in 2012, ten years after the window this
@@ -158,4 +200,4 @@ example simulates.
 Two library fixes came with this: `scatter_one_to_one` and `residuals` looked
 for observations at the *simulated* station, the `_catchment` pseudo-station,
 where a gauge never writes. They now find the observing station, or say which
-ones to choose between.
+ones to choose between. Both render on demand, out of the gallery.

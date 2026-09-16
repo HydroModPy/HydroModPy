@@ -2,10 +2,16 @@
 
 The exported file can be opened in QGIS (MDAL driver), THREDDS, or any
 tool that understands the UGRID-1.0 convention.
+
+QGIS reads a mesh through MDAL, which supports a face dataset and nothing
+else, so a field is written one variable per layer and the vertical
+dimension never reaches the file. The CRS is stated twice for the same
+reason: once the CF way, once the way MDAL reads it.
 """
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import numpy as np
@@ -35,7 +41,9 @@ def export_netcdf(
     sim_id : str
         Simulation UUID.
     variables : list[str]
-        Field names to export (e.g. ``["head", "watertable_depth"]``).
+        Field names to export (e.g. ``["head", "watertable_depth"]``). A field
+        stored per layer is written as one variable per layer, named ``<var>``
+        on a single-layer model and ``<var>_layer<N>`` otherwise.
     output_path : str or Path
         Destination ``.nc`` file.
     timesteps : list[int], optional
@@ -106,6 +114,7 @@ def export_netcdf(
             "topology_dimension": 2,
             "node_coordinates": "node_x node_y",
             "face_node_connectivity": "face_nodes",
+            "face_coordinates": "face_x face_y",
             "face_dimension": "n_face",
         },
     )
@@ -127,6 +136,9 @@ def export_netcdf(
     ds["z_interfaces"] = xr.DataArray(z_interfaces, dims=("n_z_interface",))
     if crs_attrs:
         ds["crs"] = xr.DataArray(np.int32(0), attrs=crs_attrs)
+        mdal_crs = _mdal_crs_attrs(crs_attrs)
+        if mdal_crs:
+            ds["projected_coordinate_system"] = xr.DataArray(np.int32(0), attrs=mdal_crs)
 
     # Compute face centroids for spatial reference
     valid_mask = connectivity >= 0
@@ -164,7 +176,19 @@ def export_netcdf(
 
             attrs = {**field_registry.cf_attrs(var_name), "mesh": "mesh2d", "location": "face"}
             if data.ndim == 3:
-                ds[var_name] = xr.DataArray(data, dims=("time", "layer", "n_face"), attrs=attrs)
+                # One variable per layer. A UGRID reader binds a dataset to the
+                # face dimension and ignores any array carrying a third one, so
+                # a (time, layer, face) field is simply invisible in QGIS. A
+                # single-layer model keeps the bare name.
+                n_layers = data.shape[1]
+                for index in range(n_layers):
+                    name = var_name if n_layers == 1 else f"{var_name}_layer{index + 1}"
+                    layer_attrs = dict(attrs)
+                    if n_layers > 1 and layer_attrs.get("long_name"):
+                        layer_attrs["long_name"] = f"{layer_attrs['long_name']} (layer {index + 1})"
+                    ds[name] = xr.DataArray(
+                        data[:, index, :], dims=("time", "n_face"), attrs=layer_attrs
+                    )
             elif data.ndim == 2:
                 ds[var_name] = xr.DataArray(data, dims=("time", "n_face"), attrs=attrs)
     finally:
@@ -180,9 +204,6 @@ def export_netcdf(
             dims=("time",),
             attrs={"standard_name": "time", **zarr_time_attrs},
         )
-    if "layer" in ds.dims:
-        ds["layer"] = xr.DataArray(np.arange(ds.sizes["layer"]), dims=("layer",))
-
     # zlib-compress the array variables (the Zarr source is Blosc-compressed, so
     # an uncompressed .nc balloons) and give float fields a CF _FillValue when
     # none is declared. Skip vars that already carry _FillValue in attrs (e.g.
@@ -203,9 +224,48 @@ def export_netcdf(
         if enc:
             encoding[name] = enc
 
-    ds.to_netcdf(output_path, engine="netcdf4", format="NETCDF4", encoding=encoding)
+    # Write beside the destination, then rename. netCDF4 truncates its output
+    # before writing it, so exporting onto a file QGIS still holds open failed
+    # halfway and left a zero-byte file where the previous export was. A rename
+    # swaps the inode instead: the open layer keeps reading what it already has
+    # until it is reloaded, and a failed export destroys nothing.
+    tmp_path = output_path.with_name(f"{output_path.name}.tmp")
+    try:
+        ds.to_netcdf(tmp_path, engine="netcdf4", format="NETCDF4", encoding=encoding)
+        os.replace(tmp_path, output_path)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
     logger.info("Exported NetCDF: %s", output_path)
     return output_path
+
+
+def _mdal_crs_attrs(crs_attrs: dict[str, object]) -> dict[str, object]:
+    """CRS attributes MDAL reads, for the ``projected_coordinate_system`` variable.
+
+    The CF way of georeferencing a file is a grid-mapping variable carrying
+    ``crs_wkt``, and the ``crs`` variable next to this one states it. MDAL,
+    which is what QGIS opens a UGRID mesh with, does not read it: it looks up
+    one variable by name and takes ``epsg``, then ``wkt``, which it parses as
+    WKT1 only. Handed the WKT2 that ``crs_wkt`` holds it keeps no CRS at all,
+    and QGIS then draws the mesh in whatever the project uses, nowhere near
+    the catchment. So the EPSG code goes first and the WKT is downgraded.
+    """
+    attrs: dict[str, object] = {}
+    epsg = crs_attrs.get("epsg_code")
+    if epsg is not None:
+        attrs["epsg"] = int(epsg)  # type: ignore[arg-type]
+    wkt = crs_attrs.get("crs_wkt")
+    if wkt:
+        from pyproj import CRS as _CRS
+
+        try:
+            attrs["wkt"] = _CRS.from_wkt(str(wkt)).to_wkt("WKT1_GDAL")
+        except Exception as exc:
+            # A CRS pyproj cannot round-trip to WKT1 (a compound or a custom
+            # one) leaves the EPSG code to carry the georeferencing alone.
+            logger.debug("No WKT1 form for the run CRS, keeping the EPSG code only: %s", exc)
+    return attrs
 
 
 def _derive_stack(sz, sim_id: str, variable: str, timesteps, zarr_time) -> np.ndarray | None:

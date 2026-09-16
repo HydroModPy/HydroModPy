@@ -28,8 +28,9 @@ sims = catalog.list_simulations(named_only=True)
 print(sims[["name", "solver", "status", "n_timesteps", "ended_at"]].to_string(index=False))
 
 # Prendre le run transient NWT. find() filtre sur le nom du catalog, qui
-# est le nom de fichier TOML (ici "sim_transient_nwt").
-run = list(catalog.find(name="sim_transient_nwt"))[0]
+# est [simulation].name dans le TOML (ici "transient_nwt"), pas le nom de
+# fichier.
+run = list(catalog.find(name="transient_nwt"))[0]
 print("\nrun choisi :", run.name, "|", run.solver, "|", run.n_timesteps, "pas de temps")
 
 # Valeurs des parametres actifs enregistrees pour ce run.
@@ -44,16 +45,19 @@ print("\nchamps disponibles :", run.array.list_fields())
 head = run.field("head", timestep=-1)
 print(f"\ncharge : {head.size} mailles, min {np.nanmin(head):.2f} m, max {np.nanmax(head):.2f} m")
 
-# Une serie temporelle : le debit simule a l'exutoire, une valeur par
-# periode de stress mensuelle, renvoyee en Series pandas.
-discharge = run.timeseries("discharge")
-print(f"debit : {len(discharge)} pas, moyenne {discharge.mean():.3f} m3/s")
+# Bilan de masse global, une ligne par periode de stress mensuelle.
+# MODFLOW-NWT n'alimente pas encore la table timeseries "discharge" dans ce
+# checkout (budgets par composante non extraits) ; total_in du bilan est la
+# serie qui marche partout, quel que soit le solveur.
+mass_balance = run.mass_balance
+total_in = mass_balance.set_index("timestep")["total_in"]
+print(f"bilan : {len(total_in)} pas, entrees moyennes {total_in.mean():.3f} m3/s")
 
-# Tracer l'hydrogramme et la distribution des charges, sauvegarder a cote du
+# Tracer le bilan et la distribution des charges, sauvegarder a cote du
 # projet.
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4))
-discharge.plot(ax=ax1, color="tab:blue")
-ax1.set_title("Debit simule")
+total_in.plot(ax=ax1, color="tab:blue")
+ax1.set_title("Bilan - entrees totales")
 ax1.set_ylabel("m3/s")
 ax2.hist(head.ravel(), bins=40, color="tab:green")
 ax2.set_title("Nappe finale")
@@ -62,5 +66,3 @@ fig.tight_layout()
 out = here / "read_results_output.png"
 fig.savefig(out, dpi=120)
 print("\nfigure sauvee :", out)
-
-run = list(catalog.find(name="sim_transient_nwt"))[0]

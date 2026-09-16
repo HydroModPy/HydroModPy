@@ -137,6 +137,7 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
             "modflow6": "CHD",
             "boussinesq": "prescribed_head",
         },
+        supports_forcing=True,
     ),
     "ocean": FlowBoundaryDefinition(
         id="ocean",
@@ -151,6 +152,7 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
             "modflow_nwt": "BAS/CHD",
             "boussinesq": "prescribed_head",
         },
+        supports_forcing=True,
     ),
     "drainage": FlowBoundaryDefinition(
         id="drainage",

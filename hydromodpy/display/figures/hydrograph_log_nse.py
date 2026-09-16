@@ -177,9 +177,10 @@ class HydrographLogNseFigure(BaseFigure):
         ax.set_ylabel(axis_label(variable))
         ax.grid(True, which="both", ls=":", lw=0.4)
         ax.set_title(f"Hydrograph on a log axis - {sim.name or sim.sim_id} @ {station}")
-        # The legend takes the upper right and the note the upper left: a
-        # hydrograph puts its peaks high and its recessions low, and "best"
-        # ignores annotations, so pinning both keeps them from stacking.
+        # The legend takes the upper right and the note the floor: the note
+        # runs to whatever width its longest line needs and an upper corner is
+        # not wide enough for both, while the band under the log floor is empty
+        # by construction, the limits being set from that floor down.
         ax.legend(loc="upper right", fontsize=8.5, framealpha=0.9)
         ax.annotate(
             "\n".join(
@@ -196,10 +197,10 @@ class HydrographLogNseFigure(BaseFigure):
                     on_floor=[(label, count) for label, count, _ in on_floor],
                 )
             ),
-            xy=(0.02, 0.98),
+            xy=(0.02, 0.02),
             xycoords="axes fraction",
             ha="left",
-            va="top",
+            va="bottom",
             fontsize=8.5,
             bbox={"facecolor": "white", "alpha": 0.9, "edgecolor": "#c8c8c8"},
             zorder=7,

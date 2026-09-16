@@ -17,7 +17,10 @@ from hydromodpy.core.units.time import (
     cf_time_axis_seconds,
     factor_to_seconds,
 )
-from hydromodpy.solver.modflow6.build import mf6_safe_name
+from hydromodpy.solver.modflow6.build import (
+    FLOW_PROPERTY_SIDECAR_SUFFIX,
+    mf6_safe_name,
+)
 from hydromodpy.solver.modflow6.extractors.sfr import (
     SfrObsSpec,
     build_sfr_columns,
@@ -900,6 +903,7 @@ class Modflow6OutputAdapter:
                     grid_type=grid_type,
                     structured_shape=structured_shape,
                 )
+                _write_flow_properties(sz, solver_output_dir, n_cells=n_cells)
             finally:
                 sz.close()
         except Exception:
@@ -1072,6 +1076,25 @@ class Modflow6OutputAdapter:
 
         cfg = config or {}
         compute_derived(sim_id, store, cfg)
+
+
+def _write_flow_properties(sz: Any, solver_output_dir: Path, *, n_cells: int) -> None:
+    """Persist the conductivity and storage fields the builder left behind.
+
+    They are inputs, not results, and MODFLOW writes none of them back out.
+    Storing them next to the heads is what lets a section or a map show the
+    aquifer the run was actually given, and lets two runs be compared on the
+    parameters and not only on the answer.
+    """
+    sidecars = sorted(solver_output_dir.glob(f"*{FLOW_PROPERTY_SIDECAR_SUFFIX}"))
+    if not sidecars:
+        return
+    with np.load(sidecars[0]) as payload:
+        for variable in payload.files:
+            values = np.asarray(payload[variable], dtype="float64")
+            if values.ndim != 2 or values.shape[1] != n_cells:
+                continue
+            sz.write_static_field(variable, values, subgroup="derived")
 
 
 def _layer_thickness(top: np.ndarray, botm_per_layer: np.ndarray | None) -> np.ndarray | None:
