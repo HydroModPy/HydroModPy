@@ -30,6 +30,8 @@ solvers = ["modflow6"]
 [simulation.results.derived]
 release_flux = true
 
+[simulation.results.budget]
+spatial_fields = true
 
 [geographic]
 crs_project = "EPSG:2154"
@@ -105,17 +107,8 @@ kind = "homogeneous"
 unit = "m-1"
 value = 1e-5
 
-# No conductance written: it is then derived from K, and that proportionality is
-# what makes the ratio K/R the quantity the network stage calibrates.
 [flow.bc.drainage]
 kind = "cauchy"
-
-# Edge cells wet and dry as the water table swings. Adaptive time stepping splits
-# only the months Newton cannot close in one step.
-[modflow6.runtime]
-mf6_outer_dvclose = 1e-2
-mf6_ats = true
-
 
 # K from the extent of the mapped network in steady state, then Sy from the
 # gauged hydrograph with K frozen. Abherve et al. 2023, 10.5194/hess-27-3221-2023.
@@ -161,6 +154,7 @@ end = "2002-12-31"
 [calibration.uncertainty]
 mode = "absolute"
 tolerance = 75.0
+
 
 
 [display]
