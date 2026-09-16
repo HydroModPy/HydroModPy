@@ -13384,10 +13384,10 @@
           "title": "Steady Tolerance",
           "x-hmp-profile": "user"
         },
-        "steady_optimizer_kwargs": {
+        "steady_engine_options": {
           "additionalProperties": true,
-          "description": "Extra arguments forwarded to the stage-one engine, in that engine's own units. The escape hatch for reproducing a published call; a precision is said once, in steady_tolerance.",
-          "title": "Steady Optimizer Kwargs",
+          "description": "Options of the stage-one engine itself, named as that engine names them. Which ones exist depends on steady_method, and the model of each engine is in calibration.optim.method_config. A key the engine does not know is refused before the first solver call. The escape hatch for reproducing a published call; a precision is said once, in steady_tolerance.",
+          "title": "Steady Engine Options",
           "type": "object",
           "x-hmp-profile": "dev"
         },
@@ -13455,10 +13455,10 @@
           "title": "Transient Tolerance",
           "x-hmp-profile": "user"
         },
-        "transient_optimizer_kwargs": {
+        "transient_engine_options": {
           "additionalProperties": true,
-          "description": "Extra arguments forwarded to the stage-two engine, in that engine's own units.",
-          "title": "Transient Optimizer Kwargs",
+          "description": "Options of the stage-two engine itself, named as that engine names them, and refused when it does not know them. Which ones exist depends on transient_method.",
+          "title": "Transient Engine Options",
           "type": "object",
           "x-hmp-profile": "dev"
         },

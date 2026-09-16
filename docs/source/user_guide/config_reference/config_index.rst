@@ -8444,66 +8444,66 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `calibration <calibration.html#calibration-protocol-steady-tolerance>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L95>`__
-   * - ``calibration.protocol.steady_optimizer_kwargs``
+   * - ``calibration.protocol.steady_engine_options``
      - ``dict[str, Any]``
      - dev
      - -
-     - `calibration <calibration.html#calibration-protocol-steady-optimizer-kwargs>`__
+     - `calibration <calibration.html#calibration-protocol-steady-engine-options>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L102>`__
    * - ``calibration.protocol.steady_window``
      - ``dict[str, str] | None``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-steady-window>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L108>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L111>`__
    * - ``calibration.protocol.transient_metric``
      - ``str``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-transient-metric>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L113>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L116>`__
    * - ``calibration.protocol.transient_method``
      - ``str``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-transient-method>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L118>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L121>`__
    * - ``calibration.protocol.transient_max_iter``
      - ``int``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-transient-max-iter>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L122>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L125>`__
    * - ``calibration.protocol.transient_tolerance``
      - ``Optional[float]``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-transient-tolerance>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L127>`__
-   * - ``calibration.protocol.transient_optimizer_kwargs``
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L130>`__
+   * - ``calibration.protocol.transient_engine_options``
      - ``dict[str, Any]``
      - dev
      - -
-     - `calibration <calibration.html#calibration-protocol-transient-optimizer-kwargs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L132>`__
+     - `calibration <calibration.html#calibration-protocol-transient-engine-options>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L135>`__
    * - ``calibration.protocol.discharge_variable``
      - ``str``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-discharge-variable>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L137>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L141>`__
    * - ``calibration.protocol.observed_station_id``
      - ``str | None``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-observed-station-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L141>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L145>`__
    * - ``calibration.protocol.scoring_window``
      - ``dict[str, str] | None``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-scoring-window>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L145>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L149>`__
    * - ``calibration.method``
      - ``str``
      - user

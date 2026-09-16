@@ -99,10 +99,13 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         "per cent. Unset takes the engine's default, which for the bisection is that "
         "same one per cent.",
     )
-    steady_optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
+    steady_engine_options: Annotated[dict[str, Any], Profile.DEV] = Field(
         default_factory=dict,
-        description="Extra arguments forwarded to the stage-one engine, in that "
-        "engine's own units. The escape hatch for reproducing a published call; a "
+        description="Options of the stage-one engine itself, named as that engine "
+        "names them. Which ones exist depends on steady_method, and the model of "
+        "each engine is in calibration.optim.method_config. A key the engine does not "
+        "know is refused before the first solver call. The escape hatch for "
+        "reproducing a published call; a "
         "precision is said once, in steady_tolerance.",
     )
     steady_window: Annotated[dict[str, str] | None, Profile.USER] = Field(
@@ -129,10 +132,11 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         description="How precisely stage two has to pin the storage before it stops, "
         "as a relative precision on the storage coefficient.",
     )
-    transient_optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
+    transient_engine_options: Annotated[dict[str, Any], Profile.DEV] = Field(
         default_factory=dict,
-        description="Extra arguments forwarded to the stage-two engine, in that "
-        "engine's own units.",
+        description="Options of the stage-two engine itself, named as that engine "
+        "names them, and refused when it does not know them. Which ones exist depends "
+        "on transient_method.",
     )
     discharge_variable: Annotated[str, Profile.USER] = Field(
         default="discharge",
@@ -287,13 +291,13 @@ class MatchingHydrographicNetwork:
             "steady_method",
             "steady_max_iter",
             "steady_tolerance",
-            "steady_optimizer_kwargs",
+            "steady_engine_options",
             "steady_window",
             "transient_metric",
             "transient_method",
             "transient_max_iter",
             "transient_tolerance",
-            "transient_optimizer_kwargs",
+            "transient_engine_options",
             "discharge_variable",
             "observed_station_id",
             "scoring_window",
@@ -440,8 +444,8 @@ def _phases(
     }
     if opts.steady_tolerance is not None:
         steady["tolerance"] = float(opts.steady_tolerance)
-    if opts.steady_optimizer_kwargs:
-        steady["optimizer_kwargs"] = dict(opts.steady_optimizer_kwargs)
+    if opts.steady_engine_options:
+        steady["optimizer_kwargs"] = dict(opts.steady_engine_options)
     if opts.storage is None:
         return [steady]
 
@@ -461,8 +465,8 @@ def _phases(
     }
     if opts.transient_tolerance is not None:
         transient["tolerance"] = float(opts.transient_tolerance)
-    if opts.transient_optimizer_kwargs:
-        transient["optimizer_kwargs"] = dict(opts.transient_optimizer_kwargs)
+    if opts.transient_engine_options:
+        transient["optimizer_kwargs"] = dict(opts.transient_engine_options)
     if opts.observed_station_id is not None:
         transient["observed_station_id"] = opts.observed_station_id
     if opts.scoring_window is not None:

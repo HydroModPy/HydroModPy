@@ -141,7 +141,7 @@ transient_tolerance = 0.05
 
 # The coarse log sweep before the bisection: it checks the monotonicity the
 # method assumes instead of supposing it.
-[calibration.protocol.steady_optimizer_kwargs]
+[calibration.protocol.steady_engine_options]
 sweep_points = 7
 
 # 2000 is simulated and not scored.
