@@ -269,6 +269,16 @@ class SimulationZarr:
             subgroup=subgroup,
         )
 
+    def write_static_field(
+        self,
+        variable: str,
+        values: np.ndarray,
+        *,
+        subgroup: str | None = None,
+    ) -> None:
+        """Write a field with no time axis, such as a model input parameter."""
+        zarr_writer.write_static_field(self, variable, values, subgroup=subgroup)
+
     def read_field(
         self,
         variable: str,
