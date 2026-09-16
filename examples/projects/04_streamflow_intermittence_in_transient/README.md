@@ -77,7 +77,7 @@ Three premises are written into the config rather than assumed, and each one
 silently returns a number when it is wrong: `[geographic.enforce_streams]`
 burns the mapped network into the routing surface, so the criterion measures
 hydrogeology and not a disagreement between two datasets;
-`[flow.bc.drainage] value = 0.0` keeps the drain conductance proportional to
+`[flow.bc.drainage]` writes no conductance, so it is derived from `K`, which keeps it proportional to
 `K`, which is what makes the ratio `K/R` the calibrated quantity; and
 `[simulation.results.derived] release_flux = true` is the per-cell seepage the
 criterion reads. See
