@@ -670,7 +670,7 @@ Optimization methods
      - When to pick it
    * - ``grid``
      - Enumeration
-     - Product of ``n_points``
+     - Product of ``points_per_dim``
      - Yes
      - Simple, exhaustive
      - 1-2 params, unlimited budget
@@ -711,26 +711,64 @@ Optimization methods
      - Full posterior
      - Uncertainty quantification
 
-``optimizer_kwargs`` hints:
+.. _calibration-engine-options:
 
-- ``grid``: ``{ "n_points": {K = 10, Sy = 5} }`` to set per-parameter
-  granularity. Defaults to a uniform count across all parameters.
-- ``optuna``:
-  ``{ "sampler": "tpe" | "cmaes" | "random", "pruner": "median" }``.
-  Default sampler is TPE and is available in the base install; ``cmaes``
-  requires the calibration extra and is strongly recommended when you
-  have 3+ continuous parameters.
-- ``scipy_de``:
-  ``{ "popsize": 15, "mutation": [0.5, 1.0], "recombination": 0.7 }``,
-  the standard ``scipy.optimize.differential_evolution`` knobs.
-- ``scipy_nelder_mead``:
-  ``{ "xatol": 1e-4, "fatol": 1e-4, "adaptive": true }``.
-  ``adaptive = true`` is friendlier in higher dimensions.
-- ``gp_mapping``: ``{ "n_initial": 10, "acq": "ei" }``: expected
-  improvement over an RBF Gaussian Process surrogate.
-- ``da_mh_gp``:
-  ``{ "burn_in": 200, "thin": 5, "proposal_scale": 0.3 }``,
-  Metropolis-Hastings tuned by the surrogate.
+Engine options
+~~~~~~~~~~~~~~
+
+``method`` names the engine; the options block carries that engine's own
+settings. The block is ``[calibration.optimizer_kwargs]`` at the top level and
+``[calibration.phases.optimizer_kwargs]`` per phase, and the
+``matching_hydrographic_network`` protocol spells it
+``[calibration.protocol.steady_engine_options]`` and
+``[calibration.protocol.transient_engine_options]`` because it configures two
+engines at once.
+
+One model per engine in :mod:`hydromodpy.calibration.optim.method_config`, all
+``extra="forbid"``, so a key the engine does not know is refused when
+``validate_registry()`` runs and not inside an adapter constructor. Each row
+below lists every key that engine accepts, and
+``tests/unit/docs/test_the_engine_options_are_the_ones_that_exist.py`` fails
+when the two drift apart.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 78
+
+   * - engine
+     - keys it accepts
+   * - ``bisection``
+     - ``rel_tol``, ``signed_component``, ``sweep_points``, ``bracket_expand``
+   * - ``grid``
+     - ``points_per_dim``
+   * - ``random_search``
+     - none
+   * - ``scipy_de``
+     - ``maxiter``, ``popsize``, ``tol``
+   * - ``scipy_nelder_mead``
+     - ``maxiter``, ``maxfev``, ``xatol``, ``fatol``
+   * - ``cma_es``
+     - ``sigma0``, ``popsize``, ``max_evaluations``, ``normalize``, ``restarts``
+   * - ``optuna``
+     - ``sampler``, ``direction``
+   * - ``gp_mapping``
+     - ``max_iter``, ``n_init``, ``ei_tol``, ``ei_patience``, ``xi``,
+       ``n_restarts``, ``n_refine``, ``batch_size``, ``kappa``, ``alpha``,
+       ``jitter``
+   * - ``da_mh_gp``
+     - ``max_iter``, ``burn_in``, ``proposal_sigma``, ``n_init``,
+       ``retrain_interval``, ``sigma_noise``, ``full_mh_prob``, ``prior_mean``,
+       ``prior_std``, ``thin``, ``gp_alpha``, ``cache_decimals``
+
+Three of them are worth knowing without reading the models. ``optuna`` takes
+``sampler`` among ``tpe``, ``random``, ``cmaes`` and ``nsga``: TPE ships with
+the base install, ``cmaes`` needs the calibration extra and is the one to reach
+for above three continuous parameters. ``bisection`` takes ``sweep_points``,
+the coarse log sweep run before the bracketing, which checks the monotonicity
+the root search assumes instead of supposing it; its ``rel_tol`` is written
+from the phase ``tolerance`` and is not repeated here. ``gp_mapping`` maximises
+expected improvement over an RBF Gaussian-process surrogate, and switches to a
+lower confidence bound when ``kappa`` is non-zero.
 
 Reading the results
 -------------------

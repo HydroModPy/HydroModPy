@@ -90,7 +90,7 @@ only promotes the top trials to full Zarr / Parquet stores.
      - Determinism
      - When to pick it
    * - ``grid``
-     - product of ``n_points``
+     - product of ``points_per_dim``
      - yes
      - 1-2 parameters, exhaustive sweep
    * - ``optuna`` (TPE default)
