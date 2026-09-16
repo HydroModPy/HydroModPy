@@ -35,9 +35,9 @@ import numpy as np
 from hydromodpy.core.field_routing import (
     accumulate_on_downhill_graph,
     build_downhill_graph,
-    cell_adjacency_from_face_connectivity,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.topographic_distance import shared_node_adjacency
 
 logger = get_logger(__name__)
 
@@ -76,7 +76,7 @@ def routing_graph_for_model(model: Any, *, diagonal_neighbors: bool = False):
 
     adjacency = None
     if diagonal_neighbors:
-        adjacency = cell_adjacency_from_face_connectivity(connectivity, n_cells=top.size)
+        adjacency = shared_node_adjacency(connectivity, n_cells=top.size)
     return build_downhill_graph(
         top,
         connectivity,
@@ -156,40 +156,76 @@ def upstream_area_m2(model: Any, graph: Any, *, catchment_mask: np.ndarray) -> n
     and the catchment the delineation produced describe different drainage, and
     every routed quantity read from it is a fraction of what it claims. That is
     the D4 symptom: a descent over shared edges cannot follow a talweg running
-    diagonally across a square grid, and ``diagonal_neighbors`` is the knob.
+    diagonally across a square grid, and ``diagonal_neighbors`` is the knob. The
+    ratio itself is kept, not just logged: see ``last_largest_drainable_share``.
     """
     areas = np.asarray(model.solver_mesh.cell_areas(), dtype=float).reshape(-1)
     accumulated = route_release_to_discharge(areas, graph, catchment_mask=catchment_mask)
-    largest_drainable_share(areas, accumulated, catchment_mask)
+    global _last_largest_drainable_share
+    _last_largest_drainable_share = largest_drainable_share(areas, accumulated, catchment_mask)
     return accumulated
+
+
+_FAR_FROM_ONE = 0.90
+"""Below this, the graph and the delineated catchment describe different
+drainage. Matches ``alpha_warning_threshold``, the network criterion's own
+cutoff for a catchment-restricted agreement ratio. Fixed rather than a config
+``Field``: this ratio is a property of the mesh and the delineation, never of
+a calibrated parameter, so no trial could give a reason to move it."""
+
+_last_largest_drainable_share: float | None = None
 
 
 def largest_drainable_share(
     areas: np.ndarray, accumulated: np.ndarray, catchment_mask: np.ndarray
 ) -> float | None:
-    """State the largest accumulation against the catchment it should equal."""
+    """State the largest accumulation against the catchment it should equal.
+
+    Warns, once per call, when the ratio is far from one: a graph that cannot
+    drain the delineated basin makes an accumulated discharge read at any of
+    its cells meaningless, which is why this repository refuses to locate a
+    gauge by coordinate rather than score it. The ratio never penalises a
+    trial's cost, because it does not depend on one.
+    """
     mask = np.asarray(catchment_mask, dtype=bool).reshape(-1)
     catchment_m2 = float(areas[mask].sum()) if mask.any() else 0.0
     largest_m2 = float(np.nanmax(accumulated)) if accumulated.size else 0.0
     if catchment_m2 <= 0.0:
         return None
     ratio = largest_m2 / catchment_m2
-    logger.info(
-        "Routing graph: the most accumulated cell drains %.3f km2 of the %.3f km2 "
-        "catchment (%.1f%%). One means the graph drains the basin; far below it, this "
-        "graph and the delineation describe different drainage, and "
-        "[calibration.outputs.<name>] diagonal_neighbors = true is what recovers a "
-        "diagonal talweg on a square grid.",
-        largest_m2 / 1e6,
-        catchment_m2 / 1e6,
-        100.0 * ratio,
-    )
+    if ratio < _FAR_FROM_ONE:
+        logger.warning(
+            "Routing graph: the most accumulated cell drains %.3f km2 of the %.3f km2 "
+            "catchment (%.1f%%). One means the graph drains the basin; far below it, this "
+            "graph and the delineation describe different drainage, so an accumulated "
+            "discharge read at any of its cells is meaningless, which is why a gauge "
+            "located by coordinate is refused rather than scored. "
+            "[calibration.outputs.<name>] diagonal_neighbors = true is what recovers a "
+            "diagonal talweg on a square grid.",
+            largest_m2 / 1e6,
+            catchment_m2 / 1e6,
+            100.0 * ratio,
+        )
     return ratio
+
+
+def last_largest_drainable_share() -> float | None:
+    """Return the drainable-share ratio computed by the last ``upstream_area_m2`` call.
+
+    The ratio is a static fact about the routing graph and the delineated
+    catchment, identical from one trial to the next, so it is kept here the
+    way ``NetworkGeometry.diagnostics`` keeps ``alpha_obs_closure_catchment``:
+    computed once on the geometry, available for a caller to publish alongside
+    a trial's other components rather than reached for. Nothing in this
+    module writes it there yet.
+    """
+    return _last_largest_drainable_share
 
 
 __all__ = [
     "flat_cell_index",
     "largest_drainable_share",
+    "last_largest_drainable_share",
     "route_release_to_discharge",
     "routing_graph_for_model",
     "upstream_area_m2",

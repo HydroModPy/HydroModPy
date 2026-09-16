@@ -201,6 +201,7 @@ def build_network_geometry(
     )
     fill_report = None
     catchment_outlet: int | None = None
+    adjacency: list[set[int]] | None = None
     if delineated_catchment is None:
         # Never silent: without the delineated catchment the criterion falls back
         # to descending the raw model top to its own largest basin, which on a
@@ -260,6 +261,7 @@ def build_network_geometry(
         centroids=cell_centroids,
         inactive_mask=inactive,
         diagonal_neighbors=diagonal_neighbors,
+        adjacency=adjacency,
     )
     active = metric.graph.active
 
