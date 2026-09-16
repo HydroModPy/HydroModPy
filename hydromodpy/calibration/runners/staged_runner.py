@@ -51,9 +51,12 @@ from hydromodpy.calibration.runners.cli_runner import (
     run_calibration_core,
 )
 from hydromodpy.calibration.runners.restarts import RestartSpread, run_restarts
+from hydromodpy.calibration.runners.resume import fingerprint_matches, reusable_stage
 from hydromodpy.calibration.runners.state import (
     CalibrationStoreFactory,
     SessionChain,
+    build_cache_context,
+    default_store_factory,
     space_from_config,
 )
 from hydromodpy.calibration.runners.state import (
@@ -161,6 +164,13 @@ class StagedCalibrationReport:
     apart the others finished, which is the one thing a single search cannot
     report about itself."""
 
+    reused_from_disk: tuple[str, ...] = ()
+    """Names of the phases read back from a previous session instead of solved.
+
+    Only non-empty when ``[calibration] reuse_completed_phases`` was on and a
+    ``resume_root_session_id`` was given: what it reused is a session whose
+    fingerprint matched this run's own model, mesh and input files."""
+
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly summary for the CLI."""
         summary: dict[str, Any] = {
@@ -172,6 +182,8 @@ class StagedCalibrationReport:
             summary["protocol"] = self.protocol
         if self.methods_paragraph is not None:
             summary["methods_paragraph"] = self.methods_paragraph
+        if self.reused_from_disk:
+            summary["reused_from_disk"] = list(self.reused_from_disk)
         if self.restart_spreads:
             summary["restart_spreads"] = [item.to_dict() for item in self.restart_spreads]
         return summary
@@ -444,6 +456,88 @@ def _require_dependency(decl: CalibPhaseDecl, ran: set[str]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Reuse from a previous invocation
+# ---------------------------------------------------------------------------
+
+
+def _reuse_from_disk(
+    *,
+    resume_root_session_id: str,
+    decl: CalibPhaseDecl,
+    declared: ParameterSpace,
+    phase_cfg: CalibrationConfig,
+    trial_ctx: TrialContext,
+    space: ParameterSpace,
+    override_paths: dict[str, str],
+    objective: str | None,
+    workspace: Path,
+    store_factory: CalibrationStoreFactory | None,
+) -> tuple[CalibrationReport, tuple[FrozenParameter, ...]] | None:
+    """Return ``decl``'s result read from ``resume_root_session_id``'s chain, or ``None``.
+
+    ``None`` when the phase never completed in that chain, or when its recorded
+    ``params_hash`` cannot be reproduced under this invocation's own model, mesh
+    and input files (:func:`hydromodpy.calibration.runners.resume.fingerprint_matches`).
+    Either way the caller solves the phase itself; this never runs anything.
+    """
+    from hydromodpy.calibration.report import CalibrationReport
+
+    factory = store_factory or default_store_factory
+    catalog = factory(workspace, phase_cfg.persistence)
+    stage = reusable_stage(catalog, resume_root_session_id, decl.name)
+    if stage is None:
+        return None
+    cache_context = build_cache_context(
+        cfg=phase_cfg,
+        trial_ctx=trial_ctx,
+        space=space,
+        override_paths=override_paths,
+        objective_entrypoint=objective,
+    )
+    if not fingerprint_matches(stage, cache_context=cache_context):
+        logger.warning(
+            "Phase %s has a completed session %s in the resumed chain %s, but its "
+            "recorded fingerprint does not match this run's model, mesh or input "
+            "files; solving it again instead of trusting a different problem's result.",
+            decl.name,
+            stage.session_id,
+            resume_root_session_id,
+        )
+        return None
+    missing = [name for name in decl.parameters if name not in stage.parameters]
+    if missing:
+        logger.warning(
+            "Phase %s's session %s in the resumed chain carries no value for %s; solving it again.",
+            decl.name,
+            stage.session_id,
+            missing,
+        )
+        return None
+    froze = (
+        tuple(
+            FrozenParameter(parameter=declared[name], value=stage.parameters[name], phase=decl.name)
+            for name in decl.parameters
+        )
+        if decl.freeze_on_success
+        else ()
+    )
+    report = CalibrationReport(
+        session_id=stage.session_id,
+        method=phase_cfg.method,
+        n_iterations=stage.n_iterations,
+        best_objective=stage.best_objective,
+        best_sim_id=None,
+        duration_s=0.0,
+        save_runs="none",
+        promoted=0,
+        best_parameters=dict(stage.parameters),
+        workspace=workspace,
+        extra={"reused_from_disk": True, "source_root_session_id": resume_root_session_id},
+    )
+    return report, froze
+
+
+# ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 
@@ -458,6 +552,7 @@ def run_staged_calibration(
     metric_fn: TrialMetricFn | None = None,
     store_factory: CalibrationStoreFactory | None = None,
     return_report: bool = True,
+    resume_root_session_id: str | None = None,
 ) -> StagedCalibrationReport | dict[str, Any]:
     """Run the phases of ``config_path`` one after the other.
 
@@ -485,6 +580,13 @@ def run_staged_calibration(
         :class:`StagedCalibrationReport`; when False, its ``to_dict()``
         payload. Same choice as ``run_calibration_cli``, opposite default:
         every caller of the staged runner asks the report for its summary.
+    resume_root_session_id
+        Root session id of a previous invocation of this same staged
+        calibration. A fresh call always starts its own chain, so without this
+        there is nothing to resume against: it is what tells this invocation
+        which chain's completed phases it may read back. Only has an effect
+        together with ``[calibration] reuse_completed_phases = true``; every
+        phase is still solved when either is missing.
     """
     cfg_path = Path(config_path).expanduser().resolve()
     cfg, _raw = load_toml_calibration(cfg_path)
@@ -494,9 +596,10 @@ def run_staged_calibration(
     frozen: list[FrozenParameter] = []
     runs: list[PhaseRun] = []
     restart_spreads: list[RestartSpread] = []
+    reused_from_disk: list[str] = []
     ran: set[str] = set()
     parent_session_id: str | None = None
-    root_session_id: str | None = None
+    root_session_id: str | None = resume_root_session_id
 
     for position, plan in enumerate(plans):
         index, decl, phase_cfg, space = plan.index, plan.decl, plan.config, plan.space
@@ -512,79 +615,117 @@ def run_staged_calibration(
             raise ConfigValidationError(
                 f"phase {decl.name!r} cannot prepare its trials: {exc}"
             ) from exc
-        _freeze_into_baseline(trial_ctx, frozen)
 
-        session_id = uuid.uuid4().hex
-        if root_session_id is None:
-            root_session_id = session_id
-        chain = SessionChain(
-            session_id=session_id,
-            root_session_id=root_session_id,
-            phase_name=decl.name,
-            phase_index=index,
-            parent_session_id=parent_session_id,
-        )
         if workspace is not None:
             ws_root = Path(workspace).expanduser().resolve()
         else:
             ws_root = trial_ctx.workspace
 
-        logger.info(
-            "Calibration phase %d/%d %s | method=%s parameters=%s",
-            index + 1,
-            len(cfg.phases or []),
-            decl.name,
-            decl.method,
-            list(decl.parameters),
-        )
+        # Before anything reads this baseline, including the fingerprint that
+        # decides whether a completed phase may be reused. The hash recorded on
+        # disk for this phase was computed with the upstream freezes baked in, so
+        # asking the question without them can only ever answer no.
+        # Before anything reads this baseline, including the fingerprint that
+        # decides whether a completed phase may be reused. The hash recorded on
+        # disk for this phase was computed with the upstream freezes baked in, so
+        # asking the question without them can only ever answer no.
+        _freeze_into_baseline(trial_ctx, frozen)
 
-        def _one_search(
-            restart_seed: int,
-            start_at,
-            _cfg=phase_cfg,
-            _chain=chain,
-            _ctx=trial_ctx,
-            _space=space,
-            _ws=ws_root,
-        ):
-            return run_calibration_core(
-                _cfg
-                if restart_seed == _seed_of(_cfg)
-                else _cfg.model_copy(update={"seed": restart_seed}),
-                _ctx,
-                workspace=_ws,
-                space=_space,
-                project_label=project,
-                cfg_path=cfg_path,
-                metric_fn=metric_fn,
-                objective=objective,
-                store_factory=store_factory,
-                chain=_chain,
-                start_at=start_at,
-            )
-
-        restarts = _declared_restarts(cfg)
-        if restarts is None:
-            report = _one_search(_seed_of(phase_cfg), None)
-            spread: tuple = ()
-        else:
-            logger.info(
-                "Phase %s runs %d restarts: the answer is the best of them, the spread "
-                "is reported beside it, and each restart is a full search.",
-                decl.name,
-                restarts,
-            )
-            report, spread = run_restarts(
-                _one_search,
-                method=phase_cfg.method,
+        disk_result: tuple[CalibrationReport, tuple[FrozenParameter, ...]] | None = None
+        if cfg.reuse_completed_phases and resume_root_session_id is not None:
+            disk_result = _reuse_from_disk(
+                resume_root_session_id=resume_root_session_id,
+                decl=decl,
+                declared=declared,
+                phase_cfg=phase_cfg,
+                trial_ctx=trial_ctx,
                 space=space,
-                restarts=restarts,
-                seed=phase_cfg.seed,
+                override_paths=resolve_override_paths(phase_cfg),
+                objective=objective,
+                workspace=ws_root,
+                store_factory=store_factory,
             )
-        restart_spreads.extend(spread)
+
+        if disk_result is not None:
+            report, froze = disk_result
+            session_id = report.session_id
+            if root_session_id is None:
+                root_session_id = session_id
+            reused_from_disk.append(decl.name)
+            logger.info(
+                "Phase %s already completed as session %s; reusing its best trial "
+                "instead of solving it again (reuse_completed_phases).",
+                decl.name,
+                session_id,
+            )
+        else:
+            session_id = uuid.uuid4().hex
+            if root_session_id is None:
+                root_session_id = session_id
+            chain = SessionChain(
+                session_id=session_id,
+                root_session_id=root_session_id,
+                phase_name=decl.name,
+                phase_index=index,
+                parent_session_id=parent_session_id,
+            )
+
+            logger.info(
+                "Calibration phase %d/%d %s | method=%s parameters=%s",
+                index + 1,
+                len(cfg.phases or []),
+                decl.name,
+                decl.method,
+                list(decl.parameters),
+            )
+
+            def _one_search(
+                restart_seed: int,
+                start_at,
+                _cfg=phase_cfg,
+                _chain=chain,
+                _ctx=trial_ctx,
+                _space=space,
+                _ws=ws_root,
+            ):
+                return run_calibration_core(
+                    _cfg
+                    if restart_seed == _seed_of(_cfg)
+                    else _cfg.model_copy(update={"seed": restart_seed}),
+                    _ctx,
+                    workspace=_ws,
+                    space=_space,
+                    project_label=project,
+                    cfg_path=cfg_path,
+                    metric_fn=metric_fn,
+                    objective=objective,
+                    store_factory=store_factory,
+                    chain=_chain,
+                    start_at=start_at,
+                )
+
+            restarts = _declared_restarts(cfg)
+            if restarts is None:
+                report = _one_search(_seed_of(phase_cfg), None)
+                spread: tuple = ()
+            else:
+                logger.info(
+                    "Phase %s runs %d restarts: the answer is the best of them, the spread "
+                    "is reported beside it, and each restart is a full search.",
+                    decl.name,
+                    restarts,
+                )
+                report, spread = run_restarts(
+                    _one_search,
+                    method=phase_cfg.method,
+                    space=space,
+                    restarts=restarts,
+                    seed=phase_cfg.seed,
+                )
+            restart_spreads.extend(spread)
+            froze = _frozen_by(decl, report, declared)
 
         _require_result_for_dependents(decl, report, plans[position + 1 :])
-        froze = _frozen_by(decl, report, declared)
         frozen.extend(froze)
         runs.append(
             PhaseRun(
@@ -611,6 +752,7 @@ def run_staged_calibration(
             _methods_paragraph_for(cfg, runs, frozen) if cfg.protocol is not None else None
         ),
         restart_spreads=tuple(restart_spreads),
+        reused_from_disk=tuple(reused_from_disk),
     )
     return staged if return_report else staged.to_dict()
 
