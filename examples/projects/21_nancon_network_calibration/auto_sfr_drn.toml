@@ -323,9 +323,6 @@ rerun_best_with_outputs = true
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
-path = "flow.param.K.field.value"
-units = "m/s"
 
 # Bornes resserrees sur ce que la grille du 8 septembre a mesure. Ses quatre
 # points log-espaces sur [5e-3 ; 0,30] ont donne un optimum INTERIEUR a
@@ -342,9 +339,6 @@ units = "m/s"
 # n'etait donc pas un optimum. L'abaisser a 5e-3 a rendu la grille valide.
 [calibration.parameters.Sy]
 bounds = [5e-3, 0.0766]
-transform = "log"
-path = "flow.param.Sy.field.value"
-units = "-"
 
 [calibration.outputs.seepage_network]
 support = "network"
@@ -466,7 +460,6 @@ preset = "default"
 show = false
 save = true
 output_dir = "figures"
-cmap = "viridis"
 on_error = "warn"
 
 

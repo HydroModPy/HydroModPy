@@ -10,9 +10,12 @@ Minimal TOML::
     seed         = 42
 
     [calibration.parameters]
-    K_aquifer  = { bounds = [1e-6, 1e-3], transform = "log" }
-    Sy_main    = { bounds = [0.02, 0.30] }
-    drain_cond = { bounds = [1e-4, 1e-1], transform = "log" }
+    K  = { bounds = [1e-6, 1e-3] }
+    Sy = { bounds = [0.02, 0.30] }
+
+The name of the section is the name of the quantity: ``K`` is resolved against
+what the project exposes, and ``hmp config targets`` prints the names a given
+project carries.
 
 Enriched TOML (twin-benchmark style)::
 
@@ -99,9 +102,11 @@ are kept in step by
 class CalibParameterDecl(HydroModelBase):
     """User declaration for one calibrated parameter.
 
-    The declaration is read from ``[calibration.parameters.<name>]``. It
-    defines the physical bounds, the sampling transform, and optionally the
-    target path in ``HydroModPyConfig`` that receives each sampled value.
+    The declaration is read from ``[calibration.parameters.<name>]``, and the
+    section name is the quantity: it is resolved against the catalogue the
+    project exposes, so a file states the range and nothing else. Writing
+    ``path`` is the way out for whatever the catalogue does not reach, and it
+    wins without a lookup.
 
     Use ``mode="replace"`` for direct parameter values and ``mode="scale"``
     for multiplicative factors applied to an existing config value.
@@ -111,12 +116,16 @@ class CalibParameterDecl(HydroModelBase):
         default=None,
         min_length=2,
         max_length=2,
-        description="[low, high] physical bounds. Inherits from Pydantic annotation when omitted.",
+        description="[low, high] physical bounds, in the unit the target declares. "
+        "Falls back to what the field annotates when the file omits it, which most "
+        "fields deliberately leave unset because a range belongs to the site.",
     )
     transform: Annotated[Literal["identity", "log", "logit"], Profile.USER] = Field(
         default="identity",
         description="Transform applied before sampling. 'log' for "
-        "strictly-positive quantities spanning orders of magnitude.",
+        "strictly-positive quantities spanning orders of magnitude. Unset, the "
+        "target's own field decides: a hydraulic conductivity declares 'log' where "
+        "it is defined, so a file states this only to depart from it.",
     )
     prior: Annotated[Literal["uniform", "log_uniform", "normal"], Profile.USER] = Field(
         default="uniform",
@@ -124,8 +133,12 @@ class CalibParameterDecl(HydroModelBase):
     )
     path: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Dotted path into HydroModPyConfig. Optional: when omitted, "
-        "the caller is responsible for injection.",
+        description="Dotted path into HydroModPyConfig. Optional, and the way out "
+        "rather than the way in: when omitted, the section name is resolved against "
+        "the project catalogue ('hmp config targets' lists it). Write one to reach a "
+        "value the catalogue does not carry, or to settle a name two targets answer "
+        "to. A path written here wins without a lookup, and a parameter that writes "
+        "one inherits nothing from the field it points at.",
     )
     target: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -371,8 +384,9 @@ class CalibOutputNetwork(HydroModelBase):
 
     There is no ``observed_values`` here and there cannot be: the criterion
     balances two simulated quantities against each other, so nothing in it is
-    fitted to a record. The mapped network enters through
-    ``stream_geometry_path``, as a geometry, not as a series.
+    fitted to a record. The mapped network enters as a geometry, not as a
+    series, and exactly one of ``observed_network`` and
+    ``stream_geometry_path`` names where it comes from.
     """
 
     variable: Annotated[str, Profile.USER] = Field(
@@ -384,11 +398,67 @@ class CalibOutputNetwork(HydroModelBase):
         default="network",
         description="Discriminator: compare a simulated stream network to a mapped one.",
     )
-    stream_geometry_path: Annotated[str, Profile.USER] = Field(
-        description="Vector file holding the mapped stream network. Required, and "
-        "read only from here: the criterion resolves no geometry of its own and "
-        "does not reuse the one the hydrography data family loaded.",
+    observed_network: Annotated[
+        Literal["data.hydrography", "geographic.river_network"] | None, Profile.USER
+    ] = Field(
+        default=None,
+        description="Where the mapped network comes from when it is not an explicit "
+        "file. Exactly one of this and 'stream_geometry_path' must be set.",
+        json_schema_extra={
+            "value_docs": {
+                "data.hydrography": "Reuses the network the hydrography data family "
+                "already loaded (a local file or an osm / bdtopage / euhydro "
+                "download), clipped to the delineated catchment. Costs nothing new "
+                "to configure but ties the criterion to whatever that section "
+                "resolved.",
+                "geographic.river_network": "Derives the network from the DEM by a "
+                "drainage-area threshold. K/R shapes both where the water table "
+                "reaches the surface and the accumulation the threshold is cut on, so "
+                "the criterion partly fits a seepage density onto a geomorphological "
+                "one; warned once and recorded on every run that uses it.",
+            }
+        },
     )
+    stream_geometry_path: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Vector file holding the mapped stream network, read only from "
+        "here: the criterion resolves no geometry of its own and does not reuse the "
+        "one the hydrography data family loaded. The way out of 'observed_network' "
+        "when neither of its two sources is the one you want scored.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_observed_network_source(self) -> CalibOutputNetwork:
+        """Exactly one of the two observation routes must be declared.
+
+        Keyed on the values and not on ``model_fields_set``: both fields default
+        to ``None``, so a value says everything a declaration would, and a
+        configuration that has been through ``model_dump`` still validates. A
+        dump writes every field, defaults included, and re-validating one marks
+        them all as declared; keying on that would refuse a session record, a
+        frozen run config and every test that round-trips an output.
+
+        TOML carries no null, so "declared and null" is not a case a file can
+        reach.
+        """
+        declared_network = self.observed_network is not None
+        declared_path = self.stream_geometry_path is not None
+        if declared_network and declared_path:
+            raise ValueError(
+                "calibration output declares both 'observed_network' "
+                f"({self.observed_network!r}) and 'stream_geometry_path' "
+                f"({self.stream_geometry_path!r}): the criterion would score one "
+                "and the report would name the other. Declare exactly one."
+            )
+        if not declared_network and not declared_path:
+            raise ValueError(
+                "calibration output declares neither 'observed_network' nor "
+                "'stream_geometry_path': the mapped network has no source. Pick "
+                "one of 'data.hydrography', 'geographic.river_network', or set "
+                "'stream_geometry_path' to an explicit file."
+            )
+        return self
+
     tau_specific_ratio: Annotated[float, Profile.USER] = Field(
         default=STREAM_CRITERION_DEFAULTS.tau_specific_ratio,
         ge=0.0,
@@ -1083,6 +1153,20 @@ class CalibrationConfig(HydroModelBase):
             "table leaves that hash untouched and checkpoints stay resumable."
         ),
     )
+    reuse_completed_phases: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Read a phase's frozen values back from a session that already completed "
+            "it in the resumed chain, instead of solving the phase again. What it "
+            "reuses: the physical values of the best trial that session's own record "
+            "shows for that phase's parameters. What it risks: a session whose model, "
+            "mesh or input files differed produced those values for a different "
+            "problem, so a reuse is only taken when the session's recorded "
+            "params_hash can be reproduced under this run's own cache context; a "
+            "mismatch solves the phase again instead of trusting it. Off by default: "
+            "re-solving is always correct, reusing without that proof is not."
+        ),
+    )
     seed: Annotated[int | None, Profile.USER] = Field(
         default=None,
         description="Random seed for reproducibility.",
@@ -1346,12 +1430,11 @@ class CalibrationConfig(HydroModelBase):
                     f"declared: {sorted(declared_parameters)}."
                 )
             for parameter in phase.parameters:
-                path = self.parameters[parameter].resolve_target()
-                if not path:
-                    raise ValueError(
-                        f"phase {phase.name!r} calibrates {parameter!r}, which declares "
-                        "no path into the configuration, so nothing would be injected."
-                    )
+                # A parameter may name its quantity instead of writing a path, and
+                # the name is resolved against the project catalogue once the whole
+                # configuration is loaded. Until then the parameter's own name is
+                # what two phases would be freezing.
+                path = self.parameters[parameter].resolve_target() or f"<{parameter}>"
                 if phase.freeze_on_success:
                     owner = frozen_by.get(path)
                     if owner is not None:

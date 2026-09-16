@@ -133,6 +133,13 @@ they are written for you:
    [calibration]
    protocol = "matching_hydrographic_network"
 
+The section name is the quantity: ``K`` is the id this project declares in
+``[flow].param_list``, and it is resolved against what the project exposes, so
+neither the path into the configuration nor the log space a conductivity is
+searched in has to be written. ``hmp config targets`` prints the names a given
+project carries. Writing ``path`` is still allowed and still wins, for a value
+the catalogue does not reach.
+
 What stays in the file is the two search ranges and the mapped network.
 :doc:`calibration-recipes` shows the whole thing, with every option written out
 and its default explained. The engines are free: ``steady_method`` and
@@ -164,15 +171,10 @@ The long form, for a variant the protocol does not cover.
    persist_iteration_detail = "full"
 
    [calibration.parameters.K]
-   bounds    = [1e-9, 1e-3]
-   transform = "log"
-   path      = "flow.param.K.field.value"
-   units     = "m/s"
+   bounds = [1e-9, 1e-3]
 
    [calibration.parameters.Sy]
-   bounds    = [1e-3, 3e-1]
-   transform = "log"
-   path      = "flow.param.Sy.field.value"
+   bounds = [1e-3, 3e-1]
 
    [calibration.outputs.seepage_network]
    support             = "network"

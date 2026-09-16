@@ -96,3 +96,79 @@ def test_a_file_that_does_not_load_exits_on_the_config_code(tmp_path, capsys) ->
         config_cmd.run(argparse.Namespace(config_command="targets", file=str(broken), json=False))
 
     assert caught.value.code != 0
+
+
+def test_an_unresolvable_parameter_name_still_prints_the_catalogue(tmp_path, capsys) -> None:
+    """Loading is lenient about a name the catalogue does not carry.
+
+    The refusal a bad name gets (elsewhere) points the reader at this very
+    command, so it must not be the thing that refuses to run.
+    """
+    import argparse
+
+    project = tmp_path / "project.toml"
+    project.write_text(
+        (_TOML + "\n[calibration.parameters.not_a_real_name]\nbounds = [1e-6, 1e-3]\n").replace(
+            "PROJECT_ROOT", str(tmp_path)
+        ),
+        encoding="utf-8",
+    )
+
+    config_cmd.run(argparse.Namespace(config_command="targets", file=str(project), json=False))
+
+    out = capsys.readouterr().out
+    assert "flow.param.K.field.value" in out
+    assert "Config invalid" not in out
+
+
+_LAKE_TOML = textwrap.dedent(
+    """
+    [workspace]
+    project_root = "PROJECT_ROOT"
+
+    [workflow]
+    mode = "calibration"
+
+    [geographic]
+    source_mode = "synthetic"
+
+    [flow]
+    active_bc = ["lake"]
+
+    [flow.param.K.field]
+    id = "K"
+    kind = "homogeneous"
+    unit = "m/s"
+    value = 6.4e-5
+
+    [flow.sinks_sources.lakes.mylake]
+    bedleak = 1e-6
+    stageinit = "10 m"
+
+    [calibration]
+    method = "optuna"
+    max_iter = 4
+
+    [calibration.parameters.bedleak]
+    bounds = [1e-8, 1e-5]
+    """
+)
+
+
+def test_a_name_that_resolves_only_by_suffix_is_named_with_its_canonical_spelling(
+    tmp_path, capsys
+) -> None:
+    """``bedleak`` reaches ``mylake.bedleak`` today only because it is the only
+    target ending in ``.bedleak``. The command names that canonical spelling so
+    the file survives a second lake being declared.
+    """
+    import argparse
+
+    project = tmp_path / "project.toml"
+    project.write_text(_LAKE_TOML.replace("PROJECT_ROOT", str(tmp_path)), encoding="utf-8")
+
+    config_cmd.run(argparse.Namespace(config_command="targets", file=str(project), json=False))
+
+    err = capsys.readouterr().err
+    assert "calibration.parameters.bedleak" in err
+    assert "mylake.bedleak" in err

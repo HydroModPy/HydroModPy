@@ -26,6 +26,8 @@ from typing import Annotated
 from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.calibrable import Calibrable
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units.hydraulic_conductivity import (
     convert_to_m_per_s,
@@ -82,7 +84,11 @@ class FlowBarrierConfig(HydroModelBase):
         default=None,
         description=(
             "Absolute TOP elevation of the barrier [m, model datum]; defaults to the cell "
-            "top (the DEM). Set it when the barrier crest sits below the DEM top."
+            "top (the DEM). Set it when the barrier crest sits below the DEM top. Not "
+            "calibratable: raising the crest and lowering hydchr both shrink the flow "
+            "section the wall lets through, so a search cannot tell the two apart. It is a "
+            "built structure, not a fitted number; path = in [calibration.parameters] still "
+            "reaches it for whoever wants to override this deliberately."
         ),
     )
     base_elevation: Annotated[float | None, Profile.USER] = Field(
@@ -93,7 +99,13 @@ class FlowBarrierConfig(HydroModelBase):
             "band. Use it to make a full-height dam impervious: the concrete body plus the "
             "grout curtain block all flow from the crest down to the curtain foot (e.g. "
             "base_elevation = 41 m), so nothing seeps across the dam above that. Mutually "
-            "exclusive with depths."
+            "exclusive with depths. Not calibratable: a deeper foot and a lower hydchr "
+            "produce the same reduction of under-dam flow, so putting both in a search is "
+            "equifinality by construction, the same mechanism that makes the second stage "
+            "of the stream-network protocol pin the specific yield on its bound. When the "
+            'foot is genuinely unknown, run mode = "comparison", one elevation per run, '
+            "which also yields a defensible sensitivity instead of a fitted number; "
+            "path = in [calibration.parameters] still reaches it for an override."
         ),
     )
     hydchr: Annotated[float | None, Profile.USER] = Field(
@@ -104,6 +116,9 @@ class FlowBarrierConfig(HydroModelBase):
             "A near-zero value (e.g. 1e-9 1/s) is a quasi-impermeable wall. "
             "Mutually exclusive with k + thickness."
         ),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(transform="log", prior="log_uniform", units="1/s")
+        ),
     )
     hydchr_unit: Annotated[str, Profile.USER] = Field(
         default="1/s",
@@ -113,6 +128,9 @@ class FlowBarrierConfig(HydroModelBase):
         default=None,
         gt=0.0,
         description="Barrier hydraulic conductivity [L/T]; used with thickness when hydchr is unset.",
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(transform="log", prior="log_uniform", units="m/s")
+        ),
     )
     k_unit: Annotated[str, Profile.USER] = Field(
         default="m/s",

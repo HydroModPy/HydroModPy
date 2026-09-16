@@ -105,6 +105,7 @@ def build_downslope_metric(
     centroids: Any | None = None,
     inactive_mask: Any | None = None,
     diagonal_neighbors: bool = False,
+    adjacency: list[set[int]] | None = None,
 ) -> DownslopeMetric:
     """Build the receiver graph and its edge lengths for a static surface.
 
@@ -138,8 +139,7 @@ def build_downslope_metric(
             f"the mesh carries {centroids.shape[0]} centres but the surface has {n_cells} values."
         )
 
-    adjacency = None
-    if diagonal_neighbors:
+    if adjacency is None and diagonal_neighbors:
         adjacency = shared_node_adjacency(face_node_connectivity, n_cells=n_cells)
 
     graph = build_downhill_graph(

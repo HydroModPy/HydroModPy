@@ -208,6 +208,24 @@ def _refuse_rectify_without_a_conditioned_top(cfg: HydroModPyConfig, toml_path: 
     )
 
 
+def _resolve_calibration_parameter_names(cfg: Any) -> None:
+    """Give every calibration parameter the path its name points at.
+
+    A parameter that names a quantity rather than a path is resolved against
+    the catalogue this very configuration exposes, so the search writes into a
+    value the model actually carries. A parameter that declares its path is left
+    alone, and a configuration without a calibration costs one attribute read.
+    """
+    calibration = getattr(cfg, "calibration", None)
+    if calibration is None:
+        return
+    from hydromodpy.calibration.parameter_resolution import resolve_parameter_targets
+
+    # Not strict: a name that reaches nothing is reported by the preflight, beside
+    # the other faults of the file. Refusing here would make it the only one found.
+    resolve_parameter_targets(calibration, cfg, strict=False)
+
+
 class HydroModPyConfig(HydroModelBase):
     """
     Top-level configuration for HydroModPy.
@@ -820,6 +838,7 @@ class HydroModPyConfig(HydroModelBase):
                 "validation_context": context,
             },
         )
+        _resolve_calibration_parameter_names(cfg)
         return cfg
 
     @classmethod

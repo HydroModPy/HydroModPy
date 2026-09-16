@@ -73,23 +73,11 @@ use_cache = true
 # Lakebed leakance: the dominant lake-aquifer exchange handle.
 [calibration.parameters.bedleak]
 bounds = [1e-7, 1e-5]
-transform = "log"
-prior = "log_uniform"
-path = "flow.sinks_sources.lakes.reservoir_cheze.bedleak"
-units = "1/s"
 
 # Aquifer hydraulic conductivity.
 [calibration.parameters.K]
 bounds = [1e-5, 1e-3]
-transform = "log"
-prior = "log_uniform"
-path = "flow.param.K.field.value"
-units = "m/s"
 
 # Specific yield (drainable porosity).
 [calibration.parameters.Sy]
 bounds = [1e-4, 1e-1]
-transform = "log"
-prior = "log_uniform"
-path = "flow.param.Sy.field.value"
-units = "-"

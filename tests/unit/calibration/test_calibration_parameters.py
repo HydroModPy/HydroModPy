@@ -5,14 +5,8 @@ from __future__ import annotations
 import math
 
 import pytest
-from pydantic import BaseModel, Field
 
-from hydromodpy.calibration.optim.parameters import (
-    CalibParameter,
-    Calibrable,
-    ParameterSpace,
-    discover_calibrable,
-)
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 
 
 class TestCalibParameter:
@@ -61,20 +55,6 @@ class TestParameterSpace:
                 ]
             )
 
-    def test_from_toml_uses_annotations_when_bounds_missing(self):
-        ann = {"K": Calibrable(bounds=(1e-6, 1e-3), transform="log")}
-        decls = {"K": {}}
-        space = ParameterSpace.from_toml_mapping(decls, annotations=ann)
-        assert space["K"].lower == 1e-6
-        assert space["K"].transform == "log"
-
-    def test_toml_overrides_annotation(self):
-        ann = {"K": Calibrable(bounds=(1e-6, 1e-3), transform="log")}
-        decls = {"K": {"bounds": [1e-8, 1e-4]}}
-        space = ParameterSpace.from_toml_mapping(decls, annotations=ann)
-        assert space["K"].lower == 1e-8
-        assert space["K"].upper == 1e-4
-
     def test_from_toml_fails_without_bounds(self):
         with pytest.raises(ValueError, match="no bounds"):
             ParameterSpace.from_toml_mapping({"K": {}})
@@ -84,46 +64,3 @@ class TestParameterSpace:
         tb = space.transformed_bounds
         assert math.isclose(tb["k"][0], -6.0)
         assert math.isclose(tb["k"][1], -3.0)
-
-
-# ---------------------------------------------------------------------------
-# Auto-discovery
-# ---------------------------------------------------------------------------
-
-
-class _Leaf(BaseModel):
-    k_aquifer: float = Field(
-        default=1e-4,
-        json_schema_extra={
-            "calibrable": Calibrable(bounds=(1e-7, 1e-2), transform="log"),
-        },
-    )
-    not_calibrable: float = 0.1
-
-
-class _Root(BaseModel):
-    leaf: _Leaf = Field(default_factory=_Leaf)
-    other: float = Field(
-        default=0.0,
-        json_schema_extra={
-            "calibrable": {"bounds": (0.0, 1.0), "transform": "identity"},
-        },
-    )
-
-
-class TestAutoDiscovery:
-    def test_walks_nested_models(self):
-        found = discover_calibrable(_Root)
-        assert "leaf.k_aquifer" in found
-        assert "other" in found
-        assert "leaf.not_calibrable" not in found
-
-    def test_discover_from_instance(self):
-        root = _Root()
-        found = discover_calibrable(root)
-        assert found["leaf.k_aquifer"].bounds == (1e-7, 1e-2)
-        assert found["leaf.k_aquifer"].transform == "log"
-
-    def test_accepts_dict_hint(self):
-        found = discover_calibrable(_Root)
-        assert found["other"].transform == "identity"

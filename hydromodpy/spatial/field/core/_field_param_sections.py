@@ -17,12 +17,41 @@ from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr, Probability
 from hydromodpy.core.units import Length
-from hydromodpy.spatial.field.core._field_param_units import UnitStr
+from hydromodpy.core.units.scalar import parse_scalar_and_unit
+from hydromodpy.spatial.field.core._field_param_units import UnitStr, normalize_unit_token
 
 FieldKind = Literal["homogeneous", "heterogeneous"]
 HeterogeneousValueSource = Literal["inline", "csv"]
 VerticalProfileMode = Literal["none", "exponential", "tabulated"]
 VerticalProfileInterpolation = Literal["linear", "step"]
+
+# Sentinel `default_unit` for `parse_scalar_and_unit` when no sibling `unit` is
+# declared: it lets a bare numeric string ("1e-4", no inline unit) through
+# unchanged while still detecting, from the returned unit, whether the string
+# carried its own unit ("1e-4 m/s").
+_NO_SIBLING_UNIT = "\x00hydromodpy-field-value-no-unit\x00"
+
+
+def coerce_scalar_value_with_unit(
+    value: str, unit: str | None, *, location: str
+) -> tuple[float, str | None]:
+    """Split a `'<number> <unit>'` string into `(float, unit)`.
+
+    Mirrors `_coerce_boundary_value_and_units` in
+    `hydromodpy/physics/flow/boundary_conditions.py`: a unit written inside
+    `value` fills a missing sibling `unit`, and one that disagrees with an
+    already-declared sibling `unit` is refused by `parse_scalar_and_unit`
+    itself rather than silently preferred one way or the other.
+    """
+    default_unit = unit if unit is not None else _NO_SIBLING_UNIT
+    scalar, resolved_unit = parse_scalar_and_unit(
+        value, location=location, default_unit=default_unit, explicit_unit=unit
+    )
+    if resolved_unit == _NO_SIBLING_UNIT:
+        return scalar, unit
+    if unit is None:
+        return scalar, normalize_unit_token(resolved_unit)
+    return scalar, unit
 
 
 class FieldBaseSection(HydroModelBase):
@@ -72,6 +101,7 @@ class FieldHomogeneousSection(HydroModelBase):
                 # property spans decades and a linear step wastes most of them.
                 transform="log",
                 prior="log_uniform",
+                is_the_value_of_its_instance=True,
                 description=(
                     "Scalar value of a homogeneous field parameter. The target every "
                     "calibration in the repository writes to."
@@ -95,6 +125,16 @@ class FieldHomogeneousSection(HydroModelBase):
                 raise ValueError("field.value cannot be empty")
             return token
         raise TypeError("field.value must be numeric or '<number> <unit>'")
+
+    @model_validator(mode="after")
+    def _coerce_value_with_declared_unit(self):
+        if isinstance(self.value, str):
+            scalar, resolved_unit = coerce_scalar_value_with_unit(
+                self.value, self.unit, location=f"{self.id or 'field'}.value"
+            )
+            object.__setattr__(self, "value", scalar)
+            object.__setattr__(self, "unit", resolved_unit)
+        return self
 
 
 class FieldHeterogeneousSection(HydroModelBase):
@@ -126,6 +166,13 @@ class FieldHeterogeneousSection(HydroModelBase):
         description=(
             "Inline key/value mapping used when values_source='inline'. "
             "Keys are zone/material ids, values are numeric parameter values."
+        ),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(
+                transform="log",
+                prior="log_uniform",
+                is_the_value_of_its_instance=True,
+            )
         ),
     )
     values_csv_file: Annotated[NonEmptyStr | None, Profile.DEV] = Field(

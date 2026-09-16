@@ -81,7 +81,6 @@ max_iter = 4
 
 [comparison.simulation.overlay.calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-path = "flow.param.K.field.value"
 
 [[comparison.simulation]]
 id = "mesh_250"
@@ -100,7 +99,6 @@ max_iter = 4
 
 [comparison.simulation.overlay.calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-path = "flow.param.K.field.value"
 """
 
 

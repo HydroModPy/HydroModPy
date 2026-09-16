@@ -42,21 +42,17 @@ persist_iteration_detail = "full"
 
 # The signed criterion crosses zero once over several decades of K, which is
 # what makes the first stage a root search rather than a sweep. The bisection
-# refuses a parameter that is not searched in log space.
+# refuses a parameter that is not searched in log space, and that log is what
+# the field itself declares: the name resolves to the value it carries, so this
+# file states the range and nothing else. `hmp config targets` lists the names.
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
-path = "flow.param.K.field.value"
-units = "m/s"
 
 # The lower bound is not the physical floor, deliberately: the solve cost
 # climbs steeply as Sy goes to zero, and the observed recession already excludes
 # that region.
 [calibration.parameters.Sy]
 bounds = [5e-3, 0.35]
-transform = "log"
-path = "flow.param.Sy.field.value"
-units = "-"
 
 # The stage-one criterion is solved at zero, so five per cent of the best cost
 # is zero and no interval would be reported. State the width in the unit of the

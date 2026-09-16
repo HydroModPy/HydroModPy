@@ -65,14 +65,9 @@ def _messages(findings: list[PreflightFinding]) -> str:
 _TWO_LOG_PARAMS = """
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
-path = "flow.param.K.field.value"
 
 [calibration.parameters.Sy]
 bounds = [1e-3, 0.35]
-transform = "log"
-path = "flow.param.Sy.field.value"
-units = "-"
 
 [calibration.outputs.net]
 support = "network"
@@ -127,8 +122,6 @@ class TestWhatPreflightCatches:
 
             [calibration.parameters.K]
             bounds = [1e-7, 1e-3]
-            transform = "log"
-            path = "flow.param.K.field.value"
             """,
         )
 
@@ -136,6 +129,8 @@ class TestWhatPreflightCatches:
         assert "nse_log" in _messages(findings)
 
     def test_a_root_search_on_a_linear_parameter_is_refused(self, tmp_path) -> None:
+        # The only transform written in this file: the field declares 'log', so
+        # a linear parameter has to say so, and what the file states wins.
         (tmp_path / "net.gpkg").write_bytes(b"")
         findings = _check(
             tmp_path,
@@ -145,7 +140,7 @@ class TestWhatPreflightCatches:
 
             [calibration.parameters.K]
             bounds = [1e-7, 1e-3]
-            path = "flow.param.K.field.value"
+            transform = "identity"
 
             [calibration.outputs.net]
             support = "network"
@@ -169,7 +164,6 @@ class TestWhatPreflightCatches:
 
             [calibration.parameters.K]
             bounds = [1e-7, 1e-3]
-            path = "flow.param.K.field.value"
             """,
         )
 
@@ -187,8 +181,6 @@ class TestWhatPreflightCatches:
 
             [calibration.parameters.K]
             bounds = [1e-7, 1e-3]
-            transform = "log"
-            path = "flow.param.K.field.value"
 
             [calibration.outputs.net]
             support = "network"
@@ -213,8 +205,6 @@ class TestWhatPreflightCatches:
 
             [calibration.parameters.K]
             bounds = [1e-7, 1e-3]
-            transform = "log"
-            path = "flow.param.K.field.value"
 
             [calibration.outputs.net]
             support = "network"
@@ -241,8 +231,6 @@ def test_a_root_search_on_the_mean_distance_is_refused(tmp_path) -> None:
 
         [calibration.parameters.K]
         bounds = [1e-7, 1e-3]
-        transform = "log"
-        path = "flow.param.K.field.value"
 
         [calibration.outputs.net]
         support = "network"

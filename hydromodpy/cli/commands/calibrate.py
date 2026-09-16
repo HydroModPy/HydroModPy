@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -166,6 +167,69 @@ def _values_this_file_set(cfg, keys: list[str]) -> dict[str, object]:
     return found
 
 
+def _format_calibration_result(result: Any) -> list[str]:
+    """Return the lines to print for a finished calibration.
+
+    Reads only what :class:`hydromodpy.calibration.report.CalibrationReport`
+    already carries: the best value per parameter, the cost it was reached
+    at, the interval or width beside a value when the run produced one, a
+    caution when the trials could not tell two parameters apart, and
+    ``k_over_r`` when a network calibration published one in ``extra``.
+    Returns nothing for a result that carries no ``best_parameters`` (a
+    staged calibration's own report object, or a run that evaluated no
+    candidate), so the caller stays silent rather than guessing.
+    """
+    best_parameters = getattr(result, "best_parameters", None)
+    if not best_parameters:
+        return []
+
+    widths = {item.parameter: item for item in getattr(result, "parameter_uncertainty", ())}
+    extra = getattr(result, "extra", None) or {}
+    intervals = {item["name"]: item for item in extra.get("parameter_intervals", [])}
+
+    lines: list[str] = []
+    for name, value in best_parameters.items():
+        line = f"  {name} = {value:.6g}"
+        width = widths.get(name)
+        interval = intervals.get(name)
+        if width is not None:
+            line += f"  (sigma {width.sigma:.3g})"
+        elif interval is not None:
+            line += f"  [{interval['lower']:.6g}, {interval['upper']:.6g}]"
+        if interval is not None and (
+            interval["reaches_lower_bound"] or interval["reaches_upper_bound"]
+        ):
+            line += "  -- reached the search bound"
+        lines.append(line)
+
+    best_objective = getattr(result, "best_objective", None)
+    if best_objective is not None:
+        lines.append(f"  cost: {best_objective:.6g}")
+
+    reported_tradeoff = False
+    for name, width in widths.items():
+        tradeoff = width.strongest_tradeoff()
+        if tradeoff is not None and abs(tradeoff[1]) >= 0.9:
+            lines.append(
+                f"  caution: {name} and {tradeoff[0]} trade off (r = {tradeoff[1]:+.2f}), "
+                "not identified separately."
+            )
+            reported_tradeoff = True
+    if not reported_tradeoff:
+        for first, second, coefficient in extra.get("correlated_parameters", []):
+            lines.append(
+                f"  caution: {first} and {second} moved together (r = {coefficient:+.2f}), "
+                "not identified separately."
+            )
+
+    if "k_over_r_note" in extra:
+        lines.append(f"  {extra['k_over_r_note']}")
+    elif "k_over_r" in extra:
+        lines.append(f"  k_over_r = {extra['k_over_r']:.4g}")
+
+    return lines
+
+
 def run(args: argparse.Namespace) -> None:
     import hydromodpy as hmp
 
@@ -221,7 +285,5 @@ def run(args: argparse.Namespace) -> None:
     print(f"Calibration finished: {target.name}", file=sys.stderr)
     if result is None:
         return
-    summary = getattr(result, "summary", None)
-    if isinstance(summary, dict):
-        for key, value in summary.items():
-            print(f"  {key}: {value}", file=sys.stderr)
+    for line in _format_calibration_result(result):
+        print(line, file=sys.stderr)

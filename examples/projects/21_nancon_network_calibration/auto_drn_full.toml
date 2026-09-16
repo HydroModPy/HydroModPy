@@ -275,9 +275,6 @@ rerun_best_with_outputs = true
 # parametre qui n'est pas en transform = "log".
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
-path = "flow.param.K.field.value"
-units = "m/s"
 
 # Sy sur la fourchette que la recession observee designe : 120 recessions
 # de plus de dix jours donnent un temps caracteristique median de 28,1
@@ -291,9 +288,6 @@ units = "m/s"
 # observee exclut deja, au prix de multiplier la nuit de calcul.
 [calibration.parameters.Sy]
 bounds = [5e-3, 0.35]
-transform = "log"
-path = "flow.param.Sy.field.value"
-units = "-"
 
 
 # --- Sortie reseau et bloc objectif de l'etage 1 ---
@@ -385,7 +379,6 @@ preset = "default"
 show = false
 save = true
 output_dir = "figures"
-cmap = "viridis"
 on_error = "warn"
 
 

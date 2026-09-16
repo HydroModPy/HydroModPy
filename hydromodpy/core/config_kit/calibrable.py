@@ -54,6 +54,17 @@ class Calibrable:
     units: str | None = None
     description: str = ""
 
+    is_the_value_of_its_instance: bool = False
+    """Whether this leaf IS the quantity of the entry that carries it.
+
+    ``flow.param.K.field.value`` is the value OF ``K``, so the search names it
+    ``K`` and not ``K.value``. A lake's ``bedleak`` is one property among
+    several and names itself ``<lake>.bedleak``. Declaring it here rather than
+    deducing it from "this instance happens to carry one searchable leaf today"
+    keeps the name stable: adding a second property to an entry must not rename
+    the first one under a file that already calibrates it.
+    """
+
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly record for a schema export or a catalogue."""
         return {
@@ -62,6 +73,7 @@ class Calibrable:
             "prior": self.prior,
             "units": self.units,
             "description": self.description,
+            "is_the_value_of_its_instance": self.is_the_value_of_its_instance,
         }
 
 

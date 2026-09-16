@@ -66,7 +66,7 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     where_from = Path(source).expanduser().resolve()
     findings: list[PreflightFinding] = []
     findings.extend(_check_parameters(config, calibration))
-    findings.extend(_check_outputs(calibration, where_from))
+    findings.extend(_check_outputs(calibration, where_from, config))
     findings.extend(_check_blocks(calibration))
     findings.extend(_check_phases(calibration))
     findings.extend(_check_engines(calibration))
@@ -77,10 +77,12 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
 
 def _check_parameters(cfg: Any, calibration: Any) -> list[PreflightFinding]:
     """Check every declared parameter against the configuration it will write into."""
+    from hydromodpy.calibration.parameter_resolution import unresolved_parameter_names
     from hydromodpy.calibration.targets import calibration_targets, targets_by_path
 
     findings: list[PreflightFinding] = []
     reachable = targets_by_path(calibration_targets(cfg))
+    refused_names = unresolved_parameter_names(calibration, cfg)
     for name, decl in (calibration.parameters or {}).items():
         where = f"[calibration.parameters.{name}]"
         bounds = list(getattr(decl, "bounds", ()) or ())
@@ -96,7 +98,13 @@ def _check_parameters(cfg: Any, calibration: Any) -> list[PreflightFinding]:
         target = decl.resolve_target()
         if not target:
             findings.append(
-                PreflightFinding("error", where, "no 'path' (or 'target') to write into.")
+                PreflightFinding(
+                    "error",
+                    where,
+                    # The finding already names the section in its 'where' column.
+                    refused_names.get(name, "").replace(f"{where} ", "", 1)
+                    or "names nothing this project carries, and writes no 'path' either.",
+                )
             )
             continue
         if target not in reachable:
@@ -136,18 +144,32 @@ def _check_bounds_against_physics(
     return []
 
 
-def _check_outputs(calibration: Any, source: Path) -> list[PreflightFinding]:
-    """Check what an output needs that only the filesystem can answer.
+def _check_outputs(calibration: Any, source: Path, project_config: Any) -> list[PreflightFinding]:
+    """Check what an output needs that only the filesystem or the project can answer.
 
     The geometry is looked for exactly where the run looks for it, so a file
-    preflight calls missing is one the run would call missing too.
+    preflight calls missing is one the run would call missing too. A declared
+    ``observed_network`` is faced with the project the same way a parameter's
+    name is faced with the catalogue: refused here beside whatever else is
+    wrong, rather than at the first trial.
     """
+    from hydromodpy.calibration.observations.network_source import unresolved_observed_networks
     from hydromodpy.calibration.runners.cli_runner import _resolve_stream_geometry_paths
 
     _resolve_stream_geometry_paths(calibration, source)
+    refused_networks = unresolved_observed_networks(calibration, project_config)
     findings: list[PreflightFinding] = []
     for name, decl in (calibration.outputs or {}).items():
         where = f"[calibration.outputs.{name}]"
+        if name in refused_networks:
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    # The finding already names the section in its 'where' column.
+                    refused_networks[name].replace(f"{where} ", "", 1),
+                )
+            )
         geometry = getattr(decl, "stream_geometry_path", None)
         if geometry and not Path(str(geometry)).exists():
             findings.append(

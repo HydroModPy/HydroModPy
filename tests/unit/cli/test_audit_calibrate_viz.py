@@ -55,7 +55,16 @@ def test_calibrate_success_forwards_resolved_path_and_prints_summary(
     def fake_calibrate(path: Path, *, phase=None):
         captured["path"] = path
         captured["phase"] = phase
-        return SimpleNamespace(summary={"session_id": "s1", "best_objective": 0.25})
+        # The shape a CalibrationReport actually has. This fake used to invent a
+        # `summary` attribute, which is the attribute the command read and which
+        # no report class has ever defined: the test manufactured the very data
+        # whose absence made the command print nothing.
+        return SimpleNamespace(
+            best_parameters={"K": 2.1e-4},
+            best_objective=0.25,
+            parameter_uncertainty=(),
+            extra={},
+        )
 
     monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
 
@@ -66,8 +75,8 @@ def test_calibrate_success_forwards_resolved_path_and_prints_summary(
     assert captured["phase"] is None
     err = capsys.readouterr().err
     assert "Calibration finished: calib.toml" in err
-    assert "session_id: s1" in err
-    assert "best_objective: 0.25" in err
+    assert "K = 0.00021" in err
+    assert "cost: 0.25" in err
 
 
 def test_audit_family_help_lists_actions(monkeypatch, capsys) -> None:

@@ -286,7 +286,7 @@ def score_network_output(
     gain.
     """
     require_release_flux_unit(result.units, name=name)
-    geometry = geometry_from_run(run_ctx, output)
+    geometry, observed_network = geometry_from_run(run_ctx, output)
     simulated = build_simulated_network(
         result.values,
         threshold_m3_s=geometry.threshold_m3_s,
@@ -344,9 +344,19 @@ def score_network_output(
     # way the pair and the residual the bracket closes on cannot disagree.
     d_os = float(scored.components["D_os"])
     pair = [d_os + scored.signed_gap, d_os]
+    # Travel beside alpha_obs_closure: what qualifies the geometry the trial
+    # was scored against, not the trial itself.
+    network_provenance = {
+        "observed_network_clipped": 1.0 if observed_network.clipped else 0.0,
+        "observed_network_is_dem_derived": 1.0 if observed_network.dem_derived else 0.0,
+    }
     diagnostics = {
         f"{name}.{key}": float(value)
-        for key, value in {**scored.components, **geometry.diagnostics}.items()
+        for key, value in {
+            **scored.components,
+            **geometry.diagnostics,
+            **network_provenance,
+        }.items()
     }
     return pair, diagnostics
 

@@ -32,6 +32,8 @@ from typing import Annotated, Literal, TypeAlias
 from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.calibrable import Calibrable
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import Length
 from hydromodpy.core.units.hydraulic_conductivity import normalize_m_per_s_unit
@@ -202,6 +204,8 @@ class FlowReachNetworkConfig(HydroModelBase):
         default=0.035,
         gt=0.0,
         description="Manning roughness coefficient n [T/L^(1/3)] (> 0). Default 0.035.",
+        # Roughness spans 0.01 to 0.2, one decade at most: a log step would buy nothing.
+        json_schema_extra=field_metadata(calibrable=Calibrable(units="s/m^(1/3)")),
     )
     streambed_k: Annotated[float, Profile.USER] = Field(
         default=1e-6,
@@ -209,6 +213,9 @@ class FlowReachNetworkConfig(HydroModelBase):
         description=(
             "Streambed hydraulic conductivity rhk [L/T]. 0 = no reach-aquifer "
             "leakage (pure routing)."
+        ),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(transform="log", prior="log_uniform", units="m/s")
         ),
     )
     streambed_k_unit: Annotated[str, Profile.USER] = Field(
@@ -328,7 +335,12 @@ class FlowReachNetworkConfig(HydroModelBase):
         ge=0.0,
         description=(
             "MVR value: the fraction for FACTOR, or the flow rate [L^3/T] for "
-            "UPTO / EXCESS / THRESHOLD."
+            "UPTO / EXCESS / THRESHOLD. Not calibratable: it is a coupling rule, not a "
+            "hydraulic property of the reach or the lake, so letting a search move it would "
+            "buy fit by reshaping how water is split between them rather than resolve "
+            "streambed_k or the lake bathymetry, the actual unknowns. path = in "
+            "[calibration.parameters] still reaches it for whoever wants to override this "
+            "deliberately."
         ),
     )
     lake_feeder_snap: Annotated[Length, Profile.EXPERT] = Field(

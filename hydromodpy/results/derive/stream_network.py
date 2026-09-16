@@ -65,8 +65,9 @@ AGREEMENT_LABELS: dict[int, str] = {
 }
 
 _REFERENCE_ROLE = "reference"
-"""The canonical role of the mapped network: what the project declares under
-``[data.hydrography]`` and burns into the routing DEM, never a model output."""
+"""The default role: what the project declares under ``[data.hydrography]``
+and burns into the routing DEM, never a model output. A caller that scores a
+DEM-derived observation instead passes ``role="generated"``."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,8 +104,11 @@ class NetworkComparison:
         return self.supports.counts
 
 
-def unavailable_reason_for_comparison(sim: Run) -> str | None:
+def unavailable_reason_for_comparison(sim: Run, *, role: str = _REFERENCE_ROLE) -> str | None:
     """Return why this run cannot be compared to a mapped network, or ``None``.
+
+    ``role`` picks which stored hydrographic network stands in for the
+    observation, the same choice :func:`network_comparison_from_run` takes.
 
     Answered before rendering so a figure is skipped with a sentence rather
     than failing halfway through a graph build.
@@ -113,11 +117,8 @@ def unavailable_reason_for_comparison(sim: Run) -> str | None:
         return (
             "run has no per-cell release_flux: set [simulation.results.derived] release_flux = true"
         )
-    if not sim.has_hydrographic_network(_REFERENCE_ROLE):
-        return (
-            "run carries no 'reference' hydrographic network: declare the mapped "
-            "linework under [data.hydrography]"
-        )
+    if not sim.has_hydrographic_network(role):
+        return f"run carries no {role!r} hydrographic network"
     # ``Run.mesh`` raises on a run that has no mesh at all, a lumped GR4J one
     # for instance. A gallery asks this question of every figure of every run,
     # so it has to come back as a sentence and never as an exception.
@@ -135,6 +136,7 @@ def unavailable_reason_for_comparison(sim: Run) -> str | None:
 def network_comparison_from_run(
     sim: Run,
     *,
+    role: str = _REFERENCE_ROLE,
     tau_specific_ratio: float = STREAM_CRITERION_DEFAULTS.tau_specific_ratio,
     diagonal_neighbors: bool = False,
     timestep: int = -1,
@@ -144,6 +146,12 @@ def network_comparison_from_run(
     clipping_warning_gap: float = STREAM_CRITERION_DEFAULTS.clipping_warning_gap,
 ) -> NetworkComparison:
     """Rebuild the stream comparison of one run.
+
+    ``role`` picks which stored hydrographic network stands in for the
+    observation: ``"reference"`` (the default) for the mapped network the
+    project declares under ``[data.hydrography]``, ``"generated"`` for the
+    network the DEM itself was thresholded into under
+    ``[geographic.river_network]``.
 
     ``tau_specific_ratio`` is the fraction of its own recharge below which a
     releasing cell is not counted as a stream, the same knob the calibration
@@ -166,7 +174,7 @@ def network_comparison_from_run(
     route marginally differently from the one a trial scored. It is exact on any
     mesh whose cells are parallelograms, which every structured grid is.
     """
-    reason = unavailable_reason_for_comparison(sim)
+    reason = unavailable_reason_for_comparison(sim, role=role)
     if reason is not None:
         raise ValueError(f"stream comparison unavailable for {sim.sim_id}: {reason}")
 
@@ -183,9 +191,9 @@ def network_comparison_from_run(
         dtype=float,
     )
 
-    network = sim.hydrographic_network(_REFERENCE_ROLE)
+    network = sim.hydrographic_network(role)
     if network is None or network.empty:
-        raise ValueError(f"the 'reference' hydrographic network of {sim.sim_id} holds no feature.")
+        raise ValueError(f"the {role!r} hydrographic network of {sim.sim_id} holds no feature.")
     observed = np.asarray(
         vector_cell_mask(
             polygons,

@@ -33,13 +33,11 @@ _PARAMETERS = """
 [calibration.parameters.K]
 bounds = [1e-8, 1e-2]
 transform = "log"
-path = "flow.param.K.field.value"
 units = "m/s"
 
 [calibration.parameters.Sy]
 bounds = [1e-4, 0.5]
 transform = "log"
-path = "flow.param.Sy.field.value"
 units = "-"
 
 """

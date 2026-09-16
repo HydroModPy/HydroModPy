@@ -4,7 +4,6 @@ Public surface:
     - CalibrationEngine: the orchestrator
     - Optimizer / Objective / Evaluator: Protocol contracts
     - Calibrable: Pydantic-field annotation marking a calibrable parameter
-    - discover_calibrable: auto-discover calibrable fields in a config tree
     - build_optimizer: adapter registry lookup
 """
 
@@ -39,13 +38,12 @@ from hydromodpy.calibration.optim.optimizer import (
 )
 from hydromodpy.calibration.optim.parameters import (
     CalibParameter,
-    Calibrable,
     ParameterSpace,
     apply_parameter_to_config,
-    discover_calibrable,
 )
 from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.calibration.runners.materialize import materialize_candidate
+from hydromodpy.core.config_kit.calibrable import Calibrable
 
 __all__ = [
     "CalibrationEngine",
@@ -77,6 +75,5 @@ __all__ = [
     "available_optimizers",
     "build_optimizer",
     "register_optimizer",
-    "discover_calibrable",
     "materialize_candidate",
 ]

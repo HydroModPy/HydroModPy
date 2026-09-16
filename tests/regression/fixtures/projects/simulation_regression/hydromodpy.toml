@@ -60,7 +60,7 @@ min_factor = 2e-4
 
 [flow.param.Ss.field]
 kind = "homogeneous"
-value = "1e-10 m-1"
+value = "1e-9 m-1"
 
 [flow.param.Sy.field]
 kind = "homogeneous"

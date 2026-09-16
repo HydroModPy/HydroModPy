@@ -231,6 +231,9 @@ def build_cache_context(
         "materialize_candidates",
         "candidates_root",
         "rerun_best_with_outputs",
+        # Turning the reuse on for the resume attempt must not change the hash
+        # the reuse is compared against, or the flag would make itself inert.
+        "reuse_completed_phases",
     ):
         calibration_payload.pop(runtime_key, None)
 

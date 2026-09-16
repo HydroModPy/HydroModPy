@@ -69,6 +69,23 @@ class TestAccepted:
         cfg = _config([{**STEADY, "outputs": ["q"], "objective_blocks": ["b"]}])
         assert cfg.phases[0].outputs == ["q"]
 
+    def test_a_parameter_that_names_its_quantity_instead_of_a_path(self) -> None:
+        """The name is resolved against the project catalogue once it is loaded.
+
+        This section is validated on its own, without the project it belongs to,
+        so a missing path is not something it can judge. What would be injected
+        is settled by the resolution, and by the preflight after it.
+        """
+        cfg = CalibrationConfig.model_validate(
+            {
+                "method": "grid",
+                "parameters": {"K": {"bounds": [1.0, 2.0]}},
+                "phases": [{"name": "p", "parameters": ["K"]}],
+            }
+        )
+
+        assert cfg.parameters["K"].resolve_target() is None
+
     def test_an_empty_selection_means_every_declaration(self) -> None:
         cfg = _config([STEADY])
         assert cfg.phases[0].outputs == []
@@ -95,16 +112,6 @@ class TestRefused:
     def test_an_undeclared_parameter(self) -> None:
         with pytest.raises(ValueError, match="undeclared parameter"):
             _config([{**STEADY, "parameters": ["Kv"]}])
-
-    def test_a_parameter_without_a_path(self) -> None:
-        with pytest.raises(ValueError, match="declares no path"):
-            CalibrationConfig.model_validate(
-                {
-                    "method": "grid",
-                    "parameters": {"K": {"bounds": [1.0, 2.0]}},
-                    "phases": [{"name": "p", "parameters": ["K"]}],
-                }
-            )
 
     def test_two_phases_freezing_the_same_path(self) -> None:
         # The second would overwrite what the first calibrated, and nothing

@@ -13,11 +13,15 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
 from hydromodpy.core.exceptions import ConfigError
+
+if TYPE_CHECKING:
+    from hydromodpy.calibration.targets import CalibrationTarget
 
 NAME: str = "config"
 HELP: str = "Generate a TOML template, validate a config, or export the JSON Schema"
@@ -144,6 +148,8 @@ def _cmd_config_targets(args: argparse.Namespace) -> None:
         sys.exit(EXIT_CONFIG)
 
     targets = calibration_targets(cfg)
+    _warn_about_suffix_only_parameters(path, targets)
+
     if getattr(args, "json", False):
         print(json.dumps([target.to_dict() for target in targets], indent=2))
         return
@@ -152,8 +158,8 @@ def _cmd_config_targets(args: argparse.Namespace) -> None:
         print(f"{path.name} declares nothing a calibration could move.", file=sys.stderr)
         return
 
-    width = max(len(target.path) for target in targets)
-    print(f"{'path'.ljust(width)}  {'current':>12}  {'unit':>8}  physical range")
+    name_width = max(len(target.name) for target in targets)
+    print(f"{'name'.ljust(name_width)}  {'current':>12}  {'unit':>9}  {'physical range':<24}  path")
     for target in targets:
         bounds = (
             f"{target.physical_bounds[0]:g} .. {target.physical_bounds[1]:g}"
@@ -161,12 +167,49 @@ def _cmd_config_targets(args: argparse.Namespace) -> None:
             else "-"
         )
         current = "-" if target.current is None else f"{target.current:g}"
-        print(f"{target.path.ljust(width)}  {current:>12}  {(target.units or '-'):>8}  {bounds}")
+        print(
+            f"{target.name.ljust(name_width)}  {current:>12}  "
+            f"{(target.units or '-'):>9}  {bounds:<24}  {target.path}"
+        )
     print(
-        f"\nWrite one under [calibration.parameters.<name>] with path = "
-        f'"{targets[0].path}" and a bounds pair.',
+        f"\nWrite one as [calibration.parameters.{targets[0].name}] with a bounds pair. "
+        "The path is resolved from the name; write it yourself only to reach "
+        "something this catalogue does not list.",
         file=sys.stderr,
     )
+
+
+def _warn_about_suffix_only_parameters(path: Path, targets: list[CalibrationTarget]) -> None:
+    """Name every declared parameter that reaches its target only by suffix.
+
+    ``bedleak`` resolves to ``reservoir_cheze.bedleak`` today because it is the
+    only target ending in ``.bedleak``. That stops the day a second lake also
+    carries one, so the file is told its canonical spelling while the shortcut
+    still works.
+    """
+    from hydromodpy.calibration.targets import targets_by_name
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+    payload = load_toml_with_base_config(path)
+    declared = payload.get("calibration", {}).get("parameters", {})
+    if not isinstance(declared, dict) or not declared:
+        return
+
+    by_name = targets_by_name(targets)
+    for name, decl in declared.items():
+        if not isinstance(decl, dict) or "path" in decl or "target" in decl:
+            continue
+        if name in by_name:
+            continue
+        ending = [target for target in targets if target.name.endswith(f".{name}")]
+        if len(ending) == 1:
+            print(
+                f"[calibration.parameters.{name}] reaches {ending[0].name!r} only "
+                f"because it is the sole target ending in '.{name}'. Write "
+                f"[calibration.parameters.{ending[0].name}] to keep resolving it "
+                "once a second one also answers to this name.",
+                file=sys.stderr,
+            )
 
 
 def _cmd_config_template(args: argparse.Namespace) -> None:

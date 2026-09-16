@@ -33,6 +33,8 @@ from typing import Annotated, Literal, TypeAlias
 from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.calibrable import Calibrable
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import FlowRate, Length
 from hydromodpy.core.units.leakance import normalize_per_s_unit
@@ -352,6 +354,9 @@ class FlowLakeConfig(HydroModelBase):
             "Lake-bed leakance [1/T] = K_bed / thickness_bed. Resistance of the "
             "lake-aquifer interface; the under-dam leakage calibration parameter. "
             "0 means a perfectly sealed lakebed (no leakage)."
+        ),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(transform="log", prior="log_uniform", units="1/s")
         ),
     )
     bedleak_unit: Annotated[str, Profile.USER] = Field(
