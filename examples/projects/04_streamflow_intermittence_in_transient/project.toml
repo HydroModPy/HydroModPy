@@ -230,9 +230,9 @@ time = "last"
 
 [calibration.protocol]
 name = "matching_hydrographic_network"
-# Which of this file's parameters plays which role.
-conductivity = "K"
-storage = "Sy"
+# No `conductivity` and no `storage`: the protocol looks for parameters named
+# K and Sy, which is what this file calls them. Naming them here is only for a
+# file whose own vocabulary differs, `K_aquifer` for instance.
 # Stage one. 'distance_gap' is the signed difference of Eq. 1, whose zero is the
 # balance the paper solves for; it crosses zero once over several decades, which
 # is what makes this a root search rather than a sweep.
