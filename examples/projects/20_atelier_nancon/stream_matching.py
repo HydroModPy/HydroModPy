@@ -20,7 +20,8 @@ from hydromodpy.calibration.observations.natural_observations import natural_net
 
 here = Path(__file__).resolve().parent
 catalog = hmp.open(here)
-run = list(catalog.find(name="sim_steady_nwt"))[0]
+# find() filtre sur [simulation].name dans le TOML, pas le nom de fichier.
+run = list(catalog.find(name="steady_nwt"))[0]
 
 # Reseau simule : debit positif de la nappe vers les drains, par maille.
 # Les mailles a debit > 0 sont la ou la nappe atteint la surface.

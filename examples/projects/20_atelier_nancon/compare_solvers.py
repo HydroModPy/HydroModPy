@@ -14,8 +14,9 @@ import hydromodpy as hmp
 here = Path(__file__).resolve().parent
 catalog = hmp.open(here)
 
-nwt = list(catalog.find(name="sim_steady_nwt"))[0]
-mf6 = list(catalog.find(name="sim_steady_mf6"))[0]
+# find() filtre sur [simulation].name dans le TOML, pas le nom de fichier.
+nwt = list(catalog.find(name="steady_nwt"))[0]
+mf6 = list(catalog.find(name="steady_mf6"))[0]
 
 # Les deux runs utilisent des grilles differentes : NWT garde la
 # resolution native du DEM, MF6 reechantillonne ici a 80 x 80. On compare
