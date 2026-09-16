@@ -73,6 +73,15 @@ def load_custom_nc(
         date_end = None
         frequency = None
 
+    # Keep only the variable that was asked for. A land-surface export carries
+    # several fields plus its grid mapping in one file, and everything
+    # downstream reads a dataset by picking a variable out of it: handing the
+    # whole file on would let the discretization forcing the aquifer be a
+    # different field from the one this source names.
+    ds = ds[[data_var]]
+    if data_var != variable:
+        ds = ds.rename({data_var: variable})
+
     return [
         FieldRecord(
             variable=variable,

@@ -14,6 +14,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_grid_utils import (
     find_xy_dims,
     interp_2d,
+    pick_field_variable,
 )
 from hydromodpy.spatial.mesh.cartesian_grid.spatial_interpolation import (
     interpolate_stack_to_grid,
@@ -116,10 +117,9 @@ def discretize_from_xarray(
 ) -> dict[int, np.ndarray]:
     """Reproject an xarray Dataset onto solver cell centers."""
     # Identify the data variable to use.
-    data_vars = list(ds.data_vars)
-    if not data_vars:
+    var_name = pick_field_variable(ds)
+    if var_name is None:
         return {k: np.zeros((nrow, ncol), dtype=float) for k in range(nper)}
-    var_name = data_vars[0]
     da = ds[var_name]
 
     x_dim, y_dim = find_xy_dims(da)
