@@ -18,16 +18,29 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     parser.add_argument("project", type=str, help="Path to the project directory")
     parser.add_argument(
-        "--list", action="store_true", help="List available rasters, features, and simulations"
+        "--list",
+        action="store_true",
+        help=(
+            "List the fields, rasters and features one run exposes, plus every "
+            "simulation in the project. The run read is --sim when given, else "
+            "the last live one."
+        ),
     )
     parser.add_argument(
-        "--sim", default=None, help="Simulation name to export (use --list to see available)"
+        "--sim",
+        default=None,
+        help=(
+            "Simulation name to export, or to read from with --list (use --list to see available)"
+        ),
     )
     parser.add_argument(
         "--var",
         nargs="+",
         default=None,
-        help="Field variable name(s) to export (default: all exportable fields present).",
+        help=(
+            "Field variable name(s) to export (default: all exportable fields "
+            "present). List them with --list."
+        ),
     )
     parser.add_argument(
         "--csv",
@@ -88,24 +101,48 @@ def run(args: argparse.Namespace) -> None:
         sys.exit(EXIT_NOT_FOUND)
 
     catalog = Catalog(project_dir)
-    latest_sid: str | None = None
 
     if args.list:
         sims = catalog.list_simulations(project=project_name)
+        # Fields, rasters and features are read from one run, so pick it
+        # explicitly: --sim when given, else the last live run. A trashed run
+        # is still listed below but must not silently become the source.
+        list_sid: str | None = None
+        list_label = ""
+        if args.sim:
+            try:
+                list_sid = catalog.resolve(args.sim, project=project_name)
+            except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
+                print(str(exc), file=sys.stderr)
+                catalog.close()
+                sys.exit(EXIT_NOT_FOUND)
+            list_label = args.sim
+        elif not sims.empty:
+            live = sims[sims["status"] != "trashed"] if "status" in sims else sims
+            row = (live if not live.empty else sims).iloc[-1]
+            list_sid = str(row["sim_id"])
+            list_label = str(row["name"] or short_id(list_sid))
+
+        fields: list[str] = []
         rasters: list[str] = []
-        if not sims.empty:
-            latest_sid = str(sims.iloc[-1]["sim_id"])
-            sz = catalog.open_zarr(latest_sid)
+        if list_sid is not None:
+            sz = catalog.open_zarr(list_sid)
             try:
                 geo_grp = sz.root.get("geographic")
                 rasters = list(geo_grp.keys()) if geo_grp is not None else []
             finally:
                 sz.close()
-        features = catalog.list_geographic_features(latest_sid) if latest_sid else []
-        print("Geographic rasters:", file=sys.stderr)
+            fields = _exportable_fields(catalog, list_sid)
+        features = catalog.list_geographic_features(list_sid) if list_sid else []
+
+        source = f" ({list_label})" if list_label else ""
+        print(f"Simulation fields{source}:", file=sys.stderr)
+        for name in fields:
+            print(f"  {name}", file=sys.stderr)
+        print(f"\nGeographic rasters{source}:", file=sys.stderr)
         for name in sorted(rasters):
             print(f"  {name}", file=sys.stderr)
-        print("\nGeographic features:", file=sys.stderr)
+        print(f"\nGeographic features{source}:", file=sys.stderr)
         for name in sorted(features):
             print(f"  {name}", file=sys.stderr)
 
@@ -291,7 +328,8 @@ def run(args: argparse.Namespace) -> None:
     catalog.close()
     if not any([args.raster, args.feature, args.sim, exported]):
         print(
-            "Usage: hmp data export <project> --list | --sim NAME [--csv --netcdf] | --raster NAME",
+            "Usage: hmp data export <project> --list [--sim NAME] | "
+            "--sim NAME [--csv --netcdf] | --raster NAME",
             file=sys.stderr,
         )
         sys.exit(EXIT_CONFIG)
@@ -303,24 +341,17 @@ def run(args: argparse.Namespace) -> None:
 def _exportable_fields(catalog, sim_id: str, selected: list[str] | None = None) -> list[str]:
     """Registered field names a run can export, persisted or rebuilt on read.
 
-    Whitelists against the field registry so Zarr groups that are not fields
-    (``geographic``, ``mesh``, ``crs``, ``time``, ``budget`` ...) are skipped,
-    and adds the virtual fields the store can rebuild (water-table
-    elevation/depth, seepage mask, drain outflow): a default run persists only
-    the head, yet those are readable, so they must be exportable too.
+    Delegates to ``run.array.list_fields()``, the single source of truth for
+    what a store exposes: registry names found at the root or in the ``state``,
+    ``derived``, ``budget`` and ``mesh`` subgroups, plus the virtual fields it
+    can rebuild (water-table elevation/depth, seepage mask, drain outflow). A
+    default run persists only the head, yet those are readable, so they must be
+    exportable too. Reading that list here rather than rebuilding it is what
+    keeps a per-cell budget field such as ``drain`` from being readable through
+    the API and refused by the CLI.
     When ``selected`` is given, keep only those requested names that exist.
     """
-    from hydromodpy.results import field_registry
-    from hydromodpy.results.derive.virtual_fields import available_virtual_fields
-
-    sz = catalog.open_zarr(sim_id)
-    try:
-        grp = sz.root
-        present = list(grp.keys()) + list((grp.get("derived") or {}).keys())
-        present.extend(available_virtual_fields(grp))
-    finally:
-        sz.close()
-    fields = list(dict.fromkeys(v for v in present if field_registry.has(v)))
+    fields = catalog[sim_id].array.list_fields()
     if selected:
         return [v for v in selected if v in fields]
     return fields

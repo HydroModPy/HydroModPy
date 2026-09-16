@@ -112,3 +112,154 @@ def test_data_export_geotiff_requires_resolution_and_closes_catalog(
         "closed": True,
     }
     assert "--resolution is required with --geotiff" in result.stderr
+
+
+def test_data_export_list_names_the_fields_of_the_last_live_run(monkeypatch, tmp_path) -> None:
+    import pandas as pd
+
+    project = tmp_path / "ProjectA"
+    project.mkdir()
+    catalog_path = catalog_path_for(project)
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
+    catalog_path.write_bytes(b"catalog")
+    calls: dict[str, object] = {}
+
+    class FakeArray:
+        def list_fields(self) -> list[str]:
+            return ["drain", "head", "outflow_drain"]
+
+    class FakeRun:
+        array = FakeArray()
+
+    class FakeZarr:
+        root = {"geographic": {"watershed_dem": object()}}
+
+        def close(self) -> None:
+            calls["zarr_closed"] = True
+
+    class FakeCatalog:
+        def __init__(self, root: Path) -> None:
+            del root
+
+        def list_simulations(self, *, project: str | None = None):
+            del project
+            return pd.DataFrame(
+                [
+                    {
+                        "sim_id": "sim-001",
+                        "name": "run-one",
+                        "solver": "modflow6",
+                        "status": "completed",
+                        "created_at": "2026-09-16 13:54",
+                    },
+                    {
+                        "sim_id": "sim-002",
+                        "name": "run-two",
+                        "solver": "modflow6",
+                        "status": "trashed",
+                        "created_at": "2026-09-16 14:07",
+                    },
+                ]
+            )
+
+        def open_zarr(self, sim_id: str) -> FakeZarr:
+            calls["open_zarr"] = sim_id
+            return FakeZarr()
+
+        def __getitem__(self, ref: str) -> FakeRun:
+            calls["run_ref"] = ref
+            return FakeRun()
+
+        def list_geographic_features(self, sim_id: str) -> list[str]:
+            calls["features_for"] = sim_id
+            return ["watershed"]
+
+        def close(self) -> None:
+            calls["closed"] = True
+
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
+
+    result = CliRunner().invoke(["data", "export", str(project), "--list"])
+
+    assert result.exit_code == 0
+    # The trashed run is listed, but the fields come from the last live one.
+    assert calls["run_ref"] == "sim-001"
+    assert calls["open_zarr"] == "sim-001"
+    assert calls["features_for"] == "sim-001"
+    assert "Simulation fields (run-one):" in result.stderr
+    for name in ("drain", "head", "outflow_drain"):
+        assert f"  {name}\n" in result.stderr
+    assert "run-two" in result.stderr
+    assert calls["closed"] is True
+
+
+def test_data_export_list_reads_the_run_named_by_sim(monkeypatch, tmp_path) -> None:
+    import pandas as pd
+
+    project = tmp_path / "ProjectA"
+    project.mkdir()
+    catalog_path = catalog_path_for(project)
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
+    catalog_path.write_bytes(b"catalog")
+    calls: dict[str, object] = {}
+
+    class FakeArray:
+        def list_fields(self) -> list[str]:
+            return ["head"]
+
+    class FakeRun:
+        array = FakeArray()
+
+    class FakeZarr:
+        root: dict[str, object] = {}
+
+        def close(self) -> None:
+            return None
+
+    class FakeCatalog:
+        def __init__(self, root: Path) -> None:
+            del root
+
+        def list_simulations(self, *, project: str | None = None):
+            del project
+            return pd.DataFrame(
+                [
+                    {
+                        "sim_id": "sim-001",
+                        "name": "run-one",
+                        "solver": "modflow6",
+                        "status": "completed",
+                        "created_at": "2026-09-16 13:54",
+                    }
+                ]
+            )
+
+        def resolve(self, sim_ref: str, *, project: str | None = None) -> str:
+            calls["resolve"] = {"sim_ref": sim_ref, "project": project}
+            return "sim-042"
+
+        def open_zarr(self, sim_id: str) -> FakeZarr:
+            calls["open_zarr"] = sim_id
+            return FakeZarr()
+
+        def __getitem__(self, ref: str) -> FakeRun:
+            calls["run_ref"] = ref
+            return FakeRun()
+
+        def list_geographic_features(self, sim_id: str) -> list[str]:
+            del sim_id
+            return []
+
+        def close(self) -> None:
+            calls["closed"] = True
+
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
+
+    result = CliRunner().invoke(["data", "export", str(project), "--list", "--sim", "run-seven"])
+
+    assert result.exit_code == 0
+    assert calls["resolve"] == {"sim_ref": "run-seven", "project": "ProjectA"}
+    assert calls["run_ref"] == "sim-042"
+    assert calls["open_zarr"] == "sim-042"
+    assert "Simulation fields (run-seven):" in result.stderr
+    assert calls["closed"] is True
