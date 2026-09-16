@@ -89,28 +89,16 @@ use_cache = true
 # 1e-8 so the optimum stays interior (a first KGE run landed near 2e-7).
 [calibration.parameters.bedleak]
 bounds = [1e-8, 1e-5]
-transform = "log"
-prior = "log_uniform"
-path = "flow.sinks_sources.lakes.reservoir_cheze.bedleak"
-units = "1/s"
 
 # Aquifer hydraulic conductivity.
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
-prior = "log_uniform"
-path = "flow.param.K.field.value"
-units = "m/s"
 
 # Specific yield (drainable porosity) - matters over the multi-year record.
 # Lower bound 1e-4: the field floor for specific yield (a lower value is rejected
 # at build time). The optimum sat near 0.066 in the previous run.
 [calibration.parameters.Sy]
 bounds = [1e-4, 1e-1]
-transform = "log"
-prior = "log_uniform"
-path = "flow.param.Sy.field.value"
-units = "-"
 
 # ======================================================================
 # OPTIONAL - FULL 2007-2025 chronicle (heavy: ~6940 periods, very long build).

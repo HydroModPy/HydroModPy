@@ -69,10 +69,6 @@ use_cache = true
 
 [calibration.parameters.K]
 bounds = [1e-6, 1e-3]
-transform = "log"
-prior = "log_uniform"
-path = "flow.param.K.field.value"
-units = "m/s"
 
 # Charge observee en un point du bassin (Lambert-93). La valeur est la
 # charge permanente pour K = 5e-5 m/s, donc la recherche retrouve ce K.

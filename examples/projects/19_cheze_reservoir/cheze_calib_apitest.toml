@@ -39,12 +39,7 @@ use_cache = false
 
 [calibration.parameters.bedleak]
 bounds = [1e-8, 1e-5]
-transform = "log"
 path = "flow.sinks_sources.lakes.reservoir_cheze.bedleak"
-units = "1/s"
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
-path = "flow.param.K.field.value"
-units = "m/s"

@@ -1,21 +1,20 @@
-# ======================================================================
 # HydroModPy - example 04: streamflow intermittence in transient
-# ----------------------------------------------------------------------
-# Nancon catchment (Brittany, EPSG:2154), extracted from the regional 75 m
-# DEM by outlet snapping. Monthly transient groundwater flow over three
-# years (2000-2002), solved with MODFLOW 6, forced by an observed monthly
-# recharge and runoff climatology.
 #
-# The theme is intermittence: as recharge swings between wet winters and
-# dry summers, the water table rises and falls, so the seepage cells and
-# the simulated active network expand and contract through the year. Render
-# the seepage map at a wet and a dry month (see run_manual.py) to see the
-# perennial vs intermittent parts of the network.
+# Nancon catchment (Brittany), monthly transient 2000-2002 with MODFLOW 6,
+# forced by an observed recharge and runoff climatology. As recharge swings
+# between wet winters and dry summers the water table rises and falls, so the
+# seepage cells and the simulated active network expand and contract.
 #
-# Launch:
-#   hmp run examples/projects/04_streamflow_intermittence_in_transient/project.toml
-# ======================================================================
-
+# One description, two entry points. The simulation runs at the parameters
+# written below; the calibration takes the same model and reads them off the
+# data, the conductivity from the extent of the mapped network and the specific
+# yield from the gauge. Which reaches dry up in August is a statement about
+# K and Sy, so the intermittence maps mean what they say only once the two
+# have been fitted rather than assumed.
+#
+#   hmp run       examples/projects/04_streamflow_intermittence_in_transient/project.toml
+#   hmp calibrate examples/projects/04_streamflow_intermittence_in_transient/project.toml
+#   hmp calibrate examples/projects/04_streamflow_intermittence_in_transient/project.toml --check
 
 [workflow]
 mode = "simulation"
@@ -33,25 +32,26 @@ if_exists = "replace"
 start_datetime = "2000-01-01"
 end_datetime = "2002-12-31"
 step_value = "1 month"
-coverage_policy = "warn"
 
 [[simulation.process]]
 id = "flow_main"
 type = "flow"
 solvers = ["modflow6"]
 
+# The per-cell release is what the network criterion reads, and what the three
+# comparison maps rebuild their partition from. Every other derived field the
+# figures need is switched on by the figure that asks for it, which keeps a
+# calibration trial from computing maps nobody looks at.
+[simulation.results.derived]
+release_flux = true
 
-# ---------------------------------------------------------------------- geographic
+
 [geographic]
-source_mode = "standard"
 crs_project = "EPSG:2154"
-dem_correc_type = "breach"
-domain_extent = "box"
 
 [geographic.catchment]
 catch_def = "from_outlet_coord"
 dem_init_path = "DEM_armorican_massif.tif"
-# Nancon gauging-station outlet, EPSG:2154.
 x_outlet = 389285.910
 y_outlet = 6816518.749
 snap_dist = "150 m"
@@ -59,113 +59,221 @@ buff_area = "10%"
 
 [geographic.river_network]
 enabled = true
-threshold_mode = "area_km2"
 threshold_area_km2 = 0.5
-compute_strahler_order = true
-compute_stream_links = true
 
+# Validity condition of the network criterion, not a comfort option: it measures
+# lengths along the flow paths of the DEM, so the mapped linework has to sit in
+# the talwegs of the routing surface. The burn takes the network declared under
+# [[data.hydrography.sources]], so the file names the file once. The geographic
+# step publishes the agreement as `alpha` in stream_dem_agreement.json, and
+# warns below 0.90.
+[geographic.enforce_streams]
+enabled = true
+mode = "constant"
+depth_m = 10.0
 
-# ---------------------------------------------------------------------- domain
-[domain]
 
 [domain.depth_model]
 kind = "constant_thickness"
 thickness = "30.0 m"
 
 
-# ---------------------------------------------------------------------- data
 [data]
 project_crs = "EPSG:2154"
-types = ["dem", "recharge", "runoff"]
-inference_mode = "warn"
+types = ["dem", "hydrography", "hydrometry", "recharge", "runoff"]
 
 [[data.dem.sources]]
 source = "custom"
 path = "DEM_armorican_massif.tif"
 
-# Observed monthly recharge climatology for the Nancon (mm/day).
-[data.recharge]
-date_start = "2000-01-01"
-date_end = "2002-12-31"
+# The observed network, what the simulated active one is judged against, and
+# what the first calibration stage fits the conductivity to.
+[[data.hydrography.sources]]
+source = "custom"
+path = "nancon_stream_network.gpkg"
+
+# Daily discharge at the Nancon gauging station, the series the simulated
+# baseflow plus runoff is compared to, and what the second calibration stage
+# reads the specific yield from.
+[[data.hydrometry.sources]]
+source = "custom"
+path = "hydrometry"
+station_ids = ["NANCON"]
+
+# The ONDE observers who record whether a site still flows are not declared
+# here: their record on this catchment starts in 2012, ten years after the
+# window this example simulates.
+
 [[data.recharge.sources]]
 source = "custom"
 path = "recharge"
 station_ids = ["NANCON"]
 
-# Observed monthly runoff, added to the simulated baseflow to form the
-# total streamflow the discharge series reports.
-[data.runoff]
-date_start = "2000-01-01"
-date_end = "2002-12-31"
+# Added to the simulated baseflow to form the total streamflow the discharge
+# series reports.
 [[data.runoff.sources]]
 source = "custom"
 path = "runoff"
 station_ids = ["NANCON"]
 
 
-# ---------------------------------------------------------------------- flow
 [flow]
 flow_regime = "transient"
 param_list = ["K", "Sy", "Ss"]
 active_sinks_sources = ["recharge"]
 active_bc = ["drainage"]
-# Warm the heads up on the mean recharge before the transient starts.
 first_period_steady = true
 
-[flow.ic]
-type = "top"
-description = "Water table initialised at the topographic surface."
-
 [flow.param.K.field]
-id = "K"
 kind = "homogeneous"
 unit = "m/s"
 value = 5e-5
 
 [flow.param.Sy.field]
-id = "Sy"
 kind = "homogeneous"
 unit = "-"
 value = 0.05
 
 [flow.param.Ss.field]
-id = "Ss"
 kind = "homogeneous"
 unit = "m-1"
 value = 1e-5
 
+# Second validity condition of the criterion. A conductance of zero selects the
+# proportional fallback, C = K * cell_area / top_thickness, and that
+# proportionality is what makes the ratio K/R the calibrated quantity. A fixed
+# conductance breaks the invariance from a factor 1.05 onwards, and the run
+# still returns a number, so the calibration refuses it before the first solve.
+# It is the default here, and written out because it is a premise.
 [flow.bc.drainage]
 kind = "cauchy"
-application_domain = "top"
-description = "Cauchy drainage on the aquifer top face."
 value = 0.0
 
-[flow.sinks_sources.recharge]
-first_clim = "mean"
 
-
-# ---------------------------------------------------------------------- solver
+# Edge cells wet and dry as the water table swings; the outer head-change
+# criterion is relaxed to 1 cm, ample at catchment scale. Adaptive time
+# stepping only splits the months Newton cannot close in one step, which is
+# what a tight specific yield does in `run_manual.py`.
 [modflow6.runtime]
-# COMPLEX is the robust IMS preset for the transient Newton solve on the
-# buffered box (edge cells wet and dry as the water table swings); the outer
-# head-change criterion is relaxed to 1 cm, ample at catchment scale.
-mf6_ims_complexity = "COMPLEX"
 mf6_outer_dvclose = 1e-2
-
-[modflow6.sgrid.planar]
-mode = "keep_native"
-
-[modflow6.sgrid.vertical]
-genmtd_lay = "constant"
-nlay = 1
+mf6_ats = true
 
 
-# ---------------------------------------------------------------------- display
+# ---------------------------------------------------------------------------
+# Calibration - the conductivity from the network, the storage from the gauge
+# ---------------------------------------------------------------------------
+# The method is named, not retyped: `matching_hydrographic_network` writes the
+# two stages, their criteria, and the regime and time-grid overrides that make
+# the first steady and the second transient (Abherve et al., 2023,
+# doi:10.5194/hess-27-3221-2023). What stays here belongs to the site: two
+# search ranges and the mapped network.
+#
+# The order is the method. A steady solve carries no storage, so the first
+# stage is blind to it, which is exactly what makes the conductivity
+# identifiable there without any discharge record; the second then reads the
+# storage off the hydrograph with the conductivity frozen.
+#
+#   hmp calibrate <this file> --list-phases    prints the assembly
+#   hmp calibrate <this file> --check          checks it without solving
+
+[calibration]
+seed = 42
+save_runs = "best_n"
+save_best_n = 1
+rerun_best_with_outputs = true
+persist_iteration_detail = "full"
+
+# The name is the address. `K` is the id this file declares in
+# [flow].param_list, and the catalogue resolves it to the value that id carries.
+# What the field already knows is not repeated here: a conductivity is searched
+# in log space, and its unit is read from [flow.param.K.field].unit. What stays
+# is the one thing that belongs to the catchment, the range.
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+
+# The lower bound stops well above the 0.001 of the manual sweep: down there
+# the water table moves tens of metres inside a monthly stress period and the
+# solve cost climbs steeply, and the observed recession already excludes that
+# region.
+[calibration.parameters.Sy]
+bounds = [5e-3, 0.35]
+
+# Expect two warnings on this site, both diagnostics and neither a mistake in
+# the file. The mapped linework is regional, so 55 per cent of its cells sit in
+# the buffer outside the catchment, which drags `alpha_obs_closure` down to 0.40
+# while `alpha_obs_closure_catchment`, the support the criterion actually
+# scores, reads 0.83: read the catchment one. And 0.83 is below the 0.90 the run
+# warns at, because the criterion descends the RAW model top by design and never
+# the burned routing surface, whose own agreement the geographic step reports at
+# 0.996. The result comes back qualified rather than withheld.
+[calibration.outputs.seepage_network]
+support = "network"
+stream_geometry_path = "nancon_stream_network.gpkg"
+# One cell one vote, the paper's reading: this mesh is the 75 m DEM grid kept
+# native, with no refinement along the streams for an area weighting to correct.
+# Both weightings are reported whichever is chosen.
+weighting = "cell"
+tau_specific_ratio = 1.0e-4
+# The validity bound of Eq. 4. It qualifies the result and never withholds it:
+# on this catchment the trials come back between 2.3 and 6.4, so expect the
+# warning and read the value as a coarse agreement, not as a failure.
+roptim_max = 2.0
+# A descent over shared edges only is D4, and a D4 path cannot follow a talweg
+# that runs diagonally to the grid, which on this topography most of them do.
+# The delineation that produced the catchment uses a D8 pointer; this makes the
+# criterion descend the same way.
+diagonal_neighbors = true
+# No `observed_position_accuracy`: the validity length is normalised by the
+# larger of the cell size and that floor, and at 75 m cells the mesh already
+# sets it. It earns its line on a refined mesh, not here.
+time = "last"
+
+[calibration.protocol]
+name = "matching_hydrographic_network"
+# Which of this file's parameters plays which role.
+conductivity = "K"
+storage = "Sy"
+# Stage one. 'distance_gap' is the signed difference of Eq. 1, whose zero is the
+# balance the paper solves for; it crosses zero once over several decades, which
+# is what makes this a root search rather than a sweep.
+steady_metric = "distance_gap"
+steady_method = "bisection"
+steady_max_iter = 18
+steady_tolerance = 0.01
+# Stage two. nse_log weights the recessions as heavily as the peaks, which is
+# where storage shows. One relative precision per stage, in the unit of the
+# parameter, whatever engine walks it.
+transient_metric = "nse_log"
+transient_method = "scipy_nelder_mead"
+transient_max_iter = 30
+transient_tolerance = 0.05
+observed_station_id = "NANCON"
+
+# The coarse log sweep the paper runs before bisecting. It checks the
+# monotonicity the method assumes instead of supposing it, and it sees every
+# crossing rather than the first.
+[calibration.protocol.steady_optimizer_kwargs]
+sweep_points = 7
+
+# The transient stage still has to simulate 2000 to reach 2001 with a state that
+# has forgotten its initial condition. It simulates it and does not score it.
+[calibration.protocol.scoring_window]
+start = "2001-01-01"
+end = "2002-12-31"
+
+# The stage-one criterion is solved at zero, so five per cent of the best cost
+# is zero and no interval would be reported. The width is stated in the unit of
+# the cost instead: 75 metres is one cell of this mesh, and the interval is the
+# range of K the trials could not tell apart inside it. Read it on K. Stage two
+# is scored on a 1 - nse_log, which carries no unit, so the same number spans
+# everything it sampled and the interval printed beside Sy says nothing.
+[calibration.uncertainty]
+method = "cost_profile"
+mode = "absolute"
+tolerance = 75.0
+
+
 [display]
-enabled = true
-show = false
-save = true
-output_dir = "figures"
 on_error = "raise"
 figures = [
     "watershed_id_card",
@@ -173,9 +281,31 @@ figures = [
     "piezometric_map",
     "watertable_depth_map",
     "seepage_map",
+    "flow_persistence_map",
+    "flow_intermittence_map",
     "simulated_active_network",
+    "simulated_active_network_reference_overlay",
+    "hydrographic_network_reference",
     "hydrograph",
+    "hydrograph_sim_obs",
+    "scatter_one_to_one",
+    "residuals",
+    "duration_curve",
+    "seasonal_boxplot",
     "flux_timeseries",
     "cross_section",
     "water_budget",
+    "mass_balance_error",
+
+    # The eight figures of the calibration method. They are declared, never
+    # scripted; on a plain `hmp run` each one is skipped with its reason, and
+    # the promoted run of a calibration renders them like any other.
+    "downslope_distance_crossing",
+    "downslope_distance_map",
+    "bisection_bracket_trace",
+    "parameter_cost_profile",
+    "seepage_network_reference_overlay",
+    "seepage_network_confusion_map",
+    "hydrograph_log_nse",
+    "matching_hydrographic_network_card",
 ]

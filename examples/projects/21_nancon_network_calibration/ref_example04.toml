@@ -233,16 +233,10 @@ rerun_best_with_outputs = true
 # decades, dont le centre en log est le `hk` initial du script.
 [calibration.parameters.K]
 bounds = [1e-8, 1e-2]
-transform = "log"
-path = "flow.param.K.field.value"
-units = "m/s"
 
 # `sy_min, sy_max = 0.01/100, 80/100`, borne haute ramenee a 0,5 (ecart 3).
 [calibration.parameters.Sy]
 bounds = [1e-4, 0.5]
-transform = "log"
-path = "flow.param.Sy.field.value"
-units = "-"
 
 [calibration.outputs.seepage_network]
 support = "network"

@@ -65,13 +65,7 @@ use_cache = true
 # une fraction.
 [calibration.parameters.K]
 bounds = [1e-6, 1e-3]
-transform = "log"
-prior = "log_uniform"
-path = "flow.param.K.field.value"
-units = "m/s"
 
 [calibration.parameters.Sy]
 bounds = [0.01, 0.30]
 prior = "uniform"
-path = "flow.param.Sy.field.value"
-units = "-"
