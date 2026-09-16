@@ -15,12 +15,15 @@ zero is the equality of two terms moves the root.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons, vector_cell_mask
+
+if TYPE_CHECKING:
+    from hydromodpy.calibration.observations.network_source import ObservedNetwork
 
 logger = get_logger(__name__)
 
@@ -38,30 +41,25 @@ def _declared_crs(run_ctx: Any) -> str | None:
 
 def observed_network_mask(
     run_ctx: Any,
-    output: Any,
+    observed: ObservedNetwork,
     planar_mesh: Any,
     face_node_connectivity: np.ndarray,
 ) -> np.ndarray:
-    """Project the declared stream geometry onto the mesh cells.
+    """Project the resolved stream geometry onto the mesh cells.
 
-    Both CRS are required and the failure is loud: a silent mismatch produces a
-    mask that is empty or plausible-but-wrong, and every distance downstream is
-    reported in metres.
+    ``observed`` is a fully resolved :class:`ObservedNetwork`, from any of the
+    three sources ``resolve_observed_network`` accepts: this function never
+    reads a path itself and never re-derives a geometry. Both CRS are still
+    required and the failure is loud: a silent mismatch produces a mask that
+    is empty or plausible-but-wrong, and every distance downstream is reported
+    in metres.
     """
-    import geopandas as gpd
-
-    path = getattr(output, "stream_geometry_path", None)
-    if not path:
+    frame = observed.geometry
+    if frame is None or len(frame) == 0:
+        raise ValueError(f"the {observed.source} network holds no feature.")
+    if observed.crs is None:
         raise ValueError(
-            "the network criterion needs a mapped stream network: declare "
-            "stream_geometry_path on the calibration output."
-        )
-    network = gpd.read_file(str(path))
-    if network.empty:
-        raise ValueError(f"the stream geometry {path!r} holds no feature.")
-    if network.crs is None:
-        raise ValueError(
-            f"the stream geometry {path!r} declares no CRS, and the distances it feeds "
+            f"the {observed.source} network declares no CRS, and the distances it feeds "
             "are reported in metres."
         )
     mesh_crs = _declared_crs(run_ctx)
@@ -75,16 +73,19 @@ def observed_network_mask(
     mask = np.asarray(
         vector_cell_mask(
             polygons,
-            list(network.geometry),
+            list(frame.geometry),
             mesh_crs=mesh_crs,
-            geometry_crs=str(network.crs),
+            geometry_crs=observed.crs,
         ),
         dtype=bool,
     )
     logger.info(
-        "Mapped stream network: %d feature(s) projected onto %d mesh cell(s).",
-        len(network),
+        "Mapped stream network (%s%s): %d feature(s) projected onto %d mesh cell(s)%s.",
+        observed.source,
+        ", clipped" if observed.clipped else "",
+        len(frame),
         int(mask.sum()),
+        f", from {observed.path}" if observed.path else "",
     )
     return mask
 

@@ -18,6 +18,7 @@ from hydromodpy.core.stream_geometry import NetworkGeometry, build_network_geome
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibOutputNetwork
+    from hydromodpy.calibration.observations.network_source import ObservedNetwork
 
 logger = get_logger(__name__)
 
@@ -66,13 +67,23 @@ def dense_face_connectivity(planar_mesh: Any) -> np.ndarray:
     return dense
 
 
-def geometry_from_run(run_ctx: Any, output: CalibOutputNetwork) -> NetworkGeometry:
+def geometry_from_run(
+    run_ctx: Any, output: CalibOutputNetwork
+) -> tuple[NetworkGeometry, ObservedNetwork]:
     """Build the static geometry from the model a trial just ran.
+
+    The observed network is resolved exactly ONCE here, from whichever of the
+    three sources the output declares, and threaded into the mask projection:
+    neither this function nor its caller re-resolves it. The resolution is
+    returned alongside the geometry because its provenance (clipped,
+    DEM-derived) is a trial diagnostic that ``NetworkGeometry`` itself does not
+    carry.
 
     Every attribute read here is named in the error it raises when missing, so
     a backend that does not expose one says which one rather than failing deep
     inside a numpy call.
     """
+    from hydromodpy.calibration.observations.network_source import resolve_observed_network
     from hydromodpy.calibration.observations.observed_network import (
         delineated_catchment_mask,
         observed_network_mask,
@@ -96,6 +107,9 @@ def geometry_from_run(run_ctx: Any, output: CalibOutputNetwork) -> NetworkGeomet
         )
     planar_mesh = solver_mesh.planar_mesh
     connectivity = dense_face_connectivity(planar_mesh)
+    # Resolved once per trial. Neither the mask projection below nor the
+    # caller in metrics/solver_extract.py re-resolves it.
+    resolved = resolve_observed_network(run_ctx, output)
     # The criterion routes on the TOPOGRAPHIC catchment, never on the model's
     # active domain: section 4.4 measures 0.03 to 2.5 per cent of unreachable
     # cells on the first against 10.5 to 14.4 on the second. Cutting the graph
@@ -112,11 +126,11 @@ def geometry_from_run(run_ctx: Any, output: CalibOutputNetwork) -> NetworkGeomet
     # Measured on the Nancon, the sampled route left 51.9 per cent of the
     # simulated support unreachable against 0.0 per cent for the flood on the
     # mesh graph itself.
-    return build_network_geometry(
+    geometry = build_network_geometry(
         topography=np.asarray(solver_mesh.top, dtype=float).reshape(-1),
         face_node_connectivity=connectivity,
         vertices=np.asarray(planar_mesh.vertices, dtype=float),
-        observed=observed_network_mask(run_ctx, output, planar_mesh, connectivity),
+        observed=observed_network_mask(run_ctx, resolved, planar_mesh, connectivity),
         cell_area_m2=np.asarray(solver_mesh.cell_areas(), dtype=float).reshape(-1),
         # The centres MODFLOW 6 itself sees: on a Voronoi grid these are the
         # generator seeds written to the DISV file, which is where the mesh
@@ -133,6 +147,7 @@ def geometry_from_run(run_ctx: Any, output: CalibOutputNetwork) -> NetworkGeomet
         clipping_warning_share=float(output.clipping_warning_share),
         clipping_warning_gap=float(output.clipping_warning_gap),
     )
+    return geometry, resolved
 
 
 def _accuracy_in_m(output: CalibOutputNetwork) -> float | None:

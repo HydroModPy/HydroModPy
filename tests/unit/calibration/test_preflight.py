@@ -170,6 +170,35 @@ class TestOutputs:
 
         assert "nowhere.gpkg" in _messages(findings)
 
+    def test_an_observed_network_source_the_project_does_not_carry_is_named(self, tmp_path) -> None:
+        """Paired with an unrelated fault: neither may crowd out the other."""
+        findings = _preflight(
+            _write(
+                tmp_path,
+                """
+                [calibration]
+                method = "grid"
+
+                [calibration.parameters.K]
+                bounds = [1e-3, 1e-7]
+                path = "flow.param.K.field.value"
+
+                [calibration.outputs.net]
+                support = "network"
+                observed_network = "geographic.river_network"
+
+                [[calibration.objective_blocks]]
+                name = "gap"
+                metric = "distance_gap"
+                uses_outputs = ["net"]
+                """,
+            )
+        )
+
+        messages = _messages(findings)
+        assert "geographic.river_network" in messages
+        assert "bounds" in messages
+
     def test_a_block_using_an_output_nobody_declared_is_named(self, tmp_path) -> None:
         findings = _preflight(
             _write(

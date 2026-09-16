@@ -384,8 +384,9 @@ class CalibOutputNetwork(HydroModelBase):
 
     There is no ``observed_values`` here and there cannot be: the criterion
     balances two simulated quantities against each other, so nothing in it is
-    fitted to a record. The mapped network enters through
-    ``stream_geometry_path``, as a geometry, not as a series.
+    fitted to a record. The mapped network enters as a geometry, not as a
+    series, and exactly one of ``observed_network`` and
+    ``stream_geometry_path`` names where it comes from.
     """
 
     variable: Annotated[str, Profile.USER] = Field(
@@ -397,11 +398,67 @@ class CalibOutputNetwork(HydroModelBase):
         default="network",
         description="Discriminator: compare a simulated stream network to a mapped one.",
     )
-    stream_geometry_path: Annotated[str, Profile.USER] = Field(
-        description="Vector file holding the mapped stream network. Required, and "
-        "read only from here: the criterion resolves no geometry of its own and "
-        "does not reuse the one the hydrography data family loaded.",
+    observed_network: Annotated[
+        Literal["data.hydrography", "geographic.river_network"] | None, Profile.USER
+    ] = Field(
+        default=None,
+        description="Where the mapped network comes from when it is not an explicit "
+        "file. Exactly one of this and 'stream_geometry_path' must be set.",
+        json_schema_extra={
+            "value_docs": {
+                "data.hydrography": "Reuses the network the hydrography data family "
+                "already loaded (a local file or an osm / bdtopage / euhydro "
+                "download), clipped to the delineated catchment. Costs nothing new "
+                "to configure but ties the criterion to whatever that section "
+                "resolved.",
+                "geographic.river_network": "Derives the network from the DEM by a "
+                "drainage-area threshold. K/R shapes both where the water table "
+                "reaches the surface and the accumulation the threshold is cut on, so "
+                "the criterion partly fits a seepage density onto a geomorphological "
+                "one; warned once and recorded on every run that uses it.",
+            }
+        },
     )
+    stream_geometry_path: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Vector file holding the mapped stream network, read only from "
+        "here: the criterion resolves no geometry of its own and does not reuse the "
+        "one the hydrography data family loaded. The way out of 'observed_network' "
+        "when neither of its two sources is the one you want scored.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_observed_network_source(self) -> CalibOutputNetwork:
+        """Exactly one of the two observation routes must be declared.
+
+        Keyed on the values and not on ``model_fields_set``: both fields default
+        to ``None``, so a value says everything a declaration would, and a
+        configuration that has been through ``model_dump`` still validates. A
+        dump writes every field, defaults included, and re-validating one marks
+        them all as declared; keying on that would refuse a session record, a
+        frozen run config and every test that round-trips an output.
+
+        TOML carries no null, so "declared and null" is not a case a file can
+        reach.
+        """
+        declared_network = self.observed_network is not None
+        declared_path = self.stream_geometry_path is not None
+        if declared_network and declared_path:
+            raise ValueError(
+                "calibration output declares both 'observed_network' "
+                f"({self.observed_network!r}) and 'stream_geometry_path' "
+                f"({self.stream_geometry_path!r}): the criterion would score one "
+                "and the report would name the other. Declare exactly one."
+            )
+        if not declared_network and not declared_path:
+            raise ValueError(
+                "calibration output declares neither 'observed_network' nor "
+                "'stream_geometry_path': the mapped network has no source. Pick "
+                "one of 'data.hydrography', 'geographic.river_network', or set "
+                "'stream_geometry_path' to an explicit file."
+            )
+        return self
+
     tau_specific_ratio: Annotated[float, Profile.USER] = Field(
         default=STREAM_CRITERION_DEFAULTS.tau_specific_ratio,
         ge=0.0,

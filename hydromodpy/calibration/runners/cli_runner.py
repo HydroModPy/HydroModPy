@@ -176,6 +176,9 @@ def _resolve_stream_geometry_paths(cfg: CalibrationConfig, config_path: Path) ->
     """
     base = config_path.expanduser().resolve().parent
     for output in cfg.outputs.values():
+        # An output that names its source carries no path, the model refusing both
+        # at once, so the check below already skips it. It also skips every output
+        # that has no such field at all, which is every support but 'network'.
         declared = getattr(output, "stream_geometry_path", None)
         if not declared or Path(declared).is_absolute():
             continue

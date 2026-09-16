@@ -112,6 +112,39 @@ def test_the_network_is_the_same_file_from_any_working_directory(
     assert Path(from_decoy).read_bytes() == _PROJECT_NETWORK
 
 
+NAMED_SOURCE_TOML = """\
+[workflow]
+mode = "calibration"
+
+[calibration]
+method = "bisection"
+
+[calibration.parameters.K]
+bounds = [1e-9, 1e-3]
+transform = "log"
+
+[calibration.outputs.net]
+support = "network"
+observed_network = "data.hydrography"
+
+[[calibration.objective_blocks]]
+name = "gap"
+metric = "distance_gap"
+uses_outputs = ["net"]
+"""
+
+
+def test_an_output_naming_its_source_has_no_path_to_anchor(project: Path) -> None:
+    # An output resolved from data.hydrography or geographic.river_network carries
+    # no stream_geometry_path to anchor; writing to it would trip the
+    # both-declared refusal that HydroModelBase's validate_assignment raises.
+    path = project / "configs" / "calibration.toml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(NAMED_SOURCE_TOML, encoding="utf-8")
+    cfg, _raw = load_toml_calibration(path)
+    assert cfg.outputs["net"].stream_geometry_path is None
+
+
 class _Halt(Exception):
     """Raised by the store factory to stop the run once the anchoring is done."""
 
