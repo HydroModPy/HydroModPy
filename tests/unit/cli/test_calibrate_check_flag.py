@@ -123,12 +123,10 @@ _PROTOCOL = textwrap.dedent(
     [calibration.parameters.K]
     bounds = [1e-7, 1e-3]
     transform = "log"
-    path = "flow.param.K.field.value"
 
     [calibration.parameters.Sy]
     bounds = [5e-3, 0.35]
     transform = "log"
-    path = "flow.param.Sy.field.value"
     units = "-"
 
     [calibration.outputs.seepage_network]

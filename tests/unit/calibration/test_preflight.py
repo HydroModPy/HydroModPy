@@ -96,7 +96,7 @@ class TestParameters:
                 [calibration]
                 method = "grid"
 
-                [calibration.parameters.K]
+                [calibration.parameters.Kh]
                 bounds = [1e-7, 1e-3]
                 path = "flow.param.Kh.field.value"
                 """,
@@ -239,7 +239,7 @@ class TestItReportsEverythingAtOnce:
                 [calibration]
                 method = "grid"
 
-                [calibration.parameters.K]
+                [calibration.parameters.Kh]
                 bounds = [1e-3, 1e-7]
                 path = "flow.param.Kh.field.value"
 

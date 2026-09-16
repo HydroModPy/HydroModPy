@@ -21,9 +21,13 @@ PhysicalBoundsError: hydraulic conductivity (id='K') value 10000.0 outside ...
 
 Notes
 -----
-Unit coercion is performed by the caller via ``hydromodpy.core.units``;
-``validate_physical_value`` only enforces numerical bounds in the canonical
-unit.
+A value handed in another unit of the same quantity is converted here before
+the range check, so ``1e-7 m-1`` and ``1e-7 1/m`` are the same statement and a
+conductivity in ``m/day`` is compared against a range written in ``m/s``. What
+is refused is a unit that measures something else. That mattered little while
+a bound carried the unit only when a file typed one; a calibration parameter
+now inherits the unit of the field it names, so every spelling the schema
+accepts reaches this comparison.
 """
 
 from __future__ import annotations
@@ -121,16 +125,61 @@ def validate_physical_value(
     bound = PHYSICAL_BOUNDS.get(param_id.lower())
     if bound is None:
         return value
-    if unit is not None and unit != bound.canonical_unit:
+    compared = float(value)
+    if unit is not None:
+        converted = _in_canonical_unit(compared, unit, bound.canonical_unit)
+        if converted is None:
+            raise PhysicalBoundsError(
+                f"{bound.label} (id={param_id!r}) expects {bound.canonical_unit!r} or a unit "
+                f"convertible to it, got {unit!r}"
+            )
+        compared = converted
+    if not (bound.lo <= compared <= bound.hi):
+        written = "" if compared == float(value) else f" ({compared:g} {bound.canonical_unit})"
         raise PhysicalBoundsError(
-            f"{bound.label} (id={param_id!r}) expects unit {bound.canonical_unit!r}, got {unit!r}"
-        )
-    if not (bound.lo <= float(value) <= bound.hi):
-        raise PhysicalBoundsError(
-            f"{bound.label} (id={param_id!r}) value {value} outside "
+            f"{bound.label} (id={param_id!r}) value {value}{written} outside "
             f"[{bound.lo}, {bound.hi}] {bound.canonical_unit}"
         )
     return float(value)
+
+
+def _in_canonical_unit(value: float, unit: str, canonical: str) -> float | None:
+    """Return ``value`` expressed in ``canonical``, or None if that is not a conversion.
+
+    Two units are the same quantity or they are not. Spelling is settled first,
+    because ``1/m`` and ``m-1`` are one unit written twice and the schema and
+    this registry chose different sides; a scale factor follows only where the
+    quantity has one.
+    """
+    from hydromodpy.core.units.hydraulic_conductivity import (
+        factor_to_m_per_s,
+        normalize_m_per_s_unit,
+    )
+    from hydromodpy.core.units.length import factor_to_m, normalize_length_unit
+
+    def spelled(token: str) -> str:
+        return str(token).strip().lower().replace(" ", "").replace("**", "")
+
+    source, target = spelled(unit), spelled(canonical)
+    if source == target:
+        return value
+
+    inverse_length = {"m-1": "m", "1/m": "m", "m^-1": "m", "cm-1": "cm", "1/cm": "cm"}
+    if source in inverse_length and target in inverse_length:
+        # 1 cm-1 is 100 m-1: the factor of the length inverts with it.
+        return value * factor_to_m(inverse_length[target]) / factor_to_m(inverse_length[source])
+
+    for normalize, factor in (
+        (normalize_m_per_s_unit, factor_to_m_per_s),
+        (normalize_length_unit, factor_to_m),
+    ):
+        try:
+            if normalize(source) == normalize(target):
+                return value
+            return value * factor(source) / factor(target)
+        except (ValueError, KeyError):
+            continue
+    return None
 
 
 __all__ = [

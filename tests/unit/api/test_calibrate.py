@@ -99,7 +99,6 @@ method = "grid"
 
 [calibration.parameters.K]
 bounds = [1e-6, 1e-3]
-path = "flow.param.K.field.value"
 
 [[calibration.phases]]
 name = "steady_k"
@@ -118,7 +117,6 @@ not_a_field = 3
 
 [calibration.parameters.K]
 bounds = [1e-6, 1e-3]
-path = "flow.param.K.field.value"
 
 [[calibration.phases]]
 name = "steady_k"

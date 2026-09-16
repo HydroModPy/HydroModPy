@@ -35,7 +35,6 @@ method = "bisection"
 [calibration.parameters.K]
 bounds = [1e-9, 1e-3]
 transform = "log"
-path = "flow.param.K.field.value"
 
 [calibration.outputs.net]
 support = "network"

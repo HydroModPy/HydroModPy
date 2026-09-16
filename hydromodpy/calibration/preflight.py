@@ -77,10 +77,12 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
 
 def _check_parameters(cfg: Any, calibration: Any) -> list[PreflightFinding]:
     """Check every declared parameter against the configuration it will write into."""
+    from hydromodpy.calibration.parameter_resolution import unresolved_parameter_names
     from hydromodpy.calibration.targets import calibration_targets, targets_by_path
 
     findings: list[PreflightFinding] = []
     reachable = targets_by_path(calibration_targets(cfg))
+    refused_names = unresolved_parameter_names(calibration, cfg)
     for name, decl in (calibration.parameters or {}).items():
         where = f"[calibration.parameters.{name}]"
         bounds = list(getattr(decl, "bounds", ()) or ())
@@ -96,7 +98,13 @@ def _check_parameters(cfg: Any, calibration: Any) -> list[PreflightFinding]:
         target = decl.resolve_target()
         if not target:
             findings.append(
-                PreflightFinding("error", where, "no 'path' (or 'target') to write into.")
+                PreflightFinding(
+                    "error",
+                    where,
+                    # The finding already names the section in its 'where' column.
+                    refused_names.get(name, "").replace(f"{where} ", "", 1)
+                    or "names nothing this project carries, and writes no 'path' either.",
+                )
             )
             continue
         if target not in reachable:

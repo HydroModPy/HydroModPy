@@ -117,7 +117,43 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
             format_validation_error(exc, source_path=path, loc_prefix=("calibration",))
         ) from None
     _resolve_stream_geometry_paths(cfg, path)
+    _resolve_parameter_names(cfg, path)
     return cfg, raw
+
+
+def _resolve_parameter_names(cfg: CalibrationConfig, config_path: Path) -> None:
+    """Complete every parameter from the target it points at.
+
+    The catalogue is read off the resolved project configuration, which this
+    section is one part of, so the project is built here. Anchored on the same
+    file, and idempotent like :func:`_resolve_stream_geometry_paths`, because a
+    declaration is only ever completed where the file said nothing.
+    """
+    from hydromodpy.calibration.parameter_resolution import (
+        UnresolvedParameterName,
+        resolve_parameter_targets,
+    )
+
+    if not getattr(cfg, "parameters", None):
+        return
+    from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+
+    try:
+        project_cfg = get_root_config_provider().from_toml(config_path)
+    except UnresolvedParameterName:
+        # The names are the file's own business and the message already says which
+        # one is wrong. Swallowing it here left the run to fail three steps later
+        # on "must declare a 'path'", which accuses the form this file no longer
+        # has to write.
+        raise
+    except Exception:
+        # A file that is not a runnable project has nothing to resolve against.
+        # Loading must stay possible anyway: `--list-phases` runs on a machine
+        # holding none of the data, and the parameter without a path is refused
+        # by the space and the preflight with their own message.
+        logger.debug("No project configuration to resolve parameter names against", exc_info=True)
+        return
+    resolve_parameter_targets(cfg, project_cfg)
 
 
 def _resolve_stream_geometry_paths(cfg: CalibrationConfig, config_path: Path) -> None:
@@ -373,6 +409,79 @@ def _tolerance_intervals_or_none(
             exc,
         )
         return []
+
+
+def _log_parameter_interval(interval: ParameterInterval, best: EvaluationResult | None) -> None:
+    """Log the range the trials could not tell apart from one calibrated value.
+
+    A value that reaches a search bound is the best point of a search that was
+    forbidden to look further, not a value the trials converged onto: that is
+    a warning, not an informational line, and it names the cost it was reached at.
+    """
+    reach = [
+        side
+        for side, hit in (
+            ("lower", interval.reaches_lower_bound),
+            ("upper", interval.reaches_upper_bound),
+        )
+        if hit
+    ]
+    if reach:
+        logger.warning(
+            "%s = %.4g reached the %s search bound, at a cost of %.4g: this is the best "
+            "point of a search that was forbidden to look further, not a value the trials "
+            "converged onto.",
+            interval.name,
+            interval.best,
+            " and ".join(reach),
+            best.objective_value if best is not None else float("nan"),
+        )
+        return
+    logger.info(
+        "%s = %.4g, and %d of %d trials scored within %.3g of the best over [%.4g, %.4g].",
+        interval.name,
+        interval.best,
+        interval.n_within,
+        interval.n_trials,
+        interval.threshold,
+        interval.lower,
+        interval.upper,
+    )
+
+
+def _network_k_over_r_extra(
+    *,
+    has_network_output: bool,
+    components: Mapping[str, float] | None,
+    best_parameters: Mapping[str, float] | None,
+) -> dict[str, Any]:
+    """Return the ``k_over_r`` entries for ``CalibrationReport.extra``, or nothing.
+
+    A network criterion keeps the drain conductance proportional to the
+    conductivity (see ``_assert_network_conductance_proportional``), so it only
+    ever identifies the ratio K/R: any (K, R) pair with the same ratio scores
+    identically. ``best_parameters`` carries the raw value a bisection network
+    stage moved, which means nothing without the R it was measured against
+    (``R_mean_m_s``, see ``hydromodpy.core.stream_geometry.NetworkGeometry``).
+
+    Empty when the run has no network output, no ``R_mean_m_s`` diagnostic, or
+    more than one calibrated parameter: the ratio is only defined for the
+    one-parameter root search the protocol runs.
+    """
+    if not has_network_output or not best_parameters or len(best_parameters) != 1:
+        return {}
+    recharge = (components or {}).get("R_mean_m_s")
+    if not recharge:
+        return {}
+    (value,) = best_parameters.values()
+    k_over_r = float(value) / float(recharge)
+    return {
+        "k_over_r": k_over_r,
+        "k_over_r_note": (
+            f"k_over_r = {k_over_r:.4g}, against R_mean_m_s = {float(recharge):.4g} m/s: "
+            "the ratio is not a conductivity."
+        ),
+    }
 
 
 def attach_a_linearized_width(
@@ -796,31 +905,22 @@ def run_calibration_core(
             )
 
     for interval in intervals:
-        reach = [
-            side
-            for side, hit in (
-                ("lower", interval.reaches_lower_bound),
-                ("upper", interval.reaches_upper_bound),
-            )
-            if hit
-        ]
-        logger.info(
-            "%s = %.4g, and %d of %d trials scored within %.3g of the best over [%.4g, %.4g]%s.",
-            interval.name,
-            interval.best,
-            interval.n_within,
-            interval.n_trials,
-            interval.threshold,
-            interval.lower,
-            interval.upper,
-            f"; that range runs into the {' and '.join(reach)} search bound" if reach else "",
-        )
+        _log_parameter_interval(interval, best)
 
     extra: dict[str, Any] = {}
     if correlated:
         extra["correlated_parameters"] = correlated
     if intervals:
         extra["parameter_intervals"] = [interval.to_dict() for interval in intervals]
+    extra.update(
+        _network_k_over_r_extra(
+            has_network_output=any(
+                output.support == "network" for output in (cfg.outputs or {}).values()
+            ),
+            components=best.components if best is not None else None,
+            best_parameters=values_by_trial.get(best.trial_id) if best is not None else None,
+        )
+    )
 
     return CalibrationReport(
         session_id=session_id,

@@ -10,9 +10,12 @@ Minimal TOML::
     seed         = 42
 
     [calibration.parameters]
-    K_aquifer  = { bounds = [1e-6, 1e-3], transform = "log" }
-    Sy_main    = { bounds = [0.02, 0.30] }
-    drain_cond = { bounds = [1e-4, 1e-1], transform = "log" }
+    K  = { bounds = [1e-6, 1e-3] }
+    Sy = { bounds = [0.02, 0.30] }
+
+The name of the section is the name of the quantity: ``K`` is resolved against
+what the project exposes, and ``hmp config targets`` prints the names a given
+project carries.
 
 Enriched TOML (twin-benchmark style)::
 
@@ -99,9 +102,11 @@ are kept in step by
 class CalibParameterDecl(HydroModelBase):
     """User declaration for one calibrated parameter.
 
-    The declaration is read from ``[calibration.parameters.<name>]``. It
-    defines the physical bounds, the sampling transform, and optionally the
-    target path in ``HydroModPyConfig`` that receives each sampled value.
+    The declaration is read from ``[calibration.parameters.<name>]``, and the
+    section name is the quantity: it is resolved against the catalogue the
+    project exposes, so a file states the range and nothing else. Writing
+    ``path`` is the way out for whatever the catalogue does not reach, and it
+    wins without a lookup.
 
     Use ``mode="replace"`` for direct parameter values and ``mode="scale"``
     for multiplicative factors applied to an existing config value.
@@ -111,12 +116,16 @@ class CalibParameterDecl(HydroModelBase):
         default=None,
         min_length=2,
         max_length=2,
-        description="[low, high] physical bounds. Inherits from Pydantic annotation when omitted.",
+        description="[low, high] physical bounds, in the unit the target declares. "
+        "Falls back to what the field annotates when the file omits it, which most "
+        "fields deliberately leave unset because a range belongs to the site.",
     )
     transform: Annotated[Literal["identity", "log", "logit"], Profile.USER] = Field(
         default="identity",
         description="Transform applied before sampling. 'log' for "
-        "strictly-positive quantities spanning orders of magnitude.",
+        "strictly-positive quantities spanning orders of magnitude. Unset, the "
+        "target's own field decides: a hydraulic conductivity declares 'log' where "
+        "it is defined, so a file states this only to depart from it.",
     )
     prior: Annotated[Literal["uniform", "log_uniform", "normal"], Profile.USER] = Field(
         default="uniform",
@@ -124,8 +133,12 @@ class CalibParameterDecl(HydroModelBase):
     )
     path: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Dotted path into HydroModPyConfig. Optional: when omitted, "
-        "the caller is responsible for injection.",
+        description="Dotted path into HydroModPyConfig. Optional, and the way out "
+        "rather than the way in: when omitted, the section name is resolved against "
+        "the project catalogue ('hmp config targets' lists it). Write one to reach a "
+        "value the catalogue does not carry, or to settle a name two targets answer "
+        "to. A path written here wins without a lookup, and a parameter that writes "
+        "one inherits nothing from the field it points at.",
     )
     target: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -1083,6 +1096,20 @@ class CalibrationConfig(HydroModelBase):
             "table leaves that hash untouched and checkpoints stay resumable."
         ),
     )
+    reuse_completed_phases: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Read a phase's frozen values back from a session that already completed "
+            "it in the resumed chain, instead of solving the phase again. What it "
+            "reuses: the physical values of the best trial that session's own record "
+            "shows for that phase's parameters. What it risks: a session whose model, "
+            "mesh or input files differed produced those values for a different "
+            "problem, so a reuse is only taken when the session's recorded "
+            "params_hash can be reproduced under this run's own cache context; a "
+            "mismatch solves the phase again instead of trusting it. Off by default: "
+            "re-solving is always correct, reusing without that proof is not."
+        ),
+    )
     seed: Annotated[int | None, Profile.USER] = Field(
         default=None,
         description="Random seed for reproducibility.",
@@ -1346,12 +1373,11 @@ class CalibrationConfig(HydroModelBase):
                     f"declared: {sorted(declared_parameters)}."
                 )
             for parameter in phase.parameters:
-                path = self.parameters[parameter].resolve_target()
-                if not path:
-                    raise ValueError(
-                        f"phase {phase.name!r} calibrates {parameter!r}, which declares "
-                        "no path into the configuration, so nothing would be injected."
-                    )
+                # A parameter may name its quantity instead of writing a path, and
+                # the name is resolved against the project catalogue once the whole
+                # configuration is loaded. Until then the parameter's own name is
+                # what two phases would be freezing.
+                path = self.parameters[parameter].resolve_target() or f"<{parameter}>"
                 if phase.freeze_on_success:
                     owner = frozen_by.get(path)
                     if owner is not None:

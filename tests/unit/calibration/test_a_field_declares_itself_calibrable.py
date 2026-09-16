@@ -13,7 +13,7 @@ repository writes to.
 
 from __future__ import annotations
 
-from hydromodpy.calibration.optim.parameters import discover_calibrable
+from hydromodpy.calibration.targets import declared_calibrable
 from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.spatial.field.core._field_param_sections import FieldHomogeneousSection
 
@@ -55,15 +55,15 @@ class TestWhatIsAnnotated:
         assert found is not None
         assert found.bounds is None
 
-    def test_the_walk_now_finds_it(self) -> None:
-        found = discover_calibrable(FieldHomogeneousSection)
+    def test_the_catalogue_reads_it_off_the_field(self) -> None:
+        """The walk that builds the catalogue is the one that collects it."""
+        found = declared_calibrable(FieldHomogeneousSection.model_fields["value"])
 
-        assert "value" in found
-        assert isinstance(found["value"], Calibrable)
+        assert isinstance(found, Calibrable)
 
-    def test_the_walk_reaches_it_through_a_flow_parameter(self) -> None:
-        from hydromodpy.physics.flow.flow_param_config import FlowParam
+    def test_it_declares_itself_the_value_of_its_parameter(self) -> None:
+        """Which is what lets a file write 'K' instead of 'K.value'."""
+        found = declared_calibrable(FieldHomogeneousSection.model_fields["value"])
 
-        found = discover_calibrable(FlowParam)
-
-        assert any(path.endswith("value") for path in found), sorted(found)
+        assert found is not None
+        assert found.is_the_value_of_its_instance
