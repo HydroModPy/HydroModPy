@@ -288,13 +288,32 @@ def test_dirichlet_side_forcing_rejects_value_plus_forcing() -> None:
         )
 
 
-def test_ocean_forcing_is_rejected() -> None:
-    with pytest.raises(ValueError, match="only supported for side Dirichlet boundaries"):
+def test_ocean_forcing_is_accepted() -> None:
+    """A tide moves, and the backends already read the ocean head per period."""
+    config = _build_flow_config(
+        {
+            "bc": {
+                "ocean": {
+                    "kind": "dirichlet",
+                    "forcing": {
+                        "mode": "constant",
+                        "value": 0.0,
+                    },
+                }
+            }
+        }
+    )
+    assert config.bc["ocean"].forcing is not None
+
+
+def test_drainage_forcing_is_rejected() -> None:
+    """A Cauchy drain has no head to force, and its schema says so."""
+    with pytest.raises(ValueError, match="forcing"):
         _build_flow_config(
             {
                 "bc": {
-                    "ocean": {
-                        "kind": "dirichlet",
+                    "drainage": {
+                        "kind": "cauchy",
                         "forcing": {
                             "mode": "constant",
                             "value": 0.0,
