@@ -1647,7 +1647,7 @@
       },
       "CalibParameterDecl": {
         "additionalProperties": false,
-        "description": "User declaration for one calibrated parameter.\n\nThe declaration is read from ``[calibration.parameters.<name>]``. It\ndefines the physical bounds, the sampling transform, and optionally the\ntarget path in ``HydroModPyConfig`` that receives each sampled value.\n\nUse ``mode=\"replace\"`` for direct parameter values and ``mode=\"scale\"``\nfor multiplicative factors applied to an existing config value.",
+        "description": "User declaration for one calibrated parameter.\n\nThe declaration is read from ``[calibration.parameters.<name>]``, and the\nsection name is the quantity: it is resolved against the catalogue the\nproject exposes, so a file states the range and nothing else. Writing\n``path`` is the way out for whatever the catalogue does not reach, and it\nwins without a lookup.\n\nUse ``mode=\"replace\"`` for direct parameter values and ``mode=\"scale\"``\nfor multiplicative factors applied to an existing config value.",
         "properties": {
           "bounds": {
             "anyOf": [
@@ -1664,13 +1664,13 @@
               }
             ],
             "default": null,
-            "description": "[low, high] physical bounds. Inherits from Pydantic annotation when omitted.",
+            "description": "[low, high] physical bounds, in the unit the target declares. Falls back to what the field annotates when the file omits it, which most fields deliberately leave unset because a range belongs to the site.",
             "title": "Bounds",
             "x-hmp-profile": "user"
           },
           "transform": {
             "default": "identity",
-            "description": "Transform applied before sampling. 'log' for strictly-positive quantities spanning orders of magnitude.",
+            "description": "Transform applied before sampling. 'log' for strictly-positive quantities spanning orders of magnitude. Unset, the target's own field decides: a hydraulic conductivity declares 'log' where it is defined, so a file states this only to depart from it.",
             "enum": [
               "identity",
               "log",
@@ -1708,7 +1708,7 @@
               }
             ],
             "default": null,
-            "description": "Dotted path into HydroModPyConfig. Optional: when omitted, the caller is responsible for injection.",
+            "description": "Dotted path into HydroModPyConfig. Optional, and the way out rather than the way in: when omitted, the section name is resolved against the project catalogue ('hmp config targets' lists it). Write one to reach a value the catalogue does not carry, or to settle a name two targets answer to. A path written here wins without a lookup, and a parameter that writes one inherits nothing from the field it points at.",
             "title": "Path",
             "x-hmp-profile": "user"
           },
@@ -2228,6 +2228,16 @@
             "title": "Phases",
             "x-hmp-profile": "user"
           },
+          "reuse_completed_phases": {
+            "default": false,
+            "description": "Read a phase's frozen values back from a session that already completed it in the resumed chain, instead of solving the phase again. What it reuses: the physical values of the best trial that session's own record shows for that phase's parameters. What it risks: a session whose model, mesh or input files differed produced those values for a different problem, so a reuse is only taken when the session's recorded params_hash can be reproduced under this run's own cache context; a mismatch solves the phase again instead of trusting it. Off by default: re-solving is always correct, reusing without that proof is not.",
+            "examples": [
+              false
+            ],
+            "title": "Reuse Completed Phases",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
           "seed": {
             "anyOf": [
               {
@@ -2602,8 +2612,16 @@
                 "type": "null"
               }
             ],
+            "calibrable": {
+              "bounds": null,
+              "description": "",
+              "is_the_value_of_its_instance": true,
+              "prior": "log_uniform",
+              "transform": "log",
+              "units": "m2/s"
+            },
             "default": null,
-            "description": "Boundary-condition value, scalar or one value per stress period. On a drainage boundary it is a conductance in m2/s, and it may be left out: the run then derives it from the conductivity, C = K * cell_area / solver.drain_bed_thickness_m, which keeps the drain proportional to K and makes K/R the quantity a network calibration searches. A zero or negative number selects that same derivation, so it does NOT mean a closed boundary; write a positive conductance to impose one.",
+            "description": "Drain conductance [L^2/T]. It may be left out: the run then derives it from the conductivity, C = K * cell_area / solver.drain_bed_thickness_m, which keeps the drain proportional to K and makes K/R the quantity a network calibration searches. A zero or negative number selects that same derivation, so it does NOT mean a closed boundary; write a positive conductance to impose one.",
             "title": "Value",
             "x-hmp-profile": "user"
           },
@@ -5729,6 +5747,14 @@
                 "type": "null"
               }
             ],
+            "calibrable": {
+              "bounds": null,
+              "description": "",
+              "is_the_value_of_its_instance": true,
+              "prior": "log_uniform",
+              "transform": "log",
+              "units": null
+            },
             "default": null,
             "description": "Inline key/value mapping used when values_source='inline'. Keys are zone/material ids, values are numeric parameter values.",
             "title": "Values",
@@ -5839,6 +5865,7 @@
             "calibrable": {
               "bounds": null,
               "description": "Scalar value of a homogeneous field parameter. The target every calibration in the repository writes to.",
+              "is_the_value_of_its_instance": true,
               "prior": "log_uniform",
               "transform": "log",
               "units": null
@@ -6119,7 +6146,7 @@
               }
             ],
             "default": null,
-            "description": "Absolute TOP elevation of the barrier [m, model datum]; defaults to the cell top (the DEM). Set it when the barrier crest sits below the DEM top.",
+            "description": "Absolute TOP elevation of the barrier [m, model datum]; defaults to the cell top (the DEM). Set it when the barrier crest sits below the DEM top. Not calibratable: raising the crest and lowering hydchr both shrink the flow section the wall lets through, so a search cannot tell the two apart. It is a built structure, not a fitted number; path = in [calibration.parameters] still reaches it for whoever wants to override this deliberately.",
             "title": "Crest Elevation",
             "x-hmp-profile": "user"
           },
@@ -6133,7 +6160,7 @@
               }
             ],
             "default": null,
-            "description": "Absolute BOTTOM elevation of the barrier [m, model datum]. When set, the HFB spans [base_elevation, crest_elevation or top] and blocks EVERY layer in that band. Use it to make a full-height dam impervious: the concrete body plus the grout curtain block all flow from the crest down to the curtain foot (e.g. base_elevation = 41 m), so nothing seeps across the dam above that. Mutually exclusive with depths.",
+            "description": "Absolute BOTTOM elevation of the barrier [m, model datum]. When set, the HFB spans [base_elevation, crest_elevation or top] and blocks EVERY layer in that band. Use it to make a full-height dam impervious: the concrete body plus the grout curtain block all flow from the crest down to the curtain foot (e.g. base_elevation = 41 m), so nothing seeps across the dam above that. Mutually exclusive with depths. Not calibratable: a deeper foot and a lower hydchr produce the same reduction of under-dam flow, so putting both in a search is equifinality by construction, the same mechanism that makes the second stage of the stream-network protocol pin the specific yield on its bound. When the foot is genuinely unknown, run mode = \"comparison\", one elevation per run, which also yields a defensible sensitivity instead of a fitted number; path = in [calibration.parameters] still reaches it for an override.",
             "title": "Base Elevation",
             "x-hmp-profile": "user"
           },
@@ -6147,6 +6174,14 @@
                 "type": "null"
               }
             ],
+            "calibrable": {
+              "bounds": null,
+              "description": "",
+              "is_the_value_of_its_instance": false,
+              "prior": "log_uniform",
+              "transform": "log",
+              "units": "1/s"
+            },
             "default": null,
             "description": "HFB hydraulic characteristic [1/T] = K_barrier / thickness_barrier. A near-zero value (e.g. 1e-9 1/s) is a quasi-impermeable wall. Mutually exclusive with k + thickness.",
             "title": "Hydchr",
@@ -6172,6 +6207,14 @@
                 "type": "null"
               }
             ],
+            "calibrable": {
+              "bounds": null,
+              "description": "",
+              "is_the_value_of_its_instance": false,
+              "prior": "log_uniform",
+              "transform": "log",
+              "units": "m/s"
+            },
             "default": null,
             "description": "Barrier hydraulic conductivity [L/T]; used with thickness when hydchr is unset.",
             "title": "K",
@@ -7439,6 +7482,14 @@
         "description": "Typed boundary-condition payload for one MODFLOW 6 LAK lake.\n\nThe lake exchanges with the aquifer through its CONNECTIONDATA, parameterized\nby ``bedleak`` (the lake-bed leakance, 1/T). ``stageinit`` is the initial lake\nstage. ``outlets`` declare the surverse / spillway / controlled releases; the\ntransient forcings (``rainfall`` and ``evaporation`` as rates L/T, ``runoff``,\n``inflow`` and ``withdrawal`` as volumetric L^3/T) are optional runtime\ndeclarations resolved against ``[simulation.time]``.\n\nFile references (geometry polygon, bathymetry raster, stage-volume-area\nabacus, observed levels) are declared separately in the data layer.",
         "properties": {
           "bedleak": {
+            "calibrable": {
+              "bounds": null,
+              "description": "",
+              "is_the_value_of_its_instance": false,
+              "prior": "log_uniform",
+              "transform": "log",
+              "units": "1/s"
+            },
             "description": "Lake-bed leakance [1/T] = K_bed / thickness_bed. Resistance of the lake-aquifer interface; the under-dam leakage calibration parameter. 0 means a perfectly sealed lakebed (no leakage).",
             "examples": [
               1.0
@@ -8607,6 +8658,14 @@
             "x-hmp-profile": "user"
           },
           "manning": {
+            "calibrable": {
+              "bounds": null,
+              "description": "",
+              "is_the_value_of_its_instance": false,
+              "prior": "uniform",
+              "transform": "identity",
+              "units": "s/m^(1/3)"
+            },
             "default": 0.035,
             "description": "Manning roughness coefficient n [T/L^(1/3)] (> 0). Default 0.035.",
             "examples": [
@@ -8618,6 +8677,14 @@
             "x-hmp-profile": "user"
           },
           "streambed_k": {
+            "calibrable": {
+              "bounds": null,
+              "description": "",
+              "is_the_value_of_its_instance": false,
+              "prior": "log_uniform",
+              "transform": "log",
+              "units": "m/s"
+            },
             "default": 1e-06,
             "description": "Streambed hydraulic conductivity rhk [L/T]. 0 = no reach-aquifer leakage (pure routing).",
             "examples": [
@@ -9000,7 +9067,7 @@
           },
           "outflow_value": {
             "default": 1.0,
-            "description": "MVR value: the fraction for FACTOR, or the flow rate [L^3/T] for UPTO / EXCESS / THRESHOLD.",
+            "description": "MVR value: the fraction for FACTOR, or the flow rate [L^3/T] for UPTO / EXCESS / THRESHOLD. Not calibratable: it is a coupling rule, not a hydraulic property of the reach or the lake, so letting a search move it would buy fit by reshaping how water is split between them rather than resolve streambed_k or the lake bathymetry, the actual unknowns. path = in [calibration.parameters] still reaches it for whoever wants to override this deliberately.",
             "examples": [
               1.0
             ],
@@ -9249,8 +9316,16 @@
         "description": "Typed payload for diffuse recharge over the model domain.\n\nRecharge drives the MODFLOW RCH package. The conversion to MODFLOW\nstress-period dictionaries is handled by\n``FlowToModflowAdapter._build_recharge_payload``. Negative values can be\nrouted to EVT when ``negative_to_evt`` is enabled.\n\nAttributes\n----------\nvalues :\n    Recharge payload. Accepted forms:\n\n    - **scalar** ``float``: uniform rate applied to every stress period,\n    - **list / numpy array**: one value per stress period\n      (length must match ``nper``),\n    - **mapping** ``{period_index: value}``: explicit per-period assignment,\n    - **runtime series** (pandas-like object with ``.iloc``): used when\n      recharge is computed dynamically (e.g. from PyHELP output).\n\nfirst_clim : str | float\n    Policy for stress-period 0 when ``values`` is a sequence.\n    MODFLOW steady-state warm-up periods often need a representative rate\n    that differs from the first raw time step. Options:\n\n    - ``\"mean\"``: arithmetic mean of the entire series (default),\n    - ``\"first\"``: first value of the series,\n    - *numeric*: explicit scalar.\n\nunits : str\n    Physical units of ``values``. The flow runtime converts the payload\n    to SI ``m/s`` when the process is built.",
         "properties": {
           "values": {
+            "calibrable": {
+              "bounds": null,
+              "description": "",
+              "is_the_value_of_its_instance": false,
+              "prior": "uniform",
+              "transform": "identity",
+              "units": "m/s"
+            },
             "default": 0.0,
-            "description": "Recharge payload: scalar, list (one per stress period), mapping {kper: value}, or runtime series.",
+            "description": "Recharge payload: scalar, list (one per stress period), mapping {kper: value}, or runtime series. The 'matching_hydrographic_network' protocol calibrates conductivity against the ratio K/R in its steady stage and requires this value held frozen there.",
             "examples": [
               0.0
             ],
@@ -9515,6 +9590,14 @@
                 "type": "null"
               }
             ],
+            "calibrable": {
+              "bounds": null,
+              "description": "",
+              "is_the_value_of_its_instance": false,
+              "prior": "uniform",
+              "transform": "identity",
+              "units": "m3/s"
+            },
             "default": null,
             "description": "Well rate [L^3/T]. Scalar for constant rate, or one value per stress period. Negative = pumping, positive = injection.",
             "title": "Flux",
@@ -19375,8 +19458,16 @@
                 "type": "null"
               }
             ],
+            "calibrable": {
+              "bounds": null,
+              "description": "",
+              "is_the_value_of_its_instance": true,
+              "prior": "log_uniform",
+              "transform": "log",
+              "units": "m2/s"
+            },
             "default": null,
-            "description": "Boundary-condition value, scalar or one value per stress period. On a drainage boundary it is a conductance in m2/s, and it may be left out: the run then derives it from the conductivity, C = K * cell_area / solver.drain_bed_thickness_m, which keeps the drain proportional to K and makes K/R the quantity a network calibration searches. A zero or negative number selects that same derivation, so it does NOT mean a closed boundary; write a positive conductance to impose one.",
+            "description": "Drain conductance [L^2/T]. It may be left out: the run then derives it from the conductivity, C = K * cell_area / solver.drain_bed_thickness_m, which keeps the drain proportional to K and makes K/R the quantity a network calibration searches. A zero or negative number selects that same derivation, so it does NOT mean a closed boundary; write a positive conductance to impose one.",
             "title": "Value",
             "x-hmp-profile": "user"
           },

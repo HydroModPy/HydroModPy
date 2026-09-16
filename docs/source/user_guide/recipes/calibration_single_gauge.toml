@@ -44,11 +44,11 @@ save_runs = "best_n"
 save_best_n = 1
 rerun_best_with_outputs = true
 
+# `K` is the id this project declares in [flow].param_list, and it is resolved
+# against what the project exposes: neither the path nor the log space a
+# conductivity is searched in has to be written here.
 [calibration.parameters.K]
 # Bounds are the statement of what the site could plausibly be. Six decades is
 # what a fractured basement aquifer spans; narrow it when a pumping test or a
 # regional map says more.
 bounds = [1e-7, 1e-3]
-transform = "log"
-path = "flow.param.K.field.value"
-units = "m/s"

@@ -42,17 +42,14 @@ persist_iteration_detail = "full"
 start = "2001-01-01"
 end = "2005-12-31"
 
+# The section name is the quantity. It is resolved against what the project
+# exposes, so the log space and the unit come from the field and only the range,
+# which belongs to the site, is written here. `hmp config targets` lists the names.
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
-path = "flow.param.K.field.value"
-units = "m/s"
 
 [calibration.parameters.Sy]
 bounds = [5e-3, 0.35]
-transform = "log"
-path = "flow.param.Sy.field.value"
-units = "-"
 
 # --- What is observed -------------------------------------------------------
 #
