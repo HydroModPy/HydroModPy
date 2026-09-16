@@ -49,6 +49,18 @@ Each release section includes the following standard categories:
   `ResolvedSimulationTimeGrid`, not reviving a parallel temporal model.
 
 ### Changed
+- A NetCDF export writes a layered field as one variable per layer, named
+  `<var>` on a single-layer model and `<var>_layer<N>` above it, and no longer
+  carries a `layer` dimension. QGIS cannot read a third dimension and most
+  catchment models run on one layer. `import_netcdf_fields` stacks the layers
+  back, so a round trip through the file is unchanged for everything but a
+  single-layer field, which comes back without its layer axis.
+- `hmp data export --list` names the fields a run exposes. It listed the
+  geographic rasters, the vector features and the runs, but never the field
+  names `--var` expects, so the only list that answers "what can I export" was
+  the one it did not print. It also says which run it read, and reads the one
+  `--sim` names when given, else the last live one: a trashed run was silently
+  becoming the source.
 - `simulation.time.substeps_per_period` documents what its default costs. One
   backward-Euler step per stress period moves the monthly discharge by 4 to
   28 % against a refined run on a seasonally recharged hillslope drained by DRN
@@ -60,6 +72,26 @@ Each release section includes the following standard categories:
   A validation case now states the size of the drift.
 
 ### Fixed
+- A NetCDF export was unusable in QGIS. Three causes, all in
+  `results/exporters/netcdf.py`. The file georeferenced itself the CF way, a
+  `crs` variable holding `crs_wkt`; MDAL, which is what QGIS opens a UGRID mesh
+  with, looks up one variable by name and parses WKT1 only, so it kept no CRS
+  and QGIS drew the mesh in the project CRS, nowhere near the catchment. A
+  field stored per layer was written as one `(time, layer, face)` array, which
+  MDAL ignores outright: `drain` simply did not appear among the dataset
+  groups. And the face centroids, undeclared on the mesh variable, read as two
+  datasets to plot. Checked against QGIS 3.x: the mesh now loads in EPSG:2154
+  with one group per field and 36 steps each.
+- Re-exporting a NetCDF onto a file QGIS still had open truncated it to zero
+  bytes: netCDF4 truncates before it writes and HDF5 then failed on the lock.
+  The write goes to a neighbouring file and is renamed into place, so a failed
+  export destroys nothing and an open layer keeps reading what it has.
+- `hmp data export` refused every per-cell budget field. Its own field filter
+  rebuilt the "what is readable here" rule and looked at the store root and
+  `derived/` only, so `drain` and `recharge`, which live under `budget/`, were
+  reported as not exportable while `hmp.export()` wrote them without trouble.
+  The filter now reads `run.array.list_fields()`, the single source of truth
+  the readers already share.
 - CI no longer runs the Whitebox-backed tests inside an xdist worker. The native
   binding dies outright when several DEM workflows share one long-lived worker,
   and the `xdist_group` that stops two workers touching the backend at once is
