@@ -49,6 +49,13 @@ Each release section includes the following standard categories:
   `ResolvedSimulationTimeGrid`, not reviving a parallel temporal model.
 
 ### Changed
+- Example 04 renders eight figures instead of twenty. What went were the
+  duplicates, not the diagnostics: four comparison panels folding the same 36
+  residuals, a duration curve over 36 monthly points, a boxplot of three
+  values per month, a budget bar summing timestep rates, and three network
+  maps the confusion map already covers. Every figure drawing one instant now
+  draws the same one, October 2002, the driest month, rather than the default
+  last timestep, a December whose network is nearly full.
 - A NetCDF export writes a layered field as one variable per layer, named
   `<var>` on a single-layer model and `<var>_layer<N>` above it, and no longer
   carries a `layer` dimension. QGIS cannot read a third dimension and most
@@ -72,6 +79,10 @@ Each release section includes the following standard categories:
   A validation case now states the size of the drift.
 
 ### Fixed
+- `hydrograph_log_nse` wrote its note across its own legend: pinned to the
+  upper left, its longest line reaches the upper right whatever the axes width.
+  The note sits on the log floor, a band the limits leave empty by
+  construction.
 - A NetCDF export was unusable in QGIS. Three causes, all in
   `results/exporters/netcdf.py`. The file georeferenced itself the CF way, a
   `crs` variable holding `crs_wkt`; MDAL, which is what QGIS opens a UGRID mesh

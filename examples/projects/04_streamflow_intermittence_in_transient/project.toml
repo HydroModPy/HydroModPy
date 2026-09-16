@@ -159,33 +159,58 @@ tolerance = 75.0
 
 [display]
 on_error = "raise"
+
+# Eight figures, read in this order: the catchment, what enters and leaves it,
+# what the gauge saw, then the four that answer the question the example asks,
+# which reaches dry up and when. Nothing here is drawn twice: a figure that
+# restates another one on a different axis was dropped rather than kept as a
+# second opinion. `hmp viz show <name>` renders any of the others on demand.
+#
+# One hydrograph, not three: hydrograph_log_nse draws the same simulated and
+# observed series as hydrograph_sim_obs, on the axis an intermittent catchment
+# is read on, and marks the window the second calibration stage scores.
+#
+# The four after the blank line only apply to a run the calibration promoted,
+# and skip themselves, with a reason, on a plain `hmp run`.
 figures = [
     "watershed_id_card",
-    "mesh_map",
-    "piezometric_map",
-    "watertable_depth_map",
+    "flux_timeseries",
+    "hydrograph_log_nse",
+    "cross_section",
     "seepage_map",
     "flow_persistence_map",
     "flow_intermittence_map",
-    "simulated_active_network",
-    "simulated_active_network_reference_overlay",
-    "hydrographic_network_reference",
-    "hydrograph",
-    "hydrograph_sim_obs",
-    "scatter_one_to_one",
-    "residuals",
-    "duration_curve",
-    "seasonal_boxplot",
-    "flux_timeseries",
-    "cross_section",
-    "water_budget",
-    "mass_balance_error",
+    "seepage_network_confusion_map",
+
     "downslope_distance_crossing",
-    "downslope_distance_map",
     "bisection_bracket_trace",
     "parameter_cost_profile",
-    "seepage_network_reference_overlay",
-    "seepage_network_confusion_map",
-    "hydrograph_log_nse",
     "matching_hydrographic_network_card",
 ]
+
+# Every figure that draws one instant draws the SAME instant: step 34 of 36,
+# October 2002, the driest month of the record, and the month that makes the
+# point. The default, the last timestep, is a December: the network is nearly
+# full there and the maps show an intermittence no reader can see.
+[display.overrides.seepage_map]
+timestep = 33
+
+# South to north through the outlet: the west-east default crosses the valley
+# once, at the southern edge of the catchment. This one cuts the tributaries
+# across, so the water table shows one dome per interfluve and touches the
+# ground at each seepage face.
+[display.overrides.cross_section]
+timestep = 33
+orientation = "sn"
+
+# The two cells maps do not cover the same window, and that is the point:
+# persistence answers over the three years, intermittence classifies inside
+# one. Both now name their window in the title, so the 787 cells that flowed
+# in 2000-2001 and never in 2002 read as a dry year and not as a contradiction.
+[display.overrides.flow_intermittence_map]
+cycle = "2002"
+
+# The window [calibration.protocol.scoring_window] scores, so the figure shades
+# the samples the NSElog reads instead of announcing it was not told.
+[display.overrides.hydrograph_log_nse]
+scoring_window = ["2001-01-01", "2002-12-31"]
