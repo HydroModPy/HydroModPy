@@ -22,6 +22,7 @@ from hydromodpy.spatial.field.core._field_param_sections import (
     FieldKind,
     FieldVerticalProfileSection,
     HeterogeneousValueSource,
+    coerce_scalar_value_with_unit,
 )
 from hydromodpy.spatial.field.core._field_param_units import UnitStr
 
@@ -115,6 +116,16 @@ class ResolvedFieldParam(HydroModelBase):
         if any(str(key).strip() == "" for key in values):
             raise ValueError("values cannot contain empty keys")
         return values
+
+    @model_validator(mode="after")
+    def _coerce_value_with_declared_unit(self):
+        if isinstance(self.value, str):
+            scalar, resolved_unit = coerce_scalar_value_with_unit(
+                self.value, self.unit, location=f"{self.id or 'field'}.value"
+            )
+            object.__setattr__(self, "value", scalar)
+            object.__setattr__(self, "unit", resolved_unit)
+        return self
 
     @model_validator(mode="after")
     def _validate_by_kind(self):

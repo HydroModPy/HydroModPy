@@ -158,7 +158,10 @@ def test_validate_resolved_field_param_data_accepts_homogeneous_inline_value():
             "value": "3.5 m/day",
         }
     )
-    assert payload["value"] == "3.5 m/day"
+    # The string form is coerced now, the way a boundary value always was:
+    # the number goes to "value" and the unit to its sibling.
+    assert payload["value"] == 3.5
+    assert payload["unit"] == "m/day"
 
 
 def test_validate_resolved_field_param_data_rejects_homogeneous_boolean_value():

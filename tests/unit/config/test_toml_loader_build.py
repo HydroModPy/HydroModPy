@@ -206,7 +206,8 @@ def test_hydromodpy_config_from_dict_resolves_nested_geographic_catchment(
     assert cfg.flow.param["K"].resolved_payload(param_id="K") == {
         "id": "K",
         "kind": "homogeneous",
-        "value": "1.0e-4 m/s",
+        "value": 1e-4,
+        "unit": "m/s",
     }
 
 
