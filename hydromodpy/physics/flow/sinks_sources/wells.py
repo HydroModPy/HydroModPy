@@ -18,6 +18,8 @@ import pandas as pd
 from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.calibrable import Calibrable
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr
 from hydromodpy.core.tracking import InputFile
@@ -402,6 +404,8 @@ class FlowWellConfig(HydroModelBase):
             "Well rate [L^3/T]. Scalar for constant rate, or one value per stress period. "
             "Negative = pumping, positive = injection."
         ),
+        # A pumping rate is negative, so a log transform is not available to it.
+        json_schema_extra=field_metadata(calibrable=Calibrable(units="m3/s")),
     )
     forcing: Annotated[FlowWellForcingConfig | None, Profile.DEV] = Field(
         default=None,

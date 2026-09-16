@@ -7,6 +7,8 @@ from typing import Annotated, Any
 from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.calibrable import Calibrable
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.physics.flow.sinks_sources._units import normalize_first_clim
 from hydromodpy.physics.forcing.types import InterpolationMethod, SpatialMode
@@ -55,8 +57,12 @@ class FlowRechargeConfig(HydroModelBase):
         default=0.0,
         description=(
             "Recharge payload: scalar, list (one per stress period), "
-            "mapping {kper: value}, or runtime series."
+            "mapping {kper: value}, or runtime series. The "
+            "'matching_hydrographic_network' protocol calibrates conductivity "
+            "against the ratio K/R in its steady stage and requires this value "
+            "held frozen there."
         ),
+        json_schema_extra=field_metadata(calibrable=Calibrable(units="m/s")),
     )
     heterogeneous_source: Annotated[Any, Profile.DEV] = Field(
         default=None,

@@ -32,6 +32,8 @@ from typing import Annotated, Literal, TypeAlias
 from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.calibrable import Calibrable
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr
 from hydromodpy.core.tracking import InputFile
@@ -80,7 +82,17 @@ SIDE_DIRICHLET_BC_IDS = {
     "east_side",
     "west_side",
 }
-"""Dirichlet ids eligible for launcher-managed transient forcing."""
+"""Dirichlet ids applied on one lateral face of the domain."""
+
+FORCING_CAPABLE_DIRICHLET_BC_IDS = SIDE_DIRICHLET_BC_IDS | {"stream", "ocean"}
+"""Dirichlet ids whose head may follow a chronicle rather than stay a number.
+
+A tide and a stream stage move, and every backend that builds these boundaries
+already reads their head as one value per stress period, so the declaration is
+what was missing rather than the physics. The registry states the same thing
+per boundary through ``supports_forcing``; the two are kept in step by
+``tests/unit/physics/test_flow_boundary_forcing_capability.py``.
+"""
 
 
 _BOUNDARY_UNIT_TARGETS: dict[str, tuple[str, str]] = {
@@ -353,10 +365,11 @@ class FlowBoundaryConditionConfig(HydroModelBase):
             raise ValueError("boundary.forcing cannot be combined with data_value=True")
         if self.kind != "dirichlet" and self.forcing is not None:
             raise ValueError("boundary.forcing is only supported for Dirichlet boundaries")
-        if self.forcing is not None and self.id not in SIDE_DIRICHLET_BC_IDS:
+        if self.forcing is not None and self.id not in FORCING_CAPABLE_DIRICHLET_BC_IDS:
             raise ValueError(
-                "boundary.forcing is only supported for side Dirichlet boundaries: "
-                "north_side, south_side, east_side, west_side"
+                "boundary.forcing is only supported for the Dirichlet boundaries whose "
+                "head can follow a chronicle: "
+                f"{', '.join(sorted(FORCING_CAPABLE_DIRICHLET_BC_IDS))}"
             )
         if self.value is None and self.forcing is None:
             raise ValueError("boundary requires either value or forcing")
@@ -518,6 +531,26 @@ class DirichletBC(FlowBoundaryConditionConfig):
 
 class _DrainageBC(FlowBoundaryConditionConfig):
     """Shared Cauchy/Robin boundary payload behavior."""
+
+    value: Annotated[float | list[float] | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Drain conductance [L^2/T]. It may be left out: the run then derives it "
+            "from the conductivity, C = K * cell_area / solver.drain_bed_thickness_m, "
+            "which keeps the drain proportional to K and makes K/R the quantity a "
+            "network calibration searches. A zero or negative number selects that same "
+            "derivation, so it does NOT mean a closed boundary; write a positive "
+            "conductance to impose one."
+        ),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(
+                transform="log",
+                prior="log_uniform",
+                units="m2/s",
+                is_the_value_of_its_instance=True,
+            )
+        ),
+    )
 
     @classmethod
     def _canonicalize_drainage_payload(cls, data, *, expected_kind: str):
