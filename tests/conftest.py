@@ -30,13 +30,21 @@ os.environ.setdefault("PYTHONHASHSEED", "42")
 os.environ.setdefault("HMP_WHITEBOX_REDIRECT_NATIVE_STDIO", "0")
 
 
-_LAYER_DIR_NAMES = ("unit", "integration", "validation", "regression", "e2e")
+_LAYER_DIR_NAMES = (
+    "unit",
+    "integration",
+    "validation",
+    "regression",
+    "e2e",
+    "characterization",
+)
 _LAYER_TIMEOUTS_SECONDS = {
     "unit": 60.0,
     "integration": 300.0,
     "validation": 900.0,
     "regression": 300.0,
     "e2e": 1800.0,
+    "characterization": 900.0,
 }
 _WHITEBOX_XDIST_GROUP = "whitebox_backend"
 _WHITEBOX_XDIST_GROUP_TEST_FILES = frozenset(
