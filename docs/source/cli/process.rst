@@ -1,0 +1,105 @@
+hmp process
+===========
+
+Drive a capability as an external process. A capability is a function from a
+validated input document to a directory of sealed artefacts: it opens no
+workspace, no catalog and no database, it registers nothing in the user's
+state directory, and it reaches no network.
+
+The invocation contract
+-----------------------
+
+Before invoking, the caller creates the job directory and writes **exactly
+one file** into it::
+
+    $JOBDIR/
+    `-- request.json
+
+That is the whole precondition. A directory that does not exist, or that
+carries no ``request.json``, is a usage error and exits **2** without
+writing anything.
+
+``request.json`` uses the OGC API Processes execute-request shape::
+
+    {
+      "process": {"id": "terrain-delineate", "version": "1.0.0"},
+      "inputs": {
+        "dem": {"href": "/data/dem_valley.tif",
+                "type": "image/tiff; application=geotiff"},
+        "outlets": [{"site_id": "valley", "x": 300112.5, "y": 6701262.5}],
+        "crs_project": "EPSG:2154",
+        "dem_correction_type": "breach",
+        "snap_distance_m": 100
+      }
+    }
+
+``process.version`` is advisory: a different patch or minor is a warning
+carried in the outcome, a different **major** exits 11. Unknown members of
+the envelope are warnings; unknown members of ``inputs`` exit 14, pointed at
+the key the document wrote.
+
+Sub-actions
+-----------
+
+``hmp process list [--format {table,json,csv}]``
+    The capabilities this build serves, with their version, their major and
+    the artefacts each declares.
+
+``hmp process run <id> --job DIR``
+    Run one. **stdout carries exactly one JSON document and nothing else**,
+    byte for byte the content of ``DIR/outcome.json``; every human line goes
+    to stderr. The exit code is the typed one of the outcome, so a caller
+    that tests ``$?`` and a caller that reads the document agree. SIGTERM
+    unwinds: the outcome says ``dismissed``, nothing is sealed, exit 130.
+
+``hmp process verify --job DIR [--format {table,json,csv}]``
+    Re-check a finished directory against its own seal, reading only the
+    disk: every artefact still hashes to what the seal recorded, the input
+    set still digests to the id it carries, and the outcome names the same
+    job. Nothing is repaired and nothing is rewritten. Exits **16** when the
+    directory does not verify. It is pointed at directories it did not
+    write, including ones a transfer truncated: it reports, it never crashes
+    on them.
+
+What the directory holds afterwards
+-----------------------------------
+
+::
+
+    $JOBDIR/
+    |-- request.json      written by the CALLER, the only file it writes
+    |-- inputset.json     what was consumed: resolved, hashed, licence-annotated
+    |-- provenance.json   how it ran: tool, commit, interpreter, backend, packages
+    |-- outcome.json      typed status, exit code, timing, errors
+    |-- manifest.json     the seal, written LAST and atomically
+    |-- outputs/          the declared artefacts
+    `-- logs/             diagnostics, not an artefact, not in the seal
+
+The order above is the write order, and the invariant it buys is the one a
+caller outside the process relies on:
+
+  ``manifest.json`` exists **if and only if** the job succeeded and every
+  declared output is present and hashed. Its absence is never ambiguous.
+
+A worked example
+----------------
+
+.. code-block:: console
+
+   $ mkdir -p /scratch/jobs/4711
+   $ cat > /scratch/jobs/4711/request.json <<'JSON'
+   {"process": {"id": "terrain-delineate", "version": "1.0.0"},
+    "inputs": {"dem": {"href": "/data/dem_valley.tif"},
+               "outlets": [{"site_id": "valley", "x": 300112.5, "y": 6701262.5}],
+               "crs_project": "EPSG:2154", "snap_distance_m": 100}}
+   JSON
+   $ hmp process run terrain-delineate --job /scratch/jobs/4711 \
+       > /scratch/jobs/4711.stdout.json 2> /scratch/jobs/4711.stderr.log
+   $ echo $?
+   0
+   $ hmp process verify --job /scratch/jobs/4711
+   /scratch/jobs/4711: sealed, and every artefact still hashes to what the seal recorded
+
+The produced directory opens with plain readers -- ``geopandas``,
+``rasterio``, ``json`` -- with nothing of HydroModPy imported. That is
+asserted by ``tests/e2e/process/test_stdout_is_one_json_document.py``.

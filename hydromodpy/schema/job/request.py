@@ -37,7 +37,7 @@ class ProcessRef(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str = Field(description="capability id, as its process description spells it")
+    id: str = Field(description="capability id, as 'hmp process list' spells it")
     version: str | None = Field(
         default=None,
         description="advisory capability version, x.y.z; a major mismatch is refused",
