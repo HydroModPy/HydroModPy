@@ -191,6 +191,37 @@ class MissingForcingError(DataError):
     code = "HMPY.E206"
 
 
+class DataRequestError(DataError):
+    """A fetch request is malformed, before any source is asked to serve it.
+
+    Separate from :class:`DataSourceError`, which means a source was reached
+    and refused: the caller fixes this one without the network being up.
+    """
+
+    code = "HMPY.E207"
+
+
+class DataCapabilityError(DataError):
+    """The selected data source does not serve the requested option.
+
+    A refusal, never a silent substitution: a caller asking a static reference
+    network for a time window, or a bbox source for station identifiers, is
+    told so by name rather than handed a result that ignores the argument.
+    """
+
+    code = "HMPY.E208"
+
+
+class DataProductError(DataError):
+    """What a source returned does not satisfy what it declared.
+
+    Raised when the payload of a result does not match the kind the result
+    carries, or when records claim a variable the source does not serve.
+    """
+
+    code = "HMPY.E209"
+
+
 # -- Mesh ----------------------------------------------------------------------
 
 
@@ -585,6 +616,9 @@ __all__ = [
     "DataSourceError",
     "NetworkError",
     "MissingForcingError",
+    "DataRequestError",
+    "DataCapabilityError",
+    "DataProductError",
     # Mesh
     "MeshError",
     "MeshGenerationError",
