@@ -41,6 +41,16 @@ Sub-modules
   ``FieldParam`` (homogeneous or per-zone values with vertical
   profile), and the ``HydroMesh`` pivot that unifies every mesh
   representation.
+- ``spatial/site_selection/hydrology/`` -- besides the site-selection
+  adapters, the ``terrain-delineate`` capability: ``capability.py``
+  declares it (``TERRAIN_DELINEATE``, ``TerrainDelineateRequest``) and
+  ``worker.py`` runs it. ``run(job, exit_code_for=...)`` takes a job
+  directory, reads the one document the caller wrote, writes its six
+  artefacts inside it and seals it. It opens no workspace, no catalog
+  and no database, registers nothing in the user's state directory,
+  and reaches no network. The exit-code mapper is an argument because
+  ``spatial`` cannot import ``cli``, and because the exception a
+  capability raises and the status a shim reads are two contracts.
 
 Key public symbols
 ------------------
@@ -56,6 +66,8 @@ Key public symbols
 - ``hydromodpy.spatial.mesh.gmsh_grid.extruded_prism_mesh.ExtrudedPrismMesh3D``
 - ``hydromodpy.spatial.mesh.HydroMesh``
 - ``hydromodpy.spatial.field.core.{FieldSpatial, FieldParam}``
+- ``hydromodpy.spatial.site_selection.hydrology.capability.TERRAIN_DELINEATE``
+- ``hydromodpy.spatial.site_selection.hydrology.worker.run``
 
 HydroMesh pivot
 ---------------

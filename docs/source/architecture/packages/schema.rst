@@ -30,6 +30,11 @@ Sub-modules
   carried as an opaque type, so the declaration stays readable by a
   layer that owns no engine.
 
+- ``schema/media_types.py`` -- the media types a job document names,
+  spelled once. One artefact carries its type in the declaration, in
+  the output record and in the seal; three literals would be three
+  chances to spell one of them differently.
+
 - ``schema/job/`` -- the job-directory contract, below.
 
 The job directory
@@ -71,6 +76,11 @@ the one a caller outside the process relies on:
 - ``job/inputset.py`` -- the input set as a first-class object,
   whose id digests the **complete** resource array, with a licence
   per resource and a rollup that never refuses to seal.
+- ``job/provenance.py`` -- how the job ran: tool, commit and dirty
+  flag, interpreter, platform, backend, package freeze. It carries no
+  instant, so two identical submissions render identical bytes, and it
+  names no hostname, no account and no local path: a job directory is
+  handed to somebody else by construction.
 - ``job/outcome.py`` -- the typed outcome, which refuses to carry a
   status that contradicts its own exit code.
 - ``job/seal.py`` -- ``seal_job()`` and ``verify_job()``.
