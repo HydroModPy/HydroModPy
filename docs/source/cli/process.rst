@@ -3,8 +3,15 @@ hmp process
 
 Drive a capability as an external process. A capability is a function from a
 validated input document to a directory of sealed artefacts: it opens no
-workspace, no catalog and no database, it registers nothing in the user's
-state directory, and it reaches no network.
+workspace, no catalog and no database, and it registers nothing in the user's
+state directory.
+
+Whether it reaches the network is declared, not assumed. Each description lists
+under ``hmp:invocation.network`` every host the capability contacts, and an empty
+list means it runs on a node with no route out at all -- which is what
+``terrain-delineate`` declares. A gate records every name the process resolves
+and every address it connects to and refuses one the declaration does not carry,
+so the list is checked rather than promised.
 
 It is not, however, free of the filesystem outside the job. Each description
 lists under ``hmp:invocation.writes_outside_jobdir`` every location the

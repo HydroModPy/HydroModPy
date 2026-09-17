@@ -12,6 +12,7 @@ declared 100 m east of the talweg so the snap has something to do.
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import subprocess
@@ -579,6 +580,191 @@ def test_the_only_thing_it_writes_outside_the_job_is_what_it_declares(tmp_path):
         "nothing landed under TMPDIR, so declaring it over-claims"
     )
     assert list(scratch.iterdir()) == [], "the scratch survived the job"
+
+
+LOCAL_NAMES = frozenset({"localhost", "localhost.localdomain", "ip6-localhost"})
+"""Names of the local machine. Not egress: reachable with no route out at all."""
+
+NETWORK_GATED_CAPABILITIES = ("terrain-delineate",)
+"""Every capability whose declared egress is checked against a real run.
+
+Pinned, and compared to the registry below, because ``reaches_network`` defaults
+to ``()``: a capability added without a gate would otherwise publish
+``"network": []`` and have nobody check it, which is the exact defect the member
+was introduced to remove. Adding a capability therefore fails this file until a
+run of it is recorded here too.
+"""
+
+CHILD_PROCESSES_THE_JOB_SPAWNS = ("git", "uname")
+"""The executables the capability runs, and the ceiling of the two socket spies.
+
+A child process has its own interpreter and its own sockets, so patching
+``socket`` in the parent says nothing about what it does -- which makes this
+list, not the spies, what holds the guarantee for that path. Both entries are
+measured, and the second was found by this assertion rather than by reading:
+
+- ``git``, twice, from ``schema/job/provenance.py``: ``rev-parse`` and
+  ``status --porcelain``, to record which revision did the work.
+- ``uname -p``, from the standard library and not from this repository.
+  ``platform.platform()`` unpacks ``uname_result``, whose ``processor`` member is
+  a ``cached_property`` that falls back to ``subprocess.check_output(('uname',
+  '-p'))``. Reading the provenance code finds no subprocess at all.
+
+A capability that shells out to ``curl`` lands in this assertion by name rather
+than passing unseen, which is the whole reason the list is pinned.
+"""
+
+
+def _is_local(value: object) -> bool:
+    """True when *value* names this machine, in any of its spellings.
+
+    Semantic and not a string set: ``127.0.0.2``, ``::ffff:127.0.0.1`` and the
+    integer form ``2130706433`` are all loopback, and flagging one of them as
+    egress would turn this gate red for a reason that has nothing to do with the
+    capability under test.
+    """
+    text = str(value).casefold().rstrip(".")
+    if text in LOCAL_NAMES:
+        return True
+    try:
+        return ipaddress.ip_address(text).is_loopback
+    except ValueError:
+        pass
+    try:
+        return ipaddress.ip_address(int(text, 0)).is_loopback
+    except (ValueError, TypeError):
+        return False
+
+
+def test_every_capability_this_build_serves_has_its_egress_checked() -> None:
+    """A declaration nobody compares to a run is the defect, not the default."""
+    from hydromodpy.cli._workers.process import capability_ids
+
+    assert set(capability_ids()) == set(NETWORK_GATED_CAPABILITIES), (
+        "a capability was added or removed without its egress gate; "
+        f"gated: {sorted(NETWORK_GATED_CAPABILITIES)}, served: {sorted(capability_ids())}"
+    )
+
+
+def test_the_only_hosts_it_contacts_are_the_ones_it_declares(tmp_path):
+    """The confinement guarantee that had been prose since the day it was written.
+
+    ``worker.py`` says "it reaches no network" in its own docstring, and the
+    specification asked the description to say ``network: "forbidden"``. Neither
+    was checked by anything, so the member was kept out of the published
+    description rather than shipped unbacked. This is what lets it in.
+
+    Three angles, because two are not enough: a host resolved through
+    ``getaddrinfo`` is caught by name, a connection opened straight to a
+    hardcoded address resolves nothing and is caught by address, and a child
+    process does its networking in an interpreter this one cannot patch, so it is
+    caught by the name of the executable instead.
+
+    A subprocess, and a sentinel before the run: a spy that silently fails to
+    install would make this test pass on any capability at all, so the spy is
+    made to catch a resolution and a connection of the harness's own before the
+    recording is cleared and the capability starts.
+    """
+    seen = tmp_path / "seen.json"
+    job = _staged(tmp_path, _request())
+
+    script = (
+        "import json, socket, subprocess, sys\n"
+        "names, addrs, spawned = [], [], []\n"
+        "real_addrinfo, real_connect = socket.getaddrinfo, socket.socket.connect\n"
+        "real_popen = subprocess.Popen.__init__\n"
+        "def spy_addrinfo(host, port, *a, **k):\n"
+        "    names.append([host, port])\n"
+        "    return real_addrinfo(host, port, *a, **k)\n"
+        "def spy_connect(self, address, *a, **k):\n"
+        "    addrs.append(list(address) if isinstance(address, tuple) else [address])\n"
+        "    return real_connect(self, address, *a, **k)\n"
+        "def spy_popen(self, args, *a, **k):\n"
+        "    spawned.append(args if isinstance(args, str) else list(args))\n"
+        "    return real_popen(self, args, *a, **k)\n"
+        "socket.getaddrinfo, socket.socket.connect = spy_addrinfo, spy_connect\n"
+        "subprocess.Popen.__init__ = spy_popen\n"
+        # The sentinel. Loopback only, so it needs no route off the machine.
+        "socket.getaddrinfo('localhost', 9)\n"
+        "probe = socket.socket()\n"
+        "try:\n"
+        "    probe.connect(('127.0.0.1', 9))\n"
+        "except OSError:\n"
+        "    pass\n"  # Refused is the expected answer and proves the spy fired.
+        "finally:\n"
+        "    probe.close()\n"
+        "subprocess.run([sys.executable, '-c', ''], capture_output=True)\n"
+        "sentinel = {'names': list(names), 'addrs': list(addrs), 'spawned': list(spawned)}\n"
+        "names.clear()\n"
+        "addrs.clear()\n"
+        "spawned.clear()\n"
+        "from hydromodpy.cli.helpers import exit_code_for\n"
+        "from hydromodpy.schema.job import JobDirectory\n"
+        "from hydromodpy.spatial.site_selection.hydrology.worker import run\n"
+        "try:\n"
+        "    outcome = run(JobDirectory.open(sys.argv[1]), exit_code_for=exit_code_for)\n"
+        "finally:\n"
+        "    open(sys.argv[2], 'w').write(\n"
+        "        json.dumps(\n"
+        "            {\n"
+        "                'sentinel': sentinel,\n"
+        "                'names': names,\n"
+        "                'addrs': addrs,\n"
+        "                'spawned': spawned,\n"
+        "            }\n"
+        "        )\n"
+        "    )\n"
+        "sys.exit(outcome.exit_code)\n"
+    )
+    env = dict(os.environ, HMP_NO_PROGRESS="1")
+    completed = subprocess.run(
+        [sys.executable, "-c", script, str(job.root), str(seen)],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=600,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr[-4000:]
+    recorded = json.loads(seen.read_text(encoding="utf-8"))
+    sentinel = recorded["sentinel"]
+    assert sentinel["names"] and sentinel["addrs"] and sentinel["spawned"], (
+        "a spy caught nothing of the harness's own, so it is not installed"
+    )
+    # The sentinel is kept and read, not reduced to a boolean: it contacted the
+    # local machine by name and by address, so it is also the one case that
+    # exercises the locality filter below. A broken filter would otherwise sit
+    # unnoticed behind a run that resolves nothing at all.
+    assert all(_is_local(entry[0]) for entry in sentinel["names"] + sentinel["addrs"]), (
+        "the locality filter does not recognise the local machine it was handed"
+    )
+
+    declared = set(TERRAIN_DELINEATE.reaches_network)
+    # Locality is subtracted on both socket angles, and for the same reason: a
+    # local name and a local address are the same non-egress, and exempting one
+    # while flagging the other would make the gate depend on which of the two
+    # spellings a library happened to use.
+    undeclared = sorted(
+        {str(entry[0]) for entry in recorded["names"] if not _is_local(entry[0])} - declared
+    )
+    assert not undeclared, f"it resolves {undeclared}, which it does not declare"
+    # An address is read apart from a name: a connection to a literal address
+    # resolves nothing, so the list above would stay empty while the process
+    # reached the network anyway. Indexed and not unpacked, because an IPv6
+    # address is a four-member tuple and a unix socket is a bare path.
+    egress = sorted(
+        {str(entry[0]) for entry in recorded["addrs"] if not _is_local(entry[0])} - declared
+    )
+    assert not egress, f"it connects to {egress}, which it does not declare"
+    # And the ceiling of both: a child fetches in an interpreter this one never
+    # patched, so what holds here is that the set of children is the measured one.
+    children = sorted(
+        {Path(argv[0] if isinstance(argv, list) else argv).name for argv in recorded["spawned"]}
+    )
+    assert children == sorted(CHILD_PROCESSES_THE_JOB_SPAWNS), (
+        f"it spawns {children}, and only {sorted(CHILD_PROCESSES_THE_JOB_SPAWNS)} is accounted for"
+    )
 
 
 def test_every_declared_capability_carries_a_body() -> None:

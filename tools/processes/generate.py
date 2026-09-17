@@ -193,6 +193,11 @@ def build_invocation(decl: CapabilityDecl) -> dict[str, Any]:
         # Empty means the job directory is the only writable thing it wants.
         "writes_outside_jobdir": list(decl.writes_outside_jobdir),
         "reads_outside_jobdir": f"only the paths declared in {REQUEST_FILENAME}",
+        # A list of hosts for the same reason, and present only because it is
+        # now checked: a test records every name the process resolves and every
+        # address it connects to, and refuses one this list does not carry.
+        # Empty means the capability runs on a node with no egress at all.
+        "network": list(decl.reaches_network),
         "cancellation": {
             "signal": "SIGTERM",
             "status": DISMISSED_STATUS,

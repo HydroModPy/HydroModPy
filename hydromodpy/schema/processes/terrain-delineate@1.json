@@ -33,6 +33,7 @@
       "$TMPDIR"
     ],
     "reads_outside_jobdir": "only the paths declared in request.json",
+    "network": [],
     "cancellation": {
       "signal": "SIGTERM",
       "status": "dismissed",

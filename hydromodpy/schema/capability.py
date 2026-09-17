@@ -24,6 +24,20 @@ CAPABILITY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 CAPABILITY_VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 """Three-part semantic version. The major is what a caller pins."""
 
+HOST_PATTERN = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$")
+"""One host, lowercase: a DNS name, or an address literal a caller pins instead.
+
+An address literal is accepted on purpose, and the pattern happens to admit an
+IPv4 one. The gate compares a *connection* to this same list, so pinning an
+address is a declaration that means something rather than a spelling mistake. An
+IPv6 literal does not pass, and cannot: its colons are the port separator this
+member refuses.
+"""
+
+MAX_HOST_LABEL = 63
+MAX_HOST_LENGTH = 253
+"""RFC 1035 limits. Past either one, no resolver ever hands the name back."""
+
 NAMES_THE_JOB_DOES_NOT_PRODUCE = frozenset({"manifest.json", "request.json"})
 """Two names an output may not take: the seal, and the caller's own document.
 
@@ -37,6 +51,35 @@ Spelled here rather than imported from ``schema/job/layout.py``, which owns the
 vocabulary: importing it would close a cycle through the job package, so a test
 pins the two spellings together instead.
 """
+
+
+def _refuse_unusable_host(host: str, *, owner: str) -> None:
+    """Refuse a declared host a resolved name could never be compared against."""
+    if not host.strip():
+        raise ValueError(f"{owner}: declares a nameless host")
+    if "://" in host:
+        raise ValueError(f"{owner}: host {host!r} carries a scheme; declare the host alone")
+    if "/" in host:
+        raise ValueError(f"{owner}: host {host!r} carries a path; declare the host alone")
+    if ":" in host:
+        raise ValueError(f"{owner}: host {host!r} carries a port; declare the host alone")
+    if "*" in host:
+        # Refused rather than supported: no source in this tree needs a subdomain
+        # family yet, and a pattern nothing matches against is a claim a caller
+        # cannot check. The day one does, this becomes a deliberate change.
+        raise ValueError(f"{owner}: host {host!r} is a wildcard, which is not supported")
+    if not HOST_PATTERN.match(host):
+        raise ValueError(f"{owner}: host {host!r} is not a lowercase DNS name")
+    if len(host) > MAX_HOST_LENGTH:
+        raise ValueError(
+            f"{owner}: host {host!r} is {len(host)} characters, over the {MAX_HOST_LENGTH} a name has"
+        )
+    too_long = [label for label in host.split(".") if len(label) > MAX_HOST_LABEL]
+    if too_long:
+        raise ValueError(
+            f"{owner}: host {host!r} has a label over {MAX_HOST_LABEL} characters, "
+            "which no resolver answers"
+        )
 
 
 def _refuse_relative_path(path: str, *, owner: str) -> None:
@@ -107,6 +150,24 @@ class CapabilityDecl:
     asserts that nothing landed anywhere else.
     """
 
+    reaches_network: tuple[str, ...] = ()
+    """Every host this capability contacts. Empty means it contacts none.
+
+    A list of hosts and not a boolean, for the same reason as
+    ``writes_outside_jobdir``: the question an orchestrator has to answer is not
+    "does it need egress" but "to where", because that is the shape a firewall
+    rule and a proxy allowlist are written in. An empty tuple is the honest
+    spelling of "nowhere", and it is what makes a capability runnable on a
+    compute node with no egress at all.
+
+    A host, not a URL: the path a capability requests is its own business and
+    changes with the query, while the host is what somebody else has to allow.
+    Each entry is a lowercase DNS name or an address literal, refused if it
+    carries a scheme, a port, a path or a wildcard, or if it is longer than a
+    resolver would ever answer -- a declaration that cannot be compared to what
+    a socket actually resolved is the thing this member exists to avoid.
+    """
+
     def __post_init__(self) -> None:
         if not CAPABILITY_ID_PATTERN.match(self.id):
             raise ValueError(f"capability id {self.id!r} is not lowercase kebab-case")
@@ -129,11 +190,19 @@ class CapabilityDecl:
         for location in self.writes_outside_jobdir:
             if not location.strip():
                 raise ValueError(f"capability {self.id!r} declares a nameless write location")
+        for host in self.reaches_network:
+            _refuse_unusable_host(host, owner=f"capability {self.id!r}")
+        repeated_hosts = sorted(
+            {host for host in self.reaches_network if self.reaches_network.count(host) > 1}
+        )
+        if repeated_hosts:
+            raise ValueError(f"capability {self.id!r} repeats host(s) {repeated_hosts}")
         object.__setattr__(self, "keywords", tuple(self.keywords))
         object.__setattr__(self, "outputs", tuple(self.outputs))
         object.__setattr__(self, "exceptions", tuple(self.exceptions))
         object.__setattr__(self, "env", tuple(self.env))
         object.__setattr__(self, "writes_outside_jobdir", tuple(self.writes_outside_jobdir))
+        object.__setattr__(self, "reaches_network", tuple(self.reaches_network))
 
     def _refuse_duplicates(self) -> None:
         """Refuse two outputs sharing an id or a path.
@@ -170,6 +239,9 @@ class CapabilityDecl:
 __all__ = [
     "CAPABILITY_ID_PATTERN",
     "CAPABILITY_VERSION_PATTERN",
+    "HOST_PATTERN",
+    "MAX_HOST_LABEL",
+    "MAX_HOST_LENGTH",
     "NAMES_THE_JOB_DOES_NOT_PRODUCE",
     "CapabilityDecl",
     "OutputDecl",

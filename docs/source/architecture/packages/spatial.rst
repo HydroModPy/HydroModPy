@@ -47,8 +47,10 @@ Sub-modules
   ``worker.py`` runs it. ``run(job, exit_code_for=...)`` takes a job
   directory, reads the one document the caller wrote, writes its six
   artefacts inside it and seals it. It opens no workspace, no catalog
-  and no database, registers nothing in the user's state directory,
-  and reaches no network. The exit-code mapper is an argument because
+  and no database, and registers nothing in the user's state directory.
+  It declares ``reaches_network=()`` and a gate checks it against a real
+  run, so "no network" is the declaration and not a hope. The exit-code
+  mapper is an argument because
   ``spatial`` cannot import ``cli``, and because the exception a
   capability raises and the status a shim reads are two contracts.
 

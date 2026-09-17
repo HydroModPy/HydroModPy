@@ -177,15 +177,32 @@ def test_the_cancelled_status_the_generator_writes_is_the_one_a_job_really_write
 
 @pytest.mark.parametrize("decl", capability_decls(), ids=lambda decl: decl.id)
 def test_the_invocation_block_promises_nothing_this_tree_does_not_do(decl) -> None:
-    """Three members of the specification stay out until something makes them true.
+    """Two members of the specification stay out until something makes them true.
 
-    ``progress_file`` names ``progress.ndjson``, which no code path writes yet;
-    ``network`` and ``concurrency`` are enforced by nothing. A description is
-    read by a caller who cannot check it, so an unbacked claim there is worse
-    than a missing member.
+    ``progress_file`` names ``progress.ndjson``, which no code path writes yet,
+    and ``concurrency`` is enforced by nothing. A description is read by a
+    caller who cannot check it, so an unbacked claim there is worse than a
+    missing member.
+
+    ``network`` was in this list until a gate started recording every name the
+    process resolves and every address it connects to, and comparing both to
+    the declaration. It moved to the test below.
     """
     invocation = read_description(decl.id)["hmp:invocation"]
-    assert not {"progress_file", "network", "concurrency"} & set(invocation)
+    assert not {"progress_file", "concurrency"} & set(invocation)
+
+
+@pytest.mark.parametrize("decl", capability_decls(), ids=lambda decl: decl.id)
+def test_the_invocation_block_names_the_hosts_the_declaration_names(decl) -> None:
+    """The egress a caller has to allow, in the shape a firewall rule is written.
+
+    A list and not a boolean: what an orchestrator needs is which hosts, and an
+    empty list is the honest spelling of a capability that runs with no egress
+    at all.
+    """
+    invocation = read_description(decl.id)["hmp:invocation"]
+
+    assert invocation["network"] == list(decl.reaches_network)
 
 
 def test_describing_an_unknown_capability_is_an_invocation_error() -> None:

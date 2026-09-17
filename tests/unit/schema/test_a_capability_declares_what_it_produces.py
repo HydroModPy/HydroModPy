@@ -13,6 +13,7 @@ import pytest
 from pydantic import BaseModel
 
 from hydromodpy.schema.capability import (
+    MAX_HOST_LENGTH,
     NAMES_THE_JOB_DOES_NOT_PRODUCE,
     CapabilityDecl,
     OutputDecl,
@@ -149,3 +150,64 @@ def test_a_declaration_cannot_be_rewritten_after_the_fact() -> None:
     decl = _decl()
     with pytest.raises(AttributeError):
         decl.version = "2.0.0"  # type: ignore[misc]
+
+
+def test_a_capability_that_names_no_host_reaches_nothing() -> None:
+    """The default is the answer a node with no egress needs to hear."""
+    assert _decl().reaches_network == ()
+
+
+def test_the_declared_hosts_are_kept_in_the_order_they_were_written() -> None:
+    decl = _decl(reaches_network=["hubeau.eaufrance.fr", "data.geopf.fr"])
+    assert decl.reaches_network == ("hubeau.eaufrance.fr", "data.geopf.fr")
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "https://data.geopf.fr",
+        "data.geopf.fr/telechargement",
+        "data.geopf.fr:443",
+        "*.geopf.fr",
+        "Data.Geopf.Fr",
+        "data..geopf.fr",
+        "data.geopf.fr.",
+        "-geopf.fr",
+        "  ",
+    ],
+)
+def test_a_host_a_resolver_would_never_hand_back_is_refused(host: str) -> None:
+    """Every refusal exists so the declaration is comparable to a resolved name.
+
+    A scheme, a path or a port makes the entry something ``getaddrinfo`` never
+    sees; an uppercase spelling makes the comparison depend on case folding
+    nobody declared; a wildcard is a pattern no gate in this tree matches.
+    """
+    with pytest.raises(ValueError, match="demo-delineate"):
+        _decl(reaches_network=(host,))
+
+
+def test_one_host_declared_twice_is_refused() -> None:
+    with pytest.raises(ValueError, match="repeats host"):
+        _decl(reaches_network=("data.geopf.fr", "data.geopf.fr"))
+
+
+def test_a_label_no_resolver_would_answer_is_refused() -> None:
+    with pytest.raises(ValueError, match="label over 63 characters"):
+        _decl(reaches_network=(f"{'a' * 64}.fr",))
+
+
+def test_a_name_longer_than_a_name_can_be_is_refused() -> None:
+    host = ".".join(["a" * 63] * 4)
+    assert len(host) > MAX_HOST_LENGTH
+    with pytest.raises(ValueError, match="over the 253 a name has"):
+        _decl(reaches_network=(host,))
+
+
+def test_an_address_a_caller_pins_instead_of_a_name_is_accepted() -> None:
+    """Deliberate: the gate compares a connection to this same list.
+
+    A capability contacting a fixed address has no name to declare, and refusing
+    the literal would leave it unable to declare anything true.
+    """
+    assert _decl(reaches_network=("192.0.2.10",)).reaches_network == ("192.0.2.10",)

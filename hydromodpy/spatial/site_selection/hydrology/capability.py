@@ -237,6 +237,11 @@ TERRAIN_DELINEATE = CapabilityDecl(
     # orchestrator mounting everything but the job directory read-only has to
     # know it. Declaring ``false`` here would be a boolean that is not true.
     writes_outside_jobdir=("$TMPDIR",),
+    # Written out although it is the default: the docstring of the worker has
+    # claimed "it reaches no network" since the day it was written, and nothing
+    # checked it. Spelling the empty tuple here is what the gate compares a
+    # recorded resolution against, so the claim is now refutable.
+    reaches_network=(),
 )
 """The one capability this build can be invoked as, from outside."""
 
