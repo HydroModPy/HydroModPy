@@ -26,7 +26,7 @@ from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import PER_SIM_TABLE_NAMES
 from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
 from hydromodpy.results.catalog.writes_helpers import kv_metadata_for_sim, wgs84_bounds
-from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME, UNDETERMINED_LICENSE
 from hydromodpy.results.trash_marker import TrashMarker, write_trash_marker
 from hydromodpy.results.zarr_store import SimulationZarr
 
@@ -35,6 +35,9 @@ if TYPE_CHECKING:
     from hydromodpy.results.catalog.storage_paths import StoragePathResolver
 
 logger = get_logger(__name__)
+
+# ACDD identity a deposit needs and that nothing in this repository declares.
+_DECLARED_IDENTITY_KEYS = ("creator_name", "creator_institution")
 
 # Every CRS WKT2 (and WKT1) string opens with one of these keywords.
 _WKT_PREFIXES = ("PROJCRS", "GEOGCRS", "PROJCS", "GEOGCS", "COMPOUNDCRS", "BOUNDCRS")
@@ -134,6 +137,25 @@ class CalibrationSessionNamespace:
             "WHERE CAST(session_id AS VARCHAR) = ? AND status_id = "
             "(SELECT id FROM statuses WHERE code = 'running')",
             [str(session_id)],
+        )
+
+
+def _warn_about_undeclared_identity(sid: str, attrs: dict) -> None:
+    """Name, once per seal, the identity fields nobody declared.
+
+    The store used to fill ``creator_name`` with the Unix account of whoever ran
+    the process. It now leaves it out, which is honest and silent: this says out
+    loud what a reader of the deposit will find missing.
+    """
+    missing = [key for key in _DECLARED_IDENTITY_KEYS if not attrs.get(key)]
+    if attrs.get("license") == UNDETERMINED_LICENSE:
+        missing.append("a determined license")
+    if missing:
+        logger.warning(
+            "Run %s is sealed without %s. A reader of this deposit cannot tell "
+            "who produced it or under which terms it may be reused.",
+            sid[:8],
+            ", ".join(missing),
         )
 
 
@@ -308,11 +330,12 @@ class LifecycleMixin:
                         sim_row = self._fetch_simulation_row(sid)
                         runs_env = self._fetch_runs_environment_row(sid)
                         sz.harmonize_axis_references()
-                        sz.write_acdd_root_attrs(
+                        written = sz.write_acdd_root_attrs(
                             sim_row=sim_row,
                             runs_env=runs_env,
                             geographic_bounds=_declared_bounds_in_degrees(sim_row),
                         )
+                        _warn_about_undeclared_identity(sid, written)
                         sz.consolidate_metadata()
                     finally:
                         sz.close()
