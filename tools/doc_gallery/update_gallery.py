@@ -653,7 +653,16 @@ def _select_case_summary(
     )
     preserved_summary = dict(previous_summary)
     preserved_summary["source_paths"] = list(new_summary.get("source_paths", ()))
-    preserved_summary["source_hashes"] = dict(new_summary.get("source_hashes", {}))
+    # The digests belong to the numbers, not to the file list. Stamping the new
+    # ones here told every reader that a preserved case had been republished
+    # against today's sources, which is the one thing preserving it means is
+    # false. A source the case never declared before has no published digest,
+    # so it takes the new one.
+    previous_hashes = dict(previous_summary.get("source_hashes", {}))
+    new_hashes = dict(new_summary.get("source_hashes", {}))
+    preserved_summary["source_hashes"] = {
+        source: previous_hashes.get(source, new_hashes[source]) for source in new_hashes
+    }
     for key in (
         "deck",
         "summary",
