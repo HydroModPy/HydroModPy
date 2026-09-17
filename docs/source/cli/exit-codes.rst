@@ -81,3 +81,44 @@ reference maps to 20. Domain exceptions defined in
 map to codes 11..19 respectively. ``CalibrationError`` (and its
 ``ObjectiveError`` / ``OptimizerError`` subclasses) maps to 21. Any other
 exception falls back to ``EXIT_GENERIC`` (1).
+
+A refused configuration document
+--------------------------------
+
+Every refusal of a configuration document leaves the config boundary as
+``hydromodpy.core.exceptions.ConfigValidationError`` (code ``HMPY.E101``),
+so ``hmp`` exits **14** and never 1. This covers the three mechanisms that
+refuse a document: a Pydantic field fault, a refusal written by hand before
+the model runs (a retired section, an unknown top-level section, a missing
+``[workspace].project_root``), and a ``ValueError`` raised by a section
+loader.
+
+The exception carries the faults as data, not only as a sentence::
+
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.exceptions import ConfigValidationError
+
+    try:
+        HydroModPyConfig.from_toml("project.toml")
+    except ConfigValidationError as exc:
+        exc.to_dict()
+        # {'type': 'urn:hmp:error:HMPY.E101',
+        #  'code': 'HMPY.E101',
+        #  'title': 'The configuration document failed validation.',
+        #  'detail': '1 validation error(s) in project.toml: ...',
+        #  'source': 'project.toml',
+        #  'details': [{'pointer': '/geographic/dem_correction_type',
+        #               'loc': 'geographic.dem_correction_type',
+        #               'msg': 'Extra inputs are not permitted',
+        #               'type': 'extra_forbidden',
+        #               'line': 8}]}
+
+``pointer`` is an RFC 6901 JSON Pointer into the document, which is what a
+front end needs to highlight the offending field. ``line`` is present only
+when the source file was readable and the locator found the token.
+
+``to_dict()`` is defined on ``HydroModPyError``, so every typed exception
+renders the same four members (``type``, ``code``, ``title``, ``detail``).
+The ``urn:`` identifier resolves to nothing on purpose: no namespace is
+registered, and an identifier that 404s is worse than one that never
+promised to resolve.

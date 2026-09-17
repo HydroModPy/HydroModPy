@@ -9,7 +9,7 @@ TOML section: ``[workflow]``
 
 Pydantic model: ``WorkflowConfig`` defined in ``hydromodpy.config.hydromodpy_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L100>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L104>`__
 
 Workflow selector configuration.
 
@@ -36,7 +36,7 @@ Fields
         <code class="hmp-field-name">mode</code>
       </div>
 
-   :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L103>`__
+   :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L107>`__
 
       Workflow mode dispatched by `hmp run`.
 
@@ -72,7 +72,7 @@ Fields
         <code class="hmp-field-name">profile</code>
       </div>
 
-   :bdg-primary:`bool | str` :bdg-secondary:`default = False` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L135>`__
+   :bdg-primary:`bool | str` :bdg-secondary:`default = False` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L139>`__
 
       Profile the run with pyinstrument (honored by the hmp CLI; the --profile flag wins over this field). true writes <config>.profile.html next to the config; a string sets the HTML report path.
 
@@ -92,6 +92,13 @@ Starter TOML snippet
 
       [workflow]
       # mode = ""  # REQUIRED
+
+Cases using this section
+------------------------
+
+Validation gallery cases that reference fields from this section:
+
+- :doc:`/capability_gallery/cases/dupuit_seepage_limit_1d`
 
 Entity-relationship diagram
 ---------------------------
