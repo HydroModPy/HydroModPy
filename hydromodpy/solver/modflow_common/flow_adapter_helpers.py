@@ -35,20 +35,27 @@ from hydromodpy.solver.modflow_common.options import (
 WATER_BUDGET_METRIC = "water_budget_percent_discrepancy"
 """Run-metric name for the final water-budget PERCENT DISCREPANCY, in percent."""
 
+WATER_BUDGET_WORST_METRIC = "water_budget_worst_percent_discrepancy"
+"""Run-metric name for the worst water-budget PERCENT DISCREPANCY, in percent."""
+
 _PERCENT_DISCREPANCY_RE = re.compile(r"PERCENT\s+DISCREPANCY\s*=\s*([-+0-9.Ee]+)")
 
 
-def last_percent_discrepancy(listing_dir: Path) -> float | None:
-    """Return the final water-budget PERCENT DISCREPANCY from a per-model listing.
+def percent_discrepancies(listing_dir: Path) -> list[float]:
+    """Return every water-budget PERCENT DISCREPANCY a per-model listing prints.
 
     Best-effort and never raises: scans every ``*.lst`` except the simulation
-    listing and returns the last parsed value, or None when none is found.
+    listing, in name order, and returns the values in the order they appear.
+
+    A MODFLOW budget block prints two of them on one line, the cumulative
+    volumes since the start of the simulation and the rates for the time step
+    just solved. Both are kept: neither is more the budget than the other.
     """
-    last: float | None = None
+    values: list[float] = []
     try:
         listings = sorted(listing_dir.glob("*.lst"))
     except OSError:
-        return None
+        return values
     for listing in listings:
         if listing.name == "mfsim.lst":
             continue
@@ -58,10 +65,46 @@ def last_percent_discrepancy(listing_dir: Path) -> float | None:
             continue
         for match in _PERCENT_DISCREPANCY_RE.finditer(text):
             try:
-                last = float(match.group(1))
+                values.append(float(match.group(1)))
             except ValueError:
                 continue
-    return last
+    return values
+
+
+def last_percent_discrepancy(listing_dir: Path) -> float | None:
+    """Return the final water-budget PERCENT DISCREPANCY from a per-model listing.
+
+    Best-effort and never raises: returns the last parsed value, or None when
+    none is found.
+    """
+    values = percent_discrepancies(listing_dir)
+    return values[-1] if values else None
+
+
+def worst_percent_discrepancy(listing_dir: Path) -> float | None:
+    """Return the signed PERCENT DISCREPANCY of largest magnitude, or None.
+
+    The last block is not the worst one. A transient run that loses its budget
+    in the middle and recovers by the final time step reports a clean final
+    number, and :func:`last_percent_discrepancy` reads exactly that number. A
+    deep-aquifer recession measured here closed the simulation at -190 % after
+    touching -200 %, so even a run that never recovers understates itself.
+
+    Recorded and not acted upon. A percent discrepancy divides by the mean of
+    the inflow and the outflow, so the instant a transient model routes almost
+    no water -- an intermittent reach going dry, a lake stage crossing its sill,
+    the tail of any recession -- the quotient is large while the imbalance it
+    describes is negligible. Rejecting on this number would refuse sound runs
+    for arithmetic reasons. What a guard needs is the absolute imbalance against
+    the scale of the run, which the listing also prints and nothing parses yet.
+
+    Ties keep the first reading of that magnitude, so two opposite signs of
+    equal size report the earlier one.
+    """
+    values = percent_discrepancies(listing_dir)
+    if not values:
+        return None
+    return max(values, key=abs)
 
 
 def _has_single_process_run(plan: SimulationPlan, process_type: str) -> bool:
@@ -251,9 +294,10 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
     # Convergence and a closed budget are two questions. A run that converges and
     # writes heads with a large imbalance was otherwise indistinguishable from a
     # sound one, so the number rides with every run rather than only with a failure.
-    discrepancy = last_percent_discrepancy(Path(model_modflow.full_path))
-    if discrepancy is not None:
-        metrics[WATER_BUDGET_METRIC] = float(discrepancy)
+    discrepancies = percent_discrepancies(Path(model_modflow.full_path))
+    if discrepancies:
+        metrics[WATER_BUDGET_METRIC] = float(discrepancies[-1])
+        metrics[WATER_BUDGET_WORST_METRIC] = float(max(discrepancies, key=abs))
     return RunExecutionResult(
         primary_model=model_modflow,
         solver_output_dir=Path(model_modflow.full_path),
