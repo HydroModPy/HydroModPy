@@ -11,7 +11,7 @@ code assignments. Codes follow the ``HMPY.Exxx`` convention.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 
@@ -44,6 +44,39 @@ class HydroModPyError(Exception):
         self.run_id = run_id
         self.context = context
 
+    @classmethod
+    def title(cls) -> str:
+        """Return a one-line human title for this class of failure.
+
+        The first line of the class docstring, which every class in this module
+        carries. Under ``python -OO`` docstrings are stripped and the class name
+        is returned instead: a degraded title, never a wrong one.
+        """
+        doc = cls.__doc__
+        if not doc:
+            return cls.__name__
+        return doc.strip().splitlines()[0].strip()
+
+    def to_dict(self) -> dict[str, Any]:
+        """Render the failure as a typed problem object.
+
+        The shape a caller outside this process reads: a ``urn:`` type that
+        resolves to nothing on purpose (no domain is registered), the stable
+        ``HMPY.Exxx`` code, a title from the class and the detail from the
+        instance. Subclasses add their own members by overriding and updating.
+        """
+        payload: dict[str, Any] = {
+            "type": f"urn:hmp:error:{self.code}",
+            "code": self.code,
+            "title": self.title(),
+            "detail": self.message or str(self),
+        }
+        if self.sim_id is not None:
+            payload["sim_id"] = self.sim_id
+        if self.run_id is not None:
+            payload["run_id"] = self.run_id
+        return payload
+
 
 # -- Configuration -------------------------------------------------------------
 
@@ -55,9 +88,38 @@ class ConfigError(HydroModPyError):
 
 
 class ConfigValidationError(ConfigError):
-    """Pydantic validation error surfaced as a typed exception."""
+    """The configuration document failed validation."""
 
     code = "HMPY.E101"
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        details: Iterable[Mapping[str, Any]] = (),
+        source: str | None = None,
+        sim_id: str | None = None,
+        run_id: str | None = None,
+        **context: Any,
+    ) -> None:
+        super().__init__(message, sim_id=sim_id, run_id=run_id, **context)
+        self.details: tuple[dict[str, Any], ...] = tuple(dict(entry) for entry in details)
+        self.source = source
+
+    def to_dict(self) -> dict[str, Any]:
+        """Add the per-field faults, each with its RFC 6901 JSON Pointer.
+
+        A front end highlights the offending widget from ``pointer``; the flat
+        ``detail`` string cannot be pointed at anything. When validation
+        produced no structured fault — a refusal raised before the model runs —
+        ``details`` is absent rather than an empty list pretending to be one.
+        """
+        payload = super().to_dict()
+        if self.source is not None:
+            payload["source"] = self.source
+        if self.details:
+            payload["details"] = [dict(entry) for entry in self.details]
+        return payload
 
 
 class ConfigMissingError(ConfigError):
