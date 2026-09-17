@@ -35,8 +35,14 @@ _SIMULATION = {
 
 
 def _doc(**calibration: object) -> dict[str, object]:
+    # deepcopy and not dict(): a shallow copy shares the nested [time] table,
+    # so a test that writes into ``doc["simulation"]["time"]`` writes into
+    # _SIMULATION itself and poisons every later test of the process.
+    # ``_steady(1995, ...)`` below does exactly that, on purpose, to check a
+    # refusal. Under xdist the classes of one module land on different workers,
+    # so the damage showed up as an intermittent red in unrelated tests.
     return {
-        "simulation": dict(_SIMULATION),
+        "simulation": copy.deepcopy(_SIMULATION),
         "calibration": {
             "protocol": "matching_hydrographic_network",
             "parameters": {
@@ -215,7 +221,7 @@ class TestItLeavesTheRestAlone:
         assert expand_calibration_protocol(doc) == doc
 
     def test_a_document_without_a_calibration_is_returned_unchanged(self) -> None:
-        doc = {"simulation": dict(_SIMULATION)}
+        doc = {"simulation": copy.deepcopy(_SIMULATION)}
 
         assert expand_calibration_protocol(doc) == doc
 
