@@ -193,6 +193,39 @@ def test_add_project_name_conflict_requires_as(tmp_path: Path) -> None:
     assert [r[0] for r in rows] == ["alpha", "alpha_imported"]
 
 
+def test_add_never_imports_into_the_directory_of_a_local_run(tmp_path: Path) -> None:
+    """Importing under a fresh project does not buy a fresh ``runs/`` tree.
+
+    The archive carries the name the run had at home, and a run directory name
+    is unique in the catalog. Without a rename the incoming run lands on the
+    local run of that name and overwrites its field store in silence.
+    """
+    src_ws = tmp_path / "source"
+    dst_ws = tmp_path / "target"
+    dem_file = tmp_path / "dem.tif"
+    dem_file.write_bytes(b"DEM")
+
+    sim_id_a = str(uuid4())
+    sim_id_b = str(uuid4())
+    with hmp.open(src_ws, create=True) as catalog:
+        _populate_simulation(catalog, sim_id=sim_id_a, project="alpha", dem_file=dem_file)
+        archive = catalog.export_package(sim_id_a, tmp_path / "share.hmp")
+
+    with hmp.open(dst_ws, create=True) as target:
+        _populate_simulation(target, sim_id=sim_id_b, project="alpha", dem_file=dem_file)
+        local_dir = target.run_dir_for(sim_id_b)
+        local_head = target.open_zarr(sim_id_b).read_field("head", timestep=0).copy()
+
+        target.import_package(archive, as_project="alpha_imported")
+
+        assert target.run_dir_for(sim_id_a) != local_dir
+        assert target.run_dir_for(sim_id_a).name == "round_trip_sim.v2"
+        assert local_dir.is_dir()
+        np.testing.assert_array_equal(
+            target.open_zarr(sim_id_b).read_field("head", timestep=0), local_head
+        )
+
+
 def test_add_dry_run_writes_nothing(tmp_path: Path) -> None:
     src_ws = tmp_path / "source"
     dst_ws = tmp_path / "target"

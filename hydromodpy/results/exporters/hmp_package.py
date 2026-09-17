@@ -763,6 +763,56 @@ def _rewrite_snapshot_project(snap_path: Path, new_project: str) -> None:
         snap.close()
 
 
+def _rewrite_snapshot_run_name(snap_path: Path, catalog: Any) -> str | None:
+    """Version the incoming run name when its directory is already taken.
+
+    The archive carries the name the run had in its own workspace, and a run
+    directory name is unique in the *catalog*: importing under a fresh project
+    does not buy a fresh ``runs/`` tree. Left alone, the incoming run lands in
+    the directory of a local run of the same name and overwrites its field
+    store, its tables and its seal.
+
+    Returns the new name when one was minted, ``None`` when the archive's own
+    name was free.
+    """
+    import duckdb as _duckdb
+
+    from hydromodpy.results.catalog.registration import occupied_dirnames, split_stem_version
+    from hydromodpy.results.catalog.storage_paths import run_dirname
+
+    occupied = occupied_dirnames(catalog.backend)
+
+    snap = _duckdb.connect(str(snap_path))
+    try:
+        row = snap.execute("SELECT sim_id, name FROM simulations").fetchone()
+        if row is None or not row[1]:
+            return None
+        name = str(row[1])
+        if run_dirname(name) not in occupied:
+            return None
+        stem, _ = split_stem_version(name)
+        version = 2
+        while run_dirname(f"{stem}.v{version}") in occupied:
+            version += 1
+        final_name = f"{stem}.v{version}"
+        dirname = run_dirname(final_name)
+        snap.execute(
+            "UPDATE simulations SET name = ?, name_stem = ?, version_int = ?, "
+            "storage_basename = ?, zarr_path = ?",
+            [
+                final_name,
+                stem,
+                version,
+                dirname,
+                f"{RUNS_DIRNAME}/{dirname}/{FIELDS_STORE_NAME}",
+            ],
+        )
+    finally:
+        snap.close()
+    logger.info("Imported run '%s' renamed to '%s': the directory was taken", name, final_name)
+    return final_name
+
+
 def _rewrite_snapshot_paths(snap_path: Path, rewrites: dict[str, str]) -> None:
     """Rewrite stored config JSON so the input paths point at their new home."""
     if not rewrites:
@@ -923,6 +973,7 @@ def import_hmp_package(
 
         if as_project:
             _rewrite_snapshot_project(snap_path, as_project)
+        _rewrite_snapshot_run_name(snap_path, catalog)
         _rewrite_snapshot_paths(snap_path, rewrites)
 
         with catalog.backend.transaction():
