@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.solver.modflow6 import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt import (
     ModflowConfig,
@@ -135,7 +136,7 @@ def test_hydromodpy_config_rejects_legacy_flat_sgrid_payload(tmp_path: Path):
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ConfigValidationError):
         HydroModPyConfig.from_toml(toml_path)
 
 
@@ -173,7 +174,7 @@ def test_hydromodpy_config_rejects_legacy_planar_mode_aliases(tmp_path: Path):
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="resample_to_shape"):
+    with pytest.raises(ConfigValidationError, match="resample_to_shape"):
         HydroModPyConfig.from_toml(toml_path)
 
 
@@ -234,7 +235,7 @@ def test_hydromodpy_config_rejects_legacy_flat_modflow_schema(tmp_path: Path):
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ConfigValidationError):
         HydroModPyConfig.from_toml(toml_path)
 
 
@@ -263,7 +264,7 @@ def test_hydromodpy_config_rejects_unknown_top_level_sections(tmp_path: Path):
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="Unknown top-level TOML section"):
+    with pytest.raises(ConfigValidationError, match="Unknown top-level TOML section"):
         HydroModPyConfig.from_toml(toml_path)
 
 

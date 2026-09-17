@@ -325,9 +325,9 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
         print(f"  {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
     except ValueError as exc:
-        # base_config is already resolved above; a ValueError here is the
-        # validation error that from_toml wraps (its message carries the
-        # file:line:key detail), not a base_config chain failure.
+        # base_config is already resolved above, so a ValueError here comes from
+        # a loader this branch calls directly. `from_toml` no longer raises one:
+        # it refuses with ConfigValidationError, caught below.
         print(f"Config invalid: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
     except ConfigError as exc:

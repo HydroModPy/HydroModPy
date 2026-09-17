@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 
@@ -23,7 +24,7 @@ def test_from_toml_requires_workspace_project_root(tmp_path: Path) -> None:
     path = tmp_path / "missing_workspace.toml"
     path.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
 
-    with pytest.raises(ValueError, match=r"\[workspace\]\.project_root is required"):
+    with pytest.raises(ConfigValidationError, match=r"\[workspace\]\.project_root is required"):
         HydroModPyConfig.from_toml(path)
 
 
@@ -45,7 +46,7 @@ def test_from_toml_rejects_scalar_workflow(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match=r"\[workflow\]"):
+    with pytest.raises(ConfigValidationError, match=r"\[workflow\]"):
         HydroModPyConfig.from_toml(path)
 
 
@@ -56,7 +57,7 @@ def test_workspace_rejects_filename_safe_windows_path_tokens() -> None:
         f"C{drive_token}{separator_token}codes{separator_token}HydroModPy{separator_token}outputs"
     )
 
-    with pytest.raises(ValueError, match="encoded as a safe filename"):
+    with pytest.raises(ConfigValidationError, match="encoded as a safe filename"):
         HydroModPyConfig.from_dict(
             {
                 "workflow": {"mode": "simulation"},
@@ -86,12 +87,12 @@ def test_hydromodpy_config_rejects_unknown_flow_keys(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match=r"Unknown TOML key\(s\) in \[flow\]"):
+    with pytest.raises(ConfigValidationError, match=r"Unknown TOML key\(s\) in \[flow\]"):
         HydroModPyConfig.from_toml(config_path)
 
 
 def test_hydromodpy_config_rejects_unknown_workflow(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="unknown-workflow"):
+    with pytest.raises(ConfigValidationError, match="unknown-workflow"):
         HydroModPyConfig.from_dict(
             {
                 "workflow": {"mode": "unknown-workflow"},
