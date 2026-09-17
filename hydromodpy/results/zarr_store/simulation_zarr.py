@@ -397,6 +397,10 @@ class SimulationZarr:
 
     # -- ACDD ----------------------------------------------------------------
 
+    def harmonize_axis_references(self) -> None:
+        """Write the axis coordinates the fields name, and drop dangling ones."""
+        zarr_writer.harmonize_axis_references(self)
+
     def write_acdd_root_attrs(
         self,
         *,

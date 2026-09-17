@@ -38,7 +38,7 @@ def _register_demo_sim(catalog, *, project: str, nse: float, sim_name: str):
         flow_regime="transient",
     )
     catalog.write_metric(sim_id, station_id=OUTLET_STATION, metric_name="nse", value=nse)
-    catalog.finalize(sim_id, status="completed", duration_s=0.0)
+    catalog.finalize(sim_id, status="completed")
     return sim_id
 
 
@@ -137,7 +137,7 @@ def test_open_register_query_roundtrip(tmp_path: Path) -> None:
         series = pd.Series(np.linspace(10.0, 10.2, 5), index=index, name="head")
         catalog.write_timeseries(sim_id, station_id="P01", variable="head", ts=series)
         catalog.write_metric(sim_id, station_id="P01", metric_name="nse", value=0.82)
-        catalog.finalize(sim_id, status="completed", duration_s=0.1)
+        catalog.finalize(sim_id, status="completed")
 
     # Re-open the workspace and verify every write is durable.
     with hmp.open(workspace, create=True) as catalog2:

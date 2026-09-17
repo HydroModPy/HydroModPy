@@ -92,7 +92,7 @@ def _make_run(root, *, name: str = "probe", offset: float = 0.0) -> tuple[Catalo
         )
         head[1] -= 0.5  # a vertical gradient, so the layer choice is observable
         catalog.write_field(sid, "head", step, head, n_timesteps=N_STEPS if step == 0 else None)
-    catalog.finalize(sid, status="completed", duration_s=1.0)
+    catalog.finalize(sid, status="completed")
     return catalog, sid
 
 

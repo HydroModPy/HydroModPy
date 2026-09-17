@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import os
 import uuid
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 from hydromodpy.core.io.filesystem import native_io_path
+from hydromodpy.core.io.parquet import merge_file_metadata
 
 if TYPE_CHECKING:
     import geopandas as gpd
@@ -35,8 +37,16 @@ off and are not reliably forwarded through geopandas across versions.
 def write_geoparquet_atomic(
     gdf: gpd.GeoDataFrame,
     target: Path | str,
+    *,
+    metadata: Mapping[str, str] | None = None,
 ) -> Path:
-    """Persist ``gdf`` as an OGC GeoParquet 1.1 file atomically."""
+    """Persist ``gdf`` as an OGC GeoParquet 1.1 file atomically.
+
+    ``metadata`` is merged into the file's key-value footer beside the ``geo``
+    and ``pandas`` blocks geopandas writes. Without it a vector layer carried no
+    identity at all: not the run that produced it, not its licence, nothing a
+    reader could use to tell one watershed contour from another.
+    """
     target = Path(target)
     os.makedirs(native_io_path(target.parent), exist_ok=True)
     if gdf.crs is None:
@@ -48,6 +58,13 @@ def write_geoparquet_atomic(
         os.unlink(tmp_io)
     try:
         gdf.to_parquet(tmp_io, **GEOPARQUET_WRITE_DEFAULTS)
+        if metadata:
+            merge_file_metadata(
+                tmp,
+                metadata,
+                compression=str(GEOPARQUET_WRITE_DEFAULTS["compression"]),
+                compression_level=int(GEOPARQUET_WRITE_DEFAULTS["compression_level"]),
+            )
     except Exception:
         try:
             os.unlink(tmp_io)
@@ -56,6 +73,9 @@ def write_geoparquet_atomic(
         raise
     os.replace(tmp_io, target_io)
     return target
+
+
+
 
 
 def read_geoparquet(target: Path | str) -> gpd.GeoDataFrame:

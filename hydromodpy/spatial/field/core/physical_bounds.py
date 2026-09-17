@@ -4,6 +4,13 @@ This table is consulted by field-level and section-level validators so that
 obviously unphysical values (negative K, Sy > 1, recharge of 100 m/day...)
 fail fast at config construction, before any solver call.
 
+A bound refuses what no declaration explains, which is not the same as what no
+aquifer exhibits: where a value is a stated numerical device rather than a
+measurement, the bound sits under physical attainability and says so on the
+entry. What the table is never allowed to become is a default: a range here is a
+ceiling on the bounds a calibration declares, and the span a search walks still
+belongs to the file that declares it.
+
 The registry is indexed by a normalized parameter identifier (lowercased).
 Each entry states the expected canonical unit and the absolute min/max
 bounds in that unit. Values are *inclusive* of both ends.
@@ -64,8 +71,17 @@ PHYSICAL_BOUNDS: dict[str, PhysicalBound] = {
     "transmissivity": PhysicalBound("m**2/s", 1e-10, 1e3, "transmissivity"),
     "t": PhysicalBound("m**2/s", 1e-10, 1e3, "transmissivity"),
     # ---- Storage --------------------------------------------------------
-    "ss": PhysicalBound("1/m", 1e-9, 1e-3, "specific storage"),
-    "specific_storage": PhysicalBound("1/m", 1e-9, 1e-3, "specific storage"),
+    # The floor sits three decades under any attainable specific storage. A
+    # rigid matrix at the porosity floor of this very table still stores
+    # rho*g*n*beta ~ 4e-9 1/m, so a tighter bound would only ever refuse a value
+    # nobody measured: the declaration that confined storage is switched off and
+    # the response belongs to Sy. Every unconfined 1D benchmark in
+    # `validation_cases/` makes that declaration as `1e-10 m-1`, and the
+    # analytical solution it is compared against carries no confined storage
+    # term at all. Zero would say it plainer, but these bounds are also the span
+    # a log-space search walks, and log(0) is not a number.
+    "ss": PhysicalBound("1/m", 1e-12, 1e-3, "specific storage"),
+    "specific_storage": PhysicalBound("1/m", 1e-12, 1e-3, "specific storage"),
     "sy": PhysicalBound("-", 1e-4, 0.5, "specific yield"),
     "specific_yield": PhysicalBound("-", 1e-4, 0.5, "specific yield"),
     # ---- Porosity -------------------------------------------------------

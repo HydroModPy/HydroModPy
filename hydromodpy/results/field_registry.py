@@ -28,12 +28,34 @@ SHAPE_LAYER_FACE = "layer_face"
 SHAPE_FACE = "face"
 SHAPE_PARTICLES = "particles"
 
+# Axis vocabulary of a run store. Zarr v3 records the axis names of an array in
+# ``dimension_names``; without them no reader can tell which axis of a
+# ``(1, 10, 63)`` array is time, and ``xarray.open_zarr`` refuses the store. The
+# vocabulary is closed and lives here, beside the CF metadata it must agree with.
+AXIS_TIME = "time"
+AXIS_LAYER = "layer"
+AXIS_FACE = "face"
+AXIS_NODE = "node"
+AXIS_NODE_COORDINATE = "node_coordinate"
+AXIS_MAX_FACE_NODES = "max_face_nodes"
+AXIS_LAYER_INTERFACE = "layer_interface"
+AXIS_PARTICLE = "particle"
+AXIS_TRACK_STEP = "track_step"
+AXIS_ENDPOINT = "endpoint"
+AXIS_RECORD = "record"
+AXIS_LAKE = "lake"
+AXIS_STAGE_LEVEL = "stage_level"
+
+_SHAPE_TO_DIMENSIONS: dict[str, tuple[str, ...]] = {
+    SHAPE_TIME_LAYER_FACE: (AXIS_TIME, AXIS_LAYER, AXIS_FACE),
+    SHAPE_TIME_FACE: (AXIS_TIME, AXIS_FACE),
+    SHAPE_LAYER_FACE: (AXIS_LAYER, AXIS_FACE),
+    SHAPE_FACE: (AXIS_FACE,),
+    SHAPE_PARTICLES: (AXIS_PARTICLE, AXIS_TRACK_STEP),
+}
+
 _SHAPE_TO_COORDINATES = {
-    SHAPE_TIME_LAYER_FACE: "time layer face",
-    SHAPE_TIME_FACE: "time face",
-    SHAPE_LAYER_FACE: "layer face",
-    SHAPE_FACE: "face",
-    SHAPE_PARTICLES: "time particle",
+    signature: " ".join(names) for signature, names in _SHAPE_TO_DIMENSIONS.items()
 }
 
 # Face-aligned shapes also carry UGRID-1.0 ``mesh`` and ``location`` attrs
@@ -90,9 +112,18 @@ class FieldDescriptor:
     valid_max: float | None = None
 
     @property
+    def dimensions(self) -> tuple[str, ...]:
+        """Zarr ``dimension_names`` derived from :attr:`shape`."""
+        return _SHAPE_TO_DIMENSIONS.get(self.shape, (self.shape,))
+
+    @property
     def coordinates(self) -> str:
-        """CF ``coordinates`` attribute derived from :attr:`shape`."""
-        return _SHAPE_TO_COORDINATES.get(self.shape, self.shape)
+        """CF ``coordinates`` attribute derived from :attr:`shape`.
+
+        CF-1.11 §5 permits a variable to list its own dimension coordinates
+        here, and every name it lists is a real array at the root of the store.
+        """
+        return " ".join(self.dimensions)
 
 
 FIELD_REGISTRY: dict[str, FieldDescriptor] = {
@@ -471,6 +502,38 @@ def all_zarr_paths() -> list[str]:
     return sorted(desc.zarr_path for desc in FIELD_REGISTRY.values())
 
 
+def timed_field_dimensions(ndim: int) -> tuple[str, ...]:
+    """Return the axis names of a ``(time, ...)`` field array.
+
+    The writer opens a field with a leading time axis and one or two spatial
+    axes, so the rank alone determines the names.
+    """
+    if ndim == 2:
+        return (AXIS_TIME, AXIS_FACE)
+    if ndim == 3:
+        return (AXIS_TIME, AXIS_LAYER, AXIS_FACE)
+    raise ValueError(f"A timed field has 2 or 3 axes, got {ndim}")
+
+
+def static_field_dimensions(ndim: int) -> tuple[str, ...]:
+    """Return the axis names of a field array written once, with no time axis."""
+    if ndim == 1:
+        return (AXIS_FACE,)
+    if ndim == 2:
+        return (AXIS_LAYER, AXIS_FACE)
+    raise ValueError(f"A static field has 1 or 2 axes, got {ndim}")
+
+
+def per_array_dimensions(name: str, ndim: int) -> tuple[str, ...]:
+    """Return axis names for an array that shares no axis with its siblings.
+
+    A geographic raster carries its own affine transform, so its rows and
+    columns are not the rows and columns of the raster beside it. Naming the
+    axes after the array keeps the names honest and keeps the group openable.
+    """
+    return tuple(f"{name}_dim{index}" for index in range(ndim))
+
+
 def cf_attrs(name: str) -> dict[str, object]:
     """Return a dict of CF-1.11 + UGRID-1.0 attributes for the given public name.
 
@@ -511,9 +574,25 @@ __all__ = [
     "SHAPE_FACE",
     "SHAPE_PARTICLES",
     "UGRID_MESH_VARIABLE",
+    "AXIS_ENDPOINT",
+    "AXIS_FACE",
+    "AXIS_LAKE",
+    "AXIS_LAYER",
+    "AXIS_LAYER_INTERFACE",
+    "AXIS_MAX_FACE_NODES",
+    "AXIS_NODE",
+    "AXIS_NODE_COORDINATE",
+    "AXIS_PARTICLE",
+    "AXIS_RECORD",
+    "AXIS_STAGE_LEVEL",
+    "AXIS_TIME",
+    "AXIS_TRACK_STEP",
     "FieldDescriptor",
     "FIELD_REGISTRY",
     "get",
+    "per_array_dimensions",
+    "static_field_dimensions",
+    "timed_field_dimensions",
     "has",
     "all_names",
     "all_zarr_paths",

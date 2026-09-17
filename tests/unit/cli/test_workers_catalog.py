@@ -38,7 +38,7 @@ def _seed_workspace(tmp_path: Path) -> tuple[Path, str]:
             n_cells=4,
             n_layers=1,
         )
-        catalog.finalize(sim_id, status="completed", duration_s=0.1)
+        catalog.finalize(sim_id, status="completed")
     return workspace, sim_id
 
 
@@ -56,7 +56,7 @@ def _seed_project(tmp_path: Path) -> tuple[Path, str]:
             n_cells=4,
             n_layers=1,
         )
-        catalog.finalize(sim_id, status="completed", duration_s=0.5)
+        catalog.finalize(sim_id, status="completed")
     return project_dir, sim_id
 
 
@@ -152,7 +152,7 @@ def _seed_named(project_dir: Path, name: str) -> str:
     sim_id = str(uuid4())
     with hmp.open(project_dir, create=True) as catalog:
         catalog.register_simulation(sim_id=sim_id, project="demo", solver="modflow6", name=name)
-        catalog.finalize(sim_id, status="completed", duration_s=0.1)
+        catalog.finalize(sim_id, status="completed")
     return sim_id
 
 

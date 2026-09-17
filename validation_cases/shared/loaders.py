@@ -15,6 +15,13 @@ from hydromodpy.core.toml_io.loader import load_toml_with_base_config, merge_tom
 
 logger = get_logger(__name__)
 
+# The public name every backend's extractor writes for a constant-head record,
+# declared in `hydromodpy.results.field_registry`. The raw MODFLOW labels
+# ("CONSTANT HEAD", "CHD") stopped reaching the store the day the extractors
+# started mapping both vocabularies onto one name, and a lookup written against
+# a name nobody writes is a lookup that never matches.
+_CONSTANT_HEAD_COMPONENT = "constant_head"
+
 
 def _legacy_npy_enabled() -> bool:
     """Return whether legacy validation .npy loading is explicitly enabled."""
@@ -591,18 +598,36 @@ def load_time_series_fields(
     # so no unit conversion is applied here - callers are responsible for
     # interpreting the values in the model's native units.
     if "outlet_discharge" in observable_name:
+        budgets = None
         try:
             budgets = store.query_budget(sim_id)
-            if not budgets.empty:
-                chd_names = ("constant head", "chd")
-                chd = budgets[budgets["component"].str.lower().isin(chd_names)]
-                if not chd.empty:
-                    chd_sorted = chd.sort_values("timestep")
-                    values = np.asarray(chd_sorted["flux_out"].values, dtype=float)
-                    indices = np.arange(values.shape[0], dtype=int)
-                    return indices, values
         except Exception as exc:
             errors.append(exc)
+        if budgets is not None and not budgets.empty:
+            chd = budgets[budgets["component"].str.lower() == _CONSTANT_HEAD_COMPONENT]
+            if chd.empty:
+                raise RuntimeError(
+                    f"'{observable_name}' asks for the flux across a constant-head "
+                    f"boundary and the budget of sim {sim_id} carries no "
+                    f"'{_CONSTANT_HEAD_COMPONENT}' record; components present: "
+                    f"{sorted(budgets['component'].astype(str).unique())}."
+                )
+            # One record lumps every constant-head cell of one zone, so it answers
+            # a question about one named side only while the model holds a single
+            # constant-head boundary. Where the store does tell two apart, refuse:
+            # handing back a total under one side's name is the silent answer.
+            zones = sorted(chd["zone_id"].astype(str).unique())
+            if len(zones) > 1 or bool(chd["timestep"].duplicated().any()):
+                raise RuntimeError(
+                    f"'{observable_name}' names one boundary while the budget of sim "
+                    f"{sim_id} carries {len(chd)} constant-head records over "
+                    f"{len(zones)} zone(s) and {chd['timestep'].nunique()} timesteps; "
+                    "a per-boundary discharge is not readable from a lumped total."
+                )
+            chd_sorted = chd.sort_values("timestep")
+            values = np.asarray(chd_sorted["flux_out"].values, dtype=float)
+            indices = np.arange(values.shape[0], dtype=int)
+            return indices, values
 
     cause = errors[-1] if errors else None
     raise RuntimeError(

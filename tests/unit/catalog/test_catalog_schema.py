@@ -18,7 +18,7 @@ def _seed(cat, *, project: str = "naizin", solver: str = "modflow6", nse: float 
         sim_id=sim_id, project=project, solver=solver, name="demo", flow_regime="transient"
     )
     cat.write_metric(sim_id, station_id="P01", metric_name="nse", value=nse)
-    cat.finalize(sim_id, status="completed", duration_s=0.0)
+    cat.finalize(sim_id, status="completed")
     return sim_id
 
 

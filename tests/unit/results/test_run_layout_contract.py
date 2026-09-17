@@ -27,30 +27,14 @@ from hydromodpy.data.data_freeze import LOCKFILE_NAME
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME
 from hydromodpy.results.storage.contract import (
+    ALLOWED_RUN_ENTRIES,
     FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
-    RUN_ANNOTATIONS_FILENAME,
-    RUN_CONFIG_FILENAME,
-    RUN_FIGURES_DIRNAME,
-    RUN_PROVENANCE_FILENAME,
-    RUN_TRASH_FILENAME,
+    REQUIRED_RUN_ENTRIES,
     TABLES_DIRNAME,
 )
 
 RUN_NAME = "cheze_baseline"
-
-REQUIRED_RUN_ENTRIES = frozenset({FIELDS_STORE_NAME, TABLES_DIRNAME})
-"""What a solved run always leaves behind."""
-
-ALLOWED_RUN_ENTRIES = REQUIRED_RUN_ENTRIES | {
-    RUN_CONFIG_FILENAME,
-    RUN_PROVENANCE_FILENAME,
-    RUN_MANIFEST_FILENAME,
-    RUN_ANNOTATIONS_FILENAME,
-    RUN_TRASH_FILENAME,
-    RUN_FIGURES_DIRNAME,
-}
-"""Every name a run directory may carry: nothing else is a run artefact."""
 
 ALLOWED_PROJECT_ENTRIES = frozenset(
     {
@@ -109,7 +93,7 @@ def solved_run(tmp_path):
         catalog.write_mass_balance(sim_id, 0, 10.0, 9.5, 5.0)
         catalog.write_metric(sim_id, "P01", "nse", 0.8)
         catalog.write_provenance(sim_id, "dem", "dem.tif", np.ones(4))
-        catalog.finalize(sim_id, status="completed", duration_s=1.0)
+        catalog.finalize(sim_id, status="completed")
 
     return project, sim_id
 

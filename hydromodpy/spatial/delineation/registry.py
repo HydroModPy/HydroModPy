@@ -48,8 +48,6 @@ def _normalize(name: str | None) -> str:
         "workflows": "whitebox_workflows",
         "whitebox_workflows": "whitebox_workflows",
         "whitebox": "whitebox_workflows",
-        "synthetic": "synthetic",
-        "synthetic_bv": "synthetic",
     }
     if normalized in aliases:
         return aliases[normalized]
@@ -94,9 +92,4 @@ _register(
     "whitebox_workflows",
     "hydromodpy.spatial.delineation.whitebox_workflows_backend",
     "WhiteboxWorkflowsBackend",
-)
-_register(
-    "synthetic",
-    "hydromodpy.spatial.delineation.synthetic_backend",
-    "SyntheticBackend",
 )

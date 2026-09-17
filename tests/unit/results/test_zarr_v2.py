@@ -86,11 +86,16 @@ def test_acdd_root_attrs_present(fresh_store: SimulationZarr) -> None:
             "solver_binary_sha256": "deadbeefcafe",
         },
     )
+    # ``creator_name`` is Highly Recommended and undeclared here: ACDD reads an
+    # absent attribute as unknown, which is what this run is. The Unix account
+    # ``alice`` is not an answer to who created the data.
     for key in HIGHLY_RECOMMENDED:
+        if key == "creator_name":
+            assert key not in attrs
+            continue
         assert key in attrs, f"missing ACDD highly-recommended attribute {key}"
     assert attrs["title"] == "demo"
     assert "ACDD-1.3" in attrs["Conventions"]
-    assert attrs["creator_name"] == "alice"
     assert attrs["creator_email"] == "alice@example.org"
     assert attrs["time_coverage_resolution"] == "P1D"
     # The solver binary identity and version must flow through under the
@@ -99,13 +104,24 @@ def test_acdd_root_attrs_present(fresh_store: SimulationZarr) -> None:
     assert "MODFLOW 6.5.0" in attrs["source"]
 
 
-def test_cf_fillvalue_attached_to_head(fresh_store: SimulationZarr) -> None:
+def test_float_missing_value_lives_in_the_zarr_fill_not_in_a_json_attribute(
+    fresh_store: SimulationZarr,
+) -> None:
+    """A NaN sentinel is declared where JSON can encode it, and nowhere else."""
     fresh_store.write_field("head", 0, np.arange(100, dtype="float64"), n_timesteps=5)
     head = fresh_store.root["head"]
-    assert "_FillValue" in head.attrs
-    assert np.isnan(head.attrs["_FillValue"])
+    assert np.isnan(head.fill_value)
+    assert "_FillValue" not in head.attrs
+    assert "missing_value" not in head.attrs
     assert head.attrs.get("csdms_standard_name") == "subsurface_water__hydraulic_head"
     assert head.attrs.get("long_name", "").startswith("Groundwater head")
+
+
+def test_head_declares_its_axes(fresh_store: SimulationZarr) -> None:
+    fresh_store.write_field("head", 0, np.zeros((2, 50)), n_timesteps=5)
+    head = fresh_store.root["head"]
+    assert head.metadata.dimension_names == ("time", "layer", "face")
+    assert head.attrs["coordinates"] == "time layer face"
 
 
 def test_local_store_retries_transient_chunk_write_permission_error(
@@ -343,7 +359,6 @@ def test_compose_acdd_emits_recommended_attributes() -> None:
         "geospatial_vertical_units",
         "geospatial_bounds",
         "geospatial_bounds_crs",
-        "publisher_name",
         "publisher_email",
         "publisher_url",
         "standard_name_vocabulary",
@@ -353,12 +368,14 @@ def test_compose_acdd_emits_recommended_attributes() -> None:
         "metadata_link",
     ):
         assert key in attrs, f"missing ACDD recommended attribute {key}"
+    # Nobody declared a publisher, and the OS account is not one.
+    assert "publisher_name" not in attrs
     assert attrs["geospatial_lat_units"] == "degrees_north"
     assert attrs["geospatial_lon_units"] == "degrees_east"
     assert attrs["geospatial_vertical_units"] == "m"
     assert attrs["geospatial_bounds_crs"] == "EPSG:4326"
     assert attrs["standard_name_vocabulary"] == "CF Standard Name Table v85"
-    assert attrs["cdm_data_type"] == "Grid"
+    assert attrs["cdm_data_type"] == "UGRID"
     assert attrs["geospatial_bounds"].startswith("POLYGON((")
     assert "10.5281/zenodo.1234567" in attrs["metadata_link"]
     assert "Calibrate" in attrs["comment"]

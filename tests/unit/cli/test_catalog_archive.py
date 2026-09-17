@@ -28,7 +28,7 @@ def test_export_import_preserves_identity(tmp_path: Path) -> None:
             n_layers=1,
             config={"k": 1},
         )
-        catalog.finalize(sid, status="completed", duration_s=1.0)
+        catalog.finalize(sid, status="completed")
 
     archive = tmp_path / "paper.hmp"
     exported = export_package_run("baseline", workspace=src, output=str(archive))
@@ -55,7 +55,7 @@ def test_export_package_run_records_in_export_log(tmp_path: Path) -> None:
         catalog.register_simulation(
             sid, project="cheze", solver="modflow6", name="baseline", n_cells=4, n_layers=1
         )
-        catalog.finalize(sid, status="completed", duration_s=1.0)
+        catalog.finalize(sid, status="completed")
 
     export_package_run("baseline", workspace=src, output=str(tmp_path / "paper.hmp"))
 
@@ -80,7 +80,7 @@ def test_export_multiple_runs_roundtrips_as_one_container(tmp_path: Path) -> Non
                 n_layers=1,
                 config={"k": 1},
             )
-            catalog.finalize(sid, status="completed", duration_s=1.0)
+            catalog.finalize(sid, status="completed")
             sids.append(sid)
 
     archive = tmp_path / "paper2026.hmp"

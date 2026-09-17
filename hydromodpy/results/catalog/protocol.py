@@ -303,13 +303,11 @@ class SimulationStore(Protocol):
     def open_zarr(self, sim_id: str | UUID) -> SimulationZarr:
         """Open the per-simulation Zarr store for ``sim_id``."""
 
-    def finalize(
-        self,
-        sim_id: str | UUID,
-        status: str = "completed",
-        duration_s: float | None = None,
-    ) -> None:
-        """Mark ``sim_id`` final, set its status, and pack on-disk artefacts."""
+    def finalize(self, sim_id: str | UUID, status: str = "completed") -> None:
+        """Mark ``sim_id`` final, set its status, and pack on-disk artefacts.
+
+        The run's duration is derived from its own timestamps, never passed in.
+        """
 
     def close(self) -> None:
         """Release every open resource (DB connection, Zarr handles)."""

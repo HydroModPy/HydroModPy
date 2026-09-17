@@ -35,7 +35,7 @@ from importlib.metadata import entry_points
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.base.adapter_protocol import SolverAdapter
+from hydromodpy.solver.base.adapter_protocol import SolverAdapter, missing_adapter_members
 
 logger = get_logger(__name__)
 
@@ -126,7 +126,7 @@ def _load_builtin(key: AdapterKey) -> type | None:
     module_path, _, class_name = path.partition(":")
     module = importlib.import_module(module_path)
     cls = getattr(module, class_name)
-    _REGISTRY[key] = cls
+    register(key[0], key[1], cls, replace=True)
     return cls
 
 
@@ -151,11 +151,24 @@ def register(
 ) -> type:
     """Register an adapter class for a ``(process_type, solver_name)`` pair.
 
+    Refuses a class that does not satisfy ``SolverAdapter``. The runner calls
+    the four methods without asking first, so a class that lacks one used to
+    be accepted here and to fail mid-run, after the solve.
+
     Returns the class unchanged so the function can be used as a decorator.
     """
     key = (process_type, solver_name)
     if key in _REGISTRY and not replace:
         raise ValueError(f"Solver adapter already registered for {process_type}/{solver_name}.")
+    if not is_adapter(adapter_cls):
+        missing = missing_adapter_members(adapter_cls)
+        detail = (
+            f"missing {', '.join(missing)}" if missing else "a member it declares is not usable"
+        )
+        raise TypeError(
+            f"{getattr(adapter_cls, '__qualname__', adapter_cls)!r} cannot serve "
+            f"{process_type}/{solver_name}: it does not satisfy SolverAdapter, {detail}."
+        )
     _REGISTRY[key] = adapter_cls
     return adapter_cls
 
@@ -312,8 +325,31 @@ def pairs_for_process(process_type: str) -> Iterable[AdapterKey]:
 
 
 def is_adapter(obj: object) -> bool:
-    """Return ``True`` when *obj* structurally conforms to ``SolverAdapter``."""
+    """Return ``True`` when *obj* structurally conforms to ``SolverAdapter``.
+
+    Conformance is structural, so an adapter class answers as well as one of
+    its instances: both carry the four methods and the three identifying
+    attributes. :func:`register` is the production caller.
+    """
     return isinstance(obj, SolverAdapter)
+
+
+def _declared_pair(adapter_cls: object) -> AdapterKey | str:
+    """Return the pair an adapter class declares, or why it declares none.
+
+    The two attributes are ``ClassVar[str]`` in the Protocol, so they are read
+    on the class. A pair computed per instance -- a ``property``, a descriptor --
+    is not readable here and is refused rather than waved through: skipping the
+    check for a class that looks unusual is how the name and the class are
+    allowed to disagree again.
+    """
+    declared: list[str] = []
+    for attribute in ("process_type", "solver_name"):
+        value = getattr(adapter_cls, attribute, None)
+        if not isinstance(value, str):
+            return f"{attribute} is not a string on the class ({type(value).__name__})"
+        declared.append(value)
+    return (declared[0], declared[1])
 
 
 def known_process_types() -> set[str]:
@@ -386,7 +422,26 @@ def load_plugins(*, force: bool = False) -> int:
                 exc,
             )
             continue
-        register(process_type, solver_name, adapter_cls, replace=force)
+        declared = _declared_pair(adapter_cls)
+        if isinstance(declared, str):
+            logger.warning("solver plugin %r ignored: %s.", ep, declared)
+            continue
+        if declared != (process_type, solver_name):
+            logger.warning(
+                "solver plugin %r ignored: the entry-point name mints %s/%s while the "
+                "class declares %s/%s. The name is split at its first underscore.",
+                ep,
+                process_type,
+                solver_name,
+                declared[0],
+                declared[1],
+            )
+            continue
+        try:
+            register(process_type, solver_name, adapter_cls, replace=force)
+        except (TypeError, ValueError) as exc:
+            logger.warning("solver plugin %r ignored: %s", ep, exc)
+            continue
         count += 1
     _PLUGINS_LOADED = True
     return count

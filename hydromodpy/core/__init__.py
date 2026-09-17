@@ -20,10 +20,6 @@ __all__ = [
     "LoadedDataContext",
     "SetupContext",
     "ResolvedSimulationTimeWindow",
-    "WhiteboxBackend",
-    "WhiteboxWorkflowsBackend",
-    "clear_whitebox_backend_cache",
-    "get_whitebox_backend",
 ]
 
 _LAZY_IMPORTS = {
@@ -35,10 +31,6 @@ _LAZY_IMPORTS = {
     "LoadedDataContext": "hydromodpy.core.state:LoadedDataContext",
     "SetupContext": "hydromodpy.core.state:SetupContext",
     "ResolvedSimulationTimeWindow": "hydromodpy.core.time:ResolvedSimulationTimeWindow",
-    "WhiteboxBackend": "hydromodpy.spatial.delineation:WhiteboxBackend",
-    "WhiteboxWorkflowsBackend": "hydromodpy.spatial.delineation:WhiteboxWorkflowsBackend",
-    "clear_whitebox_backend_cache": "hydromodpy.spatial.delineation:clear_whitebox_backend_cache",
-    "get_whitebox_backend": "hydromodpy.spatial.delineation:get_whitebox_backend",
 }
 
 

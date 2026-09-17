@@ -20,6 +20,8 @@ tests/
 │   │   ├── steady/
 │   │   └── transient/
 │   └── numerical/
+├── characterization/            # what a produced run offers a reader, plus the
+│                                # double-execution comparator
 ├── e2e/                         # subprocess-level command scenarios
 ├── performance/                 # pytest-benchmark storage-wrapper benchmarks
 ├── contract/                    # compatibility contracts across implementations
@@ -38,6 +40,7 @@ tests/
 | `regression/fast` | ≤ 5 min | Full launcher/pipeline workflows on mini fixtures, compared to committed golden signatures. | `pytest tests/regression/fast/` |
 | `regression/extensive` | ≤ 30 min | Deeper end-to-end golden checks with heavier fixtures. | `pytest tests/regression/extensive/` |
 | `validation` | ≤ 30 min | Numerical results vs analytical / MMS references with documented tolerances. | `pytest tests/validation/` |
+| `characterization` | ≤ 1 min | One real `hmp run` on a committed example project, read back only through the file formats a stranger would use. Holds exactly five `xfail(strict=True)` cases, one per claim the code makes and does not honour; a strict xfail that starts passing fails the tier, which is how a repaired claim gets noticed. | `pytest tests/characterization/` |
 
 ## Markers
 
@@ -63,6 +66,7 @@ Declared in the repository-root `pytest.ini`:
 | `e2e`         | end-to-end pipeline scenarios |
 | `performance` | performance baseline benchmarks |
 | `unit`        | unit-tier tests, auto-applied by path |
+| `characterization` | characterization-tier tests, auto-applied by path |
 | `boussinesq`  | Boussinesq solver specific test |
 | `network`     | requires network access |
 | `binary`      | requires a solver binary on `PATH` |
@@ -91,6 +95,12 @@ pytest tests/regression/extensive/ -q -n 1
 
 # Validation - all analytical cases
 pytest tests/validation/ -q
+
+# Characterization - one real run, read back from disk
+pytest tests/characterization/ -q
+
+# Double-execution comparator on the four frozen projects (about one minute)
+python -m tests.characterization.comparator --frozen --report ~/hmp-parity.md
 
 # Marker selection
 pytest -m "regression and fast" -q

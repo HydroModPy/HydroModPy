@@ -347,7 +347,7 @@ def _make_lineage(project: Path, stem: str, count: int) -> list[str]:
             if reg.zarr is not None:
                 reg.zarr.close()
             cat.write_parameters(sid, [{"param_name": "K", "value": 1e-5}])
-            cat.finalize(sid, status="completed", duration_s=1.0)
+            cat.finalize(sid, status="completed")
     return sids
 
 

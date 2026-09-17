@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import uuid
 from pathlib import Path
 
@@ -106,11 +107,24 @@ class TestRegisterAndFinalize:
             _register(catalog, solver="exotic_solver")
 
     def test_finalize_updates(self, catalog):
+        """The sealed row states its status and how long the run really took.
+
+        ``duration_s`` used to be whatever the caller passed, which was the
+        solver's own figure, sitting between two wall timestamps it
+        contradicted on 78 of 78 manifests. Measuring an interval this test
+        controls is the only way to tell a derived duration from a stored one:
+        comparing it to the timestamps of the same row proves nothing, because
+        both come out of the same SQL statement.
+        """
         sid, _ = _register(catalog)
-        catalog.finalize(sid, status="completed", duration_s=42.5)
+        time.sleep(0.25)
+        before = time.monotonic()
+        catalog.finalize(sid, status="completed")
+        sealing = time.monotonic() - before
+
         row = catalog.connection.execute(_V2_SIM_SELECT, [sid]).fetchone()
         assert row[2] == "completed"
-        assert row[4] == 42.5
+        assert 0.25 <= row[4] <= 0.25 + sealing + 1.0
 
     def test_config_hash_computed(self, catalog):
         sid, _ = _register(catalog, config={"flow": {"K": 1.5}})

@@ -85,8 +85,10 @@ def test_layer_matrix() -> None:
     if p0:
         from collections import Counter
 
-        per_pair = Counter((e.src_pkg, e.tgt_pkg) for e in p0)
-        breakdown = "\n".join(f"  {s:>12} -> {t:<12} {n}" for (s, t), n in per_pair.most_common())
+        per_pair = Counter((e.src_pkg, e.tgt_pkg, e.kind) for e in p0)
+        breakdown = "\n".join(
+            f"  {s:>12} -> {t:<12} {n:>4}  via {k}" for (s, t, k), n in per_pair.most_common()
+        )
         pytest.fail(f"{len(p0)} layer-matrix violations:\n{breakdown}")
 
 

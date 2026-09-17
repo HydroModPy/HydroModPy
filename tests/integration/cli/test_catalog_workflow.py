@@ -41,7 +41,7 @@ def _seed_project_with_simulation(workspace: Path, project: str = "demo") -> str
             variable="head",
             ts=pd.Series([1.0, 1.1], index=pd.date_range("2026-01-01", periods=2)),
         )
-        catalog.finalize(sim_id, status="completed", duration_s=0.1)
+        catalog.finalize(sim_id, status="completed")
     return sim_id
 
 

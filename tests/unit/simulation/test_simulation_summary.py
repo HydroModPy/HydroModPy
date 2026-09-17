@@ -44,7 +44,7 @@ class TestSimulationSummary:
 
     def test_json_roundtrip(self, catalog):
         sid = _register(catalog, name="run-json", tags=["a", "b"])
-        catalog.finalize(sid, "completed", 7.5)
+        catalog.finalize(sid, "completed")
         sim = Run(sid, catalog)
         payload = sim.summary(json=True)
         assert isinstance(payload, str)
@@ -52,7 +52,7 @@ class TestSimulationSummary:
         assert parsed["sim_id"] == sid
         assert parsed["name"] == "run-json"
         assert parsed["status"] == "completed"
-        assert parsed["duration_s"] == pytest.approx(7.5)
+        assert parsed["duration_s"] > 0.0
         assert parsed["tags"] == ["a", "b"]
         # created_at must serialise (datetime -> string)
         assert isinstance(parsed["created_at"], str)

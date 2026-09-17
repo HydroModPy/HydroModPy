@@ -19,12 +19,14 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from hydromodpy.core.io.db_retry import with_lock_retry
+from hydromodpy.core.io.parquet import merge_file_metadata
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import PER_SIM_TABLE_NAMES
 from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
-from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
+from hydromodpy.results.catalog.writes_helpers import kv_metadata_for_sim, wgs84_bounds
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME, UNDETERMINED_LICENSE
 from hydromodpy.results.trash_marker import TrashMarker, write_trash_marker
 from hydromodpy.results.zarr_store import SimulationZarr
 
@@ -33,6 +35,12 @@ if TYPE_CHECKING:
     from hydromodpy.results.catalog.storage_paths import StoragePathResolver
 
 logger = get_logger(__name__)
+
+# ACDD identity a deposit needs and that nothing in this repository declares.
+_DECLARED_IDENTITY_KEYS = ("creator_name", "creator_institution")
+
+# Every CRS WKT2 (and WKT1) string opens with one of these keywords.
+_WKT_PREFIXES = ("PROJCRS", "GEOGCRS", "PROJCS", "GEOGCS", "COMPOUNDCRS", "BOUNDCRS")
 
 
 class PinnedRunError(Exception):
@@ -130,6 +138,43 @@ class CalibrationSessionNamespace:
             "(SELECT id FROM statuses WHERE code = 'running')",
             [str(session_id)],
         )
+
+
+def _warn_about_undeclared_identity(sid: str, attrs: dict) -> None:
+    """Name, once per seal, the identity fields nobody declared.
+
+    The store used to fill ``creator_name`` with the Unix account of whoever ran
+    the process. It now leaves it out, which is honest and silent: this says out
+    loud what a reader of the deposit will find missing.
+    """
+    missing = [key for key in _DECLARED_IDENTITY_KEYS if not attrs.get(key)]
+    if attrs.get("license") == UNDETERMINED_LICENSE:
+        missing.append("a determined license")
+    if missing:
+        logger.warning(
+            "Run %s is sealed without %s. A reader of this deposit cannot tell "
+            "who produced it or under which terms it may be reused.",
+            sid[:8],
+            ", ".join(missing),
+        )
+
+
+def _declared_bounds_in_degrees(sim_row: dict | None) -> dict[str, float] | None:
+    """Return the run's extent in WGS84 degrees, or None when it has none."""
+    if not sim_row:
+        return None
+    crs = sim_row.get("crs_wkt")
+    if not crs and sim_row.get("crs_epsg") is not None:
+        crs = f"EPSG:{int(sim_row['crs_epsg'])}"
+    return wgs84_bounds(
+        (
+            sim_row.get("bbox_xmin"),
+            sim_row.get("bbox_ymin"),
+            sim_row.get("bbox_xmax"),
+            sim_row.get("bbox_ymax"),
+        ),
+        crs,
+    )
 
 
 class LifecycleMixin:
@@ -259,17 +304,23 @@ class LifecycleMixin:
             self.delete(str(sid))
         return len(rows)
 
-    @audited("sim.finalize", payload_keys=("status", "duration_s"))
+    @audited("sim.finalize", payload_keys=("status",))
     @with_lock_retry()
-    def finalize(
-        self,
-        sim_id: str | UUID,
-        status: str = "completed",
-        duration_s: float | None = None,
-    ) -> None:
+    def finalize(self, sim_id: str | UUID, status: str = "completed") -> None:
+        """Seal the run: close the store, stamp ``ended_at``, write the manifest.
+
+        ``duration_s`` is derived here from ``started_at`` and the ``ended_at``
+        being written, so the three fields of the ``run`` block always describe
+        the same interval. The solver's own figure keeps its own name in
+        ``runs_environment.duration_s`` and is not copied into a column that
+        says wall clock.
+        """
         sid = str(sim_id)
         rel_zarr_path: str | None = None
         if status == "completed":
+            # Before the store is sealed: the ACDD block it writes reads the
+            # projection back out of the row this resolves.
+            self._resolve_declared_crs(sid)
             fields = self._paths.fields_path_for(sid)
             if fields.is_dir():
                 try:
@@ -278,10 +329,13 @@ class LifecycleMixin:
                     try:
                         sim_row = self._fetch_simulation_row(sid)
                         runs_env = self._fetch_runs_environment_row(sid)
-                        sz.write_acdd_root_attrs(
+                        sz.harmonize_axis_references()
+                        written = sz.write_acdd_root_attrs(
                             sim_row=sim_row,
                             runs_env=runs_env,
+                            geographic_bounds=_declared_bounds_in_degrees(sim_row),
                         )
+                        _warn_about_undeclared_identity(sid, written)
                         sz.consolidate_metadata()
                     finally:
                         sz.close()
@@ -297,11 +351,11 @@ class LifecycleMixin:
                         self._backend.execute(
                             """UPDATE simulations
                                   SET status_id = (SELECT id FROM statuses WHERE code = 'partial'),
-                                      duration_s = ?,
+                                      duration_s = epoch(current_timestamp - started_at),
                                       ended_at = current_timestamp,
                                       updated_at = current_timestamp
                                 WHERE sim_id = ?""",
-                            [duration_s, sid],
+                            [sid],
                         )
                         emit_audit_event(
                             self._db,
@@ -336,27 +390,70 @@ class LifecycleMixin:
                 self._backend.execute(
                     """UPDATE simulations
                           SET status_id = (SELECT id FROM statuses WHERE code = ?),
-                              duration_s = ?,
+                              duration_s = epoch(current_timestamp - started_at),
                               zarr_path = ?,
                               ended_at = current_timestamp,
                               updated_at = current_timestamp
                         WHERE sim_id = ?""",
-                    [status, duration_s, rel_zarr_path, sid],
+                    [status, rel_zarr_path, sid],
                 )
             else:
                 self._backend.execute(
                     """UPDATE simulations
                           SET status_id = (SELECT id FROM statuses WHERE code = ?),
-                              duration_s = ?,
+                              duration_s = epoch(current_timestamp - started_at),
                               ended_at = current_timestamp,
                               updated_at = current_timestamp
                         WHERE sim_id = ?""",
-                    [status, duration_s, sid],
+                    [status, sid],
                 )
 
         if status == "completed":
             self._write_simulation_snapshot(sid)
             self._seal_run_directory(sid)
+
+    def _resolve_declared_crs(self, sid: str) -> None:
+        """Store the run's projection as WKT2 in the column that promises WKT.
+
+        ``simulations.crs_wkt`` held an ``EPSG:xxxx`` token on 72 of 78 runs and
+        real WKT on none, and stayed null whenever only the delineation knew the
+        projection. A reader who trusts the field name gets a string no CRS
+        parser accepts. Resolved once here, at the seal, from the projection the
+        run declared or, failing that, from the one its catchment recorded.
+        """
+        try:
+            row = self._backend.fetch_one(
+                "SELECT crs_wkt, crs_epsg FROM simulations WHERE sim_id = ?", [sid]
+            )
+            if row is None:
+                return
+            declared, epsg = row[0], row[1]
+            if declared and str(declared).startswith(_WKT_PREFIXES):
+                return
+            candidate = declared
+            if not candidate:
+                metadata = self.read_geographic_metadata(sid)
+                candidate = metadata.get("crs_proj") or metadata.get("crs_epsg")
+            if not candidate:
+                return
+
+            from pyproj import CRS as _CRS
+
+            crs = _CRS.from_user_input(str(candidate))
+            self._backend.execute(
+                "UPDATE simulations SET crs_wkt = ?, crs_epsg = ? WHERE sim_id = ?",
+                [crs.to_wkt(), crs.to_epsg() if crs.to_epsg() is not None else epsg, sid],
+            )
+        except Exception as exc:
+            # The run is already complete; an unresolvable projection leaves the
+            # column as it was rather than failing a seal that has nothing else
+            # wrong with it. Same fault isolation as the two seal steps beside it.
+            logger.warning(
+                "Could not resolve the declared CRS of sim %s to WKT; the run keeps "
+                "the token it declared: %s",
+                sid[:8],
+                exc,
+            )
 
     def _seal_run_directory(self, sid: str) -> None:
         """Write ``parameters.parquet``, ``provenance.json`` and ``manifest.json``.
@@ -395,6 +492,12 @@ class LifecycleMixin:
             self._backend.execute(
                 f"COPY (SELECT * FROM simulations WHERE sim_id = '{sid_sql}') "
                 f"TO '{dest_sql}' (FORMAT PARQUET)"
+            )
+            # DuckDB writes no key-value footer, so the one file that carries
+            # the run's own identity row carried no identity (red-fair D3).
+            merge_file_metadata(
+                tables_dir / "simulation.parquet",
+                {**kv_metadata_for_sim(self._backend, sid), "hmp.schema": "simulation"},
             )
         except Exception as exc:
             # Surface this: the run is complete but a rebuilt index will not be

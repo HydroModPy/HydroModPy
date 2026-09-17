@@ -81,6 +81,38 @@ jobs:
       - name: Run architecture contract tests
         run: python -m pytest tests/unit/architecture/ -q
 
+  characterization:
+    name: Characterization / produced run py3.13
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration,delineation]"
+
+      # The tier's one run is the synthetic Dupuit aquifer of example 00, solved
+      # with MODFLOW-NWT. Nothing here needs MODFLOW 6.
+      - name: Install the solver binary the characterization run needs
+        run: python -m hydromodpy install-binaries --subset mfnwt --quiet
+
+      # The tier runs one real pipeline and reads only what it left on disk.
+      # Its five strict xfails are the claims the code does not honour yet; a
+      # strict xfail that starts passing fails this job, which is how a repaired
+      # claim gets noticed instead of quietly staying green.
+      - name: Run characterization tier
+        run: python -m pytest tests/characterization/ --timeout=900 -q
+
   fast:
     name: Tests / fast marker py${{ matrix.python-version }}
     runs-on: ubuntu-latest

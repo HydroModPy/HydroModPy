@@ -46,7 +46,7 @@ def _populate(catalog, sid, project="test"):
     catalog.write_mass_balance(sid, 0, 100.0, 95.0, 5.0)
     catalog.write_metric(sid, "P01", "nse", 0.85)
     catalog.write_provenance(sid, "dem", "dem.tif", np.ones(10))
-    catalog.finalize(sid, "completed", 42.0)
+    catalog.finalize(sid, "completed")
 
 
 class TestExportSimulation:

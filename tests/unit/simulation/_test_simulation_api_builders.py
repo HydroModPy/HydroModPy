@@ -43,4 +43,4 @@ def _populate(catalog, sid):
     catalog.write_mass_balance(sid, 0, 100.0, 95.0, 5.0)
     catalog.write_metric(sid, "P01", "nse", 0.85)
     catalog.write_metric(sid, "P01", "kge", 0.78)
-    catalog.finalize(sid, "completed", 42.0)
+    catalog.finalize(sid, "completed")

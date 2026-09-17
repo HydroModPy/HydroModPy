@@ -12,7 +12,12 @@ independent of the local clock and of filesystem metadata but still pins:
 The constant ``EXPECTED_DIGEST`` was re-captured when the store stopped
 being packed to a zip: the snapshot now covers ``fields.zarr`` as it lives
 on disk, which is exactly what a reader opens. Any drift of the hierarchy,
-of the chunk layout or of the static attributes has to be intentional.
+of the chunk layout or of the static attributes has to be intentional. It
+was re-captured a second time when every array started declaring
+``dimension_names`` and float fields stopped carrying a NaN ``_FillValue``
+attribute, and a third time when the root attributes stopped asserting a
+creator nobody declared and a CDM feature type the mesh is not: same members,
+same chunk bytes, different node metadata.
 
 Everything entering the digest is byte-identical on Linux and on Windows:
 
@@ -49,7 +54,7 @@ _FROZEN_NOW = datetime(2026, 5, 16, 12, 0, 0, tzinfo=UTC)
 # before computing the snapshot SHA-256.
 _VOLATILE_KEYS = frozenset({"history", "created_at", "date_modified"})
 
-EXPECTED_DIGEST = "698fdddbb832b2d5a03a2ed321e2aeff53b0e2e7b226b0da442cf4a780afd9bc"
+EXPECTED_DIGEST = "f77812b17305897940f835173af55c77fea212559c2df9d8596a58f00072cfd6"
 
 STORE_MEMBERS: tuple[str, ...] = (
     "forcing/zarr.json",

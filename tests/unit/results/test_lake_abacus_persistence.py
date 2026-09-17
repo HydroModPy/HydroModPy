@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.solver.modflow6.build import _write_lake_abacus_meta
@@ -77,3 +78,26 @@ def test_lake_abacus_meta_noop_without_reconstruction(tmp_path: Path) -> None:
     model = _Model(tmp_path, {})
     _write_lake_abacus_meta(model)
     assert not (tmp_path / "mymodel.lake_abacus.json").exists()
+
+
+def test_lake_abacus_refuses_curves_of_different_lengths(tmp_path: Path) -> None:
+    """One stage abscissa, so one length: an unequal write is refused, not stored.
+
+    Five arrays sharing the ``stage_level`` axis in one Zarr group must agree on
+    its size, otherwise the group cannot be opened at all. Refusing at the write
+    names the lake and the lengths instead of producing an unreadable store.
+    """
+    sz = SimulationZarr.create(tmp_path / "sim.zarr", n_cells=4, n_layers=1)
+    try:
+        with pytest.raises(ValueError, match="different lengths"):
+            sz.write_lake_abacus(
+                "lac0",
+                stage=_STAGE,
+                real_volume=_REAL_VOL,
+                real_sarea=_REAL_SAREA,
+                sim_volume=_REAL_VOL[:3],
+                sim_sarea=_REAL_SAREA[:3],
+            )
+        assert "lake_abacus" not in sz.root
+    finally:
+        sz.close()

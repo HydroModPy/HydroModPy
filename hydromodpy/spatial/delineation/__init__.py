@@ -2,7 +2,6 @@
 
 Runtime entry points:
 
-- ``DelineationBackend`` - high-level Protocol (see :mod:`.base`).
 - ``WhiteboxWorkflowsBackend`` - facade aggregating raster IO, flow analysis,
   and delineation sub-backends.
 - ``WhiteboxRasterBackend`` / ``WhiteboxFlowBackend`` /
@@ -18,7 +17,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hydromodpy.spatial.delineation.base import DelineationBackend
 from hydromodpy.spatial.delineation.registry import (
     available_backends,
     get_backend,
@@ -31,7 +29,6 @@ if TYPE_CHECKING:
     )
 
 __all__ = [
-    "DelineationBackend",
     "WhiteboxDelineationBackend",
     "WhiteboxFlowBackend",
     "WhiteboxRasterBackend",

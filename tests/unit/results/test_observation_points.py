@@ -82,7 +82,7 @@ def project(tmp_path):
     with Catalog(root) as catalog:
         sid = _seal_run(catalog, "probe_run")
         catalog.sample_observation_points(sid, DECLARATIONS)
-        catalog.finalize(sid, status="completed", duration_s=1.0)
+        catalog.finalize(sid, status="completed")
     return root, sid
 
 

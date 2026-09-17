@@ -72,7 +72,7 @@ def _seal_run(catalog: Catalog, name: str, *, inputs: Sequence[TrackedFileEntry]
     if inputs:
         catalog.register_tracked_files(sid, list(inputs))
     (catalog.run_dir_for(sid) / RUN_CONFIG_FILENAME).write_text("[flow]\nhk = 1e-5\n")
-    catalog.finalize(sid, status="completed", duration_s=12.0)
+    catalog.finalize(sid, status="completed")
     return sid
 
 
