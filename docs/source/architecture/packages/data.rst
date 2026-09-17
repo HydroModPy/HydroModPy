@@ -18,6 +18,10 @@ Sub-modules
 - ``data/source/`` -- the ``DataSource`` port and its adapters, see
   below. There is no source registry: dispatch on a provider name is
   still an ``if``/``elif`` in each variable manager.
+- ``data/fetch/`` -- the ``data-fetch`` capability: its declaration, the
+  body that runs it and the four artefact writers, see below. It is the
+  caller of the port, kept out of ``data/source/`` so the port stays
+  importable without pydantic.
 - ``data/managers/planner.py`` and ``data/managers/plan.py`` --
   ``DataPlanner`` and immutable ``DataLoadPlan``. The planner merges
   ``[data].types`` with rules that infer extra variables from foreign
@@ -106,6 +110,39 @@ refuses any import out of ``data/source/`` that is not ``core``,
 -- the provider entry point each adapter defers into its ``fetch``.
 The layer matrix cannot see that edge, ``data`` being one layer.
 
+The data-fetch capability
+-------------------------
+
+``data/fetch/`` turns the port into something invocable from outside:
+``hmp process run data-fetch --job <dir>`` reads one ``request.json``,
+asks one source, and seals what came back. It opens no workspace, no
+catalog and no DuckDB, and it never sees a ``geographic`` object -- the
+extent is an input, a bounding box carrying its CRS or a vector mask
+another job produced.
+
+- ``capability.py`` -- the ``CapabilityDecl``, the Pydantic request
+  model and the table of served sources. Three members are **derived**
+  from that table rather than written: ``reaches_network`` is the union
+  of the sources' ``hosts``, ``PAYLOAD_PATHS`` has one entry per
+  ``PayloadKind``, and the ``source`` input is a union tagged on
+  ``source.id`` with one member per source. The derivations are compared
+  to what they came from by
+  ``tests/unit/data/test_data_fetch_declaration.py``.
+- ``worker.py`` -- resolution, refusal, fetch, seal and the reuse
+  short-circuit, on the pattern ``terrain-delineate`` set. Every fetch
+  gets a ``TemporaryDirectory`` as its ``out_dir``, so what a provider
+  leaves beside its result never lands under ``outputs/``.
+- ``artefacts.py`` -- how each payload kind becomes one sealable file:
+  one GeoPackage layer for ``features``, one moved GeoTIFF for
+  ``files``, one long Parquet table for ``points``, one merged NetCDF-4
+  for ``fields``. Zarr is what a run directory uses for field arrays and
+  it is a directory: a seal inventories files, so a job artefact cannot
+  be one.
+
+Exactly one payload artefact is written per run, and
+``outputs/fetch.json`` is always written: it names which one, the extent
+that was really queried and the CRS it was really queried in.
+
 LoadResult contract
 -------------------
 
@@ -141,6 +178,8 @@ Key public symbols
   FetchResult}``
 - ``hydromodpy.data.source.{HubeauPiezometrySource, BdTopageSource,
   IgnDemSource, Sim2PrecipitationSource}``
+- ``hydromodpy.data.fetch.capability.{DATA_FETCH, DataFetchRequest}``
+- ``hydromodpy.data.fetch.worker.run``
 
 Recommended reading path
 ------------------------

@@ -2,6 +2,13 @@
   "$schema": "urn:hmp:profile:process-index:v1",
   "processes": [
     {
+      "id": "data-fetch",
+      "version": "1.0.0",
+      "major": 1,
+      "title": "Fetch one variable from one data source over a declared extent",
+      "file": "data-fetch@1.json"
+    },
+    {
       "id": "terrain-delineate",
       "version": "1.0.0",
       "major": 1,

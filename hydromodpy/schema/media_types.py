@@ -17,6 +17,7 @@ JSON_MEDIA_TYPE = "application/json"
 GEOJSON_MEDIA_TYPE = "application/geo+json"
 GEOPACKAGE_MEDIA_TYPE = "application/geopackage+sqlite3"
 GEOTIFF_MEDIA_TYPE = "image/tiff; application=geotiff"
+NETCDF_MEDIA_TYPE = "application/netcdf"
 PARQUET_MEDIA_TYPE = "application/vnd.apache.parquet"
 
 __all__ = [
@@ -24,5 +25,6 @@ __all__ = [
     "GEOPACKAGE_MEDIA_TYPE",
     "GEOTIFF_MEDIA_TYPE",
     "JSON_MEDIA_TYPE",
+    "NETCDF_MEDIA_TYPE",
     "PARQUET_MEDIA_TYPE",
 ]

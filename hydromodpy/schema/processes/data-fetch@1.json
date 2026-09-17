@@ -1,0 +1,633 @@
+{
+  "$schema": "urn:hmp:profile:process:v1",
+  "id": "data-fetch",
+  "version": "1.0.0",
+  "title": "Fetch one variable from one data source over a declared extent",
+  "description": "Asks one declared data source for one variable over a bounding box, a vector mask or a list of stations, and seals what came back as a single artefact beside a report naming the extent that was really queried.",
+  "keywords": [
+    "data",
+    "fetch",
+    "download",
+    "hydrology",
+    "France"
+  ],
+  "jobControlOptions": [
+    "sync-execute"
+  ],
+  "outputTransmission": [
+    "reference"
+  ],
+  "hmp:invocation": {
+    "argv": [
+      "hmp",
+      "process",
+      "run",
+      "data-fetch",
+      "--job",
+      "{jobdir}"
+    ],
+    "request_file": "request.json",
+    "outcome_file": "outcome.json",
+    "stdout": "application/json, exactly one document, byte-identical to outcome.json; on a reuse, that document with \"reused\": true",
+    "writes_outside_jobdir": [
+      "$TMPDIR"
+    ],
+    "reads_outside_jobdir": "only the paths declared in request.json",
+    "network": [
+      "api.geosas.fr",
+      "data.geopf.fr",
+      "hubeau.eaufrance.fr",
+      "services.sandre.eaufrance.fr"
+    ],
+    "cancellation": {
+      "signal": "SIGTERM",
+      "status": "dismissed",
+      "exit_code": 130
+    },
+    "idempotency": {
+      "job_id": "sha256 of the process identity and of the resolved inputs, every file link replaced by the digest of its bytes",
+      "reuse": "a job directory already sealed under the same job_id is re-reported: nothing is written, stdout carries its outcome.json with \"reused\": true, and the process exits 0",
+      "conflict": "a job directory sealed under another job_id is refused, as HMPY.E1100"
+    },
+    "env": [
+      "HMP_NO_PROGRESS",
+      "HMP_LOG_LEVEL",
+      "TMPDIR"
+    ]
+  },
+  "inputs": {
+    "source": {
+      "title": "Source",
+      "minOccurs": 1,
+      "maxOccurs": 1,
+      "schema": {
+        "description": "which source to ask, and everything that configures it",
+        "discriminator": {
+          "mapping": {
+            "bdtopage": "#/$defs/BdTopageOptions",
+            "hubeau-piezometry": "#/$defs/HubeauPiezometryOptions",
+            "ign-bdalti": "#/$defs/IgnDemOptions",
+            "sim2-precipitation": "#/$defs/Sim2PrecipitationOptions"
+          },
+          "propertyName": "id"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/BdTopageOptions"
+          },
+          {
+            "$ref": "#/$defs/HubeauPiezometryOptions"
+          },
+          {
+            "$ref": "#/$defs/IgnDemOptions"
+          },
+          {
+            "$ref": "#/$defs/Sim2PrecipitationOptions"
+          }
+        ],
+        "title": "Source",
+        "x-hmp-profile": "user",
+        "$defs": {
+          "BdTopageOptions": {
+            "additionalProperties": false,
+            "description": "Ask the Sandre WFS for the BD Topage reference river network.",
+            "properties": {
+              "id": {
+                "const": "bdtopage",
+                "description": "identity of the source, as 'hmp process describe' lists it",
+                "examples": [
+                  "bdtopage"
+                ],
+                "title": "Id",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "typename": {
+                "default": "sa:CoursEau_FXX_Topage2025",
+                "description": "WFS feature type served by the Sandre endpoint",
+                "examples": [
+                  "sa:CoursEau_FXX_Topage2025"
+                ],
+                "minLength": 1,
+                "title": "Typename",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "page_size": {
+                "default": 2000,
+                "description": "features requested per page while the WFS result is walked",
+                "examples": [
+                  2000
+                ],
+                "exclusiveMinimum": 0,
+                "title": "Page Size",
+                "type": "integer",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "title": "BdTopageOptions",
+            "type": "object"
+          },
+          "HubeauPiezometryOptions": {
+            "additionalProperties": false,
+            "description": "Ask Hub'Eau for groundwater levels or depths at piezometers.",
+            "properties": {
+              "id": {
+                "const": "hubeau-piezometry",
+                "description": "identity of the source, as 'hmp process describe' lists it",
+                "examples": [
+                  "hubeau-piezometry"
+                ],
+                "title": "Id",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "product": {
+                "default": "level",
+                "description": "which of the two Hub'Eau products the records carry",
+                "enum": [
+                  "level",
+                  "depth"
+                ],
+                "examples": [
+                  "level"
+                ],
+                "title": "Product",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "require_observations": {
+                "default": true,
+                "description": "drop a piezometer that has no observation inside the period",
+                "examples": [
+                  true
+                ],
+                "title": "Require Observations",
+                "type": "boolean",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "title": "HubeauPiezometryOptions",
+            "type": "object"
+          },
+          "IgnDemOptions": {
+            "additionalProperties": false,
+            "description": "Ask the Geoplateforme for BD ALTI 25 m tiles, merged over the extent.",
+            "properties": {
+              "id": {
+                "const": "ign-bdalti",
+                "description": "identity of the source, as 'hmp process describe' lists it",
+                "examples": [
+                  "ign-bdalti"
+                ],
+                "title": "Id",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "departments": {
+                "description": "department codes to download, padded; empty lets the extent select them",
+                "examples": [
+                  [
+                    "035",
+                    "022"
+                  ]
+                ],
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 101,
+                "title": "Departments",
+                "type": "array",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "title": "IgnDemOptions",
+            "type": "object"
+          },
+          "Sim2PrecipitationOptions": {
+            "additionalProperties": false,
+            "description": "Ask the GeoSAS EDR service for daily SIM2 precipitation grids.",
+            "properties": {
+              "id": {
+                "const": "sim2-precipitation",
+                "description": "identity of the source, as 'hmp process describe' lists it",
+                "examples": [
+                  "sim2-precipitation"
+                ],
+                "title": "Id",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "components": {
+                "default": [
+                  "total"
+                ],
+                "description": "precipitation components to fetch, one field per component",
+                "examples": [
+                  [
+                    "total"
+                  ]
+                ],
+                "items": {
+                  "enum": [
+                    "liquid",
+                    "solid",
+                    "total"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 3,
+                "minItems": 1,
+                "title": "Components",
+                "type": "array",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "title": "Sim2PrecipitationOptions",
+            "type": "object"
+          }
+        },
+        "$id": "urn:hmp:schema:data-fetch:1.0.0:source",
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "description": "which source to ask, and everything that configures it"
+    },
+    "extent": {
+      "title": "Extent",
+      "minOccurs": 0,
+      "maxOccurs": 1,
+      "schema": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/BboxExtentInput"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "bounding box to fetch over, in the CRS it declares",
+        "x-hmp-profile": "user",
+        "$defs": {
+          "BboxExtentInput": {
+            "additionalProperties": false,
+            "description": "A bounding box and the CRS it is expressed in.",
+            "properties": {
+              "bbox": {
+                "description": "xmin, ymin, xmax, ymax, in the units of crs",
+                "examples": [
+                  [
+                    -1.85,
+                    48.05,
+                    -1.55,
+                    48.25
+                  ]
+                ],
+                "items": {
+                  "type": "number"
+                },
+                "maxItems": 4,
+                "minItems": 4,
+                "title": "Bbox",
+                "type": "array",
+                "x-hmp-profile": "user"
+              },
+              "crs": {
+                "description": "CRS the four bounds are expressed in",
+                "examples": [
+                  "EPSG:4326"
+                ],
+                "pattern": "^EPSG:[0-9]{4,6}$",
+                "title": "Crs",
+                "type": "string",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "bbox",
+              "crs"
+            ],
+            "title": "BboxExtentInput",
+            "type": "object"
+          }
+        },
+        "$id": "urn:hmp:schema:data-fetch:1.0.0:extent",
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "description": "bounding box to fetch over, in the CRS it declares"
+    },
+    "mask": {
+      "title": "Mask",
+      "minOccurs": 0,
+      "maxOccurs": 1,
+      "schema": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/FileLink"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "vector file whose bounds are the extent, typically a watershed produced by terrain-delineate",
+        "x-hmp-profile": "user",
+        "$defs": {
+          "FileLink": {
+            "additionalProperties": false,
+            "description": "A file input: where it is, what it is, and optionally what it hashes to.",
+            "properties": {
+              "href": {
+                "description": "absolute path, or a path relative to the job directory",
+                "title": "Href",
+                "type": "string"
+              },
+              "type": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "IANA media type of the file",
+                "title": "Type"
+              },
+              "sha256": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "expected digest, lowercase hex",
+                "title": "Sha256"
+              }
+            },
+            "required": [
+              "href"
+            ],
+            "title": "FileLink",
+            "type": "object"
+          }
+        },
+        "$id": "urn:hmp:schema:data-fetch:1.0.0:mask",
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "description": "vector file whose bounds are the extent, typically a watershed produced by terrain-delineate"
+    },
+    "station_ids": {
+      "title": "Station Ids",
+      "minOccurs": 0,
+      "maxOccurs": 1000,
+      "schema": {
+        "description": "station codes to fetch, for a source that selects by station",
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 1000,
+        "title": "Station Ids",
+        "type": "array",
+        "x-hmp-profile": "user",
+        "$id": "urn:hmp:schema:data-fetch:1.0.0:station_ids",
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "description": "station codes to fetch, for a source that selects by station"
+    },
+    "period": {
+      "title": "Period",
+      "minOccurs": 0,
+      "maxOccurs": 1,
+      "schema": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/PeriodInput"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "time window, required by a source with a time axis and refused by one without",
+        "x-hmp-profile": "user",
+        "$defs": {
+          "PeriodInput": {
+            "additionalProperties": false,
+            "description": "The closed time window a request asks for, both ends included.",
+            "properties": {
+              "start": {
+                "description": "first instant of the window, inclusive",
+                "examples": [
+                  "2020-01-01"
+                ],
+                "format": "date-time",
+                "title": "Start",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "end": {
+                "description": "last instant of the window, inclusive",
+                "examples": [
+                  "2020-12-31"
+                ],
+                "format": "date-time",
+                "title": "End",
+                "type": "string",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "start",
+              "end"
+            ],
+            "title": "PeriodInput",
+            "type": "object"
+          }
+        },
+        "$id": "urn:hmp:schema:data-fetch:1.0.0:period",
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "description": "time window, required by a source with a time axis and refused by one without"
+    }
+  },
+  "outputs": {
+    "report": {
+      "title": "What was fetched, and the extent that was really queried",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "application/json"
+      },
+      "hmp:path": "outputs/fetch.json",
+      "hmp:role": [
+        "metadata",
+        "primary"
+      ],
+      "minOccurs": 1
+    },
+    "points": {
+      "title": "Station time series, one row per observation",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "application/vnd.apache.parquet"
+      },
+      "hmp:path": "outputs/points.parquet",
+      "hmp:role": [
+        "data"
+      ],
+      "minOccurs": 0
+    },
+    "fields": {
+      "title": "Gridded fields, one data variable per fetched variable",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "application/netcdf"
+      },
+      "hmp:path": "outputs/fields.nc",
+      "hmp:role": [
+        "data"
+      ],
+      "minOccurs": 0,
+      "hmp:conformsTo": [
+        "NetCDF-4"
+      ]
+    },
+    "features": {
+      "title": "Vector features, one layer",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "application/geopackage+sqlite3"
+      },
+      "hmp:path": "outputs/features.gpkg",
+      "hmp:role": [
+        "data"
+      ],
+      "minOccurs": 0
+    },
+    "raster": {
+      "title": "Merged raster covering the extent",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "image/tiff; application=geotiff"
+      },
+      "hmp:path": "outputs/raster.tif",
+      "hmp:role": [
+        "data"
+      ],
+      "minOccurs": 0
+    },
+    "inputset": {
+      "title": "Resolved, hashed, licence-annotated input set",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "application/json"
+      },
+      "hmp:path": "inputset.json",
+      "hmp:role": [
+        "metadata",
+        "provenance"
+      ],
+      "minOccurs": 1
+    },
+    "outcome": {
+      "title": "Typed job outcome",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "application/json"
+      },
+      "hmp:path": "outcome.json",
+      "hmp:role": [
+        "metadata"
+      ],
+      "minOccurs": 1
+    }
+  },
+  "hmp:exceptions": [
+    {
+      "type": "urn:hmp:error:HMPY.E1100",
+      "code": "HMPY.E1100",
+      "exit_code": 2,
+      "title": "The job directory is not usable as the caller gave it."
+    },
+    {
+      "type": "urn:hmp:error:HMPY.E1101",
+      "code": "HMPY.E1101",
+      "exit_code": 11,
+      "title": "The request targets a different major version of the capability."
+    },
+    {
+      "type": "urn:hmp:error:HMPY.E101",
+      "code": "HMPY.E101",
+      "exit_code": 14,
+      "title": "The configuration document failed validation."
+    },
+    {
+      "type": "urn:hmp:error:FileNotFoundError",
+      "code": "FileNotFoundError",
+      "exit_code": 10,
+      "title": "File not found."
+    },
+    {
+      "type": "urn:hmp:error:HMPY.E201",
+      "code": "HMPY.E201",
+      "exit_code": 16,
+      "title": "A dataset does not satisfy its declared contract."
+    },
+    {
+      "type": "urn:hmp:error:HMPY.E207",
+      "code": "HMPY.E207",
+      "exit_code": 16,
+      "title": "A fetch request is malformed, before any source is asked to serve it."
+    },
+    {
+      "type": "urn:hmp:error:HMPY.E208",
+      "code": "HMPY.E208",
+      "exit_code": 16,
+      "title": "The selected data source does not serve the requested option."
+    },
+    {
+      "type": "urn:hmp:error:HMPY.E204",
+      "code": "HMPY.E204",
+      "exit_code": 16,
+      "title": "Remote data source (HTTP/FTP) refused or returned invalid data."
+    },
+    {
+      "type": "urn:hmp:error:HMPY.E209",
+      "code": "HMPY.E209",
+      "exit_code": 16,
+      "title": "What a source returned does not satisfy what it declared."
+    }
+  ],
+  "hmp:artifacts": {
+    "seal": "manifest.json",
+    "seal_rule": "present if and only if the job succeeded and every declared output exists and hashes"
+  },
+  "links": [
+    {
+      "rel": "self",
+      "href": "data-fetch@1.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "describedby",
+      "href": "urn:hmp:profile:process:v1",
+      "type": "application/json"
+    }
+  ]
+}
