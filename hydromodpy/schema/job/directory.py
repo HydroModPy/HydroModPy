@@ -86,6 +86,21 @@ class JobDirectory:
         return job
 
     @classmethod
+    def for_reading(cls, path: str | Path) -> JobDirectory:
+        """Open a directory to read it, whatever it turns out to carry.
+
+        A verification verb is pointed at directories nobody here wrote,
+        including ones a transfer truncated -- and the file a transfer is most
+        likely to have dropped is ``request.json``, which the verifier does
+        not need and which :meth:`open` requires. Demanding it would answer
+        "you invoked me wrong" to the exact case the verb exists for.
+        """
+        root = Path(path).expanduser()
+        if not root.is_dir():
+            raise JobUsageError(f"job directory {root} does not exist")
+        return cls(root.resolve())
+
+    @classmethod
     def create(cls, path: str | Path) -> JobDirectory:
         """Create the directory and return it, without requiring a request.
 

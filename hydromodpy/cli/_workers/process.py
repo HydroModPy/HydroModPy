@@ -103,13 +103,17 @@ def run_capability(capability_id: str, job_dir: str | Path) -> tuple[int, str]:
     """
     from hydromodpy.cli.helpers import EXIT_SIGINT, exit_code_for
 
-    entry = capability(capability_id)
-    job = JobDirectory.open(job_dir)
-    try:
-        with terminate_as_interrupt():
+    # The handler goes on **before** the registry is touched, not around the
+    # run alone. Resolving the capability imports its whole engine stack, which
+    # is most of the wall time of a small job; a SIGTERM inside that window used
+    # to kill the process at 143 with an empty stdout and no outcome at all.
+    with terminate_as_interrupt():
+        entry = capability(capability_id)
+        job = JobDirectory.open(job_dir)
+        try:
             outcome = entry.run(job, exit_code_for=exit_code_for)
-    except KeyboardInterrupt:
-        return EXIT_SIGINT, _outcome_text(job)
+        except KeyboardInterrupt:
+            return EXIT_SIGINT, _outcome_text(job)
     return outcome.exit_code, _outcome_text(job)
 
 
@@ -121,8 +125,14 @@ def _outcome_text(job: JobDirectory) -> str:
 
 
 def verify_capability_job(job_dir: str | Path) -> SealVerification:
-    """Re-check a finished job directory against its own seal."""
-    return verify_job(JobDirectory.open(job_dir))
+    """Re-check a finished job directory against its own seal.
+
+    Opened for reading and not through :meth:`JobDirectory.open`, which
+    requires ``request.json``: a truncated transfer that lost exactly that
+    file is the case this verb exists for, and it must be reported, not
+    answered with "you invoked me wrong".
+    """
+    return verify_job(JobDirectory.for_reading(job_dir))
 
 
 __all__ = [
