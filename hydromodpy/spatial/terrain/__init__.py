@@ -14,9 +14,15 @@ from __future__ import annotations
 from importlib import import_module
 
 from hydromodpy.spatial.terrain.port import (
+    DEFAULT_CATCHMENT_LAYOUT,
+    LN_FLOAT32_COLLISION_COUNT,
+    OUTLET_LAYER_NAME,
+    RANK_PRESERVING_TRANSFORMS,
+    SNAPPED_OUTLET_LAYER_NAME,
     AccumulationTransform,
     AccumulationUnits,
     Catchment,
+    CatchmentLayout,
     ConditionedDem,
     ConditioningExtent,
     ConditioningExtentKind,
@@ -30,15 +36,22 @@ from hydromodpy.spatial.terrain.port import (
     engine_members,
     missing_engine_members,
     require_batch,
-    require_cell_counts,
+    require_rank_preserving,
+    require_resolvable_counts,
     require_untransformed,
     snap_window_cells,
 )
 
 __all__ = [
+    "DEFAULT_CATCHMENT_LAYOUT",
+    "LN_FLOAT32_COLLISION_COUNT",
+    "OUTLET_LAYER_NAME",
+    "RANK_PRESERVING_TRANSFORMS",
+    "SNAPPED_OUTLET_LAYER_NAME",
     "AccumulationTransform",
     "AccumulationUnits",
     "Catchment",
+    "CatchmentLayout",
     "ConditionedDem",
     "ConditioningExtent",
     "ConditioningExtentKind",
@@ -54,7 +67,8 @@ __all__ = [
     "engine_members",
     "missing_engine_members",
     "require_batch",
-    "require_cell_counts",
+    "require_rank_preserving",
+    "require_resolvable_counts",
     "require_untransformed",
     "snap_window_cells",
 ]

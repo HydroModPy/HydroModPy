@@ -40,21 +40,25 @@ from rasterio.features import shapes as raster_shapes
 from shapely.geometry import shape as shapely_shape
 
 from hydromodpy.core.exceptions import (
+    EmptyCatchmentError,
     TerrainCapabilityError,
     TerrainProductError,
     TerrainRequestError,
 )
 from hydromodpy.spatial.geographic.core.d8 import WBT_D8_OFFSETS
-from hydromodpy.spatial.terrain._artifacts import (
+from hydromodpy.spatial.terrain.artifacts import (
     MASK_INSIDE,
     MASK_NODATA,
     boundary_area_m2,
     mask_cell_count,
+    raster_max,
 )
 from hydromodpy.spatial.terrain.port import (
+    DEFAULT_CATCHMENT_LAYOUT,
     AccumulationTransform,
     AccumulationUnits,
     Catchment,
+    CatchmentLayout,
     ConditionedDem,
     ConditioningExtent,
     ConditioningMethod,
@@ -63,7 +67,8 @@ from hydromodpy.spatial.terrain.port import (
     Outlet,
     StreamNetwork,
     require_batch,
-    require_cell_counts,
+    require_rank_preserving,
+    require_resolvable_counts,
     require_untransformed,
     snap_window_cells,
 )
@@ -240,9 +245,18 @@ class NumpyTerrainEngine:
         *,
         out_dir: Path,
         snap_distance_m: float,
+        layout: CatchmentLayout = DEFAULT_CATCHMENT_LAYOUT,
     ) -> tuple[Catchment, ...]:
-        require_cell_counts(accumulation, member="delineate")
-        require_batch(outlets, snap_distance_m=snap_distance_m)
+        require_rank_preserving(accumulation, member="delineate")
+        require_batch(outlets, snap_distance_m=snap_distance_m, layout=layout)
+        if accumulation.transform != "none":
+            # One pass over the raster, and only when the values are transformed:
+            # what is stored is what the snap compares.
+            require_resolvable_counts(
+                accumulation,
+                max_stored_value=raster_max(accumulation.path),
+                member="delineate",
+            )
 
         acc = _Grid(accumulation.path)
         pointer = _pointer_grid(accumulation.directions)
@@ -254,9 +268,9 @@ class NumpyTerrainEngine:
             snapped_x, snapped_y = acc.centre(row, col)
             inside = _upstream_mask(donors, pointer, row, col)
 
-            site_dir = Path(out_dir) / outlet.outlet_id
-            mask_path = site_dir / "mask.tif"
-            boundary_path = site_dir / "boundary.shp"
+            site_dir = layout.site_dir(Path(out_dir), outlet)
+            mask_path = site_dir / layout.mask_name
+            boundary_path = site_dir / layout.boundary_name
             pointer.write(
                 mask_path,
                 np.where(inside, MASK_INSIDE, MASK_NODATA),
@@ -518,7 +532,7 @@ def _write_boundary(path: Path, inside: np.ndarray, grid: _Grid) -> None:
         if value == 1
     ]
     if not geometries:
-        raise TerrainProductError(f"Delineation produced an empty catchment: {path}")
+        raise EmptyCatchmentError(f"Delineation produced an empty catchment: {path}")
     frame = gpd.GeoDataFrame({"value": [1] * len(geometries)}, geometry=geometries)
     if grid.crs:
         frame = frame.set_crs(grid.crs)

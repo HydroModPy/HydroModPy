@@ -45,10 +45,18 @@ Batch delineation means shared products
 what is expensive, not the traversal. An engine is free to serve them in one
 call or in a loop; what the signature forbids is conditioning a DEM once per
 outlet.
+
+Its ``layout`` is the one concession the first production callers won. The
+geographic pipeline publishes ``watershed.tif`` and ``watershed.shp`` in one
+directory that twenty other artefacts share, and every golden in the tree reads
+them there. An engine that could only write ``mask.tif`` under a directory named
+after the outlet would have made the port unadoptable, so the shape is declared
+by the caller and refused when it cannot hold what is asked of it.
 """
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -195,6 +203,76 @@ class Outlet:
             )
 
 
+OUTLET_LAYER_NAME = "outlet.shp"
+SNAPPED_OUTLET_LAYER_NAME = "outlet_snap.shp"
+"""The two point layers every engine writes beside a catchment.
+
+Named here rather than in each engine because a flat layout has to refuse a
+catchment name that would land on one of them.
+"""
+
+
+@dataclass(frozen=True)
+class CatchmentLayout:
+    """Where the artefacts of one outlet land under the delineation directory.
+
+    Declared rather than fixed, because the two shapes are not interchangeable
+    and nothing in a mask says which one wrote it. A batch needs one directory
+    per outlet or the second overwrites the first. A caller whose on-disk
+    contract already publishes a name -- ``watershed.tif`` next to twenty other
+    files in one geographic directory -- needs the files at that name, in that
+    directory, and moving them would move every golden that reads them.
+    """
+
+    per_outlet_directory: bool
+    mask_name: str
+    boundary_name: str
+
+    def __post_init__(self) -> None:
+        for field_name, value, suffix in (
+            ("mask_name", self.mask_name, ".tif"),
+            ("boundary_name", self.boundary_name, ".shp"),
+        ):
+            if value != Path(value).name or value in ("", ".", ".."):
+                raise TerrainRequestError(
+                    f"{field_name}={value!r} is not a plain file name. A name carrying a "
+                    "separator writes outside the directory the caller named."
+                )
+            if not value.endswith(suffix):
+                raise TerrainRequestError(f"{field_name}={value!r} does not end in {suffix!r}.")
+        if not self.per_outlet_directory and self.boundary_name in (
+            OUTLET_LAYER_NAME,
+            SNAPPED_OUTLET_LAYER_NAME,
+        ):
+            raise TerrainRequestError(
+                f"boundary_name={self.boundary_name!r} is the name of a point layer an "
+                "engine writes beside the catchment. In a flat layout the boundary would "
+                "overwrite it, and the outlet the delineation ran from would be gone."
+            )
+
+    @classmethod
+    def per_outlet(cls) -> CatchmentLayout:
+        """One directory per outlet, the only shape a batch can be served in."""
+        return cls(per_outlet_directory=True, mask_name="mask.tif", boundary_name="boundary.shp")
+
+    @classmethod
+    def flat(cls, *, mask_name: str, boundary_name: str) -> CatchmentLayout:
+        """Both artefacts straight in the delineation directory, at named files."""
+        return cls(
+            per_outlet_directory=False,
+            mask_name=mask_name,
+            boundary_name=boundary_name,
+        )
+
+    def site_dir(self, out_dir: Path, outlet: Outlet) -> Path:
+        """Return the directory this outlet's artefacts belong in."""
+        return Path(out_dir) / outlet.outlet_id if self.per_outlet_directory else Path(out_dir)
+
+
+DEFAULT_CATCHMENT_LAYOUT = CatchmentLayout.per_outlet()
+"""The shape a caller gets when it does not say, and the only one a batch has."""
+
+
 @dataclass(frozen=True)
 class Catchment:
     """The catchment of one outlet, and where the delineation really started.
@@ -306,6 +384,7 @@ class TerrainEngine(Protocol):
         *,
         out_dir: Path,
         snap_distance_m: float,
+        layout: CatchmentLayout = DEFAULT_CATCHMENT_LAYOUT,
     ) -> tuple[Catchment, ...]:
         """Delineate every outlet against one accumulation, in input order.
 
@@ -314,8 +393,11 @@ class TerrainEngine(Protocol):
         window is the one :func:`snap_window_cells` describes, and
         ``snap_distance_m`` is its **width**, not a maximum displacement.
 
-        Requires ``units="cells"`` and ``transform="none"`` so the snap compares
-        comparable numbers.
+        Requires a rank-preserving transform, which is all a snap compares, and
+        a raster whose stored values still resolve the counts underneath them:
+        see :data:`RANK_PRESERVING_TRANSFORMS` and
+        :data:`LN_FLOAT32_COLLISION_COUNT`. ``layout`` says where the two
+        artefacts of each outlet land.
         """
         ...
 
@@ -330,17 +412,100 @@ def require_untransformed(accumulation: FlowAccumulation, *, member: str) -> Non
         )
 
 
-def require_cell_counts(accumulation: FlowAccumulation, *, member: str) -> None:
-    """Refuse an accumulation that is not an untransformed cell count."""
-    require_untransformed(accumulation, member=member)
-    if accumulation.units != "cells":
+RANK_PRESERVING_TRANSFORMS: frozenset[str] = frozenset({"none", "ln"})
+"""Transforms that leave the order of the cells alone, in exact arithmetic.
+
+Both are strictly increasing on the positive counts an accumulation carries, so
+the cell that wins a snap window wins it under either -- until float32 storage
+stops resolving neighbouring counts. That bound is measured, not argued, and
+:data:`LN_FLOAT32_COLLISION_COUNT` carries it.
+"""
+
+LN_FLOAT32_COLLISION_COUNT = 1_049_558
+"""First cell count whose natural logarithm collides with its successor's.
+
+``float32(ln(1_049_558)) == float32(ln(1_049_559))``, and every smaller pair is
+still distinct. Found by scanning every integer, not by sampling: an earlier
+sampled probe of this campaign answered 1 059 591, which is **above** the true
+value and would therefore have been a bound that does not protect.
+
+Above it, a snap window holding two cells whose raw counts differ by one sees
+one value, ties, and breaks the tie on something other than upstream area. A
+25 m grid reaches it at about 656 km2 of contributing area, which no DEM in this
+repository approaches -- the largest accumulates 28 230 -- and which regional
+multi-basin work walks straight into.
+"""
+
+_MAX_TRANSFORMED_UNITS = "cells"
+"""The only units :data:`LN_FLOAT32_COLLISION_COUNT` was measured for.
+
+Multiplying a count by a cell area raises the magnitude of its logarithm without
+changing the spacing between neighbours, so float32 gives up earlier: measured,
+a 625 m2 cell collides at 525 125 counts and a 2 500 m2 cell at 524 705, against
+1 049 558 for a bare count. One bound cannot cover them, and no caller in this
+tree asks for a transformed area, so a transformed accumulation has to be in
+cells.
+"""
+
+
+def require_rank_preserving(accumulation: FlowAccumulation, *, member: str) -> None:
+    """Refuse an accumulation whose transform cannot order the cells.
+
+    Checks the declaration only. What the raster actually carries is checked by
+    :func:`require_resolvable_counts`, which needs the data.
+    """
+    if accumulation.transform not in RANK_PRESERVING_TRANSFORMS:
         raise TerrainProductError(
-            f"{member} needs an accumulation in cells; this one declares "
-            f"units={accumulation.units!r}."
+            f"{member} snaps to the largest accumulation of a window, so it needs a "
+            f"transform that preserves the order of the cells; this one declares "
+            f"transform={accumulation.transform!r}."
+        )
+    if accumulation.transform != "none" and accumulation.units != _MAX_TRANSFORMED_UNITS:
+        raise TerrainProductError(
+            f"{member} accepts a transformed accumulation only in "
+            f"{_MAX_TRANSFORMED_UNITS!r}; this one declares "
+            f"units={accumulation.units!r} under transform={accumulation.transform!r}. "
+            "The count at which float32 stops resolving neighbouring cells depends on "
+            "the cell area, and only the bare-count bound is measured."
         )
 
 
-def require_batch(outlets: Sequence[Outlet], *, snap_distance_m: float) -> None:
+def require_resolvable_counts(
+    accumulation: FlowAccumulation,
+    *,
+    max_stored_value: float,
+    member: str,
+) -> None:
+    """Refuse a transformed accumulation whose values float32 can no longer order.
+
+    ``max_stored_value`` is the largest value the **raster** carries, read back
+    from the file. The comparison happens in that stored space rather than on a
+    count recovered with ``exp``: exponentiating a value that turns out not to be
+    a logarithm overflows, and the refusal would then quote a count no grid could
+    hold instead of naming the real problem.
+
+    Untransformed products are never refused: an integer count is exact in
+    float32 well past any grid this runs on.
+    """
+    if accumulation.transform == "none":
+        return
+    bound = math.log(LN_FLOAT32_COLLISION_COUNT)
+    if max_stored_value >= bound:
+        raise TerrainProductError(
+            f"{member} cannot rank this accumulation: its largest stored value is "
+            f"{max_stored_value:.4f} under transform={accumulation.transform!r}, at or "
+            f"above ln({LN_FLOAT32_COLLISION_COUNT}) = {bound:.4f}, where float32 stops "
+            "telling neighbouring cell counts apart. Snapping would tie on cells that do "
+            "not carry the same upstream area. Pass an accumulation with transform='none'."
+        )
+
+
+def require_batch(
+    outlets: Sequence[Outlet],
+    *,
+    snap_distance_m: float,
+    layout: CatchmentLayout = DEFAULT_CATCHMENT_LAYOUT,
+) -> None:
     """Refuse a batch an engine cannot serve without overwriting its own output.
 
     Two outlets sharing an id write to one directory, and the first
@@ -351,6 +516,9 @@ def require_batch(outlets: Sequence[Outlet], *, snap_distance_m: float) -> None:
     and a case-insensitive filesystem makes ``Left`` and ``left`` one directory.
     Refusing the pair everywhere is the only answer that does not depend on
     which machine the job lands on.
+
+    A flat layout has no directory to separate two outlets at all, so it holds
+    exactly one.
     """
     if not outlets:
         raise TerrainRequestError("delineate needs at least one outlet.")
@@ -367,6 +535,12 @@ def require_batch(outlets: Sequence[Outlet], *, snap_distance_m: float) -> None:
         raise TerrainRequestError(
             "Outlet ids must be unique within one batch, case-folded; "
             f"repeated: {', '.join(sorted(collisions))}."
+        )
+    if not layout.per_outlet_directory and len(outlets) > 1:
+        raise TerrainRequestError(
+            f"A flat layout holds one catchment, and this batch carries {len(outlets)}. "
+            "They would all write the same two files, and every product but the last "
+            "would name a file holding another outlet's mask."
         )
 
 
@@ -421,7 +595,11 @@ def missing_engine_members(candidate: object) -> tuple[str, ...]:
 __all__ = [
     "AccumulationTransform",
     "AccumulationUnits",
+    "DEFAULT_CATCHMENT_LAYOUT",
+    "OUTLET_LAYER_NAME",
+    "SNAPPED_OUTLET_LAYER_NAME",
     "Catchment",
+    "CatchmentLayout",
     "ConditionedDem",
     "ConditioningExtent",
     "ConditioningExtentKind",
@@ -429,13 +607,16 @@ __all__ = [
     "DrainageDirections",
     "FlowAccumulation",
     "Outlet",
+    "LN_FLOAT32_COLLISION_COUNT",
+    "RANK_PRESERVING_TRANSFORMS",
     "PointerConvention",
     "StreamNetwork",
     "TerrainEngine",
     "engine_members",
     "missing_engine_members",
     "require_batch",
-    "require_cell_counts",
+    "require_rank_preserving",
+    "require_resolvable_counts",
     "require_untransformed",
     "snap_window_cells",
 ]

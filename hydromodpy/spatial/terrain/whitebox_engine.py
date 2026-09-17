@@ -19,21 +19,27 @@ import geopandas as gpd
 import pandas as pd
 
 from hydromodpy.core.exceptions import (
+    EmptyCatchmentError,
     TerrainCapabilityError,
     TerrainProductError,
     TerrainRequestError,
 )
 from hydromodpy.spatial.geographic.geographic_io import ensure_crs
-from hydromodpy.spatial.terrain._artifacts import (
+from hydromodpy.spatial.terrain.artifacts import (
     boundary_area_m2,
     mask_cell_count,
     raster_crs,
+    raster_max,
     raster_nodata,
 )
 from hydromodpy.spatial.terrain.port import (
+    DEFAULT_CATCHMENT_LAYOUT,
+    OUTLET_LAYER_NAME,
+    SNAPPED_OUTLET_LAYER_NAME,
     AccumulationTransform,
     AccumulationUnits,
     Catchment,
+    CatchmentLayout,
     ConditionedDem,
     ConditioningExtent,
     ConditioningMethod,
@@ -42,7 +48,8 @@ from hydromodpy.spatial.terrain.port import (
     Outlet,
     StreamNetwork,
     require_batch,
-    require_cell_counts,
+    require_rank_preserving,
+    require_resolvable_counts,
     require_untransformed,
 )
 
@@ -174,9 +181,18 @@ class WhiteboxTerrainEngine:
         *,
         out_dir: Path,
         snap_distance_m: float,
+        layout: CatchmentLayout = DEFAULT_CATCHMENT_LAYOUT,
     ) -> tuple[Catchment, ...]:
-        require_cell_counts(accumulation, member="delineate")
-        require_batch(outlets, snap_distance_m=snap_distance_m)
+        require_rank_preserving(accumulation, member="delineate")
+        require_batch(outlets, snap_distance_m=snap_distance_m, layout=layout)
+        if accumulation.transform != "none":
+            # One pass over the raster, and only when the values are transformed:
+            # what is stored is what the snap compares.
+            require_resolvable_counts(
+                accumulation,
+                max_stored_value=raster_max(accumulation.path),
+                member="delineate",
+            )
 
         crs = accumulation.directions.conditioned_dem.crs
         # Read the two shared products once: that is what makes this a batch.
@@ -185,15 +201,15 @@ class WhiteboxTerrainEngine:
 
         delineated: list[Catchment] = []
         for outlet in outlets:
-            site_dir = Path(out_dir) / outlet.outlet_id
+            site_dir = layout.site_dir(Path(out_dir), outlet)
             site_dir.mkdir(parents=True, exist_ok=True)
-            outlet_shp = site_dir / "outlet.shp"
-            snapped_shp = site_dir / "outlet_snap.shp"
-            mask_path = site_dir / "mask.tif"
-            boundary_path = site_dir / "boundary.shp"
+            outlet_shp = site_dir / OUTLET_LAYER_NAME
+            snapped_shp = site_dir / SNAPPED_OUTLET_LAYER_NAME
+            mask_path = site_dir / layout.mask_name
+            boundary_path = site_dir / layout.boundary_name
 
             _write_point(outlet_shp, outlet.x, outlet.y, crs)
-            ensure_crs(outlet_shp, crs)
+            ensure_crs(outlet_shp, crs or None)
             snapped = self._backend.delineation.snap_pour_points_vector(
                 self._backend.raster.read_vector(str(outlet_shp)),
                 acc_raster,
@@ -205,7 +221,7 @@ class WhiteboxTerrainEngine:
                     f"{snap_distance_m} m. The outlet may sit outside the accumulation raster."
                 )
             self._backend.raster.write_vector(snapped, str(snapped_shp))
-            ensure_crs(snapped_shp, crs)
+            ensure_crs(snapped_shp, crs or None)
             snapped_x, snapped_y = _read_point(snapped_shp)
 
             watershed = self._backend.delineation.watershed_raster(
@@ -216,11 +232,11 @@ class WhiteboxTerrainEngine:
             self._write_raster(watershed, mask_path, crs)
             boundary = self._backend.delineation.raster_to_vector_polygons_raster(watershed)
             if self._backend.raster.vector_record_count(boundary) == 0:
-                raise TerrainProductError(
+                raise EmptyCatchmentError(
                     f"Outlet {outlet.outlet_id!r} delineated an empty catchment."
                 )
             self._backend.raster.write_vector(boundary, str(boundary_path))
-            ensure_crs(boundary_path, crs)
+            ensure_crs(boundary_path, crs or None)
 
             delineated.append(
                 Catchment(
@@ -239,7 +255,9 @@ class WhiteboxTerrainEngine:
     def _write_raster(self, raster: Any, out: str | Path, crs: str) -> None:
         Path(out).parent.mkdir(parents=True, exist_ok=True)
         self._backend.raster.write_raster(raster, str(out))
-        ensure_crs(out, crs)
+        # An empty string is what a DEM with no declared CRS reads back as, and
+        # stamping that on an output declares a CRS nobody chose.
+        ensure_crs(out, crs or None)
 
 
 def _write_point(path: Path, x: float, y: float, crs: str) -> None:

@@ -29,6 +29,7 @@ no band: after conditioning, not one interior cell drains nowhere.
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -41,6 +42,10 @@ from hydromodpy.core.exceptions import (
 )
 from hydromodpy.spatial.geographic.core.d8 import WBT_D8_OFFSETS
 from hydromodpy.spatial.terrain import (
+    LN_FLOAT32_COLLISION_COUNT,
+    OUTLET_LAYER_NAME,
+    SNAPPED_OUTLET_LAYER_NAME,
+    CatchmentLayout,
     ConditioningExtent,
     DrainageDirections,
     Outlet,
@@ -635,27 +640,47 @@ def test_delineation_repeats_cell_for_cell(engine, valley, tmp_path) -> None:
     assert masks[0] == masks[1]
 
 
-def test_a_transformed_accumulation_cannot_be_delineated(engine, valley, tmp_path) -> None:
+@pytest.mark.parametrize(
+    ("units", "transform"),
+    [("cells", "ln"), ("m2", "none")],
+)
+def test_a_rank_preserving_product_delineates_the_same_catchment(
+    engine, valley, tmp_path, units, transform
+) -> None:
+    """A snap is a rank, so every order-preserving product answers the same.
+
+    This is the assertion that lets the geographic pipeline hand the engine the
+    ``ln`` raster it has always written, instead of paying for a second
+    accumulation to say the same thing. It is exact and not banded: the same
+    cell, the same count, the same area.
+    """
     out = tmp_path / "out"
-    _conditioned, _directions, transformed = _products(engine, valley, out, transform="ln")
+    _c, _d, reference = _products(engine, valley, out / "ref")
+    _c2, _d2, other = _products(engine, valley, out / "other", units=units, transform=transform)
 
-    with pytest.raises(TerrainProductError):
-        engine.delineate(
-            transformed,
-            [_valley_exit()],
-            out_dir=out / "catchments",
-            snap_distance_m=RES,
-        )
+    (expected,) = engine.delineate(
+        reference, [_valley_exit()], out_dir=out / "ref_c", snap_distance_m=RES * 4
+    )
+    (measured,) = engine.delineate(
+        other, [_valley_exit()], out_dir=out / "other_c", snap_distance_m=RES * 4
+    )
+
+    assert (measured.snapped_x, measured.snapped_y) == (expected.snapped_x, expected.snapped_y)
+    assert measured.cell_count == expected.cell_count
+    assert measured.area_m2 == pytest.approx(expected.area_m2, rel=0.0, abs=1e-6)
 
 
-def test_an_accumulation_in_square_metres_cannot_be_delineated(engine, valley, tmp_path) -> None:
-    """The snap compares accumulations, so the units have to be the declared ones."""
+def test_a_transform_that_does_not_preserve_the_order_cannot_be_delineated(
+    engine, valley, tmp_path
+) -> None:
+    """The refusal is on the rank, not on the vocabulary of the moment."""
     out = tmp_path / "out"
-    _conditioned, _directions, square_metres = _products(engine, valley, out, units="m2")
+    _conditioned, _directions, accumulation = _products(engine, valley, out)
+    scrambled = replace(accumulation, transform="rank_destroying")
 
-    with pytest.raises(TerrainProductError, match="cells"):
+    with pytest.raises(TerrainProductError, match="order of the cells"):
         engine.delineate(
-            square_metres,
+            scrambled,
             [_valley_exit()],
             out_dir=out / "catchments",
             snap_distance_m=RES,
@@ -901,3 +926,133 @@ def test_conditioning_leaves_no_interior_cell_without_a_way_out(engine, tmp_path
     interior = _interior_data_cells(codes)
 
     assert int(np.count_nonzero((codes == 0) & interior)) == 0
+
+
+# --------------------------------------------------------------------------- #
+# Where the artefacts land
+# --------------------------------------------------------------------------- #
+
+
+def test_a_flat_layout_writes_the_two_files_the_caller_named(engine, valley, tmp_path) -> None:
+    """What makes the port adoptable by a pipeline with a published layout."""
+    out = tmp_path / "out"
+    _conditioned, _directions, accumulation = _products(engine, valley, out)
+
+    (catchment,) = engine.delineate(
+        accumulation,
+        [_valley_exit()],
+        out_dir=out / "geographic",
+        snap_distance_m=RES,
+        layout=CatchmentLayout.flat(mask_name="watershed.tif", boundary_name="watershed.shp"),
+    )
+
+    assert catchment.mask_path == out / "geographic" / "watershed.tif"
+    assert catchment.boundary_path == out / "geographic" / "watershed.shp"
+    assert catchment.mask_path.is_file() and catchment.boundary_path.is_file()
+    # And it still answers the question: the valley drains through its exit.
+    assert catchment.cell_count == 31 * 31
+
+
+def test_a_flat_layout_refuses_a_batch(engine, valley, tmp_path) -> None:
+    """Two outlets, one pair of files: the second would eat the first."""
+    out = tmp_path / "out"
+    _conditioned, _directions, accumulation = _products(engine, valley, out)
+    outlets = [
+        _valley_exit(),
+        Outlet(outlet_id="mid_floor", x=(15 + 0.5) * RES, y=(31 - 20 - 0.5) * RES),
+    ]
+
+    with pytest.raises(TerrainRequestError, match="flat layout"):
+        engine.delineate(
+            accumulation,
+            outlets,
+            out_dir=out / "geographic",
+            snap_distance_m=RES,
+            layout=CatchmentLayout.flat(mask_name="w.tif", boundary_name="w.shp"),
+        )
+
+
+@pytest.mark.parametrize(
+    ("mask_name", "boundary_name"),
+    [
+        ("../escape.tif", "boundary.shp"),
+        ("sub/mask.tif", "boundary.shp"),
+        ("mask.tif", "boundary.geojson"),
+        ("mask.asc", "boundary.shp"),
+        ("", "boundary.shp"),
+    ],
+)
+def test_a_layout_refuses_a_name_that_is_not_one(mask_name, boundary_name) -> None:
+    """A name carrying a separator writes outside the directory that was named."""
+    with pytest.raises(TerrainRequestError):
+        CatchmentLayout.flat(mask_name=mask_name, boundary_name=boundary_name)
+
+
+@pytest.mark.parametrize("boundary_name", [OUTLET_LAYER_NAME, SNAPPED_OUTLET_LAYER_NAME])
+def test_a_flat_layout_refuses_to_land_on_the_outlet_layer(boundary_name) -> None:
+    """The boundary would overwrite the point the delineation ran from."""
+    with pytest.raises(TerrainRequestError, match="point layer"):
+        CatchmentLayout.flat(mask_name="watershed.tif", boundary_name=boundary_name)
+
+
+def test_the_per_outlet_layout_has_no_such_collision() -> None:
+    """A directory per outlet separates them, so the same name is legal there."""
+    layout = CatchmentLayout(
+        per_outlet_directory=True,
+        mask_name="mask.tif",
+        boundary_name=OUTLET_LAYER_NAME,
+    )
+    assert layout.boundary_name == OUTLET_LAYER_NAME
+
+
+# --------------------------------------------------------------------------- #
+# What float32 stops resolving
+# --------------------------------------------------------------------------- #
+
+
+def test_a_transformed_accumulation_in_square_metres_is_refused(engine, valley, tmp_path) -> None:
+    """The bound is measured for bare counts only, so nothing else may claim it."""
+    out = tmp_path / "out"
+    _c, _d, accumulation = _products(engine, valley, out, units="m2")
+    transformed = replace(accumulation, transform="ln")
+
+    with pytest.raises(TerrainProductError, match="cells"):
+        engine.delineate(transformed, [_valley_exit()], out_dir=out / "c", snap_distance_m=RES)
+
+
+def test_an_accumulation_float32_cannot_order_is_refused(engine, valley, tmp_path) -> None:
+    """Above the measured count, a snap window ties on cells of different area.
+
+    The raster is written here rather than routed, because reaching
+    ``LN_FLOAT32_COLLISION_COUNT`` by routing needs a million-cell DEM. What is
+    under test is the refusal, and the refusal reads the stored values.
+    """
+    out = tmp_path / "out"
+    _c, _d, accumulation = _products(engine, valley, out)
+
+    over = out / "acc_over_the_bound.tif"
+    with rasterio.open(str(accumulation.path)) as src:
+        profile = src.profile.copy()
+        shape = (src.height, src.width)
+    profile.update(dtype="float32", count=1)
+    values = np.full(shape, math.log(LN_FLOAT32_COLLISION_COUNT + 1), dtype="float32")
+    with rasterio.open(str(over), "w", **profile) as dst:
+        dst.write(values, 1)
+    too_large = replace(accumulation, path=over, transform="ln")
+
+    with pytest.raises(TerrainProductError, match="float32"):
+        engine.delineate(too_large, [_valley_exit()], out_dir=out / "c", snap_distance_m=RES)
+
+
+def test_the_bound_does_not_fire_on_anything_this_repository_routes(
+    engine, valley, tmp_path
+) -> None:
+    """Anti-vacuity: the guard has to let the real products through."""
+    out = tmp_path / "out"
+    _c, _d, accumulation = _products(engine, valley, out, transform="ln")
+
+    (catchment,) = engine.delineate(
+        accumulation, [_valley_exit()], out_dir=out / "c", snap_distance_m=RES
+    )
+
+    assert catchment.cell_count == 31 * 31
