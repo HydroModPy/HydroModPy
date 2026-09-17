@@ -45,7 +45,6 @@ from hydromodpy.core.exceptions import (
     TerrainProductError,
     TerrainRequestError,
 )
-from hydromodpy.spatial.geographic.core.d8 import WBT_D8_OFFSETS
 from hydromodpy.spatial.terrain.artifacts import (
     MASK_INSIDE,
     MASK_NODATA,
@@ -54,6 +53,7 @@ from hydromodpy.spatial.terrain.artifacts import (
     raster_max,
 )
 from hydromodpy.spatial.terrain.port import (
+    D8_WBT_OFFSETS,
     DEFAULT_CATCHMENT_LAYOUT,
     AccumulationTransform,
     AccumulationUnits,
@@ -85,7 +85,7 @@ nodata of 0 would turn every headwater cell into a hole under a masked read.
 """
 
 _CODES: tuple[tuple[int, int, int], ...] = tuple(
-    (code, offset[0], offset[1]) for code, offset in sorted(WBT_D8_OFFSETS.items())
+    (code, offset[0], offset[1]) for code, offset in sorted(D8_WBT_OFFSETS.items())
 )
 
 
@@ -394,7 +394,7 @@ def _pointer_grid(directions: DrainageDirections) -> _Grid:
 
 def _receiver(grid: _Grid, row: int, col: int) -> tuple[int, int] | None:
     """Return the cell ``(row, col)`` drains into, inside the grid, or None."""
-    offset = WBT_D8_OFFSETS.get(int(grid.values[row, col]))
+    offset = D8_WBT_OFFSETS.get(int(grid.values[row, col]))
     if offset is None:
         return None
     nrow, ncol = row + offset[0], col + offset[1]

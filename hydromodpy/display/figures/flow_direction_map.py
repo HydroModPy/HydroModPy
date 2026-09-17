@@ -15,7 +15,7 @@ reads the steepest-descent receiver graph of
 its receiver's centre, so it says the same thing on a Voronoi dual as on a
 structured grid. In particular it is NOT a whitebox D8 pointer: this repository
 uses whitebox's convention rather than ESRI's
-(``hydromodpy/spatial/geographic/core/d8.py``), and a reader who assumes a
+(``D8_WBT_OFFSETS`` in ``hydromodpy/spatial/terrain/port.py``), and a reader who assumes a
 pointer code is being decoded here would look for the wrong bug.
 
 A cell with no receiver is drawn as such rather than as an arrow of zero

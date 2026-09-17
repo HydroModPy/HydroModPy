@@ -40,7 +40,6 @@ from hydromodpy.core.exceptions import (
     TerrainProductError,
     TerrainRequestError,
 )
-from hydromodpy.spatial.geographic.core.d8 import WBT_D8_OFFSETS
 from hydromodpy.spatial.terrain import (
     LN_FLOAT32_COLLISION_COUNT,
     OUTLET_LAYER_NAME,
@@ -53,6 +52,7 @@ from hydromodpy.spatial.terrain import (
     missing_engine_members,
     snap_window_cells,
 )
+from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
 from tests._helpers.tolerances import tol
 
 rasterio = pytest.importorskip("rasterio")
@@ -246,7 +246,7 @@ def test_conditioning_raises_a_pit_to_its_lowest_way_out(engine, tmp_path) -> No
     surface[pit] -= 20.0
     dem = _write_dem(tmp_path / "pitted.tif", surface)
     neighbours = [
-        surface[pit[0] + drow, pit[1] + dcol] for _code, (drow, dcol) in WBT_D8_OFFSETS.items()
+        surface[pit[0] + drow, pit[1] + dcol] for _code, (drow, dcol) in D8_WBT_OFFSETS.items()
     ]
 
     conditioned = engine.condition_dem(
@@ -336,14 +336,14 @@ def test_the_numpy_engine_refuses_a_pointer_that_holds_a_cycle(valley, tmp_path)
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize("code", sorted(WBT_D8_OFFSETS))
+@pytest.mark.parametrize("code", sorted(D8_WBT_OFFSETS))
 def test_the_pointer_writes_the_code_its_convention_declares(engine, code, tmp_path) -> None:
     """A plane tilted at one octant is coded with that octant's code (C6).
 
     The expected code is read from the declared table, so a pointer convention
     and the raster it emits cannot drift apart without this failing.
     """
-    drow, dcol = WBT_D8_OFFSETS[code]
+    drow, dcol = D8_WBT_OFFSETS[code]
     dem = _write_dem(tmp_path / f"plane_{code}.tif", _plane(40, drow, dcol))
 
     _conditioned, directions, _acc = _products(engine, dem, tmp_path / "out")

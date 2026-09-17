@@ -14,6 +14,7 @@ from __future__ import annotations
 from importlib import import_module
 
 from hydromodpy.spatial.terrain.port import (
+    D8_WBT_OFFSETS,
     DEFAULT_CATCHMENT_LAYOUT,
     LN_FLOAT32_COLLISION_COUNT,
     OUTLET_LAYER_NAME,
@@ -43,6 +44,7 @@ from hydromodpy.spatial.terrain.port import (
 )
 
 __all__ = [
+    "D8_WBT_OFFSETS",
     "DEFAULT_CATCHMENT_LAYOUT",
     "LN_FLOAT32_COLLISION_COUNT",
     "OUTLET_LAYER_NAME",

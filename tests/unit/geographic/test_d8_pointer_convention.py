@@ -1,6 +1,6 @@
 """The D8 code table must be the one the solver actually writes.
 
-``WBT_D8_OFFSETS`` declared the ESRI encoding while Whitebox writes its own,
+``D8_WBT_OFFSETS`` declared the ESRI encoding while Whitebox writes its own,
 which is the same eight octants rotated by one. Nothing failed: every descent
 walked beside the talweg instead of down it, and the flow paths stayed
 plausible. The agreement ratio of the stream-network criterion sat near 0.45
@@ -17,7 +17,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.geographic.core.d8 import WBT_D8_OFFSETS
+from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
 
 pytest.importorskip("whitebox_workflows")
 rasterio = pytest.importorskip("rasterio")
@@ -91,8 +91,8 @@ def test_the_table_matches_the_code_whitebox_writes(direction, backend, tmp_path
     assert dominant == expected_code, (
         f"a plane falling {direction} is coded {dominant}, not {expected_code}"
     )
-    assert WBT_D8_OFFSETS[expected_code] == offset, (
-        f"the table maps {expected_code} to {WBT_D8_OFFSETS[expected_code]}, not {offset}"
+    assert D8_WBT_OFFSETS[expected_code] == offset, (
+        f"the table maps {expected_code} to {D8_WBT_OFFSETS[expected_code]}, not {offset}"
     )
 
 
