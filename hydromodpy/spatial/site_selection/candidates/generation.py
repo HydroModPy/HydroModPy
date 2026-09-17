@@ -11,9 +11,9 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.spatial.geographic.geographic_io import (
     backend_has_callables,
-    ensure_crs,
     resolve_delineation_backend,
 )
 from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet

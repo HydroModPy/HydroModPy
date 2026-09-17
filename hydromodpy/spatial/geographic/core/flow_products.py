@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import cast
 
 from hydromodpy.core import progress
-from hydromodpy.spatial.geographic.geographic_io import ensure_crs
+from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.spatial.terrain import (
     ConditionedDem,
     ConditioningExtent,

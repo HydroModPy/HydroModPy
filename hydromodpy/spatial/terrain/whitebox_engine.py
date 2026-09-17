@@ -24,7 +24,7 @@ from hydromodpy.core.exceptions import (
     TerrainProductError,
     TerrainRequestError,
 )
-from hydromodpy.spatial.geographic.geographic_io import ensure_crs
+from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.spatial.terrain.artifacts import (
     boundary_area_m2,
     mask_cell_count,

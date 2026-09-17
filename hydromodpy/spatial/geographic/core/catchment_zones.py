@@ -22,7 +22,7 @@ import numpy as np
 import rasterio
 from rasterio.features import rasterize
 
-from hydromodpy.spatial.geographic.geographic_io import ensure_crs
+from hydromodpy.core.io.crs import ensure_crs
 
 
 class CatchmentZoneCode(IntEnum):

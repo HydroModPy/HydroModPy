@@ -34,8 +34,8 @@ from pathlib import Path
 
 from hydromodpy.core import progress
 from hydromodpy.core.exceptions import TerrainProductError
+from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.geographic.geographic_io import ensure_crs
 from hydromodpy.spatial.terrain import (
     OUTLET_LAYER_NAME,
     SNAPPED_OUTLET_LAYER_NAME,

@@ -7,11 +7,11 @@ from pathlib import Path
 
 import rasterio
 
+from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.spatial.geographic.core.domain_dem import clip_dem_to_box_buffer
 from hydromodpy.spatial.geographic.geographic_io import (
     backend_has_callables,
-    ensure_crs,
     resolve_delineation_backend,
 )
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
