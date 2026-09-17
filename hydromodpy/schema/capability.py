@@ -24,6 +24,20 @@ CAPABILITY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 CAPABILITY_VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 """Three-part semantic version. The major is what a caller pins."""
 
+NAMES_THE_JOB_DOES_NOT_PRODUCE = frozenset({"manifest.json", "request.json"})
+"""Two names an output may not take: the seal, and the caller's own document.
+
+Neither is produced by the capability. The seal does not exist when the outcome
+that would name it is written, and the request was written by whoever invoked
+the process. The other job documents may be declared: the process description
+lists ``inputset.json`` and ``outcome.json`` among its outputs, and the seal
+re-hashes those from disk.
+
+Spelled here rather than imported from ``schema/job/layout.py``, which owns the
+vocabulary: importing it would close a cycle through the job package, so a test
+pins the two spellings together instead.
+"""
+
 
 def _refuse_relative_path(path: str, *, owner: str) -> None:
     """Refuse an output path that could address anything outside the job."""
@@ -60,6 +74,10 @@ class OutputDecl:
         if not self.roles:
             raise ValueError(f"output {self.id!r} declares no role")
         _refuse_relative_path(self.path, owner=f"output {self.id!r}")
+        if self.path in NAMES_THE_JOB_DOES_NOT_PRODUCE:
+            raise ValueError(
+                f"output {self.id!r} claims {self.path!r}, which the job does not produce"
+            )
         object.__setattr__(self, "roles", tuple(self.roles))
         object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
 
@@ -137,6 +155,7 @@ class CapabilityDecl:
 __all__ = [
     "CAPABILITY_ID_PATTERN",
     "CAPABILITY_VERSION_PATTERN",
+    "NAMES_THE_JOB_DOES_NOT_PRODUCE",
     "CapabilityDecl",
     "OutputDecl",
 ]

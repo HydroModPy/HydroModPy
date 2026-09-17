@@ -12,7 +12,11 @@ from __future__ import annotations
 import pytest
 from pydantic import BaseModel
 
-from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
+from hydromodpy.schema.capability import (
+    NAMES_THE_JOB_DOES_NOT_PRODUCE,
+    CapabilityDecl,
+    OutputDecl,
+)
 
 
 class _Request(BaseModel):
@@ -98,6 +102,25 @@ def test_two_outputs_on_one_path_are_refused() -> None:
 def test_an_output_path_that_could_leave_the_job_directory_is_refused(path: str) -> None:
     with pytest.raises(ValueError):
         _output(path=path)
+
+
+@pytest.mark.parametrize("path", ["manifest.json", "request.json"])
+def test_an_output_claiming_a_file_the_job_does_not_produce_is_refused(path: str) -> None:
+    """The seal does not exist yet, and the request came from the caller."""
+    with pytest.raises(ValueError, match="does not produce"):
+        _output(path=path)
+
+
+def test_a_control_document_the_job_does_write_may_be_declared() -> None:
+    """The process description lists the outcome among its outputs."""
+    assert _output(id="outcome", path="outcome.json").path == "outcome.json"
+
+
+def test_the_refused_names_are_the_ones_the_job_layout_reserves() -> None:
+    """Pins two spellings an import cycle forbids sharing."""
+    from hydromodpy.schema.job.layout import JOB_MANIFEST_FILENAME, REQUEST_FILENAME
+
+    assert NAMES_THE_JOB_DOES_NOT_PRODUCE == {JOB_MANIFEST_FILENAME, REQUEST_FILENAME}
 
 
 def test_a_request_model_that_is_not_a_model_is_refused() -> None:

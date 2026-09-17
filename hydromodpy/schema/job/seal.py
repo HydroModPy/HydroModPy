@@ -17,6 +17,7 @@ runner, and rendered into both documents from the same records.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -80,6 +81,13 @@ def seal_job(
         raise ValueError(
             f"job {job.root} cannot be sealed: {', '.join(missing_documents)} not written yet"
         )
+    paths = [output.path for output in outputs]
+    repeated = sorted({path for path in paths if paths.count(path) > 1})
+    if repeated:
+        raise ValueError(
+            f"job {job.root} cannot be sealed: two outputs claim {', '.join(repeated)}, "
+            "and a seal that inventories one file twice describes neither"
+        )
     absent_outputs = [
         output.path for output in outputs if not job.resolve_output(output.path).is_file()
     ]
@@ -98,9 +106,13 @@ def seal_job(
         )
         for output in outputs
     }
+    # The control documents are re-hashed here and overwrite whatever an output
+    # record said about them. A capability may declare ``outcome.json`` as one
+    # of its outputs — the process description does — but the record for it was
+    # built before that file existed, so only the bytes on disk at seal time can
+    # be the ones the seal names.
     for name in SEALED_DOCUMENTS:
-        if name not in artifacts:
-            artifacts[name] = artifact_record(job, name, media_type=JSON_MEDIA_TYPE)
+        artifacts[name] = artifact_record(job, name, media_type=JSON_MEDIA_TYPE)
 
     document: dict[str, Any] = {
         "schema": MANIFEST_SCHEMA,
@@ -141,38 +153,77 @@ def verify_job(job: JobDirectory) -> SealVerification:
     """
     if not job.is_sealed:
         return SealVerification(sealed=False, problems=("manifest.json is absent",))
-    manifest = read_document(job.manifest_path)
+    manifest, fault = _read_object(job.manifest_path)
+    if manifest is None:
+        return SealVerification(sealed=True, problems=(fault,))
     problems: list[str] = []
 
-    for entry in manifest.get("artifacts", []):
-        problems.extend(_artifact_problems(job, entry))
-
-    inputset_block = manifest.get("inputset", {})
-    if job.inputset_path.is_file():
-        inputset = read_document(job.inputset_path)
-        recomputed = f"sha256:{sha256_value(inputset.get('resources', []))}"
-        if recomputed != inputset.get("id"):
-            problems.append(
-                f"inputset.json carries the id {inputset.get('id')} and digests to {recomputed}"
-            )
-        if inputset_block.get("id") != inputset.get("id"):
-            problems.append("manifest.json and inputset.json disagree about the input-set id")
+    entries = manifest.get("artifacts")
+    if not isinstance(entries, list):
+        problems.append("manifest.json carries no artifact list")
     else:
-        problems.append("inputset.json is absent")
+        for entry in entries:
+            problems.extend(_artifact_problems(job, entry))
 
-    if job.outcome_path.is_file():
-        outcome = read_document(job.outcome_path)
-        if outcome.get("job_id") != manifest.get("job_id"):
-            problems.append("manifest.json and outcome.json disagree about the job id")
-    else:
-        problems.append("outcome.json is absent")
-
+    problems.extend(_inputset_problems(job, manifest))
+    problems.extend(_outcome_problems(job, manifest))
     return SealVerification(sealed=True, problems=tuple(problems))
 
 
-def _artifact_problems(job: JobDirectory, entry: Mapping[str, Any]) -> list[str]:
+def _read_object(path: Path) -> tuple[Mapping[str, Any] | None, str]:
+    """Read one job document, reporting what is wrong instead of raising.
+
+    A verification verb is pointed at directories it did not write, including
+    ones a transfer truncated. It reports; it never crashes on them.
+    """
+    try:
+        document = read_document(path)
+    except (OSError, json.JSONDecodeError) as exc:
+        return None, f"{path.name} cannot be read as JSON: {exc}"
+    if not isinstance(document, Mapping):
+        return None, f"{path.name} is not a JSON object"
+    return document, ""
+
+
+def _inputset_problems(job: JobDirectory, manifest: Mapping[str, Any]) -> list[str]:
+    """Check the input set against its own digest and against the seal."""
+    if not job.inputset_path.is_file():
+        return ["inputset.json is absent"]
+    inputset, fault = _read_object(job.inputset_path)
+    if inputset is None:
+        return [fault]
+    problems: list[str] = []
+    recomputed = f"sha256:{sha256_value(inputset.get('resources', []))}"
+    if recomputed != inputset.get("id"):
+        problems.append(
+            f"inputset.json carries the id {inputset.get('id')} and digests to {recomputed}"
+        )
+    block = manifest.get("inputset")
+    declared = block.get("id") if isinstance(block, Mapping) else None
+    if declared != inputset.get("id"):
+        problems.append("manifest.json and inputset.json disagree about the input-set id")
+    return problems
+
+
+def _outcome_problems(job: JobDirectory, manifest: Mapping[str, Any]) -> list[str]:
+    """Check that the outcome names the job the seal names."""
+    if not job.outcome_path.is_file():
+        return ["outcome.json is absent"]
+    outcome, fault = _read_object(job.outcome_path)
+    if outcome is None:
+        return [fault]
+    if outcome.get("job_id") != manifest.get("job_id"):
+        return ["manifest.json and outcome.json disagree about the job id"]
+    return []
+
+
+def _artifact_problems(job: JobDirectory, entry: Any) -> list[str]:
     """Check one sealed artefact against the bytes on disk."""
-    relative = str(entry.get("path", ""))
+    if not isinstance(entry, Mapping) or not entry.get("path"):
+        return ["manifest.json inventories an artefact that carries no path"]
+    relative = str(entry["path"])
+    if not job.contains(relative):
+        return [f"{relative} is sealed and lies outside the job directory"]
     path = job.root / relative
     if not path.is_file():
         return [f"{relative} is sealed and absent"]

@@ -10,6 +10,7 @@ sealed directory catches a file that changed after the fact.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -142,6 +143,41 @@ def test_the_seal_leaves_no_temporary_file_behind(tmp_path: Path) -> None:
     assert [entry.name for entry in job.root.glob("*.tmp-*")] == []
 
 
+def test_two_outputs_on_one_path_are_not_sealed(tmp_path: Path) -> None:
+    """A seal that inventories one file twice describes neither."""
+    job, inputset, outputs = _job_with_outputs(tmp_path)
+    _write_the_three_documents(job, inputset, outputs)
+    twice = (*outputs, outputs[0])
+
+    with pytest.raises(ValueError, match="two outputs claim"):
+        seal_job(job, job_id=JOB_ID, inputset=inputset, outputs=twice)
+
+    assert not job.is_sealed
+
+
+def test_a_control_document_is_hashed_from_the_disk_and_not_from_a_record(tmp_path: Path) -> None:
+    """A capability may declare ``outcome.json`` among its outputs.
+
+    Its record was necessarily built before that file existed, so a seal built
+    from the record would carry a digest of nothing. The bytes at seal time win.
+    """
+    job, inputset, outputs = _job_with_outputs(tmp_path)
+    _write_the_three_documents(job, inputset, outputs)
+    stale = OutputRecord(
+        id="outcome",
+        path="outcome.json",
+        media_type="application/json",
+        bytes=0,
+        sha256="f" * 64,
+    )
+
+    seal_job(job, job_id=JOB_ID, inputset=inputset, outputs=(*outputs, stale))
+
+    sealed = {entry["path"]: entry for entry in read_document(job.manifest_path)["artifacts"]}
+    assert sealed["outcome.json"]["sha256"] == sha256_file(job.outcome_path)[0]
+    assert verify_job(job).ok
+
+
 def test_a_sealed_job_verifies_against_its_own_seal(tmp_path: Path) -> None:
     report = verify_job(_sealed(tmp_path))
 
@@ -199,3 +235,50 @@ def test_an_outcome_from_another_job_is_caught(tmp_path: Path) -> None:
     report = verify_job(job)
 
     assert any("job id" in problem for problem in report.problems)
+
+
+@pytest.mark.parametrize(
+    ("manifest", "expected"),
+    [
+        ('["not", "an", "object"]', "not a JSON object"),
+        ("{", "cannot be read as JSON"),
+        ('{"artifacts": "outputs/watershed.gpkg"}', "no artifact list"),
+        ('{"artifacts": [{"bytes": 3}]}', "carries no path"),
+        ('{"artifacts": [{"path": "../../etc/passwd", "sha256": "x"}]}', "outside the job"),
+    ],
+)
+def test_a_manifest_this_process_did_not_write_is_reported_and_not_raised(
+    tmp_path: Path, manifest: str, expected: str
+) -> None:
+    """A verification verb is pointed at directories it did not write."""
+    job = _sealed(tmp_path)
+    job.manifest_path.write_text(manifest, encoding="utf-8")
+
+    report = verify_job(job)
+
+    assert not report.ok
+    assert any(expected in problem for problem in report.problems)
+
+
+def test_an_inputset_this_process_did_not_write_is_reported_and_not_raised(
+    tmp_path: Path,
+) -> None:
+    job = _sealed(tmp_path)
+    job.inputset_path.write_text("[]", encoding="utf-8")
+
+    report = verify_job(job)
+
+    assert not report.ok
+    assert any("not a JSON object" in problem for problem in report.problems)
+
+
+def test_eight_writers_of_one_document_leave_one_whole_document(tmp_path: Path) -> None:
+    """The temporary name is a uuid, so two writers never share it."""
+    job = JobDirectory.create(tmp_path / "job_4714")
+    payloads = [{"writer": index} for index in range(8)]
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(lambda payload: write_document(job.outcome_path, payload), payloads))
+
+    assert read_document(job.outcome_path) in payloads
+    assert [entry.name for entry in job.root.glob("*.tmp-*")] == []
