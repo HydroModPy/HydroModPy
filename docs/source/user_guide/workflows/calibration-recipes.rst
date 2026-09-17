@@ -173,7 +173,7 @@ one is not a workflow. Ask the project:
    path                                current      unit  physical range
    flow.bc.drainage.value                0.001      m2/s  -
    flow.param.K.field.value              5e-05       m/s  1e-14 .. 100
-   flow.param.Ss.field.value             1e-05       m-1  1e-09 .. 0.001
+   flow.param.Ss.field.value             1e-05       m-1  1e-12 .. 0.001
    flow.param.Sy.field.value              0.05         -  0.0001 .. 0.5
    flow.sinks_sources.recharge.values         0    mm/day  -
 
