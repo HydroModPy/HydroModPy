@@ -388,6 +388,30 @@ def _resolve_network_output(
     return candidates[0]
 
 
+def _canonical_instant(value: Any, source: str) -> str:
+    """Return the one spelling of an instant a TOML file can write three ways.
+
+    ``start_datetime = 2000-01-01`` parses as a date, ``2000-01-01T00:00:00`` as
+    a datetime, and a quoted value stays a string. The stages this protocol
+    writes, and the sentence describing them, must not depend on which spelling
+    a file chose: a run re-read from its own sealed config expands to the stages
+    it ran, not to stages that differ by a rendered midnight.
+
+    The spelling is a function of the instant alone. A bound that falls on
+    midnight is written as its date, because a steady window is read in days and
+    that is the half of the span that carries information.
+    """
+    try:
+        stamp = pd.Timestamp(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{source} is not an instant this protocol can read: {value!r}.") from exc
+    if stamp is pd.NaT:
+        raise ValueError(f"{source} is not an instant this protocol can read: {value!r}.")
+    if stamp == stamp.normalize():
+        return stamp.strftime("%Y-%m-%d")
+    return stamp.isoformat()
+
+
 def _steady_window(
     document: Mapping[str, Any], opts: MatchingHydrographicNetworkOptions
 ) -> tuple[str, str]:
@@ -399,7 +423,11 @@ def _steady_window(
                 "[calibration.protocol].steady_window needs both 'start' and 'end'; "
                 f"missing {', '.join(missing)}."
             )
-        return str(window["start"]), str(window["end"])
+        source = "[calibration.protocol].steady_window"
+        return (
+            _canonical_instant(window["start"], f"{source}.start"),
+            _canonical_instant(window["end"], f"{source}.end"),
+        )
 
     time = (document.get("simulation") or {}).get("time") or {}
     start = time.get("start_datetime")
@@ -411,7 +439,10 @@ def _steady_window(
             "start_datetime/end_datetime here. Write them, or name the span in "
             "[calibration.protocol].steady_window."
         )
-    return str(start), str(end)
+    return (
+        _canonical_instant(start, "simulation.time.start_datetime"),
+        _canonical_instant(end, "simulation.time.end_datetime"),
+    )
 
 
 def _phases(

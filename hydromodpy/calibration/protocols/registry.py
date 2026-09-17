@@ -7,8 +7,11 @@ one, and an unknown name is refused with the list of what exists.
 from __future__ import annotations
 
 import copy
+import functools
 from collections.abc import Mapping
 from typing import Any
+
+from pydantic import TypeAdapter, ValidationError
 
 from hydromodpy.calibration.protocols.base import CalibrationProtocol
 from hydromodpy.calibration.protocols.matching_hydrographic_network import (
@@ -67,19 +70,61 @@ def expand_calibration_protocol(document: Mapping[str, Any]) -> dict[str, Any]:
             f"got {type(declaration).__name__}."
         )
 
+    expanded = get_protocol(name).expand(options, document)
+
     already_written = [key for key in _WRITTEN_SECTIONS if calibration.get(key)]
-    if already_written:
-        joined = ", ".join(f"[calibration].{key}" for key in already_written)
+    contradicted = [
+        key
+        for key in already_written
+        if not _declares_what_the_protocol_writes(
+            key, calibration[key], expanded["calibration"].get(key)
+        )
+    ]
+    if contradicted:
+        joined = ", ".join(f"[calibration].{key}" for key in contradicted)
         raise ValueError(
-            f"[calibration].protocol = {name!r} writes {joined}, and this file already "
-            "declares them. Keep one: drop the protocol to write the stages by hand, or "
-            "drop the stages to let the protocol write them."
+            f"[calibration].protocol = {name!r} writes {joined}, and this file declares "
+            "something else there. Keep one: drop the protocol to write the stages by "
+            "hand, or drop the stages to let the protocol write them."
         )
 
-    expanded = get_protocol(name).expand(options, document)
     normalized = copy.deepcopy(dict(document))
     normalized.update(expanded)
     return normalized
+
+
+@functools.cache
+def _section_adapter(section: str) -> TypeAdapter:
+    """Return the validator of one section a protocol writes.
+
+    Imported here and not at module scope: the declarations live in
+    ``calibration.config``, which imports this package to type its own
+    ``protocol`` field.
+    """
+    from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibPhaseDecl
+
+    return {
+        "phases": TypeAdapter(list[CalibPhaseDecl]),
+        "objective_blocks": TypeAdapter(list[CalibObjectiveBlockDecl]),
+    }[section]
+
+
+def _declares_what_the_protocol_writes(section: str, declared: Any, produced: Any) -> bool:
+    """Say whether *declared* is the assembly the protocol would have written.
+
+    A file this package dumped carries both the ``protocol`` table and the
+    stages that table produced -- on purpose, so the run records the method and
+    what it ran. Reloading it must not be refused as a contradiction. The two
+    sides are compared through the section model rather than raw: the dumped one
+    carries every default filled in, the fresh expansion only what the protocol
+    spelled out, and nobody wrote the difference.
+    """
+    adapter = _section_adapter(section)
+    try:
+        here = adapter.dump_python(adapter.validate_python(declared), mode="json")
+    except ValidationError:
+        return False
+    return here == adapter.dump_python(adapter.validate_python(produced or []), mode="json")
 
 
 def protocol_options_away_from_the_recipe(
