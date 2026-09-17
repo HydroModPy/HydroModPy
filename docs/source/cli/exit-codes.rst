@@ -43,7 +43,8 @@ categories reuse the 10..21 band before introducing new ranges.
      - Invalid or missing TOML / Pydantic configuration.
    * - 15
      - ``EXIT_SOLVER_ERROR``
-     - Solver (MODFLOW 6, MODFLOW-NWT, Boussinesq, GR4J) failed.
+     - Solver (MODFLOW 6, MODFLOW-NWT, Boussinesq, GR4J) failed, or a terrain
+       engine failed to serve what a capability asked of it.
    * - 16
      - ``EXIT_VALIDATION``
      - Data validation failed (units, ranges, schema constraints).
@@ -83,8 +84,10 @@ reference maps to 20. Domain exceptions defined in
 map to codes 11..19 respectively. ``CalibrationError`` (and its
 ``ObjectiveError`` / ``OptimizerError`` subclasses) maps to 21. The two
 exceptions of the external-process boundary map with them: ``JobUsageError``
-to 2 and ``CapabilityVersionMismatchError`` to 11. Any other exception falls
-back to ``EXIT_GENERIC`` (1).
+to 2 and ``CapabilityVersionMismatchError`` to 11. ``TerrainError`` and its
+subclasses map to 15, beside the solvers: at a process boundary the terrain
+engine *is* the geospatial backend. Any other exception falls back to
+``EXIT_GENERIC`` (1).
 
 A refused configuration document
 --------------------------------

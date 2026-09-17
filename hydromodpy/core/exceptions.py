@@ -213,9 +213,10 @@ class IncompatibleMeshError(MeshError):
 
 
 # -- Terrain -------------------------------------------------------------------
-# No entry in ``cli.helpers.exit_code_for``: no CLI verb can raise these yet,
-# and an exit code nothing reaches is an untested branch. It arrives with the
-# capability that surfaces the port.
+# ``cli.helpers.exit_code_for`` maps the family to EXIT_SOLVER_ERROR since the
+# terrain-delineate capability made it reachable: the geospatial backend
+# failing is what code 15 means at a process boundary. Until then the family
+# had no entry, because an exit code nothing reaches is an untested branch.
 
 
 class TerrainError(HydroModPyError):

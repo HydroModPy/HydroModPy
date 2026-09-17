@@ -57,6 +57,7 @@ def exit_code_for(exc: BaseException) -> int:
         MigrationFailedError,
         ReadOnlyError,
         SolverError,
+        TerrainError,
         WriteConflictError,
     )
     from hydromodpy.results.catalog.discovery import (
@@ -82,6 +83,12 @@ def exit_code_for(exc: BaseException) -> int:
         (ConfigError, EXIT_CONFIG),
         (ConfigMissingError, EXIT_CONFIG),
         (SolverError, EXIT_SOLVER_ERROR),
+        # A terrain engine is the geospatial backend of a capability, and what
+        # code 15 means at a process boundary is "the backend failed". The
+        # whole family maps to it: its four classes differ in what a caller
+        # does next inside the process, not in what an orchestrator does with
+        # the exit status.
+        (TerrainError, EXIT_SOLVER_ERROR),
         (DataError, EXIT_VALIDATION),
         (CrossProjectsError, EXIT_CROSS_PROJECTS),
         (BackupFailedError, EXIT_BACKUP_FAILED),
