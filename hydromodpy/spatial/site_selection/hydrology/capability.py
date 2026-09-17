@@ -71,13 +71,16 @@ class OutletInput(HydroModelBase):
         max_length=64,
         pattern=OUTLET_ID_PATTERN,
         description="identifier of the outlet, usable as a directory name",
+        examples=["cheze_downstream"],
     )
     x: Annotated[float, Profile.USER] = Field(
         description="easting in the working projected CRS, in m",
+        examples=[300112.5],
         json_schema_extra=field_metadata(unit="m"),
     )
     y: Annotated[float, Profile.USER] = Field(
         description="northing in the working projected CRS, in m",
+        examples=[6701262.5],
         json_schema_extra=field_metadata(unit="m"),
     )
 
@@ -96,6 +99,11 @@ class TerrainDelineateRequest(HydroModelBase):
     crs_project: Annotated[str, Profile.USER] = Field(
         pattern=r"^EPSG:[0-9]{4,6}$",
         description="working projected CRS stamped on every product",
+        # Declared because the synthetic fallback of ``HydroModelBase`` invents
+        # ``"example"`` for an undocumented string, and this field's pattern
+        # rejects it: a published description would carry an example its own
+        # schema refuses.
+        examples=["EPSG:2154"],
     )
     dem_correction_type: Annotated[Literal["fill", "breach"], Profile.USER] = Field(
         default="breach",

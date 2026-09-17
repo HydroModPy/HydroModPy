@@ -1,0 +1,12 @@
+{
+  "$schema": "urn:hmp:profile:process-index:v1",
+  "processes": [
+    {
+      "id": "terrain-delineate",
+      "version": "1.0.0",
+      "major": 1,
+      "title": "Watershed delineation from a DEM and one or more outlets",
+      "file": "terrain-delineate@1.json"
+    }
+  ]
+}

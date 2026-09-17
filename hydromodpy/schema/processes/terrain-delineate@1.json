@@ -1,0 +1,400 @@
+{
+  "$schema": "urn:hmp:profile:process:v1",
+  "id": "terrain-delineate",
+  "version": "1.0.0",
+  "title": "Watershed delineation from a DEM and one or more outlets",
+  "description": "Corrects a digital elevation model, computes D8 flow direction and flow accumulation, snaps each outlet to the drainage network and delineates the upstream contributing area of each.",
+  "keywords": [
+    "hydrology",
+    "watershed",
+    "delineation",
+    "DEM",
+    "D8"
+  ],
+  "jobControlOptions": [
+    "sync-execute"
+  ],
+  "outputTransmission": [
+    "reference"
+  ],
+  "hmp:invocation": {
+    "argv": [
+      "hmp",
+      "process",
+      "run",
+      "terrain-delineate",
+      "--job",
+      "{jobdir}"
+    ],
+    "request_file": "request.json",
+    "outcome_file": "outcome.json",
+    "stdout": "application/json, exactly one document, byte-identical to outcome.json",
+    "writes_outside_jobdir": false,
+    "reads_outside_jobdir": "only the paths declared in request.json",
+    "cancellation": {
+      "signal": "SIGTERM",
+      "status": "dismissed",
+      "exit_code": 130
+    },
+    "env": [
+      "HMP_NO_PROGRESS",
+      "HMP_LOG_LEVEL",
+      "TMPDIR"
+    ]
+  },
+  "inputs": {
+    "dem": {
+      "title": "Dem",
+      "minOccurs": 1,
+      "maxOccurs": 1,
+      "schema": {
+        "$ref": "#/$defs/FileLink",
+        "description": "single-band elevation raster in the working projected CRS",
+        "x-hmp-profile": "user",
+        "$defs": {
+          "FileLink": {
+            "additionalProperties": false,
+            "description": "A file input: where it is, what it is, and optionally what it hashes to.",
+            "properties": {
+              "href": {
+                "description": "absolute path, or a path relative to the job directory",
+                "title": "Href",
+                "type": "string"
+              },
+              "type": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "IANA media type of the file",
+                "title": "Type"
+              },
+              "sha256": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "expected digest, lowercase hex",
+                "title": "Sha256"
+              }
+            },
+            "required": [
+              "href"
+            ],
+            "title": "FileLink",
+            "type": "object"
+          }
+        },
+        "$id": "urn:hmp:schema:terrain-delineate:1.0.0:dem",
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "description": "single-band elevation raster in the working projected CRS"
+    },
+    "outlets": {
+      "title": "Outlets",
+      "minOccurs": 1,
+      "maxOccurs": 10000,
+      "schema": {
+        "description": "outlets to delineate, each against the same flow products",
+        "items": {
+          "$ref": "#/$defs/OutletInput"
+        },
+        "maxItems": 10000,
+        "minItems": 1,
+        "title": "Outlets",
+        "type": "array",
+        "x-hmp-profile": "user",
+        "$defs": {
+          "OutletInput": {
+            "additionalProperties": false,
+            "description": "One point to delineate from, in the working projected CRS.",
+            "properties": {
+              "site_id": {
+                "description": "identifier of the outlet, usable as a directory name",
+                "examples": [
+                  "cheze_downstream"
+                ],
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+                "title": "Site Id",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "x": {
+                "description": "easting in the working projected CRS, in m",
+                "examples": [
+                  300112.5
+                ],
+                "title": "X",
+                "type": "number",
+                "unit": "m",
+                "x-hmp-profile": "user"
+              },
+              "y": {
+                "description": "northing in the working projected CRS, in m",
+                "examples": [
+                  6701262.5
+                ],
+                "title": "Y",
+                "type": "number",
+                "unit": "m",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "site_id",
+              "x",
+              "y"
+            ],
+            "title": "OutletInput",
+            "type": "object"
+          }
+        },
+        "$id": "urn:hmp:schema:terrain-delineate:1.0.0:outlets",
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "description": "outlets to delineate, each against the same flow products"
+    },
+    "crs_project": {
+      "title": "Crs Project",
+      "minOccurs": 1,
+      "maxOccurs": 1,
+      "schema": {
+        "description": "working projected CRS stamped on every product",
+        "examples": [
+          "EPSG:2154"
+        ],
+        "pattern": "^EPSG:[0-9]{4,6}$",
+        "title": "Crs Project",
+        "type": "string",
+        "x-hmp-profile": "user",
+        "$id": "urn:hmp:schema:terrain-delineate:1.0.0:crs_project",
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "description": "working projected CRS stamped on every product"
+    },
+    "dem_correction_type": {
+      "title": "Dem Correction Type",
+      "minOccurs": 0,
+      "maxOccurs": 1,
+      "schema": {
+        "default": "breach",
+        "description": "how depressions are removed before flow is routed",
+        "enum": [
+          "fill",
+          "breach"
+        ],
+        "examples": [
+          "fill"
+        ],
+        "title": "Dem Correction Type",
+        "type": "string",
+        "x-hmp-profile": "user",
+        "$id": "urn:hmp:schema:terrain-delineate:1.0.0:dem_correction_type",
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "description": "how depressions are removed before flow is routed"
+    },
+    "snap_distance_m": {
+      "title": "Snap Distance M",
+      "minOccurs": 0,
+      "maxOccurs": 1,
+      "schema": {
+        "default": 50,
+        "description": "width of the square window an outlet is snapped inside, in m",
+        "examples": [
+          50
+        ],
+        "exclusiveMinimum": 0,
+        "title": "Snap Distance M",
+        "type": "integer",
+        "unit": "m",
+        "x-hmp-profile": "user",
+        "$id": "urn:hmp:schema:terrain-delineate:1.0.0:snap_distance_m",
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "description": "width of the square window an outlet is snapped inside, in m"
+    }
+  },
+  "outputs": {
+    "watershed_vector": {
+      "title": "Delineated catchment polygons",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "application/geopackage+sqlite3"
+      },
+      "hmp:path": "outputs/watershed.gpkg",
+      "hmp:role": [
+        "data",
+        "primary"
+      ],
+      "minOccurs": 1
+    },
+    "watershed_table": {
+      "title": "Delineated catchment polygons, columnar",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "application/vnd.apache.parquet"
+      },
+      "hmp:path": "outputs/watershed.parquet",
+      "hmp:role": [
+        "data"
+      ],
+      "minOccurs": 1,
+      "hmp:conformsTo": [
+        "GeoParquet-1.1"
+      ]
+    },
+    "outlets_snapped": {
+      "title": "Every declared outlet, its status and the snap distance of each",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "application/geo+json"
+      },
+      "hmp:path": "outputs/outlets_snapped.geojson",
+      "hmp:role": [
+        "data"
+      ],
+      "minOccurs": 1,
+      "hmp:crs": "OGC:CRS84"
+    },
+    "flow_direction": {
+      "title": "D8 pointer raster",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "image/tiff; application=geotiff"
+      },
+      "hmp:path": "outputs/flow_direction.tif",
+      "hmp:role": [
+        "data",
+        "intermediate"
+      ],
+      "minOccurs": 1,
+      "hmp:pointer_convention": "d8_wbt"
+    },
+    "flow_accumulation": {
+      "title": "Flow accumulation raster",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "image/tiff; application=geotiff"
+      },
+      "hmp:path": "outputs/flow_accumulation.tif",
+      "hmp:role": [
+        "data",
+        "intermediate"
+      ],
+      "minOccurs": 1,
+      "hmp:transform": "ln",
+      "hmp:units": "cells"
+    },
+    "dem_corrected": {
+      "title": "Depression-removed DEM",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "image/tiff; application=geotiff"
+      },
+      "hmp:path": "outputs/dem_corrected.tif",
+      "hmp:role": [
+        "data",
+        "intermediate"
+      ],
+      "minOccurs": 1
+    },
+    "inputset": {
+      "title": "Resolved, hashed, licence-annotated input set",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "application/json"
+      },
+      "hmp:path": "inputset.json",
+      "hmp:role": [
+        "metadata",
+        "provenance"
+      ],
+      "minOccurs": 1
+    },
+    "outcome": {
+      "title": "Typed job outcome",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "application/json"
+      },
+      "hmp:path": "outcome.json",
+      "hmp:role": [
+        "metadata"
+      ],
+      "minOccurs": 1
+    }
+  },
+  "hmp:exceptions": [
+    {
+      "type": "urn:hmp:error:HMPY.E1100",
+      "code": "HMPY.E1100",
+      "exit_code": 2,
+      "title": "The job directory is not usable as the caller gave it."
+    },
+    {
+      "type": "urn:hmp:error:HMPY.E1101",
+      "code": "HMPY.E1101",
+      "exit_code": 11,
+      "title": "The request targets a different major version of the capability."
+    },
+    {
+      "type": "urn:hmp:error:HMPY.E101",
+      "code": "HMPY.E101",
+      "exit_code": 14,
+      "title": "The configuration document failed validation."
+    },
+    {
+      "type": "urn:hmp:error:FileNotFoundError",
+      "code": "FileNotFoundError",
+      "exit_code": 10,
+      "title": "File not found."
+    },
+    {
+      "type": "urn:hmp:error:HMPY.E201",
+      "code": "HMPY.E201",
+      "exit_code": 16,
+      "title": "A dataset does not satisfy its declared contract."
+    },
+    {
+      "type": "urn:hmp:error:HMPY.E1002",
+      "code": "HMPY.E1002",
+      "exit_code": 15,
+      "title": "A terrain product does not satisfy what the member it is passed to needs."
+    },
+    {
+      "type": "urn:hmp:error:HMPY.E1004",
+      "code": "HMPY.E1004",
+      "exit_code": 15,
+      "title": "An outlet delineated nothing at all."
+    }
+  ],
+  "hmp:artifacts": {
+    "seal": "manifest.json",
+    "seal_rule": "present if and only if the job succeeded and every declared output exists and hashes"
+  },
+  "links": [
+    {
+      "rel": "self",
+      "href": "terrain-delineate@1.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "describedby",
+      "href": "urn:hmp:profile:process:v1",
+      "type": "application/json"
+    }
+  ]
+}

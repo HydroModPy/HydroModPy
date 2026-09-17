@@ -166,6 +166,9 @@ exclude = ["hydromodpy_annex*"]
 
 [tool.setuptools.package-data]
 hydromodpy = ["py.typed"]
+# The process descriptions ship inside the wheel: a shim reads them with
+# importlib.resources to learn what it can invoke, without importing anything.
+"hydromodpy.schema.processes" = ["*.json"]
 "hydromodpy.physics.hydrology.pyhelp" = ["*.FOR"]
 "hydromodpy.data.common.administrative" = ["*.gpkg"]
 "hydromodpy.cli.commands.dev.manage.static" = ["*.html"]

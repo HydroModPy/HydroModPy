@@ -6,9 +6,9 @@ where the two meet: the registry pairs one declaration with one runner, and
 the verbs of ``hmp process`` read it.
 
 It is a Python mapping and not a resource directory. The published process
-**descriptions** will be resource files read with ``importlib.resources``;
-that is a different object, generated from the declarations named here, and
-it arrives with the generator that writes it.
+**descriptions** are resource files under ``hydromodpy/schema/processes/``,
+read with ``importlib.resources``: a different object, generated from the
+declarations named here by ``python -m tools.processes``.
 """
 
 from __future__ import annotations
@@ -38,24 +38,33 @@ class Capability:
     run: CapabilityRunner
 
 
-def _registry() -> Mapping[str, Capability]:
-    """Build the registry, importing each worker only when it is asked for.
+def capability_decls() -> tuple[CapabilityDecl, ...]:
+    """Return every declaration, without importing a single engine.
 
-    Deferred because a capability body pulls its whole engine stack in --
-    ``whitebox_workflows`` for this one -- and ``hmp --help`` has no business
-    paying for that.
+    A declaration is what the process description is generated from and what
+    ``hmp process list`` prints; neither needs the body to exist in memory.
+    Kept apart from :func:`_registry` because importing a body pulls its whole
+    engine stack in -- ``whitebox_workflows`` for this one -- and a test pins
+    the two lists together so they cannot drift.
     """
     from hydromodpy.spatial.site_selection.hydrology.capability import TERRAIN_DELINEATE
+
+    return (TERRAIN_DELINEATE,)
+
+
+def _registry() -> Mapping[str, Capability]:
+    """Build the registry, importing each worker only when it is asked for."""
     from hydromodpy.spatial.site_selection.hydrology.worker import run as terrain_delineate
 
+    runners: Mapping[str, CapabilityRunner] = {"terrain-delineate": terrain_delineate}
     return MappingProxyType(
-        {TERRAIN_DELINEATE.id: Capability(decl=TERRAIN_DELINEATE, run=terrain_delineate)}
+        {decl.id: Capability(decl=decl, run=runners[decl.id]) for decl in capability_decls()}
     )
 
 
 def capability_ids() -> tuple[str, ...]:
     """Return every capability id this build serves, sorted."""
-    return tuple(sorted(_registry()))
+    return tuple(sorted(decl.id for decl in capability_decls()))
 
 
 def capability(capability_id: str) -> Capability:
@@ -79,15 +88,28 @@ def list_capabilities() -> list[dict[str, Any]]:
     """Return one record per capability, in the shape a shim indexes."""
     return [
         {
-            "id": entry.decl.id,
-            "version": entry.decl.version,
-            "major": entry.decl.major,
-            "title": entry.decl.title,
-            "keywords": list(entry.decl.keywords),
-            "outputs": list(entry.decl.output_ids),
+            "id": decl.id,
+            "version": decl.version,
+            "major": decl.major,
+            "title": decl.title,
+            "keywords": list(decl.keywords),
+            "outputs": list(decl.output_ids),
         }
-        for entry in (_registry()[name] for name in capability_ids())
+        for decl in sorted(capability_decls(), key=lambda decl: decl.id)
     ]
+
+
+def describe_capability(capability_id: str, major: int | None = None) -> dict[str, Any]:
+    """Return the committed process description of one capability.
+
+    Read from package data and not rendered here: the description is generated
+    from the declaration, committed, and gated against the generator. Rendering
+    it a second time in this function would be a second source of truth, and
+    the one a caller reads would be the one nothing compares.
+    """
+    from hydromodpy.schema.processes import read_description
+
+    return read_description(capability_id, major)
 
 
 def run_capability(capability_id: str, job_dir: str | Path) -> tuple[int, str]:
@@ -139,7 +161,9 @@ __all__ = [
     "Capability",
     "CapabilityRunner",
     "capability",
+    "capability_decls",
     "capability_ids",
+    "describe_capability",
     "list_capabilities",
     "run_capability",
     "verify_capability_job",
