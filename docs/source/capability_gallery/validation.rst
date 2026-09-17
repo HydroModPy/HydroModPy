@@ -322,27 +322,27 @@ Transient 2D Radial Response
    :maxdepth: 1
 
    cases/modflow6_irregular_tri_xt3d_method_choice
+   cases/boussinesq_circular_island_piecewise_k_2d
    cases/boussinesq_divide_fixed_head_piecewise_k_1d
    cases/boussinesq_fixed_head_piecewise_k_1d
    cases/boussinesq_hillslope_interception_1d
+   cases/boussinesq_hillslope_recharge_step_interception_1d
    cases/boussinesq_sloping_substratum_constant_thickness_1d
    cases/boussinesq_sloping_substratum_fixed_head_1d
    cases/boussinesq_sloping_substratum_uniform_recharge_1d
    cases/boussinesq_uniform_recharge_piecewise_k_1d
+   cases/brutsaert_recession_boussinesq_thin_1d
+   cases/brutsaert_recession_linearized_deep_1d
+   cases/dupuit_circular_island_ocean_2d
    cases/dupuit_divide_river_1d
    cases/dupuit_fixed_head_1d
    cases/dupuit_seepage_limit_1d
    cases/dupuit_uniform_recharge_1d
-   cases/linearized_unconfined_drainage_1d
-   cases/linearized_unconfined_hillslope_drainage_1d
-   cases/boussinesq_circular_island_piecewise_k_2d
-   cases/dupuit_circular_island_ocean_2d
-   cases/boussinesq_hillslope_recharge_step_interception_1d
-   cases/brutsaert_recession_boussinesq_thin_1d
-   cases/brutsaert_recession_linearized_deep_1d
+   cases/late_time_unconfined_pumping_2d
    cases/linearized_unconfined_boundary_piecewise_1d
    cases/linearized_unconfined_boundary_step_1d
+   cases/linearized_unconfined_drainage_1d
+   cases/linearized_unconfined_hillslope_drainage_1d
    cases/linearized_unconfined_recharge_periodic_1d
    cases/linearized_unconfined_recharge_step_1d
    cases/linearized_unconfined_recharge_step_deep_1d
-   cases/late_time_unconfined_pumping_2d
