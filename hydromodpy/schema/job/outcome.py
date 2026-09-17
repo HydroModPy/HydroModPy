@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from hydromodpy.core.exceptions import HydroModPyError
 from hydromodpy.schema.job.directory import JobDirectory
@@ -72,6 +72,10 @@ def error_record(exc: BaseException, *, occurred_at: str | None = None) -> dict[
     return payload
 
 
+_RECORD_MEMBERS = frozenset({"id", "path", "mediaType", "bytes", "sha256"})
+"""The members :class:`OutputRecord` renders itself. The rest is ``extra``."""
+
+
 @dataclass(frozen=True, slots=True)
 class OutputRecord:
     """One artefact that was produced, hashed from the bytes on disk."""
@@ -95,6 +99,18 @@ class OutputRecord:
             "sha256": self.sha256,
             **dict(self.extra),
         }
+
+    @classmethod
+    def from_document(cls, entry: Mapping[str, Any]) -> OutputRecord:
+        """Read back one record, every member a capability declared included."""
+        return cls(
+            id=str(entry["id"]),
+            path=str(entry["path"]),
+            media_type=str(entry["mediaType"]),
+            bytes=int(entry["bytes"]),
+            sha256=str(entry["sha256"]),
+            extra={key: value for key, value in entry.items() if key not in _RECORD_MEMBERS},
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,6 +203,41 @@ class JobOutcome:
             "warnings": list(self.warnings),
             "errors": [dict(entry) for entry in self.errors],
         }
+
+    @classmethod
+    def from_document(cls, document: Mapping[str, Any]) -> JobOutcome:
+        """Read back an outcome this module wrote, and refuse one it did not.
+
+        ``duration_s`` is not read: it is derived from the two instants every
+        time the document is rendered, and giving a stored number a second life
+        is the defect that made it derived in the first place. ``schema`` is not
+        read either -- it names the shape, and the shape is this class.
+
+        The status is checked against the type rather than left to
+        :meth:`_refuse_a_status_that_contradicts_itself`, which would read an
+        ``accepted`` job exiting 130 as a dismissed one.
+        """
+        process = document.get("process")
+        if not isinstance(process, Mapping):
+            raise ValueError("outcome document carries no process block")
+        status = document["status"]
+        if status not in get_args(JobStatus):
+            raise ValueError(f"outcome document carries the status {status!r}")
+        return cls(
+            job_id=str(document["job_id"]),
+            process_id=str(process["id"]),
+            process_version=str(process["version"]),
+            status=status,
+            exit_code=int(document["exit_code"]),
+            started_at=str(document["started_at"]),
+            finished_at=str(document["finished_at"]),
+            outputs=tuple(
+                OutputRecord.from_document(entry) for entry in document.get("outputs", ())
+            ),
+            warnings=tuple(str(entry) for entry in document.get("warnings", ())),
+            errors=tuple(dict(entry) for entry in document.get("errors", ())),
+            reused=bool(document.get("reused", False)),
+        )
 
     def write(self, job: JobDirectory) -> Path:
         """Write the outcome into *job*, whole or not at all."""

@@ -40,8 +40,10 @@ from typing import Any
 from hydromodpy.cli._workers.process import capability_decls
 from hydromodpy.cli.helpers import EXIT_SIGINT, exit_code_for
 from hydromodpy.config.schema_export import export_schema, extract_property_schema
+from hydromodpy.core.exceptions import JobUsageError
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
 from hydromodpy.schema.job.layout import OUTCOME_FILENAME, REQUEST_FILENAME
+from hydromodpy.schema.job.reuse import REUSED_MEMBER
 from hydromodpy.schema.processes import (
     INDEX_FILENAME,
     INDEX_PROFILE,
@@ -184,7 +186,10 @@ def build_invocation(decl: CapabilityDecl) -> dict[str, Any]:
         "argv": ["hmp", "process", "run", decl.id, "--job", JOB_DIR_PLACEHOLDER],
         "request_file": REQUEST_FILENAME,
         "outcome_file": OUTCOME_FILENAME,
-        "stdout": f"application/json, exactly one document, byte-identical to {OUTCOME_FILENAME}",
+        "stdout": (
+            f"application/json, exactly one document, byte-identical to {OUTCOME_FILENAME}; "
+            f'on a reuse, that document with "{REUSED_MEMBER}": true'
+        ),
         # A list and not a boolean: the answer an orchestrator needs is "what
         # else has to be writable", and for this capability it is not "nothing".
         # Empty means the job directory is the only writable thing it wants.
@@ -194,6 +199,24 @@ def build_invocation(decl: CapabilityDecl) -> dict[str, Any]:
             "signal": "SIGTERM",
             "status": DISMISSED_STATUS,
             "exit_code": EXIT_SIGINT,
+        },
+        # The exit code of a conflict is not repeated here: naming the error
+        # code points at the row of ``hmp:exceptions`` that already carries it,
+        # so one document cannot state the same number twice and differ.
+        "idempotency": {
+            "job_id": (
+                "sha256 of the process identity and of the resolved inputs, "
+                "every file link replaced by the digest of its bytes"
+            ),
+            "reuse": (
+                f"a job directory already sealed under the same job_id is re-reported: "
+                f"nothing is written, stdout carries its {OUTCOME_FILENAME} with "
+                f'"{REUSED_MEMBER}": true, and the process exits 0'
+            ),
+            "conflict": (
+                f"a job directory sealed under another job_id is refused, "
+                f"as {error_code(JobUsageError)}"
+            ),
         },
         "env": list(decl.env),
     }

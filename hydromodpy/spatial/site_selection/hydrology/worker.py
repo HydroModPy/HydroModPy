@@ -74,6 +74,7 @@ from hydromodpy.schema.job.request import (
     requested_outputs,
     validate_inputs,
 )
+from hydromodpy.schema.job.reuse import reuse_sealed_outcome
 from hydromodpy.schema.job.seal import seal_job
 from hydromodpy.schema.media_types import GEOTIFF_MEDIA_TYPE
 from hydromodpy.spatial.geographic.core.flow_products import (
@@ -139,18 +140,18 @@ def run(job: JobDirectory, *, exit_code_for: ExitCodeMapper) -> JobOutcome:
     the job succeeded and every declared output is on disk and hashed, which
     is the one invariant a caller outside this process relies on.
 
-    Refuses a directory that is already sealed, before touching anything: the
-    invocation contract gives one job one directory, and re-running over a
-    finished one would overwrite a seal, a job id and a set of outputs that
-    somebody else may already have read.
+    A directory that is already sealed is answered before anything is touched,
+    and the answer depends on what it is sealed under. The same ``job_id`` is
+    the same work: nothing is written, the stored outcome comes back with
+    ``reused`` set, and the caller exits 0. A different one is refused, because
+    running would overwrite a seal, a job id and a set of outputs that somebody
+    else may already have read.
     """
     if job.is_sealed:
-        # Raised outside the try on purpose. Turning this into a failed
-        # outcome would overwrite the outcome of the job that did finish,
-        # which is the very document this refusal exists to protect.
-        raise JobUsageError(
-            f"job directory {job.root} is already sealed; a job directory holds one job"
-        )
+        # Answered outside the try on purpose. Turning any of it into a failed
+        # outcome would overwrite the outcome of the job that did finish, which
+        # is the very document this branch exists to protect.
+        return _reuse_or_refuse(job)
     started_at = now()
     decl = TERRAIN_DELINEATE
     job_id = UNIDENTIFIED_JOB
@@ -184,6 +185,27 @@ def run(job: JobDirectory, *, exit_code_for: ExitCodeMapper) -> JobOutcome:
         )
         outcome.write(job)
         return outcome
+
+
+def _reuse_or_refuse(job: JobDirectory) -> JobOutcome:
+    """Answer a directory that is already sealed, without writing into it.
+
+    Resolving the request first costs one pass over the DEM, which is what the
+    content address is made of, and that is the whole price of the
+    short-circuit: what it skips is the conditioning, the routing and the
+    delineation. A request that no longer resolves cannot be addressed at all,
+    so it cannot match a seal, and it is refused the way a different job is --
+    as a usage error, because the caller pointed a finished directory at a
+    request that is not the one that finished it.
+    """
+    try:
+        resolved = _resolve(job)
+    except Exception as exc:
+        raise JobUsageError(
+            f"job directory {job.root} is already sealed, and this request does not "
+            f"resolve into a job id to compare against it: {exc}"
+        ) from exc
+    return reuse_sealed_outcome(job, job_id=resolved.job_id)
 
 
 def _resolve(job: JobDirectory) -> _Resolved:

@@ -28,7 +28,7 @@
     ],
     "request_file": "request.json",
     "outcome_file": "outcome.json",
-    "stdout": "application/json, exactly one document, byte-identical to outcome.json",
+    "stdout": "application/json, exactly one document, byte-identical to outcome.json; on a reuse, that document with \"reused\": true",
     "writes_outside_jobdir": [
       "$TMPDIR"
     ],
@@ -37,6 +37,11 @@
       "signal": "SIGTERM",
       "status": "dismissed",
       "exit_code": 130
+    },
+    "idempotency": {
+      "job_id": "sha256 of the process identity and of the resolved inputs, every file link replaced by the digest of its bytes",
+      "reuse": "a job directory already sealed under the same job_id is re-reported: nothing is written, stdout carries its outcome.json with \"reused\": true, and the process exits 0",
+      "conflict": "a job directory sealed under another job_id is refused, as HMPY.E1100"
     },
     "env": [
       "HMP_NO_PROGRESS",

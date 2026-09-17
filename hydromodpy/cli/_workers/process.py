@@ -24,6 +24,7 @@ from hydromodpy.core.interrupts import terminate_as_interrupt
 from hydromodpy.schema.capability import CapabilityDecl
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.outcome import JobOutcome
+from hydromodpy.schema.job.reuse import reused_outcome_text
 from hydromodpy.schema.job.seal import SealVerification, verify_job
 
 CapabilityRunner = Callable[..., JobOutcome]
@@ -133,6 +134,11 @@ def run_capability(capability_id: str, job_dir: str | Path) -> tuple[int, str]:
     caller who captured the pipe and a caller who opens the directory learn
     the same thing, and the only way to keep it is to print the file.
 
+    A reuse is the one case where the two differ, by one member and no other.
+    ``reused`` states what **this invocation** did, and the job it re-reports
+    did the work, so the document on disk keeps ``false`` -- it would otherwise
+    have to be rewritten, which would break the seal that hashes it.
+
     SIGTERM unwinds through :func:`terminate_as_interrupt`, so a cancelled job
     writes its dismissed outcome and exits 130 with nothing sealed.
     """
@@ -149,6 +155,8 @@ def run_capability(capability_id: str, job_dir: str | Path) -> tuple[int, str]:
             outcome = entry.run(job, exit_code_for=exit_code_for)
         except KeyboardInterrupt:
             return EXIT_SIGINT, _outcome_text(job)
+    if outcome.reused:
+        return outcome.exit_code, reused_outcome_text(job)
     return outcome.exit_code, _outcome_text(job)
 
 

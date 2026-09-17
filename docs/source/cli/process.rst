@@ -65,6 +65,8 @@ Sub-actions
     to stderr. The exit code is the typed one of the outcome, so a caller
     that tests ``$?`` and a caller that reads the document agree. SIGTERM
     unwinds: the outcome says ``dismissed``, nothing is sealed, exit 130.
+    Re-running the same request into a directory that already holds it is a
+    reuse, below.
 
 ``hmp process verify --job DIR [--format {table,json,csv}]``
     Re-check a finished directory against its own seal, reading only the
@@ -116,6 +118,33 @@ caller outside the process relies on:
 
   ``manifest.json`` exists **if and only if** the job succeeded and every
   declared output is present and hashed. Its absence is never ambiguous.
+
+Running the same job twice
+--------------------------
+
+``job_id`` is a **content address**: the sha256 of the process identity and of
+the resolved inputs, every file link replaced by the digest of its bytes. Two
+byte-identical submissions therefore carry one id, whatever the directory is
+called and wherever it was copied to, and the description states the rule under
+``hmp:invocation.idempotency``.
+
+Pointing ``run`` at a directory that is already sealed is answered from that id
+and never by re-running:
+
+* **the same id** -- nothing is written, stdout carries the stored
+  ``outcome.json`` with ``"reused": true``, and the process exits **0**. That
+  gives a shim deduplication and safe retry with no job store and no database.
+* **a different id** -- refused as a usage error, exit **2**, nothing written.
+  A job directory holds one job, and running would overwrite a seal, a job id
+  and a set of artefacts somebody else may already have read.
+
+``"reused"`` states what **this invocation** did, not what the job did, and it
+is the one member where stdout and ``outcome.json`` differ: the document on
+disk was written by the run that did the work and keeps ``false``. Rewriting it
+would break the seal that hashes it.
+
+A reuse does not re-hash the artefacts; it trusts the seal. ``hmp process
+verify`` is the verb that does not.
 
 A worked example
 ----------------

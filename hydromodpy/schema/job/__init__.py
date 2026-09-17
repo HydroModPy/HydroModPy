@@ -68,6 +68,11 @@ from hydromodpy.schema.job.request import (
     requested_outputs,
     validate_inputs,
 )
+from hydromodpy.schema.job.reuse import (
+    REUSED_MEMBER,
+    reuse_sealed_outcome,
+    reused_outcome_text,
+)
 from hydromodpy.schema.job.seal import (
     ArtifactRecord,
     SealVerification,
@@ -90,6 +95,7 @@ __all__ = [
     "LicenceRollup",
     "OutputRecord",
     "PROVENANCE_SCHEMA",
+    "REUSED_MEMBER",
     "ProcessRef",
     "SEALED_DOCUMENTS",
     "SealVerification",
@@ -109,6 +115,8 @@ __all__ = [
     "refuse_request",
     "render_document",
     "requested_outputs",
+    "reuse_sealed_outcome",
+    "reused_outcome_text",
     "roll_up_licences",
     "seal_job",
     "sha256_file",

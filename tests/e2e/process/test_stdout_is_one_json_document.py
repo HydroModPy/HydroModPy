@@ -83,6 +83,62 @@ def test_stdout_is_byte_identical_to_the_outcome_on_disk(finished):
     assert completed.stdout == (job / "outcome.json").read_text(encoding="utf-8")
 
 
+def test_running_the_same_request_again_is_reused_and_exits_zero(tmp_path):
+    """§1.9 through the pipe, which is the only place the promise is readable.
+
+    A fresh directory rather than the module fixture: this runs the capability
+    twice and every other test in this file reads what the first run left.
+    """
+    job = _job(tmp_path, _request())
+    first = _hmp("process", "run", "terrain-delineate", "--job", str(job))
+    assert first.returncode == 0, first.stderr[-4000:]
+    sealed = (job / "manifest.json").read_bytes()
+
+    second = _hmp("process", "run", "terrain-delineate", "--job", str(job))
+
+    assert second.returncode == 0, second.stderr[-4000:]
+    assert json.loads(second.stdout)["reused"] is True
+    assert json.loads(first.stdout)["reused"] is False
+    assert (job / "manifest.json").read_bytes() == sealed
+    assert (job / "outcome.json").read_text(encoding="utf-8") == first.stdout
+
+
+def test_the_reused_document_differs_from_the_file_by_one_member_and_no_other(tmp_path):
+    """The one place the two channels of the boundary are allowed to disagree.
+
+    ``reused`` states what this invocation did; the document on disk states
+    what the job did, and the job did the work. Rewriting the file instead
+    would break the seal that hashes it.
+    """
+    job = _job(tmp_path, _request())
+    assert _hmp("process", "run", "terrain-delineate", "--job", str(job)).returncode == 0
+    on_disk = (job / "outcome.json").read_text(encoding="utf-8")
+
+    second = _hmp("process", "run", "terrain-delineate", "--job", str(job))
+
+    assert json.loads(second.stdout) == {**json.loads(on_disk), "reused": True}
+    differing = [
+        line
+        for line, other in zip(on_disk.splitlines(), second.stdout.splitlines(), strict=True)
+        if line != other
+    ]
+    assert len(differing) == 1
+    assert '"reused"' in differing[0]
+
+
+def test_another_request_in_a_sealed_directory_is_a_usage_error(tmp_path):
+    job = _job(tmp_path, _request())
+    assert _hmp("process", "run", "terrain-delineate", "--job", str(job)).returncode == 0
+    sealed = (job / "manifest.json").read_bytes()
+    (job / "request.json").write_text(json.dumps(_request(snap_distance_m=75)), encoding="utf-8")
+
+    completed = _hmp("process", "run", "terrain-delineate", "--job", str(job))
+
+    assert completed.returncode == EXIT_USAGE
+    assert completed.stdout == ""
+    assert (job / "manifest.json").read_bytes() == sealed
+
+
 def test_the_job_is_sealed_and_the_verify_verb_says_so(finished):
     job, _ = finished
 

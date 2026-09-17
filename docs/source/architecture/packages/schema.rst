@@ -82,8 +82,14 @@ the one a caller outside the process relies on:
   names no hostname, no account and no local path: a job directory is
   handed to somebody else by construction.
 - ``job/outcome.py`` -- the typed outcome, which refuses to carry a
-  status that contradicts its own exit code.
+  status that contradicts its own exit code, and reads one back with
+  ``JobOutcome.from_document()``.
 - ``job/seal.py`` -- ``seal_job()`` and ``verify_job()``.
+- ``job/reuse.py`` -- what a sealed directory is answered with, for
+  every capability rather than for one: the same ``job_id`` is
+  re-reported with ``reused`` set and nothing is written, a different
+  one is refused. A reuse trusts the seal; ``verify_job()`` is what
+  does not.
 - ``job/documents.py``, ``job/digest.py``, ``job/refusal.py`` --
   atomic writes, the two digests, and the pointed refusal.
 

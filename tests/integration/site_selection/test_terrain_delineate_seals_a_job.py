@@ -349,16 +349,76 @@ def test_a_request_whose_inputs_never_resolved_carries_no_job_id(tmp_path):
     assert outcome.job_id == UNIDENTIFIED_JOB
 
 
-def test_a_sealed_directory_is_refused_rather_than_run_over(sealed_job):
-    """One job, one directory. A second run would overwrite a finished seal."""
+def test_the_same_request_into_a_sealed_directory_is_reused_and_not_re_run(sealed_job):
+    """The short-circuit, on the only thing that can prove it: the disk.
+
+    Not a delay and not a spy on the engine. A re-run would rewrite every
+    artefact and every document, so "nothing changed, to the byte" is both the
+    strongest statement available and the exact promise §1.9 makes.
+    """
+    job, first = sealed_job
+    before = {
+        path.relative_to(job.root).as_posix(): path.read_bytes()
+        for path in sorted(job.root.rglob("*"))
+        if path.is_file()
+    }
+
+    second = run(job, exit_code_for=exit_code_for)
+
+    assert second.reused is True
+    assert second.exit_code == 0
+    assert second.status == "successful"
+    assert second.job_id == first.job_id
+    after = {
+        path.relative_to(job.root).as_posix(): path.read_bytes()
+        for path in sorted(job.root.rglob("*"))
+        if path.is_file()
+    }
+    assert after == before
+
+
+def test_the_reused_outcome_carries_what_the_first_run_recorded(sealed_job):
+    """Re-reported and not re-derived: the artefacts are the ones on disk."""
+    job, first = sealed_job
+
+    second = run(job, exit_code_for=exit_code_for)
+
+    assert [record.to_document() for record in second.outputs] == [
+        record.to_document() for record in first.outputs
+    ]
+    assert second.started_at == first.started_at
+    assert second.finished_at == first.finished_at
+    assert read_document(job.outcome_path)["reused"] is False
+
+
+def test_a_different_request_into_a_sealed_directory_is_refused(sealed_job):
+    """One job, one directory. Another job would overwrite a finished seal."""
     job, first = sealed_job
     before = job.manifest_path.read_bytes()
+    job.request_path.write_text(
+        json.dumps(_request(inputs={"snap_distance_m": 75})), encoding="utf-8"
+    )
+
+    with pytest.raises(JobUsageError) as caught:
+        run(job, exit_code_for=exit_code_for)
+
+    assert first.job_id in str(caught.value)
+    assert job.manifest_path.read_bytes() == before
+    assert read_document(job.outcome_path)["job_id"] == first.job_id
+
+
+def test_a_request_that_no_longer_resolves_cannot_reuse_a_seal(sealed_job):
+    """Unaddressable is not the same as matching, and must not be answered as one."""
+    job, _ = sealed_job
+    before = job.outcome_path.read_bytes()
+    job.request_path.write_text(
+        json.dumps(_request(inputs={"crs_project": "lambert93"})), encoding="utf-8"
+    )
 
     with pytest.raises(JobUsageError):
         run(job, exit_code_for=exit_code_for)
 
-    assert job.manifest_path.read_bytes() == before
-    assert read_document(job.outcome_path)["job_id"] == first.job_id
+    assert job.outcome_path.read_bytes() == before
 
 
 def test_a_dem_that_is_not_a_raster_is_bad_input_and_not_an_internal_bug(tmp_path):
