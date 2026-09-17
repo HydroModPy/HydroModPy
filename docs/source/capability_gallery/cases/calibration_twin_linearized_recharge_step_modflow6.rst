@@ -195,19 +195,19 @@ Benchmark Setup
    * - ``solver_name``
      - Solver family used both to generate synthetic observations and to calibrate candidates.
      - modflow6
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``regime``
      - Flow regime exercised by the inverse benchmark.
      - transient
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``output_names``
      - Observables extracted from each candidate simulation and used in the composite objective.
      - head_mid, q_east
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``observation_noise``
      - Synthetic noise injected after the truth run, if any.
      - none
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
 
 Calibrated Parameters
 ^^^^^^^^^^^^^^^^^^^^^
@@ -223,11 +223,11 @@ Calibrated Parameters
    * - ``K_global``
      - Truth value, initial search interval, and acceptance tolerance for this calibrated parameter.
      - truth=0.0001, bounds=5e-05, 0.0003, tolerance=1.5e-05
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``Sy_global``
      - Truth value, initial search interval, and acceptance tolerance for this calibrated parameter.
      - truth=0.1, bounds=0.04, 0.18, tolerance=0.04
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
 
 Methods And Timing
 ^^^^^^^^^^^^^^^^^^
@@ -243,23 +243,23 @@ Methods And Timing
    * - ``random_search``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
      - meets_target=false, cost=0.529874, n_eval=16, calib_s=50.3573, candidate_runtime_s=50.2016, algorithm_overhead_s=0.155745, actualize_s=0.231356, launcher_prep_s=0.231356, runtime_patch_s=0, model_sim_s=2.90624, output_select_s=0, objective_score_s=0
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``cma_es``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
      - meets_target=true, cost=0.214878, n_eval=40, calib_s=134.22, candidate_runtime_s=133.715, algorithm_overhead_s=0.504982, actualize_s=0.233398, launcher_prep_s=0.233398, runtime_patch_s=0, model_sim_s=3.10947, output_select_s=0, objective_score_s=0
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``simplex``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
      - meets_target=true, cost=0.219763, n_eval=12, calib_s=106.26, candidate_runtime_s=106.094, algorithm_overhead_s=0.166063, actualize_s=0.343487, launcher_prep_s=0.343487, runtime_patch_s=0, model_sim_s=8.49768, output_select_s=0, objective_score_s=0
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``gp_mapping``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
      - meets_target=true, cost=0.320649, n_eval=16, calib_s=74.2689, candidate_runtime_s=68.2146, algorithm_overhead_s=6.05423, actualize_s=0.224947, launcher_prep_s=0.224947, runtime_patch_s=0, model_sim_s=4.03847, output_select_s=0, objective_score_s=0
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``da_mh_gp``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
      - meets_target=true, cost=2.22364, n_eval=72, posterior_samples=72, calib_s=310.144, candidate_runtime_s=300.871, algorithm_overhead_s=9.2731, actualize_s=0.296197, launcher_prep_s=0.296197, runtime_patch_s=0, model_sim_s=3.88257, output_select_s=0, objective_score_s=0
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
 
 Displayed Metrics
 ^^^^^^^^^^^^^^^^^
@@ -275,59 +275,59 @@ Displayed Metrics
    * - ``method_count``
      - Metric surfaced on the gallery page for the selected display method.
      - 5
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``display_method_name``
      - Metric surfaced on the gallery page for the selected display method.
      - gp_mapping
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``calibration_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 74.27 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``session_prepare_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 78.49 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``estimated_candidate_runtime_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 68.21 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``algorithm_overhead_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 6.054 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``mean_candidate_total_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 4.263 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``mean_candidate_actualize_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 0.2249 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``mean_candidate_launcher_prepare_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 0.2249 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``mean_candidate_runtime_patch_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 0 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``mean_candidate_preparation_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 0.2249 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``mean_candidate_simulation_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 4.038 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``mean_candidate_output_selection_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 0 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``mean_candidate_objective_compute_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 0 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
 
 Source Pointers
 ---------------
@@ -345,16 +345,16 @@ Source Pointers
 Artifacts
 ---------
 
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__configuration.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_landscape.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__cma_es_landscape.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__cma_es_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__simplex_landscape.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__simplex_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__gp_mapping_landscape.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__gp_mapping_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_landscape.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_posterior.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__configuration.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_landscape.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_trace.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__cma_es_landscape.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__cma_es_trace.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__simplex_landscape.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__simplex_trace.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__gp_mapping_landscape.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__gp_mapping_trace.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_landscape.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_trace.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_posterior.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

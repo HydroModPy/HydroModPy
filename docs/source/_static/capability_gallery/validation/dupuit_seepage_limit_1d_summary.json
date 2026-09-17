@@ -1,0 +1,801 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "dupuit_seepage_limit_1d",
+  "title": "Dupuit Seepage Limit 1D",
+  "category": "validation",
+  "deck": "Steady synthetic hillslope used to validate the seepage mask against its Dupuit closed form, and to prove that the mask and the head depend on `K` and `R` only through the ratio `K/R`.",
+  "summary": "Steady synthetic hillslope used to validate the seepage mask against its Dupuit closed form, and to prove that the mask and the head depend on `K` and `R` only through the ratio `K/R`.",
+  "case_setup": [
+    "Available solver variants: MODFLOW 6, Modflow6 K Only, Modflow6 Scaled Down, Modflow6 Scaled Up."
+  ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
+  "what_it_shows": [
+    "Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m validation_cases.analytical.steady.dupuit_seepage_limit_1d.run_case --no-show",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/README.md",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/README.md",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/reference.py",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/comparison.py",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/plotting.py",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/run_case.py",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/metadata.toml",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6_scaled_down.toml",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6_scaled_up.toml",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6_k_only.toml"
+  ],
+  "source_hashes": {
+    "validation_cases/README.md": "2baaf454135961a02a295630538b4fd41bfdf025b5ce4680c254755ce543f66a",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/README.md": "52f065321dc796b5c2bc1b938e87f1965467dccd24522ab319caa5ea56dc54a2",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/reference.py": "9f9eaada7a37af72a7bc0d26d9ba18f297bd472f4d115365c5771a6615591553",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/comparison.py": "8c03f22bb12e8719c0cd0163e2ea14df09a6e43154a72cad4261557b6eb264d6",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/plotting.py": "8726bbb92ffe9c641fe75afa9b69a0e82c9a098653abed377fea770cadc2e551",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/run_case.py": "d4de1a4d6fecb03c08e01f93331551c9b886886e3371d16e4079c42f1bc29930",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/metadata.toml": "a011be58a516d0a7e75753cb5039ce5f92bc551aa2e37f80d1cb87ae2f65ad7d",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml": "d84d669c9d3c2624615377385e9a9b20ce36d510d2e6645aad01f79e1a19903b",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml": "72eeb75f385127325cada76c5d66de965aa8188d86f41439dfb96f4590f80ae8",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6_scaled_down.toml": "c3843447e6590d75697367775c9081cf78ba0f4800e93560d7084072c5531660",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6_scaled_up.toml": "8dff73ee605054d88693c27f902e3bfe2ce53257f2e25c8d963c91915f07d047",
+    "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6_k_only.toml": "95e1ef197c59e8cea426fd531a0e731903e7c5cdf815e894fce66d2751f44cb3"
+  },
+  "docname": "cases/dupuit_seepage_limit_1d",
+  "images": [
+    {
+      "filename": "dupuit_seepage_limit_1d__modflow6.png",
+      "caption": "Dupuit Seepage Limit 1D rendered with MODFLOW 6 for the analytical gallery.",
+      "alt_text": "Dupuit Seepage Limit 1D validation figure for MODFLOW 6",
+      "doc_path": "/_static/capability_gallery/validation/dupuit_seepage_limit_1d__modflow6.png",
+      "repo_path": "docs/source/_static/capability_gallery/validation/dupuit_seepage_limit_1d__modflow6.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "case_dir": "validation_cases/analytical/steady/dupuit_seepage_limit_1d",
+    "default_solver": "modflow6",
+    "solver_variants": [
+      "modflow6",
+      "modflow6_k_only",
+      "modflow6_scaled_down",
+      "modflow6_scaled_up"
+    ],
+    "solver_details": {
+      "modflow6": {
+        "display_name": "MODFLOW 6",
+        "config_path": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml",
+        "expected_output": "Expected shape: 5 x 80",
+        "tolerance_path": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+      },
+      "modflow6_k_only": {
+        "display_name": "Modflow6 K Only",
+        "config_path": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6_k_only.toml",
+        "expected_output": "Expected shape: 5 x 80",
+        "tolerance_path": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+      },
+      "modflow6_scaled_down": {
+        "display_name": "Modflow6 Scaled Down",
+        "config_path": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6_scaled_down.toml",
+        "expected_output": "Expected shape: 5 x 80",
+        "tolerance_path": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+      },
+      "modflow6_scaled_up": {
+        "display_name": "Modflow6 Scaled Up",
+        "config_path": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6_scaled_up.toml",
+        "expected_output": "Expected shape: 5 x 80",
+        "tolerance_path": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+      }
+    },
+    "regime": "steady",
+    "dimension": "1d",
+    "inventory_reference": "",
+    "case_sheet": {
+      "numerical_setup": "",
+      "analytical_target": "",
+      "primary_metrics": "",
+      "what_it_validates": ""
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "strip_1d",
+    "geometry_family_label": "Strip 1D",
+    "reference_type": "analytical_exact",
+    "reference_type_label": "Analytical Exact",
+    "validation_family": "core_1d_dupuit_baselines",
+    "validation_family_label": "Core 1D Dupuit Baselines",
+    "validation_family_order": 10
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/validation/dupuit_seepage_limit_1d_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/validation/dupuit_seepage_limit_1d_summary.json",
+    "image_repo_paths": [
+      "docs/source/_static/capability_gallery/validation/dupuit_seepage_limit_1d__modflow6.png",
+      "docs/source/_static/capability_gallery/validation/dupuit_seepage_limit_1d__modflow6_k_only.png",
+      "docs/source/_static/capability_gallery/validation/dupuit_seepage_limit_1d__modflow6_scaled_down.png",
+      "docs/source/_static/capability_gallery/validation/dupuit_seepage_limit_1d__modflow6_scaled_up.png"
+    ]
+  },
+  "solver_runs": [
+    {
+      "solver": "modflow6",
+      "solver_display_name": "MODFLOW 6",
+      "is_default": true,
+      "config_path": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml",
+      "tolerance_path": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml",
+      "expected_output": "Expected shape: 5 x 80",
+      "command": "python -m validation_cases.analytical.steady.dupuit_seepage_limit_1d.run_case --no-show --solver modflow6",
+      "metric_lines": [
+        "Closed-form seepage limit: 200.000 m",
+        "Mask seepage limit: 205.000 m",
+        "Seepage-limit error: 5.000 m",
+        "Head-profile max abs error: 0.00554 m",
+        "Seeping cells: 205",
+        "Total drain outflow: 1.000000e-03 m3/s"
+      ],
+      "image": {
+        "filename": "dupuit_seepage_limit_1d__modflow6.png",
+        "caption": "Dupuit Seepage Limit 1D rendered with MODFLOW 6 for the analytical gallery.",
+        "alt_text": "Dupuit Seepage Limit 1D validation figure for MODFLOW 6",
+        "doc_path": "/_static/capability_gallery/validation/dupuit_seepage_limit_1d__modflow6.png",
+        "repo_path": "docs/source/_static/capability_gallery/validation/dupuit_seepage_limit_1d__modflow6.png"
+      },
+      "metadata": {
+        "observable_name": null,
+        "case_metadata": {
+          "case_id": "dupuit_seepage_limit_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "config_file": "config_modflow6.toml",
+          "default_solver": "modflow6",
+          "base_config": "config_modflow6.toml",
+          "config_files": {
+            "modflow6": "config_modflow6.toml",
+            "modflow6_scaled_down": "config_modflow6_scaled_down.toml",
+            "modflow6_scaled_up": "config_modflow6_scaled_up.toml",
+            "modflow6_k_only": "config_modflow6_k_only.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "expected_shape": [
+              5,
+              80
+            ]
+          },
+          "reference": {
+            "hillslope_length_m": 400.0,
+            "hillslope_width_m": 25.0,
+            "substratum_elevation_m": 0.0
+          }
+        },
+        "tolerances": {
+          "seepage_limit": {
+            "position_error": 10.0,
+            "head_profile_max_abs_error": 0.02
+          },
+          "invariance": {
+            "head_max_abs_error": 0.002
+          },
+          "control": {
+            "drain_outflow_ratio_error": 0.0001
+          }
+        },
+        "comparison_solver": "modflow6",
+        "timestep": -1
+      }
+    },
+    {
+      "solver": "modflow6_k_only",
+      "solver_display_name": "Modflow6 K Only",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6_k_only.toml",
+      "tolerance_path": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml",
+      "expected_output": "Expected shape: 5 x 80",
+      "command": "python -m validation_cases.analytical.steady.dupuit_seepage_limit_1d.run_case --no-show --solver modflow6_k_only",
+      "metric_lines": [
+        "Closed-form seepage limit: 133.333 m",
+        "Mask seepage limit: 135.000 m",
+        "Seepage-limit error: 1.667 m",
+        "Head-profile max abs error: 0.00750 m",
+        "Seeping cells: 135",
+        "Total drain outflow: 1.000000e-03 m3/s"
+      ],
+      "image": {
+        "filename": "dupuit_seepage_limit_1d__modflow6_k_only.png",
+        "caption": "Dupuit Seepage Limit 1D rendered with Modflow6 K Only for the analytical gallery.",
+        "alt_text": "Dupuit Seepage Limit 1D validation figure for Modflow6 K Only",
+        "doc_path": "/_static/capability_gallery/validation/dupuit_seepage_limit_1d__modflow6_k_only.png",
+        "repo_path": "docs/source/_static/capability_gallery/validation/dupuit_seepage_limit_1d__modflow6_k_only.png"
+      },
+      "metadata": {
+        "observable_name": null,
+        "case_metadata": {
+          "case_id": "dupuit_seepage_limit_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "config_file": "config_modflow6.toml",
+          "default_solver": "modflow6",
+          "base_config": "config_modflow6.toml",
+          "config_files": {
+            "modflow6": "config_modflow6.toml",
+            "modflow6_scaled_down": "config_modflow6_scaled_down.toml",
+            "modflow6_scaled_up": "config_modflow6_scaled_up.toml",
+            "modflow6_k_only": "config_modflow6_k_only.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "expected_shape": [
+              5,
+              80
+            ]
+          },
+          "reference": {
+            "hillslope_length_m": 400.0,
+            "hillslope_width_m": 25.0,
+            "substratum_elevation_m": 0.0
+          }
+        },
+        "tolerances": {
+          "seepage_limit": {
+            "position_error": 10.0,
+            "head_profile_max_abs_error": 0.02
+          },
+          "invariance": {
+            "head_max_abs_error": 0.002
+          },
+          "control": {
+            "drain_outflow_ratio_error": 0.0001
+          }
+        },
+        "comparison_solver": "modflow6_k_only",
+        "timestep": -1
+      }
+    },
+    {
+      "solver": "modflow6_scaled_down",
+      "solver_display_name": "Modflow6 Scaled Down",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6_scaled_down.toml",
+      "tolerance_path": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml",
+      "expected_output": "Expected shape: 5 x 80",
+      "command": "python -m validation_cases.analytical.steady.dupuit_seepage_limit_1d.run_case --no-show --solver modflow6_scaled_down",
+      "metric_lines": [
+        "Closed-form seepage limit: 200.000 m",
+        "Mask seepage limit: 205.000 m",
+        "Seepage-limit error: 5.000 m",
+        "Head-profile max abs error: 0.00556 m",
+        "Seeping cells: 205",
+        "Total drain outflow: 1.000008e-05 m3/s"
+      ],
+      "image": {
+        "filename": "dupuit_seepage_limit_1d__modflow6_scaled_down.png",
+        "caption": "Dupuit Seepage Limit 1D rendered with Modflow6 Scaled Down for the analytical gallery.",
+        "alt_text": "Dupuit Seepage Limit 1D validation figure for Modflow6 Scaled Down",
+        "doc_path": "/_static/capability_gallery/validation/dupuit_seepage_limit_1d__modflow6_scaled_down.png",
+        "repo_path": "docs/source/_static/capability_gallery/validation/dupuit_seepage_limit_1d__modflow6_scaled_down.png"
+      },
+      "metadata": {
+        "observable_name": null,
+        "case_metadata": {
+          "case_id": "dupuit_seepage_limit_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "config_file": "config_modflow6.toml",
+          "default_solver": "modflow6",
+          "base_config": "config_modflow6.toml",
+          "config_files": {
+            "modflow6": "config_modflow6.toml",
+            "modflow6_scaled_down": "config_modflow6_scaled_down.toml",
+            "modflow6_scaled_up": "config_modflow6_scaled_up.toml",
+            "modflow6_k_only": "config_modflow6_k_only.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "expected_shape": [
+              5,
+              80
+            ]
+          },
+          "reference": {
+            "hillslope_length_m": 400.0,
+            "hillslope_width_m": 25.0,
+            "substratum_elevation_m": 0.0
+          }
+        },
+        "tolerances": {
+          "seepage_limit": {
+            "position_error": 10.0,
+            "head_profile_max_abs_error": 0.02
+          },
+          "invariance": {
+            "head_max_abs_error": 0.002
+          },
+          "control": {
+            "drain_outflow_ratio_error": 0.0001
+          }
+        },
+        "comparison_solver": "modflow6_scaled_down",
+        "timestep": -1
+      }
+    },
+    {
+      "solver": "modflow6_scaled_up",
+      "solver_display_name": "Modflow6 Scaled Up",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6_scaled_up.toml",
+      "tolerance_path": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml",
+      "expected_output": "Expected shape: 5 x 80",
+      "command": "python -m validation_cases.analytical.steady.dupuit_seepage_limit_1d.run_case --no-show --solver modflow6_scaled_up",
+      "metric_lines": [
+        "Closed-form seepage limit: 200.000 m",
+        "Mask seepage limit: 205.000 m",
+        "Seepage-limit error: 5.000 m",
+        "Head-profile max abs error: 0.00554 m",
+        "Seeping cells: 205",
+        "Total drain outflow: 1.000000e-01 m3/s"
+      ],
+      "image": {
+        "filename": "dupuit_seepage_limit_1d__modflow6_scaled_up.png",
+        "caption": "Dupuit Seepage Limit 1D rendered with Modflow6 Scaled Up for the analytical gallery.",
+        "alt_text": "Dupuit Seepage Limit 1D validation figure for Modflow6 Scaled Up",
+        "doc_path": "/_static/capability_gallery/validation/dupuit_seepage_limit_1d__modflow6_scaled_up.png",
+        "repo_path": "docs/source/_static/capability_gallery/validation/dupuit_seepage_limit_1d__modflow6_scaled_up.png"
+      },
+      "metadata": {
+        "observable_name": null,
+        "case_metadata": {
+          "case_id": "dupuit_seepage_limit_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "config_file": "config_modflow6.toml",
+          "default_solver": "modflow6",
+          "base_config": "config_modflow6.toml",
+          "config_files": {
+            "modflow6": "config_modflow6.toml",
+            "modflow6_scaled_down": "config_modflow6_scaled_down.toml",
+            "modflow6_scaled_up": "config_modflow6_scaled_up.toml",
+            "modflow6_k_only": "config_modflow6_k_only.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "expected_shape": [
+              5,
+              80
+            ]
+          },
+          "reference": {
+            "hillslope_length_m": 400.0,
+            "hillslope_width_m": 25.0,
+            "substratum_elevation_m": 0.0
+          }
+        },
+        "tolerances": {
+          "seepage_limit": {
+            "position_error": 10.0,
+            "head_profile_max_abs_error": 0.02
+          },
+          "invariance": {
+            "head_max_abs_error": 0.002
+          },
+          "control": {
+            "drain_outflow_ratio_error": 0.0001
+          }
+        },
+        "comparison_solver": "modflow6_scaled_up",
+        "timestep": -1
+      }
+    }
+  ],
+  "parameter_docs": {
+    "reference_parameters": [
+      {
+        "field": "hillslope_length_m",
+        "meaning": "Reference parameter `hillslope_length_m` used by the analytical or benchmark solution.",
+        "value": "400 m",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/metadata.toml"
+      },
+      {
+        "field": "hillslope_width_m",
+        "meaning": "Reference parameter `hillslope_width_m` used by the analytical or benchmark solution.",
+        "value": "25 m",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/metadata.toml"
+      },
+      {
+        "field": "substratum_elevation_m",
+        "meaning": "Substratum elevation used to build the analytical aquifer geometry.",
+        "value": "0 m",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/metadata.toml"
+      }
+    ],
+    "common_setup": [
+      {
+        "field": "workflow.mode",
+        "meaning": "Case-specific configuration field `workflow.mode` used by the validation benchmark.",
+        "value": "simulation",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "simulation.results.budget.spatial_fields",
+        "meaning": "Case-specific configuration field `simulation.results.budget.spatial_fields` used by the validation benchmark.",
+        "value": "true",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_x",
+        "meaning": "Synthetic-domain length along the x axis.",
+        "value": "400.0 m",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_y",
+        "meaning": "Synthetic-domain length along the y axis.",
+        "value": "25.0 m",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.nx",
+        "meaning": "Grid cell count along the x axis.",
+        "value": "80",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.ny",
+        "meaning": "Grid cell count along the y axis.",
+        "value": "5",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.kind",
+        "meaning": "Synthetic topography shape used by the benchmark.",
+        "value": "linear",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.base_elevation",
+        "meaning": "Base land-surface elevation of the synthetic topography.",
+        "value": "0.05 m",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.right_to_left_amplitude",
+        "meaning": "Right-to-left topographic amplitude used by the synthetic topography.",
+        "value": "7.9",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "domain.depth_model.kind",
+        "meaning": "Case-specific configuration field `domain.depth_model.kind` used by the validation benchmark.",
+        "value": "flat_substratum",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "domain.depth_model.substratum_elevation",
+        "meaning": "Substratum elevation used to build the synthetic support.",
+        "value": "0 m",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "flow.flow_regime",
+        "meaning": "Steady or transient flow regime used by the benchmark.",
+        "value": "steady",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "flow.active_sinks_sources",
+        "meaning": "Sink and source families activated in the benchmark.",
+        "value": "[recharge]",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "flow.active_bc",
+        "meaning": "Boundary-condition families activated in the benchmark.",
+        "value": "[drainage]",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "flow.param_list",
+        "meaning": "Hydraulic parameter families explicitly configured by the benchmark.",
+        "value": "[K]",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "flow.param.K.field.kind",
+        "meaning": "Parameterization mode used for `K`.",
+        "value": "homogeneous",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "flow.param.K.field.value",
+        "meaning": "Homogeneous `K` value used by the benchmark.",
+        "value": "2.5e-4 m/s",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "flow.ic.type",
+        "meaning": "Initial-condition policy used to start the benchmark.",
+        "value": "top",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "flow.bc.drainage.application_domain",
+        "meaning": "Case-specific configuration field `flow.bc.drainage.application_domain` used by the validation benchmark.",
+        "value": "top",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "flow.bc.drainage.kind",
+        "meaning": "Case-specific configuration field `flow.bc.drainage.kind` used by the validation benchmark.",
+        "value": "cauchy",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "flow.bc.drainage.value",
+        "meaning": "Case-specific configuration field `flow.bc.drainage.value` used by the validation benchmark.",
+        "value": "0.0 m2/s",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "data.types",
+        "meaning": "External data families loaded by the benchmark.",
+        "value": "[recharge]",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].source",
+        "meaning": "Recharge data source mode used by the benchmark.",
+        "value": "synthetic",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].values",
+        "meaning": "Recharge values used by the benchmark forcing.",
+        "value": "[8.64 mm/day]",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].runoff_ratio",
+        "meaning": "Runoff ratio applied when converting recharge forcing to effective infiltration.",
+        "value": "0",
+        "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+      }
+    ],
+    "solver_overrides": {
+      "modflow6": [
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "COMPLEX",
+          "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf6_outer_dvclose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "1e-08",
+          "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf6_inner_dvclose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "1e-09",
+          "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf6_inner_rclose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "1e-11",
+          "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf6_outer_maximum",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "1500",
+          "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf6_inner_maximum",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "500",
+          "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW 6.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW 6.",
+          "value": "80",
+          "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW 6.",
+          "value": "5",
+          "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW 6.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/config_modflow6.toml"
+        }
+      ],
+      "modflow6_k_only": [],
+      "modflow6_scaled_down": [],
+      "modflow6_scaled_up": []
+    },
+    "acceptance_criteria": {
+      "common": [
+        {
+          "field": "output.expected_shape",
+          "meaning": "Expected spatial output shape checked by the validation helper.",
+          "value": "[5, 80]",
+          "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/metadata.toml"
+        }
+      ],
+      "solver_specific": {
+        "modflow6": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 80",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/metadata.toml"
+          },
+          {
+            "field": "seepage_limit.position_error",
+            "meaning": "Acceptance threshold for `seepage_limit.position_error`.",
+            "value": "10",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+          },
+          {
+            "field": "seepage_limit.head_profile_max_abs_error",
+            "meaning": "Acceptance threshold for `seepage_limit.head_profile_max_abs_error`.",
+            "value": "0.02",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+          },
+          {
+            "field": "invariance.head_max_abs_error",
+            "meaning": "Acceptance threshold for `invariance.head_max_abs_error`.",
+            "value": "0.002",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+          },
+          {
+            "field": "control.drain_outflow_ratio_error",
+            "meaning": "Acceptance threshold for `control.drain_outflow_ratio_error`.",
+            "value": "0.0001",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+          }
+        ],
+        "modflow6_k_only": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 80",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/metadata.toml"
+          },
+          {
+            "field": "seepage_limit.position_error",
+            "meaning": "Acceptance threshold for `seepage_limit.position_error`.",
+            "value": "10",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+          },
+          {
+            "field": "seepage_limit.head_profile_max_abs_error",
+            "meaning": "Acceptance threshold for `seepage_limit.head_profile_max_abs_error`.",
+            "value": "0.02",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+          },
+          {
+            "field": "invariance.head_max_abs_error",
+            "meaning": "Acceptance threshold for `invariance.head_max_abs_error`.",
+            "value": "0.002",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+          },
+          {
+            "field": "control.drain_outflow_ratio_error",
+            "meaning": "Acceptance threshold for `control.drain_outflow_ratio_error`.",
+            "value": "0.0001",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+          }
+        ],
+        "modflow6_scaled_down": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 80",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/metadata.toml"
+          },
+          {
+            "field": "seepage_limit.position_error",
+            "meaning": "Acceptance threshold for `seepage_limit.position_error`.",
+            "value": "10",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+          },
+          {
+            "field": "seepage_limit.head_profile_max_abs_error",
+            "meaning": "Acceptance threshold for `seepage_limit.head_profile_max_abs_error`.",
+            "value": "0.02",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+          },
+          {
+            "field": "invariance.head_max_abs_error",
+            "meaning": "Acceptance threshold for `invariance.head_max_abs_error`.",
+            "value": "0.002",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+          },
+          {
+            "field": "control.drain_outflow_ratio_error",
+            "meaning": "Acceptance threshold for `control.drain_outflow_ratio_error`.",
+            "value": "0.0001",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+          }
+        ],
+        "modflow6_scaled_up": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 80",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/metadata.toml"
+          },
+          {
+            "field": "seepage_limit.position_error",
+            "meaning": "Acceptance threshold for `seepage_limit.position_error`.",
+            "value": "10",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+          },
+          {
+            "field": "seepage_limit.head_profile_max_abs_error",
+            "meaning": "Acceptance threshold for `seepage_limit.head_profile_max_abs_error`.",
+            "value": "0.02",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+          },
+          {
+            "field": "invariance.head_max_abs_error",
+            "meaning": "Acceptance threshold for `invariance.head_max_abs_error`.",
+            "value": "0.002",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+          },
+          {
+            "field": "control.drain_outflow_ratio_error",
+            "meaning": "Acceptance threshold for `control.drain_outflow_ratio_error`.",
+            "value": "0.0001",
+            "source": "validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml"
+          }
+        ]
+      }
+    }
+  }
+}

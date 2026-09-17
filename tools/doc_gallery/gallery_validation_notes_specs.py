@@ -36,7 +36,7 @@ def build_validation_note_specs() -> tuple[GalleryCaseSpec, ...]:
                 "hydromodpy/solver/modflow6/modflow6.py",
                 "hydromodpy/solver/modflow6/modflow6_config.py",
                 "tests/unit/solver/modflow_nwt/test_modflow_config.py",
-                "tests/unit/solver/test_modflow6_boundary_conditions.py",
+                "tests/unit/solver/test_modflow6_xt3d_rewet_options.py",
                 "validation_cases/README.md",
             ),
             generator="xt3d_method_choice_case",

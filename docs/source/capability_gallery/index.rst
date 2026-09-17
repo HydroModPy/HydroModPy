@@ -15,8 +15,8 @@ Coverage Snapshot
 -----------------
 
 - Category pages available today: 9.
-- Curated gallery cases available today: 87.
-- Most populated sections: Mesh Gallery (29), Validation Benchmarks (24), Simulation Comparison (8).
+- Curated gallery cases available today: 88.
+- Most populated sections: Mesh Gallery (29), Validation Benchmarks (25), Simulation Comparison (8).
 
 Five top-level categories
 -------------------------
@@ -64,7 +64,7 @@ The gallery is grouped into five top-level categories. Each card opens its own l
 
       **4. Validation**
       ^^^
-      Analytical and semi-analytical comparisons rendered as reproducible teaching figures. 24 cases.
+      Analytical and semi-analytical comparisons rendered as reproducible teaching figures. 25 cases.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -100,7 +100,7 @@ Each populated category opens its own landing page with the full case grid.
 
       **Validation Benchmarks**
       ^^^
-      Analytical and semi-analytical comparisons rendered as reproducible teaching figures. 24 cases.
+      Analytical and semi-analytical comparisons rendered as reproducible teaching figures. 25 cases.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -180,7 +180,7 @@ Looking for one specific case? Browse the flat index of all available gallery ca
 
       **All cases**
       ^^^
-      Flat sortable list of 87 cases with category, solver, and link to the case page.
+      Flat sortable list of 88 cases with category, solver, and link to the case page.
 
 .. toctree::
    :hidden:

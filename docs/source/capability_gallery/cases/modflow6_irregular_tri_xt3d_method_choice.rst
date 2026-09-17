@@ -11,7 +11,7 @@ MODFLOW 6 Irregular Triangles: Why XT3D Is The Default
 This note explains why HydroModPy now auto-enables XT3D on unstructured MODFLOW 6 meshes, and what that choice buys in RMSE versus local runtime.
 
 .. seealso::
-   Read :doc:`How to read gallery, comparison, and validation pages <../../user_guide/concepts/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
+   Read :doc:`How to read gallery, comparison, and validation pages </user_guide/concepts/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
 .. gallery-figure:: /_static/capability_gallery/validation/modflow6_irregular_tri_xt3d_method_choice_tradeoff.png
    :alt: RMSE and runtime comparison for MODFLOW 6 irregular triangles with and without XT3D
@@ -46,9 +46,9 @@ Key Metrics
 
 - Cases with lower RMSE under XT3D: 9 / 11
 - Cases with >= 5x RMSE improvement: 4 / 11
-- Total local runtime without XT3D: 215.3 s
-- Total local runtime with XT3D auto default: 197.7 s
-- Total runtime ratio: x0.92
+- Total local runtime without XT3D: 158.6 s
+- Total local runtime with XT3D auto default: 156.0 s
+- Total runtime ratio: x0.98
 
 Why XT3D Changes These Cases
 ----------------------------
@@ -79,79 +79,79 @@ RMSE And Runtime By Case
      - 0.3765
      - 0.0327
      - x11.52 better
-     - 19.11
-     - 15.94
-     - x0.83
+     - 15.39
+     - 12.05
+     - x0.78
    * - Dupuit Divide-River 1D
      - 0.3023
      - 0.0268
      - x11.30 better
-     - 20.23
-     - 19.64
-     - x0.97
+     - 13.38
+     - 12.12
+     - x0.91
    * - Dupuit Uniform Recharge 1D
      - 0.2333
      - 0.0295
      - x7.91 better
-     - 16.81
-     - 18.74
-     - x1.11
+     - 13.66
+     - 16.93
+     - x1.24
    * - Boussinesq Uniform-Recharge Piecewise-K 1D
      - 0.2036
      - 0.0219
      - x9.32 better
-     - 26.14
-     - 21.20
-     - x0.81
+     - 12.98
+     - 13.37
+     - x1.03
    * - Boussinesq Sloping-Substratum Uniform-Recharge 1D
      - 0.1077
      - 0.0404
      - x2.66 better
-     - 28.45
-     - 21.89
-     - x0.77
+     - 16.33
+     - 16.35
+     - x1.00
    * - Boussinesq Sloping-Substratum Fixed-Head 1D
      - 0.0696
      - 0.0395
      - x1.76 better
-     - 17.17
-     - 14.30
-     - x0.83
+     - 13.71
+     - 12.35
+     - x0.90
    * - Boussinesq Sloping-Substratum Constant-Thickness 1D
      - 0.0384
      - 0.0200
      - x1.92 better
-     - 18.97
-     - 17.17
-     - x0.91
+     - 15.79
+     - 13.31
+     - x0.84
    * - Dupuit Fixed-Head 1D
      - 0.0328
      - 0.0195
      - x1.69 better
-     - 14.90
-     - 14.96
-     - x1.00
+     - 13.49
+     - 15.07
+     - x1.12
    * - Boussinesq Fixed-Head Piecewise-K 1D
      - 0.0321
      - 0.0237
      - x1.36 better
-     - 16.14
-     - 14.77
-     - x0.92
+     - 16.57
+     - 11.28
+     - x0.68
    * - Linearized Unconfined Drainage 1D
      - 0.0147
      - 0.0463
      - x0.32 worse
-     - 19.26
-     - 22.02
-     - x1.14
+     - 13.90
+     - 15.73
+     - x1.13
    * - Linearized Unconfined Hillslope Drainage 1D
      - 0.0111
      - 0.0203
      - x0.55 worse
-     - 18.14
-     - 17.08
-     - x0.94
+     - 13.36
+     - 17.40
+     - x1.30
 
 Default Choice Implemented In HydroModPy
 ----------------------------------------
@@ -224,7 +224,7 @@ Source Pointers
 - ``hydromodpy/solver/modflow6/modflow6.py``
 - ``hydromodpy/solver/modflow6/modflow6_config.py``
 - ``tests/unit/solver/modflow_nwt/test_modflow_config.py``
-- ``tests/unit/solver/test_modflow6_boundary_conditions.py``
+- ``tests/unit/solver/test_modflow6_xt3d_rewet_options.py``
 - ``validation_cases/README.md``
 
 Artifacts

@@ -73,7 +73,12 @@ def _repo_relative(path: Path, *, repo_root: Path) -> str:
 
 def _normalize_solver_name(solver: str) -> str:
     mapping = {
+        # Two vocabularies reach this function. "modflownwt" is the TOML section
+        # name; "modflow_nwt" is the solver backend key, and it is what
+        # metadata.toml puts in [config_files], so it is what the variant key
+        # carries. Both must resolve, or a variant renders as "Modflow Nwt".
         "modflownwt": "MODFLOW-NWT",
+        "modflow_nwt": "MODFLOW-NWT",
         "modflow6": "MODFLOW 6",
         "modflow6_irregular_tri": "MODFLOW 6 irregular triangles",
         "boussinesq": "Boussinesq",

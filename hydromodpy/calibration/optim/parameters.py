@@ -118,7 +118,7 @@ def _assert_path_is_not_the_mesh(name: str, path: str | None) -> None:
         "parameter a search may move: the stream-network criterion is normalised by "
         "cell size, so refining the mesh moves the yardstick the search is scored "
         "against. Run one simulation per mesh and compare them instead "
-        '(workflow mode = "comparison", `hmp compare`), which reads them for '
+        '(workflow mode = "comparison", `hmp run`), which reads them for '
         "convergence rather than for a best score."
     )
 
