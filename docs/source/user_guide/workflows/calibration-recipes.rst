@@ -334,7 +334,7 @@ run per mesh, compared, and read for convergence rather than for a best score.
 
 .. code-block:: bash
 
-   hmp compare mesh_sweep.toml
+   hmp run mesh_sweep.toml
 
 A cell may be a whole calibration rather than a single run, which is what a
 structural sweep actually is: one complete calibration per mesh, each with its own
