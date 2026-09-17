@@ -777,7 +777,7 @@ class LifecycleMixin:
             restored_status = "completed" if ended_at is not None else "failed"
         with self._backend.transaction():
             final_name, name_stem, version_int, _ = _resolve_registration_name(
-                self._backend, project, original_name or sid[:8], "version"
+                self._backend, project, original_name or sid[:8], "version", exclude_sid=sid
             )
             dirname = run_dirname(final_name)
             self._paths.move(sid, dirname)

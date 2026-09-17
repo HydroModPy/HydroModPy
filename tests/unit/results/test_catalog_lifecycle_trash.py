@@ -67,9 +67,13 @@ def test_trash_frees_name_keeps_storage_and_restore_versions(catalog):
     assert row == (None, "baseline", "trashed")
     assert [e["original_name"] for e in catalog.list_trash()] == ["baseline"]
 
-    # the freed name can be reused; restore then version-bumps
-    _register(catalog, "baseline")
-    assert catalog.restore(sid) == "baseline.v2"
+    # Trashing frees the name in the index, not the directory: the bytes stay
+    # so the run stays restorable. A newcomer asking for the name therefore
+    # gets the next version, and the restore goes behind it.
+    fresh = str(uuid.uuid4())
+    reused = catalog.register_simulation(fresh, project="p", solver="modflow6", name="baseline")
+    assert reused.name == "baseline.v2"
+    assert catalog.restore(sid) == "baseline.v3"
     assert catalog.list_trash() == []
 
 
