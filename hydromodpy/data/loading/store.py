@@ -138,10 +138,16 @@ class DataStore:
         self,
         config: Any,
         *,
-        geographic: Any = None,
         project_extent: tuple | None = None,
     ) -> LoadResult:
-        """Load DEM data."""
+        """Load DEM data.
+
+        The extent comes from the source config alone -- ``mask_path``, which
+        the runtime loader fills in from the delineated watershed, or
+        ``extent`` together with ``project_extent``. There is no
+        ``geographic`` parameter: see
+        :mod:`hydromodpy.data.common.source_extent`.
+        """
         from hydromodpy.data.variables.dem.manager import DemManager
 
         manager = DemManager(
@@ -149,7 +155,6 @@ class DataStore:
             catalog=self.catalog,
             project_extent=self.project_extent if project_extent is None else project_extent,
             data_dir=self._data_dir("dem"),
-            geographic=geographic,
         )
         return manager.load()
 
@@ -157,10 +162,9 @@ class DataStore:
         self,
         config: Any,
         *,
-        geographic: Any = None,
         project_extent: tuple | None = None,
     ) -> LoadResult:
-        """Load geology data."""
+        """Load geology data, on the same extent contract as :meth:`load_dem`."""
         from hydromodpy.data.variables.geology.manager import GeologyManager
 
         manager = GeologyManager(
@@ -168,7 +172,6 @@ class DataStore:
             catalog=self.catalog,
             project_extent=self.project_extent if project_extent is None else project_extent,
             data_dir=self._data_dir("geology"),
-            geographic=geographic,
         )
         return manager.load()
 

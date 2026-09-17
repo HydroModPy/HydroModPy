@@ -1,9 +1,13 @@
 """Runtime data loading orchestrator driven by a resolved data plan.
 
 This module centralizes launcher data-phase loading logic so that the launcher
-stays focused on orchestration order. It exposes :class:`DataManagersRuntimeLoader`
-for stateful orchestration and :func:`load_variable` as a thin pure helper for
-per-variable dispatch.
+stays focused on orchestration order. It exposes :class:`DataManagersRuntimeLoader`,
+and that is the whole surface: a second, module-level ``load_variable`` used to
+sit at the bottom as "a thin pure helper for per-variable dispatch", with no
+importer anywhere in the tree and its own divergent copy of the dem / geology /
+hydrography branch. It was the last caller that passed ``geographic`` to a
+raster manager without first filling ``mask_path`` in, and it went with that
+parameter rather than being repaired.
 """
 
 from __future__ import annotations
@@ -250,7 +254,6 @@ class DataManagersRuntimeLoader:
 
             result.loaded_data.dem = self._require_store().load_dem(
                 dem_cfg,
-                geographic=result.setup.geographic,
                 project_extent=None,
             )
         except Exception as exc:
@@ -281,7 +284,6 @@ class DataManagersRuntimeLoader:
 
             load_result = self._require_store().load_geology(
                 geology_cfg,
-                geographic=result.setup.geographic,
                 project_extent=None,
             )
 
@@ -540,41 +542,3 @@ class DataManagersRuntimeLoader:
                     out.append(text)
             return out
         return []
-
-
-def load_variable(
-    variable_name: str,
-    *,
-    catalog: DataCatalogDuckDB,
-    config: Any,
-    context: Any,
-) -> Any:
-    """Load one resolved variable config through DataStore."""
-    spec = VARIABLE_SPECS.get(variable_name)
-    if spec is None:
-        raise KeyError(f"Unknown variable: {variable_name!r}")
-
-    workspace_paths = None
-    workspace = getattr(getattr(context, "setup", None), "workspace", None)
-    if workspace is not None and hasattr(workspace, "paths"):
-        workspace_paths = workspace.paths
-    data_root = getattr(workspace_paths, "data_dir", None)
-    store = DataStore(catalog=catalog, data_root=data_root)
-
-    geographic = getattr(getattr(context, "setup", None), "geographic", None)
-    if variable_name == "dem":
-        return store.load_dem(config, geographic=geographic)
-    if variable_name == "geology":
-        return store.load_geology(config, geographic=geographic)
-    if variable_name == "hydrography":
-        if workspace_paths is None:
-            raise ValueError("Hydrography loading requires workspace paths.")
-        return store.load_hydrography(
-            config,
-            geographic=geographic,
-            out_path=workspace_paths.project_root,
-            stable_folder=workspace_paths.project_root / PREPROCESSING_DIR,
-        )
-    if variable_name == "oceanic":
-        return store.load_oceanic(config, geographic=geographic)
-    return store.load_variable(variable_name, config)

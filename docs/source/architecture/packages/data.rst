@@ -143,6 +143,45 @@ Exactly one payload artefact is written per run, and
 ``outputs/fetch.json`` is always written: it names which one, the extent
 that was really queried and the CRS it was really queried in.
 
+Where a raster manager's extent comes from
+-----------------------------------------
+
+``DemManager`` and ``GeologyManager`` resolve the box they ask a
+provider over from **the source config alone**, through
+``data/common/source_extent.py``: ``mask_path`` first, then ``extent``
+together with ``project_extent``. Neither takes a ``geographic``
+parameter any more, and neither does ``DataStore.load_dem`` or
+``load_geology``.
+
+The seam that replaces the object already existed and had not been
+named: ``DataManagersRuntimeLoader`` sets
+``src.mask_path = Path(geographic.watershed_shp)`` before handing the
+config to the store, so the path where "the watershed" is a **file** was
+already the one a project run took. The two managers read
+``self.geographic`` *in addition to* that injection, never instead of
+it, which is why this is a mechanism removed rather than one added.
+
+``mask_extent()`` returns an ``Extent`` -- the port's, bounds plus the
+CRS the file declares -- and the reprojection to the CRS a provider
+publishes in is ``Extent.to_crs``. A mask that declares no CRS is
+refused; it used to inherit the watershed's, which is right exactly as
+often as the two files are the same one.
+
+A raster mask goes through the valid-cell hull and not
+``rasterio.bounds``: a catchment mask is ``1`` on the catchment and
+nodata everywhere else in a rectangle sized to the accumulation grid,
+so its footprint is not its catchment. Measured on a 10x10 mask whose
+valid region is the central 4x4, that is ``(0, 0, 100, 100)`` against
+``(30, 30, 70, 70)``.
+
+``project_extent`` is still a bare tuple and is **not in one CRS**: the
+site-selection pipeline builds it in Lambert-93 for the DEM and in WGS84
+for the observation managers, and hands ``GeologyManager`` nothing at
+all today. ``PROJECT_EXTENT_CRS`` declares what the raster side
+receives, and ``tests/unit/data/test_source_extent.py`` pins it against
+``bbox_for_departments`` -- one branch of ``_dem_request_bbox`` out of
+four, which is what the test measures and all it claims.
+
 LoadResult contract
 -------------------
 
@@ -187,6 +226,11 @@ Recommended reading path
 1. ``hydromodpy/data/README.md``
 2. ``hydromodpy/data/managers/base_manager_variable.py``
 3. ``hydromodpy/data/loading/loader.py`` for the dispatch model.
+   Its only surface is ``DataManagersRuntimeLoader``: the second,
+   module-level ``load_variable`` that used to sit at the bottom had
+   no importer and a divergent copy of the dem / geology /
+   hydrography branch, and it went with the ``geographic``
+   fallback it was the last caller of.
 4. ``hydromodpy/data/variables/hydrometry/`` for a complete point
    variable.
 5. ``hydromodpy/data/variables/dem/`` for a complete field variable.
