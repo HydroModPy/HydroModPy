@@ -45,6 +45,10 @@ def expand_calibration_protocol(document: Mapping[str, Any]) -> dict[str, Any]:
     A document that names no protocol is returned unchanged. The input is never
     mutated, and the ``protocol`` table stays in place: the run records which
     method produced its stages.
+
+    A document already carrying those stages is therefore one this package may
+    have written itself, and is accepted when they are the ones the protocol
+    would write. Only a contradiction is refused, and it names its section.
     """
     calibration = document.get("calibration")
     if not isinstance(calibration, Mapping):
