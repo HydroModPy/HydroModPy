@@ -143,6 +143,18 @@ def test_a_failure_that_is_not_one_of_ours_is_reported_as_untyped() -> None:
     assert record["detail"] == "division by zero"
 
 
+def test_a_cancellation_recorded_from_a_local_clock_is_refused_by_name() -> None:
+    """It fails on the instant it was handed, and says which one."""
+    with pytest.raises(ValueError, match="started_at"):
+        dismissed(
+            job_id="sha256:" + "2" * 64,
+            process_id="demo-delineate",
+            process_version="1.2.3",
+            started_at="2026-09-16T08:12:05.113000",
+            exc=KeyboardInterrupt(),
+        )
+
+
 def test_a_cancelled_job_claims_no_output_and_exits_130() -> None:
     outcome = dismissed(
         job_id="sha256:" + "2" * 64,

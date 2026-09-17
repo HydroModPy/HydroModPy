@@ -10,9 +10,9 @@ is canonicalised is what gets **hashed**, not what gets written.
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from hydromodpy.core.io.atomic_replace import rename_over_open_file
 
@@ -26,7 +26,10 @@ def write_document(path: str | Path, payload: Any) -> Path:
     """Write *payload* to *path* through a temporary file and one rename."""
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    tmp = target.with_name(f"{target.name}.tmp-{os.getpid()}")
+    # uuid, not the pid: two writers of the same document inside one process
+    # would otherwise pick the same temporary name and overwrite each other's
+    # bytes before either rename. This is the spelling the run manifest uses.
+    tmp = target.with_name(f"{target.name}.tmp-{uuid4().hex}")
     tmp.write_text(render_document(payload), encoding="utf-8")
     rename_over_open_file(tmp, target)
     return target
