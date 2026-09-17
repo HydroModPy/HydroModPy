@@ -54,6 +54,7 @@ _WHITEBOX_XDIST_GROUP_TEST_FILES = frozenset(
         "test_run_geographic_case_regression.py",
         "test_run_geographic_dem_processing_golden.py",
         "test_run_geographic_river_network_golden.py",
+        "test_terrain_engine_contract.py",
         "test_whitebox_workflows_backend.py",
     }
 )

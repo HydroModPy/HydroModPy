@@ -52,14 +52,28 @@ class WhiteboxFlowBackend(_WhiteboxComponent):
             output_pointer,
         )
 
-    def d8_flow_accumulation_raster(self, dem, *, log: bool = True):
+    def d8_flow_accumulation_raster(
+        self,
+        dem,
+        *,
+        log: bool = True,
+        out_type: str = "cells",
+        input_is_pointer: bool = False,
+    ):
+        """Accumulate on a DEM, or on a pointer raster already derived from one.
+
+        ``input_is_pointer=True`` is measured bit-identical to the default on a
+        plane, a V valley and a pitted plane: accumulating the pointer this tool
+        would have computed itself changes no cell. ``out_type="catchment area"``
+        returns the same counts times the cell area, exactly.
+        """
         return self._run(
             self._env.d8_flow_accum,
             dem,
-            out_type="cells",
+            out_type=out_type,
             log_transform=log,
             clip=False,
-            input_is_pointer=False,
+            input_is_pointer=input_is_pointer,
             esri_pntr=False,
         )
 
@@ -69,9 +83,16 @@ class WhiteboxFlowBackend(_WhiteboxComponent):
         output_acc: str,
         *,
         log: bool = True,
+        out_type: str = "cells",
+        input_is_pointer: bool = False,
     ) -> None:
         self._write_raster(
-            self.d8_flow_accumulation_raster(self._read_raster(input_dem), log=log),
+            self.d8_flow_accumulation_raster(
+                self._read_raster(input_dem),
+                log=log,
+                out_type=out_type,
+                input_is_pointer=input_is_pointer,
+            ),
             output_acc,
         )
 

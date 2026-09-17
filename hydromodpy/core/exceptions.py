@@ -150,6 +150,44 @@ class IncompatibleMeshError(MeshError):
     code = "HMPY.E302"
 
 
+# -- Terrain -------------------------------------------------------------------
+# No entry in ``cli.helpers.exit_code_for``: no CLI verb can raise these yet,
+# and an exit code nothing reaches is an untested branch. It arrives with the
+# capability that surfaces the port.
+
+
+class TerrainError(HydroModPyError):
+    """Terrain engine failure."""
+
+    code = "HMPY.E1000"
+
+
+class TerrainCapabilityError(TerrainError):
+    """The selected terrain engine does not implement the requested option.
+
+    A refusal, never a silent substitution: a caller asking for a conditioning
+    method or a pointer convention an engine cannot produce is told so by name.
+    """
+
+    code = "HMPY.E1001"
+
+
+class TerrainProductError(TerrainError):
+    """A terrain product does not satisfy what the member it is passed to needs.
+
+    Raised when a flow-accumulation raster is handed to a member that declares
+    it needs untransformed cell counts, and when a product comes out empty.
+    """
+
+    code = "HMPY.E1002"
+
+
+class TerrainRequestError(TerrainError):
+    """The request itself is malformed, before any engine is asked to serve it."""
+
+    code = "HMPY.E1003"
+
+
 # -- Solver --------------------------------------------------------------------
 
 
@@ -453,6 +491,11 @@ __all__ = [
     "MeshError",
     "MeshGenerationError",
     "IncompatibleMeshError",
+    # Terrain
+    "TerrainError",
+    "TerrainCapabilityError",
+    "TerrainProductError",
+    "TerrainRequestError",
     # Solver
     "SolverError",
     "SolverDivergedError",

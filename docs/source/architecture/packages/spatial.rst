@@ -11,6 +11,14 @@ Sub-modules
 - ``spatial/delineation/`` -- backend-agnostic delineation. One shipped
   backend, ``WhiteboxWorkflowsBackend`` (D8 on a DEM raster). Other
   backends register through ``register_backend()``.
+- ``spatial/terrain/`` -- the ``TerrainEngine`` port: five methods and two
+  identifying strings, sized by what the flow chain asks for rather than by
+  the 66-method Whitebox facade. Products declare what cannot be read back
+  from their values (pointer convention, accumulation units and transform,
+  conditioning method and extent, CRS). Two implementations serve it,
+  ``WhiteboxTerrainEngine`` and ``NumpyTerrainEngine``, and the same
+  conformance suite runs against both
+  (``tests/contract/test_terrain_engine_contract.py``).
 - ``spatial/geographic/`` -- pre-simulation pipeline:
   ``flow_products`` (D8 correction and accumulation rasters),
   ``catchment_from_point`` and ``catchment_from_polygon``,
@@ -38,6 +46,7 @@ Key public symbols
 ------------------
 
 - ``hydromodpy.spatial.delineation.whitebox_workflows_backend.WhiteboxWorkflowsBackend``
+- ``hydromodpy.spatial.terrain.{TerrainEngine, WhiteboxTerrainEngine, NumpyTerrainEngine}``
 - ``hydromodpy.spatial.geographic.core.flow_products``
 - ``hydromodpy.spatial.geographic.core.river_network``
 - ``hydromodpy.spatial.geographic.core.hydrographic_network.HydrographicNetwork``
