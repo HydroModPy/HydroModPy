@@ -41,6 +41,18 @@ base_elevation = 100.0
 kind = "constant_thickness"
 thickness = "100.0 m"
 
+# The recession spans three decades of discharge: 2.7e-4 m3/s at the end of the
+# warm-up down to 4e-7 m3/s on the last period. The MF6 IMS presets are absolute,
+# so the stock COMPLEX residual closure of 0.1 m3/s is larger than this model's
+# whole water budget and the stock 1e-4 m head closure is a tenth of the head
+# signal left in the tail. Solved that way the tail stops decaying and the rate
+# budget reaches -190 %. These three values sit below the smallest quantity the
+# case resolves, and both MF6 grids inherit them so their tails are comparable.
+[modflow6.runtime]
+mf6_outer_dvclose = 1e-7
+mf6_inner_dvclose = 1e-8
+mf6_inner_rclose = 1e-9
+
 [flow]
 flow_regime = "transient"
 first_period_steady = true

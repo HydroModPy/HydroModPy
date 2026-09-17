@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 72 tolerances enforced today. Every tolerance
+The table below records the 73 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -100,6 +100,7 @@ must carry a rationale before it is merged.
 | 70 | Double-execution comparator (float arrays) | `atol` | `1e-12` | **Machine epsilon.** Floor for quantities that pass through zero, where a relative band means nothing | Same module. The verdict is `abs(a - b) <= atol + rtol * abs(b)` **per element**, not against the global maximum: a field whose values span orders of magnitude would otherwise let its small entries move freely |
 | 71 | Double-execution comparator (signature fallback) | `rtol` | `1e-3` | **Declared choice.** Used only when two runs no longer share an array shape, which means the mesh itself moved; elementwise comparison is then meaningless and the scale-free statistics `mean`, `p50`, `p95`, `min` and `max` are compared instead, on a band that admits a distribution shifting by a tenth of a percent | Same module. `count` and `sum` are reported but never compared: they move with the cell count by construction, and the shape change is already stated in the verdict line. The tails are compared because a regression on a handful of cells barely moves a domain-wide mean |
 | 72 | Double-execution comparator (manifest scalars) | `rtol` | `1e-6` | **Derived.** These are geometric quantities recomputed identically at every execution; the only admissible drift is the float64 formatting round-trip through JSON | Same module. Applies to `catch_area`, the bounding box and the cell counts; wider than row 69 because the manifest stores decimal text, not bits |
+| 73 | Brutsaert recession 1D, deep and thin | max positive increment of the outlet discharge series | `1e-12 m3/s`, except `1e-6` on the deep MODFLOW-NWT variant | **Derived.** The forcing is a single recharge pulse followed by zeros, so the discharge must decrease at every step and any positive increment is numerical; the bound is the machine floor of a series whose smallest value is 4e-7 m3/s (`validation_cases/analytical/transient/brutsaert_recession_*_1d/tolerances.toml`) | Held at exactly 0 by the regular MF6 grid, the irregular triangle grid and Boussinesq, on both cases. The deep triangle grid carried a `1e-7` relaxation until 2026-09-17: it was the imprint of an IMS closure looser than the tail it had to resolve, not of the mesh, and it went with the defect. The deep NWT variant keeps its own relaxation, part of the documented NWT transient discrepancy on this case |
 
 ## Update policy
 
