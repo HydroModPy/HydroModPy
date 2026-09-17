@@ -1,0 +1,313 @@
+"""``terrain-delineate`` invoked the way an orchestrator invokes it.
+
+One directory in, one seal out. These tests read the directory the way a
+stranger would: with ``geopandas`` and ``json``, never through the objects
+that wrote it, because what the boundary promises is that a third party can
+do exactly that.
+
+The DEM is ``tests/data/sfr_cheze/dem_valley.tif``: 100 x 100 cells of 25 m in
+EPSG:2154, a valley draining west to (300012.5, 6701262.5). The outlet is
+declared 100 m east of the talweg so the snap has something to do.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+from hydromodpy.cli.helpers import (
+    EXIT_CONFIG,
+    EXIT_NOT_FOUND,
+    EXIT_SOLVER_ERROR,
+    EXIT_VALIDATION,
+    exit_code_for,
+)
+from hydromodpy.schema.job import JobDirectory, read_document, verify_job
+from hydromodpy.schema.job.digest import sha256_file
+from hydromodpy.schema.job.layout import ALLOWED_JOB_ENTRIES
+from hydromodpy.spatial.site_selection.hydrology.capability import TERRAIN_DELINEATE
+from hydromodpy.spatial.site_selection.hydrology.worker import run
+
+gpd = pytest.importorskip("geopandas")
+pytest.importorskip("whitebox_workflows")
+
+# Whitebox's native binding is not fork-safe under xdist distribution.
+pytestmark = pytest.mark.xdist_group(name="whitebox_backend")
+
+DEM = Path(__file__).resolve().parents[3] / "tests" / "data" / "sfr_cheze" / "dem_valley.tif"
+OUTLET_X = 300112.5
+OUTLET_Y = 6701262.5
+
+
+def _request(**overrides: object) -> dict:
+    inputs: dict[str, object] = {
+        "dem": {"href": str(DEM), "type": "image/tiff; application=geotiff"},
+        "outlets": [{"site_id": "valley", "x": OUTLET_X, "y": OUTLET_Y}],
+        "crs_project": "EPSG:2154",
+        "dem_correction_type": "breach",
+        "snap_distance_m": 100,
+    }
+    inputs.update(overrides.pop("inputs", {}))  # type: ignore[arg-type]
+    document: dict[str, object] = {
+        "process": {"id": "terrain-delineate", "version": "1.0.0"},
+        "inputs": inputs,
+    }
+    document.update(overrides)
+    return document
+
+
+def _staged(tmp_path: Path, document: dict, *, name: str = "job") -> JobDirectory:
+    job = JobDirectory.create(tmp_path / name)
+    job.request_path.write_text(json.dumps(document), encoding="utf-8")
+    return job
+
+
+@pytest.fixture
+def sealed_job(tmp_path):
+    job = _staged(tmp_path, _request())
+    outcome = run(job, exit_code_for=exit_code_for)
+    assert outcome.status == "successful", outcome.errors
+    return job, outcome
+
+
+def test_a_job_that_finished_is_sealed_and_verifies_against_its_own_seal(sealed_job):
+    job, _ = sealed_job
+
+    assert job.is_sealed
+    assert verify_job(job).ok
+
+
+def test_the_directory_carries_only_the_names_the_layout_allows(sealed_job):
+    job, _ = sealed_job
+
+    assert {entry.name for entry in job.root.iterdir()} <= ALLOWED_JOB_ENTRIES
+
+
+def test_outputs_holds_the_declared_artefacts_and_nothing_else(sealed_job):
+    job, _ = sealed_job
+    declared = {
+        output.path.removeprefix("outputs/")
+        for output in TERRAIN_DELINEATE.outputs
+        if output.path.startswith("outputs/")
+    }
+
+    assert {entry.name for entry in job.outputs_dir.iterdir()} == declared
+
+
+def test_the_seal_and_the_outcome_name_one_job(sealed_job):
+    job, outcome = sealed_job
+    manifest = read_document(job.manifest_path)
+
+    assert manifest["job_id"] == outcome.job_id
+    assert read_document(job.outcome_path)["job_id"] == outcome.job_id
+    assert outcome.job_id.startswith("sha256:")
+
+
+def test_the_outcome_hashes_every_artefact_the_seal_hashes(sealed_job):
+    job, outcome = sealed_job
+    manifest = read_document(job.manifest_path)
+    sealed = {entry["path"]: entry["sha256"] for entry in manifest["artifacts"]}
+
+    for record in outcome.outputs:
+        assert sealed[record.path] == record.sha256
+
+
+def test_outcome_json_is_sealed_although_it_can_carry_no_digest_of_itself(sealed_job):
+    job, outcome = sealed_job
+    manifest = read_document(job.manifest_path)
+    sealed = {entry["path"] for entry in manifest["artifacts"]}
+
+    assert "outcome.json" in sealed
+    assert "outcome.json" not in {record.path for record in outcome.outputs}
+    digest, _ = sha256_file(job.outcome_path)
+    entry = next(one for one in manifest["artifacts"] if one["path"] == "outcome.json")
+    assert entry["sha256"] == digest
+
+
+def test_a_stranger_opens_the_catchment_with_geopandas_alone(sealed_job):
+    job, _ = sealed_job
+
+    frame = gpd.read_file(job.outputs_dir / "watershed.gpkg")
+
+    assert list(frame["site_id"]) == ["valley"]
+    assert str(frame.crs) == "EPSG:2154"
+    assert frame["area_m2"].iloc[0] > 0.0
+    assert not frame.geometry.iloc[0].is_empty
+
+
+def test_the_columnar_catchment_carries_the_same_rows(sealed_job):
+    job, _ = sealed_job
+
+    table = gpd.read_parquet(job.outputs_dir / "watershed.parquet")
+    frame = gpd.read_file(job.outputs_dir / "watershed.gpkg")
+
+    assert list(table["site_id"]) == list(frame["site_id"])
+    assert table["area_m2"].tolist() == pytest.approx(frame["area_m2"].tolist())
+
+
+def test_the_snapped_outlets_are_published_in_the_one_geojson_crs(sealed_job):
+    job, _ = sealed_job
+
+    payload = json.loads((job.outputs_dir / "outlets_snapped.geojson").read_text(encoding="utf-8"))
+    (feature,) = payload["features"]
+    longitude, latitude = feature["geometry"]["coordinates"]
+
+    assert -180.0 <= longitude <= 180.0
+    assert -90.0 <= latitude <= 90.0
+    assert feature["properties"]["site_id"] == "valley"
+    assert feature["properties"]["x_outlet"] == OUTLET_X
+    assert feature["properties"]["x_snapped"] != OUTLET_X
+    assert feature["properties"]["snap_distance_m"] > 0.0
+
+
+def test_the_provenance_names_the_engine_that_did_the_work(sealed_job):
+    job, _ = sealed_job
+
+    provenance = read_document(job.provenance_path)
+
+    assert provenance["backend"]["name"] == "whitebox_workflows"
+    assert provenance["backend"]["digest"]
+    assert provenance["job_id"] == read_document(job.manifest_path)["job_id"]
+
+
+def test_the_input_set_hashes_the_dem_that_was_read(sealed_job):
+    job, _ = sealed_job
+    digest, size = sha256_file(DEM)
+
+    resources = {one["name"]: one for one in read_document(job.inputset_path)["resources"]}
+
+    assert resources["dem"]["sha256"] == digest
+    assert resources["dem"]["bytes"] == size
+    assert resources["parameters"]["href"] == "request.json#/inputs"
+
+
+def test_two_requests_that_ask_for_the_same_work_carry_one_job_id(tmp_path):
+    """A member left out and the same member written at its default are one job.
+
+    The content address is computed over the **effective** inputs, which is
+    what makes the reuse short-circuit of ``job_id`` mean "this work was
+    already done" rather than "this document was already seen".
+    """
+    spelled = _request(inputs={"dem_correction_type": "breach", "snap_distance_m": 50})
+    omitted = _request()
+    del omitted["inputs"]["dem_correction_type"]  # type: ignore[union-attr]
+    del omitted["inputs"]["snap_distance_m"]  # type: ignore[union-attr]
+
+    first = run(_staged(tmp_path, spelled, name="a"), exit_code_for=exit_code_for)
+    second = run(_staged(tmp_path, omitted, name="b"), exit_code_for=exit_code_for)
+
+    assert first.status == "successful"
+    assert second.status == "successful"
+    assert first.job_id == second.job_id
+
+
+def test_a_dem_that_is_not_there_fails_the_job_and_seals_nothing(tmp_path):
+    job = _staged(tmp_path, _request(inputs={"dem": {"href": "absent.tif"}}))
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "failed"
+    assert outcome.exit_code == EXIT_NOT_FOUND
+    assert not job.is_sealed
+    assert read_document(job.outcome_path)["status"] == "failed"
+
+
+def test_a_dem_whose_bytes_are_not_the_pinned_ones_fails_the_job(tmp_path):
+    job = _staged(
+        tmp_path,
+        _request(inputs={"dem": {"href": str(DEM), "sha256": "0" * 64}}),
+    )
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "failed"
+    assert outcome.exit_code == EXIT_VALIDATION
+    assert not job.is_sealed
+
+
+def test_an_output_nobody_declares_is_refused_before_the_run(tmp_path):
+    job = _staged(tmp_path, _request(outputs={"hillshade": {}}))
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "failed"
+    assert outcome.exit_code == EXIT_CONFIG
+    assert not job.outputs_dir.exists()
+    assert outcome.errors[0]["details"][0]["pointer"] == "/outputs/hillshade"
+
+
+def test_an_outlet_outside_the_dem_fails_as_a_backend_failure_not_as_a_bug(tmp_path):
+    job = _staged(
+        tmp_path,
+        _request(inputs={"outlets": [{"site_id": "elsewhere", "x": 0.0, "y": 0.0}]}),
+    )
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "failed"
+    assert outcome.exit_code == EXIT_SOLVER_ERROR
+    assert not job.is_sealed
+
+
+def test_a_request_that_targets_another_capability_is_refused(tmp_path):
+    document = _request()
+    document["process"] = {"id": "data-fetch", "version": "1.0.0"}
+    job = _staged(tmp_path, document)
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "failed"
+    assert outcome.exit_code == EXIT_CONFIG
+
+
+def test_an_envelope_member_this_process_ignores_is_a_warning_not_a_refusal(tmp_path):
+    job = _staged(tmp_path, _request(subscriber={"successUri": "https://example.invalid/done"}))
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "successful"
+    assert any("subscriber" in warning for warning in outcome.warnings)
+
+
+@pytest.mark.allow_subprocess
+def test_the_capability_writes_nothing_into_the_home_it_is_given(tmp_path):
+    """The one confinement guarantee that only a fresh process can show.
+
+    ``hmp run`` registers every project it touches into a machine-wide DuckDB
+    under the user's state directory. A capability inherits none of that, and
+    the only honest way to say so is to hand it an empty ``HOME`` and an empty
+    ``XDG_STATE_HOME`` and look at them afterwards.
+    """
+    home = tmp_path / "home"
+    state = tmp_path / "state"
+    home.mkdir()
+    state.mkdir()
+    job = _staged(tmp_path, _request())
+
+    script = (
+        "from hydromodpy.cli.helpers import exit_code_for\n"
+        "from hydromodpy.schema.job import JobDirectory\n"
+        "from hydromodpy.spatial.site_selection.hydrology.worker import run\n"
+        "import sys\n"
+        "outcome = run(JobDirectory.open(sys.argv[1]), exit_code_for=exit_code_for)\n"
+        "sys.exit(outcome.exit_code)\n"
+    )
+    env = dict(os.environ, HOME=str(home), XDG_STATE_HOME=str(state), HMP_NO_PROGRESS="1")
+    completed = subprocess.run(
+        [sys.executable, "-c", script, str(job.root)],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=600,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr[-4000:]
+    assert job.is_sealed
+    assert list(home.iterdir()) == []
+    assert list(state.iterdir()) == []
