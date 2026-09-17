@@ -47,19 +47,19 @@
     "validation_cases/calibration/shared/runtime.py",
     "validation_cases/calibration/twin/transient/linearized_unconfined_recharge_step_1d/run_case.py",
     "validation_cases/calibration/twin/transient/linearized_unconfined_recharge_step_1d/experiment.py",
-    "hydromodpy/calibration/cli.py",
-    "hydromodpy/calibration/engine.py"
+    "hydromodpy/calibration/runners/cli_runner.py",
+    "hydromodpy/calibration/optim/engine.py"
   ],
   "source_hashes": {
-    "validation_cases/calibration/README.md": "e622a8b1b136616155ba2c6dc7c926c4cb3e286aec3186991c6698ff1b78ff3c",
-    "validation_cases/calibration/run_benchmarks.py": "a14105a8aa298e50f5a6f1c4658d7e15472d7f2feb6c626856b3927ff0027b18",
-    "validation_cases/calibration/plotting.py": "5a6b55747ccab8ed04350706f969b83ab658006263ada0c66d0a4d9d861a99bd",
-    "validation_cases/calibration/shared/definitions.py": "c64ff0d2a80f223acd57cba5a291dcb2ad56d58c6b66defcda4f693310b09326",
-    "validation_cases/calibration/shared/runtime.py": "b2352916dbe8439ad7e017849444e48bb516c9c6a46d7ee3048fbd74e359bcf1",
-    "validation_cases/calibration/twin/transient/linearized_unconfined_recharge_step_1d/run_case.py": "dfcf111bb274f1a38b6d951d320b42f11b094c267275236c524adc78a245b32a",
-    "validation_cases/calibration/twin/transient/linearized_unconfined_recharge_step_1d/experiment.py": "bb1d46ec077f278df07ff53d347755c15ba7006d501339f8e81b6747bfc72359",
-    "hydromodpy/calibration/cli.py": "__missing__",
-    "hydromodpy/calibration/engine.py": "522c5211e5e80a27ed69ba69ef8e103e92836e616c2bcfee213e5e78043ef814"
+    "validation_cases/calibration/README.md": "c1505a35ce03f992dee89720ccf1594240b23d6b6515be252ff2cc2f1ab95f83",
+    "validation_cases/calibration/run_benchmarks.py": "5dbfc429861ce457dba8f21d45672a25275a2cbabc40b42073bfa117cb24c50f",
+    "validation_cases/calibration/plotting.py": "87dff5898c8589888365a1454a17be7783ee17be2e169d2284f16781cfd816dc",
+    "validation_cases/calibration/shared/definitions.py": "716cd9d69ce132d230cf8a96e4a3b59ef7cfd87658683b363d092c160d681edf",
+    "validation_cases/calibration/shared/runtime.py": "341ebacc5b87c5fe23950f8416d4bc0694332f3f0d2861809f84ae27b2edf96b",
+    "validation_cases/calibration/twin/transient/linearized_unconfined_recharge_step_1d/run_case.py": "17f2fd47c6f91b8c5afa4f313edf6204a2811e0ca4ac1ef8395f38e7fe94ebd8",
+    "validation_cases/calibration/twin/transient/linearized_unconfined_recharge_step_1d/experiment.py": "7e276c2e39cd9499a3ef36ca0ba9741d1c1b6f19bd18695670a85a0b271f4cd7",
+    "hydromodpy/calibration/runners/cli_runner.py": "43d1a100af0342e3889bd1890614cb7eaf4e9cf53eddc1d9e20bb04d01b8b5fb",
+    "hydromodpy/calibration/optim/engine.py": "0bd19f9327d4e65d1ff359625fad2e2ab0dd1efd19cd79d7b882677d6ed263c0"
   },
   "docname": "cases/calibration_twin_linearized_recharge_step_modflow6",
   "images": [

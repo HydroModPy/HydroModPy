@@ -194,19 +194,19 @@ Benchmark Setup
    * - ``solver_name``
      - Solver family used both to generate synthetic observations and to calibrate candidates.
      - modflow6
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``regime``
      - Flow regime exercised by the inverse benchmark.
      - steady
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``output_names``
      - Observables extracted from each candidate simulation and used in the composite objective.
      - q_east
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``observation_noise``
      - Synthetic noise injected after the truth run, if any.
      - none
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
 
 Calibrated Parameters
 ^^^^^^^^^^^^^^^^^^^^^
@@ -222,7 +222,7 @@ Calibrated Parameters
    * - ``K_global``
      - Truth value, initial search interval, and acceptance tolerance for this calibrated parameter.
      - truth=0.0001, bounds=5e-05, 0.0003, tolerance=2e-05
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
 
 Methods And Timing
 ^^^^^^^^^^^^^^^^^^
@@ -238,23 +238,23 @@ Methods And Timing
    * - ``grid_search``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
      - meets_target=true, cost=0, n_eval=11, calib_s=11.223, candidate_runtime_s=11.1009, algorithm_overhead_s=0.122142, actualize_s=0.0156029, launcher_prep_s=0.0156029, runtime_patch_s=0, model_sim_s=0.993566, output_select_s=0, objective_score_s=0
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``random_search``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
      - meets_target=true, cost=0.0382717, n_eval=24, calib_s=28.4106, candidate_runtime_s=28.0529, algorithm_overhead_s=0.357668, actualize_s=0.0168222, launcher_prep_s=0.0168222, runtime_patch_s=0, model_sim_s=1.15205, output_select_s=0, objective_score_s=0
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``cma_es``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
      - meets_target=true, cost=0.0116379, n_eval=28, calib_s=26.6515, candidate_runtime_s=26.2882, algorithm_overhead_s=0.363368, actualize_s=0.0140536, launcher_prep_s=0.0140536, runtime_patch_s=0, model_sim_s=0.924809, output_select_s=0, objective_score_s=0
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``simplex``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
      - meets_target=true, cost=0, n_eval=30, calib_s=24.2252, candidate_runtime_s=23.9076, algorithm_overhead_s=0.31756, actualize_s=0.0148355, launcher_prep_s=0.0148355, runtime_patch_s=0, model_sim_s=0.782085, output_select_s=0, objective_score_s=0
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``nelder_mead``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
      - meets_target=true, cost=0, n_eval=18, calib_s=16.4948, candidate_runtime_s=16.2896, algorithm_overhead_s=0.205264, actualize_s=0.0154713, launcher_prep_s=0.0154713, runtime_patch_s=0, model_sim_s=0.889505, output_select_s=0, objective_score_s=0
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
 
 Displayed Metrics
 ^^^^^^^^^^^^^^^^^
@@ -270,59 +270,59 @@ Displayed Metrics
    * - ``method_count``
      - Metric surfaced on the gallery page for the selected display method.
      - 5
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``display_method_name``
      - Metric surfaced on the gallery page for the selected display method.
      - random_search
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``calibration_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 28.41 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``session_prepare_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 29.98 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``estimated_candidate_runtime_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 28.05 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``algorithm_overhead_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 0.3577 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``mean_candidate_total_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 1.169 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``mean_candidate_actualize_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 0.01682 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``mean_candidate_launcher_prepare_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 0.01682 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``mean_candidate_runtime_patch_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 0 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``mean_candidate_preparation_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 0.01682 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``mean_candidate_simulation_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 1.152 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``mean_candidate_output_selection_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 0 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``mean_candidate_objective_compute_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 0 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
+     - ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
 
 Source Pointers
 ---------------
@@ -340,15 +340,15 @@ Source Pointers
 Artifacts
 ---------
 
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__configuration.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__grid_search_landscape.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__grid_search_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_landscape.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__cma_es_landscape.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__cma_es_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__simplex_landscape.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__simplex_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_landscape.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__configuration.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__grid_search_landscape.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__grid_search_trace.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_landscape.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_trace.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__cma_es_landscape.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__cma_es_trace.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__simplex_landscape.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__simplex_trace.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_landscape.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_trace.png``
+- ``docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.
