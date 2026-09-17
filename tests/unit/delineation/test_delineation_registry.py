@@ -22,7 +22,7 @@ def _clear_cache():
 
 def test_available_backends_contains_known_names() -> None:
     names = set(available_backends())
-    assert {"whitebox_workflows", "synthetic"}.issubset(names)
+    assert "whitebox_workflows" in names
     assert "whitebox_cli" not in names
     assert "pysheds" not in names
 
@@ -56,9 +56,12 @@ def test_get_backend_for_unregistered_placeholders_raises_value_error() -> None:
         get_backend("whitebox_cli")
 
 
-def test_synthetic_backend_resolves() -> None:
-    backend = get_backend("synthetic")
-    assert backend.name == "synthetic"
+def test_the_synthetic_backend_is_gone_and_says_so() -> None:
+    """It answered NotImplementedError to three of its four methods."""
+    assert "synthetic" not in available_backends()
+    for name in ("synthetic", "synthetic_bv"):
+        with pytest.raises(ValueError, match="Unknown delineation backend"):
+            get_backend(name)
 
 
 def test_register_backend_can_add_custom_entry() -> None:

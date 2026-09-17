@@ -91,11 +91,11 @@ Why: on-demand rendering, consistent across families, driven by the
 
 Location: ``hydromodpy/spatial/delineation/``.
 
-Delineation is backend-agnostic. The integrated backends are
-``whitebox_workflows`` and ``synthetic``; alternative implementations
-register through ``register_backend()`` and are looked up via
-``get_backend()``. ``DelineationBackend`` (``base.py``) describes the
-minimal contract consumed by the flow-analysis steps.
+Delineation is backend-agnostic. The one integrated backend is
+``whitebox_workflows``; alternative implementations register through
+``register_backend()`` and are looked up via ``get_backend()``. The
+contract a backend must satisfy is the one the flow-analysis steps call:
+the thematic sub-backends ``raster`` / ``flow`` / ``delineation``.
 
 .. code-block:: python
 

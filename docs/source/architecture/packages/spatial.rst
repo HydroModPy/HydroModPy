@@ -8,10 +8,9 @@ and the field abstractions that bridge geology to solver inputs.
 Sub-modules
 -----------
 
-- ``spatial/delineation/`` -- backend-agnostic delineation. Default
-  backends: ``WhiteboxWorkflowsBackend`` (D8 on a DEM raster) and
-  ``SyntheticBackend``. Other backends register through
-  ``register_backend()``.
+- ``spatial/delineation/`` -- backend-agnostic delineation. One shipped
+  backend, ``WhiteboxWorkflowsBackend`` (D8 on a DEM raster). Other
+  backends register through ``register_backend()``.
 - ``spatial/geographic/`` -- pre-simulation pipeline:
   ``flow_products`` (D8 correction and accumulation rasters),
   ``catchment_from_point`` and ``catchment_from_polygon``,
