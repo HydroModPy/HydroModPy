@@ -14,10 +14,10 @@ These cases show how HydroModPy validates numerical behaviour against lightweigh
 Current Coverage
 ----------------
 
-- Process families populated today: Flow (24).
-- Benchmark families: Core 1D Dupuit Baselines (3), Steady 1D Boussinesq with Heterogeneous Conductivity (3), Steady 1D Boussinesq with Topography or Sloping Substratum (6), Steady 2D Radial or Island Cases (2), Transient 1D Boundary or Recharge Forcing (5), Transient 1D Recession or Interception Dynamics (3), Transient 2D Radial Response (1), XT3D Choice For Irregular MF6 Meshes (1).
-- Reference styles: Analytical Exact (10), Analytical Series (11), Diagnostic Comparison (1), Semi-Analytical / Diagnostic (2).
-- Solver variants discovered: MODFLOW-NWT (21), MODFLOW 6 (21), MODFLOW 6 irregular triangles (21), Boussinesq (21).
+- Process families populated today: Flow (25).
+- Benchmark families: Core 1D Dupuit Baselines (4), Steady 1D Boussinesq with Heterogeneous Conductivity (3), Steady 1D Boussinesq with Topography or Sloping Substratum (6), Steady 2D Radial or Island Cases (2), Transient 1D Boundary or Recharge Forcing (5), Transient 1D Recession or Interception Dynamics (3), Transient 2D Radial Response (1), XT3D Choice For Irregular MF6 Meshes (1).
+- Reference styles: Analytical Exact (11), Analytical Series (11), Diagnostic Comparison (1), Semi-Analytical / Diagnostic (2).
+- Solver variants discovered: MODFLOW-NWT (21), MODFLOW 6 (22), MODFLOW 6 irregular triangles (21), Boussinesq (21).
 
 Grouped Benchmarks
 ------------------
@@ -31,7 +31,7 @@ Flow
 Core 1D Dupuit Baselines
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-3 cases in this family.
+4 cases in this family.
 
 .. grid:: 1 1 2 2
    :gutter: 2 2 3 3
@@ -53,6 +53,15 @@ Core 1D Dupuit Baselines
       **Dupuit Fixed-Head 1D**
       ^^^
       Steady synthetic groundwater-flow case used to validate the launcher workflow against the Dupuit analytical profile for an unconfined aquifer with fixed heads at both ends.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/dupuit_seepage_limit_1d
+      :link-type: doc
+
+      **Dupuit Seepage Limit 1D**
+      ^^^
+      Steady synthetic hillslope used to validate the seepage mask against its Dupuit closed form, and to prove that the mask and the head depend on `K` and `R` only through the ratio `K/R`.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -322,6 +331,7 @@ Transient 2D Radial Response
    cases/boussinesq_uniform_recharge_piecewise_k_1d
    cases/dupuit_divide_river_1d
    cases/dupuit_fixed_head_1d
+   cases/dupuit_seepage_limit_1d
    cases/dupuit_uniform_recharge_1d
    cases/linearized_unconfined_drainage_1d
    cases/linearized_unconfined_hillslope_drainage_1d
