@@ -528,6 +528,38 @@ def _model_members(annotation: Any) -> list[type[BaseModel]]:
     return members
 
 
+def _variant_for_values(
+    field_info: FieldInfo,
+    fallback: type[BaseModel],
+    values: Any,
+) -> type[BaseModel]:
+    """Return the union member *values* pins with its discriminator.
+
+    A field holding a discriminated union renders the member the caller
+    actually holds, never the member the field falls back to. The members
+    declare different keys, so a table built from the wrong one drops what the
+    value carries and writes what the value forbids: ``depth_model`` set to
+    ``flat_substratum`` lost its ``substratum_elevation`` and gained the
+    ``thickness`` of the other variant, which reload then refused.
+    """
+    if not isinstance(values, dict):
+        return fallback
+    discriminator = field_info.discriminator
+    if discriminator is None:
+        return fallback
+    tag = values.get(discriminator)
+    if tag is None:
+        return fallback
+    members = _model_members(field_info.annotation)
+    for member in members:
+        info = member.model_fields.get(discriminator)
+        if info is None:
+            continue
+        if get_origin(info.annotation) is typing.Literal and tag in get_args(info.annotation):
+            return member
+    return fallback
+
+
 def _resolve_mapping_basemodel_types(field_info: FieldInfo) -> list[type[BaseModel]]:
     """Return the model variants a ``dict[str, Model]`` field holds.
 
@@ -841,7 +873,7 @@ def _section(
                     )
                 return _section(
                     section_name,
-                    inner_cls,
+                    _variant_for_values(_finfo, inner_cls, inner_values),
                     threshold,
                     values=inner_values,
                     _depth=_depth,
@@ -971,6 +1003,7 @@ def _section(
                 sub_values = raw
             elif isinstance(raw, BaseModel):
                 sub_values = raw.model_dump()
+        nested_cls = _variant_for_values(field_info, nested_cls, sub_values)
 
         default = _default_value(field_info)
         has_factory = field_info.default_factory is not None
