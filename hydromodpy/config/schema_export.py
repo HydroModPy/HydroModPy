@@ -81,6 +81,20 @@ def schema_urn(scope: str, *, version: str | None = None) -> str:
     return f"{SCHEMA_URN_PREFIX}:{version or __version__}:{scope}"
 
 
+def model_scope(model_cls: type) -> str:
+    """Return the scope naming *model_cls*, qualified by where it is declared.
+
+    The bare class name is not unique in this tree: ``DemConfig`` exists in
+    ``data.variables.dem.config`` and in ``spatial.site_selection.config.models``,
+    with different properties. Two documents that accept different payloads may
+    not answer to one identity, so the scope carries the import path, minus the
+    ``hydromodpy.`` prefix every one of them shares.
+    """
+    module = getattr(model_cls, "__module__", "")
+    dotted = f"{module}.{model_cls.__qualname__}" if module else model_cls.__qualname__
+    return dotted.removeprefix("hydromodpy.")
+
+
 def _ensure_root_sections() -> dict[str, type]:
     """Return the map of root-level TOML sections to Pydantic model classes."""
     return _root_sections()
@@ -188,15 +202,22 @@ def _resolve_section_model(section: str) -> type:
     that reaches none names a value and not a section, and one that reaches
     several is a union whose variant the caller has to pick by class.
     """
+    segments = section.split(".")
+    if any(not part for part in segments):
+        # Refused and not silently dropped: ``simulation..time`` resolves to the
+        # same model as ``simulation.time``, and swallowing the empty segment
+        # would mint two identities for one document.
+        raise ValueError(f"config section {section!r} carries an empty segment")
+
     sections = _ensure_root_sections()
-    head, _, rest = section.partition(".")
+    head, *rest = segments
     if head not in sections:
         allowed = ", ".join(sorted(sections))
         raise ValueError(f"unknown config section {head!r} (allowed: {allowed})")
 
     model = sections[head]
     walked = head
-    for name in (part for part in rest.split(".") if part):
+    for name in rest:
         info = model.model_fields.get(name)
         if info is None:
             raise ValueError(f"unknown field {name!r} under {walked!r} in {model.__name__}")
@@ -310,7 +331,7 @@ def export_schema(
     elif model_cls is None:
         default_scope = ROOT_SCOPE
     else:
-        default_scope = model_cls.__name__
+        default_scope = model_scope(model_cls)
 
     if model_cls is None:
         from hydromodpy.config import HydroModPyConfig
@@ -362,6 +383,7 @@ __all__ = [
     "SCHEMA_URN_PREFIX",
     "export_schema",
     "extract_property_schema",
+    "model_scope",
     "schema_sha256",
     "schema_urn",
     "write_schema",

@@ -37,11 +37,21 @@ def test_a_section_export_is_named_after_the_section() -> None:
     assert export_schema(section="flow")["$id"] == schema_urn("flow")
 
 
-def test_a_bare_model_export_is_named_after_the_model() -> None:
+def test_a_bare_model_export_is_named_after_where_the_model_is_declared() -> None:
     from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
 
     schema = export_schema(FlowPhysicalProperties)
-    assert schema["$id"] == schema_urn("FlowPhysicalProperties")
+    assert schema["$id"] == schema_urn("physics.flow.physical_properties.FlowPhysicalProperties")
+
+
+def test_two_models_of_one_name_do_not_share_an_identity() -> None:
+    """``DemConfig`` exists twice in this tree, with different properties."""
+    from hydromodpy.data.variables.dem.config import DemConfig as DataDemConfig
+    from hydromodpy.spatial.site_selection.config.models import DemConfig as SiteDemConfig
+
+    assert DataDemConfig.__name__ == SiteDemConfig.__name__
+    assert set(DataDemConfig.model_fields) != set(SiteDemConfig.model_fields)
+    assert export_schema(DataDemConfig)["$id"] != export_schema(SiteDemConfig)["$id"]
 
 
 def test_a_filtered_export_does_not_claim_the_identity_of_the_full_one() -> None:
@@ -84,6 +94,15 @@ def test_a_segment_that_names_a_value_is_refused() -> None:
 def test_a_segment_that_names_a_union_names_its_variants() -> None:
     with pytest.raises(ValueError, match="names a union of 3 models"):
         export_schema(section="flow.bc")
+
+
+@pytest.mark.parametrize(
+    "section", ["simulation..time", "simulation.time.", ".simulation.time", ""]
+)
+def test_a_path_with_an_empty_segment_is_refused_rather_than_normalised(section: str) -> None:
+    """Dropping the empty segment would mint two identities for one document."""
+    with pytest.raises(ValueError, match="empty segment"):
+        export_schema(section=section)
 
 
 def test_a_property_extracts_with_the_definitions_it_reaches() -> None:
