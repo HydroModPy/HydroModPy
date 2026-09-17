@@ -134,10 +134,10 @@ class SealVerification:
 def verify_job(job: JobDirectory) -> SealVerification:
     """Re-check a job directory against its own seal, reading only the disk.
 
-    What ``hmp process verify`` reports: every artefact still hashes to what
-    the seal recorded, the input set still digests to the id it carries, and
-    the outcome names the same job. Nothing is repaired and nothing is
-    rewritten.
+    Every artefact still hashes to what the seal recorded, the input set still
+    digests to the id it carries, and the outcome names the same job. Nothing
+    is repaired and nothing is rewritten. This is what the verification verb
+    of the CLI will report, the day that verb exists.
     """
     if not job.is_sealed:
         return SealVerification(sealed=False, problems=("manifest.json is absent",))
