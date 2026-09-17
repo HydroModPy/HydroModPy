@@ -17,6 +17,15 @@ Use ``profile="user"`` (or ``"dev"``, ``"expert"``) to drop fields whose
 hydrogeologists can then receive a pre-trimmed schema instead of filtering
 every property themselves.
 
+Identity
+--------
+Every exported document carries a ``$id``, a ``urn:`` that resolves to nothing
+on purpose: no domain is registered, and a ``https://`` identifier that 404s is
+worse than one that never promised to resolve. The scope after the version says
+which model was exported, and a profile-filtered document takes a scope of its
+own -- it is a different document, so it may not claim the identity of the full
+one.
+
 Usage
 -----
 Python API::
@@ -30,6 +39,9 @@ Python API::
 
     # by section name (e.g. "flow", "workspace", ...)
     schema = export_schema(section="flow")
+
+    # by dotted path into a section
+    schema = export_schema(section="flow.properties")
 
     # filtered by profile
     schema = export_schema(profile="user")
@@ -49,9 +61,24 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.config_kit.introspect import read_profile_from_schema
+from hydromodpy.core.config_kit.introspect import iter_basemodels, read_profile_from_schema
 from hydromodpy.core.config_kit.profile import Profile, ProfileName
 from hydromodpy.core.config_kit.registry import root_sections as _root_sections
+from hydromodpy.core.version import __version__
+
+JSON_SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema"
+"""The dialect Pydantic v2 emits, declared so an external validator stops guessing."""
+
+SCHEMA_URN_PREFIX = "urn:hmp:schema"
+"""Namespace of an exported schema. Resolves to nothing, by design."""
+
+ROOT_SCOPE = "config"
+"""The scope of the full ``HydroModPyConfig`` document."""
+
+
+def schema_urn(scope: str, *, version: str | None = None) -> str:
+    """Return the ``urn:`` identity of the schema exported under *scope*."""
+    return f"{SCHEMA_URN_PREFIX}:{version or __version__}:{scope}"
 
 
 def _ensure_root_sections() -> dict[str, type]:
@@ -153,6 +180,75 @@ def _prune_orphan_defs(schema: dict[str, Any]) -> None:
         schema.pop("$defs", None)
 
 
+def _resolve_section_model(section: str) -> type:
+    """Return the model a root section name or a dotted path under one names.
+
+    The first segment is a root TOML section. Every further segment is a field
+    of the model resolved so far, and it must reach exactly one model: a field
+    that reaches none names a value and not a section, and one that reaches
+    several is a union whose variant the caller has to pick by class.
+    """
+    sections = _ensure_root_sections()
+    head, _, rest = section.partition(".")
+    if head not in sections:
+        allowed = ", ".join(sorted(sections))
+        raise ValueError(f"unknown config section {head!r} (allowed: {allowed})")
+
+    model = sections[head]
+    walked = head
+    for name in (part for part in rest.split(".") if part):
+        info = model.model_fields.get(name)
+        if info is None:
+            raise ValueError(f"unknown field {name!r} under {walked!r} in {model.__name__}")
+        nested = iter_basemodels(info.annotation)
+        if not nested:
+            raise ValueError(f"{walked}.{name} names a value, not a section")
+        if len(nested) > 1:
+            variants = ", ".join(cls.__name__ for cls in nested)
+            raise ValueError(
+                f"{walked}.{name} names a union of {len(nested)} models ({variants}); "
+                "export one of them by passing its class"
+            )
+        model = nested[0]
+        walked = f"{walked}.{name}"
+    return model
+
+
+def extract_property_schema(schema: dict[str, Any], name: str) -> dict[str, Any]:
+    """Return one top-level property of *schema* as a document of its own.
+
+    The returned document carries the ``$defs`` entries its ``$ref`` members
+    reach, and only those, so it validates without the schema it came from.
+    """
+    properties = schema.get("properties")
+    if not isinstance(properties, dict) or name not in properties:
+        available = ", ".join(sorted(properties)) if isinstance(properties, dict) else "none"
+        raise KeyError(f"{name!r} is not a property of this schema (has: {available})")
+
+    node: dict[str, Any] = json.loads(json.dumps(properties[name]))
+    defs = schema.get("$defs")
+    if not isinstance(defs, dict):
+        return node
+
+    reachable: set[str] = set()
+    _collect_referenced_defs(node, reachable)
+    frontier = list(reachable)
+    while frontier:
+        target = defs.get(frontier.pop())
+        if target is None:
+            continue
+        nested: set[str] = set()
+        _collect_referenced_defs(target, nested)
+        for extra in nested - reachable:
+            reachable.add(extra)
+            frontier.append(extra)
+
+    carried = {key: json.loads(json.dumps(defs[key])) for key in sorted(reachable) if key in defs}
+    if carried:
+        node["$defs"] = carried
+    return node
+
+
 @cache
 def _cached_full_schema(model_cls: type) -> dict[str, Any]:
     return model_cls.model_json_schema()
@@ -181,6 +277,7 @@ def export_schema(
     *,
     section: str | None = None,
     profile: ProfileName | Profile | None = None,
+    scope: str | None = None,
 ) -> dict[str, Any]:
     """Export a JSON Schema dict for a HydroModPy configuration model.
 
@@ -190,25 +287,30 @@ def export_schema(
         A Pydantic ``BaseModel`` subclass. If ``None``, the root
         ``HydroModPyConfig`` model is used.
     section
-        Name of a root TOML section (see :func:`_ensure_root_sections`). When
-        given, overrides ``model_cls``.
+        Name of a root TOML section (see :func:`_ensure_root_sections`), or a
+        dotted path under one such as ``"flow.properties"``. When given,
+        overrides ``model_cls``.
     profile
         Optional ``"user"``, ``"dev"``, or ``"expert"`` filter. Fields whose
         ``x-hmp-profile`` exceeds the requested level are removed (recursively,
         including ``$defs`` entries).
+    scope
+        Overrides the scope of the ``$id``. Defaults to the section path, or
+        the model name, and carries the profile when one filtered the document.
 
     Returns
     -------
     dict
-        JSON Schema document (draft 2020-12 compatible, as emitted by
-        Pydantic v2).
+        JSON Schema document (draft 2020-12 as emitted by Pydantic v2),
+        carrying its dialect and its ``urn:`` identity.
     """
     if section is not None:
-        sections = _ensure_root_sections()
-        if section not in sections:
-            allowed = ", ".join(sorted(sections))
-            raise ValueError(f"unknown config section {section!r} (allowed: {allowed})")
-        model_cls = sections[section]
+        model_cls = _resolve_section_model(section)
+        default_scope = section
+    elif model_cls is None:
+        default_scope = ROOT_SCOPE
+    else:
+        default_scope = model_cls.__name__
 
     if model_cls is None:
         from hydromodpy.config import HydroModPyConfig
@@ -220,8 +322,16 @@ def export_schema(
     if threshold is not None:
         _walk_and_filter(schema, threshold)
         _prune_orphan_defs(schema)
+        default_scope = f"{default_scope}:{threshold.name.lower()}"
+
     schema.setdefault("$comment", "Generated by hydromodpy.config.schema_export")
-    return schema
+    # Assigned after the merge, not before it: a model that carried its own
+    # ``$id`` would otherwise win, and two documents would claim one identity.
+    document = {"$schema": None, "$id": None, "x-hmp-version": None, **schema}
+    document["$schema"] = JSON_SCHEMA_DIALECT
+    document["$id"] = schema_urn(scope or default_scope)
+    document["x-hmp-version"] = __version__
+    return document
 
 
 def write_schema(
@@ -246,4 +356,13 @@ def write_schema(
     return out_path
 
 
-__all__ = ["export_schema", "schema_sha256", "write_schema"]
+__all__ = [
+    "JSON_SCHEMA_DIALECT",
+    "ROOT_SCOPE",
+    "SCHEMA_URN_PREFIX",
+    "export_schema",
+    "extract_property_schema",
+    "schema_sha256",
+    "schema_urn",
+    "write_schema",
+]

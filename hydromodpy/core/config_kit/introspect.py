@@ -78,6 +78,32 @@ def read_profile_from_schema(field_schema: dict[str, Any]) -> Profile | None:
         return None
 
 
+def iter_basemodels(annotation: Any) -> list[type[BaseModel]]:
+    """Return every :class:`BaseModel` subclass reachable through *annotation*.
+
+    Enumerates every variant of a union, so a caller can resolve a path against
+    each candidate and pick the one that declares the next segment, or refuse an
+    ambiguous one. :func:`_resolve_field_basemodel` answers a different
+    question -- "the single model to recurse into" -- and takes the first match.
+    """
+    from pydantic import BaseModel as _BaseModel
+
+    found: list[type[BaseModel]] = []
+    seen: set[type[BaseModel]] = set()
+
+    def _walk(node: Any) -> None:
+        if isinstance(node, type) and issubclass(node, _BaseModel):
+            if node not in seen:
+                seen.add(node)
+                found.append(node)
+            return
+        for arg in getattr(node, "__args__", ()) or ():
+            _walk(arg)
+
+    _walk(annotation)
+    return found
+
+
 def _resolve_field_basemodel(field_info: Any) -> type[BaseModel] | None:
     """Return the :class:`BaseModel` subclass referenced by *field_info*, when applicable."""
     from typing import Union, get_args, get_origin
@@ -147,6 +173,7 @@ __all__ = [
     "DEFAULT_FIELD_PROFILE",
     "collect_profile_violations",
     "extract_profile",
+    "iter_basemodels",
     "iter_fields_by_profile",
     "read_profile_from_schema",
     "resolve_profile",
