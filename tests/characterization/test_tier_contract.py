@@ -1,11 +1,13 @@
 """The shape of the tier itself.
 
-The characterization net is built around exactly five strict xfails, one per
-claim the code makes and does not honour. The count is part of the contract:
-adding a sixth without saying so hides a new defect among the known ones, and
-losing one silently drops a claim nobody is watching any more. Phases F1, F7
-and F8 each turn some of them green; when they do, the declaration below is
-what must be edited, deliberately.
+The characterization net was built around five strict xfails, one per claim the
+code makes and does not honour. The count is part of the contract: adding one
+without saying so hides a new defect among the known ones, and losing one
+silently drops a claim nobody is watching any more. Phases F1, F7 and F8 each
+turn some of them green; when they do, the two declarations below are what must
+be edited, deliberately. A repaired claim does not disappear from this file: it
+moves to ``REPAIRED_STRICT_XFAILS``, where it keeps guarding against anyone
+marking it xfail again.
 """
 
 from __future__ import annotations
@@ -16,11 +18,16 @@ from pathlib import Path
 TIER_DIR = Path(__file__).resolve().parent
 
 EXPECTED_STRICT_XFAILS: dict[str, str] = {
-    "test_a_stranger_opens_the_field_store_with_xarray": "F1",
-    "test_the_field_store_metadata_is_valid_json": "F1",
     "test_the_run_declares_a_derived_identity": "F1",
     "test_every_step_of_a_run_declares_what_it_left_on_disk": "F7",
     "test_the_runtime_state_survives_a_process_boundary": "F8",
+}
+
+# Claims the code now honours. They stay named here so that re-marking one
+# xfail is a failure rather than a quiet regression.
+REPAIRED_STRICT_XFAILS: dict[str, str] = {
+    "test_a_stranger_opens_the_field_store_with_xarray": "F1",
+    "test_the_field_store_metadata_is_valid_json": "F1",
 }
 
 
@@ -59,14 +66,25 @@ def _collect_strict_xfails() -> dict[str, str]:
     return found
 
 
-def test_the_tier_carries_exactly_the_five_declared_strict_xfails() -> None:
-    """Five claims are pinned, named, and attached to the phase that repairs them."""
+def test_the_tier_carries_exactly_the_declared_strict_xfails() -> None:
+    """Every pinned claim is named and attached to the phase that repairs it."""
     found = _collect_strict_xfails()
     assert set(found) == set(EXPECTED_STRICT_XFAILS), (
         f"undeclared strict xfails: {sorted(set(found) - set(EXPECTED_STRICT_XFAILS))}; "
         f"declared but absent: {sorted(set(EXPECTED_STRICT_XFAILS) - set(found))}"
     )
-    assert len(found) == 5
+    assert len(found) == 3
+
+
+def test_a_repaired_claim_is_never_marked_xfail_again() -> None:
+    """A claim the code honours stays a plain test, and stays present."""
+    found = _collect_strict_xfails()
+    bodies = "\n".join(
+        path.read_text(encoding="utf-8") for path in sorted(TIER_DIR.glob("test_*.py"))
+    )
+    for name in REPAIRED_STRICT_XFAILS:
+        assert name not in found, f"{name} was repaired and is marked xfail again"
+        assert f"def {name}(" in bodies, f"{name} was repaired and then deleted"
 
 
 def test_every_strict_xfail_states_a_reason() -> None:

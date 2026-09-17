@@ -51,18 +51,20 @@ def field_name_from_target(target: zarr.Group, variable: str) -> str:
 
 
 def attrs_for_field(name: str, dtype: np.dtype) -> dict[str, object]:
-    """Compose CF attrs for a field straight from the registry + _FillValue."""
+    """Compose CF attrs for a field straight from the registry + _FillValue.
+
+    A float field declares no ``_FillValue`` attribute. Its missing value is
+    NaN, JSON has no token for NaN, and writing one anyway is what made every
+    ``zarr.json`` of the corpus invalid under RFC 8259. The array's own Zarr
+    ``fill_value`` already carries NaN, serialised as the string ``"NaN"`` the
+    Zarr v3 spec defines for it, so nothing is lost and readers still mask.
+    An integer sentinel has a JSON number and stays in the CF block.
+    """
     if not field_registry.has(name):
         attrs: dict[str, object] = {}
     else:
         attrs = dict(field_registry.cf_attrs(name))
-    if np.issubdtype(dtype, np.floating):
-        # CF convention: both _FillValue and missing_value carry the sentinel so
-        # xarray auto-masks it on load. MODFLOW sentinels are converted to NaN at
-        # write (see mask_sentinels), so the missing value is NaN.
-        attrs["_FillValue"] = float(np.nan)
-        attrs["missing_value"] = float(np.nan)
-    elif np.issubdtype(dtype, np.integer):
+    if np.issubdtype(dtype, np.integer):
         attrs["_FillValue"] = int(np.iinfo(dtype).min)
         attrs["missing_value"] = int(np.iinfo(dtype).min)
     return attrs
@@ -146,7 +148,8 @@ def attach_field_attrs(target: zarr.Group, variable: str) -> None:
                 "long_name": f"{variable} volumetric flux",
             }
             fill = _fill_value_for_dtype(np.dtype(arr.dtype))
-            if fill is not None:
+            # Same rule as attrs_for_field: a NaN sentinel stays out of JSON.
+            if fill is not None and not isinstance(fill, float):
                 attrs["_FillValue"] = fill
                 attrs["missing_value"] = fill
             update_attrs(arr, attrs)
@@ -161,18 +164,42 @@ def _write_array(
     name: str,
     data: np.ndarray,
     *,
+    dimension_names: tuple[str, ...],
     attrs: dict[str, object] | None = None,
     compressors: Any | None = None,
 ) -> zarr.Array:
-    """Pre-create the child dir, write an array, and stamp ``attrs``."""
+    """Pre-create the child dir, write an array, and stamp ``attrs``.
+
+    ``dimension_names`` is required, not optional: an array whose axes have no
+    name cannot be opened by xarray and cannot be joined to anything. A 0-d
+    array passes an empty tuple, which Zarr stores as no names at all.
+    """
     ensure_child_dir(store_obj, parent, name)
-    kwargs: dict[str, Any] = {"data": data, "overwrite": True}
+    kwargs: dict[str, Any] = {
+        "data": data,
+        "overwrite": True,
+        "dimension_names": tuple(dimension_names),
+    }
     if compressors is not None:
         kwargs["compressors"] = compressors
     arr = parent.create_array(name, **kwargs)
     if attrs:
         update_attrs(arr, attrs)
     return arr
+
+
+def _z_interface_dimensions(values: np.ndarray) -> tuple[str, ...]:
+    """Return the axes of ``z_interfaces``, which is a column or a map.
+
+    MODFLOW writes the vertical column of one reference cell, Boussinesq writes
+    the top and bottom of every cell, and both are legal content of the same
+    array name.
+    """
+    if values.ndim == 1:
+        return (field_registry.AXIS_LAYER_INTERFACE,)
+    if values.ndim == 2:
+        return (field_registry.AXIS_LAYER_INTERFACE, field_registry.AXIS_FACE)
+    raise ValueError(f"z_interfaces has 1 or 2 axes, got shape {values.shape}")
 
 
 _Z_INTERFACE_ATTRS: dict[str, object] = {
@@ -221,6 +248,7 @@ def write_mesh(
             mesh,
             "vertices",
             np.asarray(vertices, dtype="float64"),
+            dimension_names=(field_registry.AXIS_NODE, field_registry.AXIS_NODE_COORDINATE),
             attrs={
                 "long_name": "Mesh node coordinates (x, y, z)",
                 "units": "m",
@@ -232,31 +260,45 @@ def write_mesh(
             mesh,
             "face_node_connectivity",
             np.asarray(face_node_connectivity, dtype="int32"),
+            dimension_names=(field_registry.AXIS_FACE, field_registry.AXIS_MAX_FACE_NODES),
             attrs={
                 "cf_role": "face_node_connectivity",
                 "long_name": "Mapping from every face to its corner nodes",
                 "start_index": int(start_index),
             },
         )
+        interfaces = np.asarray(z_interfaces, dtype="float64")
         _write_array(
             store_obj,
             mesh,
             "z_interfaces",
-            np.asarray(z_interfaces, dtype="float64"),
+            interfaces,
+            dimension_names=_z_interface_dimensions(interfaces),
             attrs=_Z_INTERFACE_ATTRS,
         )
         if layer_indices is not None:
-            _write_array(store_obj, mesh, "layer_indices", np.asarray(layer_indices, dtype="int32"))
+            _write_array(
+                store_obj,
+                mesh,
+                "layer_indices",
+                np.asarray(layer_indices, dtype="int32"),
+                dimension_names=(field_registry.AXIS_FACE,),
+            )
         if source_cell_indices is not None:
             _write_array(
                 store_obj,
                 mesh,
                 "source_cell_indices",
                 np.asarray(source_cell_indices, dtype="int32"),
+                dimension_names=(field_registry.AXIS_FACE,),
             )
         if topography is not None:
             topo_arr = _write_array(
-                store_obj, mesh, "topography", np.asarray(topography, dtype="float64")
+                store_obj,
+                mesh,
+                "topography",
+                np.asarray(topography, dtype="float64"),
+                dimension_names=(field_registry.AXIS_FACE,),
             )
             update_attrs(topo_arr, attrs_for_field("topography", topo_arr.dtype))
         if topography_reference is not None:
@@ -265,6 +307,7 @@ def write_mesh(
                 mesh,
                 "topography_reference",
                 np.asarray(topography_reference, dtype="float64"),
+                dimension_names=(field_registry.AXIS_FACE,),
                 attrs={
                     "long_name": "Pre-conditioning model top per face",
                     "units": "m",
@@ -276,7 +319,13 @@ def write_mesh(
         ):
             if values is None:
                 continue
-            arr = _write_array(store_obj, mesh, name, np.asarray(values, dtype="float64"))
+            arr = _write_array(
+                store_obj,
+                mesh,
+                name,
+                np.asarray(values, dtype="float64"),
+                dimension_names=(field_registry.AXIS_FACE,),
+            )
             update_attrs(arr, attrs_for_field(name, arr.dtype))
         if layer_thickness is not None:
             thickness_arr = _write_array(
@@ -284,6 +333,7 @@ def write_mesh(
                 mesh,
                 "layer_thickness",
                 np.atleast_2d(np.asarray(layer_thickness, dtype="float64")),
+                dimension_names=field_registry.static_field_dimensions(2),
             )
             update_attrs(thickness_arr, attrs_for_field("layer_thickness", thickness_arr.dtype))
 
@@ -308,6 +358,7 @@ def write_mesh(
             mesh,
             "topology",
             np.zeros((), dtype="int32"),
+            dimension_names=(),
             attrs={
                 "cf_role": "mesh_topology",
                 "long_name": "UGRID 2D topology of the simulation mesh",
@@ -330,15 +381,21 @@ def write_topography(
     with store_obj._guard_write():
         mesh = store_obj._root.require_group("mesh")
         topo_arr = _write_array(
-            store_obj, mesh, "topography", np.asarray(topography, dtype="float64")
+            store_obj,
+            mesh,
+            "topography",
+            np.asarray(topography, dtype="float64"),
+            dimension_names=(field_registry.AXIS_FACE,),
         )
         update_attrs(topo_arr, attrs_for_field("topography", topo_arr.dtype))
         if z_interfaces is not None:
+            interfaces = np.asarray(z_interfaces, dtype="float64")
             _write_array(
                 store_obj,
                 mesh,
                 "z_interfaces",
-                np.asarray(z_interfaces, dtype="float64"),
+                interfaces,
+                dimension_names=_z_interface_dimensions(interfaces),
                 attrs=_Z_INTERFACE_ATTRS,
             )
         mesh_attrs: dict[str, object] = {}
@@ -379,6 +436,7 @@ def write_time(
             store_obj._root,
             "time",
             np.asarray(values, dtype="int64"),
+            dimension_names=(field_registry.AXIS_TIME,),
             attrs={
                 "units": units,
                 "calendar": calendar,
@@ -410,7 +468,14 @@ def write_crs(
             attrs["semi_major_axis"] = float(semi_major_axis)
         if inverse_flattening is not None:
             attrs["inverse_flattening"] = float(inverse_flattening)
-        _write_array(store_obj, store_obj._root, "crs", np.zeros((), dtype="int32"), attrs=attrs)
+        _write_array(
+            store_obj,
+            store_obj._root,
+            "crs",
+            np.zeros((), dtype="int32"),
+            dimension_names=(),
+            attrs=attrs,
+        )
 
 
 # -- Fields ------------------------------------------------------------------
@@ -469,6 +534,7 @@ def _create_field_array(
         shape=full_shape,
         chunks=chunk_shape,
         dtype=dtype,
+        dimension_names=field_registry.timed_field_dimensions(len(full_shape)),
         compressors=BLOSC_ZSTD,
         # Derive the fill from the dtype so the array fill and the CF _FillValue
         # attr agree: NaN for floats, iinfo(dtype).min for ints (NaN is invalid
@@ -546,7 +612,13 @@ def write_static_field(
     with store_obj._guard_write():
         target = _field_target(store_obj, subgroup)
         data = mask_sentinels(np.asarray(values))
-        arr = _write_array(store_obj, target, variable, data)
+        arr = _write_array(
+            store_obj,
+            target,
+            variable,
+            data,
+            dimension_names=field_registry.static_field_dimensions(data.ndim),
+        )
         update_attrs(arr, attrs_for_field(variable, arr.dtype))
 
 
@@ -628,6 +700,7 @@ def write_forcing_timeseries(
             sta_grp,
             "timestamps",
             ts_bytes,
+            dimension_names=(field_registry.AXIS_RECORD,),
             attrs={
                 "units": "nanoseconds since 1970-01-01T00:00:00",
                 "calendar": "proleptic_gregorian",
@@ -641,6 +714,7 @@ def write_forcing_timeseries(
             sta_grp,
             "values",
             np.asarray(values, dtype="float64"),
+            dimension_names=(field_registry.AXIS_RECORD,),
             attrs={
                 "units": str(unit),
                 "long_name": f"Forcing values for {variable}",
@@ -674,6 +748,9 @@ def write_forcing_field(
             forcing,
             variable,
             np.asarray(data),
+            dimension_names=field_registry.per_array_dimensions(
+                variable, int(np.asarray(data).ndim)
+            ),
             attrs={"unit": str(unit), "source": str(source)},
             compressors=BLOSC_ZSTD,
         )
@@ -700,6 +777,7 @@ def write_geographic_raster(
             geo,
             name,
             np.asarray(data),
+            dimension_names=field_registry.per_array_dimensions(name, int(np.asarray(data).ndim)),
             attrs={
                 "transform": list(transform),
                 "crs": str(crs),
@@ -729,24 +807,38 @@ def write_lake_abacus(
     volume_unit: str = "m3",
     area_unit: str = "m2",
 ) -> None:
-    """Persist the reference vs simulated abacus under ``lake_abacus/<lake_id>``."""
+    """Persist the reference vs simulated abacus under ``lake_abacus/<lake_id>``.
+
+    The four curves are sampled on the single ``stage`` abscissa, so reading
+    ``real_volume[i]`` against ``stage[i]`` only means something when the five
+    arrays have one length. Writing them unequal produced a group no reader
+    could open, and said so nowhere; it is refused here instead.
+    """
+    curves = (
+        ("stage", np.asarray(stage, dtype="float64"), stage_unit),
+        ("real_volume", np.asarray(real_volume, dtype="float64"), volume_unit),
+        ("real_sarea", np.asarray(real_sarea, dtype="float64"), area_unit),
+        ("sim_volume", np.asarray(sim_volume, dtype="float64"), volume_unit),
+        ("sim_sarea", np.asarray(sim_sarea, dtype="float64"), area_unit),
+    )
+    lengths = {name: int(values.shape[0]) for name, values, _ in curves}
+    if len(set(lengths.values())) != 1:
+        raise ValueError(
+            f"Lake abacus curves of '{lake_id}' are sampled on one stage axis but "
+            f"have different lengths: {lengths}"
+        )
     with store_obj._guard_write():
         ensure_child_dir(store_obj, store_obj._root, "lake_abacus")
         grp = store_obj._root.require_group("lake_abacus")
         ensure_child_dir(store_obj, grp, lake_id)
         lake = grp.require_group(lake_id)
-        for name, values, unit in (
-            ("stage", stage, stage_unit),
-            ("real_volume", real_volume, volume_unit),
-            ("real_sarea", real_sarea, area_unit),
-            ("sim_volume", sim_volume, volume_unit),
-            ("sim_sarea", sim_sarea, area_unit),
-        ):
+        for name, values, unit in curves:
             _write_array(
                 store_obj,
                 lake,
                 name,
-                np.asarray(values, dtype="float64"),
+                values,
+                dimension_names=(field_registry.AXIS_STAGE_LEVEL,),
                 attrs={"units": str(unit)},
             )
         update_attrs(
@@ -769,8 +861,108 @@ def write_lake_restart_state(store_obj: SimulationZarr, stages: dict[str, float]
     with store_obj._guard_write():
         ensure_child_dir(store_obj, store_obj._root, "lake_state_final")
         grp = store_obj._root.require_group("lake_state_final")
-        _write_array(store_obj, grp, "stage", values, attrs={"units": "m"})
+        _write_array(
+            store_obj,
+            grp,
+            "stage",
+            values,
+            dimension_names=(field_registry.AXIS_LAKE,),
+            attrs={"units": "m"},
+        )
         update_attrs(grp, {"lake_ids": lake_ids})
+
+
+# -- Axis coordinates --------------------------------------------------------
+
+
+def _axis_extents(root: zarr.Group) -> dict[str, int]:
+    """Return the length of the layer and face axes of a finished store."""
+    extents: dict[str, int] = {}
+    mesh = root.get("mesh")
+    if isinstance(mesh, zarr.Group):
+        for key, axis in (
+            ("n_cells", field_registry.AXIS_FACE),
+            ("n_layers", field_registry.AXIS_LAYER),
+        ):
+            value = mesh.attrs.get(key)
+            if value is not None:
+                extents[axis] = int(value)
+    for _, array in _walk_arrays(root):
+        names = array.metadata.dimension_names or ()
+        for axis, length in zip(names, array.shape, strict=False):
+            if axis in (field_registry.AXIS_LAYER, field_registry.AXIS_FACE):
+                extents.setdefault(axis, int(length))
+    return extents
+
+
+def _walk_arrays(group: zarr.Group, prefix: str = "") -> list[tuple[str, zarr.Array]]:
+    """Return every array of ``group``, keyed by its path inside the store."""
+    found: list[tuple[str, zarr.Array]] = []
+    for name, member in group.members():
+        path = f"{prefix}/{name}" if prefix else name
+        if isinstance(member, zarr.Array):
+            found.append((path, member))
+        elif isinstance(member, zarr.Group):
+            found.extend(_walk_arrays(member, path))
+    return found
+
+
+def harmonize_axis_references(store_obj: SimulationZarr) -> None:
+    """Materialise the axis coordinates the fields name, and drop dangling ones.
+
+    Every field declares ``coordinates = "time layer face"`` and
+    ``grid_mapping = "crs"``. Until this runs, ``layer`` and ``face`` are names
+    of nothing, and ``crs`` is a name of nothing on a run with no declared CRS:
+    a CF attribute pointing at an absent variable is a broken reference, not
+    metadata. Writing the two index arrays gives the face and layer axes a
+    coordinate a reader can join on; removing an unresolvable ``grid_mapping``
+    leaves the store saying only what is true.
+    """
+    root = store_obj.root
+    extents = _axis_extents(root)
+    with store_obj._guard_write():
+        if field_registry.AXIS_FACE in extents:
+            _write_array(
+                store_obj,
+                root,
+                field_registry.AXIS_FACE,
+                np.arange(extents[field_registry.AXIS_FACE], dtype="int32"),
+                dimension_names=(field_registry.AXIS_FACE,),
+                attrs={
+                    "long_name": "Index of a cell along the face axis of the fields",
+                    "units": "1",
+                    "comment": (
+                        "Position along the face axis of every field array, and row of "
+                        "mesh/face_node_connectivity."
+                    ),
+                },
+            )
+        if field_registry.AXIS_LAYER in extents:
+            _write_array(
+                store_obj,
+                root,
+                field_registry.AXIS_LAYER,
+                np.arange(extents[field_registry.AXIS_LAYER], dtype="int32"),
+                dimension_names=(field_registry.AXIS_LAYER,),
+                attrs={
+                    "long_name": "Model layer index, 0 at the top of the aquifer",
+                    "units": "1",
+                    "positive": "down",
+                },
+            )
+        present = {path for path, _ in _walk_arrays(root)}
+        for _, array in _walk_arrays(root):
+            attrs = dict(array.attrs)
+            grid_mapping = attrs.get("grid_mapping")
+            if grid_mapping and str(grid_mapping) not in present:
+                del array.attrs["grid_mapping"]
+            declared = str(attrs.get("coordinates", "")).split()
+            resolved = [name for name in declared if name in present]
+            if resolved != declared:
+                if resolved:
+                    array.attrs["coordinates"] = " ".join(resolved)
+                else:
+                    del array.attrs["coordinates"]
 
 
 # -- ACDD --------------------------------------------------------------------
@@ -807,6 +999,7 @@ __all__ = [
     "attrs_for_field",
     "ensure_child_dir",
     "field_name_from_target",
+    "harmonize_axis_references",
     "maybe_shards",
     "write_acdd_root_attrs",
     "write_crs",

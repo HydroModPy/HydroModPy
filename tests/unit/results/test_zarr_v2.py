@@ -99,13 +99,24 @@ def test_acdd_root_attrs_present(fresh_store: SimulationZarr) -> None:
     assert "MODFLOW 6.5.0" in attrs["source"]
 
 
-def test_cf_fillvalue_attached_to_head(fresh_store: SimulationZarr) -> None:
+def test_float_missing_value_lives_in_the_zarr_fill_not_in_a_json_attribute(
+    fresh_store: SimulationZarr,
+) -> None:
+    """A NaN sentinel is declared where JSON can encode it, and nowhere else."""
     fresh_store.write_field("head", 0, np.arange(100, dtype="float64"), n_timesteps=5)
     head = fresh_store.root["head"]
-    assert "_FillValue" in head.attrs
-    assert np.isnan(head.attrs["_FillValue"])
+    assert np.isnan(head.fill_value)
+    assert "_FillValue" not in head.attrs
+    assert "missing_value" not in head.attrs
     assert head.attrs.get("csdms_standard_name") == "subsurface_water__hydraulic_head"
     assert head.attrs.get("long_name", "").startswith("Groundwater head")
+
+
+def test_head_declares_its_axes(fresh_store: SimulationZarr) -> None:
+    fresh_store.write_field("head", 0, np.zeros((2, 50)), n_timesteps=5)
+    head = fresh_store.root["head"]
+    assert head.metadata.dimension_names == ("time", "layer", "face")
+    assert head.attrs["coordinates"] == "time layer face"
 
 
 def test_local_store_retries_transient_chunk_write_permission_error(

@@ -14,6 +14,13 @@ from hydromodpy.solver.modflow_common.time_units import (
 
 logger = get_logger(__name__)
 
+# Axis names of the particle arrays, kept in sync with the store vocabulary of
+# ``results.field_registry`` (AXIS_PARTICLE, AXIS_TRACK_STEP).
+# The layer matrix forbids ``solver`` importing ``results``, so the names are
+# repeated here and pinned by ``tests/unit/results/test_store_axes.py``.
+_TRACK_AXES = ("particle", "track_step")
+
+
 
 class Modflow6PrtOutputAdapter:
     """Read MF6 PRT track CSV files and inject particle tracks into a catalog.
@@ -87,11 +94,17 @@ class Modflow6PrtOutputAdapter:
                 ("z", arrays.z),
                 ("time", arrays.time),
             ]:
-                particles_grp.create_array(name, data=arr, overwrite=True)
+                particles_grp.create_array(
+                    name, data=arr, dimension_names=_TRACK_AXES, overwrite=True
+                )
             if arrays.status is not None:
-                particles_grp.create_array("status", data=arrays.status, overwrite=True)
+                particles_grp.create_array(
+                    "status", data=arrays.status, dimension_names=_TRACK_AXES, overwrite=True
+                )
             if arrays.reason is not None:
-                particles_grp.create_array("reason", data=arrays.reason, overwrite=True)
+                particles_grp.create_array(
+                    "reason", data=arrays.reason, dimension_names=_TRACK_AXES, overwrite=True
+                )
             particles_grp.attrs["source_solver"] = self.solver_name
             particles_grp.attrs["source_file"] = csv_path.name
             particles_grp.attrs["source_time_units"] = arrays.source_time_units

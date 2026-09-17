@@ -124,7 +124,14 @@ class BoussinesqOutputAdapter:
             state_grp = grp.require_group("boussinesq_state")
             for key in payload.files:
                 arr = np.asarray(payload[key])
-                state_grp.create_array(key, data=arr, overwrite=True)
+                # A restart array shares no axis with its neighbours, so it
+                # names its own: an unnamed axis makes the store unopenable.
+                state_grp.create_array(
+                    key,
+                    data=arr,
+                    dimension_names=tuple(f"{key}_dim{axis}" for axis in range(arr.ndim)),
+                    overwrite=True,
+                )
             logger.debug("Persisted %d Boussinesq state arrays to store", len(payload.files))
         finally:
             sz.close()

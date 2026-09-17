@@ -16,6 +16,14 @@ from hydromodpy.solver.modflow_common.time_units import (
 
 logger = get_logger(__name__)
 
+# Axis names of the particle arrays, kept in sync with the store vocabulary of
+# ``results.field_registry`` (AXIS_PARTICLE, AXIS_TRACK_STEP, AXIS_ENDPOINT).
+# The layer matrix forbids ``solver`` importing ``results``, so the names are
+# repeated here and pinned by ``tests/unit/results/test_store_axes.py``.
+_TRACK_AXES = ("particle", "track_step")
+_ENDPOINT_AXES = ("endpoint",)
+
+
 
 class ModpathOutputAdapter:
     """Read MODPATH pathline / endpoint files and inject into a Catalog.
@@ -97,6 +105,7 @@ class ModpathOutputAdapter:
                 particles_grp.create_array(
                     name,
                     data=arr,
+                    dimension_names=_TRACK_AXES,
                     overwrite=True,
                 )
             particles_grp.attrs["source_solver"] = self.solver_name
@@ -135,26 +144,18 @@ class ModpathOutputAdapter:
         sz = store.open_zarr(sim_id)
         try:
             particles_grp = sz.root.require_group("particles")
-            particles_grp.create_array(
-                "endpoint_x",
-                data=all_data["x0"].astype("float64"),
-                overwrite=True,
-            )
-            particles_grp.create_array(
-                "endpoint_y",
-                data=all_data["y0"].astype("float64"),
-                overwrite=True,
-            )
-            particles_grp.create_array(
-                "endpoint_z",
-                data=all_data["z0"].astype("float64"),
-                overwrite=True,
-            )
-            particles_grp.create_array(
-                "endpoint_time",
-                data=all_data["time"].astype("float64") * to_tracking_unit,
-                overwrite=True,
-            )
+            for name, values in (
+                ("endpoint_x", all_data["x0"].astype("float64")),
+                ("endpoint_y", all_data["y0"].astype("float64")),
+                ("endpoint_z", all_data["z0"].astype("float64")),
+                ("endpoint_time", all_data["time"].astype("float64") * to_tracking_unit),
+            ):
+                particles_grp.create_array(
+                    name,
+                    data=values,
+                    dimension_names=_ENDPOINT_AXES,
+                    overwrite=True,
+                )
         finally:
             sz.close()
 

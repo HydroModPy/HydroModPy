@@ -11,7 +11,7 @@ Findings pinned, from ``red-fair.md``:
 ``test_a_stranger_opens_the_field_store_with_xarray``
     F1. ``xr.open_zarr`` raises on every run ever written because no array
     carries ``dimension_names``, and ``coordinates`` names two arrays that do
-    not exist.
+    not exist. Repaired by F1.
 ``test_the_field_store_metadata_is_valid_json``
     F2, F3. Bare ``NaN`` tokens make ``zarr.json`` invalid JSON, and the repair
     must not re-encode them as strings, which would break CF typing.
@@ -81,7 +81,6 @@ def _unix_account_names() -> set[str]:
     return {name for name in names if name}
 
 
-@pytest.mark.xfail(strict=True, reason="red-fair F1: no array declares dimension_names")
 def test_a_stranger_opens_the_field_store_with_xarray(produced_run: ProducedRun) -> None:
     """``xr.open_zarr`` opens the store and every axis has a name."""
     import xarray as xr
@@ -90,8 +89,12 @@ def test_a_stranger_opens_the_field_store_with_xarray(produced_run: ProducedRun)
     assert "head" in dataset.variables, f"no head variable, got {sorted(dataset.variables)}"
 
     arrays = _zarr_arrays(produced_run.field_store)
+    # A 0-d array (the CF grid mapping, the UGRID topology) has no axis to name,
+    # and Zarr stores an empty ``dimension_names`` as no names at all.
     undeclared = sorted(
-        name for name, array in arrays.items() if not array.metadata.dimension_names
+        name
+        for name, array in arrays.items()
+        if array.ndim and len(array.metadata.dimension_names or ()) != array.ndim
     )
     assert not undeclared, f"arrays without dimension_names: {undeclared}"
 
@@ -107,7 +110,6 @@ def test_a_stranger_opens_the_field_store_with_xarray(produced_run: ProducedRun)
     assert not missing_references, f"attributes naming absent arrays: {missing_references}"
 
 
-@pytest.mark.xfail(strict=True, reason="red-fair F2: bare NaN tokens in zarr.json")
 def test_the_field_store_metadata_is_valid_json(produced_run: ProducedRun) -> None:
     """Every ``zarr.json`` parses under RFC 8259, and no fill value is a string."""
 

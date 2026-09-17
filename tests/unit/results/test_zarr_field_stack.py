@@ -86,4 +86,5 @@ def test_stack_write_rejects_non_stack_input(fresh_store: SimulationZarr) -> Non
 def test_stack_write_attaches_cf_attrs(fresh_store: SimulationZarr) -> None:
     fresh_store.write_field_stack("head", np.zeros((3, 2, 50)))
     attrs = dict(fresh_store.root["head"].attrs)
-    assert "_FillValue" in attrs
+    assert np.isnan(fresh_store.root["head"].fill_value)
+    assert "_FillValue" not in attrs

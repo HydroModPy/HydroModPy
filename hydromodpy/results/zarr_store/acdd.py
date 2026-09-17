@@ -155,13 +155,6 @@ def compose_acdd_root_attrs(
             pick("standard_name_vocabulary") or "CF Standard Name Table v85"
         ),
         "cdm_data_type": str(pick("cdm_data_type") or "Grid"),
-        # Geospatial bounds (WGS84 by convention).
-        "geospatial_lat_min": lat_min,
-        "geospatial_lat_max": lat_max,
-        "geospatial_lon_min": lon_min,
-        "geospatial_lon_max": lon_max,
-        "geospatial_vertical_min": float(bounds.get("vertical_min", float("nan"))),
-        "geospatial_vertical_max": float(bounds.get("vertical_max", float("nan"))),
         # Units + resolution + bounds geometry (ACDD §2.6.4).
         "geospatial_lat_units": str(pick("geospatial_lat_units") or "degrees_north"),
         "geospatial_lat_resolution": str(pick("geospatial_lat_resolution")),
@@ -184,6 +177,20 @@ def compose_acdd_root_attrs(
         "hydromodpy_rng_seed": int(env["rng_seed"]) if env.get("rng_seed") is not None else -1,
         "zarr_schema_version": ZARR_SCHEMA_VERSION,
     }
+    # Geospatial bounds (WGS84 degrees by ACDD definition). An unknown bound is
+    # omitted, never written as NaN: JSON has no NaN token, so a bare one makes
+    # ``zarr.json`` unparseable for every strict reader, and the key would claim
+    # a coverage nobody computed.
+    for key, value in (
+        ("geospatial_lat_min", lat_min),
+        ("geospatial_lat_max", lat_max),
+        ("geospatial_lon_min", lon_min),
+        ("geospatial_lon_max", lon_max),
+        ("geospatial_vertical_min", float(bounds.get("vertical_min", float("nan")))),
+        ("geospatial_vertical_max", float(bounds.get("vertical_max", float("nan")))),
+    ):
+        if value == value:  # NaN check
+            attrs[key] = value
     return attrs
 
 

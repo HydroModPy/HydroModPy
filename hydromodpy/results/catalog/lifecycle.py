@@ -278,6 +278,7 @@ class LifecycleMixin:
                     try:
                         sim_row = self._fetch_simulation_row(sid)
                         runs_env = self._fetch_runs_environment_row(sid)
+                        sz.harmonize_axis_references()
                         sz.write_acdd_root_attrs(
                             sim_row=sim_row,
                             runs_env=runs_env,
