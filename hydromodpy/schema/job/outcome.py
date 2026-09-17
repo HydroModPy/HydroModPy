@@ -36,6 +36,16 @@ JobStatus = Literal["successful", "failed", "dismissed"]
 UNTYPED_ERROR_CODE = "HMPY.E000"
 """What an exception that is not one of ours is reported as."""
 
+UNIDENTIFIED_JOB = "urn:hmp:job:unidentified"
+"""The ``job_id`` of a job whose inputs never resolved.
+
+A job id is the digest of what was asked, so a request that could not be read
+or could not be validated has none: there is no resolved input mapping to
+address. Spelled as a urn rather than left empty, because an empty string in
+a document is read as a missing value and this one is a stated fact -- the
+job failed before it could be identified, and no reuse short-circuit may ever
+match it."""
+
 
 def now() -> str:
     """The one spelling of an instant in a job document."""
@@ -213,6 +223,7 @@ def dismissed(
 
 __all__ = [
     "OUTCOME_SCHEMA",
+    "UNIDENTIFIED_JOB",
     "UNTYPED_ERROR_CODE",
     "JobOutcome",
     "JobStatus",

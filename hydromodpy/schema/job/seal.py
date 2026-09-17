@@ -29,10 +29,10 @@ from hydromodpy.schema.job.documents import read_document, write_document
 from hydromodpy.schema.job.inputset import InputSet
 from hydromodpy.schema.job.layout import INPUTSET_FILENAME, SEALED_DOCUMENTS
 from hydromodpy.schema.job.outcome import OutputRecord, now
+from hydromodpy.schema.media_types import JSON_MEDIA_TYPE
 
 MANIFEST_SCHEMA = "hmp-manifest/v2"
 JOB_PROFILE = "job"
-JSON_MEDIA_TYPE = "application/json"
 
 
 @dataclass(frozen=True, slots=True)

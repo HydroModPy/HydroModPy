@@ -44,11 +44,18 @@ from hydromodpy.schema.job.layout import (
     SEALED_DOCUMENTS,
 )
 from hydromodpy.schema.job.outcome import (
+    UNIDENTIFIED_JOB,
     JobOutcome,
     JobStatus,
     OutputRecord,
     dismissed,
     error_record,
+    now,
+)
+from hydromodpy.schema.job.provenance import (
+    PROVENANCE_SCHEMA,
+    build_provenance,
+    write_provenance,
 )
 from hydromodpy.schema.job.refusal import refuse_request
 from hydromodpy.schema.job.request import (
@@ -82,17 +89,21 @@ __all__ = [
     "Licence",
     "LicenceRollup",
     "OutputRecord",
+    "PROVENANCE_SCHEMA",
     "ProcessRef",
     "SEALED_DOCUMENTS",
     "SealVerification",
     "UNDETERMINED",
+    "UNIDENTIFIED_JOB",
     "build_inputset",
+    "build_provenance",
     "check_process",
     "content_address",
     "dismissed",
     "error_record",
     "file_resource",
     "inline_resource",
+    "now",
     "read_document",
     "read_request",
     "refuse_request",
@@ -105,4 +116,5 @@ __all__ = [
     "validate_inputs",
     "verify_job",
     "write_document",
+    "write_provenance",
 ]
