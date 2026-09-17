@@ -219,6 +219,25 @@ def test_checksum_drift_names_the_repair_command(versions_dir: Path) -> None:
         connection.close()
 
 
+def test_a_failing_migration_names_the_repair_command(versions_dir: Path) -> None:
+    """A migration can fail on the data it finds, not only on broken SQL.
+
+    A constraint an existing database violates is exactly that case, and the
+    message has to say how to get out of it: without the hint the file looks
+    bricked, when every index here is rebuildable from disk.
+    """
+    _write(versions_dir, 1, "alpha", "CREATE TABLE alpha (id INTEGER);")
+    connection = duckdb.connect(":memory:")
+    try:
+        ensure_schema(connection, versions_dir=versions_dir, component="catalog")
+        connection.execute("INSERT INTO alpha VALUES (1), (1)")
+        _write(versions_dir, 2, "unique_alpha", "CREATE UNIQUE INDEX ux_alpha ON alpha(id);")
+        with pytest.raises(MigrationExecutionError, match="hmp catalog reindex"):
+            ensure_schema(connection, versions_dir=versions_dir, component="catalog")
+    finally:
+        connection.close()
+
+
 def test_every_component_has_a_repair_hint() -> None:
     assert "hmp catalog reindex" in repair_hint_for("catalog")
     assert "hmp workspace register" in repair_hint_for("index")

@@ -212,7 +212,8 @@ def apply_migration(
         connection.execute("ROLLBACK")
         raise MigrationExecutionError(
             f"Failed to apply migration {migration.version:04d}_{migration.slug} "
-            f"for component {component!r}: {exc}"
+            f"for component {component!r}: {exc}. "
+            f"To repair, {repair_hint_for(component)}."
         ) from exc
 
     if post_apply is not None:
