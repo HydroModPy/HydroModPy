@@ -168,7 +168,7 @@ TERRAIN_DELINEATE = CapabilityDecl(
         ),
         OutputDecl(
             id="outlets_snapped",
-            title="Outlets after snapping, with the snap distance of each",
+            title="Every declared outlet, its status and the snap distance of each",
             path=OUTLETS_SNAPPED_PATH,
             media_type=GEOJSON_MEDIA_TYPE,
             roles=("data",),

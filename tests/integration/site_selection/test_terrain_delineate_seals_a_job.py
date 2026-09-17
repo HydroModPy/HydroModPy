@@ -27,7 +27,8 @@ from hydromodpy.cli.helpers import (
     EXIT_VALIDATION,
     exit_code_for,
 )
-from hydromodpy.schema.job import JobDirectory, read_document, verify_job
+from hydromodpy.core.exceptions import DataContractViolation, JobUsageError
+from hydromodpy.schema.job import UNIDENTIFIED_JOB, JobDirectory, read_document, verify_job
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.layout import ALLOWED_JOB_ENTRIES
 from hydromodpy.spatial.site_selection.hydrology.capability import TERRAIN_DELINEATE
@@ -160,9 +161,46 @@ def test_the_snapped_outlets_are_published_in_the_one_geojson_crs(sealed_job):
     assert -180.0 <= longitude <= 180.0
     assert -90.0 <= latitude <= 90.0
     assert feature["properties"]["site_id"] == "valley"
+    assert feature["properties"]["status"] == "delineated"
     assert feature["properties"]["x_outlet"] == OUTLET_X
     assert feature["properties"]["x_snapped"] != OUTLET_X
     assert feature["properties"]["snap_distance_m"] > 0.0
+
+
+def test_an_outlet_that_produced_nothing_is_named_in_a_declared_artefact(tmp_path):
+    """A partial batch succeeds, and says which outlets produced no catchment.
+
+    Refusing the whole job over one bad coordinate would throw away the work
+    of every other outlet. Reporting the loss only in the prose of
+    ``warnings`` would make a machine parse sentences to find out what it
+    got, which is the defect the roll call exists to close.
+    """
+    job = _staged(
+        tmp_path,
+        _request(
+            inputs={
+                "outlets": [
+                    {"site_id": "valley", "x": OUTLET_X, "y": OUTLET_Y},
+                    {"site_id": "elsewhere", "x": 0.0, "y": 0.0},
+                ]
+            }
+        ),
+    )
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "successful"
+    assert job.is_sealed
+    payload = json.loads((job.outputs_dir / "outlets_snapped.geojson").read_text(encoding="utf-8"))
+    by_site = {one["properties"]["site_id"]: one["properties"] for one in payload["features"]}
+    assert set(by_site) == {"valley", "elsewhere"}
+    assert by_site["valley"]["status"] == "delineated"
+    assert by_site["elsewhere"]["status"] != "delineated"
+    assert by_site["elsewhere"]["failure_reason"]
+    assert by_site["elsewhere"]["snap_distance_m"] is None
+    # The catchment layer holds the outlets that produced a polygon, and only those.
+    assert list(gpd.read_file(job.outputs_dir / "watershed.gpkg")["site_id"]) == ["valley"]
+    assert any("elsewhere" in warning for warning in outcome.warnings)
 
 
 def test_the_provenance_names_the_engine_that_did_the_work(sealed_job):
@@ -272,6 +310,69 @@ def test_an_envelope_member_this_process_ignores_is_a_warning_not_a_refusal(tmp_
 
     assert outcome.status == "successful"
     assert any("subscriber" in warning for warning in outcome.warnings)
+
+
+def test_a_failure_after_the_inputs_resolved_keeps_the_job_id(tmp_path, monkeypatch):
+    """A job that failed at its work is still the job that was asked for.
+
+    The content address is computed before anything runs, so an outcome that
+    reported ``unidentified`` after the terrain engine failed would throw away
+    an id the process already held -- and with it every chance for a caller to
+    match the failure against the request that caused it.
+    """
+    from hydromodpy.spatial.site_selection.hydrology import worker
+
+    def explode(*args, **kwargs):
+        raise RuntimeError("the engine gave up")
+
+    monkeypatch.setattr(worker, "_produce", explode)
+    job = _staged(tmp_path, _request())
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "failed"
+    assert outcome.job_id.startswith("sha256:")
+    assert outcome.job_id == run_job_id_of(tmp_path)
+
+
+def run_job_id_of(tmp_path: Path) -> str:
+    """The job id the same request carries when it succeeds."""
+    job = _staged(tmp_path, _request(), name="reference")
+    return run(job, exit_code_for=exit_code_for).job_id
+
+
+def test_a_request_whose_inputs_never_resolved_carries_no_job_id(tmp_path):
+    job = _staged(tmp_path, _request(inputs={"dem": {"href": "absent.tif"}}))
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.job_id == UNIDENTIFIED_JOB
+
+
+def test_a_sealed_directory_is_refused_rather_than_run_over(sealed_job):
+    """One job, one directory. A second run would overwrite a finished seal."""
+    job, first = sealed_job
+    before = job.manifest_path.read_bytes()
+
+    with pytest.raises(JobUsageError):
+        run(job, exit_code_for=exit_code_for)
+
+    assert job.manifest_path.read_bytes() == before
+    assert read_document(job.outcome_path)["job_id"] == first.job_id
+
+
+def test_a_dem_that_is_not_a_raster_is_bad_input_and_not_an_internal_bug(tmp_path):
+    """Exit 1 means "report this as a bug here". A text file is not that."""
+    impostor = tmp_path / "not-a-raster.tif"
+    impostor.write_text("elevation, more or less\n", encoding="utf-8")
+    job = _staged(tmp_path, _request(inputs={"dem": {"href": str(impostor)}}))
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "failed"
+    assert outcome.exit_code == EXIT_VALIDATION
+    assert outcome.errors[0]["code"] == DataContractViolation.code
+    assert not job.is_sealed
 
 
 @pytest.mark.allow_subprocess

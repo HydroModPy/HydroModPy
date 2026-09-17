@@ -34,14 +34,20 @@ different contracts. The caller that owns the process owns the mapping.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, cast
 
 import geopandas as gpd
 import pandas as pd
+import rasterio
 
-from hydromodpy.core.exceptions import DataContractViolation, EmptyCatchmentError
+from hydromodpy.core.exceptions import (
+    DataContractViolation,
+    EmptyCatchmentError,
+    JobUsageError,
+)
 from hydromodpy.core.io.geoparquet import write_geoparquet_atomic
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.directory import JobDirectory
@@ -113,23 +119,51 @@ DELINEATED = "delineated"
 """The status ``try_delineate_candidate_outlet`` gives an outlet that worked."""
 
 
+@dataclass(frozen=True, slots=True)
+class _Resolved:
+    """What the request resolved to, before anything is written."""
+
+    inputs: TerrainDelineateRequest
+    dem_path: Path
+    dem_digest: str
+    dem_bytes: int
+    effective_inputs: dict[str, Any]
+    job_id: str
+    warnings: tuple[str, ...]
+
+
 def run(job: JobDirectory, *, exit_code_for: ExitCodeMapper) -> JobOutcome:
     """Execute ``terrain-delineate`` inside *job* and return what happened.
 
     Writes ``outcome.json`` in every case. Writes ``manifest.json`` only when
     the job succeeded and every declared output is on disk and hashed, which
     is the one invariant a caller outside this process relies on.
+
+    Refuses a directory that is already sealed, before touching anything: the
+    invocation contract gives one job one directory, and re-running over a
+    finished one would overwrite a seal, a job id and a set of outputs that
+    somebody else may already have read.
     """
+    if job.is_sealed:
+        # Raised outside the try on purpose. Turning this into a failed
+        # outcome would overwrite the outcome of the job that did finish,
+        # which is the very document this refusal exists to protect.
+        raise JobUsageError(
+            f"job directory {job.root} is already sealed; a job directory holds one job"
+        )
     started_at = now()
     decl = TERRAIN_DELINEATE
+    job_id = UNIDENTIFIED_JOB
     try:
-        return _run_inside(job, started_at=started_at)
+        resolved = _resolve(job)
+        job_id = resolved.job_id
+        return _execute(job, resolved, started_at=started_at)
     except KeyboardInterrupt as exc:
         # TerminationRequested subclasses KeyboardInterrupt, so SIGTERM and
         # Ctrl+C unwind through the same branch. Nothing is sealed: a
         # cancelled directory is readable and explicitly unfinished.
         outcome = dismissed(
-            job_id=UNIDENTIFIED_JOB,
+            job_id=job_id,
             process_id=decl.id,
             process_version=decl.version,
             started_at=started_at,
@@ -139,7 +173,7 @@ def run(job: JobDirectory, *, exit_code_for: ExitCodeMapper) -> JobOutcome:
         raise
     except Exception as exc:
         outcome = JobOutcome(
-            job_id=UNIDENTIFIED_JOB,
+            job_id=job_id,
             process_id=decl.id,
             process_version=decl.version,
             status="failed",
@@ -152,8 +186,12 @@ def run(job: JobDirectory, *, exit_code_for: ExitCodeMapper) -> JobOutcome:
         return outcome
 
 
-def _run_inside(job: JobDirectory, *, started_at: str) -> JobOutcome:
-    """The body of :func:`run`, with every refusal free to propagate."""
+def _resolve(job: JobDirectory) -> _Resolved:
+    """Read and check the request, and address the work it asks for.
+
+    Everything here happens before a byte is written into the job, so a
+    refusal leaves the directory exactly as the caller staged it.
+    """
     decl = TERRAIN_DELINEATE
     request = read_request(job)
     warnings = list(check_process(request, decl))
@@ -171,16 +209,30 @@ def _run_inside(job: JobDirectory, *, started_at: str) -> JobOutcome:
     dem_path = _resolve_dem(job, inputs)
     dem_digest, dem_bytes = sha256_file(dem_path)
     _refuse_a_dem_that_is_not_the_one_asked_for(inputs, digest=dem_digest)
+    _refuse_a_dem_that_is_not_a_raster(inputs, path=dem_path)
 
     effective_inputs = _effective_inputs(inputs, dem_digest=dem_digest)
-    job_id = content_address(
-        process_id=decl.id,
-        process_version=decl.version,
-        inputs=effective_inputs,
+    return _Resolved(
+        inputs=inputs,
+        dem_path=dem_path,
+        dem_digest=dem_digest,
+        dem_bytes=dem_bytes,
+        effective_inputs=effective_inputs,
+        job_id=content_address(
+            process_id=decl.id,
+            process_version=decl.version,
+            inputs=effective_inputs,
+        ),
+        warnings=tuple(warnings),
     )
 
+
+def _execute(job: JobDirectory, resolved: _Resolved, *, started_at: str) -> JobOutcome:
+    """Do the work of a resolved request and seal what it produced."""
+    decl = TERRAIN_DELINEATE
     job.ensure_workspace()
-    catchments = _produce(job, inputs, dem_path=dem_path)
+    catchments = _produce(job, resolved.inputs, dem_path=resolved.dem_path)
+    warnings = list(resolved.warnings)
     warnings.extend(
         f"outlet {catchment.site_id!r} was not delineated: {catchment.failure_reason}"
         for catchment in catchments
@@ -188,16 +240,16 @@ def _run_inside(job: JobDirectory, *, started_at: str) -> JobOutcome:
     )
 
     inputset = _build_inputset(
-        dem_digest=dem_digest,
-        dem_bytes=dem_bytes,
-        inputs=inputs,
-        effective_inputs=effective_inputs,
+        dem_digest=resolved.dem_digest,
+        dem_bytes=resolved.dem_bytes,
+        inputs=resolved.inputs,
+        effective_inputs=resolved.effective_inputs,
     )
     write_document(job.inputset_path, inputset.to_document())
     write_provenance(
         job,
         build_provenance(
-            job_id=job_id,
+            job_id=resolved.job_id,
             process_id=decl.id,
             process_version=decl.version,
             backend=_backend_identity(),
@@ -206,7 +258,7 @@ def _run_inside(job: JobDirectory, *, started_at: str) -> JobOutcome:
 
     records = _output_records(job)
     outcome = JobOutcome(
-        job_id=job_id,
+        job_id=resolved.job_id,
         process_id=decl.id,
         process_version=decl.version,
         status="successful",
@@ -219,7 +271,7 @@ def _run_inside(job: JobDirectory, *, started_at: str) -> JobOutcome:
         warnings=tuple(warnings),
     )
     outcome.write(job)
-    seal_job(job, job_id=job_id, inputset=inputset, outputs=records)
+    seal_job(job, job_id=resolved.job_id, inputset=inputset, outputs=records)
     return outcome
 
 
@@ -244,6 +296,31 @@ def _refuse_a_dem_that_is_not_the_one_asked_for(
         raise DataContractViolation(
             f"input dem {inputs.dem.href!r} hashes to {digest} and the request pinned "
             f"{declared.lower()}; the bytes are not the ones the job asked for"
+        )
+
+
+def _refuse_a_dem_that_is_not_a_raster(inputs: TerrainDelineateRequest, *, path: Path) -> None:
+    """Refuse a declared DEM that no raster reader can open as one band.
+
+    The check is here, on the input, and not around the chain: a failure the
+    engine raises is the backend failing, and a file that is not a raster is
+    bad input. Without it a text file handed as ``dem`` surfaced as an
+    untyped ``HMPY.E000`` and exit 1, the code whose whole meaning is "this
+    is a bug in HydroModPy, report it".
+    """
+    try:
+        with rasterio.open(str(path)) as source:
+            band_count = source.count
+    except rasterio.errors.RasterioError as exc:
+        raise DataContractViolation(
+            f"input dem {inputs.dem.href!r} cannot be opened as a raster: {exc}"
+        ) from exc
+    except OSError as exc:
+        raise DataContractViolation(f"input dem {inputs.dem.href!r} cannot be read: {exc}") from exc
+    if band_count < 1:
+        raise DataContractViolation(
+            f"input dem {inputs.dem.href!r} carries {band_count} band(s); "
+            "an elevation model carries at least one"
         )
 
 
@@ -297,7 +374,7 @@ def _produce(
                 "check that they fall inside the DEM and widen snap_distance_m"
             )
         _write_watersheds(job, delineated, crs=inputs.crs_project)
-        _write_snapped_outlets(job, delineated, crs=inputs.crs_project)
+        _write_outlet_roll_call(job, catchments, crs=inputs.crs_project)
 
     _rename_rasters(job, dem_correction_type=inputs.dem_correction_type)
     return catchments
@@ -333,33 +410,55 @@ def _write_watersheds(
     write_geoparquet_atomic(frame, job.resolve_output(WATERSHED_TABLE_PATH))
 
 
-def _write_snapped_outlets(
+def _write_outlet_roll_call(
     job: JobDirectory, catchments: Sequence[DelineatedCatchment], *, crs: str
 ) -> None:
-    """Publish where each delineation really started, in the one GeoJSON CRS."""
+    """Publish one feature per **declared** outlet, delineated or not.
+
+    Every outlet the request named appears here, carrying ``status`` and,
+    when it failed, ``failure_reason``. A batch of ten outlets of which three
+    produced nothing is a legitimate success -- refusing the whole job over
+    one bad coordinate would throw away the seven that worked -- but a caller
+    must be able to find out which three, by reading an artefact rather than
+    by parsing the prose of ``warnings``. That is why the roll call is this
+    layer and not the catchment layer: a rejected outlet has no polygon.
+
+    A rejected outlet's point is the coordinate the request declared, because
+    it was never snapped to anything.
+    """
     rows = []
     for catchment in catchments:
         snapped = snapped_outlet_xy(catchment)
+        delineated = catchment.status == DELINEATED
         x, y = snapped if snapped is not None else (catchment.outlet.x, catchment.outlet.y)
         rows.append(
             {
                 "site_id": catchment.site_id,
+                "status": catchment.status,
+                "failure_reason": catchment.failure_reason,
                 "crs_project": crs,
                 "x_outlet": float(catchment.outlet.x),
                 "y_outlet": float(catchment.outlet.y),
-                "x_snapped": float(x),
-                "y_snapped": float(y),
-                "snap_distance_m": outlet_snap_distance_m(catchment),
+                "x_snapped": float(x) if delineated else None,
+                "y_snapped": float(y) if delineated else None,
+                "snap_distance_m": outlet_snap_distance_m(catchment) if delineated else None,
             }
         )
     frame = gpd.GeoDataFrame(
         pd.DataFrame(rows),
         geometry=gpd.points_from_xy(
-            [row["x_snapped"] for row in rows], [row["y_snapped"] for row in rows]
+            [_or_declared(row, "x") for row in rows],
+            [_or_declared(row, "y") for row in rows],
         ),
         crs=crs,
     ).to_crs(GEOJSON_CRS)
     frame.to_file(job.resolve_output(OUTLETS_SNAPPED_PATH), driver="GeoJSON")
+
+
+def _or_declared(row: dict[str, Any], axis: str) -> float:
+    """Return the snapped coordinate of a roll-call row, or the declared one."""
+    snapped = row[f"{axis}_snapped"]
+    return float(row[f"{axis}_outlet"] if snapped is None else snapped)
 
 
 def _rename_rasters(job: JobDirectory, *, dem_correction_type: str) -> None:
