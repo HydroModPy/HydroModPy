@@ -118,6 +118,24 @@ class TestADirectoryThatCannotBeRead:
         with pytest.raises(JobUsageError, match="cannot be read as an outcome"):
             reuse_sealed_outcome(sealed, job_id=JOB_ID)
 
+    def test_an_outcome_without_the_reuse_member_is_refused_by_both_readers(self, sealed):
+        """Merging into a mapping that lacks the member **appends** it.
+
+        The claim of this module is that stdout differs from the file by one
+        member and no other. A document that does not carry ``reused`` would be
+        rendered one line longer instead of one line different, and nothing
+        downstream re-reads the two together to notice. So it is refused, at
+        both entry points, rather than served.
+        """
+        document = read_document(sealed.outcome_path)
+        del document[REUSED_MEMBER]
+        write_document(sealed.outcome_path, document)
+
+        with pytest.raises(JobUsageError, match="cannot be read as an outcome"):
+            reuse_sealed_outcome(sealed, job_id=JOB_ID)
+        with pytest.raises(JobUsageError, match="carries no 'reused' member"):
+            reused_outcome_text(sealed)
+
     def test_a_status_a_capability_never_writes_is_refused(self, sealed):
         """``accepted`` and ``running`` describe a job before the process starts.
 

@@ -72,8 +72,20 @@ def reused_outcome_text(job: JobDirectory) -> str:
     a parsed object would make stdout the output of this repository's writer
     instead of the file itself. Substituting one member of a mapping that
     already carries it leaves every other member, and their order, alone.
+
+    "That already carries it" is the whole reason for the refusal below.
+    Merging into a mapping that does **not** carry the member appends it at the
+    end instead of changing it in place, so a document written by anything but
+    this contract would turn "exactly one member differs" into two documents
+    with different lengths -- silently, since nothing downstream re-reads them
+    together.
     """
     document = _document(job, job.outcome_path)
+    if REUSED_MEMBER not in document:
+        raise JobUsageError(
+            f"job directory {job.root} is sealed and its {job.outcome_path.name} carries "
+            f"no {REUSED_MEMBER!r} member; it was not written by this contract"
+        )
     return render_document({**document, REUSED_MEMBER: True})
 
 

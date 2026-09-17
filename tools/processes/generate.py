@@ -43,6 +43,7 @@ from hydromodpy.config.schema_export import export_schema, extract_property_sche
 from hydromodpy.core.exceptions import JobUsageError
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
 from hydromodpy.schema.job.layout import OUTCOME_FILENAME, REQUEST_FILENAME
+from hydromodpy.schema.job.outcome import DISMISSED_STATUS
 from hydromodpy.schema.job.reuse import REUSED_MEMBER
 from hydromodpy.schema.processes import (
     INDEX_FILENAME,
@@ -61,9 +62,6 @@ OUTPUT_TRANSMISSION = ("reference",)
 """Artefacts stay on disk under the job directory; nothing is inlined."""
 
 JOB_DIR_PLACEHOLDER = "{jobdir}"
-
-DISMISSED_STATUS = "dismissed"
-"""The status a cancelled job writes. Pinned to ``JobStatus`` by the gate."""
 
 
 def _write_if_changed(path: Path, content: str) -> bool:

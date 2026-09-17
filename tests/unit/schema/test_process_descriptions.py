@@ -17,7 +17,13 @@ from hydromodpy.cli._workers.process import capability_decls, capability_ids, de
 from hydromodpy.cli.helpers import exit_code_for
 from hydromodpy.core.exceptions import JobUsageError
 from hydromodpy.schema.capability import NAMES_THE_JOB_DOES_NOT_PRODUCE
-from hydromodpy.schema.job.outcome import JobStatus
+from hydromodpy.schema.job.outcome import (
+    DISMISSED_STATUS,
+    UNIDENTIFIED_JOB,
+    JobStatus,
+    dismissed,
+    now,
+)
 from hydromodpy.schema.processes import (
     INDEX_FILENAME,
     described_ids,
@@ -25,7 +31,7 @@ from hydromodpy.schema.processes import (
     read_description,
     read_index,
 )
-from tools.processes.generate import DESCRIPTIONS_DIR, DISMISSED_STATUS, render_all
+from tools.processes.generate import DESCRIPTIONS_DIR, render_all
 
 REFRESH = "python -m tools.processes"
 
@@ -149,8 +155,24 @@ def test_the_writable_locations_are_a_list_and_not_a_boolean(decl) -> None:
     assert isinstance(declared, list)
 
 
-def test_the_cancelled_status_the_generator_writes_is_one_a_job_can_carry() -> None:
+def test_the_cancelled_status_the_generator_writes_is_the_one_a_job_really_writes() -> None:
+    """Against the writer, not against the type.
+
+    The constant now lives in ``schema/job/outcome.py`` and is annotated
+    ``JobStatus``, so checking it against the type is a tautology a type checker
+    already refuses to let fail. What can still drift is the document: this
+    builds a cancelled outcome and reads the status off it.
+    """
     assert DISMISSED_STATUS in get_args(JobStatus)
+    cancelled = dismissed(
+        job_id=UNIDENTIFIED_JOB,
+        process_id="demo-delineate",
+        process_version="1.2.3",
+        started_at=now(),
+        exc=KeyboardInterrupt(),
+    )
+
+    assert cancelled.to_document()["status"] == DISMISSED_STATUS
 
 
 @pytest.mark.parametrize("decl", capability_decls(), ids=lambda decl: decl.id)

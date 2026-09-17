@@ -33,6 +33,15 @@ OUTCOME_SCHEMA = "hmp-outcome/v1"
 
 JobStatus = Literal["successful", "failed", "dismissed"]
 
+DISMISSED_STATUS: JobStatus = "dismissed"
+"""What a cancelled job writes, and the only status a signal may publish.
+
+A process that exits on a signal exits 130, and the document it puts on stdout
+has to agree with that. Spelled once here because three places need it: the
+constructor of a dismissed outcome, the runtime that decides what a cancelled
+invocation prints, and the generated process description.
+"""
+
 UNTYPED_ERROR_CODE = "HMPY.E000"
 """What an exception that is not one of ours is reported as."""
 
@@ -216,6 +225,13 @@ class JobOutcome:
         The status is checked against the type rather than left to
         :meth:`_refuse_a_status_that_contradicts_itself`, which would read an
         ``accepted`` job exiting 130 as a dismissed one.
+
+        ``reused`` is required and not defaulted, although :meth:`to_document`
+        always writes it. A document that omits it was not written by this
+        contract, and the reuse path substitutes that member into the bytes on
+        disk: defaulting it here would accept a document that the substitution
+        would then **append** to rather than change, turning "exactly one member
+        differs" into a statement nothing keeps.
         """
         process = document.get("process")
         if not isinstance(process, Mapping):
@@ -236,7 +252,7 @@ class JobOutcome:
             ),
             warnings=tuple(str(entry) for entry in document.get("warnings", ())),
             errors=tuple(dict(entry) for entry in document.get("errors", ())),
-            reused=bool(document.get("reused", False)),
+            reused=bool(document["reused"]),
         )
 
     def write(self, job: JobDirectory) -> Path:
@@ -263,7 +279,7 @@ def dismissed(
         job_id=job_id,
         process_id=process_id,
         process_version=process_version,
-        status="dismissed",
+        status=DISMISSED_STATUS,
         exit_code=130,
         started_at=started_at,
         finished_at=now(),
@@ -273,6 +289,7 @@ def dismissed(
 
 
 __all__ = [
+    "DISMISSED_STATUS",
     "OUTCOME_SCHEMA",
     "UNIDENTIFIED_JOB",
     "UNTYPED_ERROR_CODE",

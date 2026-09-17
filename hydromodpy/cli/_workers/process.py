@@ -13,6 +13,7 @@ declarations named here by ``python -m tools.processes``.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,7 +24,7 @@ from hydromodpy.core.exceptions import JobUsageError
 from hydromodpy.core.interrupts import terminate_as_interrupt
 from hydromodpy.schema.capability import CapabilityDecl
 from hydromodpy.schema.job.directory import JobDirectory
-from hydromodpy.schema.job.outcome import JobOutcome
+from hydromodpy.schema.job.outcome import DISMISSED_STATUS, JobOutcome
 from hydromodpy.schema.job.reuse import reused_outcome_text
 from hydromodpy.schema.job.seal import SealVerification, verify_job
 
@@ -154,7 +155,7 @@ def run_capability(capability_id: str, job_dir: str | Path) -> tuple[int, str]:
         try:
             outcome = entry.run(job, exit_code_for=exit_code_for)
         except KeyboardInterrupt:
-            return EXIT_SIGINT, _outcome_text(job)
+            return EXIT_SIGINT, _dismissed_text(job)
     if outcome.reused:
         return outcome.exit_code, reused_outcome_text(job)
     return outcome.exit_code, _outcome_text(job)
@@ -165,6 +166,30 @@ def _outcome_text(job: JobDirectory) -> str:
     if not job.outcome_path.is_file():
         return ""
     return job.outcome_path.read_text(encoding="utf-8")
+
+
+def _dismissed_text(job: JobDirectory) -> str:
+    """The outcome of a cancelled job, and nothing when the file is another's.
+
+    A capability writes its dismissed outcome as it unwinds, and that document
+    is what a cancelled invocation puts on stdout. But a cancellation can also
+    land in a branch that writes nothing and must not: resolving a request
+    against a directory that is **already sealed**. There the file on disk is
+    the finished job's outcome, saying ``successful`` and 0, and printing it
+    beside exit 130 would hand a caller a document that contradicts the code it
+    was given -- the one thing this verb exists to make impossible.
+
+    So the rule is stated rather than assumed: a process exiting on a signal
+    publishes a dismissed document, or none at all.
+    """
+    text = _outcome_text(job)
+    if not text:
+        return ""
+    try:
+        document = json.loads(text)
+    except json.JSONDecodeError:
+        return ""
+    return text if document.get("status") == DISMISSED_STATUS else ""
 
 
 def verify_capability_job(job_dir: str | Path) -> SealVerification:
