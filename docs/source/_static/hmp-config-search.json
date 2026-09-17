@@ -16928,7 +16928,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-name",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L50",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L51",
     "description": "Protocol identifier."
   },
   {
@@ -16940,7 +16940,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-version",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L53",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L54",
     "description": "Recipe version this file was written against. Unset runs the version this installation carries; pinned, a mismatch is refused rather than approximated, so a result that informed a decision stays replayable."
   },
   {
@@ -16952,7 +16952,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-conductivity",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L61",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L62",
     "description": "Name of the calibration parameter stage one moves, as the file declares it under [calibration.parameters]."
   },
   {
@@ -16964,7 +16964,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-storage",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L66",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L67",
     "description": "Name of the calibration parameter stage two moves. Null runs the network stage alone, which is a method in its own right: it identifies the conductivity without any discharge record."
   },
   {
@@ -16976,7 +16976,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-network-output",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L73",
     "description": "Name of the network output stage one is scored on. Unset picks the single output declared with support='network'."
   },
   {
@@ -16988,7 +16988,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-steady-metric",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L77",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L78",
     "description": "Criterion of stage one. 'distance_gap' is the signed difference of Eq. 1, whose zero is the balance the paper solves for. 'distance_mean' is the mean offset: a diagnostic, and the estimator of the reference script, whose interior minimum si"
   },
   {
@@ -17000,7 +17000,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-steady-method",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L84",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L85",
     "description": "Engine of stage one. The signed criterion crosses zero once over several decades, which is what a root search wants; any registered engine is accepted."
   },
   {
@@ -17012,7 +17012,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-steady-max-iter",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L90",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L91",
     "description": "Evaluation budget of stage one."
   },
   {
@@ -17024,7 +17024,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-steady-tolerance",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L95",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L96",
     "description": "How precisely stage one has to pin the conductivity before it stops, as a relative precision on the conductivity: 0.01 is the paper's one per cent. Unset takes the engine's default, which for the bisection is that same one per cent."
   },
   {
@@ -17036,7 +17036,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-steady-engine-options",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L102",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L103",
     "description": "Options of the stage-one engine itself, named as that engine names them. Which ones exist depends on steady_method, and the model of each engine is in calibration.optim.method_config. A key the engine does not know is refused before the fir"
   },
   {
@@ -17048,7 +17048,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-steady-window",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L111",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L112",
     "description": "Dates the steady stage averages, as {start, end}. Unset takes the whole [simulation.time] window."
   },
   {
@@ -17060,7 +17060,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-transient-metric",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L116",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L117",
     "description": "Criterion of stage two. The default weights recessions as heavily as peaks, which is where storage shows."
   },
   {
@@ -17072,7 +17072,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-transient-method",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L121",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L122",
     "description": "Engine of stage two."
   },
   {
@@ -17084,7 +17084,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-transient-max-iter",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L125",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L126",
     "description": "Evaluation budget of stage two."
   },
   {
@@ -17096,7 +17096,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-transient-tolerance",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L130",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L131",
     "description": "How precisely stage two has to pin the storage before it stops, as a relative precision on the storage coefficient."
   },
   {
@@ -17108,7 +17108,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-transient-engine-options",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L135",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L136",
     "description": "Options of the stage-two engine itself, named as that engine names them, and refused when it does not know them. Which ones exist depends on transient_method."
   },
   {
@@ -17120,7 +17120,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-discharge-variable",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L141",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L142",
     "description": "Observed variable stage two is scored on."
   },
   {
@@ -17132,7 +17132,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-observed-station-id",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L145",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L146",
     "description": "Gauge whose cost drives stage two. Required when several stations are loaded."
   },
   {
@@ -17144,7 +17144,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol-scoring-window",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L149",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L150",
     "description": "Dates bounding the samples stage two scores on, as {start, end}. Use it to drop the spin-up year the transient stage still has to simulate."
   },
   {

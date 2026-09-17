@@ -70,9 +70,20 @@ def expand_calibration_protocol(document: Mapping[str, Any]) -> dict[str, Any]:
             f"got {type(declaration).__name__}."
         )
 
-    expanded = get_protocol(name).expand(options, document)
-
     already_written = [key for key in _WRITTEN_SECTIONS if calibration.get(key)]
+    try:
+        expanded = get_protocol(name).expand(options, document)
+    except ValueError as exc:
+        if not already_written:
+            raise
+        joined = ", ".join(f"[calibration].{key}" for key in already_written)
+        raise ValueError(
+            f"[calibration].protocol = {name!r} writes {joined}, and this file declares "
+            "them as well, so they have to be compared against what the protocol would "
+            f"write -- which it cannot write here: {exc} Keep one: drop the protocol to "
+            "write the stages by hand, or drop the stages to let the protocol write them."
+        ) from exc
+
     contradicted = [
         key
         for key in already_written

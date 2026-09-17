@@ -22,6 +22,7 @@ conductivity identifiable there.
 from __future__ import annotations
 
 import copy
+import datetime
 from collections.abc import Mapping
 from typing import Annotated, Any, Literal
 
@@ -397,17 +398,25 @@ def _canonical_instant(value: Any, source: str) -> str:
     a file chose: a run re-read from its own sealed config expands to the stages
     it ran, not to stages that differ by a rendered midnight.
 
-    The spelling is a function of the instant alone. A bound that falls on
+    The spelling is a function of the instant alone. A naive bound that falls on
     midnight is written as its date, because a steady window is read in days and
-    that is the half of the span that carries information.
+    that is the half of the span that carries information. A bound carrying an
+    offset keeps its offset: dropping it would move the instant by that much,
+    silently, and two offsets apart would collapse onto the same date.
+
+    Only a date, a datetime or a string is read. A bare number is not a
+    misspelling of an instant, it is a different kind of value, and pandas would
+    take it for nanoseconds since the epoch.
     """
+    if not isinstance(value, (str, datetime.date, datetime.datetime, pd.Timestamp)):
+        raise ValueError(f"{source} is not an instant this protocol can read: {value!r}.")
     try:
         stamp = pd.Timestamp(value)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{source} is not an instant this protocol can read: {value!r}.") from exc
     if stamp is pd.NaT:
         raise ValueError(f"{source} is not an instant this protocol can read: {value!r}.")
-    if stamp == stamp.normalize():
+    if stamp.tzinfo is None and stamp == stamp.normalize():
         return stamp.strftime("%Y-%m-%d")
     return stamp.isoformat()
 
@@ -448,7 +457,14 @@ def _steady_window(
 def _phases(
     opts: MatchingHydrographicNetworkOptions, *, steady_start: str, steady_end: str
 ) -> list[dict[str, Any]]:
-    span_days = (pd.Timestamp(steady_end) - pd.Timestamp(steady_start)).days + 1
+    start, end = pd.Timestamp(steady_start), pd.Timestamp(steady_end)
+    if (start.tzinfo is None) != (end.tzinfo is None):
+        raise ValueError(
+            f"the steady stage spans {steady_start} to {steady_end}, where one bound "
+            "carries a UTC offset and the other does not, so the span is undefined. "
+            "Write both with an offset, or neither."
+        )
+    span_days = (end - start).days + 1
     if span_days < 1:
         raise ValueError(
             f"the steady stage spans {steady_start} to {steady_end}, which is not a forward window."

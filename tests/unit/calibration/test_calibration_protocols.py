@@ -270,6 +270,18 @@ class TestItReadsBackWhatItWrote:
         with pytest.raises(ValueError, match="phases"):
             expand_calibration_protocol(_doc(phases=tampered))
 
+    def test_a_file_that_is_broken_twice_still_gets_the_actionable_message(self) -> None:
+        """Expanding now runs first, and its own failure must not bury the advice."""
+        once = expand_calibration_protocol(_doc())
+        doc = _doc(phases=once["calibration"]["phases"])
+        del doc["calibration"]["parameters"]["K"]
+
+        with pytest.raises(ValueError) as caught:
+            expand_calibration_protocol(doc)
+
+        assert "Keep one" in str(caught.value)
+        assert "'K'" in str(caught.value)
+
     def test_only_the_section_the_file_declares_is_compared(self) -> None:
         """Declaring the phases and not the blocks is not a contradiction."""
         once = expand_calibration_protocol(_doc())
@@ -315,6 +327,25 @@ class TestOneSpellingOfAnInstant:
 
         assert overrides["simulation.time.start_datetime"] == "1995-01-01T06:00:00"
 
+    def test_an_offset_is_kept_rather_than_collapsed_onto_a_date(self) -> None:
+        """Two bounds two hours apart are two instants, not one date."""
+        paris = self._steady("1995-01-01T00:00:00+02:00", "2020-12-31T00:00:00+02:00")
+        utc = self._steady("1995-01-01T00:00:00+00:00", "2020-12-31T00:00:00+00:00")
+        paris, utc = paris["overrides"], utc["overrides"]
+
+        assert paris["simulation.time.start_datetime"] == "1995-01-01T00:00:00+02:00"
+        assert utc["simulation.time.start_datetime"] != paris["simulation.time.start_datetime"]
+
     def test_a_span_that_is_not_an_instant_is_named(self) -> None:
         with pytest.raises(ValueError, match="simulation.time.start_datetime"):
             self._steady("not a date", "2020-12-31")
+
+    def test_a_window_with_one_offset_and_one_without_is_refused(self) -> None:
+        """Their span is undefined, and pandas says so with a raw TypeError."""
+        with pytest.raises(ValueError, match="offset"):
+            self._steady("1995-01-01T00:00:00+02:00", "2020-12-31")
+
+    def test_a_bare_number_is_refused_and_not_read_as_an_epoch(self) -> None:
+        """pandas reads an int as nanoseconds since 1970; a config never means that."""
+        with pytest.raises(ValueError, match="simulation.time.start_datetime"):
+            self._steady(1995, "2020-12-31")
