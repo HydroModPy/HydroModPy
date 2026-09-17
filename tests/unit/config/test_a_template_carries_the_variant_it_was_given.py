@@ -141,20 +141,28 @@ def _discriminated_union_sites() -> set[tuple[str, str]]:
     return sites
 
 
+@pytest.mark.parametrize("exclude_defaults", [False, True], ids=["full", "minimal"])
 @pytest.mark.parametrize(
     ("model_name", "field", "instance"),
     CASES,
     ids=[f"{model}.{field}" for model, field, _ in CASES],
 )
 def test_the_generated_table_reloads_into_the_same_variant(
-    model_name: str, field: str, instance: BaseModel, tmp_path: Path
+    model_name: str, field: str, instance: BaseModel, exclude_defaults: bool, tmp_path: Path
 ) -> None:
-    destination = tmp_path / f"{model_name}_{field}.toml"
+    """``exclude_defaults`` drops the tag of every member, each defaulting to its own.
+
+    A minimal document is the one that cannot afford to lose it: without the tag
+    both the renderer and the reload fall back to the member the field defaults
+    to, and they agree with each other on the wrong answer.
+    """
+    destination = tmp_path / f"{model_name}_{field}_{exclude_defaults}.toml"
 
     generate_toml_from_instances(
         {"section": instance},
         output_path=destination,
         profile="expert",
+        exclude_defaults=exclude_defaults,
         exclude_none=True,
     )
     reloaded = type(instance).model_validate(tomllib.loads(destination.read_text())["section"])
