@@ -6,6 +6,13 @@ validated input document to a directory of sealed artefacts: it opens no
 workspace, no catalog and no database, it registers nothing in the user's
 state directory, and it reaches no network.
 
+It is not, however, free of the filesystem outside the job. Each description
+lists under ``hmp:invocation.writes_outside_jobdir`` every location the
+capability needs writable; ``terrain-delineate`` names ``$TMPDIR``, where it
+assembles one catchment per outlet before writing the two vector products into
+the job. An empty list means the job directory is the only thing that has to be
+writable.
+
 The invocation contract
 -----------------------
 

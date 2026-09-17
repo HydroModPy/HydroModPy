@@ -185,7 +185,10 @@ def build_invocation(decl: CapabilityDecl) -> dict[str, Any]:
         "request_file": REQUEST_FILENAME,
         "outcome_file": OUTCOME_FILENAME,
         "stdout": f"application/json, exactly one document, byte-identical to {OUTCOME_FILENAME}",
-        "writes_outside_jobdir": False,
+        # A list and not a boolean: the answer an orchestrator needs is "what
+        # else has to be writable", and for this capability it is not "nothing".
+        # Empty means the job directory is the only writable thing it wants.
+        "writes_outside_jobdir": list(decl.writes_outside_jobdir),
         "reads_outside_jobdir": f"only the paths declared in {REQUEST_FILENAME}",
         "cancellation": {
             "signal": "SIGTERM",

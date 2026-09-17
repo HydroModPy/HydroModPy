@@ -135,6 +135,20 @@ def test_the_invocation_block_names_the_verb_that_runs_it(decl) -> None:
     assert invocation["cancellation"]["status"] in get_args(JobStatus)
 
 
+@pytest.mark.parametrize("decl", capability_decls(), ids=lambda decl: decl.id)
+def test_the_writable_locations_are_a_list_and_not_a_boolean(decl) -> None:
+    """``false`` was published once, and it was false.
+
+    A boolean answers "does it write elsewhere"; what an orchestrator mounting
+    everything but the job directory read-only needs is "*where*". An empty list
+    is the honest spelling of "nowhere", and it stays falsy for a caller who only
+    asked the first question.
+    """
+    declared = read_description(decl.id)["hmp:invocation"]["writes_outside_jobdir"]
+    assert declared == list(decl.writes_outside_jobdir)
+    assert isinstance(declared, list)
+
+
 def test_the_cancelled_status_the_generator_writes_is_one_a_job_can_carry() -> None:
     assert DISMISSED_STATUS in get_args(JobStatus)
 

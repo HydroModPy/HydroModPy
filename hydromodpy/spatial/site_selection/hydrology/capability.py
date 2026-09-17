@@ -230,6 +230,13 @@ TERRAIN_DELINEATE = CapabilityDecl(
         EmptyCatchmentError,
     ),
     env=("HMP_NO_PROGRESS", "HMP_LOG_LEVEL", "TMPDIR"),
+    # The delineation writes one catchment per outlet under a scratch root
+    # before the two vector products are assembled, and that root is a
+    # ``TemporaryDirectory`` (``worker.py``). It is removed when the job ends,
+    # but while it runs the process needs a writable ``TMPDIR``, and an
+    # orchestrator mounting everything but the job directory read-only has to
+    # know it. Declaring ``false`` here would be a boolean that is not true.
+    writes_outside_jobdir=("$TMPDIR",),
 )
 """The one capability this build can be invoked as, from outside."""
 

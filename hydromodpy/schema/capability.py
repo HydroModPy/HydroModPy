@@ -95,6 +95,17 @@ class CapabilityDecl:
     outputs: tuple[OutputDecl, ...]
     exceptions: tuple[type[BaseException], ...]
     env: tuple[str, ...] = ()
+    writes_outside_jobdir: tuple[str, ...] = ()
+    """Every location outside the job directory this capability writes into.
+
+    Empty means the job directory is the only thing that needs to be writable,
+    which is what an orchestrator mounting everything else read-only relies on.
+    A capability that needs scratch space says so, by the name of the variable
+    that points at it -- ``"$TMPDIR"`` -- and not by a boolean that would be
+    false. A declaration nobody can check is the defect this whole phase exists
+    to remove, so a test runs the capability with a controlled ``TMPDIR`` and
+    asserts that nothing landed anywhere else.
+    """
 
     def __post_init__(self) -> None:
         if not CAPABILITY_ID_PATTERN.match(self.id):
@@ -115,10 +126,14 @@ class CapabilityDecl:
         for exc in self.exceptions:
             if not (isinstance(exc, type) and issubclass(exc, BaseException)):
                 raise ValueError(f"capability {self.id!r} declares {exc!r} as an exception")
+        for location in self.writes_outside_jobdir:
+            if not location.strip():
+                raise ValueError(f"capability {self.id!r} declares a nameless write location")
         object.__setattr__(self, "keywords", tuple(self.keywords))
         object.__setattr__(self, "outputs", tuple(self.outputs))
         object.__setattr__(self, "exceptions", tuple(self.exceptions))
         object.__setattr__(self, "env", tuple(self.env))
+        object.__setattr__(self, "writes_outside_jobdir", tuple(self.writes_outside_jobdir))
 
     def _refuse_duplicates(self) -> None:
         """Refuse two outputs sharing an id or a path.

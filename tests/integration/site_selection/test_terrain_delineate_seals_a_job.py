@@ -412,3 +412,108 @@ def test_the_capability_writes_nothing_into_the_home_it_is_given(tmp_path):
     assert job.is_sealed
     assert list(home.iterdir()) == []
     assert list(state.iterdir()) == []
+
+
+def test_the_only_thing_it_writes_outside_the_job_is_what_it_declares(tmp_path):
+    """The declaration of scratch space is checked, not asserted in prose.
+
+    ``writes_outside_jobdir`` said ``false`` when the generator first wrote it,
+    and it was false: the delineation assembles one catchment per outlet under a
+    ``TemporaryDirectory``, which lands under ``TMPDIR`` and not under the job.
+    An orchestrator mounting everything but the job directory read-only would
+    have followed that boolean into a crash.
+
+    A subprocess, because ``tempfile`` caches its directory on first use and
+    this test process has already used it.
+    """
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    created = tmp_path / "created.json"
+    job = _staged(tmp_path, _request())
+
+    script = (
+        "import json, os, sys, tempfile\n"
+        "seen = []\n"
+        "real_dir, real_file = tempfile.mkdtemp, tempfile.mkstemp\n"
+        "def spy_dir(*a, **k):\n"
+        "    path = real_dir(*a, **k)\n"
+        "    seen.append(path)\n"
+        "    return path\n"
+        "def spy_file(*a, **k):\n"
+        "    handle, path = real_file(*a, **k)\n"
+        "    seen.append(path)\n"
+        "    return handle, path\n"
+        "tempfile.mkdtemp, tempfile.mkstemp = spy_dir, spy_file\n"
+        "from hydromodpy.cli.helpers import exit_code_for\n"
+        "from hydromodpy.schema.job import JobDirectory\n"
+        "from hydromodpy.spatial.site_selection.hydrology.worker import run\n"
+        "try:\n"
+        "    outcome = run(JobDirectory.open(sys.argv[1]), exit_code_for=exit_code_for)\n"
+        "finally:\n"
+        "    open(sys.argv[2], 'w').write(json.dumps(seen))\n"
+        "sys.exit(outcome.exit_code)\n"
+    )
+    env = dict(os.environ, TMPDIR=str(scratch), HMP_NO_PROGRESS="1")
+    completed = subprocess.run(
+        [sys.executable, "-c", script, str(job.root), str(created)],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=600,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr[-4000:]
+    paths = [Path(entry).resolve() for entry in json.loads(created.read_text(encoding="utf-8"))]
+
+    # Derived from the declaration, never hard-coded: with ``writes_outside_jobdir``
+    # emptied, ``allowed`` shrinks to the job directory and this test goes red,
+    # which is the whole point of writing it.
+    known = {"$TMPDIR": scratch.resolve()}
+    unknown = set(TERRAIN_DELINEATE.writes_outside_jobdir) - set(known)
+    assert not unknown, f"this test cannot point at the declared location(s) {sorted(unknown)}"
+    allowed = [job.root.resolve()] + [
+        known[name] for name in TERRAIN_DELINEATE.writes_outside_jobdir
+    ]
+
+    outside = [path for path in paths if not any(path.is_relative_to(root) for root in allowed)]
+    assert not outside, f"it writes into {outside}, which it does not declare"
+    assert any(path.is_relative_to(scratch.resolve()) for path in paths), (
+        "nothing landed under TMPDIR, so declaring it over-claims"
+    )
+    assert list(scratch.iterdir()) == [], "the scratch survived the job"
+
+
+def test_every_declared_capability_carries_a_body() -> None:
+    """The two lists of the registry, pinned through the public door.
+
+    ``capability_decls()`` imports no engine and ``_registry()`` imports every
+    worker, so the pairing is by identifier and nothing structural holds it. A
+    declaration renamed on one side alone used to raise a bare ``KeyError`` out
+    of the registry comprehension -- for every capability, not the renamed one,
+    and mapped to the generic exit 1 rather than the usage exit 2.
+    """
+    from hydromodpy.cli._workers.process import capability, capability_decls, capability_ids
+
+    assert capability_ids() == tuple(sorted(decl.id for decl in capability_decls()))
+    for capability_id in capability_ids():
+        assert capability(capability_id).decl.id == capability_id
+
+
+def test_a_declaration_without_a_body_names_itself(monkeypatch) -> None:
+    from hydromodpy.cli._workers import process as worker_module
+
+    ghost = TERRAIN_DELINEATE.__class__(
+        id="ghost-capability",
+        version="1.0.0",
+        title="Declared and never implemented",
+        description="A declaration with no body, which is a build defect.",
+        keywords=(),
+        request_model=TERRAIN_DELINEATE.request_model,
+        outputs=TERRAIN_DELINEATE.outputs,
+        exceptions=TERRAIN_DELINEATE.exceptions,
+    )
+    monkeypatch.setattr(worker_module, "capability_decls", lambda: (TERRAIN_DELINEATE, ghost))
+
+    with pytest.raises(RuntimeError, match="'ghost-capability' is declared but this build"):
+        worker_module.capability("terrain-delineate")

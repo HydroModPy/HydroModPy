@@ -29,7 +29,9 @@
     "request_file": "request.json",
     "outcome_file": "outcome.json",
     "stdout": "application/json, exactly one document, byte-identical to outcome.json",
-    "writes_outside_jobdir": false,
+    "writes_outside_jobdir": [
+      "$TMPDIR"
+    ],
     "reads_outside_jobdir": "only the paths declared in request.json",
     "cancellation": {
       "signal": "SIGTERM",

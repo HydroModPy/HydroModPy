@@ -44,8 +44,7 @@ def capability_decls() -> tuple[CapabilityDecl, ...]:
     A declaration is what the process description is generated from and what
     ``hmp process list`` prints; neither needs the body to exist in memory.
     Kept apart from :func:`_registry` because importing a body pulls its whole
-    engine stack in -- ``whitebox_workflows`` for this one -- and a test pins
-    the two lists together so they cannot drift.
+    engine stack in -- ``whitebox_workflows`` for this one.
     """
     from hydromodpy.spatial.site_selection.hydrology.capability import TERRAIN_DELINEATE
 
@@ -53,13 +52,27 @@ def capability_decls() -> tuple[CapabilityDecl, ...]:
 
 
 def _registry() -> Mapping[str, Capability]:
-    """Build the registry, importing each worker only when it is asked for."""
+    """Build the registry, importing each worker only when it is asked for.
+
+    A declaration without a body is a build defect and says so. The lookup used
+    to be a bare subscript, so a declaration renamed on one side alone raised
+    ``KeyError`` out of the comprehension -- before :func:`capability` could turn
+    an unknown id into a usage error, and for *every* capability rather than the
+    renamed one, mapped to the generic exit 1.
+    """
     from hydromodpy.spatial.site_selection.hydrology.worker import run as terrain_delineate
 
     runners: Mapping[str, CapabilityRunner] = {"terrain-delineate": terrain_delineate}
-    return MappingProxyType(
-        {decl.id: Capability(decl=decl, run=runners[decl.id]) for decl in capability_decls()}
-    )
+    served: dict[str, Capability] = {}
+    for decl in capability_decls():
+        runner = runners.get(decl.id)
+        if runner is None:
+            raise RuntimeError(
+                f"capability {decl.id!r} is declared but this build carries no body for it; "
+                f"the registry serves {', '.join(sorted(runners))}"
+            )
+        served[decl.id] = Capability(decl=decl, run=runner)
+    return MappingProxyType(served)
 
 
 def capability_ids() -> tuple[str, ...]:
