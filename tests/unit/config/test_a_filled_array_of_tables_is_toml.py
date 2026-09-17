@@ -13,6 +13,7 @@ bare is a path into three nested tables, not the one key an override names.
 
 from __future__ import annotations
 
+import copy
 import tomllib
 from pathlib import Path
 
@@ -89,3 +90,56 @@ def test_the_staged_calibration_reloads_into_itself(written: dict) -> None:
     assert reloaded.model_dump(mode="json", exclude_none=True) == expected.model_dump(
         mode="json", exclude_none=True
     )
+
+
+def test_the_entry_parses_at_the_documented_default(tmp_path: Path) -> None:
+    """``exclude_none`` defaults to False, and an unset optional is a None.
+
+    ``tolerance = `` is not a TOML line. The key steps out commented instead,
+    and reload restores the None it already defaults to.
+    """
+    config = CalibrationConfig.model_validate(_STAGED)
+    destination = tmp_path / "with_nones.toml"
+
+    generate_toml_from_instances({"calibration": config}, output_path=destination, profile="expert")
+    reloaded = CalibrationConfig.model_validate(
+        tomllib.loads(destination.read_text())["calibration"]
+    )
+
+    assert reloaded.phases[0].tolerance is None
+    assert reloaded.model_dump(mode="json", exclude_none=True) == config.model_dump(
+        mode="json", exclude_none=True
+    )
+
+
+def test_a_quote_and_a_newline_in_a_value_survive(tmp_path: Path) -> None:
+    """A raw quote ends the string early and a raw newline ends the line."""
+    staged = copy.deepcopy(_STAGED)
+    staged["phases"][0]["description"] = 'a "quoted" word\nand a second line'
+    config = CalibrationConfig.model_validate(staged)
+    destination = tmp_path / "escaped.toml"
+
+    generate_toml_from_instances(
+        {"calibration": config}, output_path=destination, profile="expert", exclude_none=True
+    )
+    written = tomllib.loads(destination.read_text())["calibration"]
+
+    assert written["phases"][0]["description"] == 'a "quoted" word\nand a second line'
+
+
+def test_a_none_inside_a_mapping_steps_out_rather_than_breaking_the_file(
+    tmp_path: Path,
+) -> None:
+    """TOML has no null, so the key cannot be written at all."""
+    staged = copy.deepcopy(_STAGED)
+    staged["phases"][0]["overrides"]["flow.unset"] = None
+    config = CalibrationConfig.model_validate(staged)
+    destination = tmp_path / "with_null.toml"
+
+    generate_toml_from_instances(
+        {"calibration": config}, output_path=destination, profile="expert", exclude_none=True
+    )
+    overrides = tomllib.loads(destination.read_text())["calibration"]["phases"][0]["overrides"]
+
+    assert "flow.unset" not in overrides
+    assert overrides["flow.flow_regime"] == "steady"

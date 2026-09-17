@@ -210,6 +210,26 @@ def generate_toml_from_instances(
 
 
 _BARE_KEY_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+_BASIC_STRING_ESCAPES = {
+    "\\": "\\\\",
+    '"': '\\"',
+    "\n": "\\n",
+    "\r": "\\r",
+    "\t": "\\t",
+    "\b": "\\b",
+    "\f": "\\f",
+}
+
+
+def _quote(text: str) -> str:
+    """Return *text* as a TOML basic string.
+
+    A quote, a backslash or a newline written raw ends the string early or is
+    read as an escape that is not one. A Windows path and a multi-line field
+    description both reach here.
+    """
+    escaped = "".join(_BASIC_STRING_ESCAPES.get(char, char) for char in text)
+    return f'"{escaped}"'
 
 
 def _fmt_key(key: Any) -> str:
@@ -220,7 +240,7 @@ def _fmt_key(key: Any) -> str:
     tables, not the one key a calibration override means.
     """
     text = str(key)
-    return text if _BARE_KEY_RE.match(text) else f'"{text}"'
+    return text if _BARE_KEY_RE.match(text) else _quote(text)
 
 
 def _fmt(val: Any) -> str:
@@ -232,13 +252,13 @@ def _fmt(val: Any) -> str:
     if isinstance(val, Enum):
         return _fmt(val.value)
     if isinstance(val, Path):
-        return f'"{val}"'
+        return _quote(str(val))
     if hasattr(val, "magnitude") and hasattr(val, "units"):
-        return f'"{val.magnitude} {val.units:~}"'
+        return _quote(f"{val.magnitude} {val.units:~}")
     if isinstance(val, str):
-        return f'"{val}"'
+        return _quote(val)
     if hasattr(val, "isoformat"):
-        return f'"{val.isoformat()}"'
+        return _quote(val.isoformat())
     if isinstance(val, (list, tuple)):
         inner = ", ".join(_fmt(item) for item in val)
         return f"[{inner}]"
@@ -246,7 +266,11 @@ def _fmt(val: Any) -> str:
         # An inline table, because the only caller left is a value inside an
         # array-of-tables entry, where a sub-table header would belong to the
         # entry rather than to the key. Python's own repr is not TOML.
-        inner = ", ".join(f"{_fmt_key(key)} = {_fmt(item)}" for key, item in val.items())
+        # A None drops out: TOML has no null, and an absent key reloads as the
+        # None the field already defaults to.
+        inner = ", ".join(
+            f"{_fmt_key(key)} = {_fmt(item)}" for key, item in val.items() if item is not None
+        )
         return "{" + inner + "}"
     return str(val)
 
@@ -1140,7 +1164,12 @@ def _section(
                     # Add field description from the item model class
                     if key in item_cls.model_fields:
                         _render_field_comment(lines, item_cls.model_fields[key])
-                    lines.append(_line(f"{key} = {_fmt(val)}"))
+                    if val is None:
+                        # TOML has no null, so ``key =`` is not a line; the key
+                        # stays out and reload restores the default it holds.
+                        lines.append(f"# {key} =")
+                    else:
+                        lines.append(_line(f"{_fmt_key(key)} = {_fmt(val)}"))
                     lines.append("")
         elif has_instance_value or _from_instance:
             # A config that does not carry this table does not want it; the
