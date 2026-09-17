@@ -116,12 +116,9 @@ def delineate_candidate_outlet(
         x_outlet=float(working_outlet.x),
         y_outlet=float(working_outlet.y),
         snap_dist=int(snap_dist_m),
-        acc_path=products.acc,
-        direc_path=products.direc,
+        accumulation=products.accumulation,
         output_dir=output_dir,
         crs_project=crs_project or working_outlet.crs,
-        acc_data=products.acc_data,
-        direc_data=products.direc_data,
         backend=backend,
     )
     area_km2 = _read_area_km2(result.watershed_shp, area_reader=area_reader)

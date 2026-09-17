@@ -449,9 +449,7 @@ def ensure_raw_accumulation_cells(
         "flow",
         "d8_flow_accumulation_raster",
     ):
-        correc_data = products.correc_data
-        if correc_data is None:
-            correc_data = tool.raster.read_raster(str(products.correc))
+        correc_data = tool.raster.read_raster(str(products.correc))
         acc_data = tool.flow.d8_flow_accumulation_raster(correc_data, log=False)
         tool.raster.write_raster(acc_data, str(destination))
     else:

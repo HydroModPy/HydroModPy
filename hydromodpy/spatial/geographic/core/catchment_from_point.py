@@ -15,26 +15,54 @@ Processing steps
 2. Snap the point to the nearest strong-flow cell on accumulation raster.
 3. Run watershed delineation from D8 direction raster.
 4. Polygonize the resulting watershed raster for downstream GIS/domain usage.
+
+Why this file computes nothing
+------------------------------
+All four steps belong to :meth:`TerrainEngine.delineate
+<hydromodpy.spatial.terrain.TerrainEngine.delineate>`. What stays here is the
+one thing the engine has no business knowing: this pipeline publishes its
+catchment as ``watershed.tif`` and ``watershed.shp``, flat in a directory that
+twenty other artefacts share, and every golden in the tree reads them there.
+That shape is passed to the engine as a
+:class:`~hydromodpy.spatial.terrain.CatchmentLayout`.
 """
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from pathlib import Path
 
-import geopandas as gpd
-import pandas as pd
-
 from hydromodpy.core import progress
+from hydromodpy.core.exceptions import TerrainProductError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.geographic.geographic_io import (
-    backend_has_callables,
-    ensure_crs,
-    resolve_delineation_backend,
+from hydromodpy.spatial.geographic.geographic_io import ensure_crs
+from hydromodpy.spatial.terrain import (
+    OUTLET_LAYER_NAME,
+    SNAPPED_OUTLET_LAYER_NAME,
+    CatchmentLayout,
+    FlowAccumulation,
+    Outlet,
 )
+from hydromodpy.spatial.terrain.whitebox_engine import WhiteboxTerrainEngine
 
 logger = get_logger(__name__)
+
+WATERSHED_TIF_NAME = "watershed.tif"
+WATERSHED_SHP_NAME = "watershed.shp"
+
+CATCHMENT_LAYOUT = CatchmentLayout.flat(
+    mask_name=WATERSHED_TIF_NAME,
+    boundary_name=WATERSHED_SHP_NAME,
+)
+"""The on-disk shape this pipeline has always published, now declared.
+
+Flat rather than one directory per outlet, because ``GeographicPaths`` names
+``watershed.tif`` and ``watershed.shp`` inside ``geographic/`` and moving them
+would move every golden that reads them.
+"""
+
+OUTLET_ID = "outlet"
+"""The name the engine puts in its refusals; a flat layout has no directory."""
 
 
 @dataclass(frozen=True)
@@ -59,30 +87,14 @@ class CatchmentFromPointProducts:
     """Distance the snap moved the outlet. The declared coordinate is not the one used."""
 
 
-def _snapped_outlet_position(outlet_snap_shp: str | Path) -> tuple[float, float]:
-    """Read back the point the snap produced, in the CRS it was written with."""
-    gdf = gpd.read_file(str(outlet_snap_shp))
-    if gdf.empty:
-        raise ValueError(f"Snapped outlet file holds no feature: {outlet_snap_shp}")
-    point = gdf.geometry.iloc[0]
-    return float(point.x), float(point.y)
-
-
 def extract_catchment_from_point(
     *,
     x_outlet: float,
     y_outlet: float,
     snap_dist: int,
-    acc_path: str | Path,
-    direc_path: str | Path,
+    accumulation: FlowAccumulation,
     output_dir: str | Path,
     crs_project: str | None = None,
-    acc_data: object | None = None,
-    direc_data: object | None = None,
-    outlet_name: str = "outlet.shp",
-    outlet_snap_name: str = "outlet_snap.shp",
-    watershed_tif_name: str = "watershed.tif",
-    watershed_shp_name: str = "watershed.shp",
     backend: object | None = None,
 ) -> CatchmentFromPointProducts:
     """Delineate a catchment polygon from one outlet point.
@@ -92,132 +104,70 @@ def extract_catchment_from_point(
     x_outlet, y_outlet:
         Outlet coordinates in model projected CRS.
     snap_dist:
-        Max snapping distance used by Whitebox (map units, usually meters).
-    acc_path, direc_path:
-        D8 accumulation and direction rasters on compatible support.
+        Width of the square snap window, in map units. Not a maximum
+        displacement: a value equal to one cell size snaps nowhere, and 100 m on
+        a 25 m grid can move an outlet 70.7 m diagonally.
+    accumulation:
+        The regional accumulation to snap against, with the pointer it was
+        derived from. Both are the engine's own products.
     output_dir:
         Folder where output files are written.
     crs_project:
-        Optional CRS enforced on generated files.
-    *_name:
-        Filenames used inside ``output_dir``.
+        Optional CRS enforced on generated files, on top of the one the engine
+        carries from the source DEM.
     backend:
         Optional Whitebox backend for runtime/tests.
     """
-    tool = resolve_delineation_backend(backend)
-
-    # Prepare deterministic output paths used by the rest of the pipeline.
+    engine = WhiteboxTerrainEngine(backend)
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    outlet_shp = out_dir / outlet_name
-    outlet_snap_shp = out_dir / outlet_snap_name
-    watershed_tif = out_dir / watershed_tif_name
-    watershed_shp = out_dir / watershed_shp_name
-
-    # Whitebox receives outlets through a point shapefile input.
-    df = pd.DataFrame({"x": [float(x_outlet)], "y": [float(y_outlet)]})
-    gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df["x"], df["y"]), crs=crs_project)
-    gdf.to_file(str(outlet_shp))
-    ensure_crs(outlet_shp, crs_project)
-
     with progress.status("Delineating watershed"):
-        if backend_has_callables(
-            tool,
-            "raster",
-            "read_vector",
-            "read_raster",
-            "write_vector",
-            "write_raster",
-            "vector_record_count",
-        ) and backend_has_callables(
-            tool,
-            "delineation",
-            "snap_pour_points_vector",
-            "watershed_raster",
-            "raster_to_vector_polygons_raster",
-        ):
-            outlet_data = tool.raster.read_vector(str(outlet_shp))
-            acc_input = acc_data if acc_data is not None else tool.raster.read_raster(str(acc_path))
-            snapped_outlet = tool.delineation.snap_pour_points_vector(
-                outlet_data,
-                acc_input,
-                int(snap_dist),
+        try:
+            (catchment,) = engine.delineate(
+                accumulation,
+                [Outlet(outlet_id=OUTLET_ID, x=float(x_outlet), y=float(y_outlet))],
+                out_dir=out_dir,
+                snap_distance_m=float(snap_dist),
+                layout=CATCHMENT_LAYOUT,
             )
-            if tool.raster.vector_record_count(snapped_outlet) == 0:
-                raise ValueError(
-                    "Outlet snapping produced no feature. Check geographic.x_outlet / "
-                    "geographic.y_outlet, increase geographic.snap_dist, or verify "
-                    "that the corrected DEM and flow-accumulation rasters cover the outlet."
-                )
-            tool.raster.write_vector(snapped_outlet, str(outlet_snap_shp))
-            ensure_crs(outlet_snap_shp, crs_project)
+        except TerrainProductError as exc:
+            # The engine knows rasters and windows; only this layer knows which
+            # configuration keys the user would have to change. Re-raised as its
+            # own class and not as the base one: the breach-then-fill retry of
+            # the domain pipeline decides on EmptyCatchmentError, and widening
+            # the type here would turn that retry off without a word.
+            raise type(exc)(
+                f"{exc} Check geographic.x_outlet / geographic.y_outlet, increase "
+                "geographic.snap_dist, or verify that the corrected DEM and "
+                "flow-accumulation rasters cover the outlet."
+            ) from exc
 
-            direc_input = (
-                direc_data if direc_data is not None else tool.raster.read_raster(str(direc_path))
-            )
-            watershed_data = tool.delineation.watershed_raster(
-                direc_input,
-                snapped_outlet,
-                esri_pntr=False,
-            )
-            tool.raster.write_raster(watershed_data, str(watershed_tif))
-            ensure_crs(watershed_tif, crs_project)
+    outlet_shp = out_dir / OUTLET_LAYER_NAME
+    outlet_snap_shp = out_dir / SNAPPED_OUTLET_LAYER_NAME
+    for path in (outlet_shp, outlet_snap_shp, catchment.mask_path, catchment.boundary_path):
+        ensure_crs(path, crs_project)
 
-            # Polygon output is the canonical boundary format used downstream.
-            watershed_vector = tool.delineation.raster_to_vector_polygons_raster(watershed_data)
-            if tool.raster.vector_record_count(watershed_vector) == 0:
-                raise ValueError(
-                    "Watershed delineation produced an empty polygon. Check outlet placement, "
-                    "DEM conditioning, and snap distance before rerunning the geographic pipeline."
-                )
-            tool.raster.write_vector(watershed_vector, str(watershed_shp))
-            ensure_crs(watershed_shp, crs_project)
-        else:
-            # Snap stabilizes delineation when outlet is not exactly on a flow cell.
-            tool.delineation.snap_pour_points(
-                str(outlet_shp),
-                str(acc_path),
-                str(outlet_snap_shp),
-                int(snap_dist),
-            )
-            ensure_crs(outlet_snap_shp, crs_project)
-
-            # D8 watershed delineation from snapped outlet.
-            tool.delineation.watershed(
-                str(direc_path),
-                str(outlet_snap_shp),
-                str(watershed_tif),
-                esri_pntr=False,
-            )
-            ensure_crs(watershed_tif, crs_project)
-
-            # Polygon output is the canonical boundary format used downstream.
-            tool.delineation.raster_to_vector_polygons(str(watershed_tif), str(watershed_shp))
-            ensure_crs(watershed_shp, crs_project)
-
-    x_snapped, y_snapped = _snapped_outlet_position(outlet_snap_shp)
-    snap_distance = float(math.hypot(x_snapped - x_outlet, y_snapped - y_outlet))
     # The declared coordinate is what every report shows; say how far the
     # delineation actually started from it, because nothing downstream can tell.
-    log = logger.warning if snap_distance > 0.5 * float(snap_dist) else logger.info
+    log = logger.warning if catchment.snap_distance_m > 0.5 * float(snap_dist) else logger.info
     log(
         "Outlet snapped %.1f m (of %d m allowed), from (%.2f, %.2f) to (%.2f, %.2f). "
         "The catchment is delineated from the snapped point.",
-        snap_distance,
+        catchment.snap_distance_m,
         int(snap_dist),
         x_outlet,
         y_outlet,
-        x_snapped,
-        y_snapped,
+        catchment.snapped_x,
+        catchment.snapped_y,
     )
 
     return CatchmentFromPointProducts(
         outlet_shp=str(outlet_shp),
         outlet_snap_shp=str(outlet_snap_shp),
-        watershed_tif=str(watershed_tif),
-        watershed_shp=str(watershed_shp),
-        x_outlet_snapped=x_snapped,
-        y_outlet_snapped=y_snapped,
-        snap_distance_m=snap_distance,
+        watershed_tif=str(catchment.mask_path),
+        watershed_shp=str(catchment.boundary_path),
+        x_outlet_snapped=catchment.snapped_x,
+        y_outlet_snapped=catchment.snapped_y,
+        snap_distance_m=catchment.snap_distance_m,
     )

@@ -33,6 +33,7 @@ from hydromodpy.spatial.geographic.core.catchment_from_point import (
 from hydromodpy.spatial.geographic.core.catchment_from_polygon import extract_catchment_from_polygon
 from hydromodpy.spatial.geographic.geographic_io import resolve_delineation_backend
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths, build_geographic_paths
+from hydromodpy.spatial.terrain import FlowAccumulation
 
 if TYPE_CHECKING:
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
@@ -94,10 +95,7 @@ def build_standard_catchment(
     *,
     config: GeographicConfig,
     paths: GeographicPaths,
-    direc_path: str | Path,
-    acc_path: str | Path,
-    direc_data: object | None = None,
-    acc_data: object | None = None,
+    accumulation: FlowAccumulation,
     crs_project: str | None,
     backend: object | None = None,
     unsupported_mode: str = "error",
@@ -114,16 +112,9 @@ def build_standard_catchment(
             x_outlet=float(config.x_outlet),
             y_outlet=float(config.y_outlet),
             snap_dist=int(config.snap_dist),
-            acc_path=acc_path,
-            direc_path=direc_path,
-            acc_data=acc_data,
-            direc_data=direc_data,
+            accumulation=accumulation,
             output_dir=paths.geographic_path,
             crs_project=crs_project,
-            outlet_name="outlet.shp",
-            outlet_snap_name="outlet_snap.shp",
-            watershed_tif_name=Path(paths.watershed).name,
-            watershed_shp_name=Path(paths.watershed_shp).name,
             backend=tool,
         )
 

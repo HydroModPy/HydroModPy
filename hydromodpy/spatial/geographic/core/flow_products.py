@@ -11,41 +11,127 @@ Pipeline position
 -----------------
 This is one of the first compute-heavy steps in geographic preprocessing.
 All downstream catchment and river-network products depend on these rasters.
+
+Why this file computes nothing
+------------------------------
+Every step here goes through :class:`~hydromodpy.spatial.terrain.TerrainEngine`.
+The three rasters are the engine's own products, so what used to be three
+opaque Whitebox objects carried alongside three path strings is now one
+:class:`~hydromodpy.spatial.terrain.FlowAccumulation`, which says in its own
+fields what the strings never did: the accumulation is a cell count under a
+**natural** logarithm, the pointer descends a DEM conditioned by a named
+method, and the nodata is the one the file on disk declares.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 from hydromodpy.core import progress
-from hydromodpy.spatial.geographic.geographic_io import (
-    backend_has_callables,
-    ensure_crs,
-    resolve_delineation_backend,
+from hydromodpy.spatial.geographic.geographic_io import ensure_crs
+from hydromodpy.spatial.terrain import (
+    ConditionedDem,
+    ConditioningExtent,
+    ConditioningMethod,
+    DrainageDirections,
+    FlowAccumulation,
 )
+from hydromodpy.spatial.terrain.artifacts import raster_crs, raster_nodata
+from hydromodpy.spatial.terrain.whitebox_engine import WhiteboxTerrainEngine
+
+CORRECTED_DEM_NAMES: dict[str, str] = {"fill": "dem_fill.tif", "breach": "dem_breach.tif"}
+DIRECTION_NAME = "dem_direc.tif"
+ACCUMULATION_NAME = "dem_acc.tif"
+
+ACCUMULATION_UNITS = "cells"
+ACCUMULATION_TRANSFORM = "ln"
+"""What this pipeline has always written, now said out loud.
+
+``log=True`` on the Whitebox chain is the natural logarithm, so a caller that
+thresholds ``dem_acc.tif`` with a cell count selects nothing. The product
+declares the transform so the refusal happens at the boundary instead.
+"""
 
 
 @dataclass(frozen=True)
 class FlowProducts:
-    """Paths to rasters produced from the source DEM.
+    """The regional flow stack, as the one product that describes it.
 
-    Attributes
-    ----------
-    correc:
-        Hydrologically corrected DEM.
-    direc:
-        D8 direction raster (encoded neighbor direction per cell).
-    acc:
-        D8 accumulation raster (upstream contributing cells, log-scaled here).
+    ``correc``, ``direc`` and ``acc`` stay as strings because thirty call sites
+    read them, but they are views on the accumulation and not a second copy of
+    the truth.
     """
 
-    correc: str
-    direc: str
-    acc: str
-    correc_data: object | None = None
-    direc_data: object | None = None
-    acc_data: object | None = None
+    accumulation: FlowAccumulation
+
+    @property
+    def correc(self) -> str:
+        """Hydrologically corrected DEM."""
+        return str(self.accumulation.directions.conditioned_dem.path)
+
+    @property
+    def direc(self) -> str:
+        """D8 direction raster (encoded neighbor direction per cell)."""
+        return str(self.accumulation.directions.path)
+
+    @property
+    def acc(self) -> str:
+        """D8 accumulation raster, in cells under a natural logarithm."""
+        return str(self.accumulation.path)
+
+
+def conditioning_method(dem_correc_type: str) -> ConditioningMethod:
+    """Return the port's conditioning method one configuration string names."""
+    if dem_correc_type not in CORRECTED_DEM_NAMES:
+        raise ValueError(
+            f"Unknown dem_correc_type={dem_correc_type!r}. Expected 'fill' or 'breach'."
+        )
+    return cast(ConditioningMethod, dem_correc_type)
+
+
+def corrected_dem_name(dem_correc_type: str) -> str:
+    """Return the file name one conditioning method writes."""
+    return CORRECTED_DEM_NAMES[conditioning_method(dem_correc_type)]
+
+
+def flow_products_from_paths(
+    *,
+    dem_out_dir_path: str | Path,
+    dem_correc_type: str,
+) -> FlowProducts:
+    """Describe a stack that is already on disk, reading its facts from it.
+
+    The CRS and the nodata come from the rasters themselves rather than from
+    whatever the caller believes, which is the only way a reconstruction can
+    describe files it did not write. Every named file has to exist.
+    """
+    out_dir = Path(dem_out_dir_path)
+    correc = out_dir / corrected_dem_name(dem_correc_type)
+    direc = out_dir / DIRECTION_NAME
+    acc = out_dir / ACCUMULATION_NAME
+
+    conditioned = ConditionedDem(
+        path=correc,
+        method=conditioning_method(dem_correc_type),
+        extent=ConditioningExtent.regional(),
+        crs=raster_crs(correc),
+    )
+    directions = DrainageDirections(
+        path=direc,
+        pointer_convention="d8_wbt",
+        conditioned_dem=conditioned,
+    )
+    return FlowProducts(
+        accumulation=FlowAccumulation(
+            path=acc,
+            units=ACCUMULATION_UNITS,
+            transform=ACCUMULATION_TRANSFORM,
+            directions=directions,
+            nodata=raster_nodata(acc),
+        )
+    )
 
 
 def build_regional_flow_products(
@@ -69,83 +155,36 @@ def build_regional_flow_products(
         - ``"fill"``: fills closed depressions so water can exit each cell,
         - ``"breach"``: carves narrow paths through barriers/depressions.
     crs_project:
-        Optional CRS to enforce on output metadata.
+        Optional CRS to enforce on output metadata. The engine already stamps
+        the CRS of the source DEM; this one is the project's policy on top, and
+        it is the caller's, not the engine's.
     backend:
         Optional Whitebox backend injected for runtime/tests.
     """
-    tool = resolve_delineation_backend(backend)
+    engine = WhiteboxTerrainEngine(backend)
 
-    dem_in = str(dem_init_path)
     out_dir = Path(dem_out_dir_path)
     out_dir.mkdir(parents=True, exist_ok=True)
+    correc_name = corrected_dem_name(dem_correc_type)
 
-    if dem_correc_type == "fill":
-        correc = str(out_dir / "dem_fill.tif")
-    elif dem_correc_type == "breach":
-        correc = str(out_dir / "dem_breach.tif")
-    else:
-        raise ValueError(
-            f"Unknown dem_correc_type={dem_correc_type!r}. Expected 'fill' or 'breach'."
+    with progress.status("Correcting DEM"):
+        conditioned = engine.condition_dem(
+            Path(dem_init_path),
+            method=conditioning_method(dem_correc_type),
+            extent=ConditioningExtent.regional(),
+            out=out_dir / correc_name,
+        )
+    with progress.status("Computing flow accumulation"):
+        directions = engine.drainage_directions(conditioned, out=out_dir / DIRECTION_NAME)
+        accumulation = engine.flow_accumulation(
+            directions,
+            units=ACCUMULATION_UNITS,
+            transform=ACCUMULATION_TRANSFORM,
+            out=out_dir / ACCUMULATION_NAME,
         )
 
-    direc = str(out_dir / "dem_direc.tif")
-    acc = str(out_dir / "dem_acc.tif")
-
-    correc_data = None
-    direc_data = None
-    acc_data = None
-    if backend_has_callables(
-        tool,
-        "raster",
-        "read_raster",
-        "write_raster",
-    ) and backend_has_callables(
-        tool,
-        "flow",
-        "fill_depressions_raster",
-        "breach_depressions_raster",
-        "d8_pointer_raster",
-        "d8_flow_accumulation_raster",
-    ):
-        dem_data = tool.raster.read_raster(dem_in)
-        with progress.status("Correcting DEM"):
-            if dem_correc_type == "fill":
-                # "fill": raise depression cells until drainage continuity is ensured.
-                correc_data = tool.flow.fill_depressions_raster(dem_data)
-            else:
-                # "breach": cut short channels through barriers to restore connectivity.
-                correc_data = tool.flow.breach_depressions_raster(dem_data)
-        with progress.status("Computing flow accumulation"):
-            # D8 direction: each cell points to one of its 8 neighbors (steepest descent).
-            direc_data = tool.flow.d8_pointer_raster(correc_data, esri_pntr=False)
-            # D8 accumulation: upstream contributing area proxy used for outlet snapping.
-            # `log=True` keeps values in a compact range and matches established behavior.
-            acc_data = tool.flow.d8_flow_accumulation_raster(correc_data, log=True)
-        tool.raster.write_raster(correc_data, correc)
-        tool.raster.write_raster(direc_data, direc)
-        tool.raster.write_raster(acc_data, acc)
-    else:
-        with progress.status("Correcting DEM"):
-            if dem_correc_type == "fill":
-                # "fill": raise depression cells until drainage continuity is ensured.
-                tool.flow.fill_depressions(dem_in, correc)
-            else:
-                # "breach": cut short channels through barriers to restore connectivity.
-                tool.flow.breach_depressions(dem_in, correc)
-        with progress.status("Computing flow accumulation"):
-            tool.flow.d8_pointer(correc, direc, esri_pntr=False)
-            tool.flow.d8_flow_accumulation(correc, acc, log=True)
-
+    products = FlowProducts(accumulation=accumulation)
     # Normalize CRS metadata to keep downstream GIS/raster steps predictable.
-    ensure_crs(correc, crs_project)
-    ensure_crs(direc, crs_project)
-    ensure_crs(acc, crs_project)
-
-    return FlowProducts(
-        correc=correc,
-        direc=direc,
-        acc=acc,
-        correc_data=correc_data,
-        direc_data=direc_data,
-        acc_data=acc_data,
-    )
+    for path in (products.correc, products.direc, products.acc):
+        ensure_crs(path, crs_project)
+    return products

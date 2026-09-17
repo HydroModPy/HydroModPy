@@ -13,15 +13,21 @@ from typing import Any
 
 import geopandas as gpd
 from geopy.geocoders import Nominatim
+from rasterio.errors import RasterioIOError
 
 from hydromodpy.core import progress
+from hydromodpy.core.exceptions import TerrainProductError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.geographic.core.catchment_domain import CatchmentDomainProducts
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.spatial.geographic.core.direct_dem_domain import build_direct_dem_domain
 from hydromodpy.spatial.geographic.core.flow_products import (
+    ACCUMULATION_NAME,
+    DIRECTION_NAME,
     FlowProducts,
     build_regional_flow_products,
+    corrected_dem_name,
+    flow_products_from_paths,
 )
 from hydromodpy.spatial.geographic.core.lake_enforcement import (
     capture_from_config,
@@ -197,15 +203,14 @@ def _all_artifacts_exist(paths: list[str | Path]) -> bool:
     return True
 
 
-def _flow_products_from_paths(paths: GeographicPaths, dem_correc_type: str) -> FlowProducts:
-    """Reconstruct the flow-products view from canonical cache paths."""
-    correc_name = "dem_fill.tif" if dem_correc_type == "fill" else "dem_breach.tif"
-    correc = str(Path(paths.correcflow_path) / correc_name)
-    return FlowProducts(
-        correc=correc,
-        direc=str(Path(paths.correcflow_path) / "dem_direc.tif"),
-        acc=str(Path(paths.correcflow_path) / "dem_acc.tif"),
-    )
+def _flow_raster_paths(paths: GeographicPaths, dem_correc_type: str) -> list[str | Path]:
+    """Return the three regional rasters one conditioning method writes."""
+    correcflow = Path(paths.correcflow_path)
+    return [
+        correcflow / corrected_dem_name(dem_correc_type),
+        correcflow / DIRECTION_NAME,
+        correcflow / ACCUMULATION_NAME,
+    ]
 
 
 def _raster_products_from_paths(paths: GeographicPaths) -> DomainRasterProducts:
@@ -303,14 +308,11 @@ def _required_geographic_cache_artifacts(
     *,
     config: GeographicConfig,
     paths: GeographicPaths,
-    flow_products: FlowProducts,
     raster_products: DomainRasterProducts,
 ) -> list[str | Path]:
     """Return the concrete files required for a safe cache hit."""
     required: list[str | Path] = [
-        flow_products.correc,
-        flow_products.direc,
-        flow_products.acc,
+        *_flow_raster_paths(paths, str(config.dem_correc_type)),
         paths.watershed,
         paths.watershed_shp,
         paths.watershed_contour_shp,
@@ -366,15 +368,32 @@ def _load_cached_geographic_products(
     if manifest.get("fingerprint") != _geographic_cache_fingerprint(config):
         return None
 
-    flow_products = _flow_products_from_paths(paths, str(config.dem_correc_type))
     raster_products = _raster_products_from_paths(paths)
     required = _required_geographic_cache_artifacts(
         config=config,
         paths=paths,
-        flow_products=flow_products,
         raster_products=raster_products,
     )
     if not _all_artifacts_exist(required):
+        return None
+
+    # Only now: the description reads the CRS and the nodata off the rasters,
+    # which have just been shown to exist. Existing is not enough -- a raster
+    # left by an interrupted run, or written by another tool without a nodata
+    # tag, cannot be described. A cache that cannot describe itself is a miss,
+    # never a crash: the run rebuilds, which is what it would have done anyway.
+    try:
+        flow_products = flow_products_from_paths(
+            dem_out_dir_path=paths.correcflow_path,
+            dem_correc_type=str(config.dem_correc_type),
+        )
+    except (TerrainProductError, RasterioIOError) as exc:
+        logger.warning(
+            "Geographic cache rejected: the flow rasters under %s exist but cannot be "
+            "described (%s). Rebuilding them.",
+            paths.correcflow_path,
+            exc,
+        )
         return None
 
     river_network_products = _river_products_from_cache(
@@ -506,10 +525,7 @@ def build_geographic_runtime_context(
             catchment_products = build_standard_catchment(
                 config=config,
                 paths=setup.paths,
-                direc_path=flow_products.direc,
-                acc_path=flow_products.acc,
-                direc_data=flow_products.direc_data,
-                acc_data=flow_products.acc_data,
+                accumulation=flow_products.accumulation,
                 crs_project=setup.crs_project,
                 backend=tool,
                 unsupported_mode="ignore",
@@ -573,10 +589,7 @@ def build_geographic_runtime_context(
                 build_standard_catchment(
                     config=config,
                     paths=setup.paths,
-                    direc_path=flow_products.direc,
-                    acc_path=flow_products.acc,
-                    direc_data=flow_products.direc_data,
-                    acc_data=flow_products.acc_data,
+                    accumulation=flow_products.accumulation,
                     crs_project=setup.crs_project,
                     backend=tool,
                     unsupported_mode="ignore",
@@ -643,8 +656,6 @@ def build_geographic_runtime_context(
                 dem_init_path=top_dem_from_config(config, setup),
                 correc_path=flow_products.correc,
                 direc_path=flow_products.direc,
-                correc_data=flow_products.correc_data,
-                direc_data=flow_products.direc_data,
                 watershed_shp=setup.paths.watershed_shp,
                 watershed_buff_shp=domain_products.watershed_buff_shp,
                 paths=setup.paths,
