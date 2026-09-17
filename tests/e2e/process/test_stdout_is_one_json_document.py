@@ -109,6 +109,52 @@ def test_a_tampered_artefact_makes_verify_exit_on_validation(tmp_path, finished)
     assert any("flow_direction.tif" in problem for problem in report["problems"])
 
 
+def test_a_real_run_produces_exactly_the_paths_the_description_declares(finished):
+    """The last assertion of the description gate, and the only one worth making here.
+
+    Every other check reads the document against the declaration it came from.
+    This one reads it against a directory a real run left on disk: a declared
+    path nothing writes is the failure the whole boundary exists to prevent.
+    """
+    job, completed = finished
+    assert completed.returncode == 0, completed.stderr[-4000:]
+
+    described = _hmp("process", "describe", "terrain-delineate")
+    assert described.returncode == 0, described.stderr[-4000:]
+    outputs = json.loads(described.stdout)["outputs"]
+
+    for output_id, entry in outputs.items():
+        path = job / entry["hmp:path"]
+        assert path.is_file(), (
+            f"{output_id} declares {entry['hmp:path']}, which the run left absent"
+        )
+
+    produced = sorted(p.name for p in (job / "outputs").iterdir())
+    declared = sorted(
+        entry["hmp:path"].split("/", 1)[1]
+        for entry in outputs.values()
+        if entry["hmp:path"].startswith("outputs/")
+    )
+    assert produced == declared
+
+
+def test_the_description_on_stdout_is_the_document_that_ships_in_the_wheel():
+    from hydromodpy.schema.processes import read_description_text
+
+    completed = _hmp("process", "describe", "terrain-delineate")
+
+    assert completed.returncode == 0, completed.stderr[-4000:]
+    assert completed.stdout == read_description_text("terrain-delineate")
+
+
+def test_describing_a_capability_nobody_serves_is_a_usage_error():
+    completed = _hmp("process", "describe", "data-fetch")
+
+    assert completed.returncode == EXIT_USAGE
+    assert completed.stdout == ""
+    assert "data-fetch" in completed.stderr
+
+
 def test_the_listing_names_the_capability_this_build_serves():
     completed = _hmp("process", "list", "--format", "json")
 

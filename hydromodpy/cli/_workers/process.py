@@ -99,17 +99,17 @@ def list_capabilities() -> list[dict[str, Any]]:
     ]
 
 
-def describe_capability(capability_id: str, major: int | None = None) -> dict[str, Any]:
-    """Return the committed process description of one capability.
+def describe_capability(capability_id: str, major: int | None = None) -> str:
+    """Return the exact bytes of one process description.
 
     Read from package data and not rendered here: the description is generated
     from the declaration, committed, and gated against the generator. Rendering
     it a second time in this function would be a second source of truth, and
     the one a caller reads would be the one nothing compares.
     """
-    from hydromodpy.schema.processes import read_description
+    from hydromodpy.schema.processes import read_description_text
 
-    return read_description(capability_id, major)
+    return read_description_text(capability_id, major)
 
 
 def run_capability(capability_id: str, job_dir: str | Path) -> tuple[int, str]:

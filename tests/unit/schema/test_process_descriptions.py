@@ -8,7 +8,6 @@ what the document may not claim.
 
 from __future__ import annotations
 
-import json
 from typing import Any, get_args
 
 import pytest
@@ -163,7 +162,7 @@ def test_describing_a_major_this_build_does_not_serve_is_an_invocation_error() -
         describe_capability(capability_ids()[0], 99)
 
 
-def test_the_worker_reads_the_committed_document_and_does_not_re_render_it() -> None:
+def test_the_worker_reads_the_committed_bytes_and_does_not_re_render_them() -> None:
     capability_id = capability_ids()[0]
     entry = next(e for e in read_index()["processes"] if e["id"] == capability_id)
-    assert describe_capability(capability_id) == json.loads(_committed(entry["file"]))
+    assert describe_capability(capability_id) == _committed(entry["file"])

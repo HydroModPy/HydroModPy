@@ -45,6 +45,13 @@ Sub-actions
     The capabilities this build serves, with their version, their major and
     the artefacts each declares.
 
+``hmp process describe <id> [--major N] [--format {table,json,csv}]``
+    The machine-readable description of one capability: its inputs with their
+    JSON Schema, its declared artefacts with the path each takes under the job
+    directory, and the typed failures it can return with the exit code of
+    each. ``--format json``, the default, writes the document **byte for
+    byte** as it ships in the wheel; the other two flatten it for a human.
+
 ``hmp process run <id> --job DIR``
     Run one. **stdout carries exactly one JSON document and nothing else**,
     byte for byte the content of ``DIR/outcome.json``; every human line goes
@@ -60,6 +67,28 @@ Sub-actions
     directory does not verify. It is pointed at directories it did not
     write, including ones a transfer truncated: it reports, it never crashes
     on them.
+
+The process description
+-----------------------
+
+One JSON document per capability, shipped inside the wheel under
+``hydromodpy/schema/processes/``. The file name carries the **major**
+version, ``terrain-delineate@1.json``: a breaking change to inputs or outputs
+mints ``@2`` and both ship side by side, while a compatible change bumps
+``version`` inside the existing file. A caller pins the major and survives a
+minor bump. ``index.json`` maps each id to its file.
+
+Nothing in it is written by hand. It is generated from the capability
+declaration, the Pydantic request model and the exit-code mapper by
+``python -m tools.processes``, and ``tests/unit/schema/test_process_descriptions.py``
+refuses a committed document the generator no longer reproduces. That gate is
+why the description cannot claim an exit code the process does not produce,
+nor an artefact path a real run does not write.
+
+A third party writes their own shim against this document -- an OGC API
+Processes façade, a Galaxy tool, a workflow node -- without patching
+HydroModPy and without importing it. HydroModPy serves nothing over HTTP and
+never will.
 
 What the directory holds afterwards
 -----------------------------------

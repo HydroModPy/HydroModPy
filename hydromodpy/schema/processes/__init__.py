@@ -54,13 +54,12 @@ def described_ids() -> tuple[str, ...]:
     return tuple(sorted(entry["id"] for entry in read_index()["processes"]))
 
 
-def read_description(capability_id: str, major: int | None = None) -> dict[str, Any]:
-    """Return the description of one capability.
+def _resolve_file(capability_id: str, major: int | None) -> str:
+    """Return the file name of one description, refusing an id nobody describes.
 
-    With *major* omitted, the index decides which one this build serves.
-    An unknown id raises :class:`JobUsageError` and not a file error: the id
-    comes from a caller, so getting it wrong is an invocation mistake, which is
-    the one failure a shim has to tell apart from the job failing.
+    :class:`JobUsageError` and not a file error: the id comes from a caller, so
+    getting it wrong is an invocation mistake, which is the one failure a shim
+    has to tell apart from the job failing.
     """
     index = read_index()
     for entry in index["processes"]:
@@ -68,13 +67,29 @@ def read_description(capability_id: str, major: int | None = None) -> dict[str, 
             continue
         if major is not None and entry["major"] != major:
             continue
-        return _read(entry["file"])
+        return str(entry["file"])
 
     served = ", ".join(sorted(entry["id"] for entry in index["processes"])) or "none"
     pinned = f" at major {major}" if major is not None else ""
     raise JobUsageError(
         f"no process description for {capability_id!r}{pinned}; this build describes {served}"
     )
+
+
+def read_description_text(capability_id: str, major: int | None = None) -> str:
+    """Return the exact bytes of one description, as they ship in the wheel.
+
+    With *major* omitted, the index decides which one this build serves. The
+    text and not a re-render: what a caller reads out of a pipe and what a
+    caller reads out of the wheel are then the same document, and nothing can
+    make them disagree.
+    """
+    return files(__name__).joinpath(_resolve_file(capability_id, major)).read_text(encoding="utf-8")
+
+
+def read_description(capability_id: str, major: int | None = None) -> dict[str, Any]:
+    """Return the description of one capability, parsed."""
+    return json.loads(read_description_text(capability_id, major))
 
 
 __all__ = [
@@ -84,5 +99,6 @@ __all__ = [
     "described_ids",
     "description_filename",
     "read_description",
+    "read_description_text",
     "read_index",
 ]

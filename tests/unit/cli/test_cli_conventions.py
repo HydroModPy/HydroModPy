@@ -55,6 +55,7 @@ READ_FORMAT_COMMANDS = (
     ("catalog", "show"),
     ("catalog", "query"),
     ("process", "list"),
+    ("process", "describe"),
     ("process", "verify"),
 )
 
