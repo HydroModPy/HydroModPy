@@ -9,6 +9,7 @@ from hydromodpy.solver.modflow_common.routing_context import (
     build_solver_routing_context,
 )
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
+from tests._helpers.terrain_doubles import fake_flow_products
 
 
 def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path: Path):
@@ -34,7 +35,7 @@ def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path:
                 "backend": backend,
             }
         )
-        return FlowProducts(
+        return fake_flow_products(
             correc=str(Path(dem_out_dir_path) / "dem_breach.tif"),
             direc=str(Path(dem_out_dir_path) / "dem_direc.tif"),
             acc=str(Path(dem_out_dir_path) / "dem_acc.tif"),

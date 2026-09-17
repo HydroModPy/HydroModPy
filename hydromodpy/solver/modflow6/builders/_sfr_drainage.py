@@ -110,7 +110,7 @@ def receiver_from_d8_pointer(
     """
     import rasterio
 
-    from hydromodpy.spatial.geographic.core.d8 import WBT_D8_OFFSETS
+    from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
 
     with rasterio.open(str(pointer_path)) as src:
         pointer = src.read(1)
@@ -137,7 +137,7 @@ def receiver_from_d8_pointer(
 
     receiver = np.full(n_cells, -1, dtype=np.int64)
     code = pointer[row, col]
-    for value, (drow, dcol) in WBT_D8_OFFSETS.items():
+    for value, (drow, dcol) in D8_WBT_OFFSETS.items():
         selected = code == value
         if not selected.any():
             continue

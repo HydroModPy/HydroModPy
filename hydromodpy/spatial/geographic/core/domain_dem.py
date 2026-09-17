@@ -14,9 +14,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.spatial.geographic.geographic_io import (
     backend_has_callables,
-    ensure_crs,
     resolve_delineation_backend,
 )
 

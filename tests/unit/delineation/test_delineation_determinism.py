@@ -9,15 +9,30 @@ results. Depression removal therefore runs on a single worker.
 
 from __future__ import annotations
 
+import tempfile
+from pathlib import Path
+
 import numpy as np
 import pytest
 
 from hydromodpy.spatial.delineation.whitebox_workflows_backend import (
     WhiteboxWorkflowsBackend,
 )
+from hydromodpy.spatial.terrain import LN_FLOAT32_COLLISION_COUNT
 
 wbw = pytest.importorskip("whitebox_workflows")
 rasterio = pytest.importorskip("rasterio")
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _to_numpy(backend, raster) -> np.ndarray:
+    """Read a Whitebox raster back as an array, through the file it writes."""
+    with tempfile.TemporaryDirectory() as scratch:
+        path = Path(scratch) / "raster.tif"
+        backend.raster.write_raster(raster, str(path))
+        with rasterio.open(str(path)) as src:
+            return src.read(1)
 
 
 @pytest.fixture
@@ -116,3 +131,61 @@ def test_flow_products_are_reproducible(rough_dem) -> None:
         stacks.append((_digest(correc), _digest(direc), _digest(acc)))
 
     assert len(set(stacks)) == 1
+
+
+COMMITTED_DEMS = [
+    "examples/data/dem/DEM_gouville_25m.tif",
+    "examples/data/dem/DEM_nancon_50m.tif",
+    "examples/data/dem/regional_dem_naizin.tif",
+    "tests/data/sfr_cheze/dem_valley.tif",
+]
+
+
+@pytest.mark.parametrize("dem_name", COMMITTED_DEMS)
+def test_accumulating_the_pointer_equals_accumulating_the_dem(dem_name) -> None:
+    """The equivalence the terrain port stands on, on real committed DEMs.
+
+    ``build_regional_flow_products`` used to accumulate the conditioned DEM
+    directly; it now accumulates the D8 pointer the same chain derives, because
+    that is what lets ``FlowAccumulation`` declare the pointer it descends. The
+    two are equal, and this is where that is checked rather than asserted: the
+    rasters ``dem_acc.tif`` carries drive every catchment, every snap and every
+    river network downstream, so the two paths have to agree **bit for bit**,
+    not within a band.
+    """
+    dem_path = REPO_ROOT / dem_name
+    backend = WhiteboxWorkflowsBackend()
+    dem = backend.raster.read_raster(str(dem_path))
+    correc = backend.flow.fill_depressions_raster(dem)
+    pointer = backend.flow.d8_pointer_raster(correc, esri_pntr=False)
+
+    from_dem = backend.flow.d8_flow_accumulation_raster(correc, log=True)
+    from_pointer = backend.flow.d8_flow_accumulation_raster(
+        pointer,
+        log=True,
+        out_type="cells",
+        input_is_pointer=True,
+    )
+
+    assert _digest(from_pointer) == _digest(from_dem)
+
+
+@pytest.mark.parametrize("dem_name", COMMITTED_DEMS)
+def test_the_natural_logarithm_folds_no_count_of_these_dems(dem_name) -> None:
+    """Anti-vacuity for the bound the port enforces on a transformed snap.
+
+    ``LN_FLOAT32_COLLISION_COUNT`` says float32 stops telling neighbouring cell
+    counts apart at 1 049 558. That claim is only worth something if the rasters
+    this repository actually routes stay under it, so this counts the distinct
+    values on both sides and refuses a fold.
+    """
+    dem_path = REPO_ROOT / dem_name
+    backend = WhiteboxWorkflowsBackend()
+    dem = backend.raster.read_raster(str(dem_path))
+    correc = backend.flow.fill_depressions_raster(dem)
+    counts = _to_numpy(backend, backend.flow.d8_flow_accumulation_raster(correc, log=False))
+    logged = _to_numpy(backend, backend.flow.d8_flow_accumulation_raster(correc, log=True))
+
+    valid = np.isfinite(counts) & (counts > 0)
+    assert float(counts[valid].max()) < LN_FLOAT32_COLLISION_COUNT
+    assert np.unique(logged[valid]).size == np.unique(counts[valid]).size

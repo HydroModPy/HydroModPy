@@ -16,6 +16,7 @@ from hydromodpy.spatial.site_selection.hydrology.delineation import (
 from hydromodpy.spatial.site_selection.hydrology.pipeline import (
     delineate_site_selection_candidates,
 )
+from tests._helpers.terrain_doubles import fake_flow_products
 
 
 @pytest.mark.fast
@@ -39,7 +40,9 @@ def test_delineate_candidate_outlet_delegates_to_existing_point_extractor(tmp_pa
         crs="EPSG:2154",
         source="station",
     )
-    flow_products = FlowProducts(correc="dem_fill.tif", direc="dem_direc.tif", acc="dem_acc.tif")
+    flow_products = fake_flow_products(
+        correc="dem_fill.tif", direc="dem_direc.tif", acc="dem_acc.tif"
+    )
 
     result = delineate_candidate_outlet(
         outlet=outlet,
@@ -53,8 +56,8 @@ def test_delineate_candidate_outlet_delegates_to_existing_point_extractor(tmp_pa
     assert calls["x_outlet"] == pytest.approx(350000.0)
     assert calls["y_outlet"] == pytest.approx(6810000.0)
     assert calls["snap_dist"] == 250
-    assert calls["acc_path"] == "dem_acc.tif"
-    assert calls["direc_path"] == "dem_direc.tif"
+    assert str(calls["accumulation"].path) == "dem_acc.tif"
+    assert str(calls["accumulation"].directions.path) == "dem_direc.tif"
     assert calls["crs_project"] == "EPSG:2154"
     assert result.area_km2 == pytest.approx(123.4)
     assert result.status == "delineated"
@@ -85,7 +88,9 @@ def test_delineate_candidate_outlet_can_snap_to_reference_network_before_dem(tmp
         geometry=[LineString([(350000.0, 6810000.0), (350100.0, 6810000.0)])],
         crs="EPSG:2154",
     )
-    flow_products = FlowProducts(correc="dem_fill.tif", direc="dem_direc.tif", acc="dem_acc.tif")
+    flow_products = fake_flow_products(
+        correc="dem_fill.tif", direc="dem_direc.tif", acc="dem_acc.tif"
+    )
 
     result = delineate_candidate_outlet(
         outlet=outlet,
@@ -118,7 +123,9 @@ def test_try_delineate_candidate_outlet_returns_rejected_record_on_failure(tmp_p
         crs="EPSG:2154",
         source="station",
     )
-    flow_products = FlowProducts(correc="dem_fill.tif", direc="dem_direc.tif", acc="dem_acc.tif")
+    flow_products = fake_flow_products(
+        correc="dem_fill.tif", direc="dem_direc.tif", acc="dem_acc.tif"
+    )
 
     result = try_delineate_candidate_outlet(
         outlet=outlet,
@@ -151,7 +158,9 @@ def test_delineate_site_selection_candidates_batches_candidates(tmp_path):
         CandidateOutlet("station_A", 350000.0, 6810000.0, "EPSG:2154", "station"),
         CandidateOutlet("station_B", 351000.0, 6811000.0, "EPSG:2154", "station"),
     ]
-    flow_products = FlowProducts(correc="dem_fill.tif", direc="dem_direc.tif", acc="dem_acc.tif")
+    flow_products = fake_flow_products(
+        correc="dem_fill.tif", direc="dem_direc.tif", acc="dem_acc.tif"
+    )
 
     results = delineate_site_selection_candidates(
         candidates,

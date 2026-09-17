@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.solver.modflow6.builders._sfr_drainage import receiver_from_d8_pointer
-from hydromodpy.spatial.geographic.core.d8 import WBT_D8_OFFSETS
+from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
 
 rasterio = pytest.importorskip("rasterio")
 
@@ -46,7 +46,7 @@ def _write_pointer(tmp_path, codes: np.ndarray, transform=_TRANSFORM):
 def test_every_octant_lands_on_the_neighbour_the_table_names(tmp_path):
     # The centre cell is pointed at each octant in turn. A table rotated by one
     # octant would still produce a plausible descent, so each is checked apart.
-    for code, (drow, dcol) in WBT_D8_OFFSETS.items():
+    for code, (drow, dcol) in D8_WBT_OFFSETS.items():
         codes = np.zeros((3, 3), dtype="int16")
         codes[1, 1] = code
         receiver = receiver_from_d8_pointer(_write_pointer(tmp_path, codes), _CENTROIDS, 9)

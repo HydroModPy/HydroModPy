@@ -7,11 +7,11 @@ from pathlib import Path
 
 import rasterio
 
+from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.spatial.geographic.core.domain_dem import clip_dem_to_box_buffer
 from hydromodpy.spatial.geographic.geographic_io import (
     backend_has_callables,
-    ensure_crs,
     resolve_delineation_backend,
 )
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
@@ -86,8 +86,6 @@ def build_domain_rasters(
     dem_init_path: str | Path,
     correc_path: str | Path,
     direc_path: str | Path,
-    correc_data: object | None = None,
-    direc_data: object | None = None,
     watershed_shp: str | Path,
     watershed_buff_shp: str | Path,
     paths: GeographicPaths,
@@ -114,12 +112,8 @@ def build_domain_rasters(
         "vector_lines_to_raster",
     ):
         dem_init_raster = tool.raster.read_raster(str(dem_init_path))
-        correc_raster = (
-            correc_data if correc_data is not None else tool.raster.read_raster(str(correc_path))
-        )
-        direc_raster = (
-            direc_data if direc_data is not None else tool.raster.read_raster(str(direc_path))
-        )
+        correc_raster = tool.raster.read_raster(str(correc_path))
+        direc_raster = tool.raster.read_raster(str(direc_path))
         box_buff_vector = tool.raster.read_vector(str(paths.box_buff))
         watershed_buff_vector = tool.raster.read_vector(str(watershed_buff_shp))
         watershed_vector = tool.raster.read_vector(str(watershed_shp))

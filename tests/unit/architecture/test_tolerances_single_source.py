@@ -1,7 +1,7 @@
 """Guard the single-source tolerance policy.
 
 ``tests/TOLERANCES.md`` is the one source of truth for numerical tolerances.
-``tests/_helpers/tolerances.py::tol`` loads the 42 single-scalar rows from that
+``tests/_helpers/tolerances.py::tol`` loads the 44 single-scalar rows from that
 table. This test prevents two kinds of drift:
 
 1. A ``tol("...")`` call that points at a typo / dangling key (it would resolve
@@ -9,7 +9,7 @@ table. This test prevents two kinds of drift:
 2. An INLINE row whose value is hard-coded at its assertion site again, so the
    row could diverge from the table without anyone noticing.
 
-The 42 loadable rows split into three enforcement classes (W5 classification):
+The 44 loadable rows split into three enforcement classes (W5 classification):
 
 * INLINE  - the value is asserted at a validation/regression call site; the
             literal was replaced by ``tol(<slug>)``. Every INLINE row MUST be
@@ -47,7 +47,7 @@ _SCAN_EXCLUDE: frozenset[str] = frozenset(
 )
 
 # --------------------------------------------------------------------------- #
-# W5 classification of the 42 loadable TOLERANCES.md rows.
+# W5 classification of the 44 loadable TOLERANCES.md rows.
 # --------------------------------------------------------------------------- #
 
 # INLINE: literal replaced by tol(); must be referenced by >= 1 tol() call.
@@ -78,6 +78,9 @@ INLINE_ROWS: frozenset[str] = frozenset(
         # tests/unit/core/test_topographic_distance.py.
         "v_valley_support_bench_case_a__root_relative_gap_between_raw_and_closed_observed_network",
         "v_valley_support_bench_case_b__root_drift_under_a_rasterisation_hole",
+        # Terrain port conformance suite, tests/contract/test_terrain_engine_contract.py.
+        "terrain_engine_conformance__cross_engine_catchment_area",
+        "terrain_engine_conformance__ln_transform_identity",
         "downslope_operator_d4_vs_d8__length_ratio_on_a_pure_diagonal_descent",
         # Golden comparison against whitebox D-infinity, asserted in
         # tests/unit/core/test_downslope_whitebox_golden.py.
@@ -189,7 +192,7 @@ def test_classification_partitions_all_loadable_rows() -> None:
     """INLINE, CASE_TOML and UNUSED partition exactly the loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 42, sorted(loadable)
+    assert len(loadable) == 44, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"

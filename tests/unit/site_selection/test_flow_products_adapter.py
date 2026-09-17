@@ -7,6 +7,7 @@ from hydromodpy.spatial.site_selection.config import HydrologyConfig
 from hydromodpy.spatial.site_selection.hydrology.flow_products import (
     build_site_selection_flow_products,
 )
+from tests._helpers.terrain_doubles import fake_flow_products
 
 
 @pytest.mark.fast
@@ -15,7 +16,7 @@ def test_flow_products_adapter_delegates_to_existing_builder(tmp_path):
 
     def fake_builder(**kwargs):
         calls.update(kwargs)
-        return FlowProducts(
+        return fake_flow_products(
             correc=str(tmp_path / "dem_breach.tif"),
             direc=str(tmp_path / "dem_direc.tif"),
             acc=str(tmp_path / "dem_acc.tif"),
@@ -45,7 +46,7 @@ def test_flow_products_adapter_maps_existing_default_to_fill(tmp_path):
 
     def fake_builder(**kwargs):
         calls.update(kwargs)
-        return FlowProducts(correc="fill.tif", direc="dir.tif", acc="acc.tif")
+        return fake_flow_products(correc="fill.tif", direc="dir.tif", acc="acc.tif")
 
     build_site_selection_flow_products(
         dem_init_path=tmp_path / "dem.tif",

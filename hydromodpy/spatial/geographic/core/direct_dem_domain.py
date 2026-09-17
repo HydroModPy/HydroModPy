@@ -23,7 +23,7 @@ from rasterio.features import shapes
 from shapely.geometry import box, shape
 from shapely.ops import unary_union
 
-from hydromodpy.spatial.geographic.geographic_io import ensure_crs
+from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
 
 

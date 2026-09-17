@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hydromodpy.core.exceptions import EmptyCatchmentError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
@@ -113,11 +114,18 @@ class DomainGeographicContext:
 
 
 def _should_retry_with_fill(*, config: GeographicConfig, error: Exception) -> bool:
+    """Say whether a breach that delineated nothing deserves a fill retry.
+
+    Decided on the type of the failure and not on the text of its message: a
+    breach can carve an outlet off its own catchment, and a fill usually does
+    not, but an outlet that snapped nowhere is a configuration error that a
+    second conditioning pass would only repeat.
+    """
     if str(getattr(config, "catch_def", "")).strip().lower() != "from_outlet_coord":
         return False
     if str(getattr(config, "dem_correc_type", "")).strip().lower() != "breach":
         return False
-    return "Watershed delineation produced an empty polygon" in str(error)
+    return isinstance(error, EmptyCatchmentError)
 
 
 def build_domain_geographic_context(
@@ -149,13 +157,10 @@ def _delineate(*, config: GeographicConfig, setup, routing_dem_path: str):
         build_standard_catchment(
             config=config,
             paths=setup.paths,
-            direc_path=flow.direc,
-            acc_path=flow.acc,
-            direc_data=flow.direc_data,
-            acc_data=flow.acc_data,
+            accumulation=flow.accumulation,
             crs_project=setup.crs_project,
         )
-    except ValueError as exc:
+    except EmptyCatchmentError as exc:
         if not _should_retry_with_fill(config=config, error=exc):
             raise
         logger.warning(
@@ -172,10 +177,7 @@ def _delineate(*, config: GeographicConfig, setup, routing_dem_path: str):
         build_standard_catchment(
             config=config,
             paths=setup.paths,
-            direc_path=flow.direc,
-            acc_path=flow.acc,
-            direc_data=flow.direc_data,
-            acc_data=flow.acc_data,
+            accumulation=flow.accumulation,
             crs_project=setup.crs_project,
         )
     products = build_river_network_products(

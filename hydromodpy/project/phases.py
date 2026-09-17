@@ -12,6 +12,7 @@ interactive phase verbs (``prepare`` and the per-phase builders).
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -176,6 +177,39 @@ def setup_workspace(project: Project) -> None:
     )
     project._phase = "setup_workspace"
     open_catalog(project)
+
+
+MODEL_PHASE_BY_STEP = {
+    "build_geographic": "geographic",
+    "load_data": "data",
+    "build_mesh": "mesh",
+}
+
+
+def adopt_pipeline_phase(project: Project, executed_steps: Sequence[str]) -> None:
+    """Record on the Project what a Pipeline just built on the shared context.
+
+    A run bounded before ``setup_process`` executes the model-phase steps
+    itself instead of going through the facade verbs, on the very ``ctx`` the
+    Project holds. Without this, the phase marker still reads
+    ``"uninitialized"`` and the next call rebuilds from scratch what is
+    already there. The invalidations mirror :func:`build_geographic` and
+    :func:`load_data`, which are the verbs these steps stand in for.
+    """
+    phase = None
+    for name in executed_steps:
+        phase = MODEL_PHASE_BY_STEP.get(name, phase)
+    if phase is None:
+        return
+    if phase == "geographic":
+        # A rebuilt geographic invalidates the data and the mesh drawn on it.
+        project._data_loaded.clear()
+        project._ctx.loaded_data.loaded_plan_types = None
+        project._ctx.setup.mesh_planar = None
+        project._ctx.setup.mesh_bundle = None
+    else:
+        project._data_loaded = set(getattr(project._ctx.data_plan, "types", ()) or ())
+    project._phase = phase
 
 
 def build_geographic(project: Project, *, reuse_dem: bool = False) -> None:

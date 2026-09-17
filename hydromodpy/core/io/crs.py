@@ -1,12 +1,17 @@
 """CRS helpers built on :mod:`pyproj` and :mod:`rasterio`.
 
-Centralises coordinate transforms, UTM detection, and polygon-based
-filtering so downstream modules never have to reach into ``pyproj``
-directly. The PROJ database bootstrap that used to live inline in
+Centralises coordinate transforms, UTM detection, polygon-based filtering
+and the CRS stamp a producer writes onto its own output, so downstream
+modules never have to reach into ``pyproj`` directly. ``ensure_crs`` lives
+here rather than beside one producer because every layer that writes a
+raster or a shapefile needs it, including engines that must not import a
+sibling package to find it. The PROJ database bootstrap that used to live inline in
 ``hydromodpy/__init__.py`` is planned to migrate here in a later phase.
 """
 
 from __future__ import annotations
+
+from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
@@ -139,7 +144,39 @@ def convert_units(df, var_key: str):
     return df
 
 
+def ensure_crs(path: str | Path, crs: str | None) -> None:
+    """Write *crs* onto a GeoTIFF or a shapefile that carries none.
+
+    Two file kinds, two mechanisms. A GeoTIFF is reopened in update mode and
+    only its CRS tag is rewritten, so the band data is never re-encoded. A
+    shapefile gets its sidecar ``.prj`` written in WKT1 ESRI, the dialect the
+    format's readers expect, and the ``.shp`` itself is left untouched: reading
+    and rewriting the vector to set a CRS would renumber nothing but would
+    round the coordinates through geopandas.
+
+    A ``None`` *crs* is a caller that has nothing to declare, and declaring
+    nothing is not an error.
+    """
+    if crs is None:
+        return
+    path_str = str(path)
+    if path_str.lower().endswith(".tif"):
+        with rio.open(path_str, "r+") as dst:
+            dst.crs = crs
+        return
+    if path_str.lower().endswith(".shp"):
+        shp_path = Path(path_str)
+        if not shp_path.exists():
+            raise FileNotFoundError(f"Shapefile not found: {shp_path}")
+        prj_path = shp_path.with_suffix(".prj")
+        wkt = CRS.from_user_input(crs).to_wkt(version="WKT1_ESRI")
+        current = prj_path.read_text(encoding="utf-8").strip() if prj_path.exists() else ""
+        if current != wkt:
+            prj_path.write_text(wkt, encoding="utf-8")
+
+
 __all__ = [
+    "ensure_crs",
     "reproject_coord",
     "reproject_shp",
     "get_centroid_coordinates",

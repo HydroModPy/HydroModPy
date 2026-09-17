@@ -285,10 +285,7 @@ def catchment_area_without_burn(
     build_standard_catchment(
         config=config,
         paths=setup.paths,
-        direc_path=flow.direc,
-        acc_path=flow.acc,
-        direc_data=flow.direc_data,
-        acc_data=flow.acc_data,
+        accumulation=flow.accumulation,
         crs_project=setup.crs_project,
         backend=backend,
         unsupported_mode="ignore",

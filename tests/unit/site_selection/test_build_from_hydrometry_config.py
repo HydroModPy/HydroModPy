@@ -8,6 +8,7 @@ from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, Hydrom
 from hydromodpy.spatial.geographic.core.catchment_from_point import CatchmentFromPointProducts
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
 from hydromodpy.workflow.site_selection import build_site_selection_from_hydrometry_config
+from tests._helpers.terrain_doubles import fake_flow_products
 
 from ._test_build_builders import make_config, make_record
 
@@ -26,7 +27,7 @@ def test_build_site_selection_from_hydrometry_config_uses_loader_then_builds(tmp
         return [make_record("J123456701")]
 
     def fake_flow_builder(**_kwargs):
-        return FlowProducts(correc="fill.tif", direc="direc.tif", acc="acc.tif")
+        return fake_flow_products(correc="fill.tif", direc="direc.tif", acc="acc.tif")
 
     def fake_delineation_builder(**kwargs):
         output_dir = Path(kwargs["output_dir"])

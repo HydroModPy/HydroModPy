@@ -26,7 +26,7 @@ from shapely.geometry import LineString, Point
 from shapely.ops import nearest_points, unary_union
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.geographic.core.d8 import WBT_D8_OFFSETS
+from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
 
 logger = get_logger(__name__)
 
@@ -250,7 +250,7 @@ def capture_stream_gaps(
     dc = sc.copy()
     has_down = np.zeros(sr.shape, dtype=bool)
     codes = d8[sr, sc]
-    for code, (odr, odc) in WBT_D8_OFFSETS.items():
+    for code, (odr, odc) in D8_WBT_OFFSETS.items():
         m = codes == code
         dr[m] = sr[m] + odr
         dc[m] = sc[m] + odc

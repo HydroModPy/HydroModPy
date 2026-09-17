@@ -25,8 +25,8 @@ import rasterio
 from rasterio.features import rasterize
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.geographic.core.d8 import WBT_D8_OFFSETS
 from hydromodpy.spatial.geographic.core.stream_enforcement import streams_from_config
+from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
 
 logger = get_logger(__name__)
 
@@ -151,7 +151,7 @@ def _d8_receivers(codes: np.ndarray) -> np.ndarray:
     receivers = np.full(nrow * ncol, -1, dtype=np.int64)
     rows, cols = np.meshgrid(np.arange(nrow), np.arange(ncol), indexing="ij")
     pointer = np.asarray(codes)
-    for code, (drow, dcol) in WBT_D8_OFFSETS.items():
+    for code, (drow, dcol) in D8_WBT_OFFSETS.items():
         hit = pointer == code
         if not hit.any():
             continue

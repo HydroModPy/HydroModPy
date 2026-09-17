@@ -27,8 +27,8 @@ import numpy as np
 import rasterio
 from shapely.geometry import box
 
+from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.core.units import UREG
-from hydromodpy.spatial.geographic.geographic_io import ensure_crs
 
 
 def _parse_length_meters(token: str, *, label: str) -> float:

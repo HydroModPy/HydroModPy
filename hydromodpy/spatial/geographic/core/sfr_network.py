@@ -40,7 +40,7 @@ from dataclasses import dataclass
 import numpy as np
 from shapely.geometry import LineString
 
-from hydromodpy.spatial.geographic.core.d8 import WBT_D8_OFFSETS
+from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,7 +85,7 @@ class SfrReachTrace:
 def _downstream_cell(row: int, col: int, d8: np.ndarray) -> tuple[int, int] | None:
     """Return the D8 neighbour of (row, col), or None at a pit / out of bounds."""
     code = int(d8[row, col])
-    offset = WBT_D8_OFFSETS.get(code)
+    offset = D8_WBT_OFFSETS.get(code)
     if offset is None:
         return None
     nrow, ncol = row + offset[0], col + offset[1]

@@ -20,8 +20,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.spatial.geographic.geographic_io import (
-    ensure_crs,
     write_shapefile_without_duplicate_columns,
 )
 
