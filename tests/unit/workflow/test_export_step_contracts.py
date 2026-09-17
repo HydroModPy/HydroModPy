@@ -15,8 +15,8 @@ class _RecordingStore:
         self.finalize_calls: list[dict[str, object]] = []
         self.close_calls = 0
 
-    def finalize(self, sim_id: str, *, status: str, duration_s: float) -> None:
-        self.finalize_calls.append({"sim_id": sim_id, "status": status, "duration_s": duration_s})
+    def finalize(self, sim_id: str, *, status: str) -> None:
+        self.finalize_calls.append({"sim_id": sim_id, "status": status})
 
     def close(self) -> None:
         self.close_calls += 1
@@ -28,15 +28,15 @@ def test_step_finalize_store_finalizes_closes_and_detaches_store() -> None:
 
     export_module.step_finalize_store(ctx, wall_seconds=12.5, status="failed")
 
-    assert store.finalize_calls == [{"sim_id": "sim-123", "status": "failed", "duration_s": 12.5}]
+    assert store.finalize_calls == [{"sim_id": "sim-123", "status": "failed"}]
     assert store.close_calls == 1
     assert ctx.store is None
 
 
 def test_step_finalize_store_still_closes_when_finalize_fails() -> None:
     class FailingStore(_RecordingStore):
-        def finalize(self, sim_id: str, *, status: str, duration_s: float) -> None:
-            super().finalize(sim_id, status=status, duration_s=duration_s)
+        def finalize(self, sim_id: str, *, status: str) -> None:
+            super().finalize(sim_id, status=status)
             raise RuntimeError("catalog write failed")
 
     store = FailingStore()

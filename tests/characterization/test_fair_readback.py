@@ -19,8 +19,9 @@ Findings pinned, from ``red-fair.md``:
     B1, B4, B5, C1, D1. The licence is a Python literal, the creator is a Unix
     account name, the temporal extent is the moment of execution, ``crs_wkt``
     holds no WKT and ``duration_s`` contradicts the timestamps around it.
+    Repaired by F1.
 
-These three are the ones phase F1 turns green.
+Phase F1 turned all three green; they stay here as plain tests.
 """
 
 from __future__ import annotations
@@ -33,7 +34,6 @@ import tomllib
 from datetime import datetime
 from pathlib import Path
 
-import pytest
 import zarr
 
 from tests.characterization.conftest import ProducedRun
@@ -133,7 +133,25 @@ def test_the_field_store_metadata_is_valid_json(produced_run: ProducedRun) -> No
     assert not stringly_typed, f"CF attribute typed as a string: {stringly_typed}"
 
 
-@pytest.mark.xfail(strict=True, reason="red-fair B1/B4/B5/C1/D1: declarations that are not derived")
+def test_the_two_writers_of_a_run_declare_one_licence(produced_run: ProducedRun) -> None:
+    """The field store and every table of one run agree on the terms of reuse.
+
+    ``fields.zarr`` and ``tables.parquet`` are written by two different code
+    paths, and each carried its own licence literal. A deposit whose two halves
+    state different terms states none (red-fair D1/D3).
+    """
+    import pyarrow.parquet as pq
+
+    declared = dict(zarr.open_group(str(produced_run.field_store), mode="r").attrs)["license"]
+    disagreeing: list[str] = []
+    for table in sorted(produced_run.tables.glob("*.parquet")):
+        metadata = pq.read_schema(table).metadata or {}
+        value = metadata.get(b"license")
+        if value is not None and value.decode("utf-8") != declared:
+            disagreeing.append(f"{table.name}: {value.decode('utf-8')!r} != {declared!r}")
+    assert not disagreeing, f"one run, several licences: {disagreeing}"
+
+
 def test_the_run_declares_a_derived_identity(produced_run: ProducedRun) -> None:
     """Licence, creator, extent, CRS and duration come from the run, not from a literal."""
     attrs = dict(zarr.open_group(str(produced_run.field_store), mode="r").attrs)

@@ -127,11 +127,7 @@ def step_seal_store(
     """
     if ctx.store is None:
         return
-    ctx.store.finalize(
-        ctx.sim_id,
-        status=status,
-        duration_s=wall_seconds,
-    )
+    ctx.store.finalize(ctx.sim_id, status=status)
     _log_run_epilogue(ctx, wall_seconds=wall_seconds, status=status)
 
 

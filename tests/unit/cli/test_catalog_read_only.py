@@ -45,7 +45,7 @@ def project(tmp_path) -> Path:
         )
         if registration.zarr is not None:
             registration.zarr.close()
-        catalog.finalize(sid, status="completed", duration_s=1.0)
+        catalog.finalize(sid, status="completed")
     return root
 
 

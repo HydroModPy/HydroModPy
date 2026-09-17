@@ -66,9 +66,15 @@ def test_the_field_store_opens_with_the_zarr_package(produced_run: ProducedRun) 
 
 
 def test_the_field_store_declares_its_conventions(produced_run: ProducedRun) -> None:
-    """The store carries the attribute block a metadata reader looks for."""
+    """The store carries the attribute block a metadata reader looks for.
+
+    ``creator_name`` is not in the list: nobody declares one for this project,
+    and ACDD reads an absent attribute as unknown. It used to be present and
+    hold the Unix account of whoever ran the process, which is a wrong answer
+    rather than no answer (red-fair C1).
+    """
     attrs = dict(zarr.open_group(str(produced_run.field_store), mode="r").attrs)
-    for key in ("Conventions", "title", "summary", "source", "history", "license", "creator_name"):
+    for key in ("Conventions", "title", "summary", "source", "history", "license"):
         assert key in attrs, f"root attribute {key} absent from the field store"
 
 

@@ -34,6 +34,9 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+# Every CRS WKT2 (and WKT1) string opens with one of these keywords.
+_WKT_PREFIXES = ("PROJCRS", "GEOGCRS", "PROJCS", "GEOGCS", "COMPOUNDCRS", "BOUNDCRS")
+
 
 class PinnedRunError(Exception):
     """Raised when a destructive action targets a ``pinned`` run without force."""
@@ -259,14 +262,17 @@ class LifecycleMixin:
             self.delete(str(sid))
         return len(rows)
 
-    @audited("sim.finalize", payload_keys=("status", "duration_s"))
+    @audited("sim.finalize", payload_keys=("status",))
     @with_lock_retry()
-    def finalize(
-        self,
-        sim_id: str | UUID,
-        status: str = "completed",
-        duration_s: float | None = None,
-    ) -> None:
+    def finalize(self, sim_id: str | UUID, status: str = "completed") -> None:
+        """Seal the run: close the store, stamp ``ended_at``, write the manifest.
+
+        ``duration_s`` is derived here from ``started_at`` and the ``ended_at``
+        being written, so the three fields of the ``run`` block always describe
+        the same interval. The solver's own figure keeps its own name in
+        ``runs_environment.duration_s`` and is not copied into a column that
+        says wall clock.
+        """
         sid = str(sim_id)
         rel_zarr_path: str | None = None
         if status == "completed":
@@ -298,11 +304,11 @@ class LifecycleMixin:
                         self._backend.execute(
                             """UPDATE simulations
                                   SET status_id = (SELECT id FROM statuses WHERE code = 'partial'),
-                                      duration_s = ?,
+                                      duration_s = epoch(current_timestamp - started_at),
                                       ended_at = current_timestamp,
                                       updated_at = current_timestamp
                                 WHERE sim_id = ?""",
-                            [duration_s, sid],
+                            [sid],
                         )
                         emit_audit_event(
                             self._db,
@@ -337,27 +343,71 @@ class LifecycleMixin:
                 self._backend.execute(
                     """UPDATE simulations
                           SET status_id = (SELECT id FROM statuses WHERE code = ?),
-                              duration_s = ?,
+                              duration_s = epoch(current_timestamp - started_at),
                               zarr_path = ?,
                               ended_at = current_timestamp,
                               updated_at = current_timestamp
                         WHERE sim_id = ?""",
-                    [status, duration_s, rel_zarr_path, sid],
+                    [status, rel_zarr_path, sid],
                 )
             else:
                 self._backend.execute(
                     """UPDATE simulations
                           SET status_id = (SELECT id FROM statuses WHERE code = ?),
-                              duration_s = ?,
+                              duration_s = epoch(current_timestamp - started_at),
                               ended_at = current_timestamp,
                               updated_at = current_timestamp
                         WHERE sim_id = ?""",
-                    [status, duration_s, sid],
+                    [status, sid],
                 )
 
         if status == "completed":
+            self._resolve_declared_crs(sid)
             self._write_simulation_snapshot(sid)
             self._seal_run_directory(sid)
+
+    def _resolve_declared_crs(self, sid: str) -> None:
+        """Store the run's projection as WKT2 in the column that promises WKT.
+
+        ``simulations.crs_wkt`` held an ``EPSG:xxxx`` token on 72 of 78 runs and
+        real WKT on none, and stayed null whenever only the delineation knew the
+        projection. A reader who trusts the field name gets a string no CRS
+        parser accepts. Resolved once here, at the seal, from the projection the
+        run declared or, failing that, from the one its catchment recorded.
+        """
+        try:
+            row = self._backend.fetch_one(
+                "SELECT crs_wkt, crs_epsg FROM simulations WHERE sim_id = ?", [sid]
+            )
+            if row is None:
+                return
+            declared, epsg = row[0], row[1]
+            if declared and str(declared).startswith(_WKT_PREFIXES):
+                return
+            candidate = declared
+            if not candidate:
+                metadata = self.read_geographic_metadata(sid)
+                candidate = metadata.get("crs_proj") or metadata.get("crs_epsg")
+            if not candidate:
+                return
+
+            from pyproj import CRS as _CRS
+
+            crs = _CRS.from_user_input(str(candidate))
+            self._backend.execute(
+                "UPDATE simulations SET crs_wkt = ?, crs_epsg = ? WHERE sim_id = ?",
+                [crs.to_wkt(), crs.to_epsg() if crs.to_epsg() is not None else epsg, sid],
+            )
+        except Exception as exc:
+            # The run is already complete; an unresolvable projection leaves the
+            # column as it was rather than failing a seal that has nothing else
+            # wrong with it. Same fault isolation as the two seal steps beside it.
+            logger.warning(
+                "Could not resolve the declared CRS of sim %s to WKT; the run keeps "
+                "the token it declared: %s",
+                sid[:8],
+                exc,
+            )
 
     def _seal_run_directory(self, sid: str) -> None:
         """Write ``parameters.parquet``, ``provenance.json`` and ``manifest.json``.

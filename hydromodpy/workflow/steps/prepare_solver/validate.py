@@ -99,12 +99,17 @@ def collect_registration_kwargs(ctx: WorkflowContext) -> dict:
         else:
             datetimes = getattr(tg, "datetimes", None)
             if datetimes:
+                kwargs["n_timesteps"] = len(datetimes)
+            # A steady run holds one instant, which is the moment it was
+            # registered, not a period it simulated. Declaring it as the
+            # temporal extent published the execution clock as the coverage of
+            # the data on 25 of 89 stores.
+            if datetimes and len(datetimes) >= 2:
                 start_datetime = getattr(tg, "start_datetime", None)
                 kwargs["period_start"] = str(
                     start_datetime if start_datetime is not None else datetimes[0]
                 )
                 kwargs["period_end"] = str(datetimes[-1])
-                kwargs["n_timesteps"] = len(datetimes)
         time_cfg = getattr(ctx.cfg.simulation, "time", None)
         if time_cfg is not None:
             kwargs["time_unit"] = getattr(time_cfg, "step_unit", None)

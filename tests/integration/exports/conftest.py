@@ -51,7 +51,7 @@ def populate_simulation(catalog: Catalog, *, project: str = "test") -> str:
         "crs_wkt=?, crs_epsg=?, period_start=?, period_end=? WHERE sim_id = ?",
         [0.0, 0.0, 1000.0, 1000.0, "EPSG:2154", 2154, "2020-01-01", "2020-01-06", sid],
     )
-    catalog.finalize(sid, "completed", 1.0)
+    catalog.finalize(sid, "completed")
     return sid
 
 

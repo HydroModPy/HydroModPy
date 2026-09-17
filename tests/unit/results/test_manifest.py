@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 
 import pyarrow.parquet as pq
 import pytest
@@ -80,6 +81,11 @@ def _populate(catalog: Catalog, sid: str = SID) -> None:
     catalog.write_run_environment(sid, solver_name="modflow6")
 
 
+# A pause the test controls, long enough to tell a measured duration from any
+# figure a caller could have passed in.
+_OBSERVED_RUN_SECONDS = 0.25
+
+
 @pytest.fixture
 def sealed_run(tmp_path):
     """A finalised run, yielding ``(run_dir, manifest)``."""
@@ -87,7 +93,8 @@ def sealed_run(tmp_path):
         _register(catalog)
         _populate(catalog)
         (catalog.run_dir_for(SID) / RUN_CONFIG_FILENAME).write_text("[flow]\nhk = 1e-5\n")
-        catalog.finalize(SID, status="completed", duration_s=42.0)
+        time.sleep(_OBSERVED_RUN_SECONDS)
+        catalog.finalize(SID, status="completed")
         run_dir = catalog.run_dir_for(SID)
     return run_dir, read_manifest(run_dir)
 
@@ -119,7 +126,7 @@ def test_seal_replaces_a_previous_manifest_without_leaving_a_temporary(tmp_path)
     with Catalog(tmp_path / "project") as catalog:
         _register(catalog)
         _populate(catalog)
-        catalog.finalize(SID, status="completed", duration_s=1.0)
+        catalog.finalize(SID, status="completed")
         run_dir = catalog.run_dir_for(SID)
         first = read_manifest(run_dir)["sealed_at"]
 
@@ -140,7 +147,7 @@ def test_a_failing_seal_leaves_the_run_unsealed_without_failing_finalize(tmp_pat
 
     with Catalog(tmp_path / "project") as catalog:
         _register(catalog)
-        catalog.finalize(SID, status="completed", duration_s=1.0)
+        catalog.finalize(SID, status="completed")
         run_dir = catalog.run_dir_for(SID)
         status = catalog.backend.fetch_one(
             "SELECT st.code FROM simulations s JOIN statuses st ON s.status_id = st.id "
@@ -155,6 +162,24 @@ def test_a_failing_seal_leaves_the_run_unsealed_without_failing_finalize(tmp_pat
 # -- identity, geometry, period ---------------------------------------------
 
 
+def _assert_duration_matches_the_timestamps(timing: dict) -> None:
+    """``duration_s`` describes the interval the run really took.
+
+    It used to carry the solver's own figure while sitting between the two wall
+    timestamps it contradicted, on 78 of 78 manifests (red-fair B5). The
+    fixture pauses for a duration this test controls, so a value that came from
+    anywhere but the clock fails here; comparing it to the timestamps of the
+    same row would not, they are written by one statement.
+    """
+    from datetime import datetime
+
+    elapsed = (
+        datetime.fromisoformat(timing["ended_at"]) - datetime.fromisoformat(timing["started_at"])
+    ).total_seconds()
+    assert timing["duration_s"] == pytest.approx(elapsed, rel=0.05, abs=0.05)
+    assert _OBSERVED_RUN_SECONDS <= timing["duration_s"] < _OBSERVED_RUN_SECONDS + 30.0
+
+
 def test_manifest_carries_the_run_identity(sealed_run):
     _, manifest = sealed_run
     run = manifest["run"]
@@ -166,8 +191,8 @@ def test_manifest_carries_the_run_identity(sealed_run):
     assert run["project"] == "Cheze"
     assert run["solver"] == "modflow6"
     assert run["flow_regime"] == "transient"
-    assert run["duration_s"] == 42.0
     assert run["started_at"] and run["ended_at"]
+    _assert_duration_matches_the_timestamps(run)
 
 
 def test_manifest_carries_the_grid_geometry(sealed_run):
@@ -396,8 +421,8 @@ def test_provenance_records_the_solver_and_the_timing(sealed_run):
         "binary_path",
         "binary_sha256",
     }
-    assert provenance["timing"]["duration_s"] == 42.0
     assert provenance["timing"]["started_at"] and provenance["timing"]["ended_at"]
+    _assert_duration_matches_the_timestamps(provenance["timing"])
 
 
 def test_provenance_survives_a_run_with_no_recorded_environment(tmp_path):
@@ -477,7 +502,7 @@ def test_manifest_records_the_input_files_the_run_consumed(tmp_path):
         _register(catalog)
         _populate(catalog)
         payload = _track_dem(catalog, tmp_path)
-        catalog.finalize(SID, status="completed", duration_s=1.0)
+        catalog.finalize(SID, status="completed")
         run_dir = catalog.run_dir_for(SID)
 
     (entry,) = read_manifest(run_dir)["inputs"]

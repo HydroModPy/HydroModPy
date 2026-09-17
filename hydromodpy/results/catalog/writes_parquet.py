@@ -34,7 +34,7 @@ from hydromodpy.results.catalog.writes_helpers import (
     _table_from_records,
     geographic_feature_description,
 )
-from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
+from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, UNDETERMINED_LICENSE
 from hydromodpy.results.storage.parquet_io import read_kv_metadata, write_table_atomic
 from hydromodpy.results.storage.parquet_schemas import (
     BUDGETS_SCHEMA,
@@ -533,7 +533,7 @@ class WritesMixinParquet:
                 "hydromodpy_version": _HMP_VERSION,
                 "hmp.schema_version": PARQUET_SCHEMA_VERSION,
                 "Conventions": "CF-1.11",
-                "license": "CC-BY-4.0",
+                "license": UNDETERMINED_LICENSE,
                 "written_at": "",
             }
         (
@@ -563,7 +563,7 @@ class WritesMixinParquet:
             "hydromodpy_version": _HMP_VERSION,
             "hmp.schema_version": PARQUET_SCHEMA_VERSION,
             "Conventions": "CF-1.11",
-            "license": "CC-BY-4.0",
+            "license": UNDETERMINED_LICENSE,
             "scientific_objective": "" if objective is None else str(objective),
             "doi": "" if doi is None else str(doi),
             "written_at": "" if written_at_source is None else str(written_at_source),

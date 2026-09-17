@@ -83,7 +83,7 @@ def _populate_simulation(catalog, *, project: str, sim_id: str) -> None:
     series = pd.Series([10.0, 10.1, 10.2, 10.3], index=idx, name="head")
     catalog.write_timeseries(sim_id, station_id="P01", variable="head", ts=series)
     catalog.write_metric(sim_id, station_id="P01", metric_name="nse", value=0.91)
-    catalog.finalize(sim_id, status="completed", duration_s=0.25)
+    catalog.finalize(sim_id, status="completed")
 
 
 @pytest.mark.integration

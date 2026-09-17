@@ -917,10 +917,25 @@ def harmonize_axis_references(store_obj: SimulationZarr) -> None:
     metadata. Writing the two index arrays gives the face and layer axes a
     coordinate a reader can join on; removing an unresolvable ``grid_mapping``
     leaves the store saying only what is true.
+
+    The root ``n_cells`` and ``n_layers`` are refreshed from the same extents.
+    They were stamped at registration, before the mesh existed, and a store
+    whose root announces ``n_cells = 0`` over a 200-cell mesh describes nothing.
     """
     root = store_obj.root
     extents = _axis_extents(root)
     with store_obj._guard_write():
+        sizes = {
+            key: extents[axis]
+            for key, axis in (
+                ("n_cells", field_registry.AXIS_FACE),
+                ("n_layers", field_registry.AXIS_LAYER),
+            )
+            if axis in extents
+        }
+        if sizes:
+            store_obj._root = update_attrs(root, sizes)
+            root = store_obj._root
         if field_registry.AXIS_FACE in extents:
             _write_array(
                 store_obj,

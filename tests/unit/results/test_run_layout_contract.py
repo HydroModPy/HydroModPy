@@ -109,7 +109,7 @@ def solved_run(tmp_path):
         catalog.write_mass_balance(sim_id, 0, 10.0, 9.5, 5.0)
         catalog.write_metric(sim_id, "P01", "nse", 0.8)
         catalog.write_provenance(sim_id, "dem", "dem.tif", np.ones(4))
-        catalog.finalize(sim_id, status="completed", duration_s=1.0)
+        catalog.finalize(sim_id, status="completed")
 
     return project, sim_id
 

@@ -13,14 +13,15 @@ The Zarr store is created at its final path, never staged: readers open
 Steady period convention
 ------------------------
 A steady flow run may legitimately declare no ``[simulation.time]`` window:
-its solution is time-invariant, so there is nothing to span. Leaving the
-period empty would make it indistinguishable from a transient run whose
-bounds were lost, and would leave the manifest with an empty period block.
-Such a run is therefore registered with the degenerate period
-``period_start == period_end == started_at``: zero length says "no simulated
-duration", and the reference date is the only date the run can honestly
-claim, the instant it was computed. A steady run that *does* declare a
-window keeps the window it declared.
+its solution is time-invariant, so there is nothing to span, and such a run is
+registered with no period at all. It used to be registered with the degenerate
+period ``period_start == period_end == started_at`` so that it could be told
+apart from a transient run whose bounds were lost. No reader could make that
+distinction: a well-formed ISO-8601 instant in ``period_start`` is a temporal
+extent, and it reached ``time_coverage_start`` and every spatiotemporal index
+built from it as the period the data covers. ``flow_regime`` is where a run
+says it is time-invariant, and it says so already. A steady run that *does*
+declare a window keeps the window it declared.
 """
 
 from __future__ import annotations
@@ -53,9 +54,6 @@ from hydromodpy.results.zarr_store import SimulationZarr, _windows_long_path
 logger = get_logger(__name__)
 
 IfExistsMode = Literal["replace", "fail", "version"]
-
-STEADY_FLOW_REGIME = "steady"
-"""Flow regime whose runs may carry a degenerate period (see module docstring)."""
 
 _VERSION_SUFFIX_RE = re.compile(r"\.v(\d+)$")
 
@@ -457,14 +455,6 @@ class RegistrationMixin:
                         outlet_y,
                     ],
                 )
-                if p_start is None and p_end is None and flow_regime == STEADY_FLOW_REGIME:
-                    self._backend.execute(
-                        """UPDATE simulations
-                              SET period_start = started_at, period_end = started_at
-                            WHERE sim_id = ?""",
-                        [sid],
-                    )
-
                 if replaced_sid is not None:
                     try:
                         emit_audit_event(

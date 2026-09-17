@@ -18,7 +18,6 @@ from pathlib import Path
 TIER_DIR = Path(__file__).resolve().parent
 
 EXPECTED_STRICT_XFAILS: dict[str, str] = {
-    "test_the_run_declares_a_derived_identity": "F1",
     "test_every_step_of_a_run_declares_what_it_left_on_disk": "F7",
     "test_the_runtime_state_survives_a_process_boundary": "F8",
 }
@@ -28,6 +27,7 @@ EXPECTED_STRICT_XFAILS: dict[str, str] = {
 REPAIRED_STRICT_XFAILS: dict[str, str] = {
     "test_a_stranger_opens_the_field_store_with_xarray": "F1",
     "test_the_field_store_metadata_is_valid_json": "F1",
+    "test_the_run_declares_a_derived_identity": "F1",
 }
 
 
@@ -73,7 +73,7 @@ def test_the_tier_carries_exactly_the_declared_strict_xfails() -> None:
         f"undeclared strict xfails: {sorted(set(found) - set(EXPECTED_STRICT_XFAILS))}; "
         f"declared but absent: {sorted(set(EXPECTED_STRICT_XFAILS) - set(found))}"
     )
-    assert len(found) == 3
+    assert len(found) == 2
 
 
 def test_a_repaired_claim_is_never_marked_xfail_again() -> None:

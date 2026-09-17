@@ -28,7 +28,7 @@ from hydromodpy.core.io.geoparquet import (
 from hydromodpy.core.io.parquet import PARQUET_WRITE_DEFAULTS
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
-from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
+from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, UNDETERMINED_LICENSE
 from hydromodpy.results.storage.lazy_loaders import (
     list_field_paths,
     list_parquet_paths,
@@ -158,7 +158,7 @@ class TestKvMetadataEnriched:
         assert md.get("hmp.schema_version") == PARQUET_SCHEMA_VERSION
         assert md.get("hmp.schema") == "timeseries"
         assert md.get("Conventions") == "CF-1.11"
-        assert md.get("license") == "CC-BY-4.0"
+        assert md.get("license") == UNDETERMINED_LICENSE
         assert md.get("hydromodpy_version", "")
         assert md.get("sim_id") == sid
         assert "written_at" in md  # field present, deterministic

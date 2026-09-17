@@ -436,7 +436,7 @@ def test_record_export_is_noop_when_persistence_off(catalog):
 
 def test_finalize_writes_the_index_row_snapshot(catalog):
     sid = _register(catalog, "r")
-    catalog.finalize(sid, status="completed", duration_s=1.0)
+    catalog.finalize(sid, status="completed")
     snapshot = catalog.run_dir_for(sid) / TABLES_DIRNAME / "simulation.parquet"
 
     assert snapshot.is_file()

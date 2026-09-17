@@ -70,7 +70,7 @@ class TestFullCycle:
         for t in range(n_ts):
             catalog.write_field(sid, "head", t, all_vals[t], n_timesteps=n_ts if t == 0 else None)
 
-        catalog.finalize(sid, status="completed", duration_s=12.5)
+        catalog.finalize(sid, status="completed")
 
         result = catalog.query_field(sid, "head", 2)
         np.testing.assert_array_almost_equal(result, all_vals[2])
@@ -98,7 +98,7 @@ class TestFullCycle:
         values = np.array([[1.0, 2.0, 3.0, 4.0]], dtype="float64")
         catalog.write_field(sid, "head", 0, values, n_timesteps=1)
 
-        catalog.finalize(sid, status="completed", duration_s=1.0)
+        catalog.finalize(sid, status="completed")
 
         zarr_path = catalog.fields_path_for(sid)
         assert zarr_path.name == FIELDS_STORE_NAME

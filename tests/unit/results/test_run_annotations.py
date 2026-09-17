@@ -33,7 +33,7 @@ def _seal_run(catalog: Catalog, name: str) -> str:
     if registration.zarr is not None:
         registration.zarr.close()
     (catalog.run_dir_for(sid) / RUN_CONFIG_FILENAME).write_text("[flow]\nhk = 1e-5\n")
-    catalog.finalize(sid, status="completed", duration_s=1.0)
+    catalog.finalize(sid, status="completed")
     return sid
 
 

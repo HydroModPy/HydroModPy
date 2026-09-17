@@ -15,7 +15,9 @@ on disk, which is exactly what a reader opens. Any drift of the hierarchy,
 of the chunk layout or of the static attributes has to be intentional. It
 was re-captured a second time when every array started declaring
 ``dimension_names`` and float fields stopped carrying a NaN ``_FillValue``
-attribute: same members, same chunk bytes, different node metadata.
+attribute, and a third time when the root attributes stopped asserting a
+creator nobody declared and a CDM feature type the mesh is not: same members,
+same chunk bytes, different node metadata.
 
 Everything entering the digest is byte-identical on Linux and on Windows:
 
@@ -52,7 +54,7 @@ _FROZEN_NOW = datetime(2026, 5, 16, 12, 0, 0, tzinfo=UTC)
 # before computing the snapshot SHA-256.
 _VOLATILE_KEYS = frozenset({"history", "created_at", "date_modified"})
 
-EXPECTED_DIGEST = "0136bdc769d0c83d22874ceae8de6c827082ba7d985ab805f0f9a334d7b44dcf"
+EXPECTED_DIGEST = "f77812b17305897940f835173af55c77fea212559c2df9d8596a58f00072cfd6"
 
 STORE_MEMBERS: tuple[str, ...] = (
     "forcing/zarr.json",

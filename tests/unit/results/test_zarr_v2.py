@@ -86,11 +86,16 @@ def test_acdd_root_attrs_present(fresh_store: SimulationZarr) -> None:
             "solver_binary_sha256": "deadbeefcafe",
         },
     )
+    # ``creator_name`` is Highly Recommended and undeclared here: ACDD reads an
+    # absent attribute as unknown, which is what this run is. The Unix account
+    # ``alice`` is not an answer to who created the data.
     for key in HIGHLY_RECOMMENDED:
+        if key == "creator_name":
+            assert key not in attrs
+            continue
         assert key in attrs, f"missing ACDD highly-recommended attribute {key}"
     assert attrs["title"] == "demo"
     assert "ACDD-1.3" in attrs["Conventions"]
-    assert attrs["creator_name"] == "alice"
     assert attrs["creator_email"] == "alice@example.org"
     assert attrs["time_coverage_resolution"] == "P1D"
     # The solver binary identity and version must flow through under the
@@ -354,7 +359,6 @@ def test_compose_acdd_emits_recommended_attributes() -> None:
         "geospatial_vertical_units",
         "geospatial_bounds",
         "geospatial_bounds_crs",
-        "publisher_name",
         "publisher_email",
         "publisher_url",
         "standard_name_vocabulary",
@@ -364,12 +368,14 @@ def test_compose_acdd_emits_recommended_attributes() -> None:
         "metadata_link",
     ):
         assert key in attrs, f"missing ACDD recommended attribute {key}"
+    # Nobody declared a publisher, and the OS account is not one.
+    assert "publisher_name" not in attrs
     assert attrs["geospatial_lat_units"] == "degrees_north"
     assert attrs["geospatial_lon_units"] == "degrees_east"
     assert attrs["geospatial_vertical_units"] == "m"
     assert attrs["geospatial_bounds_crs"] == "EPSG:4326"
     assert attrs["standard_name_vocabulary"] == "CF Standard Name Table v85"
-    assert attrs["cdm_data_type"] == "Grid"
+    assert attrs["cdm_data_type"] == "UGRID"
     assert attrs["geospatial_bounds"].startswith("POLYGON((")
     assert "10.5281/zenodo.1234567" in attrs["metadata_link"]
     assert "Calibrate" in attrs["comment"]

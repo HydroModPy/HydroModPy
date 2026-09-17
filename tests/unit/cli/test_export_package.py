@@ -54,7 +54,7 @@ def _register_minimal_simulation(workspace: Path, project: str = "demo") -> str:
             variable="head",
             ts=pd.Series([1.0, 1.1, 1.2], index=idx, name="head"),
         )
-        catalog.finalize(sim_id, status="completed", duration_s=0.1)
+        catalog.finalize(sim_id, status="completed")
     return sim_id
 
 

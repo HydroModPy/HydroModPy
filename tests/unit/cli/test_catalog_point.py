@@ -60,7 +60,7 @@ def _seal(catalog, name: str, *, offset: float = 0.0) -> str:
     for step in range(N_STEPS):
         values = np.array([[1.0 + step + offset, 2.0 + step + offset]], dtype="float64")
         catalog.write_field(sid, "head", step, values, n_timesteps=N_STEPS if step == 0 else None)
-    catalog.finalize(sid, status="completed", duration_s=1.0)
+    catalog.finalize(sid, status="completed")
     return sid
 
 

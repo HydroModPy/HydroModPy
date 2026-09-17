@@ -50,7 +50,7 @@ def library_run(tmp_path):
             solver_version_text="6.6.3",
         )
         (catalog.run_dir_for(SID) / RUN_CONFIG_FILENAME).write_text("[flow]\n")
-        catalog.finalize(SID, status="completed", duration_s=1.0)
+        catalog.finalize(SID, status="completed")
         yield catalog, lib, project_root
 
 

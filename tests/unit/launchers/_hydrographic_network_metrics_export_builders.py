@@ -148,7 +148,7 @@ def _register_completed_run(
             HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
             _line_gdf(generated_length_m),
         )
-    catalog.finalize(sim_id, "completed", 1.0)
+    catalog.finalize(sim_id, "completed")
     catalog.close()
     return config_path, sim_id
 
@@ -233,6 +233,6 @@ def _register_completed_active_network_run(workspace_root: Path) -> tuple[Path, 
             crs="EPSG:2154",
         ),
     )
-    catalog.finalize(sim_id, "completed", 1.0)
+    catalog.finalize(sim_id, "completed")
     catalog.close()
     return config_path, sim_id

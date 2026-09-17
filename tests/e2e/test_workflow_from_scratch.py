@@ -85,7 +85,7 @@ def _seed_minimal_simulation(workspace: Path, *, project: str, sim_id: str) -> t
             ts=pd.Series([10.0, 10.1, 10.2, 10.3], index=idx),
         )
         catalog.write_metric(sim_id, station_id="P01", metric_name="nse", value=0.91)
-        catalog.finalize(sim_id, status="completed", duration_s=0.1)
+        catalog.finalize(sim_id, status="completed")
         return catalog.fields_path_for(sim_id), catalog.tables_dir_for(sim_id)
 
 

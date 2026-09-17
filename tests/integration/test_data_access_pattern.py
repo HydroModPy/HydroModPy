@@ -74,7 +74,7 @@ def _seed_run(
     )
     catalog.write_timeseries(sid, station_id="outlet", variable="discharge", ts=ts, unit="m3/s")
     catalog.write_metric(sid, station_id="__outlet__", metric_name="nse", value=0.7)
-    catalog.finalize(sid, status="completed", duration_s=1.0)
+    catalog.finalize(sid, status="completed")
     return sid
 
 
@@ -204,7 +204,7 @@ class TestScientificObjective:
     def test_finalize_defaults_objective_when_missing(self, catalog):
         sid = str(uuid4())
         catalog.register_simulation(sid, project="so2", solver="gr4j")
-        catalog.finalize(sid, status="completed", duration_s=0.1)
+        catalog.finalize(sid, status="completed")
         row = catalog.connection.execute(
             "SELECT scientific_objective FROM simulations WHERE sim_id = ?",
             [sid],

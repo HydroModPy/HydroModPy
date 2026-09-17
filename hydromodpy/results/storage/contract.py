@@ -70,6 +70,15 @@ RUN_TRASH_FILENAME = "trash.json"
 RUN_FIGURES_DIRNAME = "figures"
 """Figures rendered for one run."""
 
+UNDETERMINED_LICENSE = "LicenseRef-undetermined"
+"""SPDX token every artefact of a run carries until a licence is declared.
+
+No workspace of this repository declares one and none is inferable from the
+inputs, so both writers of a run say so with the SPDX form for "undetermined"
+rather than asserting a licence nobody chose. Shared here so the Zarr store and
+the Parquet footers can never disagree about the same run.
+"""
+
 SESSION_DESCRIPTOR_FILENAME = "session.json"
 """Identity, search space, objective and best trial of one calibration session."""
 
@@ -117,6 +126,7 @@ RUN_STORAGE_LAYER_NAMES: tuple[str, ...] = tuple(
 
 
 __all__ = [
+    "UNDETERMINED_LICENSE",
     "FIELDS_STORE_NAME",
     "PARQUET_FILE_SUFFIX",
     "PROJECT_STORAGE_LAYER_NAMES",
