@@ -121,6 +121,9 @@ class TestSimulationGroup:
             _ctx=ctx,
             _cfg=SimpleNamespace(),
             _config_path=tmp_path / "hydromodpy.toml",
+            # The double stands for a project whose model phase is built, which
+            # is what the geographic / domain objects on its ctx declare.
+            _ensure_model_built=lambda: None,
             _spatial_support_registry=None,
             _requested_support_ids=(),
             _requested_domain_supports={},
@@ -199,6 +202,9 @@ class TestSimulationGroup:
             _ctx=ctx,
             _cfg=SimpleNamespace(),
             _config_path=tmp_path / "hydromodpy.toml",
+            # The double stands for a project whose model phase is built, which
+            # is what the geographic / domain objects on its ctx declare.
+            _ensure_model_built=lambda: None,
             _spatial_support_registry=None,
             _requested_support_ids=(),
             _requested_domain_supports={},

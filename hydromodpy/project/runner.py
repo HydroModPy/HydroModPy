@@ -71,6 +71,41 @@ def _resolve_step_index(step: str | int, steps: tuple) -> int:
     raise ConfigError(f"Unknown pipeline step: {step!r}. Known steps: {known}")
 
 
+def _bounded_step_index(
+    step: str | int | None,
+    steps: tuple,
+    *,
+    label: str,
+) -> int | None:
+    """Resolve a step bound and refuse one that lands outside the pipeline.
+
+    An index past either end used to run a truncated or empty window and
+    report success, which is indistinguishable from a run that did its work.
+    """
+    if step is None:
+        return None
+    index = _resolve_step_index(step, steps)
+    if not 0 <= index < len(steps):
+        raise ConfigError(
+            f"{label} {step!r} resolves to index {index}, outside the {len(steps)}-step "
+            f"pipeline. Name a step or give an index in 0..{len(steps) - 1}."
+        )
+    return index
+
+
+def _model_phase_index(steps: tuple) -> int:
+    """Return the index of the first step that consumes the shared model phase.
+
+    ``0`` when the pipeline declares no ``setup_process``: an ad-hoc step list
+    makes no claim about a model phase, so every window is treated as needing
+    one, which is what the canonical pipeline did before the bound existed.
+    """
+    for index, step in enumerate(steps):
+        if getattr(step, "name", None) == "setup_process":
+            return index
+    return 0
+
+
 def _resolve_resume_step_index(
     workspace: Path,
     run_id: str,
@@ -209,9 +244,33 @@ class ProjectRunner:
 
         all_steps = standard_steps()
         steps = all_steps
-        if until_step is not None:
-            until_idx = _resolve_step_index(until_step, all_steps)
+        until_idx = _bounded_step_index(until_step, all_steps, label="until_step")
+        from_idx = _bounded_step_index(from_step, all_steps, label="from_step")
+        if until_idx is not None:
+            if from_idx is not None and from_idx > until_idx:
+                raise ConfigError(
+                    f"from_step {from_step!r} (index {from_idx}) is past until_step "
+                    f"{until_step!r} (index {until_idx}): the window is empty."
+                )
             steps = tuple(all_steps[: until_idx + 1])
+
+        # The eager model phase exists so that repeated runs on one Project
+        # share a geographic / data / mesh runtime. A window that stops before
+        # ``setup_process`` consumes none of it, so it executes its own steps
+        # instead of paying the whole model phase up front: this is what makes
+        # delineating a catchment alone possible. Such a window also reaches no
+        # step able to register a simulation, so it is not a run and writes no
+        # run record - see the Pipeline workspace below.
+        model_phase_index = _model_phase_index(all_steps)
+        head_only = until_idx is not None and until_idx < model_phase_index
+        if head_only and resume is not None:
+            raise ConfigError(
+                f"until_step {until_step!r} stops before 'setup_process', so the run keeps no "
+                f"journal to resume from. Drop --resume, or widen the window."
+            )
+        needs_model_phase = not head_only
+        if needs_model_phase:
+            project._ensure_model_built()
 
         workspace_path = self._resolve_workspace_path()
 
@@ -219,8 +278,8 @@ class ProjectRunner:
         # resume_from > 0 is an in-process skip, not a journal resume of a prior
         # same-name run (which would otherwise abort on an edited config).
         model_phase_ready = False
-        if from_step is not None:
-            resume_from: int | None = _resolve_step_index(from_step, all_steps)
+        if from_idx is not None:
+            resume_from: int | None = from_idx
             run_id = resume or name
         elif resume is not None:
             resume_from = _resolve_resume_step_index(
@@ -229,8 +288,8 @@ class ProjectRunner:
                 steps_blueprint=tuple(getattr(step, "name", "") for step in all_steps),
             )
             run_id = resume
-        elif self._is_model_phase_ready():
-            resume_from = _resolve_step_index("setup_process", all_steps)
+        elif needs_model_phase and self._is_model_phase_ready():
+            resume_from = model_phase_index
             run_id = name
             model_phase_ready = True
         else:
@@ -287,7 +346,10 @@ class ProjectRunner:
             },
         )
 
-        pipeline = Pipeline(steps, workspace=workspace_path)
+        # A head-only window registers no simulation, so it owns no run record.
+        # Handing it the workspace would let it overwrite the manifest of the
+        # run that carries this name and invalidate that run's journal.
+        pipeline = Pipeline(steps, workspace=None if head_only else workspace_path)
         restore_frozen_root: Path | None = None
         if frozen:
             from hydromodpy.data.data_freeze import frozen_project_root, set_frozen_mode
@@ -330,6 +392,15 @@ class ProjectRunner:
                     restore_frozen_root is not None,
                     project_root=restore_frozen_root,
                 )
+
+        if head_only:
+            # The window built part of the model phase on the Project's own
+            # ctx; the phase marker has to say so or the next call rebuilds it.
+            from hydromodpy.project import phases as adopt_phases
+
+            adopt_phases.adopt_pipeline_phase(
+                project, tuple(getattr(step, "name", "") for step in steps)
+            )
 
         final_ctx = final.get("ctx") if final is not None else None
         sim_id = getattr(final_ctx, "sim_id", None) if final_ctx is not None else None
@@ -381,11 +452,20 @@ class ProjectRunner:
         )
 
     def _resolve_workspace_path(self) -> Path:
-        """Return the project runtime root used for checkpoints and ledger."""
+        """Return the project runtime root used for checkpoints and ledger.
+
+        The runtime workspace only exists once the model phase has been built.
+        A run that stops before ``setup_process`` never builds it, so the
+        declared ``[workspace] project_root`` answers instead - the loader has
+        already made it absolute. The TOML directory stays the last resort.
+        """
         project = self._project
         workspace = project._ctx.setup.workspace
         if workspace is not None:
             return Path(workspace.project_root)
+        declared_root = getattr(getattr(project._cfg, "workspace", None), "project_root", None)
+        if declared_root is not None:
+            return Path(declared_root)
         if project._config_path is not None:
             return project._config_path.parent
         return Path.cwd()

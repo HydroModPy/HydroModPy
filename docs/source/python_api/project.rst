@@ -69,7 +69,9 @@ Run phase
 overrides such as ``Sy``, ``K`` and ``Ss``, plus the special keys ``thickness``, ``first_clim`` and ``properties``, are
 applied to the plan before the Pipeline runs. Other keywords cover the run name, ``resume`` from a workflow journal,
 ``from_step`` and ``until_step`` bounds, ``dry_run``, ``frozen`` input references, ``no_display`` and ``parallel``.
-A dry run, and some non-simulation workflows, return ``None``.
+A dry run, and some non-simulation workflows, return ``None``. An ``until_step`` that stops before ``setup_process``
+builds no model phase at all: ``project.simulate(until_step="build_geographic")`` delineates the catchment and returns,
+without loading the forcings or meshing the domain.
 
 .. code-block:: python
 

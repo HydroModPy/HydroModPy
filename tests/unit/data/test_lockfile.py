@@ -590,6 +590,9 @@ def test_project_runner_binds_the_project_root_it_runs(
         _ctx=ctx,
         _cfg=None,
         _config_path=config_path,
+        # The double stands for a project whose model phase is already built,
+        # which is what its ``setup.workspace`` above declares.
+        _ensure_model_built=lambda: None,
         _no_display=True,
         _run_counter=0,
         _solver=None,

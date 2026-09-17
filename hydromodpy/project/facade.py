@@ -148,7 +148,15 @@ class Project:
         object.__setattr__(self, "_catalog", ProjectCatalog(self))
 
     def _ensure_model_built(self) -> None:
-        """Build the model phase once, lazily, on first run or accessor use."""
+        """Build the model phase once, lazily, on first run or accessor use.
+
+        Only an untouched Project is built here. A phase marker that already
+        names a step means something built it - the facade verbs, or a run
+        bounded before ``setup_process`` - and the Pipeline completes what is
+        missing through ``is_prebuilt``. Completing it here instead would make
+        ``reload_data``, which moves the marker back to ``"data"`` on purpose,
+        regenerate a mesh that Gmsh does not reproduce run to run.
+        """
         if self._phase == "uninitialized":
             self.build_geographic()
             self.load_data()
@@ -387,6 +395,9 @@ class Project:
         """Run one simulation through the configured workflow and return its result.
 
         Builds the model phase on first call (lazy), then runs the Pipeline.
+        A run bounded by ``until_step`` before ``setup_process`` needs no shared
+        model phase: it executes its own steps and builds nothing else, which is
+        how a catchment is delineated without loading data or meshing.
         Flow parameter overrides (``Sy``, ``K``, ``Ss``) and the special keys
         ``thickness``, ``first_clim``, ``properties`` are applied to the plan
         before the Pipeline runs. Call once per point to sweep a parameter.
@@ -398,7 +409,8 @@ class Project:
         resume
             Existing run identifier to resume from the workflow journal.
         from_step, until_step
-            Optional step bounds for partial workflow execution.
+            Optional step bounds for partial workflow execution. A step name,
+            a class name, or an index inside the pipeline.
         dry_run
             Build and validate the workflow without executing solver work.
         frozen
@@ -422,6 +434,8 @@ class Project:
             If the configured solver crashes or fails to converge.
         ResumeError
             If ``resume`` references an incompatible journal state.
+        ConfigError
+            If ``from_step`` or ``until_step`` names no pipeline step.
 
         Examples
         --------
@@ -435,7 +449,6 @@ class Project:
         hydromodpy.results.run.Run
             Per-simulation result view returned by successful runs.
         """
-        self._ensure_model_built()
         return self._runner.run(
             name=name,
             resume=resume,

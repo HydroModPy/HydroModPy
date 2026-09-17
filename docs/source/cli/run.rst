@@ -40,7 +40,10 @@ Flags
        ``runs/<name>/config.toml``.
    * - ``--from STEP`` / ``--until STEP``
      - Start at, or stop after, a named or indexed pipeline step. Step
-       names and indices come from ``--dry-run``.
+       names and indices come from ``--dry-run``. A window that stops
+       before ``setup_process`` runs only the steps it names: ``--until
+       build_geographic`` delineates the catchment without loading the
+       forcings or meshing the domain.
    * - ``--force``
      - Run even when a completed run with an identical resolved config
        exists. Without it, the launch is skipped and points at the existing
