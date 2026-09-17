@@ -64,6 +64,15 @@ def test_the_baseline_request_is_read(tmp_path: Path, demo_capability: Capabilit
     assert validate_inputs(request, demo_capability).crs_project == "EPSG:2154"
 
 
+def test_a_request_written_with_a_byte_order_mark_is_read(tmp_path: Path) -> None:
+    """A .NET or PowerShell orchestrator prepends one, and it is still JSON."""
+    root = tmp_path / "job_4711"
+    root.mkdir()
+    (root / "request.json").write_text("﻿" + json.dumps(VALID), encoding="utf-8")
+
+    assert read_request(JobDirectory.open(root)).process.id == "demo-delineate"
+
+
 def test_a_request_that_is_not_json_is_refused_at_14(tmp_path: Path) -> None:
     refusal = _refusal(tmp_path, '{"process": {"id": "demo-delineate",}}')
 

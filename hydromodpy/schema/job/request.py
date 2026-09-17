@@ -83,7 +83,10 @@ class JobRequest(BaseModel):
 def read_request(job: JobDirectory) -> JobRequest:
     """Read and validate ``request.json`` from *job*."""
     source = str(job.request_path)
-    text = job.request_path.read_text(encoding="utf-8")
+    # utf-8-sig, not utf-8: an orchestrator that writes its JSON from .NET or
+    # from PowerShell prepends a byte-order mark, and refusing a document that
+    # every JSON reader in the world accepts would be this boundary's fault.
+    text = job.request_path.read_text(encoding="utf-8-sig")
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
