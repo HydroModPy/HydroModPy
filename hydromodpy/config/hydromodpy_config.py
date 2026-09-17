@@ -27,7 +27,7 @@ import copy
 import json
 import os
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -65,7 +65,11 @@ from hydromodpy.core.exceptions import (
     ConfigValidationError,
     IncompatibleCapabilitiesError,
 )
-from hydromodpy.core.toml_io.error_locator import format_validation_error
+from hydromodpy.core.toml_io.error_locator import (
+    format_validation_error,
+    json_pointer,
+    validation_error_details,
+)
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.data.managers.config_schema import DataManagersConfig
@@ -148,6 +152,62 @@ RESTART_CAPABILITY = "flow:restart"
 
 CYCLIC_SPINUP_CAPABILITY = "flow:spinup_cyclic"
 """What a backend declares when it can repeat its own period to settle a state."""
+
+
+def _section_refusal(
+    section: str,
+    message: str,
+    *,
+    source_path: Path | None = None,
+    error_type: str = "extra_forbidden",
+) -> ConfigValidationError:
+    """Build the refusal of one named top-level section, pointer included.
+
+    A section a document is not allowed to declare is a fault of that document,
+    not of this process, so it carries the same shape as a Pydantic field fault
+    and reaches the same exit code.
+    """
+    return ConfigValidationError(
+        f"{source_path}: {message}" if source_path is not None else message,
+        details=(
+            {
+                "pointer": json_pointer((section,)),
+                "loc": section,
+                "msg": message,
+                "type": error_type,
+            },
+        ),
+        source=None if source_path is None else str(source_path),
+    )
+
+
+def _validation_refusal(
+    exc: ValidationError,
+    *,
+    loc_prefix: Sequence[str] = (),
+    source_path: Path | None = None,
+    document: Mapping[str, Any] | None = None,
+) -> ConfigValidationError:
+    """Turn a Pydantic failure into the typed refusal this boundary raises.
+
+    ``loc_prefix`` is what makes the JSON Pointer true. A section is validated
+    against its own model, so Pydantic reports ``dem_correction_type`` where the
+    document says ``geographic.dem_correction_type``; without the prefix the
+    pointer would name a root key that does not exist.
+
+    ``document`` is the mapping that was validated, and it is what settles the
+    other half: Pydantic inserts the tag of the union variant it chose, and the
+    document is the only thing that knows that segment is not a key of its own.
+    """
+    return ConfigValidationError(
+        format_validation_error(
+            exc, source_path=source_path, loc_prefix=loc_prefix, document=document
+        ),
+        details=validation_error_details(
+            exc, loc_prefix=loc_prefix, source_path=source_path, document=document
+        ),
+        source=None if source_path is None else str(source_path),
+    )
 
 
 def _derive_name_from_filename(toml_path: Path) -> str:
@@ -617,10 +677,9 @@ class HydroModPyConfig(HydroModelBase):
                 )
 
         try:
-            cfg = cls._from_payload(raw, base=toml_path.parent, context="toml")
-        except ValidationError as exc:
-            message = format_validation_error(exc, source_path=toml_path)
-            raise ValueError(message) from exc
+            cfg = cls._from_payload(
+                raw, base=toml_path.parent, context="toml", source_path=toml_path
+            )
         except IncompatibleCapabilitiesError as exc:
             # A typed capability error from the after-validator does not carry the
             # TOML location; prepend it while keeping the type and error code.
@@ -647,7 +706,17 @@ class HydroModPyConfig(HydroModelBase):
             return cls.model_validate_json(payload)
         raw = json.loads(payload)
         if not isinstance(raw, Mapping):
-            raise ValueError("HydroModPyConfig JSON payload must be a mapping")
+            raise ConfigValidationError(
+                "HydroModPyConfig JSON payload must be a mapping",
+                details=(
+                    {
+                        "pointer": "",
+                        "loc": "<root>",
+                        "msg": "Input should be a valid dictionary",
+                        "type": "dict_type",
+                    },
+                ),
+            )
         return cls.from_dict(raw, base_dir=base_dir)
 
     @classmethod
@@ -668,37 +737,92 @@ class HydroModPyConfig(HydroModelBase):
         *,
         base: Path,
         context: ValidationContext = "api",
+        source_path: Path | None = None,
     ) -> HydroModPyConfig:
-        """Normalize one raw config payload and validate the root model."""
-        raw = expand_calibration_protocol(copy.deepcopy(dict(payload)))
+        """Normalize one raw config payload and validate the root model.
+
+        Every refusal of the document leaves this method as a
+        :class:`~hydromodpy.core.exceptions.ConfigValidationError`, never as a
+        bare ``ValueError`` and never as a raw Pydantic ``ValidationError``:
+        those two both map to exit code 1, which is the code for a bug in this
+        process, and a caller cannot tell them apart from one.
+
+        A section loader is handed the raw mapping of one section and nothing
+        else, so a ``ValueError`` leaving it names that section of the document.
+        It is converted here rather than at each of its raise sites, which is
+        what keeps the rule true for the next loader somebody writes.
+        """
+        try:
+            raw = expand_calibration_protocol(copy.deepcopy(dict(payload)))
+        except ValidationError as exc:
+            # Pydantic's ValidationError IS a ValueError, so this clause has to
+            # come first: a protocol validating its own options against a model
+            # would otherwise be rendered by `str()` as a raw Pydantic dump,
+            # typed `value_error`, and pointed at the whole [calibration] table.
+            raise _validation_refusal(
+                exc,
+                loc_prefix=("calibration", "protocol"),
+                source_path=source_path,
+                document=payload,
+            ) from exc
+        except ValueError as exc:
+            raise _section_refusal(
+                "calibration",
+                str(exc),
+                source_path=source_path,
+                error_type="value_error",
+            ) from exc
         if "initializing" in raw:
-            raise ValueError(
-                "Section [initializing] is no longer supported. Use [workspace] instead."
+            raise _section_refusal(
+                "initializing",
+                "Section [initializing] is no longer supported. Use [workspace] instead.",
+                source_path=source_path,
             )
         if "modflow" in raw:
-            raise ValueError(
+            raise _section_refusal(
+                "modflow",
                 "Section [modflow] is no longer supported. "
-                "Use [solver], [modflownwt], and [modflow6] sections instead."
+                "Use [solver], [modflownwt], and [modflow6] sections instead.",
+                source_path=source_path,
             )
         if "capability_gallery" in raw:
-            raise ValueError(
+            raise _section_refusal(
+                "capability_gallery",
                 "Section [capability_gallery] is no longer supported. "
-                "Use [analysis.capability_gallery] instead."
+                "Use [analysis.capability_gallery] instead.",
+                source_path=source_path,
             )
         if "batch" in raw:
-            raise ValueError(
+            raise _section_refusal(
+                "batch",
                 "Section [batch] is no longer supported. Use workflow='testbed' "
-                "with [testbed].profile = 'regional_lab' and [analysis.batch] instead."
+                "with [testbed].profile = 'regional_lab' and [analysis.batch] instead.",
+                source_path=source_path,
             )
         if "regional_lab" in raw:
-            raise ValueError(
+            raise _section_refusal(
+                "regional_lab",
                 "Section [regional_lab] is not a HydroModPyConfig section. "
-                "Use [analysis.batch] for regional-lab testbed settings."
+                "Use [analysis.batch] for regional-lab testbed settings.",
+                source_path=source_path,
             )
         known = set(cls.model_fields)
         unknown = sorted(set(raw) - known)
         if unknown:
-            raise ValueError(f"Unknown top-level TOML section(s): {', '.join(unknown)}")
+            message = f"Unknown top-level TOML section(s): {', '.join(unknown)}"
+            raise ConfigValidationError(
+                f"{source_path}: {message}" if source_path is not None else message,
+                source=None if source_path is None else str(source_path),
+                details=tuple(
+                    {
+                        "pointer": json_pointer((name,)),
+                        "loc": name,
+                        "msg": "Extra inputs are not permitted",
+                        "type": "extra_forbidden",
+                    }
+                    for name in unknown
+                ),
+            )
 
         # Auto-derive workspace.project_root from TOML location if absent.
         # HMP_PROJECT_ROOT env var takes precedence (used by test infra).
@@ -706,14 +830,31 @@ class HydroModPyConfig(HydroModelBase):
         if workspace_section is None:
             workspace_section = {}
         if not isinstance(workspace_section, Mapping):
-            raise ValueError("TOML section [workspace] must be a mapping")
+            raise _section_refusal(
+                "workspace",
+                "TOML section [workspace] must be a mapping",
+                source_path=source_path,
+                error_type="dict_type",
+            )
         workspace_section = dict(workspace_section)
         env_project_root = os.environ.get("HMP_PROJECT_ROOT")
         if env_project_root:
             workspace_section["project_root"] = str(Path(env_project_root).expanduser().resolve())
         elif not workspace_section.get("project_root"):
             if context == "toml":
-                raise ValueError("TOML [workspace].project_root is required")
+                message = "TOML [workspace].project_root is required"
+                raise ConfigValidationError(
+                    f"{source_path}: {message}" if source_path is not None else message,
+                    source=None if source_path is None else str(source_path),
+                    details=(
+                        {
+                            "pointer": json_pointer(("workspace", "project_root")),
+                            "loc": "workspace.project_root",
+                            "msg": "Field required",
+                            "type": "missing",
+                        },
+                    ),
+                )
             workspace_section["project_root"] = str(base)
 
         # Workspace must be parsed first so we can derive the shared data
@@ -721,7 +862,16 @@ class HydroModPyConfig(HydroModelBase):
         # bare filenames in [data.*.sources].path resolve against
         # <workspace>/data/<role>/ instead of forcing the user to write
         # ../../data/<role>/<file>.
-        parsed_workspace = load_standard_section(workspace_section, WorkspaceConfig, base)
+        try:
+            parsed_workspace = load_standard_section(workspace_section, WorkspaceConfig, base)
+        except ValidationError as exc:
+            raise _validation_refusal(
+                exc, loc_prefix=("workspace",), source_path=source_path, document=raw
+            ) from exc
+        except ValueError as exc:
+            raise _section_refusal(
+                "workspace", str(exc), source_path=source_path, error_type="value_error"
+            ) from exc
         workspace_data_dir = getattr(parsed_workspace, "data_dir", None)
 
         def _std(model_cls: type[Any]) -> Callable[[Any, Path], Any]:
@@ -823,21 +973,43 @@ class HydroModPyConfig(HydroModelBase):
         parsed_sections: dict[str, Any] = {"workspace": parsed_workspace}
         for section_name, (default_value, loader) in section_loaders.items():
             section_data = raw.get(section_name, default_value)
-            parsed_sections[section_name] = loader(section_data, base)
+            try:
+                parsed_sections[section_name] = loader(section_data, base)
+            except ValidationError as exc:
+                raise _validation_refusal(
+                    exc, loc_prefix=(section_name,), source_path=source_path, document=raw
+                ) from exc
+            except ValueError as exc:
+                raise _section_refusal(
+                    section_name, str(exc), source_path=source_path, error_type="value_error"
+                ) from exc
 
         if "workflow" in raw:
             workflow_section = raw["workflow"]
             if not isinstance(workflow_section, Mapping):
-                raise ValueError("TOML section [workflow] must be a mapping with key 'mode'")
-            parsed_sections["workflow"] = WorkflowConfig.model_validate(dict(workflow_section))
+                raise _section_refusal(
+                    "workflow",
+                    "TOML section [workflow] must be a mapping with key 'mode'",
+                    source_path=source_path,
+                    error_type="dict_type",
+                )
+            try:
+                parsed_sections["workflow"] = WorkflowConfig.model_validate(dict(workflow_section))
+            except ValidationError as exc:
+                raise _validation_refusal(
+                    exc, loc_prefix=("workflow",), source_path=source_path, document=raw
+                ) from exc
 
-        cfg = cls.model_validate(
-            parsed_sections,
-            context={
-                "allow_dem_bootstrap": allow_dem_bootstrap,
-                "validation_context": context,
-            },
-        )
+        try:
+            cfg = cls.model_validate(
+                parsed_sections,
+                context={
+                    "allow_dem_bootstrap": allow_dem_bootstrap,
+                    "validation_context": context,
+                },
+            )
+        except ValidationError as exc:
+            raise _validation_refusal(exc, source_path=source_path, document=raw) from exc
         _resolve_calibration_parameter_names(cfg)
         return cfg
 

@@ -13,6 +13,9 @@ cite.
 
 from __future__ import annotations
 
+import copy
+import datetime
+
 import pytest
 
 from hydromodpy.calibration.protocols import (
@@ -222,3 +225,127 @@ class TestItLeavesTheRestAlone:
         expand_calibration_protocol(doc)
 
         assert "phases" not in doc["calibration"]
+
+
+class TestItReadsBackWhatItWrote:
+    """A run seals its own configuration and is re-read from it.
+
+    That file carries the ``protocol`` table *and* the stages the table
+    produced, on purpose: the run records which method it followed and what that
+    method assembled. Reloading it was refused as a contradiction, which made
+    every staged project unable to round-trip through its own dumpers.
+    """
+
+    def test_the_stages_it_wrote_are_not_a_contradiction(self) -> None:
+        once = expand_calibration_protocol(_doc())
+
+        twice = expand_calibration_protocol(once)
+
+        assert twice["calibration"]["phases"] == once["calibration"]["phases"]
+        assert twice["calibration"]["objective_blocks"] == once["calibration"]["objective_blocks"]
+
+    def test_stages_carrying_every_default_are_still_its_own(self) -> None:
+        """A dumped file carries the validated stages, defaults filled in."""
+        from hydromodpy.calibration.config import CalibPhaseDecl
+
+        once = expand_calibration_protocol(_doc())
+        validated = [
+            CalibPhaseDecl.model_validate(phase).model_dump(mode="json")
+            for phase in once["calibration"]["phases"]
+        ]
+        doc = _doc(phases=validated, objective_blocks=once["calibration"]["objective_blocks"])
+
+        expanded = expand_calibration_protocol(doc)
+
+        assert [phase["name"] for phase in expanded["calibration"]["phases"]] == [
+            "steady_conductivity",
+            "transient_storage",
+        ]
+
+    def test_a_stage_that_is_not_the_one_it_writes_is_still_refused(self) -> None:
+        once = expand_calibration_protocol(_doc())
+        tampered = copy.deepcopy(once["calibration"]["phases"])
+        tampered[0]["max_iter"] = tampered[0]["max_iter"] + 1
+
+        with pytest.raises(ValueError, match="phases"):
+            expand_calibration_protocol(_doc(phases=tampered))
+
+    def test_a_file_that_is_broken_twice_still_gets_the_actionable_message(self) -> None:
+        """Expanding now runs first, and its own failure must not bury the advice."""
+        once = expand_calibration_protocol(_doc())
+        doc = _doc(phases=once["calibration"]["phases"])
+        del doc["calibration"]["parameters"]["K"]
+
+        with pytest.raises(ValueError) as caught:
+            expand_calibration_protocol(doc)
+
+        assert "Keep one" in str(caught.value)
+        assert "'K'" in str(caught.value)
+
+    def test_only_the_section_the_file_declares_is_compared(self) -> None:
+        """Declaring the phases and not the blocks is not a contradiction."""
+        once = expand_calibration_protocol(_doc())
+
+        expanded = expand_calibration_protocol(_doc(phases=once["calibration"]["phases"]))
+
+        assert (
+            expanded["calibration"]["objective_blocks"] == (once["calibration"]["objective_blocks"])
+        )
+
+
+class TestOneSpellingOfAnInstant:
+    """A TOML file writes a date three legal ways and they have to agree.
+
+    ``start_datetime = 2000-01-01`` parses as a date, ``2000-01-01T00:00:00`` as
+    a datetime, a quoted value stays a string. Rendering them straight into the
+    stage description and the time overrides made the assembly depend on the
+    spelling, so a file re-read from its own dump expanded to different stages.
+    """
+
+    @staticmethod
+    def _steady(start: object, end: object) -> dict:
+        doc = _doc()
+        doc["simulation"]["time"]["start_datetime"] = start
+        doc["simulation"]["time"]["end_datetime"] = end
+        return expand_calibration_protocol(doc)["calibration"]["phases"][0]
+
+    def test_a_date_a_datetime_and_a_string_write_the_same_stage(self) -> None:
+        as_date = self._steady(datetime.date(1995, 1, 1), datetime.date(2020, 12, 31))
+        as_datetime = self._steady(datetime.datetime(1995, 1, 1), datetime.datetime(2020, 12, 31))
+        as_string = self._steady("1995-01-01", "2020-12-31")
+
+        assert as_date == as_datetime == as_string
+
+    def test_a_bound_on_midnight_is_written_as_its_date(self) -> None:
+        overrides = self._steady("1995-01-01", "2020-12-31")["overrides"]
+
+        assert overrides["simulation.time.start_datetime"] == "1995-01-01"
+        assert overrides["simulation.time.end_datetime"] == "2020-12-31"
+
+    def test_a_bound_that_is_not_midnight_keeps_its_time(self) -> None:
+        overrides = self._steady("1995-01-01T06:00:00", "2020-12-31")["overrides"]
+
+        assert overrides["simulation.time.start_datetime"] == "1995-01-01T06:00:00"
+
+    def test_an_offset_is_kept_rather_than_collapsed_onto_a_date(self) -> None:
+        """Two bounds two hours apart are two instants, not one date."""
+        paris = self._steady("1995-01-01T00:00:00+02:00", "2020-12-31T00:00:00+02:00")
+        utc = self._steady("1995-01-01T00:00:00+00:00", "2020-12-31T00:00:00+00:00")
+        paris, utc = paris["overrides"], utc["overrides"]
+
+        assert paris["simulation.time.start_datetime"] == "1995-01-01T00:00:00+02:00"
+        assert utc["simulation.time.start_datetime"] != paris["simulation.time.start_datetime"]
+
+    def test_a_span_that_is_not_an_instant_is_named(self) -> None:
+        with pytest.raises(ValueError, match="simulation.time.start_datetime"):
+            self._steady("not a date", "2020-12-31")
+
+    def test_a_window_with_one_offset_and_one_without_is_refused(self) -> None:
+        """Their span is undefined, and pandas says so with a raw TypeError."""
+        with pytest.raises(ValueError, match="offset"):
+            self._steady("1995-01-01T00:00:00+02:00", "2020-12-31")
+
+    def test_a_bare_number_is_refused_and_not_read_as_an_epoch(self) -> None:
+        """pandas reads an int as nanoseconds since 1970; a config never means that."""
+        with pytest.raises(ValueError, match="simulation.time.start_datetime"):
+            self._steady(1995, "2020-12-31")

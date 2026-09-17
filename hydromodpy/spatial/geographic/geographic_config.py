@@ -14,6 +14,14 @@ from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicCo
 
 
 def _normalize_buff_area(value):
+    """Return a percentage as a number and a declared distance as metres in a string.
+
+    The distance goes back out as a bare number in a string, which is what tells
+    a distance from a percentage further down, so this validator has to be able
+    to read what it just wrote: a run re-read from its own sealed config passes
+    through here a second time. A dimensionless quantity is metres, the same rule
+    ``catchment_domain._parse_length_meters`` applies on the consuming side.
+    """
     if value is None:
         return None
     if isinstance(value, str):
@@ -28,6 +36,8 @@ def _normalize_buff_area(value):
         quantity = UREG(token)
         if not hasattr(quantity, "magnitude"):
             dist_m = float(quantity)
+        elif quantity.dimensionless:
+            dist_m = float(quantity.magnitude)
         else:
             dist_m = float(quantity.to("m").magnitude)
         if dist_m <= 0.0:

@@ -23,6 +23,7 @@ Usage::
 from __future__ import annotations
 
 import os
+import re
 import types as _stdlib_types
 import typing
 from collections.abc import Mapping as _abc_Mapping
@@ -190,9 +191,12 @@ def generate_toml_from_instances(
             exclude_defaults=exclude_defaults,
             exclude_none=exclude_none,
         )
+        _restore_variant_tags(model, values)
         if toml_dir:
             _relativize_paths_in_dict(values, toml_dir)
-        lines.extend(_section(section_name, type(model), threshold, values=values))
+        lines.extend(
+            _section(section_name, type(model), threshold, values=values, _from_instance=True)
+        )
 
     content = "\n".join(lines) + "\n"
     if output_path:
@@ -205,6 +209,40 @@ def generate_toml_from_instances(
 # =====================================================================
 
 
+_BARE_KEY_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+_BASIC_STRING_ESCAPES = {
+    "\\": "\\\\",
+    '"': '\\"',
+    "\n": "\\n",
+    "\r": "\\r",
+    "\t": "\\t",
+    "\b": "\\b",
+    "\f": "\\f",
+}
+
+
+def _quote(text: str) -> str:
+    """Return *text* as a TOML basic string.
+
+    A quote, a backslash or a newline written raw ends the string early or is
+    read as an escape that is not one. A Windows path and a multi-line field
+    description both reach here.
+    """
+    escaped = "".join(_BASIC_STRING_ESCAPES.get(char, char) for char in text)
+    return f'"{escaped}"'
+
+
+def _fmt_key(key: Any) -> str:
+    """Format a mapping key as a TOML key.
+
+    A key carrying anything but letters, digits, ``_`` and ``-`` is quoted:
+    ``simulation.time.step_unit`` left bare is a dotted path into three nested
+    tables, not the one key a calibration override means.
+    """
+    text = str(key)
+    return text if _BARE_KEY_RE.match(text) else _quote(text)
+
+
 def _fmt(val: Any) -> str:
     """Format a Python value as a TOML literal."""
     if val is None:
@@ -214,16 +252,26 @@ def _fmt(val: Any) -> str:
     if isinstance(val, Enum):
         return _fmt(val.value)
     if isinstance(val, Path):
-        return f'"{val}"'
+        return _quote(str(val))
     if hasattr(val, "magnitude") and hasattr(val, "units"):
-        return f'"{val.magnitude} {val.units:~}"'
+        return _quote(f"{val.magnitude} {val.units:~}")
     if isinstance(val, str):
-        return f'"{val}"'
+        return _quote(val)
     if hasattr(val, "isoformat"):
-        return f'"{val.isoformat()}"'
+        return _quote(val.isoformat())
     if isinstance(val, (list, tuple)):
         inner = ", ".join(_fmt(item) for item in val)
         return f"[{inner}]"
+    if isinstance(val, dict):
+        # An inline table, because the only caller left is a value inside an
+        # array-of-tables entry, where a sub-table header would belong to the
+        # entry rather than to the key. Python's own repr is not TOML.
+        # A None drops out: TOML has no null, and an absent key reloads as the
+        # None the field already defaults to.
+        inner = ", ".join(
+            f"{_fmt_key(key)} = {_fmt(item)}" for key, item in val.items() if item is not None
+        )
+        return "{" + inner + "}"
     return str(val)
 
 
@@ -528,6 +576,82 @@ def _model_members(annotation: Any) -> list[type[BaseModel]]:
     return members
 
 
+def _variant_tag_field(model_cls: type[BaseModel]) -> str | None:
+    """Return the field a model pins itself with, if it has one."""
+    for name, info in model_cls.model_fields.items():
+        if get_origin(info.annotation) is typing.Literal and len(get_args(info.annotation)) == 1:
+            return name
+    return None
+
+
+def _restore_variant_tags(model: BaseModel, values: Any) -> None:
+    """Put back, in *values*, every tag the dump dropped as a default.
+
+    Each member of a discriminated union defaults its own discriminator to its
+    own tag, so ``exclude_defaults`` drops it from every member alike. A table
+    that reaches the reader without its tag is not merely undecorated: both the
+    renderer and the reload fall back to the member the field defaults to, and a
+    ``flat_substratum`` comes back as a ``constant_thickness`` without a word. A
+    tag is the one key a minimal document cannot leave out.
+    """
+    if not isinstance(values, dict):
+        return
+    tag = _variant_tag_field(type(model))
+    if tag is not None and tag not in values:
+        held = getattr(model, tag, None)
+        if held is not None:
+            values[tag] = held.value if isinstance(held, Enum) else held
+    for name in type(model).model_fields:
+        if name not in values:
+            continue
+        _restore_tags_in_value(getattr(model, name, None), values[name])
+
+
+def _restore_tags_in_value(held: Any, dumped: Any) -> None:
+    """Walk one field's value and its dump side by side."""
+    if isinstance(held, BaseModel):
+        _restore_variant_tags(held, dumped)
+    elif isinstance(held, (list, tuple)) and isinstance(dumped, list):
+        for item, item_dump in zip(held, dumped, strict=False):
+            _restore_tags_in_value(item, item_dump)
+    elif isinstance(held, dict) and isinstance(dumped, dict):
+        for key, item in held.items():
+            if key in dumped:
+                _restore_tags_in_value(item, dumped[key])
+
+
+def _variant_for_values(
+    field_info: FieldInfo,
+    fallback: type[BaseModel],
+    values: Any,
+) -> type[BaseModel]:
+    """Return the union member *values* pins with its discriminator.
+
+    A field holding a discriminated union renders the member the caller
+    actually holds, never the member the field falls back to. The members
+    declare different keys, so a table built from the wrong one drops what the
+    value carries and writes what the value forbids: ``depth_model`` set to
+    ``flat_substratum`` lost its ``substratum_elevation`` and gained the
+    ``thickness`` of the other variant, which reload then refused.
+    """
+    if not isinstance(values, dict):
+        return fallback
+    discriminator = field_info.discriminator
+    if discriminator is None:
+        return fallback
+    tag = values.get(discriminator)
+    if tag is None:
+        return fallback
+    members = _model_members(field_info.annotation)
+    for member in members:
+        info = member.model_fields.get(discriminator)
+        if info is None:
+            continue
+        if get_origin(info.annotation) is typing.Literal and tag in get_args(info.annotation):
+            return member
+    return fallback
+
+
 def _resolve_mapping_basemodel_types(field_info: FieldInfo) -> list[type[BaseModel]]:
     """Return the model variants a ``dict[str, Model]`` field holds.
 
@@ -806,6 +930,7 @@ def _section(
     values: dict | None = None,
     _depth: int = 0,
     _commented: bool = False,
+    _from_instance: bool = False,
 ) -> list[str]:
     """Generate a [section] with filtered fields.
 
@@ -819,6 +944,10 @@ def _section(
     _commented : bool
         When True, all output (headers and values) are prefixed with ``# ``.
         Used for Optional sub-tables with no override values.
+    _from_instance : bool
+        When True, *values* are a whole config rather than partial overrides, so
+        a field they do not carry is a field that is not set. A template entry
+        written for it would be a placeholder the reload refuses.
     """
     lines: list[str] = []
 
@@ -841,11 +970,12 @@ def _section(
                     )
                 return _section(
                     section_name,
-                    inner_cls,
+                    _variant_for_values(_finfo, inner_cls, inner_values),
                     threshold,
                     values=inner_values,
                     _depth=_depth,
                     _commented=_commented,
+                    _from_instance=_from_instance,
                 )
 
     # ----- classify fields ------------------------------------------------
@@ -971,6 +1101,7 @@ def _section(
                 sub_values = raw
             elif isinstance(raw, BaseModel):
                 sub_values = raw.model_dump()
+        nested_cls = _variant_for_values(field_info, nested_cls, sub_values)
 
         default = _default_value(field_info)
         has_factory = field_info.default_factory is not None
@@ -992,6 +1123,7 @@ def _section(
                     values=None,
                     _depth=_depth + 1,
                     _commented=True,
+                    _from_instance=_from_instance,
                 )
             )
         else:
@@ -1004,6 +1136,7 @@ def _section(
                     values=sub_values,
                     _depth=_depth + 1,
                     _commented=_commented,
+                    _from_instance=_from_instance,
                 )
             )
 
@@ -1031,9 +1164,17 @@ def _section(
                     # Add field description from the item model class
                     if key in item_cls.model_fields:
                         _render_field_comment(lines, item_cls.model_fields[key])
-                    lines.append(_line(f"{key} = {_fmt(val)}"))
+                    if val is None:
+                        # TOML has no null, so ``key =`` is not a line; the key
+                        # stays out and reload restores the default it holds.
+                        lines.append(f"# {key} =")
+                    else:
+                        lines.append(_line(f"{_fmt_key(key)} = {_fmt(val)}"))
                     lines.append("")
-        elif has_instance_value:
+        elif has_instance_value or _from_instance:
+            # A config that does not carry this table does not want it; the
+            # example entry below is a template gesture, and its placeholders
+            # are not values a reload accepts.
             continue
         else:
             # Template mode: show an example entry with defaults. A table the

@@ -91,3 +91,57 @@ def test_hydromodpy_config_accepts_synthetic_geographic(
     cfg = HydroModPyConfig.from_toml(toml_path)
 
     assert cfg.geographic.uses_synthetic_geographic() is True
+
+
+@pytest.mark.parametrize(
+    ("declared", "metres"),
+    [("10 m", 10.0), ("0.5 km", 500.0), ("200m", 200.0)],
+)
+def test_a_declared_buffer_distance_survives_being_read_twice(declared, metres) -> None:
+    """The validator normalises a distance to a bare number and must read it back.
+
+    A run seals its own configuration and is re-read from it, so every validator
+    on that path sees its own output a second time. This one turned '10 m' into
+    '10.0' and then refused '10.0' as dimensionless.
+    """
+
+    def buffer_of(value):
+        return GeographicConfig.model_validate(
+            {
+                "catchment": {
+                    "catch_def": "from_outlet_coord",
+                    "dem_init_path": "dem.tif",
+                    "x_outlet": 1.0,
+                    "y_outlet": 2.0,
+                    "snap_dist": "50 m",
+                    "buff_area": value,
+                }
+            }
+        ).buff_area
+
+    once = buffer_of(declared)
+
+    assert float(once) == pytest.approx(metres)
+    assert buffer_of(once) == once
+
+
+def test_a_buffer_percentage_stays_a_number_and_a_distance_stays_a_string() -> None:
+    """What tells the two apart downstream is the type, not the magnitude."""
+
+    def buffer_of(value):
+        return GeographicConfig.model_validate(
+            {
+                "catchment": {
+                    "catch_def": "from_outlet_coord",
+                    "dem_init_path": "dem.tif",
+                    "x_outlet": 1.0,
+                    "y_outlet": 2.0,
+                    "snap_dist": "50 m",
+                    "buff_area": value,
+                }
+            }
+        ).buff_area
+
+    assert buffer_of("2%") == 2.0
+    assert buffer_of(2.0) == 2.0
+    assert buffer_of("2 m") == "2.0"
