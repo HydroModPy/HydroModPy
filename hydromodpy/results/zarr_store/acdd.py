@@ -11,8 +11,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.version import __version__ as _HMP_VERSION
-from hydromodpy.results.storage.contract import UNDETERMINED_LICENSE
 from hydromodpy.results.zarr_store.constants import CF_CONVENTIONS, ZARR_SCHEMA_VERSION
 
 # ACDD-1.3 Highly Recommended attributes (11 entries, per ACDD §2.6.1).

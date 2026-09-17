@@ -26,9 +26,10 @@ from hydromodpy.core.io.geoparquet import (
     write_geoparquet_atomic,
 )
 from hydromodpy.core.io.parquet import PARQUET_WRITE_DEFAULTS
+from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
-from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, UNDETERMINED_LICENSE
+from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
 from hydromodpy.results.storage.lazy_loaders import (
     list_field_paths,
     list_parquet_paths,

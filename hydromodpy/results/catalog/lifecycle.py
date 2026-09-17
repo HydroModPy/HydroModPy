@@ -20,13 +20,14 @@ from uuid import UUID
 
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.io.parquet import merge_file_metadata
+from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import PER_SIM_TABLE_NAMES
 from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
 from hydromodpy.results.catalog.writes_helpers import kv_metadata_for_sim, wgs84_bounds
-from hydromodpy.results.storage.contract import FIELDS_STORE_NAME, UNDETERMINED_LICENSE
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.trash_marker import TrashMarker, write_trash_marker
 from hydromodpy.results.zarr_store import SimulationZarr
 
