@@ -61,6 +61,18 @@ jobs:
           pip install --upgrade pip
           pip install -e ".[docs,test]"
 
+      # Four categories of nine, and the four are not arbitrary: --check
+      # regenerates the gallery before comparing it, so it can only cover the
+      # cases a bare runner can reproduce. validation and calibration need the
+      # solver binaries, geometry and hydraulic_properties need the DEM and
+      # geology bundles, and simulation needs the run that wrote its manifest.
+      # Widening the list here would not verify those five, it would make them
+      # pass on a preserved copy of themselves.
+      #
+      # What does cover all nine is the digest check in
+      # tools/check_docs_inventory.py, run by tests/unit/test_docs_inventory.py:
+      # it reads the digests a case was published with instead of reproducing
+      # the case, so it catches a page left behind by its own sources.
       - name: Verify committed gallery artifacts
         run: >
           python -m tools.doc_gallery --check

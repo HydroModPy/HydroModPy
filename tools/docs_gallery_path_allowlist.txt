@@ -1,15 +1,35 @@
-# Dead repository paths inside committed gallery summaries.
+# Dead repository paths named by a committed gallery artifact.
 #
-# The generator now emits the right paths (tools/doc_gallery/calibration_case_registry.py
-# was corrected), but these artifacts were written by an older run and regenerating them
-# requires the simulation outputs, which only a machine that has run the cases holds.
-# Regenerate the gallery there, then delete the lines that stop failing.
-# This list only shrinks: a line that no longer applies fails the check.
+# Two kinds of artifact are scanned: the summary JSON a case publishes, and the
+# page generated from it. Both name repository files in the open, and both keep
+# naming them after a rename, because a page that names a dead file still
+# builds. This list is the ratchet: a new dead path fails the check, and a line
+# that stops applying fails it too. The list only shrinks.
+#
+# brutsaert_recession_linearized_deep_1d: F0c deleted the per-solver tolerances
+# file this page still names, because the case stopped needing a relaxed
+# monotonicity bound once its IMS criteria were fixed. Regenerating the page
+# needs the Boussinesq variant, and PETSc is absent from this checkout, so the
+# generator keeps the published summary and only its prose is refreshed.
+docs/source/capability_gallery/cases/brutsaert_recession_linearized_deep_1d.rst: validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflow6_irregular_tri.toml
+docs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d_summary.json: validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflow6_irregular_tri.toml
+#
+# nancon_transient_nwt: the case was published from a manifest directory that
+# was never committed, on any branch. Its figures are embedded in twenty theory
+# pages and its case page is linked from four of them, so it is not removable,
+# and re-publishing it needs a machine that can run the Nancon transient basin.
+# Until then the page says where the figures came from, and this list says that
+# place is not in the repository.
+docs/source/capability_gallery/cases/nancon_transient_nwt.rst: examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/
+docs/source/capability_gallery/cases/nancon_transient_nwt.rst: examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/manifest.json
 docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_summary.json: examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/hydrograph.png
 docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_summary.json: examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/hydrographic_network_comparison.png
 docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_summary.json: examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/manifest.json
 docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_summary.json: examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/piezometric_map.png
 docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_summary.json: examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/simulated_active_network_reference_overlay.png
 docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_summary.json: examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/water_budget.png
+#
+# The two comparison decks below are published from a testbed run whose
+# comparison.toml stays on the machine that produced it.
 docs/source/_static/capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss_summary.json: examples/projects/09_capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss/comparison.toml
 docs/source/_static/capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss_summary.json: examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison.toml

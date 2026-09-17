@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -91,9 +92,35 @@ HMP_SCAN_SUFFIXES = (".py", ".rst", ".md")
 CLI_LITERAL_ALLOWLIST = ROOT / "tools" / "docs_cli_literal_allowlist.txt"
 
 # --- gallery artifacts ---------------------------------------------------------
+#
+# The gallery is written twice: a summary JSON per case, and a page generated
+# from it. Both name repository files in the open -- the config a case reads,
+# the tolerances it is judged against, the module that draws its figure -- and
+# both survive a rename without a word, because a page that names a dead file
+# still builds. Five calibration pages named a "docs/readthedocs/" prefix this
+# layout has never had, and one named a tolerances file deleted months later.
+# So the two are scanned together, against one shrinking allowlist.
 GALLERY_JSON_DIR = DOC_SOURCE / "_static" / "capability_gallery"
-REPO_PATH_RE = re.compile(r'"((?:docs|tools|tests|hydromodpy|examples)/[^"]+)"')
+GALLERY_PAGE_DIR = DOC_SOURCE / "capability_gallery"
+# validation_cases was missing from this alternation, so every tolerances and
+# config file a validation summary names was invisible to the check.
+REPO_PATH_RE = re.compile(r'"((?:docs|examples|hydromodpy|tests|tools|validation_cases)/[^"]+)"')
+# A page names its paths in prose and in literals, not inside JSON quotes, so
+# the boundary is the surrounding text. The lookbehind stops a match from
+# starting in the middle of a longer path.
+PAGE_REPO_PATH_RE = re.compile(
+    r"(?<![\w/.-])((?:docs|examples|hydromodpy|tests|tools|validation_cases)/[A-Za-z0-9_./-]+)"
+)
+PAGE_PATH_TRAILING = ".,;:)`'\""
 GALLERY_PATH_ALLOWLIST = ROOT / "tools" / "docs_gallery_path_allowlist.txt"
+
+# A case records the digest of every source it was published from. Nothing read
+# those digests: ``--check`` compares a regenerated tree against the committed
+# one, which needs the solver, the data and the fonts of the producing machine,
+# so CI only runs it on four of the nine categories. A digest comparison needs
+# none of that. It answers the question the four-category check cannot: has a
+# published case fallen behind the files it declares it was made from.
+GALLERY_SOURCE_HASH_ALLOWLIST = ROOT / "tools" / "docs_gallery_stale_source_allowlist.txt"
 
 # --- parser floors -------------------------------------------------------------
 #
@@ -105,6 +132,9 @@ PARSER_FLOORS = {
     "authored user_guide pages": 40,
     "hmp command literals": 200,
     "gallery json files": 90,
+    "gallery pages": 90,
+    "gallery page paths": 1000,
+    "gallery source digests": 900,
     "config_reference pages": 20,
 }
 
@@ -343,30 +373,113 @@ def check_cli_literals_resolve() -> list[str]:
     )
 
 
-def check_gallery_paths_exist() -> list[str]:
-    """Every repository path inside a generated gallery summary must exist."""
-    if not GALLERY_JSON_DIR.exists():
-        return [f"{GALLERY_JSON_DIR.relative_to(ROOT).as_posix()} is missing"]
-
+def _scan_gallery_summaries() -> tuple[int, set[str]]:
     files = sorted(GALLERY_JSON_DIR.rglob("*.json"))
-    errors: list[str] = []
-    if len(files) < PARSER_FLOORS["gallery json files"]:
-        errors.append(
-            f"found only {len(files)} gallery summaries, below the floor of "
-            f"{PARSER_FLOORS['gallery json files']}. The directory has probably moved."
-        )
-
     violations: set[str] = set()
     for path in files:
         text = path.read_text(encoding="utf-8", errors="ignore")
         for match in REPO_PATH_RE.finditer(text):
             if not (ROOT / match.group(1)).exists():
                 violations.add(f"{path.relative_to(ROOT).as_posix()}: {match.group(1)}")
+    return len(files), violations
+
+
+def _scan_gallery_pages() -> tuple[int, int, set[str]]:
+    pages = sorted(GALLERY_PAGE_DIR.rglob("*.rst"))
+    named = 0
+    violations: set[str] = set()
+    for page in pages:
+        text = page.read_text(encoding="utf-8", errors="ignore")
+        seen: set[str] = set()
+        for match in PAGE_REPO_PATH_RE.finditer(text):
+            candidate = match.group(1).rstrip(PAGE_PATH_TRAILING)
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            named += 1
+            if not (ROOT / candidate).exists():
+                violations.add(f"{page.relative_to(ROOT).as_posix()}: {candidate}")
+    return len(pages), named, violations
+
+
+def check_gallery_paths_exist() -> list[str]:
+    """Every repository path a generated gallery artifact names must exist."""
+    missing_roots = [
+        directory.relative_to(ROOT).as_posix()
+        for directory in (GALLERY_JSON_DIR, GALLERY_PAGE_DIR)
+        if not directory.exists()
+    ]
+    if missing_roots:
+        return [f"{name} is missing" for name in missing_roots]
+
+    summary_count, violations = _scan_gallery_summaries()
+    page_count, named_paths, page_violations = _scan_gallery_pages()
+    violations |= page_violations
+
+    errors: list[str] = []
+    for label, count in (
+        ("gallery json files", summary_count),
+        ("gallery pages", page_count),
+        ("gallery page paths", named_paths),
+    ):
+        if count < PARSER_FLOORS[label]:
+            errors.append(
+                f"{label}: found {count}, below the floor of {PARSER_FLOORS[label]}. "
+                "The scan has probably stopped matching."
+            )
 
     return errors + _check_against_allowlist(
         violations,
         GALLERY_PATH_ALLOWLIST,
         "points at a repository path that does not exist.",
+    )
+
+
+def check_gallery_sources_are_current() -> list[str]:
+    """Every source a published gallery case declares must still hash the same."""
+    from tools.doc_gallery.update_gallery import MISSING_SOURCE_HASH, _sha256
+
+    if not GALLERY_JSON_DIR.exists():
+        return [f"{GALLERY_JSON_DIR.relative_to(ROOT).as_posix()} is missing"]
+
+    declared = 0
+    violations: set[str] = set()
+    for path in sorted(GALLERY_JSON_DIR.rglob("*_summary.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        hashes = payload.get("source_hashes")
+        if not isinstance(hashes, dict):
+            continue
+        rel_summary = path.relative_to(ROOT).as_posix()
+        for source, expected in hashes.items():
+            declared += 1
+            source_path = ROOT / str(source)
+            if not source_path.is_file():
+                # A source the repository does not carry is the other check's
+                # business; counting it here would report one debt twice.
+                continue
+            if expected == MISSING_SOURCE_HASH or _sha256(source_path) != expected:
+                # One line per case, not per source: a case is republished as a
+                # whole, so a per-source ledger would list four hundred lines
+                # that clear in blocks of ten.
+                violations.add(rel_summary)
+
+    errors: list[str] = []
+    if declared < PARSER_FLOORS["gallery source digests"]:
+        errors.append(
+            f"gallery source digests: found {declared}, below the floor of "
+            f"{PARSER_FLOORS['gallery source digests']}. The scan has probably "
+            "stopped matching."
+        )
+
+    return errors + _check_against_allowlist(
+        violations,
+        GALLERY_SOURCE_HASH_ALLOWLIST,
+        "is behind at least one source it declares. Regenerate the case.",
     )
 
 
@@ -397,6 +510,7 @@ def run_checks() -> list[str]:
     errors.extend(check_api_reference_is_not_recursive())
     errors.extend(check_cli_literals_resolve())
     errors.extend(check_gallery_paths_exist())
+    errors.extend(check_gallery_sources_are_current())
     errors.extend(check_parser_floors())
     return errors
 

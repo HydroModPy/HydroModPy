@@ -1,0 +1,57 @@
+# Gallery cases that are behind the sources they declare.
+#
+# Every case records the digest of each file it was published from. When one of
+# those files moves on and the case is not republished, the page keeps serving
+# the old numbers and nothing says so. `--check` would catch it, but `--check`
+# regenerates, so it needs the solver binaries, the data bundles and the run
+# that wrote the manifest -- which is why docs-gallery-check.yml verifies four
+# of the nine categories. Comparing digests needs none of that, so this check
+# covers all nine.
+#
+# One line per case, because a case is republished as a whole. Republishing
+# refreshes its digests, the line stops applying, and this check fails until the
+# line is removed: the list only shrinks.
+docs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json
+docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json
+docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json
+docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json
+docs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json
+docs/source/_static/capability_gallery/geometry/geometry_constraints_canut_summary.json
+docs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json
+docs/source/_static/capability_gallery/geometry/geometry_topography_canut_summary.json
+docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json
+docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json
+docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_variants_summary.json
+docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh_summary.json
+docs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json
+docs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json
+docs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json
+docs/source/_static/capability_gallery/simulation/nancon_transient_nwt_summary.json
+docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json
+docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json
+docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json
+docs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_summary.json
+docs/source/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d_summary.json
+docs/source/_static/capability_gallery/validation/boussinesq_divide_fixed_head_piecewise_k_1d_summary.json
+docs/source/_static/capability_gallery/validation/boussinesq_fixed_head_piecewise_k_1d_summary.json
+docs/source/_static/capability_gallery/validation/boussinesq_hillslope_interception_1d_summary.json
+docs/source/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d_summary.json
+docs/source/_static/capability_gallery/validation/boussinesq_sloping_substratum_constant_thickness_1d_summary.json
+docs/source/_static/capability_gallery/validation/boussinesq_sloping_substratum_fixed_head_1d_summary.json
+docs/source/_static/capability_gallery/validation/boussinesq_sloping_substratum_uniform_recharge_1d_summary.json
+docs/source/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d_summary.json
+docs/source/_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d_summary.json
+docs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d_summary.json
+docs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d_summary.json
+docs/source/_static/capability_gallery/validation/dupuit_divide_river_1d_summary.json
+docs/source/_static/capability_gallery/validation/dupuit_fixed_head_1d_summary.json
+docs/source/_static/capability_gallery/validation/dupuit_uniform_recharge_1d_summary.json
+docs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d_summary.json
+docs/source/_static/capability_gallery/validation/linearized_unconfined_boundary_piecewise_1d_summary.json
+docs/source/_static/capability_gallery/validation/linearized_unconfined_boundary_step_1d_summary.json
+docs/source/_static/capability_gallery/validation/linearized_unconfined_drainage_1d_summary.json
+docs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d_summary.json
+docs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_periodic_1d_summary.json
+docs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_1d_summary.json
+docs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d_summary.json
+docs/source/_static/capability_gallery/validation/modflow6_irregular_tri_xt3d_method_choice_summary.json

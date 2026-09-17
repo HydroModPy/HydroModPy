@@ -29,3 +29,15 @@ def test_data_family_pages_follow_the_shared_template() -> None:
 
 def test_api_reference_never_recurses() -> None:
     assert check_docs_inventory.check_api_reference_is_not_recursive() == []
+
+
+def test_every_hmp_literal_names_a_registered_command() -> None:
+    assert check_docs_inventory.check_cli_literals_resolve() == []
+
+
+def test_every_path_a_generated_gallery_artifact_names_exists() -> None:
+    assert check_docs_inventory.check_gallery_paths_exist() == []
+
+
+def test_the_scans_behind_the_other_checks_still_match_something() -> None:
+    assert check_docs_inventory.check_parser_floors() == []
