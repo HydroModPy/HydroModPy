@@ -141,9 +141,26 @@ class JobOutcome:
     @property
     def duration_s(self) -> float:
         """Seconds between the two timestamps, to the millisecond."""
-        started = datetime.fromisoformat(self.started_at)
-        finished = datetime.fromisoformat(self.finished_at)
+        started = self._instant(self.started_at, "started_at")
+        finished = self._instant(self.finished_at, "finished_at")
         return round((finished - started).total_seconds(), 3)
+
+    def _instant(self, value: str, member: str) -> datetime:
+        """Parse one instant of the document, refusing a local one.
+
+        An instant without an offset is a reading of somebody's wall clock, and
+        two of them subtract into a duration that is wrong by the offset — or
+        raise, when the other one carries a zone. A job document states UTC.
+        """
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError(
+                f"job {self.job_id} carries {member}={value!r}, not an instant"
+            ) from exc
+        if parsed.tzinfo is None:
+            raise ValueError(f"job {self.job_id} carries {member}={value!r} without a UTC offset")
+        return parsed
 
     def to_document(self) -> dict[str, Any]:
         return {

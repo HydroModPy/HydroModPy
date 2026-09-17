@@ -102,6 +102,24 @@ def test_an_outcome_that_finished_before_it_started_is_refused() -> None:
         _outcome(started_at=FINISHED, finished_at=STARTED)
 
 
+def test_an_instant_without_an_offset_is_refused() -> None:
+    """Two wall-clock readings subtract into a duration wrong by the offset."""
+    with pytest.raises(ValueError, match="without a UTC offset"):
+        _outcome(started_at="2026-09-16T08:12:05.113000")
+
+
+def test_an_instant_spelled_with_a_z_is_read() -> None:
+    """An orchestrator writes RFC 3339; both spellings name the same instant."""
+    outcome = _outcome(started_at="2026-09-16T08:12:05.113000Z", finished_at=FINISHED)
+
+    assert outcome.duration_s == pytest.approx(156.769, abs=1e-3)
+
+
+def test_a_timestamp_that_is_not_an_instant_is_refused() -> None:
+    with pytest.raises(ValueError, match="not an instant"):
+        _outcome(started_at="the day before yesterday")
+
+
 def test_a_typed_failure_is_reported_with_its_own_code() -> None:
     record = error_record(
         ConfigValidationError(
