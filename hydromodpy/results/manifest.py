@@ -90,6 +90,7 @@ from uuid import UUID
 import pyarrow as pa
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.catalog.writes_helpers import kv_metadata_for_sim
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
@@ -221,6 +222,7 @@ def write_parameters_table(catalog: Catalog, sim_id: str | UUID) -> Path | None:
     return write_table_atomic(
         table,
         target,
+        kv_metadata=kv_metadata_for_sim(catalog.backend, sid),
         pk_cols=("sim_id", "param_name", "zone_id"),
     )
 

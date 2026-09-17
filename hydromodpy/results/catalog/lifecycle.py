@@ -19,11 +19,13 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from hydromodpy.core.io.db_retry import with_lock_retry
+from hydromodpy.core.io.parquet import merge_file_metadata
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import PER_SIM_TABLE_NAMES
 from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
+from hydromodpy.results.catalog.writes_helpers import kv_metadata_for_sim, wgs84_bounds
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.trash_marker import TrashMarker, write_trash_marker
 from hydromodpy.results.zarr_store import SimulationZarr
@@ -133,6 +135,24 @@ class CalibrationSessionNamespace:
             "(SELECT id FROM statuses WHERE code = 'running')",
             [str(session_id)],
         )
+
+
+def _declared_bounds_in_degrees(sim_row: dict | None) -> dict[str, float] | None:
+    """Return the run's extent in WGS84 degrees, or None when it has none."""
+    if not sim_row:
+        return None
+    crs = sim_row.get("crs_wkt")
+    if not crs and sim_row.get("crs_epsg") is not None:
+        crs = f"EPSG:{int(sim_row['crs_epsg'])}"
+    return wgs84_bounds(
+        (
+            sim_row.get("bbox_xmin"),
+            sim_row.get("bbox_ymin"),
+            sim_row.get("bbox_xmax"),
+            sim_row.get("bbox_ymax"),
+        ),
+        crs,
+    )
 
 
 class LifecycleMixin:
@@ -276,6 +296,9 @@ class LifecycleMixin:
         sid = str(sim_id)
         rel_zarr_path: str | None = None
         if status == "completed":
+            # Before the store is sealed: the ACDD block it writes reads the
+            # projection back out of the row this resolves.
+            self._resolve_declared_crs(sid)
             fields = self._paths.fields_path_for(sid)
             if fields.is_dir():
                 try:
@@ -288,6 +311,7 @@ class LifecycleMixin:
                         sz.write_acdd_root_attrs(
                             sim_row=sim_row,
                             runs_env=runs_env,
+                            geographic_bounds=_declared_bounds_in_degrees(sim_row),
                         )
                         sz.consolidate_metadata()
                     finally:
@@ -362,7 +386,6 @@ class LifecycleMixin:
                 )
 
         if status == "completed":
-            self._resolve_declared_crs(sid)
             self._write_simulation_snapshot(sid)
             self._seal_run_directory(sid)
 
@@ -446,6 +469,12 @@ class LifecycleMixin:
             self._backend.execute(
                 f"COPY (SELECT * FROM simulations WHERE sim_id = '{sid_sql}') "
                 f"TO '{dest_sql}' (FORMAT PARQUET)"
+            )
+            # DuckDB writes no key-value footer, so the one file that carries
+            # the run's own identity row carried no identity (red-fair D3).
+            merge_file_metadata(
+                tables_dir / "simulation.parquet",
+                {**kv_metadata_for_sim(self._backend, sid), "hmp.schema": "simulation"},
             )
         except Exception as exc:
             # Surface this: the run is complete but a rebuilt index will not be

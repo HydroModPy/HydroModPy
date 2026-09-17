@@ -34,6 +34,7 @@ import tomllib
 from datetime import datetime
 from pathlib import Path
 
+import pytest
 import zarr
 
 from tests.characterization.conftest import ProducedRun
@@ -131,6 +132,65 @@ def test_the_field_store_metadata_is_valid_json(produced_run: ProducedRun) -> No
             if isinstance(value, str):
                 stringly_typed.append(f"{name}.{key} = {value!r}")
     assert not stringly_typed, f"CF attribute typed as a string: {stringly_typed}"
+
+
+def test_every_artefact_states_its_extent_in_degrees(produced_run: ProducedRun) -> None:
+    """``geospatial_lat/lon_*`` is WGS84 degrees, in the field store and in every table.
+
+    ACDD defines those keys as degrees. The Parquet footers held the native
+    projected extent under them, so a Lambert-93 easting of 319987.5 was
+    offered to a reader as a longitude (red-fair B2).
+
+    This is the one-way gate: no artefact may state a degree that is not one.
+    The project this tier runs is synthetic and declares no extent at all, so
+    the positive direction is proved in
+    ``tests/unit/results/test_geospatial_extent.py``.
+    """
+    import pyarrow.parquet as pq
+
+    limits = {"lat": 90.0, "lon": 180.0}
+    impossible: list[str] = []
+
+    def check(source: str, key: str, raw: object) -> None:
+        for axis, limit in limits.items():
+            if not key.startswith(f"geospatial_{axis}_") or key.endswith(("units", "resolution")):
+                continue
+            try:
+                value = float(raw)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                impossible.append(f"{source}:{key} is not a number: {raw!r}")
+                return
+            if abs(value) > limit:
+                impossible.append(f"{source}:{key} = {value} is no {axis}itude")
+
+    for key, raw in dict(zarr.open_group(str(produced_run.field_store), mode="r").attrs).items():
+        check("fields.zarr", key, raw)
+    for table in sorted(produced_run.tables.glob("*.parquet")):
+        for raw_key, raw in (pq.read_schema(table).metadata or {}).items():
+            check(table.name, raw_key.decode("utf-8"), raw.decode("utf-8"))
+
+    assert not impossible, f"extents that are not degrees: {impossible}"
+
+
+def test_every_table_of_a_run_names_the_run_that_produced_it(produced_run: ProducedRun) -> None:
+    """Every Parquet artefact carries the same identity block, whoever wrote it.
+
+    Three writers produce the tables of a run and two of them wrote no footer at
+    all: geopandas for the 330 vector layers, which are precisely the files a
+    share-alike obligation would bind, and DuckDB ``COPY`` for the one file that
+    holds the run's own identity row (red-fair D3).
+    """
+    import pyarrow.parquet as pq
+
+    tables = sorted(produced_run.tables.glob("*.parquet"))
+    assert tables, "the run wrote no table at all"
+    bare: list[str] = []
+    for table in tables:
+        metadata = {key.decode("utf-8") for key in (pq.read_schema(table).metadata or {})}
+        missing = {"sim_id", "license", "hydromodpy_version", "hmp.schema"} - metadata
+        if missing:
+            bare.append(f"{table.name} declares nothing of {sorted(missing)}")
+    assert not bare, f"tables with no identity: {bare}"
 
 
 def test_the_two_writers_of_a_run_declare_one_licence(produced_run: ProducedRun) -> None:

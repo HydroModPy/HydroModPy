@@ -17,6 +17,10 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 
+from hydromodpy.core.version import __version__ as _HMP_VERSION
+from hydromodpy.results.storage.contract import UNDETERMINED_LICENSE
+from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
+
 
 def _sha256_streaming(path: Path, chunk_size: int = 65536) -> str:
     """Compute SHA-256 of a file by reading it in fixed-size chunks."""
@@ -145,6 +149,182 @@ def _epsg_from_crs(crs: str | None) -> int | None:
         return CRS.from_user_input(crs).to_epsg()
     except Exception:
         return None
+
+
+def kv_metadata_for_sim(backend: Any, sim_id: str) -> dict[str, str]:
+    """Return Parquet KV metadata keys for ``sim_id``.
+
+    Reads the simulation row plus a few catalog joins to enrich the file
+    footer with ACDD-style geospatial/temporal coverage attributes. The
+    returned ``written_at`` is *deterministic*: it is the simulation's
+    ``ended_at`` (or ``created_at`` fallback), never ``datetime.now``, so a
+    reproducible re-run lands on a byte-identical file.
+    """
+    row = backend.fetch_one(
+        """SELECT s.project, s.name, sv.code, s.config_hash,
+                  s.scientific_objective, s.bbox_xmin, s.bbox_ymin,
+                  s.bbox_xmax, s.bbox_ymax, s.period_start, s.period_end,
+                  s.crs_epsg, s.created_at, s.ended_at, s.doi
+             FROM simulations s
+             JOIN solvers sv ON s.solver_id = sv.id
+            WHERE s.sim_id = ?""",
+        [sim_id],
+    )
+    if row is None:
+        return {
+            "sim_id": sim_id,
+            "hydromodpy_version": _HMP_VERSION,
+            "hmp.schema_version": PARQUET_SCHEMA_VERSION,
+            "Conventions": "CF-1.11",
+            "license": UNDETERMINED_LICENSE,
+            "written_at": "",
+        }
+    (
+        project,
+        name,
+        solver,
+        config_hash,
+        objective,
+        bb_xmin,
+        bb_ymin,
+        bb_xmax,
+        bb_ymax,
+        period_start,
+        period_end,
+        crs_epsg,
+        created_at,
+        ended_at,
+        doi,
+    ) = row
+    written_at_source = ended_at if ended_at is not None else created_at
+    crs_token = f"EPSG:{int(crs_epsg)}" if crs_epsg is not None else None
+    kv: dict[str, str] = {
+        "sim_id": sim_id,
+        "project": "" if project is None else str(project),
+        "name": "" if name is None else str(name),
+        "solver": "" if solver is None else str(solver),
+        "config_hash": "" if config_hash is None else str(config_hash),
+        "hydromodpy_version": _HMP_VERSION,
+        "hmp.schema_version": PARQUET_SCHEMA_VERSION,
+        "Conventions": "CF-1.11",
+        "license": UNDETERMINED_LICENSE,
+        "scientific_objective": "" if objective is None else str(objective),
+        "doi": "" if doi is None else str(doi),
+        "written_at": "" if written_at_source is None else _isoformat_instant(written_at_source),
+    }
+    # The native extent keeps its own keys, in its own projection. The ACDD
+    # ones are WGS84 degrees by definition and used to hold Lambert-93
+    # metres, which a reader could only read as a longitude of 319987.5.
+    if None not in (bb_xmin, bb_ymin, bb_xmax, bb_ymax):
+        kv["hmp.bbox_xmin"] = str(bb_xmin)
+        kv["hmp.bbox_ymin"] = str(bb_ymin)
+        kv["hmp.bbox_xmax"] = str(bb_xmax)
+        kv["hmp.bbox_ymax"] = str(bb_ymax)
+        if crs_token:
+            kv["hmp.bbox_crs"] = crs_token
+        degrees = wgs84_bounds((bb_xmin, bb_ymin, bb_xmax, bb_ymax), crs_token)
+        if degrees is not None:
+            kv["geospatial_lon_min"] = str(degrees["lon_min"])
+            kv["geospatial_lon_max"] = str(degrees["lon_max"])
+            kv["geospatial_lat_min"] = str(degrees["lat_min"])
+            kv["geospatial_lat_max"] = str(degrees["lat_max"])
+            kv["geospatial_bounds_crs"] = "EPSG:4326"
+    if crs_token:
+        kv["geospatial_crs"] = crs_token
+    # ISO-8601, so a strict parser accepts it. ``str(pandas.Timestamp)``
+    # separates date and time with a space, and the Zarr store beside this
+    # file writes the same instant with a ``T``.
+    for key, value in (
+        ("time_coverage_start", period_start),
+        ("time_coverage_end", period_end),
+    ):
+        if value is not None:
+            kv[key] = _isoformat_instant(value)
+    return kv
+
+
+def _isoformat_instant(value: Any) -> str:
+    """Return an ISO-8601 instant, with the ``T`` a strict parser expects.
+
+    ``str(pandas.Timestamp)`` separates date and time with a space, which the
+    Zarr store beside the same run does not, so one run stated one instant in
+    two encodings.
+    """
+    if hasattr(value, "isoformat"):
+        return str(value.isoformat())
+    text = str(value)
+    return text.replace(" ", "T", 1) if " " in text[:19] else text
+
+
+def wgs84_bounds(
+    bbox: tuple[float, float, float, float] | None,
+    crs: str | None,
+) -> dict[str, float] | None:
+    """Return ``{lat_min, lat_max, lon_min, lon_max}`` in WGS84 degrees.
+
+    ACDD defines ``geospatial_lat_*`` / ``geospatial_lon_*`` as degrees, and
+    both writers of a run used to put the native projected extent there: a
+    reader who trusted the key name took a Lambert-93 easting of 319987.5 for a
+    longitude.
+
+    Returns ``None`` rather than a doubtful extent in every case where the
+    answer cannot be trusted, because an absent key means unknown and a present
+    one means declared:
+
+    * no extent, no projection, or a coordinate that is not a number;
+    * a projection that declares no area of use, which is the only thing the
+      coordinates can be checked against. A synthetic model numbers its cells
+      from the origin in plain metres while the project still names a CRS
+      somewhere, and reprojecting those lands a 400 m aquifer in the South
+      Atlantic: well-formed, and meaningless;
+    * an extent that falls nowhere near that area of use, same reason;
+    * an extent that crosses the antimeridian, which two scalars per axis
+      cannot express.
+    """
+    if bbox is None or not crs:
+        return None
+    try:
+        values = [float(value) for value in bbox]
+    except (TypeError, ValueError):
+        return None
+    if len(values) != 4 or any(value != value for value in values):  # NaN check
+        return None
+    xmin, xmax = min(values[0], values[2]), max(values[0], values[2])
+    ymin, ymax = min(values[1], values[3]), max(values[1], values[3])
+    try:
+        from pyproj import CRS, Transformer
+
+        source = CRS.from_user_input(str(crs))
+        area = source.area_of_use
+        if area is None:
+            return None
+        transformer = Transformer.from_crs(source, CRS.from_epsg(4326), always_xy=True)
+        # transform_bounds densifies the edges, so a projected rectangle whose
+        # sides bow in degrees keeps its true extent, and it reports an
+        # antimeridian crossing by returning a west greater than its east.
+        lon_min, lat_min, lon_max, lat_max = transformer.transform_bounds(
+            xmin, ymin, xmax, ymax, densify_pts=21
+        )
+    except Exception:
+        return None
+    degrees = (lon_min, lat_min, lon_max, lat_max)
+    if any(value != value for value in degrees):
+        return None
+    if lon_min > lon_max or lat_min > lat_max:
+        return None
+    if abs(lon_min) > 180.0 or abs(lon_max) > 180.0:
+        return None
+    if abs(lat_min) > 90.0 or abs(lat_max) > 90.0:
+        return None
+    west, south, east, north = area.bounds
+    if lon_max < west or lon_min > east or lat_max < south or lat_min > north:
+        return None
+    return {
+        "lat_min": lat_min,
+        "lat_max": lat_max,
+        "lon_min": lon_min,
+        "lon_max": lon_max,
+    }
 
 
 def _datetime_to_ms(values: Iterable[Any]) -> list[pd.Timestamp | None]:
@@ -282,6 +462,9 @@ def _merge_with_existing(target: Path, new_table: pa.Table, pk_cols: Sequence[st
 
 
 __all__ = [
+    "kv_metadata_for_sim",
+    "wgs84_bounds",
+    "_isoformat_instant",
     "_coerce_timestamp",
     "_coerce_timestamp_utc",
     "_datetime_to_ms",

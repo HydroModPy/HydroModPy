@@ -2,7 +2,7 @@
 
 Per-simulation Parquet outputs: timeseries, observations, budgets,
 mass balance, geographic features. Shared parquet plumbing
-(``_write_parquet_records``, ``_kv_metadata_for_sim``,
+(``_write_parquet_records``, ``writes_helpers.kv_metadata_for_sim``,
 ``_refresh_parquet_view``) lives here too because every parquet writer
 funnels through it.
 """
@@ -24,7 +24,6 @@ from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.io.geoparquet import write_geoparquet_atomic
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path as _encode_workspace_path
-from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE
 from hydromodpy.results.catalog.parquet_views import ensure_parquet_views, view_name_for
 from hydromodpy.results.catalog.storage_paths import sanitize_segment
@@ -33,8 +32,9 @@ from hydromodpy.results.catalog.writes_helpers import (
     _table_from_columns,
     _table_from_records,
     geographic_feature_description,
+    kv_metadata_for_sim,
 )
-from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, UNDETERMINED_LICENSE
+from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
 from hydromodpy.results.storage.parquet_io import read_kv_metadata, write_table_atomic
 from hydromodpy.results.storage.parquet_schemas import (
     BUDGETS_SCHEMA,
@@ -440,7 +440,12 @@ class WritesMixinParquet:
             geoparquet_path=geoparquet_path,
         )
         rel_path = _encode_workspace_path(self._workspace, target)
-        write_geoparquet_atomic(gdf, target)
+        metadata = kv_metadata_for_sim(self._backend, sid)
+        metadata["hmp.schema"] = "geographic_feature"
+        metadata["feature_name"] = feature_name
+        if crs_str:
+            metadata["hmp.feature_crs"] = str(crs_str)
+        write_geoparquet_atomic(gdf, target, metadata=metadata)
         self._backend.execute(
             """INSERT INTO geographic_features
                (sim_id, feature_name, geometry_kind, crs_wkt,
@@ -508,80 +513,6 @@ class WritesMixinParquet:
         escaped = duckdb_view.replace('"', '""')
         self._db.execute(f'DROP VIEW IF EXISTS "{escaped}"')
 
-    def _kv_metadata_for_sim(self, sim_id: str) -> dict[str, str]:
-        """Return Parquet KV metadata keys for ``sim_id``.
-
-        Reads the simulation row plus a few catalog joins to enrich the file
-        footer with ACDD-style geospatial/temporal coverage attributes. The
-        returned ``written_at`` is *deterministic*: it is the simulation's
-        ``ended_at`` (or ``created_at`` fallback), never ``datetime.now``, so a
-        reproducible re-run lands on a byte-identical file.
-        """
-        row = self._backend.fetch_one(
-            """SELECT s.project, s.name, sv.code, s.config_hash,
-                      s.scientific_objective, s.bbox_xmin, s.bbox_ymin,
-                      s.bbox_xmax, s.bbox_ymax, s.period_start, s.period_end,
-                      s.crs_epsg, s.created_at, s.ended_at, s.doi
-                 FROM simulations s
-                 JOIN solvers sv ON s.solver_id = sv.id
-                WHERE s.sim_id = ?""",
-            [sim_id],
-        )
-        if row is None:
-            return {
-                "sim_id": sim_id,
-                "hydromodpy_version": _HMP_VERSION,
-                "hmp.schema_version": PARQUET_SCHEMA_VERSION,
-                "Conventions": "CF-1.11",
-                "license": UNDETERMINED_LICENSE,
-                "written_at": "",
-            }
-        (
-            project,
-            name,
-            solver,
-            config_hash,
-            objective,
-            bb_xmin,
-            bb_ymin,
-            bb_xmax,
-            bb_ymax,
-            period_start,
-            period_end,
-            crs_epsg,
-            created_at,
-            ended_at,
-            doi,
-        ) = row
-        written_at_source = ended_at if ended_at is not None else created_at
-        kv: dict[str, str] = {
-            "sim_id": sim_id,
-            "project": "" if project is None else str(project),
-            "name": "" if name is None else str(name),
-            "solver": "" if solver is None else str(solver),
-            "config_hash": "" if config_hash is None else str(config_hash),
-            "hydromodpy_version": _HMP_VERSION,
-            "hmp.schema_version": PARQUET_SCHEMA_VERSION,
-            "Conventions": "CF-1.11",
-            "license": UNDETERMINED_LICENSE,
-            "scientific_objective": "" if objective is None else str(objective),
-            "doi": "" if doi is None else str(doi),
-            "written_at": "" if written_at_source is None else str(written_at_source),
-        }
-        if bb_xmin is not None and bb_xmax is not None:
-            kv["geospatial_lon_min"] = str(bb_xmin)
-            kv["geospatial_lon_max"] = str(bb_xmax)
-        if bb_ymin is not None and bb_ymax is not None:
-            kv["geospatial_lat_min"] = str(bb_ymin)
-            kv["geospatial_lat_max"] = str(bb_ymax)
-        if crs_epsg is not None:
-            kv["geospatial_crs"] = f"EPSG:{int(crs_epsg)}"
-        if period_start is not None:
-            kv["time_coverage_start"] = str(period_start)
-        if period_end is not None:
-            kv["time_coverage_end"] = str(period_end)
-        return kv
-
     def _write_parquet_records(
         self,
         *,
@@ -629,7 +560,7 @@ class WritesMixinParquet:
             merged = _merge_with_existing(target, new_table, pk_cols)
         else:
             merged = new_table
-        kv = self._kv_metadata_for_sim(sim_id)
+        kv = kv_metadata_for_sim(self._backend, sim_id)
         self._drop_parquet_view_before_write(target.stem)
         write_table_atomic(merged, target, kv_metadata=kv, pk_cols=tuple(pk_cols))
         self._refresh_parquet_view(target.stem)
