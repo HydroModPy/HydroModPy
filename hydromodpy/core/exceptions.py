@@ -262,6 +262,29 @@ class EmptyCatchmentError(TerrainProductError):
     code = "HMPY.E1004"
 
 
+# -- Process boundary ----------------------------------------------------------
+# Raised when a capability is invoked as an external process, before and around
+# whatever the capability itself does. Both carry a code an orchestrator maps
+# without reading a message.
+
+
+class JobUsageError(HydroModPyError):
+    """The job directory is not usable as the caller gave it.
+
+    Its own class because it maps to exit 2: the caller got the invocation
+    wrong, which is a different fact from the job failing at its work, and a
+    shim retries one and not the other.
+    """
+
+    code = "HMPY.E1100"
+
+
+class CapabilityVersionMismatchError(HydroModPyError):
+    """The request targets a different major version of the capability."""
+
+    code = "HMPY.E1101"
+
+
 # -- Solver --------------------------------------------------------------------
 
 
@@ -571,6 +594,9 @@ __all__ = [
     "TerrainProductError",
     "TerrainRequestError",
     "EmptyCatchmentError",
+    # Process boundary
+    "JobUsageError",
+    "CapabilityVersionMismatchError",
     # Solver
     "SolverError",
     "SolverDivergedError",

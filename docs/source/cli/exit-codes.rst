@@ -22,14 +22,16 @@ categories reuse the 10..21 band before introducing new ranges.
      - Generic failure with no specific mapping.
    * - 2
      - ``EXIT_USAGE``
-     - Invalid CLI usage (argparse rejected the call).
+     - Invalid CLI usage: argparse rejected the call, or a job directory was
+       named that does not exist or carries no ``request.json``.
    * - 10
      - ``EXIT_NOT_FOUND``
      - Missing file, workspace, simulation, or catalog row.
        Raised for ``FileNotFoundError``.
    * - 11
      - ``EXIT_SCHEMA_MISMATCH``
-     - Catalog or lockfile schema does not match the running version.
+     - Catalog or lockfile schema does not match the running version, or a
+       request targets a different major version of the capability.
    * - 12
      - ``EXIT_WRITE_CONFLICT``
      - Concurrent writer detected on the catalog or workspace.
@@ -79,8 +81,10 @@ reference maps to 20. Domain exceptions defined in
 ``ConfigMissingError``, ``SolverError``, ``DataError``,
 ``CrossProjectsError``, ``BackupFailedError``, ``MigrationFailedError``)
 map to codes 11..19 respectively. ``CalibrationError`` (and its
-``ObjectiveError`` / ``OptimizerError`` subclasses) maps to 21. Any other
-exception falls back to ``EXIT_GENERIC`` (1).
+``ObjectiveError`` / ``OptimizerError`` subclasses) maps to 21. The two
+exceptions of the external-process boundary map with them: ``JobUsageError``
+to 2 and ``CapabilityVersionMismatchError`` to 11. Any other exception falls
+back to ``EXIT_GENERIC`` (1).
 
 A refused configuration document
 --------------------------------

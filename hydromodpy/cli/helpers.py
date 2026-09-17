@@ -48,10 +48,12 @@ def exit_code_for(exc: BaseException) -> int:
     from hydromodpy.core.exceptions import (
         BackupFailedError,
         CalibrationError,
+        CapabilityVersionMismatchError,
         ConfigError,
         ConfigMissingError,
         CrossProjectsError,
         DataError,
+        JobUsageError,
         MigrationFailedError,
         ReadOnlyError,
         SolverError,
@@ -72,6 +74,8 @@ def exit_code_for(exc: BaseException) -> int:
     if isinstance(exc, FileNotFoundError):
         return EXIT_NOT_FOUND
     mapping: tuple[tuple[type[BaseException], int], ...] = (
+        (JobUsageError, EXIT_USAGE),
+        (CapabilityVersionMismatchError, EXIT_SCHEMA_MISMATCH),
         (SchemaVersionMismatchError, EXIT_SCHEMA_MISMATCH),
         (WriteConflictError, EXIT_WRITE_CONFLICT),
         (ReadOnlyError, EXIT_READ_ONLY),
