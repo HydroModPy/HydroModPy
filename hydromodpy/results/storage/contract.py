@@ -70,6 +70,34 @@ RUN_TRASH_FILENAME = "trash.json"
 RUN_FIGURES_DIRNAME = "figures"
 """Figures rendered for one run."""
 
+REQUIRED_RUN_ENTRIES: frozenset[str] = frozenset({FIELDS_STORE_NAME, TABLES_DIRNAME})
+"""What a solved run always leaves behind."""
+
+ALLOWED_RUN_ENTRIES: frozenset[str] = REQUIRED_RUN_ENTRIES | frozenset(
+    {
+        RUN_CONFIG_FILENAME,
+        RUN_PROVENANCE_FILENAME,
+        RUN_MANIFEST_FILENAME,
+        RUN_ANNOTATIONS_FILENAME,
+        RUN_TRASH_FILENAME,
+        RUN_FIGURES_DIRNAME,
+    }
+)
+"""Every name a run directory may carry as an artefact.
+
+Anything else found in a run directory is either the runtime scratch named by
+:data:`RUN_SCRATCH_ENTRIES` or something the run did not declare.
+"""
+
+RUN_SCRATCH_ENTRIES: frozenset[str] = frozenset({INTERNAL_DIRNAME})
+"""Runtime scratch a live run holds, which is not a result.
+
+A run takes its locks under ``<run>/.hmp/locks/``. It is machine state with the
+lifetime of the process, like the pipeline log, so the seal does not inventory
+it: a manifest that lists a lock directory as an artefact of the run describes
+the machine that ran it, not the run.
+"""
+
 UNDETERMINED_LICENSE = "LicenseRef-undetermined"
 """SPDX token every artefact of a run carries until a licence is declared.
 
@@ -126,6 +154,9 @@ RUN_STORAGE_LAYER_NAMES: tuple[str, ...] = tuple(
 
 
 __all__ = [
+    "ALLOWED_RUN_ENTRIES",
+    "REQUIRED_RUN_ENTRIES",
+    "RUN_SCRATCH_ENTRIES",
     "UNDETERMINED_LICENSE",
     "FIELDS_STORE_NAME",
     "PARQUET_FILE_SUFFIX",

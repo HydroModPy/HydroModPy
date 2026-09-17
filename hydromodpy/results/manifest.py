@@ -99,6 +99,7 @@ from hydromodpy.results.storage.contract import (
     RUN_FIGURES_DIRNAME,
     RUN_MANIFEST_FILENAME,
     RUN_PROVENANCE_FILENAME,
+    RUN_SCRATCH_ENTRIES,
     RUN_TRASH_FILENAME,
     TABLES_DIRNAME,
 )
@@ -431,7 +432,10 @@ def list_artifacts(run_dir: Path) -> list[dict[str, Any]]:
     manifest lists itself, without a size, since it cannot know its own length
     before it is written. ``annotations.json`` and ``trash.json`` are left out
     entirely: both change after the seal, so any size recorded for them would
-    be wrong by the next ``hmp catalog tag`` or ``hmp catalog trash``.
+    be wrong by the next ``hmp catalog tag`` or ``hmp catalog trash``. The
+    runtime scratch of :data:`RUN_SCRATCH_ENTRIES` is left out too, and for a
+    different reason: it is not a result. Everything else found in the
+    directory is inventoried, named or not, so a stray file stays visible.
     """
     entries: list[dict[str, Any]] = [
         {"path": RUN_MANIFEST_FILENAME, "role": "manifest", "format": "json"}
@@ -439,6 +443,8 @@ def list_artifacts(run_dir: Path) -> list[dict[str, Any]]:
     for path in sorted(run_dir.iterdir()):
         name = path.name
         if name in (RUN_MANIFEST_FILENAME, RUN_ANNOTATIONS_FILENAME, RUN_TRASH_FILENAME):
+            continue
+        if name in RUN_SCRATCH_ENTRIES:
             continue
         if name == FIELDS_STORE_NAME:
             entries.append(

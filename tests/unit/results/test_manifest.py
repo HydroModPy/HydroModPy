@@ -24,6 +24,7 @@ from hydromodpy.results.storage.contract import (
     RUN_CONFIG_FILENAME,
     RUN_FIGURES_DIRNAME,
     RUN_PROVENANCE_FILENAME,
+    RUN_SCRATCH_ENTRIES,
     TABLES_DIRNAME,
 )
 
@@ -308,6 +309,24 @@ def test_an_unexpected_directory_is_inventoried_rather_than_dropped(tmp_path):
     entry = next(e for e in manifest["artifacts"] if e["path"] == "solver_workdir")
     assert entry["format"] == "directory"
     assert entry["bytes"] == len(b"listing")
+
+
+def test_the_lock_directory_is_not_an_artefact_of_the_run(tmp_path):
+    """Every sealed run used to declare `.hmp` with role "other".
+
+    It holds the locks the process took while solving. A seal that lists it
+    describes the machine that ran the run, not the run.
+    """
+    scratch_name = next(iter(RUN_SCRATCH_ENTRIES))
+    with Catalog(tmp_path / "project") as catalog:
+        _register(catalog)
+        locks = catalog.run_dir_for(SID) / scratch_name / "locks"
+        locks.mkdir(parents=True)
+        (locks / "run.lock").write_bytes(b"pid")
+        catalog.finalize(SID, status="completed")
+        manifest = read_manifest(catalog.run_dir_for(SID))
+
+    assert scratch_name not in {entry["path"] for entry in manifest["artifacts"]}
 
 
 def test_figures_of_the_run_are_inventoried(tmp_path):

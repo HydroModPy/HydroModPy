@@ -27,30 +27,14 @@ from hydromodpy.data.data_freeze import LOCKFILE_NAME
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME
 from hydromodpy.results.storage.contract import (
+    ALLOWED_RUN_ENTRIES,
     FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
-    RUN_ANNOTATIONS_FILENAME,
-    RUN_CONFIG_FILENAME,
-    RUN_FIGURES_DIRNAME,
-    RUN_PROVENANCE_FILENAME,
-    RUN_TRASH_FILENAME,
+    REQUIRED_RUN_ENTRIES,
     TABLES_DIRNAME,
 )
 
 RUN_NAME = "cheze_baseline"
-
-REQUIRED_RUN_ENTRIES = frozenset({FIELDS_STORE_NAME, TABLES_DIRNAME})
-"""What a solved run always leaves behind."""
-
-ALLOWED_RUN_ENTRIES = REQUIRED_RUN_ENTRIES | {
-    RUN_CONFIG_FILENAME,
-    RUN_PROVENANCE_FILENAME,
-    RUN_MANIFEST_FILENAME,
-    RUN_ANNOTATIONS_FILENAME,
-    RUN_TRASH_FILENAME,
-    RUN_FIGURES_DIRNAME,
-}
-"""Every name a run directory may carry: nothing else is a run artefact."""
 
 ALLOWED_PROJECT_ENTRIES = frozenset(
     {

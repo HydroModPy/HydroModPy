@@ -14,44 +14,27 @@ import pandas as pd
 import pytest
 import zarr
 
-from hydromodpy.core.state.paths import INTERNAL_DIRNAME
 from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME
 from hydromodpy.results.storage.contract import (
+    ALLOWED_RUN_ENTRIES,
     FIELDS_STORE_NAME,
-    RUN_ANNOTATIONS_FILENAME,
-    RUN_CONFIG_FILENAME,
-    RUN_FIGURES_DIRNAME,
-    RUN_PROVENANCE_FILENAME,
-    RUN_TRASH_FILENAME,
+    RUN_SCRATCH_ENTRIES,
     TABLES_DIRNAME,
 )
 from tests.characterization.conftest import ProducedRun
 
-ALLOWED_RUN_ENTRIES = frozenset(
-    {
-        FIELDS_STORE_NAME,
-        TABLES_DIRNAME,
-        RUN_CONFIG_FILENAME,
-        RUN_PROVENANCE_FILENAME,
-        RUN_MANIFEST_FILENAME,
-        RUN_ANNOTATIONS_FILENAME,
-        RUN_TRASH_FILENAME,
-        RUN_FIGURES_DIRNAME,
-    }
-)
-
 
 def test_the_run_directory_holds_only_declared_entries(produced_run: ProducedRun) -> None:
-    """A run leaves behind the contract's names, plus the lock directory."""
+    """A run leaves behind the contract's names, plus its runtime scratch."""
     entries = {path.name for path in produced_run.run_dir.iterdir()}
     assert FIELDS_STORE_NAME in entries
     assert TABLES_DIRNAME in entries
     undeclared = entries - ALLOWED_RUN_ENTRIES
-    # A real run also leaves `.hmp/locks/`, which the storage contract does not
-    # name. `tests/unit/results/test_run_layout_contract.py` never sees it
-    # because its fixture writes the run directory by hand; bounding it here
-    # keeps the gap visible instead of filtering hidden names away.
-    assert undeclared <= {INTERNAL_DIRNAME}, f"undeclared entries: {sorted(undeclared)}"
+    # A real run also takes its locks under `<run>/.hmp/`, which is scratch and
+    # not an artefact. `tests/unit/results/test_run_layout_contract.py` never
+    # sees it because its fixture writes the run directory by hand; bounding it
+    # here keeps the gap visible instead of filtering hidden names away.
+    assert undeclared <= RUN_SCRATCH_ENTRIES, f"undeclared entries: {sorted(undeclared)}"
 
 
 def test_the_field_store_opens_with_the_zarr_package(produced_run: ProducedRun) -> None:
