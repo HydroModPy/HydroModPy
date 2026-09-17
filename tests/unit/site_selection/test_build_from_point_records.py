@@ -9,6 +9,7 @@ from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
 from hydromodpy.spatial.site_selection.pipelines.build import (
     build_site_selection_from_point_records,
 )
+from tests._helpers.terrain_doubles import fake_flow_products
 
 from ._test_build_builders import make_config, make_record, make_wgs84_hubeau_record
 
@@ -22,7 +23,7 @@ def test_build_site_selection_from_point_records_chains_candidates_delineation_s
 
     def fake_flow_builder(**kwargs):
         flow_calls.update(kwargs)
-        return FlowProducts(correc="fill.tif", direc="direc.tif", acc="acc.tif")
+        return fake_flow_products(correc="fill.tif", direc="direc.tif", acc="acc.tif")
 
     def fake_delineation_builder(**kwargs):
         delineation_calls.append(kwargs)
@@ -89,7 +90,7 @@ def test_build_site_selection_from_point_records_intermediate_rasters(
         for raster in rasters:
             raster.write_text("raster", encoding="utf-8")
         created["flow"] = rasters
-        return FlowProducts(
+        return fake_flow_products(
             correc=str(rasters[0]),
             direc=str(rasters[1]),
             acc=str(rasters[2]),
@@ -126,7 +127,7 @@ def test_build_site_selection_from_point_records_reprojects_station_locations(tm
 
     def fake_flow_builder(**kwargs):
         assert kwargs["crs_project"] == "EPSG:2154"
-        return FlowProducts(correc="fill.tif", direc="direc.tif", acc="acc.tif")
+        return fake_flow_products(correc="fill.tif", direc="direc.tif", acc="acc.tif")
 
     def fake_delineation_builder(**kwargs):
         delineation_calls.append(kwargs)
@@ -164,7 +165,7 @@ def test_build_site_selection_from_point_records_requires_dem(tmp_path):
         build_site_selection_from_point_records(
             config=cfg,
             point_records=[make_record("J123456701")],
-            flow_products_builder=lambda **_kwargs: FlowProducts(
+            flow_products_builder=lambda **_kwargs: fake_flow_products(
                 correc="fill.tif",
                 direc="direc.tif",
                 acc="acc.tif",

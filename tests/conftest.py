@@ -49,7 +49,10 @@ _LAYER_TIMEOUTS_SECONDS = {
 _WHITEBOX_XDIST_GROUP = "whitebox_backend"
 _WHITEBOX_XDIST_GROUP_TEST_FILES = frozenset(
     {
-        "test_catchment_from_point.py",
+        # ``test_catchment_from_point.py`` left this list when it stopped
+        # reaching the real backend: it drives the terrain engine with the
+        # double of ``tests/_helpers/whitebox_double.py``, and serialising a
+        # file that never calls Whitebox only makes the group slower.
         "test_reference_river_network_nancon_case.py",
         "test_run_geographic_case_regression.py",
         "test_run_geographic_dem_processing_golden.py",

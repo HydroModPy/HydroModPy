@@ -12,6 +12,7 @@ from hydromodpy.workflow.site_selection import (
     load_data_dem_config_for_site_selection,
     select_delineated_catchments_from_csv,
 )
+from tests._helpers.terrain_doubles import fake_flow_products
 
 from ._test_workflow_plan_builders import (
     make_fake_delineation_builder,
@@ -273,7 +274,7 @@ def test_select_delineated_catchments_from_csv_can_resolve_dem_from_data_section
     def fake_flow_builder(**kwargs):
         assert Path(kwargs["dem_init_path"]) == dem
         output_dir = Path(kwargs["dem_out_dir_path"])
-        return FlowProducts(
+        return fake_flow_products(
             correc=str(output_dir / "fill.tif"),
             direc=str(output_dir / "direc.tif"),
             acc=str(output_dir / "acc.tif"),

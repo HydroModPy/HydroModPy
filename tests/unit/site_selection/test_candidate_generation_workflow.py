@@ -12,6 +12,7 @@ from hydromodpy.workflow.site_selection import (
     build_dem_area_light_site_selection_from_toml,
     build_generated_site_selection_from_toml,
 )
+from tests._helpers.terrain_doubles import fake_flow_products
 
 from ._geojson import write_square_geojson
 from ._test_candidate_generation_builders import write_accumulation_raster
@@ -75,7 +76,7 @@ def test_generated_candidates_workflow_writes_candidate_audit_outputs(tmp_path):
     calls = []
 
     def fake_flow_builder(**_kwargs):
-        return FlowProducts(correc=str(dem_path), direc="direc.tif", acc=str(acc_path))
+        return fake_flow_products(correc=str(dem_path), direc="direc.tif", acc=str(acc_path))
 
     def fake_delineation_builder(**kwargs):
         calls.append(kwargs)
@@ -171,7 +172,7 @@ def test_dem_area_light_workflow_writes_outputs_and_diagnostics(tmp_path):
     calls = []
 
     def fake_flow_builder(**_kwargs):
-        return FlowProducts(correc=str(dem_path), direc="direc.tif", acc=str(acc_path))
+        return fake_flow_products(correc=str(dem_path), direc="direc.tif", acc=str(acc_path))
 
     def fake_delineation_builder(**kwargs):
         calls.append(kwargs)

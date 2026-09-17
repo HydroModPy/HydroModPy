@@ -17,6 +17,7 @@ from hydromodpy.spatial.site_selection.config import (
     OutletsConfig,
 )
 from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelectionFlowProducts
+from tests._helpers.terrain_doubles import fake_flow_products
 
 from ._test_candidate_generation_builders import write_accumulation_raster
 
@@ -37,7 +38,7 @@ def test_generate_network_candidate_outlets_samples_high_accumulation_cells(tmp_
         ),
     )
     flow_products = SiteSelectionFlowProducts(
-        products=FlowProducts(correc="fill.tif", direc="direc.tif", acc=str(acc_path)),
+        products=fake_flow_products(correc="fill.tif", direc="direc.tif", acc=str(acc_path)),
         method="dem_only",
         flow_algorithm="d8",
         dem_correction_type="fill",

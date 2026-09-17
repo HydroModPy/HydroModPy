@@ -6,6 +6,7 @@ from typing import Any
 
 from hydromodpy.spatial.geographic.core.catchment_from_point import CatchmentFromPointProducts
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
+from tests._helpers.terrain_doubles import fake_flow_products
 
 from ._geojson import write_square_geojson
 
@@ -15,7 +16,7 @@ def make_fake_flow_builder() -> Callable[..., FlowProducts]:
 
     def fake_flow_builder(**kwargs: Any) -> FlowProducts:
         output_dir = Path(kwargs["dem_out_dir_path"])
-        return FlowProducts(
+        return fake_flow_products(
             correc=str(output_dir / "fill.tif"),
             direc=str(output_dir / "direc.tif"),
             acc=str(output_dir / "acc.tif"),

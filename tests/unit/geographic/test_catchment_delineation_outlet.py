@@ -21,6 +21,7 @@ from shapely.geometry import shape as shapely_shape
 
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+from tests._helpers.whitebox_double import FakeWhiteboxBackend
 
 GOLDEN_FILE_OUTLET = (
     Path(__file__).resolve().parent / "golden" / "catchment_delineation_outlet_contract_golden.json"
@@ -37,202 +38,6 @@ class _FakeNominatim:
 
     def reverse(self, *_args, **_kwargs):
         return _FakeLocation()
-
-
-class _FakeRasterOps:
-    """Raster IO and conversion subset of the fake Whitebox facade."""
-
-    @staticmethod
-    def _copy_raster(src_path: str | Path, dst_path: str | Path) -> None:
-        src = Path(src_path)
-        dst = Path(dst_path)
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        with rasterio.open(str(src)) as src_ds:
-            data = src_ds.read(1)
-            profile = src_ds.profile.copy()
-        with rasterio.open(str(dst), "w", **profile) as dst_ds:
-            dst_ds.write(data, 1)
-
-    def clip_raster_to_polygon(
-        self,
-        in_raster: str,
-        in_polygon: str,
-        out_raster: str,
-        maintain_dimensions: bool = False,
-    ) -> None:
-        _ = maintain_dimensions
-        polygons = gpd.read_file(in_polygon)
-        with rasterio.open(in_raster) as src_ds:
-            data = src_ds.read(1)
-            profile = src_ds.profile.copy()
-            nodata = src_ds.nodata if src_ds.nodata is not None else -9999.0
-            keep_mask = geometry_mask(
-                [geom for geom in polygons.geometry],
-                out_shape=data.shape,
-                transform=src_ds.transform,
-                invert=True,
-            )
-            clipped = np.where(keep_mask, data, nodata)
-            profile.update(count=1, nodata=nodata)
-        Path(out_raster).parent.mkdir(parents=True, exist_ok=True)
-        with rasterio.open(out_raster, "w", **profile) as dst_ds:
-            dst_ds.write(clipped.astype(profile["dtype"]), 1)
-
-    def modify_no_data_value(self, raster_path: str, *, new_value: float) -> None:
-        with rasterio.open(raster_path, "r+") as dst_ds:
-            dst_ds.nodata = float(new_value)
-
-    def vector_lines_to_raster(
-        self,
-        in_shp: str,
-        out_raster: str,
-        *,
-        field: str | None = None,
-        zero_background: bool | None = None,
-        cell_size: float | None = None,
-        base: str | None = None,
-    ) -> None:
-        _ = field, zero_background, cell_size
-        lines = gpd.read_file(in_shp)
-        with rasterio.open(base) as base_ds:
-            profile = base_ds.profile.copy()
-            transform = base_ds.transform
-            shape = (base_ds.height, base_ds.width)
-        profile.update(dtype=np.uint8, nodata=0, count=1)
-        data = rasterize(
-            [(geom, 1) for geom in lines.geometry],
-            out_shape=shape,
-            transform=transform,
-            fill=0,
-            dtype=np.uint8,
-        )
-        Path(out_raster).parent.mkdir(parents=True, exist_ok=True)
-        with rasterio.open(out_raster, "w", **profile) as dst_ds:
-            dst_ds.write(data, 1)
-
-
-class _FakeFlowOps:
-    """DEM flow analysis subset of the fake Whitebox facade."""
-
-    def __init__(self, raster: _FakeRasterOps) -> None:
-        self._raster = raster
-
-    def fill_depressions(self, dem_in: str, dem_out: str) -> None:
-        self._raster._copy_raster(dem_in, dem_out)
-
-    def breach_depressions(self, dem_in: str, dem_out: str) -> None:
-        self._raster._copy_raster(dem_in, dem_out)
-
-    def d8_pointer(self, dem_in: str, out_path: str, esri_pntr: bool = False) -> None:
-        _ = esri_pntr
-        with rasterio.open(dem_in) as src_ds:
-            profile = src_ds.profile.copy()
-            shape = (src_ds.height, src_ds.width)
-        profile.update(dtype=np.int16, nodata=-32768, count=1)
-        data = np.ones(shape, dtype=np.int16)
-        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
-        with rasterio.open(out_path, "w", **profile) as dst_ds:
-            dst_ds.write(data, 1)
-
-    def d8_flow_accumulation(self, dem_in: str, out_path: str, log: bool = True) -> None:
-        _ = log
-        with rasterio.open(dem_in) as src_ds:
-            profile = src_ds.profile.copy()
-            shape = (src_ds.height, src_ds.width)
-        profile.update(dtype=np.float32, nodata=-9999.0, count=1)
-        data = np.arange(1, shape[0] * shape[1] + 1, dtype=np.float32).reshape(shape)
-        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
-        with rasterio.open(out_path, "w", **profile) as dst_ds:
-            dst_ds.write(data, 1)
-
-
-class _FakeDelineationOps:
-    """Watershed and stream-network subset of the fake Whitebox facade."""
-
-    def snap_pour_points(
-        self,
-        pour_points: str,
-        flow_accumulation: str,
-        output: str,
-        snap_dist: int,
-    ) -> None:
-        _ = flow_accumulation, snap_dist
-        gdf = gpd.read_file(pour_points)
-        Path(output).parent.mkdir(parents=True, exist_ok=True)
-        gdf.to_file(output)
-
-    def watershed(
-        self,
-        d8_pntr: str,
-        pour_pts: str,
-        output: str,
-        esri_pntr: bool = False,
-    ) -> None:
-        _ = esri_pntr
-        outlet = gpd.read_file(pour_pts).geometry.iloc[0]
-        with rasterio.open(d8_pntr) as src_ds:
-            profile = src_ds.profile.copy()
-            shape = (src_ds.height, src_ds.width)
-            transform = src_ds.transform
-            cols = np.arange(src_ds.width, dtype=float)
-            rows = np.arange(src_ds.height, dtype=float)
-            xx = transform.c + (cols + 0.5) * transform.a
-            yy = transform.f + (rows + 0.5) * transform.e
-            xg, yg = np.meshgrid(xx, yy)
-
-        # Deterministic synthetic watershed: cells "upstream" of outlet in XY space.
-        mask = (xg <= float(outlet.x)) & (yg <= float(outlet.y))
-        if not np.any(mask):
-            # Ensure at least one cell belongs to watershed if outlet is near edge.
-            ci = int(
-                np.clip(round((float(outlet.x) - transform.c) / transform.a - 0.5), 0, shape[1] - 1)
-            )
-            ri = int(
-                np.clip(round((float(outlet.y) - transform.f) / transform.e - 0.5), 0, shape[0] - 1)
-            )
-            mask[ri, ci] = True
-
-        profile.update(dtype=np.uint8, nodata=0, count=1)
-        data = np.where(mask, 1, 0).astype(np.uint8)
-        Path(output).parent.mkdir(parents=True, exist_ok=True)
-        with rasterio.open(output, "w", **profile) as dst_ds:
-            dst_ds.write(data, 1)
-
-    def raster_to_vector_polygons(self, input_raster: str, output_shp: str) -> None:
-        with rasterio.open(input_raster) as src_ds:
-            arr = src_ds.read(1)
-            geoms = [
-                shapely_shape(geom)
-                for geom, value in shapes(arr, transform=src_ds.transform)
-                if int(value) == 1
-            ]
-            out = gpd.GeoDataFrame(
-                data={"id": list(range(1, len(geoms) + 1))},
-                geometry=geoms,
-                crs=src_ds.crs,
-            )
-        Path(output_shp).parent.mkdir(parents=True, exist_ok=True)
-        out.to_file(output_shp)
-
-    def polygons_to_lines(self, in_shp: str, out_shp: str) -> None:
-        gdf = gpd.read_file(in_shp)
-        union_geom = (
-            gdf.geometry.union_all() if hasattr(gdf.geometry, "union_all") else gdf.unary_union
-        )
-        out = gpd.GeoDataFrame({"id": [1]}, geometry=[union_geom.boundary], crs=gdf.crs)
-        Path(out_shp).parent.mkdir(parents=True, exist_ok=True)
-        out.to_file(out_shp)
-
-
-class _FakeWhiteboxBackend:
-    """Facade composing fake raster, flow and delineation sub-backends."""
-
-    verbose = False
-
-    def __init__(self) -> None:
-        self.raster = _FakeRasterOps()
-        self.flow = _FakeFlowOps(self.raster)
-        self.delineation = _FakeDelineationOps()
 
 
 def _write_synthetic_dem(path: Path) -> None:
@@ -270,7 +75,7 @@ def _build_outlet_catchment_case(
 ) -> CatchmentDelineation:
     import hydromodpy.spatial.geographic.catchment_delineation as geo_mod
 
-    fake_wbt = _FakeWhiteboxBackend()
+    fake_wbt = FakeWhiteboxBackend()
     monkeypatch.setattr(geo_mod, "resolve_delineation_backend", lambda backend=None: fake_wbt)
     monkeypatch.setattr(geo_mod, "Nominatim", _FakeNominatim)
 

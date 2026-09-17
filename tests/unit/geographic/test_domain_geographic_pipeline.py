@@ -9,6 +9,7 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
+from hydromodpy.core.exceptions import EmptyCatchmentError
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
@@ -18,6 +19,7 @@ from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
     build_geographic_derived_features,
 )
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
+from tests._helpers.terrain_doubles import fake_flow_products
 
 
 def _write_dem(path: Path) -> None:
@@ -250,13 +252,11 @@ def test_build_domain_geographic_context_retries_with_fill_after_empty_breach_wa
     def _fake_build_flow(**kwargs):
         dem_correc_type = str(kwargs["dem_correc_type"])
         flow_calls.append(dem_correc_type)
-        return SimpleNamespace(
+        return fake_flow_products(
             correc=f"{dem_correc_type}_correc.tif",
             direc=f"{dem_correc_type}_direc.tif",
             acc=f"{dem_correc_type}_acc.tif",
-            correc_data=object(),
-            direc_data=object(),
-            acc_data=object(),
+            method=dem_correc_type,
         )
 
     monkeypatch.setattr(
@@ -265,12 +265,10 @@ def test_build_domain_geographic_context_retries_with_fill_after_empty_breach_wa
     )
 
     def _fake_build_standard_catchment(**kwargs):
-        catchment_calls.append(str(kwargs["direc_path"]))
-        if str(kwargs["direc_path"]).startswith("breach_"):
-            raise ValueError(
-                "Watershed delineation produced an empty polygon. Check outlet placement, "
-                "DEM conditioning, and snap distance before rerunning the geographic pipeline."
-            )
+        direc = str(kwargs["accumulation"].directions.path)
+        catchment_calls.append(direc)
+        if direc.startswith("breach_"):
+            raise EmptyCatchmentError("Outlet 'outlet' delineated an empty catchment.")
         return None
 
     monkeypatch.setattr(

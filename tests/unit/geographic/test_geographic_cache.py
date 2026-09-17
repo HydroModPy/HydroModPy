@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
+import rasterio
+from rasterio.transform import from_origin
+
 from hydromodpy.spatial.geographic.core.catchment_domain import CatchmentDomainProducts
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.geographic.geographic_paths import build_geographic_paths
 from hydromodpy.spatial.geographic.pipeline import (
-    _flow_products_from_paths,
     _geographic_cache_fingerprint,
     _load_cached_geographic_products,
     _raster_products_from_paths,
@@ -16,11 +19,32 @@ from hydromodpy.spatial.geographic.pipeline import (
 
 
 def _touch_artifact(path: str | Path) -> None:
+    """Materialise one cache artefact.
+
+    Rasters are written as real single-cell GeoTIFFs and not as empty files:
+    the flow stack is described by reading the CRS and the nodata off the
+    rasters themselves, so a cache hit has to survive being read.
+    """
     path_obj = Path(path)
     path_obj.parent.mkdir(parents=True, exist_ok=True)
     if path_obj.suffix.lower() == ".shp":
         for suffix in (".shp", ".shx", ".dbf"):
             path_obj.with_suffix(suffix).write_text("", encoding="utf-8")
+        return
+    if path_obj.suffix.lower() == ".tif":
+        with rasterio.open(
+            str(path_obj),
+            "w",
+            driver="GTiff",
+            height=1,
+            width=1,
+            count=1,
+            dtype="float32",
+            crs="EPSG:2154",
+            transform=from_origin(0.0, 1.0, 1.0, 1.0),
+            nodata=-9999.0,
+        ) as dst:
+            dst.write(np.zeros((1, 1), dtype="float32"), 1)
         return
     path_obj.write_text("", encoding="utf-8")
 
@@ -46,12 +70,10 @@ def _cached_config(tmp_path: Path) -> GeographicConfig:
 def test_geographic_cache_loads_matching_complete_artifacts(tmp_path: Path) -> None:
     config = _cached_config(tmp_path)
     paths = build_geographic_paths(tmp_path / "project")
-    flow_products = _flow_products_from_paths(paths, str(config.dem_correc_type))
     raster_products = _raster_products_from_paths(paths)
     for path in _required_geographic_cache_artifacts(
         config=config,
         paths=paths,
-        flow_products=flow_products,
         raster_products=raster_products,
     ):
         _touch_artifact(path)
@@ -84,12 +106,10 @@ def test_geographic_cache_loads_matching_complete_artifacts(tmp_path: Path) -> N
 def test_geographic_cache_rejects_changed_fingerprint(tmp_path: Path) -> None:
     config = _cached_config(tmp_path)
     paths = build_geographic_paths(tmp_path / "project")
-    flow_products = _flow_products_from_paths(paths, str(config.dem_correc_type))
     raster_products = _raster_products_from_paths(paths)
     for path in _required_geographic_cache_artifacts(
         config=config,
         paths=paths,
-        flow_products=flow_products,
         raster_products=raster_products,
     ):
         _touch_artifact(path)
@@ -112,6 +132,60 @@ def test_geographic_cache_rejects_changed_fingerprint(tmp_path: Path) -> None:
     assert (
         _load_cached_geographic_products(
             config=changed_config,
+            paths=paths,
+            crs_project="EPSG:2154",
+        )
+        is None
+    )
+
+
+def test_geographic_cache_rejects_a_raster_it_cannot_describe(tmp_path: Path) -> None:
+    """A complete cache whose accumulation declares no nodata is a miss.
+
+    Existence is not describability. A GeoTIFF with no NoData tag is legal --
+    another tool wrote it, or a prior run was interrupted -- and the flow stack
+    is described by reading that tag. Before this was a miss it was an
+    unhandled exception that aborted a run which would otherwise have rebuilt.
+    """
+    config = _cached_config(tmp_path)
+    paths = build_geographic_paths(tmp_path / "project")
+    raster_products = _raster_products_from_paths(paths)
+    for path in _required_geographic_cache_artifacts(
+        config=config,
+        paths=paths,
+        raster_products=raster_products,
+    ):
+        _touch_artifact(path)
+    _write_geographic_cache_manifest(
+        config=config,
+        paths=paths,
+        domain_products=CatchmentDomainProducts(
+            catchment_area_km2=12.0,
+            buffer_distance_m=300.0,
+            watershed_buff_shp=str(Path(paths.geographic_path) / "watershed_buff.shp"),
+            watershed_box_shp=paths.watershed_box_shp,
+            watershed_box_buff_shp=paths.box_buff,
+        ),
+        catchment_area_km2=12.0,
+    )
+    accumulation = Path(paths.correcflow_path) / "dem_acc.tif"
+    with rasterio.open(
+        str(accumulation),
+        "w",
+        driver="GTiff",
+        height=1,
+        width=1,
+        count=1,
+        dtype="float32",
+        crs="EPSG:2154",
+        transform=from_origin(0.0, 1.0, 1.0, 1.0),
+    ) as dst:
+        dst.write(np.zeros((1, 1), dtype="float32"), 1)
+
+    assert accumulation.is_file()
+    assert (
+        _load_cached_geographic_products(
+            config=config,
             paths=paths,
             crs_project="EPSG:2154",
         )
