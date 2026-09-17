@@ -21,6 +21,7 @@ from hydromodpy.schema.capability import CapabilityDecl
 from hydromodpy.schema.job import JobDirectory
 from hydromodpy.schema.job.request import (
     check_process,
+    content_address,
     read_request,
     requested_outputs,
     validate_inputs,
@@ -233,6 +234,30 @@ def test_an_input_the_capability_does_not_declare_is_refused(
 
     assert excinfo.value.details[0]["pointer"] == "/inputs/flow_algorithm"
     assert excinfo.value.details[0]["type"] == "extra_forbidden"
+
+
+def test_two_identical_submissions_carry_one_job_id() -> None:
+    """The identity is in the content, so it survives cp, tar and a move."""
+    resolved = {"dem": "sha256:" + "a" * 64, "crs_project": "EPSG:2154"}
+
+    first = content_address(process_id="demo-delineate", process_version="1.2.3", inputs=resolved)
+    second = content_address(
+        process_id="demo-delineate",
+        process_version="1.2.3",
+        inputs={"crs_project": "EPSG:2154", "dem": "sha256:" + "a" * 64},
+    )
+
+    assert first == second
+    assert first.startswith("sha256:")
+
+
+def test_another_input_is_another_job() -> None:
+    base = {"dem": "sha256:" + "a" * 64}
+    other = {"dem": "sha256:" + "b" * 64}
+
+    assert content_address(
+        process_id="demo-delineate", process_version="1.2.3", inputs=base
+    ) != content_address(process_id="demo-delineate", process_version="1.2.3", inputs=other)
 
 
 def test_a_missing_input_keeps_the_pointer_of_the_key_it_lacks(

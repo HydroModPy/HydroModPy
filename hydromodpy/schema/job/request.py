@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from hydromodpy.core.exceptions import CapabilityVersionMismatchError, ConfigValidationError
 from hydromodpy.core.toml_io.error_locator import format_validation_error, validation_error_details
 from hydromodpy.schema.capability import CAPABILITY_VERSION_PATTERN, CapabilityDecl, OutputDecl
+from hydromodpy.schema.job.digest import sha256_value
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.refusal import refuse_request
 
@@ -168,6 +169,27 @@ def requested_outputs(request: JobRequest, decl: CapabilityDecl) -> tuple[Output
     return tuple(output for output in decl.outputs if output.id in wanted)
 
 
+def content_address(
+    *,
+    process_id: str,
+    process_version: str,
+    inputs: Mapping[str, Any],
+) -> str:
+    """Return the ``job_id``: a digest of what was asked, not of where it ran.
+
+    *inputs* is the resolved input mapping, each file link replaced by the
+    digest of the bytes that were read. Two byte-identical submissions
+    therefore carry one id, which is what lets a caller deduplicate and retry
+    safely with no job store and no database, and what makes the name of the
+    directory irrelevant to the identity of the job.
+    """
+    payload = {
+        "process": {"id": process_id, "version": process_version},
+        "inputs": dict(inputs),
+    }
+    return f"sha256:{sha256_value(payload)}"
+
+
 def validate_inputs(request: JobRequest, decl: CapabilityDecl) -> BaseModel:
     """Validate ``inputs`` against the capability's own request model."""
     document: dict[str, Any] = {"inputs": dict(request.inputs)}
@@ -195,6 +217,7 @@ __all__ = [
     "JobRequest",
     "ProcessRef",
     "check_process",
+    "content_address",
     "read_request",
     "requested_outputs",
     "validate_inputs",
