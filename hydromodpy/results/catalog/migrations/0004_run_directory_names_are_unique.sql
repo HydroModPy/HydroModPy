@@ -1,0 +1,32 @@
+-- =====================================================================
+-- A run directory name is unique in the catalog
+-- =====================================================================
+--
+-- The initial schema declares UNIQUE (project, name), so the index lets
+-- two projects of one catalog carry the same run name. The disk cannot:
+-- registration writes runs/<name>/fields.zarr, with no project segment,
+-- and a catalog owns exactly one runs/ tree. The scope of the name was
+-- not the scope of the directory it names, and the second registration
+-- died on FileExistsError instead of being versioned.
+--
+-- storage_basename is the directory name itself, NOT NULL on every row
+-- and kept by a trashed run (trashing frees the name in the index and
+-- leaves the bytes where they are, so the run stays restorable). It is
+-- therefore the column that carries the invariant, not `name`: two
+-- different names can fold to one directory, since run_dirname replaces
+-- characters a filesystem cannot carry.
+--
+-- The table-level UNIQUE (project, name) stays: DuckDB cannot drop a
+-- constraint, and it is implied by this index rather than contradicted
+-- by it.
+--
+-- A catalog written before this migration can already hold two rows on
+-- one directory, since a registration that does not know the mesh
+-- dimensions yet creates no Zarr store and so hit no FileExistsError.
+-- Such a catalog fails here, and that is the honest outcome: the two
+-- runs share bytes and no SQL can separate them. The index is
+-- reconstructible, so the way out is the one the runner prints --
+-- delete <project>/.hmp/index.duckdb and run `hmp catalog reindex`,
+-- which rebuilds one row per directory under runs/.
+
+CREATE UNIQUE INDEX ux_sim_storage_basename ON simulations(storage_basename);

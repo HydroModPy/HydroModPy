@@ -149,11 +149,42 @@ def portable_config_source(project_root: Path, config_source: str | Path | None)
         return str(config_source)
 
 
+def occupied_dirnames(backend: CatalogBackend, exclude_sid: str | None = None) -> set[str]:
+    """Return every run directory name the catalog already owns.
+
+    A catalog owns exactly one ``runs/`` tree, so a directory name is unique in
+    the *catalog*, never in the project: ``project`` is a label on a row and is
+    not a path segment. Trashed rows count, because trashing frees the name in
+    the index and leaves the directory exactly where it was.
+    """
+    sql = "SELECT storage_basename FROM simulations WHERE storage_basename IS NOT NULL"
+    params: list[Any] = []
+    if exclude_sid is not None:
+        sql += " AND sim_id <> ?"
+        params.append(exclude_sid)
+    return {str(row[0]) for row in backend.fetch_all(sql, params) if row[0]}
+
+
+def _dirname_holder(
+    backend: CatalogBackend, dirname: str, exclude_sid: str | None = None
+) -> tuple[str, str] | None:
+    """Return the ``(sim_id, project)`` owning ``dirname``, or ``None``."""
+    sql = "SELECT CAST(sim_id AS VARCHAR), project FROM simulations WHERE storage_basename = ?"
+    params: list[Any] = [dirname]
+    if exclude_sid is not None:
+        sql += " AND sim_id <> ?"
+        params.append(exclude_sid)
+    row = backend.fetch_one(sql, params)
+    return (str(row[0]), str(row[1])) if row is not None else None
+
+
 def _resolve_registration_name(
     backend: CatalogBackend,
     project: str,
     requested: str,
     if_exists: IfExistsMode,
+    *,
+    exclude_sid: str | None = None,
 ) -> tuple[str, str, int, str | None]:
     """Resolve the final ``(name, name_stem, version_int, replaced_sid)``.
 
@@ -162,16 +193,27 @@ def _resolve_registration_name(
     run is never renamed, so the bare stem *is* version 1 forever and every
     later run of that stem gets the next free ``stem.vN``.
 
-    - ``version`` (default): mint the next free version behind the live runs of
-      the stem.
-    - ``replace``: trash the colliding predecessor, which keeps its name and
-      version (its stored run stays addressable and restorable), then mint the
-      next free version for the incoming run.
-    - ``fail``: raise :class:`DuplicateSimulationNameError` when a live run
-      already holds the stem.
+    Two scopes meet here and they are not the same, which is the whole point:
 
-    Trashed rows still count when minting a version, because a trashed run may
-    keep its name and ``UNIQUE (project, name)`` spans every row.
+    - the final name must map to a directory free in the whole *catalog*, since
+      every project registered in one catalog writes into the same ``runs/``
+      tree. A stem free in this project but taken on disk still mints a version.
+    - *which run gets displaced* is a question about the caller's project:
+      ``replace`` must never trash a neighbour project's run just because the
+      two picked the same word.
+
+    - ``version`` (default): mint the next free version behind the live runs of
+      the stem and the directories the catalog holds.
+    - ``replace``: trash the colliding predecessor **of this project**, which
+      keeps its name and version (its stored run stays addressable and
+      restorable), then mint the next free version for the incoming run.
+    - ``fail``: raise :class:`DuplicateSimulationNameError` rather than hand
+      back a name the caller did not ask for. It refuses on a live run of this
+      project holding the stem, and on a directory any project holds: the mode
+      exists to forbid a substitute name, so a name taken next door is taken.
+
+    ``exclude_sid`` is the row being renamed back into place by a restore: its
+    own directory is not an obstacle to itself.
     """
     stem, requested_version = split_stem_version(requested)
     rows = backend.fetch_all(
@@ -181,12 +223,13 @@ def _resolve_registration_name(
         [project, stem],
     )
     live = [r for r in rows if not r[3]]
-    taken = {r[1] for r in rows if r[1]}
-    if not live and requested not in taken:
-        return requested, stem, (requested_version or 1), None
 
-    if if_exists == "fail" and live:
-        raise DuplicateSimulationNameError(project, requested, str(live[0][0]))
+    if if_exists == "fail":
+        if live:
+            raise DuplicateSimulationNameError(project, requested, str(live[0][0]))
+        holder = _dirname_holder(backend, run_dirname(requested), exclude_sid)
+        if holder is not None:
+            raise DuplicateSimulationNameError(holder[1], requested, holder[0])
 
     replaced_sid: str | None = None
     if if_exists == "replace" and live:
@@ -203,7 +246,13 @@ def _resolve_registration_name(
         )
         replaced_sid = str(target[0])
 
-    next_version = max((r[2] or 1) for r in rows) + 1
+    occupied = occupied_dirnames(backend, exclude_sid)
+    if not live and run_dirname(requested) not in occupied:
+        return requested, stem, (requested_version or 1), replaced_sid
+
+    next_version = (max((r[2] or 1) for r in rows) if rows else (requested_version or 1)) + 1
+    while run_dirname(f"{stem}.v{next_version}") in occupied:
+        next_version += 1
     return f"{stem}.v{next_version}", stem, next_version, replaced_sid
 
 

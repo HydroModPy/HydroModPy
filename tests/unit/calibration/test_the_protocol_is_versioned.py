@@ -14,6 +14,8 @@ from "nothing forbids it and nobody tried".
 
 from __future__ import annotations
 
+import copy
+
 import pytest
 
 from hydromodpy.calibration.protocols import (
@@ -34,8 +36,12 @@ _SIMULATION = {
 
 
 def _doc(protocol: object) -> dict[str, object]:
+    # deepcopy and not dict(): a shallow copy shares the nested [time] table,
+    # so a test writing into ``doc["simulation"]["time"]`` would write into
+    # _SIMULATION itself. The sister module lost six tests to that, under an
+    # xdist distribution that happened to run the poisoning class first.
     return {
-        "simulation": dict(_SIMULATION),
+        "simulation": copy.deepcopy(_SIMULATION),
         "calibration": {
             "protocol": protocol,
             "parameters": {

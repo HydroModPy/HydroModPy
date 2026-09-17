@@ -191,6 +191,37 @@ class MissingForcingError(DataError):
     code = "HMPY.E206"
 
 
+class DataRequestError(DataError):
+    """A fetch request is malformed, before any source is asked to serve it.
+
+    Separate from :class:`DataSourceError`, which means a source was reached
+    and refused: the caller fixes this one without the network being up.
+    """
+
+    code = "HMPY.E207"
+
+
+class DataCapabilityError(DataError):
+    """The selected data source does not serve the requested option.
+
+    A refusal, never a silent substitution: a caller asking a static reference
+    network for a time window, or a bbox source for station identifiers, is
+    told so by name rather than handed a result that ignores the argument.
+    """
+
+    code = "HMPY.E208"
+
+
+class DataProductError(DataError):
+    """What a source returned does not satisfy what it declared.
+
+    Raised when the payload of a result does not match the kind the result
+    carries, or when records claim a variable the source does not serve.
+    """
+
+    code = "HMPY.E209"
+
+
 # -- Mesh ----------------------------------------------------------------------
 
 
@@ -213,9 +244,10 @@ class IncompatibleMeshError(MeshError):
 
 
 # -- Terrain -------------------------------------------------------------------
-# No entry in ``cli.helpers.exit_code_for``: no CLI verb can raise these yet,
-# and an exit code nothing reaches is an untested branch. It arrives with the
-# capability that surfaces the port.
+# ``cli.helpers.exit_code_for`` maps the family to EXIT_SOLVER_ERROR since the
+# terrain-delineate capability made it reachable: the geospatial backend
+# failing is what code 15 means at a process boundary. Until then the family
+# had no entry, because an exit code nothing reaches is an untested branch.
 
 
 class TerrainError(HydroModPyError):
@@ -260,6 +292,29 @@ class EmptyCatchmentError(TerrainProductError):
     """
 
     code = "HMPY.E1004"
+
+
+# -- Process boundary ----------------------------------------------------------
+# Raised when a capability is invoked as an external process, before and around
+# whatever the capability itself does. Both carry a code an orchestrator maps
+# without reading a message.
+
+
+class JobUsageError(HydroModPyError):
+    """The job directory is not usable as the caller gave it.
+
+    Its own class because it maps to exit 2: the caller got the invocation
+    wrong, which is a different fact from the job failing at its work, and a
+    shim retries one and not the other.
+    """
+
+    code = "HMPY.E1100"
+
+
+class CapabilityVersionMismatchError(HydroModPyError):
+    """The request targets a different major version of the capability."""
+
+    code = "HMPY.E1101"
 
 
 # -- Solver --------------------------------------------------------------------
@@ -561,6 +616,9 @@ __all__ = [
     "DataSourceError",
     "NetworkError",
     "MissingForcingError",
+    "DataRequestError",
+    "DataCapabilityError",
+    "DataProductError",
     # Mesh
     "MeshError",
     "MeshGenerationError",
@@ -571,6 +629,9 @@ __all__ = [
     "TerrainProductError",
     "TerrainRequestError",
     "EmptyCatchmentError",
+    # Process boundary
+    "JobUsageError",
+    "CapabilityVersionMismatchError",
     # Solver
     "SolverError",
     "SolverDivergedError",

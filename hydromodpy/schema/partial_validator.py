@@ -23,6 +23,8 @@ from typing import Any, get_origin
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic.fields import FieldInfo
 
+from hydromodpy.core.config_kit.introspect import iter_basemodels
+
 
 @dataclass(frozen=True)
 class ValidationResult:
@@ -79,7 +81,7 @@ def _resolve_field(path: str) -> tuple[type[BaseModel], str, FieldInfo]:
             annotation = cls.model_fields[name].annotation
             if _is_mapping_of_models(annotation):
                 skip_next = True
-            for nested in _iter_basemodels(annotation):
+            for nested in iter_basemodels(annotation):
                 if nested in seen:
                     continue
                 seen.add(nested)
@@ -116,32 +118,9 @@ def _is_mapping_of_models(annotation: Any) -> bool:
         if not (isinstance(origin, type) and issubclass(origin, (dict, MappingABC))):
             continue
         args = getattr(node, "__args__", ()) or ()
-        if len(args) == 2 and _iter_basemodels(args[1]):
+        if len(args) == 2 and iter_basemodels(args[1]):
             return True
     return False
-
-
-def _iter_basemodels(annotation: Any) -> list[type[BaseModel]]:
-    """Return every BaseModel subclass reachable through *annotation*.
-
-    Unlike a "first match" unwrap, this enumerates every variant of a
-    discriminated or plain union so the caller can resolve a path against
-    each candidate and pick the one that declares the next segment.
-    """
-    found: list[type[BaseModel]] = []
-    seen: set[type[BaseModel]] = set()
-
-    def _walk(node: Any) -> None:
-        if isinstance(node, type) and issubclass(node, BaseModel):
-            if node not in seen:
-                seen.add(node)
-                found.append(node)
-            return
-        for arg in getattr(node, "__args__", ()) or ():
-            _walk(arg)
-
-    _walk(annotation)
-    return found
 
 
 @lru_cache(maxsize=512)

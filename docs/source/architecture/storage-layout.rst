@@ -188,12 +188,29 @@ for life, and the next run registered under the same stem becomes
 directory, through the single ``StoragePathResolver.move`` call site, so
 the index and the tree never disagree.
 
+**A run directory name is unique in the catalog, not in the project.** A
+catalog owns exactly one ``runs/`` tree and no path carries the project,
+so ``project`` is a label on a row and never a path segment: two projects
+registered in one catalog that pick the same run name get one directory
+each, the second versioned to ``<stem>.v2``. The column that carries the
+invariant is ``storage_basename``, the directory name itself, under the
+``ux_sim_storage_basename`` unique index; ``name`` cannot, since two
+different names can fold to one directory. ``if_exists`` decides which
+run gets displaced, and that stays a question about the caller's
+project: ``replace`` never trashes a neighbour project's run because the
+two picked the same word. ``fail`` is the exception and it is deliberate:
+it exists to forbid a substitute name, so it refuses on any occupied
+directory, whatever the project holding it and whether that run is live
+or trashed.
+
 Trashing a run does not move bytes. It flips the index status and writes
 ``runs/<name>/trash.json``, which holds the name and status the run must
 come back as. The marker is what makes the trash survive a rebuild: the
 directory is the truth, so a rebuilt index finds the run trashed instead
 of quietly resurrecting it. ``hmp catalog trash --empty`` is what
-actually frees the bytes.
+actually frees the bytes. Trashing frees the name in the index and not
+on disk, so a newcomer asking for the name of a trashed run is versioned
+behind it rather than landing in its directory.
 
 Three classes of data
 ---------------------

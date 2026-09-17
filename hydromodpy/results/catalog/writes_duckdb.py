@@ -60,14 +60,21 @@ class WritesMixinDuckDB:
         """Rename a run: move its directory, then update the row.
 
         The run directory is named after the run, so a rename is a move on
-        disk plus an index update. The rename routes through the same
-        stem-versioning accounting as registration: the resulting
-        ``(name_stem, version_int)`` slot must be free among live rows,
-        otherwise a
+        disk plus an index update, and the new name has to clear two
+        independent obstacles. A rename never mints a version behind the
+        caller's back: the name was chosen, so a taken slot is a
         :class:`~hydromodpy.results.catalog.registration.DuplicateSimulationNameError`
-        is raised. A bare stem takes version 1, so renaming into a stem that
-        already owns ``.v1`` is rejected rather than creating a duplicate
+        rather than a different name handed back in silence.
+
+        The ``(name_stem, version_int)`` slot must be free among the live rows
+        of the project. A bare stem takes version 1, so renaming into a stem
+        that already owns ``.v1`` is rejected rather than creating a duplicate
         ``(stem, 1)`` that would later break ``if_exists='version'``.
+
+        The directory must be free in the whole catalog, live or trashed and
+        whatever the project: every project registered in one catalog writes
+        into the same ``runs/`` tree, and trashing leaves the bytes where they
+        are so the run stays restorable.
         """
         if not self._persistence.save_catalog:
             return
@@ -88,29 +95,44 @@ class WritesMixinDuckDB:
         project = row[0]
         stem, requested_version = split_stem_version(str(new_name))
         target_version = requested_version or 1
-        clash = self._backend.fetch_one(
+        dirname = run_dirname(str(new_name))
+        slot_clash = self._backend.fetch_one(
             "SELECT CAST(sim_id AS VARCHAR) FROM simulations "
             "WHERE project = ? AND name_stem = ? AND version_int = ? AND sim_id <> ? "
             "AND status_id <> (SELECT id FROM statuses WHERE code = 'trashed')",
             [project, stem, target_version, sid],
         )
-        if clash is not None:
-            raise DuplicateSimulationNameError(str(project), str(new_name), str(clash[0]))
-        dirname = run_dirname(str(new_name))
-        self._paths.move(sid, dirname)
-        self._backend.execute(
-            "UPDATE simulations SET name = ?, name_stem = ?, version_int = ?, "
-            "storage_basename = ?, zarr_path = ?, "
-            "updated_at = current_timestamp WHERE sim_id = ?",
-            [
-                str(new_name),
-                stem,
-                target_version,
-                dirname,
-                f"{RUNS_DIRNAME}/{dirname}/{FIELDS_STORE_NAME}",
-                sid,
-            ],
+        if slot_clash is not None:
+            raise DuplicateSimulationNameError(str(project), str(new_name), str(slot_clash[0]))
+        dir_clash = self._backend.fetch_one(
+            "SELECT CAST(sim_id AS VARCHAR), project FROM simulations "
+            "WHERE storage_basename = ? AND sim_id <> ?",
+            [dirname, sid],
         )
+        if dir_clash is not None:
+            raise DuplicateSimulationNameError(str(dir_clash[1]), str(new_name), str(dir_clash[0]))
+        # The row moves first, inside the transaction, and the directory follows:
+        # a name the index refuses must not leave a moved directory behind, and
+        # a directory that cannot move must not leave a renamed row behind.
+        try:
+            with self._backend.transaction():
+                self._backend.execute(
+                    "UPDATE simulations SET name = ?, name_stem = ?, version_int = ?, "
+                    "storage_basename = ?, zarr_path = ?, "
+                    "updated_at = current_timestamp WHERE sim_id = ?",
+                    [
+                        str(new_name),
+                        stem,
+                        target_version,
+                        dirname,
+                        f"{RUNS_DIRNAME}/{dirname}/{FIELDS_STORE_NAME}",
+                        sid,
+                    ],
+                )
+                self._paths.move(sid, dirname)
+        except Exception:
+            self._paths.forget(sid)
+            raise
 
     @audited("sim.tag_add", payload_keys=("tag",))
     @with_lock_retry()

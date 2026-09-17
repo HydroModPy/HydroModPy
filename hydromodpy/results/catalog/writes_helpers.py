@@ -17,8 +17,8 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 
+from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.version import __version__ as _HMP_VERSION
-from hydromodpy.results.storage.contract import UNDETERMINED_LICENSE
 from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
 
 

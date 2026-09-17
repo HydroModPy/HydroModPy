@@ -24,6 +24,7 @@ REQUIRED_GROUPS = (
     "catalog",
     "data",
     "dev",
+    "process",
     "project",
     "viz",
     "workspace",
@@ -53,6 +54,9 @@ READ_FORMAT_COMMANDS = (
     ("catalog", "ls"),
     ("catalog", "show"),
     ("catalog", "query"),
+    ("process", "list"),
+    ("process", "describe"),
+    ("process", "verify"),
 )
 
 # Workflow execution verbs that must offer --profile (pyinstrument).

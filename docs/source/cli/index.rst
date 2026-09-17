@@ -17,7 +17,7 @@ intent rather than exhaustive flag tables.
 Command inventory
 -----------------
 
-Eleven families group their own sub-actions; six verbs sit directly under
+Twelve families group their own sub-actions; six verbs sit directly under
 :command:`hmp`.
 
 .. list-table::
@@ -49,6 +49,8 @@ Eleven families group their own sub-actions; six verbs sit directly under
      - ``list``, ``verify``
    * - :doc:`hmp privacy <privacy>`
      - ``purge``, ``verify``
+   * - :doc:`hmp process <process>`
+     - ``list``, ``run``, ``verify``
    * - ``hmp site-selection``
      - ``plan``, ``select-catchments``, ``build-observed``,
        ``build-generated``, ``report``
@@ -97,6 +99,7 @@ Families
    catalog
    workspace
    viz
+   process
    audit
    privacy
    dev

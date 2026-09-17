@@ -87,7 +87,24 @@ def main(argv: list[str] | None = None) -> None:
     Unhandled exceptions raised by a subcommand handler are routed through
     :func:`hydromodpy.cli.helpers.exit_code_for` so the shell sees the right
     typed exit code. ``SystemExit`` propagates unchanged.
+
+    SIGTERM is turned into an exception for the whole process, before the
+    parser is even built. Every scheduler stop, every container stop and every
+    plain ``kill`` sends it, and the default handler ends the process where it
+    stands: the ``finally`` that closes a session, or writes the outcome of a
+    cancelled job, never runs. Installed here rather than around one verb
+    because building the parser imports every command module, which is seconds
+    of real work that a signal arriving in the meantime used to throw away
+    without a trace.
     """
+    from hydromodpy.core.interrupts import terminate_as_interrupt
+
+    with terminate_as_interrupt():
+        _dispatch(argv)
+
+
+def _dispatch(argv: list[str] | None) -> None:
+    """Build the parser, parse *argv* and run the handler it names."""
     parser = _build_parser()
     _enable_argcomplete(parser)
     args = parser.parse_args(argv)
