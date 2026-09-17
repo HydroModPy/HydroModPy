@@ -58,7 +58,7 @@
   "mt3dms_expected": {
     "concentration_seepage": {
       "count": 2219,
-      "nodata_count": 1497,
+      "nodata_count": 0,
       "mean": 7.985653446347433e-05,
       "p50": 3.3900807466125116e-05,
       "p95": 0.00023628342023584986,
@@ -71,7 +71,7 @@
     },
     "mass_seepage": {
       "count": 2219,
-      "nodata_count": 1497,
+      "nodata_count": 0,
       "mean": 1.994093969333707e-09,
       "p50": 1.4521434280101104e-09,
       "p95": 4.005004278747452e-09,
