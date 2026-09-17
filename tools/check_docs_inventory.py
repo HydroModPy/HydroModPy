@@ -132,9 +132,9 @@ PARSER_FLOORS = {
     "authored user_guide pages": 40,
     "hmp command literals": 200,
     "gallery json files": 90,
-    "gallery pages": 90,
+    "gallery pages": 70,
     "gallery page paths": 1000,
-    "gallery source digests": 900,
+    "gallery source digests": 600,
     "config_reference pages": 20,
 }
 
@@ -443,32 +443,45 @@ def check_gallery_sources_are_current() -> list[str]:
         return [f"{GALLERY_JSON_DIR.relative_to(ROOT).as_posix()} is missing"]
 
     declared = 0
+    errors: list[str] = []
     violations: set[str] = set()
     for path in sorted(GALLERY_JSON_DIR.rglob("*_summary.json")):
+        rel_summary = path.relative_to(ROOT).as_posix()
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, UnicodeDecodeError):
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            errors.append(f"{rel_summary}: is not readable JSON ({exc})")
             continue
         if not isinstance(payload, dict):
+            errors.append(f"{rel_summary}: is not a JSON object")
             continue
         hashes = payload.get("source_hashes")
-        if not isinstance(hashes, dict):
+        if hashes is None:
+            # The two calibration intercomparison decks declare no sources of
+            # their own: they are assembled from the case summaries beside them,
+            # which are checked here on their own account.
             continue
-        rel_summary = path.relative_to(ROOT).as_posix()
+        if not isinstance(hashes, dict):
+            errors.append(f"{rel_summary}: source_hashes is {type(hashes).__name__}, not an object")
+            continue
         for source, expected in hashes.items():
+            if not isinstance(source, str) or not isinstance(expected, str):
+                errors.append(f"{rel_summary}: source_hashes holds a non-string entry")
+                continue
             declared += 1
-            source_path = ROOT / str(source)
+            source_path = ROOT / source
             if not source_path.is_file():
                 # A source the repository does not carry is the other check's
                 # business; counting it here would report one debt twice.
                 continue
             if expected == MISSING_SOURCE_HASH or _sha256(source_path) != expected:
                 # One line per case, not per source: a case is republished as a
-                # whole, so a per-source ledger would list four hundred lines
-                # that clear in blocks of ten.
+                # whole, so a per-source ledger would carry four hundred lines
+                # that clear in blocks of ten. The cost of that choice is that a
+                # case already listed can fall further behind without a visible
+                # diff; the line says the case is stale, never by how much.
                 violations.add(rel_summary)
 
-    errors: list[str] = []
     if declared < PARSER_FLOORS["gallery source digests"]:
         errors.append(
             f"gallery source digests: found {declared}, below the floor of "

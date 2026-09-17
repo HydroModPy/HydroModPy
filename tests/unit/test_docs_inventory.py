@@ -41,3 +41,7 @@ def test_every_path_a_generated_gallery_artifact_names_exists() -> None:
 
 def test_the_scans_behind_the_other_checks_still_match_something() -> None:
     assert check_docs_inventory.check_parser_floors() == []
+
+
+def test_every_published_gallery_case_is_current_with_its_sources() -> None:
+    assert check_docs_inventory.check_gallery_sources_are_current() == []

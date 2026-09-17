@@ -69,10 +69,12 @@ jobs:
       # Widening the list here would not verify those five, it would make them
       # pass on a preserved copy of themselves.
       #
-      # What does cover all nine is the digest check in
-      # tools/check_docs_inventory.py, run by tests/unit/test_docs_inventory.py:
-      # it reads the digests a case was published with instead of reproducing
-      # the case, so it catches a page left behind by its own sources.
+      # What does cover all nine is check_gallery_sources_are_current in
+      # tools/check_docs_inventory.py, asserted by
+      # tests/unit/test_docs_inventory.py::
+      # test_every_published_gallery_case_is_current_with_its_sources. It reads
+      # the digests a case was published with instead of reproducing the case,
+      # so it catches a page left behind by its own sources on every category.
       - name: Verify committed gallery artifacts
         run: >
           python -m tools.doc_gallery --check

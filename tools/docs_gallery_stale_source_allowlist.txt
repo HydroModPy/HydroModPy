@@ -11,6 +11,12 @@
 # One line per case, because a case is republished as a whole. Republishing
 # refreshes its digests, the line stops applying, and this check fails until the
 # line is removed: the list only shrinks.
+#
+# The cost of that granularity, stated so nobody discovers it the hard way: a
+# case already on this list can fall further behind without any diff here. The
+# line says the case is stale, never by how much. Run
+# `python tools/check_docs_inventory.py` with the list emptied to see the
+# per-source detail.
 docs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json
 docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json
 docs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json
