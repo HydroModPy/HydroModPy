@@ -39,7 +39,7 @@ def _chain_document(**overrides: object) -> dict:
         "steps": [
             {
                 "id": "delineate",
-                "process": {"id": "terrain-delineate", "version": "1.0.0"},
+                "process": {"id": "terrain-delineate", "version": "1.1.0"},
                 "inputs": {
                     "dem": {"href": str(DEM), "type": "image/tiff; application=geotiff"},
                     "outlets": [OUTLET],
@@ -194,7 +194,7 @@ def test_a_terrain_and_a_domain_chain_into_a_sealed_geometry(tmp_path: Path) -> 
             "steps": [
                 {
                     "id": "delineate",
-                    "process": {"id": "terrain-delineate", "version": "1.0.0"},
+                    "process": {"id": "terrain-delineate", "version": "1.1.0"},
                     "inputs": {
                         "dem": {"href": str(DEM), "type": "image/tiff; application=geotiff"},
                         "outlets": [OUTLET],

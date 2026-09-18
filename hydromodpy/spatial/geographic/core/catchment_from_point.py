@@ -43,7 +43,7 @@ from hydromodpy.spatial.terrain import (
     FlowAccumulation,
     Outlet,
 )
-from hydromodpy.spatial.terrain.whitebox_engine import WhiteboxTerrainEngine
+from hydromodpy.spatial.terrain import registry as terrain_registry
 
 logger = get_logger(__name__)
 
@@ -96,6 +96,7 @@ def extract_catchment_from_point(
     output_dir: str | Path,
     crs_project: str | None = None,
     backend: object | None = None,
+    engine_id: str | None = None,
 ) -> CatchmentFromPointProducts:
     """Delineate a catchment polygon from one outlet point.
 
@@ -116,9 +117,13 @@ def extract_catchment_from_point(
         Optional CRS enforced on generated files, on top of the one the engine
         carries from the source DEM.
     backend:
-        Optional Whitebox backend for runtime/tests.
+        Optional Whitebox backend for runtime/tests. It reaches the engine only
+        if that engine names ``backend`` in its constructor.
+    engine_id:
+        Name of the terrain engine to delineate with. ``None`` resolves the
+        default this build ships.
     """
-    engine = WhiteboxTerrainEngine(backend)
+    engine = terrain_registry.create(engine_id, backend=backend)
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 

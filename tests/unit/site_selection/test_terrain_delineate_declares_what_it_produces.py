@@ -28,6 +28,7 @@ from hydromodpy.core.exceptions import (
     DataContractViolation,
     EmptyCatchmentError,
     JobUsageError,
+    TerrainCapabilityError,
     TerrainProductError,
 )
 from hydromodpy.schema.capability import NAMES_THE_JOB_DOES_NOT_PRODUCE
@@ -81,6 +82,7 @@ def test_the_accumulation_declares_the_transform_the_chain_really_writes():
         (ConfigValidationError("refused"), EXIT_CONFIG),
         (FileNotFoundError("no dem"), EXIT_NOT_FOUND),
         (DataContractViolation("digest"), EXIT_VALIDATION),
+        (TerrainCapabilityError("no breach"), EXIT_SOLVER_ERROR),
         (TerrainProductError("engine"), EXIT_SOLVER_ERROR),
         (EmptyCatchmentError("nothing"), EXIT_SOLVER_ERROR),
     ],
@@ -97,6 +99,7 @@ def test_the_declared_exceptions_are_the_ones_the_test_above_covers():
         ConfigValidationError,
         FileNotFoundError,
         DataContractViolation,
+        TerrainCapabilityError,
         TerrainProductError,
         EmptyCatchmentError,
     )

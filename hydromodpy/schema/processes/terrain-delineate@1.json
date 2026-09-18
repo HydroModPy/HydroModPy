@@ -1,7 +1,7 @@
 {
   "$schema": "urn:hmp:profile:process:v1",
   "id": "terrain-delineate",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "title": "Watershed delineation from a DEM and one or more outlets",
   "description": "Corrects a digital elevation model, computes D8 flow direction and flow accumulation, snaps each outlet to the drainage network and delineates the upstream contributing area of each.",
   "keywords": [
@@ -103,7 +103,7 @@
             "type": "object"
           }
         },
-        "$id": "urn:hmp:schema:terrain-delineate:1.0.0:dem",
+        "$id": "urn:hmp:schema:terrain-delineate:1.1.0:dem",
         "$schema": "https://json-schema.org/draft/2020-12/schema"
       },
       "description": "single-band elevation raster in the working projected CRS"
@@ -169,7 +169,7 @@
             "type": "object"
           }
         },
-        "$id": "urn:hmp:schema:terrain-delineate:1.0.0:outlets",
+        "$id": "urn:hmp:schema:terrain-delineate:1.1.0:outlets",
         "$schema": "https://json-schema.org/draft/2020-12/schema"
       },
       "description": "outlets to delineate, each against the same flow products"
@@ -187,7 +187,7 @@
         "title": "Crs Project",
         "type": "string",
         "x-hmp-profile": "user",
-        "$id": "urn:hmp:schema:terrain-delineate:1.0.0:crs_project",
+        "$id": "urn:hmp:schema:terrain-delineate:1.1.0:crs_project",
         "$schema": "https://json-schema.org/draft/2020-12/schema"
       },
       "description": "working projected CRS stamped on every product"
@@ -209,7 +209,7 @@
         "title": "Dem Correction Type",
         "type": "string",
         "x-hmp-profile": "user",
-        "$id": "urn:hmp:schema:terrain-delineate:1.0.0:dem_correction_type",
+        "$id": "urn:hmp:schema:terrain-delineate:1.1.0:dem_correction_type",
         "$schema": "https://json-schema.org/draft/2020-12/schema"
       },
       "description": "how depressions are removed before flow is routed"
@@ -229,10 +229,29 @@
         "type": "integer",
         "unit": "m",
         "x-hmp-profile": "user",
-        "$id": "urn:hmp:schema:terrain-delineate:1.0.0:snap_distance_m",
+        "$id": "urn:hmp:schema:terrain-delineate:1.1.0:snap_distance_m",
         "$schema": "https://json-schema.org/draft/2020-12/schema"
       },
       "description": "width of the square window an outlet is snapped inside, in m"
+    },
+    "engine": {
+      "title": "Engine",
+      "minOccurs": 0,
+      "maxOccurs": 1,
+      "schema": {
+        "default": "whitebox_workflows",
+        "description": "terrain engine that routes the flow and delineates; an engine a third party installs is named here and nothing in HydroModPy names it",
+        "examples": [
+          "whitebox_workflows"
+        ],
+        "minLength": 1,
+        "title": "Engine",
+        "type": "string",
+        "x-hmp-profile": "expert",
+        "$id": "urn:hmp:schema:terrain-delineate:1.1.0:engine",
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "description": "terrain engine that routes the flow and delineates; an engine a third party installs is named here and nothing in HydroModPy names it"
     }
   },
   "outputs": {
@@ -375,6 +394,12 @@
       "code": "HMPY.E201",
       "exit_code": 16,
       "title": "A dataset does not satisfy its declared contract."
+    },
+    {
+      "type": "urn:hmp:error:HMPY.E1001",
+      "code": "HMPY.E1001",
+      "exit_code": 15,
+      "title": "The selected terrain engine does not implement the requested option."
     },
     {
       "type": "urn:hmp:error:HMPY.E1002",

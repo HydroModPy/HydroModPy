@@ -49,6 +49,7 @@ def build_site_selection_flow_products(
     hydrology: HydrologyConfig,
     crs_project: str | None = None,
     backend: object | None = None,
+    engine_id: str | None = None,
     builder: FlowProductsBuilder = build_regional_flow_products,
 ) -> SiteSelectionFlowProducts:
     """Build DEM flow products by delegating to existing spatial code.
@@ -70,6 +71,7 @@ def build_site_selection_flow_products(
         dem_correc_type=dem_correction_type,
         crs_project=crs_project,
         backend=backend,
+        engine_id=engine_id,
     )
     return SiteSelectionFlowProducts(
         products=products,

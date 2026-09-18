@@ -47,7 +47,7 @@ def _request(**inputs: object) -> dict:
         "snap_distance_m": 100,
     }
     payload.update(inputs)
-    return {"process": {"id": "terrain-delineate", "version": "1.0.0"}, "inputs": payload}
+    return {"process": {"id": "terrain-delineate", "version": "1.1.0"}, "inputs": payload}
 
 
 def _job(tmp_path: Path, document: dict, *, name: str = "job") -> Path:

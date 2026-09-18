@@ -670,6 +670,56 @@ def test_a_rank_preserving_product_delineates_the_same_catchment(
     assert measured.area_m2 == pytest.approx(expected.area_m2, rel=0.0, abs=1e-6)
 
 
+def test_a_delineation_leaves_the_four_artefacts_the_port_declares(
+    engine, valley, tmp_path
+) -> None:
+    """Every engine writes the mask, the boundary and the two point layers.
+
+    The port says it in one line - "the two point layers every engine writes
+    beside a catchment" - and nothing checked it until F10a made an engine
+    selectable by name from outside. ``NumpyTerrainEngine`` wrote neither, and
+    the geographic pipeline reads both back from disk: a delineation that was
+    numerically right came out of the chain as "no catchment, widen your snap
+    distance". A registry that certifies a class by the members it declares
+    cannot see that, so the conformance suite has to.
+    """
+    out = tmp_path / "out"
+    _conditioned, _directions, accumulation = _products(engine, valley, out)
+
+    (catchment,) = engine.delineate(
+        accumulation, [_valley_exit()], out_dir=out / "c", snap_distance_m=RES * 4
+    )
+
+    site_dir = Path(catchment.mask_path).parent
+    for name in (OUTLET_LAYER_NAME, SNAPPED_OUTLET_LAYER_NAME):
+        assert (site_dir / name).is_file(), name
+    assert Path(catchment.mask_path).is_file()
+    assert Path(catchment.boundary_path).is_file()
+
+
+def test_the_snapped_point_layer_holds_the_point_the_catchment_declares(
+    engine, valley, tmp_path
+) -> None:
+    """The layer on disk and the field on the product say the same thing.
+
+    Two sources for one coordinate is how a report and a delineation start
+    disagreeing, and only the file survives the process.
+    """
+    geopandas = pytest.importorskip("geopandas")
+    out = tmp_path / "out"
+    _conditioned, _directions, accumulation = _products(engine, valley, out)
+
+    (catchment,) = engine.delineate(
+        accumulation, [_valley_exit()], out_dir=out / "c", snap_distance_m=RES * 4
+    )
+
+    frame = geopandas.read_file(str(Path(catchment.mask_path).parent / SNAPPED_OUTLET_LAYER_NAME))
+    point = frame.geometry.iloc[0]
+
+    assert point.x == pytest.approx(catchment.snapped_x, abs=1e-6)
+    assert point.y == pytest.approx(catchment.snapped_y, abs=1e-6)
+
+
 def test_a_transform_that_does_not_preserve_the_order_cannot_be_delineated(
     engine, valley, tmp_path
 ) -> None:

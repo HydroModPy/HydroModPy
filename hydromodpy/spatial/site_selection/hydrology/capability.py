@@ -19,6 +19,20 @@ boundary did not, because the code on this tree says it:
 - ``outcome.json`` is declared as an output and carries no digest in the
   outcome that names it, because that document cannot hash itself. The seal
   hashes it from disk, which is where its digest comes from.
+
+``TerrainCapabilityError`` is declared because ``engine`` made it reachable from
+outside. An engine refuses an option it cannot serve rather than substituting one
+- ``numpy_d8`` conditions with ``fill`` and not with ``breach``, which is the
+request's own default - and the port forbids answering that by probing the object
+beforehand. So the refusal happens where the work is, and a document that did not
+publish its exit code would leave a caller reading "report this as a bug".
+
+``engine`` is a plain string and not a ``Literal``, and that is the point of it.
+The values it accepts depend on what is installed beside this build, so an
+enumeration here could only list what this repository ships -- which is exactly
+the door a third-party engine has to come through. An unknown name is refused at
+resolution by the terrain registry, with a message naming what this installation
+serves.
 """
 
 from __future__ import annotations
@@ -36,6 +50,7 @@ from hydromodpy.core.exceptions import (
     DataContractViolation,
     EmptyCatchmentError,
     JobUsageError,
+    TerrainCapabilityError,
     TerrainProductError,
 )
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
@@ -47,9 +62,18 @@ from hydromodpy.schema.media_types import (
     JSON_MEDIA_TYPE,
     PARQUET_MEDIA_TYPE,
 )
+from hydromodpy.spatial.terrain.registry import DEFAULT_ENGINE_ID
 
 CAPABILITY_ID = "terrain-delineate"
-CAPABILITY_VERSION = "1.0.0"
+CAPABILITY_VERSION = "1.1.0"
+"""Moved from ``1.0.0`` when ``engine`` was added to the request.
+
+A minor and not a major: a request written against ``1.0.0`` still validates,
+because the member has a default. It is not a no-op either -- every ``$id`` the
+published description mints carries the version, so leaving it would put two
+different documents on one URN, and the version is part of the content address
+a job is sealed under.
+"""
 
 OUTLET_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_-]*$"
 """The spelling the terrain port makes a directory name of.
@@ -114,6 +138,15 @@ class TerrainDelineateRequest(HydroModelBase):
         gt=0,
         description="width of the square window an outlet is snapped inside, in m",
         json_schema_extra=field_metadata(unit="m"),
+    )
+    engine: Annotated[str, Profile.EXPERT] = Field(
+        default=DEFAULT_ENGINE_ID,
+        min_length=1,
+        description=(
+            "terrain engine that routes the flow and delineates; an engine a third party "
+            "installs is named here and nothing in HydroModPy names it"
+        ),
+        examples=[DEFAULT_ENGINE_ID],
     )
 
     @model_validator(mode="after")
@@ -226,6 +259,7 @@ TERRAIN_DELINEATE = CapabilityDecl(
         ConfigValidationError,
         FileNotFoundError,
         DataContractViolation,
+        TerrainCapabilityError,
         TerrainProductError,
         EmptyCatchmentError,
     ),
