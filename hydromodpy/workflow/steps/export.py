@@ -247,14 +247,20 @@ def step_cleanup_preprocessing(ctx: WorkflowContext, *, keep: bool = False) -> i
     the rasters on disk, or ``keep`` says a multi-run session owns the tree
     and drops it at the end of the session rather than at the end of a run.
     """
-    from hydromodpy.spatial.geographic.store_ingestion import cleanup_stable_folder
+    from hydromodpy.spatial.geographic import store_ingestion
 
     geographic = getattr(getattr(ctx, "setup", None), "geographic", None)
     if geographic is None:
         return 0
     geographic_cfg = getattr(ctx.cfg, "geographic", None)
-    keep = keep or bool(getattr(geographic_cfg, "write_intermediates", False))
-    return cleanup_stable_folder(geographic, keep=keep)
+    write_intermediates = bool(getattr(geographic_cfg, "write_intermediates", False))
+    if write_intermediates:
+        # The delineation backend keeps rasters in RAM and writes them only
+        # when asked. ``cleanup_stable_folder`` drops that cache whatever
+        # ``keep`` says, so the option that promised the rasters on disk has
+        # to spend them here or lose them.
+        store_ingestion.dump_cached_rasters_to_disk(geographic)
+    return store_ingestion.cleanup_stable_folder(geographic, keep=keep or write_intermediates)
 
 
 def step_drop_empty_scratch(ctx: WorkflowContext) -> None:
