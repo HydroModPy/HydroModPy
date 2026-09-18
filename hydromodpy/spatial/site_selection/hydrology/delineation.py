@@ -91,6 +91,7 @@ def delineate_candidate_outlet(
     crs_project: str | None = None,
     site_id: str | None = None,
     backend: object | None = None,
+    engine_id: str | None = None,
     builder: DelineationBuilder = extract_catchment_from_point,
     area_reader: AreaReader | None = None,
     reference_network: object | None = None,
@@ -120,6 +121,7 @@ def delineate_candidate_outlet(
         output_dir=output_dir,
         crs_project=crs_project or working_outlet.crs,
         backend=backend,
+        engine_id=engine_id,
     )
     area_km2 = _read_area_km2(result.watershed_shp, area_reader=area_reader)
     return DelineatedCatchment(
@@ -142,6 +144,7 @@ def try_delineate_candidate_outlet(
     crs_project: str | None = None,
     site_id: str | None = None,
     backend: object | None = None,
+    engine_id: str | None = None,
     builder: DelineationBuilder = extract_catchment_from_point,
     area_reader: AreaReader | None = None,
     reference_network: object | None = None,
@@ -159,6 +162,7 @@ def try_delineate_candidate_outlet(
             crs_project=crs_project,
             site_id=site_id,
             backend=backend,
+            engine_id=engine_id,
             builder=builder,
             area_reader=area_reader,
             reference_network=reference_network,

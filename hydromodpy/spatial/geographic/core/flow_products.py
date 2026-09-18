@@ -38,8 +38,8 @@ from hydromodpy.spatial.terrain import (
     DrainageDirections,
     FlowAccumulation,
 )
+from hydromodpy.spatial.terrain import registry as terrain_registry
 from hydromodpy.spatial.terrain.artifacts import raster_crs, raster_nodata
-from hydromodpy.spatial.terrain.whitebox_engine import WhiteboxTerrainEngine
 
 CORRECTED_DEM_NAMES: dict[str, str] = {"fill": "dem_fill.tif", "breach": "dem_breach.tif"}
 DIRECTION_NAME = "dem_direc.tif"
@@ -141,6 +141,7 @@ def build_regional_flow_products(
     dem_correc_type: str,
     crs_project: str | None = None,
     backend: object | None = None,
+    engine_id: str | None = None,
 ) -> FlowProducts:
     """Generate corrected DEM, D8 direction and D8 accumulation rasters.
 
@@ -159,9 +160,14 @@ def build_regional_flow_products(
         the CRS of the source DEM; this one is the project's policy on top, and
         it is the caller's, not the engine's.
     backend:
-        Optional Whitebox backend injected for runtime/tests.
+        Optional Whitebox backend injected for runtime/tests. It reaches the
+        engine only if that engine names ``backend`` in its constructor.
+    engine_id:
+        Name of the terrain engine to route with. ``None`` resolves the default
+        this build ships, which is the one every committed number was produced
+        with.
     """
-    engine = WhiteboxTerrainEngine(backend)
+    engine = terrain_registry.create(engine_id, backend=backend)
 
     out_dir = Path(dem_out_dir_path)
     out_dir.mkdir(parents=True, exist_ok=True)

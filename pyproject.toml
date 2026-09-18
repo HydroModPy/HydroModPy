@@ -154,6 +154,11 @@ hydromodpy = "hydromodpy.cli:main"
 # hydromodpy.data.source.registry, and in-tree sources are declared once there
 # for the same reason. An entry-point name must equal the source_id its class
 # declares, and a name this build already ships is refused.
+#
+# "hydromodpy.terrain.engine" is the third, read by
+# hydromodpy.spatial.terrain.registry, under the same three rules. It is what a
+# terrain-delineate request names in its "engine" member, so a flow-routing
+# engine is substituted from outside without a patch to this package.
 
 [project.urls]
 Homepage = "https://docs.hydromodpy.fr/"

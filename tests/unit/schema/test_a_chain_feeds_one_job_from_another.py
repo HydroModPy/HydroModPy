@@ -450,7 +450,7 @@ def test_the_two_capabilities_of_this_build_chain_on_the_watershed(tmp_path: Pat
             "steps": [
                 {
                     "id": "delineate",
-                    "process": {"id": TERRAIN_DELINEATE.id, "version": "1.0.0"},
+                    "process": {"id": TERRAIN_DELINEATE.id, "version": TERRAIN_DELINEATE.version},
                     "inputs": {
                         "dem": {"href": "/data/dem.tif"},
                         "outlets": [{"site_id": "valley", "x": 300112.5, "y": 6701262.5}],
@@ -497,7 +497,7 @@ def test_the_terrain_and_the_domain_chain_on_the_corrected_dem_and_the_watershed
             "steps": [
                 {
                     "id": "delineate",
-                    "process": {"id": TERRAIN_DELINEATE.id, "version": "1.0.0"},
+                    "process": {"id": TERRAIN_DELINEATE.id, "version": TERRAIN_DELINEATE.version},
                     "inputs": {
                         "dem": {"href": "/data/dem.tif"},
                         "outlets": [{"site_id": "valley", "x": 300112.5, "y": 6701262.5}],

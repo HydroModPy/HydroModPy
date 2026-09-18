@@ -44,6 +44,7 @@ import pandas as pd
 import rasterio
 
 from hydromodpy.core.exceptions import (
+    ConfigValidationError,
     DataContractViolation,
     EmptyCatchmentError,
     JobUsageError,
@@ -105,7 +106,7 @@ from hydromodpy.spatial.site_selection.hydrology.flow_products import (
 from hydromodpy.spatial.site_selection.hydrology.pipeline import (
     delineate_site_selection_candidates,
 )
-from hydromodpy.spatial.terrain.whitebox_engine import WhiteboxTerrainEngine
+from hydromodpy.spatial.terrain import registry as terrain_registry
 
 ExitCodeMapper = Callable[[BaseException], int]
 """How the runtime turns an exception into the status a shim reads."""
@@ -232,6 +233,7 @@ def _resolve(job: JobDirectory) -> _Resolved:
     dem_digest, dem_bytes = sha256_file(dem_path)
     _refuse_a_dem_that_is_not_the_one_asked_for(inputs, digest=dem_digest)
     _refuse_a_dem_that_is_not_a_raster(inputs, path=dem_path)
+    _refuse_an_engine_this_installation_does_not_serve(inputs)
 
     effective_inputs = _effective_inputs(inputs, dem_digest=dem_digest)
     return _Resolved(
@@ -253,6 +255,10 @@ def _execute(job: JobDirectory, resolved: _Resolved, *, started_at: str) -> JobO
     """Do the work of a resolved request and seal what it produced."""
     decl = TERRAIN_DELINEATE
     job.ensure_workspace()
+    # Before the work and not after it: naming the engine builds one, and a
+    # constructor that raises must take down a job that has done nothing, not a
+    # job that has computed every artefact and is about to seal them.
+    backend = _backend_identity(resolved.inputs.engine)
     catchments = _produce(job, resolved.inputs, dem_path=resolved.dem_path)
     warnings = list(resolved.warnings)
     warnings.extend(
@@ -274,7 +280,7 @@ def _execute(job: JobDirectory, resolved: _Resolved, *, started_at: str) -> JobO
             job_id=resolved.job_id,
             process_id=decl.id,
             process_version=decl.version,
-            backend=_backend_identity(),
+            backend=backend,
         ),
     )
 
@@ -370,6 +376,7 @@ def _produce(
         output_dir=outputs,
         hydrology=HydrologyConfig(hydrologic_conditioning=inputs.dem_correction_type),
         crs_project=inputs.crs_project,
+        engine_id=inputs.engine,
     )
     candidates = [
         CandidateOutlet(
@@ -388,6 +395,7 @@ def _produce(
             output_root=scratch,
             snap_dist_m=inputs.snap_distance_m,
             crs_project=inputs.crs_project,
+            engine_id=inputs.engine,
         )
         delineated = [one for one in catchments if one.status == DELINEATED]
         if not delineated:
@@ -567,9 +575,46 @@ def _output_records(job: JobDirectory) -> tuple[OutputRecord, ...]:
     return tuple(records)
 
 
-def _backend_identity() -> dict[str, Any]:
-    """Name the engine that did the work, as the provenance records it."""
-    engine = WhiteboxTerrainEngine()
+def _refuse_an_engine_this_installation_does_not_serve(
+    inputs: TerrainDelineateRequest,
+) -> None:
+    """Refuse an engine name nothing here can resolve, at the boundary.
+
+    The name is a plain string because what it may hold depends on what is
+    installed beside this build, so the model cannot refuse it and only the
+    registry can. Doing it here, beside the two refusals about the DEM, is what
+    keeps the failure at the edge: the alternative is a job that conditions a
+    DEM, routes it, and dies on the delineation because nothing answers to the
+    name it was given.
+
+    Raised as :class:`ConfigValidationError` and not as the registry's own
+    class: the capability declares it, it carries the exit code that means
+    "your document is wrong", and it names the member that is wrong.
+    """
+    if terrain_registry.is_registered(inputs.engine):
+        return
+    served = ", ".join(terrain_registry.list_engine_ids()) or "none"
+    raise ConfigValidationError(
+        f"inputs.engine names {inputs.engine!r}, and this installation serves {served}. "
+        f"A third-party engine joins that list through the "
+        f"{terrain_registry.ENTRY_POINT_GROUP!r} entry-point group, without a patch to "
+        "HydroModPy."
+    )
+
+
+def _backend_identity(engine_id: str) -> dict[str, Any]:
+    """Name the engine that did the work, as the provenance records it.
+
+    Built from the name the request carried, and not from a class this module
+    imports: a provenance record that names a different engine than the one the
+    job asked for is worse than none.
+
+    It is a second instance of the engine, built only to read what it declares
+    about itself, so its caller runs it before the work rather than after. A
+    third-party constructor that fails then fails a job that has produced
+    nothing.
+    """
+    engine = terrain_registry.create(engine_id)
     return {
         "name": engine.engine_id,
         "version": engine.engine_version,

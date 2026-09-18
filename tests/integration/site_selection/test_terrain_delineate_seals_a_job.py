@@ -56,7 +56,7 @@ def _request(**overrides: object) -> dict:
     }
     inputs.update(overrides.pop("inputs", {}))  # type: ignore[arg-type]
     document: dict[str, object] = {
-        "process": {"id": "terrain-delineate", "version": "1.0.0"},
+        "process": {"id": "terrain-delineate", "version": "1.1.0"},
         "inputs": inputs,
     }
     document.update(overrides)
@@ -785,3 +785,74 @@ def test_a_declaration_without_a_body_names_itself(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="'ghost-capability' is declared but this build"):
         worker_module.capability("terrain-delineate")
+
+
+# --------------------------------------------------------------------------- #
+# The engine is chosen by the request, and the chain runs on the other one
+# --------------------------------------------------------------------------- #
+
+
+def test_the_job_runs_on_the_engine_the_request_names(tmp_path):
+    """G1's canonical test, executed rather than asserted.
+
+    ``numpy_d8`` is selected from ``request.json`` alone: no caller imports it,
+    no file of the chain names it, and the whole capability runs, seals and
+    verifies on it. It conditions with ``fill`` because that is the one method
+    it serves, which is also why the refusal below is a separate test.
+
+    The two engines are substitutable, not equivalent, so nothing here compares
+    an area against the Whitebox answer. What is asserted is that the boundary
+    obeys the name it was given.
+    """
+    job = _staged(
+        tmp_path,
+        _request(inputs={"engine": "numpy_d8", "dem_correction_type": "fill"}),
+        name="numpy_job",
+    )
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "successful", outcome.errors
+    assert job.is_sealed
+    assert verify_job(job).ok
+
+
+def test_the_provenance_names_the_engine_the_request_asked_for(tmp_path):
+    """A record that names another engine than the one that ran is worse than none."""
+    job = _staged(
+        tmp_path,
+        _request(inputs={"engine": "numpy_d8", "dem_correction_type": "fill"}),
+        name="numpy_prov",
+    )
+    run(job, exit_code_for=exit_code_for)
+
+    provenance = read_document(job.root / "provenance.json")
+
+    assert provenance["backend"]["name"] == "numpy_d8"
+
+
+def test_an_engine_that_cannot_serve_an_option_refuses_it_by_name(tmp_path):
+    """``numpy_d8`` conditions with ``fill`` only, and the request defaults to ``breach``.
+
+    A refusal and never a silent substitution: the port says so, and the
+    capability declares ``TerrainCapabilityError`` so the published document
+    carries its exit code instead of the one that means "report this as a bug".
+    """
+    job = _staged(tmp_path, _request(inputs={"engine": "numpy_d8"}), name="numpy_breach")
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "failed"
+    assert any("breach" in str(error) for error in outcome.errors)
+    assert outcome.exit_code == EXIT_SOLVER_ERROR
+
+
+def test_an_engine_no_installation_serves_is_refused_before_a_byte_is_written(tmp_path):
+    """The refusal is a document refusal, at the boundary, not a mid-job death."""
+    job = _staged(tmp_path, _request(inputs={"engine": "pysheds"}), name="unknown_engine")
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "failed"
+    assert outcome.exit_code == EXIT_CONFIG
+    assert not (job.outputs_dir / "dem_corrected.tif").exists()
