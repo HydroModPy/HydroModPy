@@ -167,7 +167,13 @@ class Pipeline:
                 )
 
         try:
-            state = self._rebuild_prefix(state, restart_index, journal)
+            config_sha256 = _config_sha256_from_manifest(manifest)
+            state, prefix_hashes = self._rebuild_prefix(
+                state,
+                restart_index,
+                journal,
+                config_sha256=config_sha256,
+            )
             state = self._execute_suffix(
                 state,
                 restart_index,
@@ -175,6 +181,7 @@ class Pipeline:
                 manifest=manifest,
                 heartbeat_cls=HeartbeatPulse,
                 events=events,
+                previous_hashes=prefix_hashes,
             )
         finally:
             _close_dangling_store(state)
@@ -194,10 +201,24 @@ class Pipeline:
         state: PipelineState,
         restart_index: int,
         journal: WorkflowJournal | None,
-    ) -> PipelineState:
-        """Reconstruct ``state`` for every step before ``restart_index``."""
+        *,
+        config_sha256: str | None = None,
+    ) -> tuple[PipelineState, list[str]]:
+        """Reconstruct ``state`` for every step before ``restart_index``.
+
+        Returns the reconstructed state and the ``outputs_hash`` of each prefix
+        step, in order, so the executed suffix chains its ``inputs_hash`` onto
+        the same sequence a from-scratch run would have produced.
+
+        A prefix step the journal does not know about gets a row here. The
+        model phase of a run driven by the facade is built before the pipeline
+        starts and reaches this branch every time: without the row, the journal
+        of a finished run describes its tail only, and a later resume has
+        nothing to tell it what the head left on disk.
+        """
+        previous_hashes: list[str] = []
         if restart_index <= 0:
-            return state
+            return state, previous_hashes
 
         journal_rows = {}
         if journal is not None and self.workspace is not None:
@@ -271,7 +292,78 @@ class Pipeline:
                     run_id=state.run_id,
                 ) from exc
 
-        return state
+            previous_hashes.append(
+                self._journal_rebuilt_step(
+                    step,
+                    state,
+                    index,
+                    journal=journal,
+                    existing_row=row,
+                    config_sha256=config_sha256,
+                    previous_hashes=previous_hashes,
+                )
+            )
+
+        return state, previous_hashes
+
+    def _journal_rebuilt_step(
+        self,
+        step: Step,
+        state_out: PipelineState,
+        index: int,
+        *,
+        journal: WorkflowJournal | None,
+        existing_row: object | None,
+        config_sha256: str | None,
+        previous_hashes: Sequence[str],
+    ) -> str:
+        """Record a reconstructed prefix step and return its ``outputs_hash``.
+
+        A step the journal already describes keeps the row it wrote when it
+        really ran: that row is the evidence the resume planner just verified,
+        and recomputing it here would replace a measurement by a re-measurement.
+        """
+        from hydromodpy.workflow.tracking.journal import WorkflowJournal as _Journal
+
+        name = _step_name(step)
+        artifact_uris = _collect_artifacts(step, state_out, self.workspace)
+        outputs_hash = ""
+        if self.workspace is not None:
+            outputs_hash = _Journal.compute_outputs_hash(self.workspace, artifact_uris) or ""
+
+        if journal is None or existing_row is not None:
+            return outputs_hash
+
+        inputs_hash = _Journal.compute_inputs_hash(
+            step_name=name,
+            step_order=index,
+            config_sha256=config_sha256,
+            upstream_outputs_hashes=list(previous_hashes),
+        )
+        try:
+            step_id = journal.start_step(
+                run_id=state_out.run_id,
+                step_order=index,
+                step_name=name,
+                inputs_hash=inputs_hash,
+            )
+        except Exception as exc:
+            logger.warning(
+                "journal.rebuild_start_step_failed run_id=%s step=%s err=%s",
+                state_out.run_id,
+                name,
+                exc,
+            )
+            return outputs_hash
+        self._finish_journal_step(
+            journal,
+            step_id,
+            status="completed",
+            outputs_hash=outputs_hash or None,
+            artifact_uris=artifact_uris,
+            error_message=None,
+        )
+        return outputs_hash
 
     # ------------------------------------------------------------------
     # Phase 2 - execute remaining steps with journal updates
@@ -286,6 +378,7 @@ class Pipeline:
         manifest: object | None,
         heartbeat_cls: type,
         events: object | None = None,
+        previous_hashes: Sequence[str] = (),
     ) -> PipelineState:
         """Run every step from ``restart_index`` to the end with journal writes."""
         from hydromodpy.workflow.internals.manifest import ResolvedRunManifest
@@ -298,7 +391,7 @@ class Pipeline:
         if restart_index >= len(self.steps):
             return state
 
-        previous_hashes: list[str] = []
+        chained_hashes: list[str] = list(previous_hashes)
         config_sha256 = _config_sha256_from_manifest(manifest)
         heartbeat_ctx = self._heartbeat_for(state, heartbeat_cls, events=events)
 
@@ -320,7 +413,7 @@ class Pipeline:
                     journal=journal,
                     journal_cls=_Journal,
                     config_sha256=config_sha256,
-                    previous_hashes=previous_hashes,
+                    previous_hashes=chained_hashes,
                     events=events,
                 )
                 if self.workspace is not None:
