@@ -29,7 +29,7 @@ Two-phase execution
 from __future__ import annotations
 
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -138,13 +138,22 @@ class Pipeline:
         restart_index = 0 if resume_from is None else int(resume_from)
         restart_index = max(0, min(restart_index, len(self.steps)))
 
+        # A step that leaves a document beside the run checkpoint has to write
+        # it where this pipeline owns a run record, and nowhere when it owns
+        # none. Reading the project root off the config instead would let a
+        # head-only window - which is handed no workspace precisely so it
+        # writes no run record - overwrite the documents of the run that
+        # carries the same name.
+        if isinstance(state.data, Mapping):
+            state = state.with_data(run_workspace=self.workspace)
+
         manifest: ResolvedRunManifest | None = None
         if self.workspace is not None:
             existing = ResolvedRunManifest.read(self.workspace, state.run_id)
             if restart_index > 0 and not model_phase_ready and existing is not None:
                 # Genuine resume: the prefix is reconstructed from the prior
                 # run's artefacts, so its config/pipeline must still match.
-                existing.verify_state(state, self.steps)
+                existing.verify_state(state, self.steps, workspace=self.workspace)
                 manifest = existing
             else:
                 # Fresh run (restart_index 0) or a model-phase-ready re-run

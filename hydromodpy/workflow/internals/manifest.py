@@ -1,4 +1,14 @@
-"""Resolved run manifest used to validate pipeline resume."""
+"""Resolved run manifest used to validate pipeline resume, and the config it signs.
+
+The manifest carries the sha256 of the resolved configuration, and until now
+that number pointed at nothing: the only frozen copy of the configuration is
+written into the run directory by ``prepare_solver``, step six, so a run that
+died while building its model left no resolved configuration anywhere, and a
+resume refused with "the configuration changed" without being able to say what.
+
+``validate`` now writes the payload that digest is taken over, beside the
+manifest, and declares it. The refusal names the sections that moved.
+"""
 
 from __future__ import annotations
 
@@ -14,9 +24,14 @@ from pydantic import BaseModel
 
 from hydromodpy.core.exceptions import ResumeError
 from hydromodpy.core.io.canonical_json import dumps as canonical_dumps
+from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import PipelineState
 
+logger = get_logger(__name__)
+
 SCHEMA_VERSION = "hydromodpy.resolved_run_manifest.v1"
+RESOLVED_CONFIG_FILENAME = "resolved_config.json"
+RESOLVED_CONFIG_SCHEMA = "hydromodpy.resolved_config.v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,14 +107,22 @@ class ResolvedRunManifest:
         tmp.replace(path)
         return path
 
-    def verify_state(self, state: PipelineState, steps: Sequence[object]) -> None:
+    def verify_state(
+        self,
+        state: PipelineState,
+        steps: Sequence[object],
+        *,
+        workspace: Path | None = None,
+    ) -> None:
         """Raise :class:`ResumeError` when the checkpoint cannot drive this run.
 
         The step sequences must agree on their common prefix; a shorter one is
         a partial execution (``--until``), not a divergence. The recorded
         ``workspace`` is provenance only: the manifest is read from inside the
         project it belongs to, so a project that was moved or copied still
-        resumes.
+        resumes. ``workspace`` names where to look for the resolved
+        configuration this manifest signs, so the refusal can say which
+        sections moved instead of only that something did.
         """
         if self.schema_version != SCHEMA_VERSION:
             raise ResumeError(f"Unsupported run manifest schema: {self.schema_version!r}")
@@ -117,7 +140,14 @@ class ResolvedRunManifest:
         if config_payload and self.config_sha256 is not None:
             current_hash = _sha256_payload(config_payload)
             if current_hash != self.config_sha256:
-                raise ResumeError("Resolved configuration changed since the checkpoint was written")
+                moved = config_sections_that_moved(
+                    read_resolved_config(workspace, self.run_id) if workspace else None,
+                    config_payload,
+                )
+                detail = f" ({', '.join(moved)})" if moved else ""
+                raise ResumeError(
+                    f"Resolved configuration changed since the checkpoint was written{detail}"
+                )
 
     def with_state(
         self,
@@ -132,6 +162,76 @@ class ResolvedRunManifest:
             config_sha256=self.config_sha256 or current.config_sha256,
             config_path=self.config_path or current.config_path,
         )
+
+
+def resolved_config_path(workspace: Path, run_id: str) -> Path:
+    """Return where a run keeps the resolved configuration it was launched on."""
+    return Path(workspace) / ".hmp" / "checkpoints" / str(run_id) / RESOLVED_CONFIG_FILENAME
+
+
+def state_config_payload(state: PipelineState) -> Any:
+    """Return the resolved-configuration payload the checkpoint is signed over."""
+    return _state_config_payload(state)
+
+
+def write_resolved_config(workspace: Path, run_id: str, payload: Any) -> Path | None:
+    """Write the resolved configuration of a run, atomically, best-effort.
+
+    A configuration that cannot be written is still a usable configuration for
+    the process holding it; what is lost is the ability of a later process to
+    read it back, which is exactly what the declaration says when it comes back
+    empty.
+    """
+    path = resolved_config_path(workspace, run_id)
+    document = {"schema": RESOLVED_CONFIG_SCHEMA, "config": _json_ready(payload)}
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(canonical_dumps(document) + "\n", encoding="utf-8")
+        tmp.replace(path)
+    except (OSError, TypeError, ValueError) as exc:
+        logger.warning("validate.resolved_config_write_failed run=%s err=%s", run_id, exc)
+        return None
+    return path
+
+
+def read_resolved_config(workspace: Path, run_id: str) -> Any | None:
+    """Return the resolved configuration a run was launched on, or None."""
+    path = resolved_config_path(workspace, run_id)
+    if not path.is_file():
+        return None
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        logger.warning("validate.resolved_config_unreadable path=%s err=%s", path, exc)
+        return None
+    if not isinstance(document, Mapping) or document.get("schema") != RESOLVED_CONFIG_SCHEMA:
+        return None
+    return document.get("config")
+
+
+def config_sections_that_moved(before: Any, after: Any) -> tuple[str, ...]:
+    """Return the top-level configuration sections that differ between two payloads.
+
+    Top level only: a resume refusal has to be readable, and ``[flow]`` is
+    enough to send a reader to the right place. Naming the leaf would mean
+    walking a structure whose shape is the config schema's business.
+
+    Sections are compared on their canonical rendering, not as Python objects:
+    a configuration holding a NaN is equal to itself on disk and unequal to
+    itself in memory, and a refusal that named a section nobody touched would
+    send its reader to the wrong file.
+    """
+    if not isinstance(before, Mapping) or not isinstance(after, Mapping):
+        return ()
+    old, new = _json_ready(before), _json_ready(after)
+    return tuple(
+        sorted(
+            key
+            for key in old.keys() | new.keys()
+            if canonical_dumps(old.get(key)) != canonical_dumps(new.get(key))
+        )
+    )
 
 
 def _step_divergence(recorded: Sequence[str], current: Sequence[str]) -> str | None:
@@ -219,4 +319,14 @@ def _string_or_none(value: object) -> str | None:
     return text if text else None
 
 
-__all__ = ["ResolvedRunManifest", "SCHEMA_VERSION"]
+__all__ = [
+    "RESOLVED_CONFIG_FILENAME",
+    "RESOLVED_CONFIG_SCHEMA",
+    "SCHEMA_VERSION",
+    "ResolvedRunManifest",
+    "config_sections_that_moved",
+    "read_resolved_config",
+    "resolved_config_path",
+    "state_config_payload",
+    "write_resolved_config",
+]

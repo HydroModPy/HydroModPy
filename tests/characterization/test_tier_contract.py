@@ -7,7 +7,7 @@ silently drops a claim nobody is watching any more. Phases F1, F7 and F8 each
 turn some of them green; when they do, the two declarations below are what must
 be edited, deliberately. A repaired claim does not disappear from this file: it
 moves to ``REPAIRED_STRICT_XFAILS``, where it keeps guarding against anyone
-marking it xfail again.
+marking it xfail again. Four of the five have moved; the last one waits for F8.
 """
 
 from __future__ import annotations
@@ -18,13 +18,13 @@ from pathlib import Path
 TIER_DIR = Path(__file__).resolve().parent
 
 EXPECTED_STRICT_XFAILS: dict[str, str] = {
-    "test_every_step_of_a_run_declares_what_it_left_on_disk": "F7",
     "test_the_runtime_state_survives_a_process_boundary": "F8",
 }
 
 # Claims the code now honours. They stay named here so that re-marking one
 # xfail is a failure rather than a quiet regression.
 REPAIRED_STRICT_XFAILS: dict[str, str] = {
+    "test_every_step_of_a_run_declares_what_it_left_on_disk": "F7",
     "test_a_stranger_opens_the_field_store_with_xarray": "F1",
     "test_the_field_store_metadata_is_valid_json": "F1",
     "test_the_run_declares_a_derived_identity": "F1",
@@ -73,7 +73,7 @@ def test_the_tier_carries_exactly_the_declared_strict_xfails() -> None:
         f"undeclared strict xfails: {sorted(set(found) - set(EXPECTED_STRICT_XFAILS))}; "
         f"declared but absent: {sorted(set(EXPECTED_STRICT_XFAILS) - set(found))}"
     )
-    assert len(found) == 2
+    assert len(found) == 1
 
 
 def test_a_repaired_claim_is_never_marked_xfail_again() -> None:
