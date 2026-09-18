@@ -27,6 +27,13 @@ from hydromodpy.spatial.geographic.core.derived_features import (
     attach_reference_hydrographic_network,
 )
 from hydromodpy.spatial.geographic.structure_binders import apply_geology_to_domain
+from hydromodpy.workflow.internals.data_description import (
+    changed_sources,
+    describe_loaded_data,
+    description_path,
+    read_data_description,
+    write_data_description,
+)
 from hydromodpy.workflow.internals.state import GeographicState, LoadedState, PipelineState
 
 if TYPE_CHECKING:
@@ -382,6 +389,12 @@ def step_data_loading(ctx: WorkflowContext) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _workspace_root_for(ctx: WorkflowContext) -> Path | None:
+    """Return the project root, or None before the workspace exists."""
+    project_root = getattr(getattr(ctx.setup, "workspace", None), "project_root", None)
+    return None if project_root is None else Path(project_root)
+
+
 class LoadDataStep:
     """Ingest external + custom data via data managers."""
 
@@ -399,12 +412,42 @@ class LoadDataStep:
             raise ConfigError("LoadDataStep requires 'ctx' in state.data")
 
         step_data_loading(ctx)
+        self._describe(ctx, state.run_id)
 
         return state.advance(
             step_index=state.step_index + 1,
             step_name=self.name,
             ctx=ctx,
         )
+
+    def artifacts(self, state_out: PipelineState) -> tuple[str, ...]:
+        """Return the document naming what this load bound to the runtime.
+
+        The forcing files themselves are not declared: they are what the step
+        read, not what it produced. What it produced is the binding, and the
+        document holds it - so a resume that finds the document gone, or
+        truncated, refuses instead of carrying on over an undescribed load.
+        """
+        ctx = state_out.get("ctx")
+        if ctx is None:
+            return ()
+        workspace = _workspace_root_for(ctx)
+        if workspace is None:
+            return ()
+        path = description_path(workspace, state_out.run_id)
+        return (str(path),) if path.is_file() else ()
+
+    def _describe(self, ctx: WorkflowContext, run_id: str) -> dict | None:
+        """Write what this load read, beside the resume checkpoint of the run."""
+        workspace = _workspace_root_for(ctx)
+        if workspace is None:
+            return None
+        payload = describe_loaded_data(
+            ctx.loaded_data,
+            plan_types=tuple(getattr(ctx.data_plan, "types", ()) or ()),
+        )
+        write_data_description(workspace, run_id, payload)
+        return payload
 
     def rebuild_state(
         self,
@@ -413,8 +456,32 @@ class LoadDataStep:
         workspace: Path,
         run_id: str,
     ) -> PipelineState:
-        """Re-run load_data: data managers consult their local caches."""
-        return self.run(prior_state)
+        """Re-run load_data, and say so when the sources moved underneath.
+
+        Replaying is honest here: the data managers consult their local caches,
+        so the step reads back what it read the first time rather than
+        recomputing anything. What replaying cannot guarantee is that the files
+        are the same files - a forcing rewritten between the crash and the
+        restart is loaded silently, and the resumed run then carries a mesh
+        from before and a forcing from after. The description the first load
+        left says which sources it used, so the divergence is at least named.
+        """
+        ctx = prior_state.get("ctx")
+        before = (
+            read_data_description(_workspace_root_for(ctx) or workspace, run_id)
+            if ctx is not None
+            else None
+        )
+        state = self.run(prior_state)
+        if before is not None:
+            after = read_data_description(_workspace_root_for(ctx) or workspace, run_id)
+            for variable in changed_sources(before, after):
+                logger.warning(
+                    "load_data.source_changed_since_the_run_started variable=%s run=%s",
+                    variable,
+                    run_id,
+                )
+        return state
 
     def is_prebuilt(self, state: PipelineState) -> bool:
         """True when the in-memory ctx already covers the current data plan."""

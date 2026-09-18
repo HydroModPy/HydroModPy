@@ -15,7 +15,6 @@ prepared-run path keep importing them by name.
 from __future__ import annotations
 
 import dataclasses
-import hashlib
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -24,6 +23,13 @@ import numpy as np
 
 from hydromodpy.core.exceptions import MeshError, PipelineError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.workflow.internals.data_description import (
+    iter_loaded_records,
+    read_data_description,
+    record_source_path,
+    sha256_file_or_none,
+    source_digests,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -148,32 +154,6 @@ def step_persist_geographic(ctx: WorkflowContext, sim_id: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _record_source_path(record: object) -> Path | None:
-    metadata = getattr(record, "metadata", None)
-    if isinstance(metadata, dict):
-        for key in ("source_path", "raster_path", "vector_path"):
-            value = metadata.get(key)
-            if value not in (None, ""):
-                return Path(str(value))
-    file_path = getattr(record, "file_path", None)
-    if file_path is not None:
-        return Path(file_path)
-    data = getattr(record, "data", None)
-    if isinstance(data, (str, Path)):
-        return Path(data)
-    return None
-
-
-def _sha256_file_or_none(path: Path | None) -> str | None:
-    if path is None or not path.is_file():
-        return None
-    digest = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def _field_data_array(record: object) -> np.ndarray | None:
     data = getattr(record, "data", None)
     if isinstance(data, (str, Path)):
@@ -205,73 +185,69 @@ def _hydrography_field_record(load_result: object) -> object | None:
     return None
 
 
-def _loader_name(scope_name: str, record: object) -> str:
-    return f"{scope_name}:{type(record).__name__}"
+def _digests_the_load_already_computed(ctx: WorkflowContext) -> dict[str, str]:
+    """Return the source digests ``load_data`` wrote, keyed by path.
+
+    Hashing a 500 MB DEM twice per run buys nothing: the digest of a file is a
+    function of the file, and the one the load computed describes the bytes it
+    actually read. A run whose document is missing - a notebook calling this
+    helper on its own, a pipeline that skipped the load - simply finds nothing
+    here and hashes what it needs.
+    """
+    project_root = getattr(getattr(ctx.setup, "workspace", None), "project_root", None)
+    run_id = getattr(ctx.setup, "run_id", None)
+    if project_root is None or not run_id:
+        return {}
+    return source_digests(read_data_description(Path(project_root), str(run_id)))
 
 
 def step_write_provenance(ctx: WorkflowContext) -> None:
-    """Record provenance fingerprints for each loaded data variable."""
+    """Record provenance fingerprints for each loaded data variable.
+
+    The walk over the loaded scopes is the one ``load_data`` used to describe
+    itself, and the source digests are the ones it computed, so the rows
+    written here and the document it left cannot name a different set of inputs
+    nor disagree on their bytes.
+    """
     if ctx.store is None or ctx.sim_id is None:
         return
 
     import numpy as np
 
-    loaded = ctx.loaded_data
+    known_digests = _digests_the_load_already_computed(ctx)
     written = 0
-    for f in dataclasses.fields(loaded):
-        load_result = getattr(loaded, f.name, None)
-        if load_result is None:
-            continue
-
-        points = getattr(load_result, "points", None)
-        if points:
-            for rec in points:
-                try:
-                    arr = np.asarray(rec.data["value"].values, dtype="float64")
-                    source_path = _record_source_path(rec)
-                    ctx.store.write_provenance(
-                        ctx.sim_id,
-                        variable=f"{f.name}:{rec.variable}",
-                        source_ref=str(getattr(rec, "source", "")),
-                        data=arr,
-                        source_type="data_manager",
-                        source_sha256=_sha256_file_or_none(source_path),
-                        loader_name=_loader_name(f.name, rec),
-                        loader_version="v1",
-                        period_start=getattr(rec, "date_start", None),
-                        period_end=getattr(rec, "date_end", None),
-                    )
-                    written += 1
-                except Exception as exc:
-                    raise PipelineError(f"Provenance failed for {f.name}:{rec.variable}") from exc
-
-        fields = getattr(load_result, "fields", None)
-        if fields:
-            for rec in fields:
-                try:
-                    source_path = _record_source_path(rec)
-                    arr = _field_data_array(rec)
-                    if arr is None and source_path is not None and source_path.is_file():
-                        arr = np.frombuffer(source_path.read_bytes(), dtype="uint8")
-                    if arr is None:
-                        continue
-                    ctx.store.write_provenance(
-                        ctx.sim_id,
-                        variable=f"{f.name}:{rec.variable}",
-                        source_ref=str(getattr(rec, "source", "")),
-                        data=arr,
-                        source_type="data_manager",
-                        source_sha256=_sha256_file_or_none(source_path),
-                        loader_name=_loader_name(f.name, rec),
-                        loader_version="v1",
-                        period_start=getattr(rec, "date_start", None),
-                        period_end=getattr(rec, "date_end", None),
-                    )
-                    written += 1
-                except Exception as exc:
-                    raise PipelineError(
-                        f"Provenance failed for field {f.name}:{rec.variable}"
-                    ) from exc
+    for item in iter_loaded_records(ctx.loaded_data):
+        rec = item.record
+        label = f"{item.scope}:{item.variable}"
+        try:
+            source_path = record_source_path(rec)
+            if item.kind == "point":
+                arr = np.asarray(rec.data["value"].values, dtype="float64")
+            else:
+                arr = _field_data_array(rec)
+                if arr is None and source_path is not None and source_path.is_file():
+                    arr = np.frombuffer(source_path.read_bytes(), dtype="uint8")
+                if arr is None:
+                    continue
+            digest = known_digests.get(str(source_path)) if source_path is not None else None
+            ctx.store.write_provenance(
+                ctx.sim_id,
+                variable=label,
+                source_ref=str(getattr(rec, "source", "")),
+                data=arr,
+                source_type="data_manager",
+                source_sha256=digest or sha256_file_or_none(source_path),
+                loader_name=item.loader_name,
+                loader_version="v1",
+                period_start=getattr(rec, "date_start", None),
+                period_end=getattr(rec, "date_end", None),
+            )
+            written += 1
+        except Exception as exc:
+            prefix = (
+                "Provenance failed for" if item.kind == "point" else "Provenance failed for field"
+            )
+            raise PipelineError(f"{prefix} {label}") from exc
 
     if written:
         logger.debug("Wrote %d provenance records for sim %s", written, ctx.sim_id)
