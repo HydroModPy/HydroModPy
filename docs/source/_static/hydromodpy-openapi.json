@@ -10977,7 +10977,7 @@
       },
       "HydrographyConfig": {
         "additionalProperties": false,
-        "description": "Top-level hydrography configuration.\n\nThe section lists stream-network sources used by data loading and boundary\npreparation. It is commonly inferred when ``flow.active_bc`` contains a\nstream boundary condition.",
+        "description": "Top-level hydrography configuration.\n\nThe section lists stream-network sources used by data loading and boundary\npreparation. It is commonly inferred when ``flow.active_bc`` contains a\nstream boundary condition.\n\n``mask_path`` sits here and not on a source because the manager concatenates\nevery source before clipping **once**: two sources disagreeing on the extent\nwould be concatenated and then clipped to one of the two, which is a\nquestion the section level makes unaskable.",
         "properties": {
           "sources": {
             "description": "At least one hydrography data source.",
@@ -10987,6 +10987,21 @@
             "minItems": 1,
             "title": "Sources",
             "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "mask_path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "SHP/GPKG/GeoJSON/TIF whose shape the network is clipped to and whose bounds are the box the API sources are asked over. A project run has it filled in from the delineated watershed; a standalone call names it.",
+            "title": "Mask Path",
             "x-hmp-profile": "user"
           }
         },

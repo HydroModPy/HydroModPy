@@ -731,7 +731,7 @@ Fields
               <code class="hmp-field-toml">[[data.hydrography.sources]]</code>
             </div>
 
-         :bdg-primary:`list[HydrographySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L98>`__
+         :bdg-primary:`list[HydrographySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L103>`__
 
             At least one hydrography data source.
 
@@ -893,6 +893,20 @@ Fields
                   OSM waterway tag values to fetch.
 
 
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: data-hydrography-mask-path
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="data.hydrography.mask_path">
+              <code class="hmp-field-name">mask_path</code>
+            </div>
+
+         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L108>`__
+
+            SHP/GPKG/GeoJSON/TIF whose shape the network is clipped to and whose bounds are the box the API sources are asked over. A project run has it filled in from the delineated watershed; a standalone call names it.
 
 
 
@@ -6821,6 +6835,7 @@ Starter TOML snippet
 
       [data.hydrography]
       # sources = []  # REQUIRED
+      # mask_path = ...  # default = None
 
       [data.hydrometry]
       # date_start = ...  # default = None

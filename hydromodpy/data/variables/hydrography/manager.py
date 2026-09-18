@@ -1,4 +1,22 @@
-"""Hydrography variable manager: fetch, clip, rasterise."""
+"""Hydrography variable manager: fetch, clip, rasterise.
+
+What this manager needs, and where each piece comes from
+--------------------------------------------------------
+It used to read a ``geographic`` object for **three** distinct things, only one
+of which was an extent: the project CRS, the polygon it clips to, and the
+reference grid it rasterises onto. The object is gone and the three are named:
+
+- the clip shape and the request box are one file, ``config.mask_path``, read
+  through :func:`~hydromodpy.data.common.source_extent.mask_geometry`;
+- the project CRS is **not an input at all** -- the mask says which frame the
+  clip happens in, and the network is reprojected into it. On a project run
+  that is the same answer, the delineated watershed being written in the
+  project CRS; off a project run it is the only answer that means anything,
+  because a box and a polygon in two different frames do not intersect;
+- the reference grid is ``base_raster``, a constructor argument beside
+  ``out_path``, because it is not something a user configures: it is the grid
+  the project already has.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +31,7 @@ import rasterio
 import xarray as xr
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.data.common.source_extent import mask_extent_in, mask_geometry
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.variables.hydrography.config import (
@@ -69,14 +88,14 @@ class HydrographyManager:
         self,
         *,
         config: HydrographyConfig,
-        geographic: object,
         out_path: str | Path,
+        base_raster: str | Path | None = None,
         catalog: DataCatalogDuckDB | None = None,
         data_dir: Path | None = None,
         stable_folder: str | Path | None = None,
     ) -> None:
         self.config = config
-        self.geographic = geographic
+        self._base_raster = base_raster
         from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
         from hydromodpy.spatial.delineation import get_whitebox_backend
 
@@ -111,28 +130,23 @@ class HydrographyManager:
         if combined.crs is None:
             combined = combined.set_crs("EPSG:4326")
 
-        # 2. Reproject to project CRS
-        project_crs = getattr(self.geographic, "crs_proj", None) or getattr(
-            self.geographic, "crs_project", None
-        )
-        if project_crs and str(combined.crs) != str(project_crs):
-            combined = combined.to_crs(project_crs)
+        # 2. Reproject into the frame the mask is in, then clip to its shape
+        mask_shape, mask_crs = mask_geometry(self._require_mask_path())
+        if str(combined.crs) != str(mask_crs):
+            combined = combined.to_crs(mask_crs)
+        clipped = gpd.clip(combined, mask_shape)
 
-        # 3. Clip to watershed
-        watershed = gpd.read_file(self.geographic.watershed_shp)
-        clipped = gpd.clip(combined, watershed)
-
-        # 4. Save clipped vector
+        # 3. Save clipped vector
         streams_path = self._data_folder / HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message="Column names longer than 10 characters")
             clipped.to_file(streams_path)
 
-        # 5. Rasterise
+        # 4. Rasterise
         rasterize_field = self.config.sources[0].rasterize_field
         tif_out = self._rasterize(streams_path, rasterize_field)
 
-        # 6. Read array
+        # 5. Read array
         raster_values = self._read_tif_array(tif_out)
 
         return self._build_load_result(
@@ -146,20 +160,20 @@ class HydrographyManager:
     # ------------------------------------------------------------------
 
     def _load_from_tif(self, tif_path: Path) -> LoadResult:
-        """Clip a pre-rasterised TIF to the watershed and return the result."""
+        """Clip a pre-rasterised TIF to the mask and return the result."""
         from rasterio.mask import mask as rio_mask
-        from shapely.ops import unary_union
 
-        watershed = gpd.read_file(self.geographic.watershed_shp)
+        mask_shape, mask_crs = mask_geometry(self._require_mask_path())
 
-        # Reproject watershed geometry into the CRS of the TIF
+        # Reproject the mask geometry into the CRS of the TIF
         with rasterio.open(str(tif_path)) as src:
             tif_crs = src.crs
 
-        if str(watershed.crs) != str(tif_crs):
-            watershed = watershed.to_crs(tif_crs)
+        mask_gdf = gpd.GeoDataFrame(geometry=[mask_shape], crs=mask_crs)
+        if str(mask_crs) != str(tif_crs):
+            mask_gdf = mask_gdf.to_crs(tif_crs)
 
-        geom = [unary_union(watershed.geometry)]
+        geom = [mask_gdf.geometry.iloc[0]]
 
         with rasterio.open(str(tif_path)) as src:
             out_image, out_transform = rio_mask(
@@ -354,7 +368,12 @@ class HydrographyManager:
                 pass
         shp_base.to_file(streams_path)
 
-        watershed_dem = self.geographic.watershed_dem
+        if self._base_raster is None:
+            raise ValueError(
+                "Rasterising a hydrography network needs a reference grid; pass "
+                "base_raster to HydrographyManager."
+            )
+        watershed_dem = str(self._base_raster)
 
         if shp_type in ("MultiPolygon", "Polygon"):
             logger.debug("Rasterising polygon geometry: %s", shp_type)
@@ -398,10 +417,16 @@ class HydrographyManager:
         arr[arr < 0] = np.nan
         return arr
 
+    def _require_mask_path(self) -> Path:
+        """The one file that says where this request is, or a refusal naming it."""
+        mask_path = getattr(self.config, "mask_path", None)
+        if not mask_path:
+            raise ValueError(
+                "Hydrography clips its network to a mask and asks its sources over the "
+                "same box; set data.hydrography.mask_path to a SHP/GPKG/GeoJSON/TIF."
+            )
+        return Path(mask_path)
+
     def _get_bbox_wgs84(self) -> tuple[float, float, float, float]:
-        """Derive a WGS84 bounding box from the geographic config."""
-        watershed = gpd.read_file(self.geographic.watershed_shp)
-        if str(watershed.crs) != "EPSG:4326":
-            watershed = watershed.to_crs("EPSG:4326")
-        bounds = watershed.total_bounds  # (minx, miny, maxx, maxy)
-        return (bounds[0], bounds[1], bounds[2], bounds[3])
+        """The request box in WGS84, which is what the three APIs are asked in."""
+        return mask_extent_in(self._require_mask_path(), "EPSG:4326").bbox

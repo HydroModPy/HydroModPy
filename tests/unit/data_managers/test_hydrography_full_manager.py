@@ -28,7 +28,7 @@ from hydromodpy.spatial.geographic.core.hydrographic_network import (
 
 from ._test_hydrography_full_builders import (
     WhiteboxStubBackend,
-    _fake_geographic,
+    _fake_inputs,
     _hydrography_array,
     _hydrography_raster_path,
     _hydrography_record,
@@ -130,9 +130,9 @@ class TestHydrographyManager:
     def _make_manager(self, tmp_path, sources, crs="EPSG:2154"):
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
-        geo = _fake_geographic(tmp_path, crs=crs)
-        cfg = HydrographyConfig(sources=sources)
-        return HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
+        inputs = _fake_inputs(tmp_path, crs=crs)
+        cfg = HydrographyConfig(sources=sources, mask_path=inputs.mask_path)
+        return HydrographyManager(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)
 
     def test_data_folder_created(self, tmp_path):
         mgr = self._make_manager(tmp_path, [{"source": "osm"}])
@@ -155,9 +155,9 @@ class TestHydrographyManager:
         backend = WhiteboxStubBackend()
         mock_backend_factory.return_value = backend
 
-        geo = _fake_geographic(tmp_path)
-        cfg = HydrographyConfig(sources=[{"source": "osm"}])
-        mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
+        inputs = _fake_inputs(tmp_path)
+        cfg = HydrographyConfig(sources=[{"source": "osm"}], mask_path=inputs.mask_path)
+        mgr = HydrographyManager(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)
 
         result = mgr.load()
 
@@ -196,9 +196,9 @@ class TestHydrographyManager:
         backend = WhiteboxStubBackend()
         mock_backend_factory.return_value = backend
 
-        geo = _fake_geographic(tmp_path)
-        cfg = HydrographyConfig(sources=[{"source": "osm"}])
-        mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
+        inputs = _fake_inputs(tmp_path)
+        cfg = HydrographyConfig(sources=[{"source": "osm"}], mask_path=inputs.mask_path)
+        mgr = HydrographyManager(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)
 
         result = mgr.load()
         method_names = backend.method_names()
@@ -221,9 +221,9 @@ class TestHydrographyManager:
         backend = WhiteboxStubBackend()
         mock_backend_factory.return_value = backend
 
-        geo = _fake_geographic(tmp_path)
-        cfg = HydrographyConfig(sources=[{"source": "osm"}])
-        mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
+        inputs = _fake_inputs(tmp_path)
+        cfg = HydrographyConfig(sources=[{"source": "osm"}], mask_path=inputs.mask_path)
+        mgr = HydrographyManager(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)
 
         result = mgr.load()
         method_names = backend.method_names()
@@ -250,9 +250,9 @@ class TestHydrographyManager:
         backend = WhiteboxStubBackend()
         mock_backend_factory.return_value = backend
 
-        geo = _fake_geographic(tmp_path)
-        cfg = HydrographyConfig(sources=[{"source": "bdtopage"}])
-        mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
+        inputs = _fake_inputs(tmp_path)
+        cfg = HydrographyConfig(sources=[{"source": "bdtopage"}], mask_path=inputs.mask_path)
+        mgr = HydrographyManager(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)
 
         mgr.load()
 
@@ -268,9 +268,9 @@ class TestHydrographyManager:
 
         mock_fetch.return_value = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
-        geo = _fake_geographic(tmp_path)
-        cfg = HydrographyConfig(sources=[{"source": "osm"}])
-        mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
+        inputs = _fake_inputs(tmp_path)
+        cfg = HydrographyConfig(sources=[{"source": "osm"}], mask_path=inputs.mask_path)
+        mgr = HydrographyManager(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)
 
         with pytest.raises(ValueError, match="empty"):
             mgr.load()
@@ -278,9 +278,9 @@ class TestHydrographyManager:
     def test_get_bbox_wgs84(self, tmp_path):
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
-        geo = _fake_geographic(tmp_path)
-        cfg = HydrographyConfig(sources=[{"source": "osm"}])
-        mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
+        inputs = _fake_inputs(tmp_path)
+        cfg = HydrographyConfig(sources=[{"source": "osm"}], mask_path=inputs.mask_path)
+        mgr = HydrographyManager(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)
 
         bbox = mgr._get_bbox_wgs84()
         assert len(bbox) == 4
@@ -306,9 +306,9 @@ class TestHydrographyManager:
         backend = WhiteboxStubBackend()
         mock_backend_factory.return_value = backend
 
-        geo = _fake_geographic(tmp_path, crs="EPSG:2154")
-        cfg = HydrographyConfig(sources=[{"source": "osm"}])
-        mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
+        inputs = _fake_inputs(tmp_path, crs="EPSG:2154")
+        cfg = HydrographyConfig(sources=[{"source": "osm"}], mask_path=inputs.mask_path)
+        mgr = HydrographyManager(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)
 
         result = mgr.load()
 
@@ -413,11 +413,12 @@ class TestManagerTifPipeline:
         tif = tmp_path / "input_streams.tif"
         _write_dummy_tif(tif, crs="EPSG:2154")
 
-        geo = _fake_geographic(tmp_path)
+        inputs = _fake_inputs(tmp_path)
         cfg = HydrographyConfig(
             sources=[{"source": "custom", "path": str(tif)}],
+            mask_path=inputs.mask_path,
         )
-        mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
+        mgr = HydrographyManager(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)
         result = mgr.load()
 
         assert isinstance(result, LoadResult)
@@ -458,11 +459,12 @@ class TestManagerTifPipeline:
         ) as ds:
             ds.write(data, 1)
 
-        geo = _fake_geographic(tmp_path)
+        inputs = _fake_inputs(tmp_path)
         cfg = HydrographyConfig(
             sources=[{"source": "custom", "path": str(tif)}],
+            mask_path=inputs.mask_path,
         )
-        mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
+        mgr = HydrographyManager(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)
         result = mgr.load()
 
         assert np.any(np.isnan(_hydrography_array(result)))
@@ -485,14 +487,15 @@ class TestCatalogCacheManager:
         data_dir = tmp_path / "cache"
         data_dir.mkdir()
 
-        geo = _fake_geographic(tmp_path)
+        inputs = _fake_inputs(tmp_path)
         cfg = HydrographyConfig(
             sources=[{"source": "osm", "force_refresh": force_refresh}],
+            mask_path=inputs.mask_path,
         )
         mgr = HydrographyManager(
             config=cfg,
-            geographic=geo,
             out_path=tmp_path,
+            base_raster=inputs.base_raster,
             catalog=catalog,
             data_dir=data_dir,
         )
@@ -536,8 +539,8 @@ class TestCatalogCacheManager:
         # Second call - should use cache, not call API again
         mgr2 = HydrographyManager(
             config=mgr.config,
-            geographic=mgr.geographic,
             out_path=tmp_path,
+            base_raster=mgr._base_raster,
             catalog=catalog,
             data_dir=data_dir,
         )
@@ -572,8 +575,8 @@ class TestCatalogCacheManager:
         # Even with cache entry, force_refresh should re-fetch
         mgr2 = HydrographyManager(
             config=mgr.config,
-            geographic=mgr.geographic,
             out_path=tmp_path,
+            base_raster=mgr._base_raster,
             catalog=catalog,
             data_dir=data_dir,
         )
@@ -584,12 +587,12 @@ class TestCatalogCacheManager:
         """Without catalog, _try_load_cached returns None."""
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
-        geo = _fake_geographic(tmp_path)
-        cfg = HydrographyConfig(sources=[{"source": "osm"}])
+        inputs = _fake_inputs(tmp_path)
+        cfg = HydrographyConfig(sources=[{"source": "osm"}], mask_path=inputs.mask_path)
         mgr = HydrographyManager(
             config=cfg,
-            geographic=geo,
             out_path=tmp_path,
+            base_raster=inputs.base_raster,
             catalog=None,
             data_dir=None,
         )
@@ -720,8 +723,8 @@ class TestDataStoreHydrography:
         (tmp_path / "data").mkdir()
         store = DataStore(workspace_root=tmp_path)
 
-        geo = _fake_geographic(tmp_path)
-        cfg = HydrographyConfig(sources=[{"source": "osm"}])
-        result = store.load_hydrography(cfg, geographic=geo, out_path=tmp_path)
+        inputs = _fake_inputs(tmp_path)
+        cfg = HydrographyConfig(sources=[{"source": "osm"}], mask_path=inputs.mask_path)
+        result = store.load_hydrography(cfg, out_path=tmp_path, base_raster=inputs.base_raster)
         assert isinstance(result, LoadResult)
         mock_load.assert_called_once()

@@ -196,14 +196,25 @@ class DataManagersRuntimeLoader:
 
     @staticmethod
     def _apply_default_masks(cfg: Any, result: WorkflowContext) -> None:
+        """Fill every ``mask_path`` the model declares from the delineated watershed.
+
+        A section declares one when the extent is a property of the request and
+        not of a source -- hydrography concatenates its sources before clipping
+        once. Everything else declares it per source.
+        """
         geographic = result.setup.geographic
         if geographic is None:
             return
+        watershed = Path(geographic.watershed_shp)
+        if "mask_path" in getattr(type(cfg), "model_fields", {}) and not getattr(
+            cfg, "mask_path", None
+        ):
+            cfg.mask_path = watershed
         for src in getattr(cfg, "sources", ()):
             if "mask_path" not in getattr(type(src), "model_fields", {}):
                 continue
             if not getattr(src, "mask_path", None):
-                src.mask_path = Path(geographic.watershed_shp)
+                src.mask_path = watershed
 
     def _resolve_period_for_spec(
         self,
@@ -415,11 +426,15 @@ class DataManagersRuntimeLoader:
 
         try:
             hydro_cfg = HydrographyConfig.model_validate(raw_section)
+            self._apply_default_masks(hydro_cfg, result)
             workspace_paths = self._workspace_paths(result)
+            geographic = result.setup.geographic
             result.loaded_data.hydrography = self._require_store().load_hydrography(
                 hydro_cfg,
-                geographic=result.setup.geographic,
                 out_path=workspace_paths.project_root,
+                base_raster=(
+                    None if geographic is None else getattr(geographic, "watershed_dem", None)
+                ),
                 stable_folder=workspace_paths.project_root / PREPROCESSING_DIR,
             )
         except Exception as exc:

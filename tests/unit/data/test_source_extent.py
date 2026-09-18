@@ -27,12 +27,13 @@ import numpy as np
 import pytest
 import rasterio
 from rasterio.transform import from_origin
-from shapely.geometry import box
+from shapely.geometry import Polygon, box
 
 from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.data.common.source_extent import (
     PROJECT_EXTENT_CRS,
     mask_extent,
+    mask_extent_in,
     resolve_source_extent,
 )
 from hydromodpy.data.variables.dem.config import DemConfig, IgnGeoplateformeDemSource
@@ -198,14 +199,6 @@ def test_a_raster_manager_refuses_a_geographic_object(manager_cls):
 
 
 MANAGERS_STILL_TAKING_GEOGRAPHIC = {
-    "hydrography": (
-        "reads it for three things that are not an extent -- the project CRS "
-        "(manager.py:115), the watershed polygon it clips to (:122, :153) and "
-        "geographic.watershed_dem (:357) -- and has no mask_path field in its "
-        "config to receive the loader's injection. Cutting only its request "
-        "bbox would leave the object in place, which is bypassing a mechanism "
-        "and not removing one. F5d-2."
-    ),
     "oceanic": (
         "its extent is a centroid read off the object as centroid_long_lat, "
         "not a box, which is why the DataSource port left shom.py unported in "
@@ -271,3 +264,52 @@ def test_a_mask_in_its_own_crs_is_reprojected_from_that_crs(tmp_path, monkeypatc
     ).load()
 
     assert captured["bbox"] == pytest.approx(RENNES_2154, abs=200.0), captured["bbox"]
+
+
+@pytest.mark.fast
+def test_a_box_in_another_crs_is_measured_on_the_shape_not_on_the_box(tmp_path):
+    """``mask_extent_in`` is tighter than converting the box, and by kilometres.
+
+    The bounds of a reprojected polygon are the image of its own vertices; the
+    bounds of a reprojected box are the image of a rectangle that contains it.
+    On a basin-shaped mask the second is the wider answer, and the catalog
+    serves a cached download only when its entry is a superset of the request,
+    so the extra width is a download that did not have to happen.
+
+    Anti-vacuity: the assertion is strict on every side, so swapping the body
+    back to ``mask_extent(path).to_crs(crs)`` fails it rather than passing by
+    a tolerance.
+    """
+    basin = Polygon(
+        [
+            (372000.0, 6835000.0),
+            (388000.0, 6832000.0),
+            (392000.0, 6845000.0),
+            (378000.0, 6851000.0),
+            (370000.0, 6843000.0),
+        ]
+    )
+    path = tmp_path / "basin.gpkg"
+    gpd.GeoDataFrame(geometry=[basin], crs="EPSG:2154").to_file(path)
+
+    on_shape = mask_extent_in(path, "EPSG:4326")
+    on_box = mask_extent(path).to_crs("EPSG:4326")
+
+    assert on_shape.crs == "EPSG:4326"
+    assert on_box.xmin < on_shape.xmin
+    assert on_box.ymin < on_shape.ymin
+    assert on_shape.xmax < on_box.xmax
+    assert on_shape.ymax < on_box.ymax
+
+    expected = gpd.GeoSeries([basin], crs="EPSG:2154").to_crs("EPSG:4326").total_bounds
+    assert on_shape.bbox == pytest.approx(tuple(expected))
+
+
+@pytest.mark.fast
+def test_a_mask_already_in_the_target_crs_is_not_round_tripped(tmp_path):
+    """No reprojection, so no chance of one moving the numbers."""
+    shape = Polygon([(-1.8, 48.0), (-1.5, 48.0), (-1.5, 48.3), (-1.8, 48.3)])
+    path = tmp_path / "mask.gpkg"
+    gpd.GeoDataFrame(geometry=[shape], crs="EPSG:4326").to_file(path)
+
+    assert mask_extent_in(path, "EPSG:4326").bbox == pytest.approx((-1.8, 48.0, -1.5, 48.3))

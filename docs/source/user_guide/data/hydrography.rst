@@ -32,6 +32,20 @@ Accepted sources
 The complete ``[[data.hydrography.sources]]`` schema for all four sources is
 defined in :ref:`the data reference <data-hydrography-sources>`.
 
+The extent
+----------
+
+:ref:`mask_path <data-hydrography-mask-path>` is the one file that says where
+the request is. Its bounds are the box the three API sources are asked over,
+its shape is what the concatenated network is clipped to, and the CRS it
+declares is the frame the clip happens in. It sits on the section and not on a
+source because every source is concatenated before a single clip.
+
+A project run leaves it empty: the delineated watershed is filled in once
+delineation has produced it. A call made outside a project names it, and that
+is the whole of what hydrography needs in order to be asked for a basin it was
+not built around.
+
 Minimal example
 ---------------
 

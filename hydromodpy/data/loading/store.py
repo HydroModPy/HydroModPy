@@ -179,17 +179,21 @@ class DataStore:
         self,
         config: Any,
         *,
-        geographic: Any,
         out_path: str | Path,
+        base_raster: str | Path | None = None,
         stable_folder: str | Path | None = None,
     ) -> LoadResult:
-        """Load hydrography data (vector or raster) with catalog caching."""
+        """Load hydrography data (vector or raster) with catalog caching.
+
+        The extent is ``config.mask_path``; ``base_raster`` is only the grid the
+        clipped network is rasterised onto.
+        """
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         manager = HydrographyManager(
             config=config,
-            geographic=geographic,
             out_path=out_path,
+            base_raster=base_raster,
             catalog=self.catalog,
             data_dir=self._data_dir("hydrography"),
             stable_folder=stable_folder,

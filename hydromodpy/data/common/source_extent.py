@@ -21,11 +21,12 @@ before handing the config to the store, so the path where "the watershed" is a
 ``self.geographic`` *in addition to* that injection, never instead of it. What
 the port calls a mask, the loader was already filling in.
 
-``HydrographyManager`` is the third that reads the object, and it is not served
-here: it reads it for the project CRS, the polygon it clips to and
-``watershed_dem`` as well as for a request box, and its config declares no
-``mask_path`` for the loader to fill. Cutting only its box would leave the
-object in place.
+``HydrographyManager`` was the third that read the object, and it needed more
+than a box: the project CRS, the polygon it clips to and ``watershed_dem``, the
+grid it rasterises onto. It is served here through :func:`mask_geometry`, which
+is the same door one level down -- the shape and the box come from one file, so
+a mask cannot describe one thing to a clip and another to a request. The
+reference grid was never an extent and is now a constructor argument.
 
 **A box without its CRS has to borrow one, and it borrowed the wrong one.**
 ``_resolve_bbox`` returned four bare floats in whatever CRS the mask file
@@ -71,6 +72,7 @@ construction of the delineation, but neither is measured here.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.data.source.port import Extent
@@ -83,16 +85,15 @@ here is the one its only producer builds for these managers.
 """
 
 
-def mask_extent(path: str | Path) -> Extent:
-    """Return the bounding box of a mask file **and the CRS it is in**.
+def mask_geometry(path: str | Path) -> tuple[Any, str]:
+    """Return a mask's polygon **and the CRS it is in**.
 
     Vector (``.shp``, ``.gpkg``, ``.geojson``) and raster (``.tif``,
     ``.tiff``), the two families
     :func:`~hydromodpy.data.common.geo_helpers.load_mask_geometry` already
-    accepted, and **the same box each of them gave**. A vector's
-    ``total_bounds`` is the bounds of the union of its geometries; a raster
-    still goes through the valid-cell hull, because a catchment mask is a
-    rectangle that is mostly nodata and its footprint is not its catchment.
+    accepted, and the same geometry each of them gave. A raster still goes
+    through the valid-cell hull, because a catchment mask is a rectangle that
+    is mostly nodata and its footprint is not its catchment.
 
     A mask that declares no CRS is **refused**, and that is a rupture worth
     naming. ``numpy_engine.py:536`` writes the delineated watershed without one
@@ -110,18 +111,60 @@ def mask_extent(path: str | Path) -> Extent:
 
     suffix = path.suffix.lower()
     if suffix in (".shp", ".gpkg", ".geojson"):
-        bounds, crs = _vector_bounds(path)
+        geometry, crs = _vector_geometry(path)
     elif suffix in (".tif", ".tiff"):
-        bounds, crs = _raster_bounds(path)
+        geometry, crs = _raster_geometry(path)
     else:
         raise ValueError(f"Unsupported mask format: {suffix}. Use SHP, GPKG, GeoJSON, or TIF.")
 
     if crs is None:
         raise DataRequestError(
-            f"Mask {path} declares no CRS, so the box it describes means nothing on its "
+            f"Mask {path} declares no CRS, so the shape it describes means nothing on its "
             "own. Write the file with a CRS, or name the extent explicitly."
         )
-    xmin, ymin, xmax, ymax = bounds
+    return geometry, str(crs)
+
+
+def mask_extent(path: str | Path) -> Extent:
+    """Return the bounding box of a mask file and the CRS it is in.
+
+    The box is the bounds of what :func:`mask_geometry` returns: for a vector,
+    the bounds of the union of its features, which is ``total_bounds``; for a
+    raster, the bounds of the valid-cell hull and **not** the raster footprint.
+    The two views share one door so that a mask cannot describe one shape to a
+    clip and another box to a request.
+    """
+    geometry, crs = mask_geometry(path)
+    xmin, ymin, xmax, ymax = (float(v) for v in geometry.bounds)
+    return Extent(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax, crs=crs)
+
+
+def mask_extent_in(path: str | Path, crs: str) -> Extent:
+    """The mask's box expressed in *crs*, measured on the reprojected shape.
+
+    Tighter than ``mask_extent(path).to_crs(crs)``, and not by a rounding
+    error: the bounds of a reprojected polygon are the image of its own
+    vertices, while the bounds of a reprojected box are the image of a
+    rectangle that merely contains it. Measured on a Nancon-sized basin from
+    EPSG:2154 to EPSG:4326, the box route is 680 m to 1 030 m wider on each
+    side. That width is not free -- the catalog serves a cached download only
+    when its entry is a superset of the request, so a box that grew by a
+    kilometre stops matching what is already on disk and asks the provider
+    again for data it has.
+
+    Use this whenever the shape is in hand. :meth:`Extent.to_crs` remains the
+    answer when a box is all there ever was, and it densifies its edges for
+    that reason.
+    """
+    geometry, mask_crs = mask_geometry(path)
+    if str(mask_crs) == str(crs):
+        xmin, ymin, xmax, ymax = (float(v) for v in geometry.bounds)
+        return Extent(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax, crs=str(crs))
+
+    import geopandas as gpd
+
+    bounds = gpd.GeoSeries([geometry], crs=mask_crs).to_crs(crs).total_bounds
+    xmin, ymin, xmax, ymax = (float(v) for v in bounds)
     return Extent(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax, crs=str(crs))
 
 
@@ -150,7 +193,8 @@ def resolve_source_extent(source_cfg, *, project_extent: tuple | None) -> Extent
     return None
 
 
-def _vector_bounds(path: Path):
+def _vector_geometry(path: Path):
+    """The union of the features, read once so the shape and the CRS agree."""
     try:
         import geopandas as gpd
     except ImportError as exc:  # pragma: no cover - geopandas is a hard dependency here
@@ -158,11 +202,14 @@ def _vector_bounds(path: Path):
     gdf = gpd.read_file(path)
     if gdf.empty:
         raise ValueError(f"Empty vector file: {path}")
-    return tuple(float(v) for v in gdf.total_bounds), gdf.crs
+    union = (
+        gdf.geometry.union_all() if hasattr(gdf.geometry, "union_all") else gdf.geometry.unary_union
+    )
+    return union, gdf.crs
 
 
-def _raster_bounds(path: Path):
-    """The valid cells' extent, not the raster's footprint.
+def _raster_geometry(path: Path):
+    """The valid cells' hull, not the raster's footprint.
 
     A catchment mask is ``1`` on the catchment and nodata everywhere else in a
     rectangle sized to the accumulation grid
@@ -181,4 +228,4 @@ def _raster_bounds(path: Path):
     geometry = _load_mask_from_raster(path)
     with rasterio.open(path) as src:
         crs = src.crs
-    return tuple(float(v) for v in geometry.bounds), crs
+    return geometry, crs

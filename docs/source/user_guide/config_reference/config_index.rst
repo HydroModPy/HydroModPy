@@ -787,7 +787,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-hydrography-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L98>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L103>`__
    * - ``data.hydrography.sources.source``
      - ``Literal['custom', 'osm', 'bdtopage', 'euhydro']``
      - user
@@ -842,6 +842,12 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `data <data.html#data-hydrography-sources-waterway-types>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L78>`__
+   * - ``data.hydrography.mask_path``
+     - ``Path | None``
+     - user
+     - -
+     - `data <data.html#data-hydrography-mask-path>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L108>`__
    * - ``data.hydrometry``
      - ``HydrometryConfig | None``
      - user
