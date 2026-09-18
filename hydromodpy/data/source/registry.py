@@ -245,11 +245,18 @@ def build_from_section(source_cls: type, section: object) -> object:
     """Build *source_cls* from a configuration section, by parameter name.
 
     One rule, and it is the whole reason the ``if/elif`` could go: **a source is
-    handed the section field its constructor names, and nothing else.** The
-    parameters are read off the signature, keyword-only ones only -- which is
-    how all six in-tree sources declare theirs -- so a section field a source
-    does not ask for never reaches it and a constructor taking ``**kwargs``
-    receives nothing at all.
+    handed the section field its constructor names, and nothing else.** Every
+    parameter a keyword can reach is bound -- keyword-only and
+    positional-or-keyword -- so a section field a source does not ask for never
+    arrives, and a constructor taking only ``**kwargs`` receives nothing at all
+    because a bag names no field.
+
+    Restricting this to keyword-only parameters was tried first and dropped:
+    all six in-tree sources declare theirs behind a ``*``, so the narrower rule
+    passed every gate while **silently dropping** the value of any third-party
+    source that wrote ``def __init__(self, waterway_types=...)``. A rule that
+    only works for the style this repository happens to use is not a plugin
+    surface.
 
     A source whose parameters the section does not carry is built with its own
     defaults, which is the answer for a third-party source: the flat sections of
@@ -261,12 +268,33 @@ def build_from_section(source_cls: type, section: object) -> object:
     ``tests/unit/data/test_hydrography_source_binding.py`` pins, per built-in
     source, which fields of ``[[data.hydrography.sources]]`` this binds -- the
     one place a silent mis-binding could hide.
+
+    Raises
+    ------
+    DataRequestError
+        When the constructor demands a positional-only argument. A section
+        fills a parameter by name, so such a source cannot be built from one,
+        and saying that is better than a ``TypeError`` about a missing
+        positional.
     """
+    bindable = (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
     parameters = inspect.signature(source_cls).parameters
+    unfillable = [
+        name
+        for name, parameter in parameters.items()
+        if parameter.kind is inspect.Parameter.POSITIONAL_ONLY
+        and parameter.default is inspect.Parameter.empty
+    ]
+    if unfillable:
+        raise DataRequestError(
+            f"Source {getattr(source_cls, 'source_id', source_cls)!r} takes "
+            f"{', '.join(unfillable)} positionally only, and a configuration section fills a "
+            "parameter by the name it carries. Declare them as keyword parameters."
+        )
     arguments = {
         name: getattr(section, name)
         for name, parameter in parameters.items()
-        if parameter.kind is inspect.Parameter.KEYWORD_ONLY and hasattr(section, name)
+        if parameter.kind in bindable and hasattr(section, name)
     }
     return source_cls(**arguments)
 

@@ -51,15 +51,13 @@ decided after a fetch, never inside one.
 """
 
 
-def _keyword_parameters(source_id: str) -> tuple[str, ...]:
+def _bindable_parameters(source_id: str) -> tuple[str, ...]:
+    """Every parameter of a source a keyword can reach, which is what binds."""
     import inspect
 
+    bindable = (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
     parameters = inspect.signature(registry.get(source_id)).parameters
-    return tuple(
-        name
-        for name, parameter in parameters.items()
-        if parameter.kind is inspect.Parameter.KEYWORD_ONLY
-    )
+    return tuple(name for name, parameter in parameters.items() if parameter.kind in bindable)
 
 
 def test_the_table_covers_every_source_this_build_ships() -> None:
@@ -69,13 +67,13 @@ def test_the_table_covers_every_source_this_build_ships() -> None:
 @pytest.mark.parametrize("source_id", sorted(BOUND_FIELDS))
 def test_the_bound_fields_are_exactly_the_shared_names(source_id: str) -> None:
     section_fields = set(HydrographySourceConfig.model_fields)
-    shared = tuple(name for name in _keyword_parameters(source_id) if name in section_fields)
+    shared = tuple(name for name in _bindable_parameters(source_id) if name in section_fields)
     assert shared == BOUND_FIELDS[source_id]
 
 
 def test_no_source_takes_a_field_the_manager_owns() -> None:
     for source_id in registry.builtin_source_ids():
-        taken = set(_keyword_parameters(source_id)) & set(SECTION_ONLY_FIELDS)
+        taken = set(_bindable_parameters(source_id)) & set(SECTION_ONLY_FIELDS)
         assert not taken, f"{source_id} would be handed {sorted(taken)}"
 
 
@@ -123,6 +121,43 @@ def test_a_source_the_section_says_nothing_about_gets_its_own_defaults() -> None
 
     assert source.group_name == DEFAULT_GROUP_NAME
     assert source.euhydro_page_size == DEFAULT_PAGE_SIZE
+
+
+def test_a_positional_or_keyword_parameter_is_bound_too() -> None:
+    """The style a third-party source is most likely to write, and it must work.
+
+    Binding keyword-only parameters alone passed every gate of this file,
+    because all six in-tree sources declare theirs behind a ``*``. It silently
+    dropped the value for anyone who did not.
+    """
+
+    class PlainSource:
+        source_id = "acme-plain"
+
+        def __init__(self, waterway_types=("river",)):
+            self.waterway_types = waterway_types
+
+    built = registry.build_from_section(
+        PlainSource,
+        HydrographySourceConfig(source="osm", waterway_types=["canal"]),
+    )
+    assert built.waterway_types == ["canal"]
+
+
+def test_a_positional_only_constructor_is_refused_by_name() -> None:
+    """A section fills a parameter by name, so it cannot fill this one."""
+
+    class PositionalSource:
+        source_id = "acme-positional"
+
+        def __init__(self, waterway_types, /):
+            self.waterway_types = waterway_types
+
+    with pytest.raises(DataRequestError, match="waterway_types"):
+        registry.build_from_section(
+            PositionalSource,
+            HydrographySourceConfig(source="osm", waterway_types=["canal"]),
+        )
 
 
 def test_a_constructor_taking_only_a_bag_receives_nothing() -> None:
