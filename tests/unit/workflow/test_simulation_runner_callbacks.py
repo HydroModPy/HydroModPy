@@ -35,7 +35,12 @@ def test_after_process_runs_when_process_run_fails(monkeypatch) -> None:
             ),
         ),
     )
-    state = SimpleNamespace(execution=SimpleNamespace(models_by_run_id={}))
+    state = SimpleNamespace(
+        cfg=None,
+        setup=SimpleNamespace(),
+        execution=SimpleNamespace(models_by_run_id={}),
+        sim_id=None,
+    )
     runner = SimulationRunner(
         callbacks=ProcessCallbacks(
             before_process=lambda name: events.append(f"before:{name}"),

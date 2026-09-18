@@ -24,23 +24,20 @@ from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons, vector_c
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.observations.network_source import ObservedNetwork
+    from hydromodpy.simulation.planning.plan import RunContext
 
 logger = get_logger(__name__)
 
 
-def _declared_crs(run_ctx: Any) -> str | None:
+def _declared_crs(run_ctx: RunContext) -> str | None:
     """Return the projected CRS the run declares, if it declares one."""
-    setup = getattr(getattr(run_ctx, "state", None), "setup", None)
-    for holder in (setup, getattr(run_ctx, "setup", None)):
-        geographic = getattr(holder, "geographic", None)
-        crs = getattr(geographic, "crs_project", None) or getattr(geographic, "crs_proj", None)
-        if crs:
-            return str(crs)
-    return None
+    geographic = getattr(run_ctx.state.setup, "geographic", None)
+    crs = getattr(geographic, "crs_project", None) or getattr(geographic, "crs_proj", None)
+    return str(crs) if crs else None
 
 
 def observed_network_mask(
-    run_ctx: Any,
+    run_ctx: RunContext,
     observed: ObservedNetwork,
     planar_mesh: Any,
     face_node_connectivity: np.ndarray,
@@ -125,7 +122,7 @@ def water_body_mask(model: Any, *, n_cells: int) -> np.ndarray | None:
 
 
 def delineated_catchment_mask(
-    run_ctx: Any,
+    run_ctx: RunContext,
     planar_mesh: Any,
     face_node_connectivity: np.ndarray,
 ) -> np.ndarray | None:
@@ -142,9 +139,7 @@ def delineated_catchment_mask(
     """
     import geopandas as gpd
 
-    setup = getattr(getattr(run_ctx, "state", None), "setup", None) or getattr(
-        run_ctx, "setup", None
-    )
+    setup = run_ctx.state.setup
     # ``setup.geographic`` is the delineation object, the same handle
     # spatial.geographic.structure_binders reads the catchment from.
     shp = getattr(getattr(setup, "geographic", None), "watershed_shp", None)

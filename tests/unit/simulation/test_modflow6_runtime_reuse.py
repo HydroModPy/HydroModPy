@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+from hydromodpy.core.state.run_state import RunState
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
@@ -22,7 +23,7 @@ def _build_flow_run_context(*, flow_runtime_overrides: dict[str, object] | None)
             ),
         ),
     )
-    state = SimpleNamespace(
+    state = RunState(
         cfg=SimpleNamespace(
             modflow6=SimpleNamespace(),
             postprocess=SimpleNamespace(

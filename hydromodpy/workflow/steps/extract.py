@@ -122,6 +122,7 @@ class ExtractStep:
                 extraction_summary={"runs": 0},
             )
 
+        from hydromodpy.core.state.run_state import RunState
         from hydromodpy.simulation.extraction.post_run import extract_run_outputs
         from hydromodpy.simulation.planning.plan import RunContext
         from hydromodpy.workflow.steps.planning import step_configure_results
@@ -148,7 +149,7 @@ class ExtractStep:
                 if not run.is_solver_backed:
                     continue
                 extract_run_outputs(
-                    ctx=RunContext(plan=plan, run=run, state=ctx, store=store),
+                    ctx=RunContext(plan=plan, run=run, state=RunState.of(ctx), store=store),
                     sim_id=ctx.sim_id,
                     results_config=results_cfg,
                     store=store,

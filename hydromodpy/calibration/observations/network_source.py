@@ -18,10 +18,13 @@ module only reads the handle it left there.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
+
+if TYPE_CHECKING:
+    from hydromodpy.simulation.planning.plan import RunContext
 
 logger = get_logger(__name__)
 
@@ -106,10 +109,9 @@ _MISSING_RIVER_NETWORK = (
 )
 
 
-def _hydrographic_network(run_ctx: Any, role: str) -> Any:
+def _hydrographic_network(run_ctx: RunContext, role: str) -> Any:
     """Return the named `HydrographicNetwork` the geographic pipeline attached, or None."""
-    setup = getattr(getattr(run_ctx, "state", None), "setup", None)
-    features = getattr(setup, "geographic_features", None)
+    features = getattr(run_ctx.state.setup, "geographic_features", None)
     networks = getattr(features, "hydrographic_networks", None)
     return getattr(networks, role, None)
 
@@ -142,7 +144,7 @@ def _network_lines(network: Any, *, source: str, empty_reason: str) -> Any:
     return _checked_lines(raw, source=source, empty_reason=empty_reason)
 
 
-def _from_data_layer(run_ctx: Any) -> ObservedNetwork:
+def _from_data_layer(run_ctx: RunContext) -> ObservedNetwork:
     network = _hydrographic_network(run_ctx, "reference")
     if network is None:
         raise UnresolvedObservedNetwork(_MISSING_DATA_HYDROGRAPHY)
@@ -162,7 +164,7 @@ def _from_data_layer(run_ctx: Any) -> ObservedNetwork:
     )
 
 
-def _from_dem(run_ctx: Any) -> ObservedNetwork:
+def _from_dem(run_ctx: RunContext) -> ObservedNetwork:
     network = _hydrographic_network(run_ctx, "generated")
     if network is None:
         raise UnresolvedObservedNetwork(_MISSING_RIVER_NETWORK)
@@ -206,7 +208,7 @@ def _from_path(output: Any) -> ObservedNetwork:
     )
 
 
-def resolve_observed_network(run_ctx: Any, output: Any) -> ObservedNetwork:
+def resolve_observed_network(run_ctx: RunContext, output: Any) -> ObservedNetwork:
     """Return the network geometry ``output`` names, or refuse by naming why.
 
     ``output.observed_network`` and ``output.stream_geometry_path`` are

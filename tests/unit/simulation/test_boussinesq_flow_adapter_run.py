@@ -7,6 +7,7 @@ import numpy as np
 import xarray as xr
 from shapely.geometry import LineString
 
+from hydromodpy.core.state.run_state import RunState
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.physics.flow import Flow
@@ -119,7 +120,7 @@ def test_boussinesq_flow_adapter_supports_runtime_mesh_with_heterogeneous_rechar
         fields=[_make_static_recharge_field_record()]
     )
     flow.sinks_sources["recharge"].interpolation_method = "nearest"
-    state = SimpleNamespace(
+    state = RunState(
         setup=SimpleNamespace(
             mesh_planar=planar_mesh,
             mesh_bundle=None,
@@ -205,7 +206,7 @@ def test_boussinesq_flow_adapter_uses_geographic_features_for_stream_runtime_mes
         )
     )
     river_trace = SimpleNamespace(lines=[LineString([(0.0, 0.0), (1.0, 1.0)])])
-    state = SimpleNamespace(
+    state = RunState(
         setup=SimpleNamespace(
             mesh_planar=planar_mesh,
             mesh_bundle=None,
@@ -245,7 +246,7 @@ def test_boussinesq_flow_adapter_uses_geographic_features_for_stream_runtime_mes
 
 def test_boussinesq_flow_adapter_runs_transient_and_writes_outputs(tmp_path: Path) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_transient")
-    state = SimpleNamespace(
+    state = RunState(
         setup=SimpleNamespace(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
@@ -283,7 +284,7 @@ def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(
     tmp_path: Path,
 ) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_supported_inputs")
-    state = SimpleNamespace(
+    state = RunState(
         setup=SimpleNamespace(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
@@ -332,7 +333,7 @@ def test_boussinesq_flow_adapter_supports_absolute_xy_well(
     tmp_path: Path,
 ) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_well")
-    state = SimpleNamespace(
+    state = RunState(
         setup=SimpleNamespace(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
@@ -387,7 +388,7 @@ def test_boussinesq_flow_adapter_supports_stream_on_river_edges(
     tmp_path: Path,
 ) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_stream", river_internal_edge=True)
-    state = SimpleNamespace(
+    state = RunState(
         setup=SimpleNamespace(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
@@ -432,7 +433,7 @@ def test_boussinesq_flow_adapter_supports_ocean_on_coastal_edges(
     tmp_path: Path,
 ) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_ocean")
-    state = SimpleNamespace(
+    state = RunState(
         setup=SimpleNamespace(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},

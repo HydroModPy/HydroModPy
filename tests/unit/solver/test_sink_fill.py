@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.core.state.run_state import RunState
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     build_drain_stress_period_data,
@@ -107,13 +108,13 @@ def _nwt_conductance_by_cell(spd: dict[int, np.ndarray]) -> dict[int, float]:
 def test_default_is_off_so_no_existing_run_changes() -> None:
     assert ModflowPreprocessOptions().sink_fill is False
     assert SolverConfig().sink_fill is False
-    state = SimpleNamespace(setup=SimpleNamespace(), cfg=SimpleNamespace(solver=SolverConfig()))
+    state = RunState(setup=SimpleNamespace(), cfg=SimpleNamespace(solver=SolverConfig()))
     assert build_preprocess_options(state).sink_fill is False
 
 
 def test_toml_switch_reaches_the_preprocess_options() -> None:
     cfg = SolverConfig.model_validate({"sink_fill": True})
-    state = SimpleNamespace(setup=SimpleNamespace(), cfg=SimpleNamespace(solver=cfg))
+    state = RunState(setup=SimpleNamespace(), cfg=SimpleNamespace(solver=cfg))
     assert build_preprocess_options(state).sink_fill is True
 
 

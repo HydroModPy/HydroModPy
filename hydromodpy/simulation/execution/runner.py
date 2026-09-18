@@ -33,6 +33,7 @@ from typing import Any
 
 from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.run_state import RunState
 from hydromodpy.physics.flow import Flow
 from hydromodpy.physics.transport import Transport
 from hydromodpy.simulation.planning.plan import (
@@ -247,7 +248,7 @@ class SimulationRunner:
             RunContext(
                 plan=plan,
                 run=run,
-                state=state,
+                state=RunState.of(state),
                 dependency_models=dependency_models,
                 store=store,
             )

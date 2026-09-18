@@ -24,6 +24,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.state.run_state import RunState
+
 
 @dataclass(frozen=True)
 class ProcessRun:
@@ -114,6 +116,10 @@ class RunContext:
     the run order and the runner has already resolved the concrete upstream
     models referenced by ``run.depends_on``.
 
+    ``state`` is the reduced view of the workflow runtime an adapter may read
+    (:class:`hydromodpy.core.state.run_state.RunState`), never the workflow
+    context itself.
+
     ``store`` is the catalog handle of the enclosing run, or ``None`` when the
     run writes no index (a calibration trial). It is a borrowed handle whose
     owner closes it: an adapter reads or writes through it during its own
@@ -122,9 +128,16 @@ class RunContext:
 
     plan: SimulationPlan
     run: ProcessRun
-    state: Any
+    state: RunState
     dependency_models: tuple[Any, ...] = ()
     store: Any = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.state, RunState):
+            raise TypeError(
+                "RunContext.state must be a RunState view of the workflow runtime, "
+                f"got {type(self.state).__name__}."
+            )
 
 
 @dataclass(frozen=True)

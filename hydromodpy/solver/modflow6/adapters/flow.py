@@ -15,6 +15,7 @@ import pandas as pd
 
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import ObservableNotAvailableError
+from hydromodpy.core.state.run_state import RunState
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.observable_support import (
@@ -181,16 +182,7 @@ class Modflow6FlowAdapter:
         return served
 
     @staticmethod
-    def _solver_runtime_cache(state) -> dict[tuple[str, str, str], Modflow6]:
-        cache = getattr(state.setup, "_flow_solver_runtime_cache", None)
-        if isinstance(cache, dict):
-            return cache
-        cache = {}
-        state.setup._flow_solver_runtime_cache = cache
-        return cache
-
-    @staticmethod
-    def _reuse_solver_model_enabled(state) -> bool:
+    def _reuse_solver_model_enabled(state: RunState) -> bool:
         overrides = getattr(state.setup, "flow_runtime_overrides", None)
         return bool(isinstance(overrides, Mapping) and overrides.get("reuse_solver_model", False))
 
@@ -217,32 +209,16 @@ class Modflow6FlowAdapter:
             )
         preprocess_options = build_preprocess_options(state)
         model_name = resolve_run_model_name(ctx)
-        model_modflow = None
-        if self._reuse_solver_model_enabled(state):
-            cache = self._solver_runtime_cache(state)
-            cache_key = (self.solver_name, str(ctx.run.id), str(model_name))
-            model_modflow = cache.get(cache_key)
-            if model_modflow is None:
-                model_modflow = Modflow6(
-                    state.setup.geographic,
-                    model_folder=state.setup.workspace.simulations_folder,
-                    model_name=model_name,
-                    bin_path=state.setup.workspace.bin_path,
-                    modflow_config=state.cfg.modflow6,
-                    preprocess_options=preprocess_options,
-                )
-                cache[cache_key] = model_modflow
         # This is the only MODFLOW 6-specific part of the adapter: wiring the
         # MF6 config block into the concrete solver implementation.
-        if model_modflow is None:
-            model_modflow = Modflow6(
-                state.setup.geographic,
-                model_folder=state.setup.workspace.solver_scratch_folder,
-                model_name=model_name,
-                bin_path=state.setup.workspace.bin_path,
-                modflow_config=state.cfg.modflow6,
-                preprocess_options=preprocess_options,
-            )
+        model_modflow = Modflow6(
+            state.setup.geographic,
+            model_folder=state.setup.workspace.solver_scratch_folder,
+            model_name=model_name,
+            bin_path=state.setup.workspace.bin_path,
+            modflow_config=state.cfg.modflow6,
+            preprocess_options=preprocess_options,
+        )
         return run_flow_model(ctx, model_modflow, preprocess_options)
 
 

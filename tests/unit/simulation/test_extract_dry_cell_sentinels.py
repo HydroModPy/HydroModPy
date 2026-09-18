@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+from hydromodpy.core.state.run_state import RunState
 from hydromodpy.simulation.extraction.post_run import extract_run_outputs
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.simulation.planning.results_config import ResultsConfig
@@ -44,7 +45,7 @@ def _context(tmp_path: Path, modflownwt: ModflowConfig) -> RunContext:
         solver="modflow_nwt",
     )
     plan = SimulationPlan(name="demo", description="demo", runs=(run,))
-    state = SimpleNamespace(
+    state = RunState(
         cfg=SimpleNamespace(modflownwt=modflownwt),
         setup=SimpleNamespace(time_grid=None),
         execution=SimpleNamespace(

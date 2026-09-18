@@ -19,6 +19,7 @@ from hydromodpy.core.stream_geometry import NetworkGeometry, build_network_geome
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibOutputNetwork
     from hydromodpy.calibration.observations.network_source import ObservedNetwork
+    from hydromodpy.simulation.planning.plan import RunContext
 
 logger = get_logger(__name__)
 
@@ -68,7 +69,7 @@ def dense_face_connectivity(planar_mesh: Any) -> np.ndarray:
 
 
 def geometry_from_run(
-    run_ctx: Any, output: CalibOutputNetwork
+    run_ctx: RunContext, output: CalibOutputNetwork
 ) -> tuple[NetworkGeometry, ObservedNetwork]:
     """Build the static geometry from the model a trial just ran.
 

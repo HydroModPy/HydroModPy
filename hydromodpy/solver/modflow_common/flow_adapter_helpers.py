@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Literal
 
 from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
+from hydromodpy.core.state.run_state import RunState
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
@@ -189,7 +190,7 @@ def nwt_safe_name(name: str) -> str:
     return re.sub(r"\s+", "_", str(name).strip())
 
 
-def build_preprocess_options(state) -> ModflowPreprocessOptions:
+def build_preprocess_options(state: RunState) -> ModflowPreprocessOptions:
     """Build the flow pre-processing options from the runtime setup.
 
     Both supported flow backends consume the same preprocessing contract, so

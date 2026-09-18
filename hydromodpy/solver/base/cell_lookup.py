@@ -8,12 +8,12 @@ seed triangulation held elsewhere is not it.
 
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
 
+from hydromodpy.simulation.planning.plan import RunContext
 
-def locate_cell_on_solver_mesh(ctx: Any, x: float, y: float) -> tuple[int, int, int] | None:
+
+def locate_cell_on_solver_mesh(ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
     """Return the nearest cell selector on ``ctx``'s solver mesh, or ``None``.
 
     ``(0, row, col)`` on a structured mesh, ``(0, 0, cell_id)`` on an

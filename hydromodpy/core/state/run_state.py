@@ -14,6 +14,10 @@ Canonical access is explicit:
 - ``state.setup.<...>`` for structural runtime context,
 - ``state.loaded_data.<...>`` for loaded datasets,
 - ``state.execution.<...>`` for run outputs and execution registries.
+
+:class:`RunState` is the reduced view of that context a solver adapter is
+handed. The workflow context is the state of a whole pipeline; an adapter
+executes one run inside it and must not be able to reach the rest.
 """
 
 from __future__ import annotations
@@ -92,3 +96,41 @@ class WorkflowContext:
         if run is None:
             return None
         return self.execution.models_by_run_id.get(run.id)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RunState:
+    """What a solver adapter reads of the workflow runtime, and nothing else.
+
+    A :class:`WorkflowContext` is the state of a whole pipeline: the loaded
+    support data, the raw TOML, the data plan, the post-processing runner, the
+    flags the planner forced. An adapter executes one run and reads three
+    scopes of it. Handing it the context made everything else reachable, and
+    the field that carried it was typed ``Any``, so nothing said what an
+    adapter was allowed to read. This view says it: the four members below are
+    the whole surface, and reaching for anything else raises ``AttributeError``.
+
+    ``setup`` and ``execution`` are the context's own scopes, shared by
+    reference and mutable: the runner records a produced model in
+    ``execution`` while adapters hold this view. The view owns neither, and it
+    carries no live handle - the catalog of the enclosing run reaches an
+    adapter through ``RunContext.store``.
+
+    ``cfg`` is typed ``Any`` because ``core`` cannot import from sibling
+    layers; the concrete type is ``config.hydromodpy_config.HydroModPyConfig``.
+    """
+
+    setup: SetupContext = field(default_factory=SetupContext)
+    cfg: Any = None
+    execution: ExecutionRegistry = field(default_factory=ExecutionRegistry)
+    sim_id: str | None = None
+
+    @classmethod
+    def of(cls, ctx: WorkflowContext) -> RunState:
+        """Return the view of ``ctx`` a solver adapter is allowed to read."""
+        return cls(
+            setup=ctx.setup,
+            cfg=ctx.cfg,
+            execution=ctx.execution,
+            sim_id=ctx.sim_id,
+        )

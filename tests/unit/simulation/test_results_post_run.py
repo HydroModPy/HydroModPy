@@ -11,6 +11,7 @@ import pytest
 
 import hydromodpy.simulation.extraction.post_run as post_run_module
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
+from hydromodpy.core.state.run_state import RunState
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.simulation.extraction.post_run import post_run_results
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
@@ -48,7 +49,7 @@ def _build_run_context(
     output_dirs: dict[str, Path] = {}
     if solver_output_dir is not None:
         output_dirs[run.id] = solver_output_dir
-    state = SimpleNamespace(
+    state = RunState(
         cfg=SimpleNamespace(modflownwt=ModflowConfig(), solver=SolverConfig()),
         execution=SimpleNamespace(output_dirs_by_run_id=output_dirs),
     )

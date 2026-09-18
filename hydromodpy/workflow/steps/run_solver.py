@@ -89,6 +89,7 @@ class RunSolverStep:
         )
 
     def run(self, state: PipelineState) -> PipelineState:
+        from hydromodpy.core.state.run_state import RunState
         from hydromodpy.simulation.execution.runner import (
             ProcessCallbacks,
             SimulationRunner,
@@ -122,7 +123,7 @@ class RunSolverStep:
                 )
                 for run, result in executed_results:
                     record_run_execution_metrics(
-                        ctx=RunContext(plan=plan, run=run, state=ctx, store=store),
+                        ctx=RunContext(plan=plan, run=run, state=RunState.of(ctx), store=store),
                         sim_id=ctx.sim_id,
                         store=store,
                         result=result,
