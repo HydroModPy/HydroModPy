@@ -211,10 +211,17 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
 
     The phase carries its own search (method, budget, parameters) and selects
     by name from what the calibration declares. An empty selection of outputs
-    or of objective blocks means every declared one. A phase declaring its own
-    ``variable`` or ``objective`` takes the single-metric route instead, and
-    inherits neither. ``phases`` is cleared so the sub-run is an ordinary
-    calibration.
+    means the ones its blocks read, and an empty selection of blocks means every
+    declared one. A phase declaring its own ``variable`` or ``objective`` takes
+    the single-metric route instead, and inherits neither. ``phases`` is cleared
+    so the sub-run is an ordinary calibration.
+
+    A phase used to inherit every declared output whatever it scored. A
+    two-stage file naming a network output for its steady stage and a discharge
+    output for its transient one therefore handed each stage the output of the
+    other, to be extracted from every trial and to weigh nothing. It was not
+    only waste: a stage whose criteria cannot read an inherited output is
+    refused, so that file did not run at all.
     """
     payload = cfg.model_dump()
     payload["method"] = decl.method
@@ -239,13 +246,18 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
         payload["outputs"] = {}
         payload["objective_blocks"] = []
     else:
-        if decl.outputs:
-            payload["outputs"] = {name: payload["outputs"][name] for name in decl.outputs}
         if decl.objective_blocks:
             selected = set(decl.objective_blocks)
             payload["objective_blocks"] = [
                 block for block in payload["objective_blocks"] if block["name"] in selected
             ]
+        if decl.outputs:
+            payload["outputs"] = {name: payload["outputs"][name] for name in decl.outputs}
+        elif decl.objective_blocks:
+            read = {name for block in payload["objective_blocks"] for name in block["uses_outputs"]}
+            payload["outputs"] = {
+                name: value for name, value in payload["outputs"].items() if name in read
+            }
     payload["phases"] = None
     # The protocol wrote these phases; a single phase of it is an ordinary
     # calibration and would otherwise be refused for carrying a method whose
