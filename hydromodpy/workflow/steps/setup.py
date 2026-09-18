@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
@@ -16,6 +17,7 @@ from hydromodpy.simulation import ensure_flow, ensure_transport
 from hydromodpy.spatial.domain import Domain
 from hydromodpy.spatial.domain.spatial_support import SupportBuildContext
 from hydromodpy.spatial.domain.zone_arming import arm_runtime_zone_ids
+from hydromodpy.spatial.geographic.artifacts import geographic_artifact_paths
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from hydromodpy.spatial.geographic.core.derived_features import (
     coerce_geographic_derived_features,
@@ -41,7 +43,12 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def build_geographic_runtime(cfg: object, workspace: object) -> object:
+def build_geographic_runtime(
+    cfg: object,
+    workspace: object,
+    *,
+    reuse_existing_outputs: bool | None = None,
+) -> object:
     """Build the geographic runtime selected by the validated TOML config."""
     geographic_cfg = cfg.geographic
     uses_synthetic = getattr(geographic_cfg, "uses_synthetic_geographic", None)
@@ -51,7 +58,11 @@ def build_geographic_runtime(cfg: object, workspace: object) -> object:
             output_dir=Path(workspace.project_root) / PREPROCESSING_DIR / "geographic",
             workspace=workspace,
         )
-    return CatchmentDelineation(geographic_cfg, workspace)
+    return CatchmentDelineation(
+        geographic_cfg,
+        workspace,
+        reuse_existing_outputs=reuse_existing_outputs,
+    )
 
 
 def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
@@ -467,6 +478,7 @@ def step_setup(
     *,
     requested_spatial_support_ids: tuple[str, ...] = (),
     requested_domain_supports: dict[str, object] | None = None,
+    reuse_existing_outputs: bool | None = None,
 ) -> None:
     """Populate ``ctx.setup`` with workspace, geographic, domain, flow, transport."""
     run_setup(
@@ -474,6 +486,10 @@ def step_setup(
         ctx,
         requested_spatial_support_ids=requested_spatial_support_ids,
         requested_domain_supports=requested_domain_supports,
+        build_geographic_fn=partial(
+            build_geographic_runtime,
+            reuse_existing_outputs=reuse_existing_outputs,
+        ),
     )
 
 
@@ -536,6 +552,41 @@ class BuildGeographicStep:
         return ("resolve",)
 
     def run(self, state: PipelineState) -> PipelineState:
+        return self._build(state, reuse_existing_outputs=None)
+
+    def artifacts(self, state_out: PipelineState) -> tuple[str, ...]:
+        """Return the geographic tree this step wrote, as the runtime names it."""
+        ctx = state_out.get("ctx")
+        if ctx is None:
+            return ()
+        return tuple(
+            str(path) for path in geographic_artifact_paths(getattr(ctx.setup, "geographic", None))
+        )
+
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace: Path,
+        run_id: str,
+    ) -> PipelineState:
+        """Rebuild the geographic runtime by reading the tree it left on disk.
+
+        The read is forced whatever ``[geographic] reuse_existing_outputs``
+        says: that flag decides what a fresh run does with a tree another run
+        left, and a resume re-delineating its own products is a defect. A tree
+        that is incomplete, or whose description does not match the config,
+        still falls back to a full build - which is what the step would have
+        done anyway - and says so.
+        """
+        return self._build(prior_state, reuse_existing_outputs=True)
+
+    def _build(
+        self,
+        state: PipelineState,
+        *,
+        reuse_existing_outputs: bool | None,
+    ) -> PipelineState:
         ctx = state.get("ctx")
         if ctx is None:
             raise ConfigError("BuildGeographicStep requires 'ctx' in state.data")
@@ -548,6 +599,7 @@ class BuildGeographicStep:
             ctx,
             requested_spatial_support_ids=requested_support_ids,
             requested_domain_supports=requested_supports,
+            reuse_existing_outputs=reuse_existing_outputs,
         )
         step_spatial_supports(
             ctx,
@@ -561,16 +613,6 @@ class BuildGeographicStep:
             step_name=self.name,
             ctx=ctx,
         )
-
-    def rebuild_state(
-        self,
-        *,
-        prior_state: PipelineState,
-        workspace: Path,
-        run_id: str,
-    ) -> PipelineState:
-        """Re-run setup: idempotent given the cached DEM / watershed."""
-        return self.run(prior_state)
 
     def is_prebuilt(self, state: PipelineState) -> bool:
         """True when the in-memory ctx already carries the setup products."""

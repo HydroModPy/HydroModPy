@@ -37,9 +37,10 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
             self.solver_scratch_folder = scratch_dir_for(self.project_root)
 
     class _DummyRunGeographic:
-        def __init__(self, config, workspace) -> None:
+        def __init__(self, config, workspace, *, reuse_existing_outputs=None) -> None:
             self.config = config
             self.workspace = workspace
+            self.reuse_existing_outputs = reuse_existing_outputs
 
         def get_domain_geographic_context(self):
             return SimpleNamespace(surface_topo=object())
@@ -164,9 +165,10 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
             self.solver_scratch_folder = scratch_dir_for(self.project_root)
 
     class _DummyRunGeographic:
-        def __init__(self, config, workspace) -> None:
+        def __init__(self, config, workspace, *, reuse_existing_outputs=None) -> None:
             self.config = config
             self.workspace = workspace
+            self.reuse_existing_outputs = reuse_existing_outputs
 
         def get_domain_geographic_context(self):
             return SimpleNamespace(surface_topo=object())

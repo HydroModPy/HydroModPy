@@ -27,9 +27,10 @@ class _DummyWorkspace:
 
 
 class _DummyGeographic:
-    def __init__(self, config, workspace) -> None:
+    def __init__(self, config, workspace, *, reuse_existing_outputs=None) -> None:
         self.config = config
         self.workspace = workspace
+        self.reuse_existing_outputs = reuse_existing_outputs
 
     def get_domain_surface_topo(self):
         return SimpleNamespace(support=object())

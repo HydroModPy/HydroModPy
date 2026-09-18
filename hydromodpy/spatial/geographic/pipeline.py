@@ -18,6 +18,7 @@ from rasterio.errors import RasterioIOError
 from hydromodpy.core import progress
 from hydromodpy.core.exceptions import TerrainProductError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.geographic.artifacts import DESCRIPTION_FILENAME
 from hydromodpy.spatial.geographic.core.catchment_domain import CatchmentDomainProducts
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.spatial.geographic.core.direct_dem_domain import build_direct_dem_domain
@@ -67,7 +68,10 @@ from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
 
 logger = get_logger(__name__)
 
-_GEOGRAPHIC_CACHE_SCHEMA_VERSION = "hydromodpy_geographic_cache_v1"
+# v2 carries the outlet the delineation actually ran from, which v1 lost: a
+# context rebuilt from a v1 description reported the declared outlet as if
+# nothing had been snapped.
+_GEOGRAPHIC_CACHE_SCHEMA_VERSION = "hydromodpy_geographic_cache_v2"
 
 # Relative catchment-area change above which the stream-capture re-delineation is
 # reported as a moved divide rather than a connected channel.
@@ -83,6 +87,9 @@ class _CachedGeographicProducts:
     raster_products: DomainRasterProducts
     river_network_products: RiverNetworkProducts
     catchment_area_km2: float
+    x_outlet_snapped: float | None = None
+    y_outlet_snapped: float | None = None
+    outlet_snap_distance_m: float | None = None
 
 
 @dataclass(frozen=True)
@@ -144,7 +151,7 @@ class GeographicRuntimeContext:
 
 def _geographic_cache_manifest_path(paths: GeographicPaths) -> Path:
     """Return the cache manifest path for one geographic workspace."""
-    return Path(paths.geographic_path) / "_geographic_cache_manifest.json"
+    return Path(paths.geographic_path) / DESCRIPTION_FILENAME
 
 
 def _path_signature(path: str | Path | None) -> dict[str, object] | None:
@@ -352,9 +359,21 @@ def _load_cached_geographic_products(
     config: GeographicConfig,
     paths: GeographicPaths,
     crs_project: str | None,
+    reuse_existing_outputs: bool | None = None,
 ) -> _CachedGeographicProducts | None:
-    """Return cached products when enabled, fingerprinted, and complete."""
-    if not bool(config.reuse_existing_outputs):
+    """Return cached products when enabled, fingerprinted, and complete.
+
+    ``reuse_existing_outputs`` overrides the config flag when it is not None.
+    A pipeline rebuilding a step it already completed passes True: that flag is
+    a preference about what a *fresh* run does with a tree another run left,
+    and a resume re-delineating its own products is a defect, not a preference.
+    """
+    reuse = (
+        bool(config.reuse_existing_outputs)
+        if reuse_existing_outputs is None
+        else bool(reuse_existing_outputs)
+    )
+    if not reuse:
         return None
     manifest_path = _geographic_cache_manifest_path(paths)
     if not manifest_path.exists():
@@ -425,7 +444,15 @@ def _load_cached_geographic_products(
         raster_products=raster_products,
         river_network_products=river_network_products,
         catchment_area_km2=catchment_area_km2,
+        x_outlet_snapped=_optional_float(manifest.get("x_outlet_snapped")),
+        y_outlet_snapped=_optional_float(manifest.get("y_outlet_snapped")),
+        outlet_snap_distance_m=_optional_float(manifest.get("outlet_snap_distance_m")),
     )
+
+
+def _optional_float(value: object) -> float | None:
+    """Return ``value`` as a float, or None when the description omits it."""
+    return None if value is None else float(str(value))
 
 
 def _write_geographic_cache_manifest(
@@ -434,15 +461,24 @@ def _write_geographic_cache_manifest(
     paths: GeographicPaths,
     domain_products: CatchmentDomainProducts,
     catchment_area_km2: float,
+    catchment_products: object | None,
 ) -> None:
-    """Persist one cache manifest after a successful geographic build."""
-    if not bool(config.reuse_existing_outputs):
-        return
+    """Describe the geographic tree just written, next to the tree itself.
+
+    Written whatever ``reuse_existing_outputs`` says. That flag decides whether
+    a fresh run reuses a tree some other run left; it says nothing about
+    whether the products describe themselves. A tree without this document is
+    a tree no later process - a resume, a reader, another run - can tell apart
+    from the leftovers of an interrupted build.
+    """
     manifest = {
         "schema": _GEOGRAPHIC_CACHE_SCHEMA_VERSION,
         "fingerprint": _geographic_cache_fingerprint(config),
         "catchment_area_km2": float(catchment_area_km2),
         "buffer_distance_m": float(domain_products.buffer_distance_m),
+        "x_outlet_snapped": getattr(catchment_products, "x_outlet_snapped", None),
+        "y_outlet_snapped": getattr(catchment_products, "y_outlet_snapped", None),
+        "outlet_snap_distance_m": getattr(catchment_products, "snap_distance_m", None),
     }
     manifest_path = _geographic_cache_manifest_path(paths)
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -458,6 +494,7 @@ def build_geographic_runtime_context(
     out_dir_path: str | Path,
     backend: object | None = None,
     locator_factory: object = Nominatim,
+    reuse_existing_outputs: bool | None = None,
 ) -> GeographicRuntimeContext:
     """Build the full geographic runtime context from config and workspace.
 
@@ -482,6 +519,7 @@ def build_geographic_runtime_context(
         config=config,
         paths=setup.paths,
         crs_project=setup.crs_project,
+        reuse_existing_outputs=reuse_existing_outputs,
     )
 
     if cached_products is not None:
@@ -667,6 +705,7 @@ def build_geographic_runtime_context(
             paths=setup.paths,
             domain_products=domain_products,
             catchment_area_km2=catchment_area_km2,
+            catchment_products=catchment_products,
         )
 
     dem_metadata = read_dem_metadata(
@@ -690,7 +729,19 @@ def build_geographic_runtime_context(
         dem_res=setup.dem_res,
         x_outlet=(float(config.x_outlet) if config.x_outlet is not None else None),
         y_outlet=(float(config.y_outlet) if config.y_outlet is not None else None),
-        x_outlet_snapped=getattr(catchment_products, "x_outlet_snapped", None),
-        y_outlet_snapped=getattr(catchment_products, "y_outlet_snapped", None),
-        outlet_snap_distance_m=getattr(catchment_products, "snap_distance_m", None),
+        x_outlet_snapped=(
+            cached_products.x_outlet_snapped
+            if cached_products is not None
+            else getattr(catchment_products, "x_outlet_snapped", None)
+        ),
+        y_outlet_snapped=(
+            cached_products.y_outlet_snapped
+            if cached_products is not None
+            else getattr(catchment_products, "y_outlet_snapped", None)
+        ),
+        outlet_snap_distance_m=(
+            cached_products.outlet_snap_distance_m
+            if cached_products is not None
+            else getattr(catchment_products, "snap_distance_m", None)
+        ),
     )

@@ -115,7 +115,13 @@ class CatchmentDelineation:
         Run geographic preprocessing and hydrate the runtime attributes.
     """
 
-    def __init__(self, config: GeographicConfig, initializing: object):
+    def __init__(
+        self,
+        config: GeographicConfig,
+        initializing: object,
+        *,
+        reuse_existing_outputs: bool | None = None,
+    ):
         """Initialize and run geographic preprocessing.
 
         Parameters
@@ -127,8 +133,13 @@ class CatchmentDelineation:
         initializing
             Workspace-like object exposing ``project_root``. Generated
             geographic artifacts are written below this project root.
+        reuse_existing_outputs
+            Overrides ``config.reuse_existing_outputs`` when not None. A
+            pipeline rebuilding a step it already completed passes True so the
+            products on disk are read instead of delineated again.
         """
         self._config = config
+        self._reuse_existing_outputs = reuse_existing_outputs
         self.out_dir_path = initializing.project_root
         self.catch_def = config.catch_def
         self.dem_init_path = str(config.dem_init_path)
@@ -265,6 +276,7 @@ class CatchmentDelineation:
             out_dir_path=self.out_dir_path,
             backend=tool,
             locator_factory=Nominatim,
+            reuse_existing_outputs=self._reuse_existing_outputs,
         )
         for attr_name, value in context.runtime_attributes().items():
             setattr(self, attr_name, value)
