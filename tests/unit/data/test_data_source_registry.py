@@ -367,3 +367,66 @@ def test_unregister_drops_the_declaration_too(isolated_registry: object) -> None
     registry.unregister("bdtopage")
     with pytest.raises(DataRequestError):
         registry.get("bdtopage")
+
+
+# --------------------------------------------------------------------------- #
+# What a broken installation does, which is not raise whatever it likes
+# --------------------------------------------------------------------------- #
+
+
+def test_a_declared_builtin_that_cannot_be_imported_is_a_request_fault(
+    isolated_registry: object,
+) -> None:
+    """Found by the adversarial gate of F5e-3, and it is the diff that opened it.
+
+    Resolving a name is reached from a **configuration validator** since the
+    source field stopped being a ``Literal``, so an adapter that fails at import
+    used to leave as a ``ModuleNotFoundError`` -- past pydantic, past the config
+    command's error handling, onto the exit code that means "this is a bug in
+    HydroModPy". An id this build declares and cannot load is an id this
+    installation does not serve, and it leaves as that.
+    """
+    registry._BUILTIN_PATHS["broken-builtin"] = "hydromodpy.no_such_module:Whatever"
+
+    with pytest.raises(DataRequestError) as raised:
+        registry.get("broken-builtin")
+
+    assert "broken-builtin" in str(raised.value)
+    assert "ModuleNotFoundError" in str(raised.value)
+    assert isinstance(raised.value.__cause__, ModuleNotFoundError)
+
+
+def test_a_declared_builtin_whose_class_is_missing_is_the_same_fault(
+    isolated_registry: object,
+) -> None:
+    """A dotted path can be wrong in two ways, and both are one answer."""
+    registry._BUILTIN_PATHS["misnamed-builtin"] = "hydromodpy.data.source.osm:NotThere"
+
+    with pytest.raises(DataRequestError, match="misnamed-builtin"):
+        registry.get("misnamed-builtin")
+
+
+def test_an_unscannable_entry_point_group_leaves_the_builtins_resolvable(
+    isolated_registry: object,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The per-plugin policy, one level up: a broken distribution is not a crash.
+
+    ``entry_points()`` reads every distribution's metadata, so one unreadable
+    ``.dist-info`` in the environment takes the whole scan down -- for a caller
+    that named a built-in and no plugin at all.
+    """
+
+    def _unreadable(*, group: str):
+        raise RuntimeError("corrupt importlib.metadata cache")
+
+    monkeypatch.setattr(registry, "entry_points", _unreadable)
+
+    with caplog.at_level("WARNING"):
+        assert registry.load_plugins() == 0
+
+    assert registry.ENTRY_POINT_GROUP in caplog.text
+    assert registry.get("bdtopage").source_id == "bdtopage"
+    with pytest.raises(DataRequestError, match="acme-radar"):
+        registry.get("acme-radar")

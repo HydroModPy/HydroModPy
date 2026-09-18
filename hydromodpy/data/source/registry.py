@@ -231,7 +231,22 @@ def load_plugins(*, force: bool = False) -> int:
         return 0
 
     count = 0
-    for entry_point in entry_points(group=ENTRY_POINT_GROUP):
+    try:
+        declared = tuple(entry_points(group=ENTRY_POINT_GROUP))
+    except Exception as exc:
+        # The scan itself, not one entry point: unreadable or contradictory
+        # distribution metadata takes down ``importlib.metadata`` for every
+        # group at once. Same policy as a single bad plugin, one level up --
+        # a host that asked for a built-in must not be taken down by a
+        # distribution it never named.
+        logger.warning(
+            "the %r entry-point group could not be scanned, so no plugin is registered: %s",
+            ENTRY_POINT_GROUP,
+            exc,
+        )
+        _PLUGINS_LOADED = True
+        return 0
+    for entry_point in declared:
         name = str(entry_point.name).strip()
         if not name:
             logger.warning("data source plugin %r ignored: its entry-point name is empty.", name)
@@ -344,13 +359,34 @@ def unregister(source_id: str) -> None:
 
 
 def _load_builtin(source_id: str) -> type | None:
-    """Import and register the in-tree class for *source_id*, if there is one."""
+    """Import and register the in-tree class for *source_id*, if there is one.
+
+    An id this build declares and cannot load is still an id this installation
+    does not serve, so it leaves through :func:`get`'s own exception with the
+    reason attached. The alternative is what it replaced: a
+    ``ModuleNotFoundError`` from inside a configuration validator, which
+    reaches a user as the exit code that means "this is a bug in HydroModPy".
+    An adapter of this tree imports nothing heavier than the port today, and
+    that is a property of today -- a GDAL or a 7z binding pulled in by a future
+    one turns a broken environment into this path.
+    """
     path = _BUILTIN_PATHS.get(source_id)
     if path is None:
         return None
     module_path, _, class_name = path.partition(":")
-    module = importlib.import_module(module_path)
-    return register(getattr(module, class_name), replace=True)
+    try:
+        module = importlib.import_module(module_path)
+        source_cls = getattr(module, class_name)
+    except Exception as exc:
+        # Deliberately every exception and not ``ImportError``: a module that
+        # fails at import time fails in whatever way its own imports do, and a
+        # C extension refusing to initialise raises none of them.
+        raise DataRequestError(
+            f"{source_id!r} is declared by this build at {path!r} and cannot be loaded here: "
+            f"{type(exc).__name__}: {exc}. The declaration is right and the installation is "
+            "not, so this is fixed by repairing the environment, not by editing the request."
+        ) from exc
+    return register(source_cls, replace=True)
 
 
 def _name_of(candidate: object) -> str:
