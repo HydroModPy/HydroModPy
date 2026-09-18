@@ -21,7 +21,7 @@ import pytest
 from hydromodpy.calibration.config import OutputSupport
 from hydromodpy.calibration.criteria import (
     NETWORK_ESTIMATORS,
-    NetworkCriterion,
+    HydrographicNetworkDistance,
     SeriesCriterion,
     available_criteria,
     criterion_for,
@@ -54,7 +54,7 @@ class TestTheRegistry:
         assert isinstance(criterion_for("nse"), SeriesCriterion)
 
     def test_a_network_estimator_yields_the_network_criterion(self) -> None:
-        assert isinstance(criterion_for("distance_gap"), NetworkCriterion)
+        assert isinstance(criterion_for("distance_gap"), HydrographicNetworkDistance)
 
 
 class TestWhatASeriesCriterionDeclares:
@@ -96,7 +96,7 @@ class TestWhatASeriesCriterionDeclares:
         assert result.diagnostics["n_clipped"] == 1.0
 
 
-class TestWhatTheNetworkCriterionDeclares:
+class TestWhatTheHydrographicNetworkDistanceDeclares:
     def test_it_needs_no_observations_and_has_no_time_axis(self) -> None:
         needs = criterion_for("distance_gap").requirements()
 

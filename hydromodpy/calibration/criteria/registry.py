@@ -9,11 +9,18 @@ built from the scoring kernels rather than beside them: a kernel added to
 from __future__ import annotations
 
 from hydromodpy.calibration.criteria.base import Criterion
-from hydromodpy.calibration.criteria.network import NetworkCriterion
+from hydromodpy.calibration.criteria.hydrographic_network_distance import (
+    HydrographicNetworkDistance,
+)
 from hydromodpy.calibration.criteria.series import SeriesCriterion
 
 NETWORK_ESTIMATORS: frozenset[str] = frozenset({"distance_gap", "distance_mean"})
-"""Names the network criterion answers to, rather than a series kernel."""
+"""The two estimators :class:`HydrographicNetworkDistance` answers to.
+
+A file writes an estimator, not the criterion: Eq. 1 and Eq. 2 are two ways of
+reading the same pair of distances and a calibration picks one. The names stay
+as published.
+"""
 
 
 def _kernels() -> dict[str, object]:
@@ -36,7 +43,7 @@ def criterion_for(name: str) -> Criterion:
     """
     key = str(name).strip().lower()
     if key in NETWORK_ESTIMATORS:
-        return NetworkCriterion(key)  # type: ignore[arg-type]
+        return HydrographicNetworkDistance(key)  # type: ignore[arg-type]
     kernels = _kernels()
     kernel = kernels.get(key)
     if kernel is None:

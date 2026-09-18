@@ -1,7 +1,14 @@
-"""The stream-network criterion, as one object.
+"""The hydrographic-network distance, as one criterion object.
 
 It compares a simulated seepage network to a mapped one, in both directions, and
-its cost is the imbalance between the two. Nothing in it is fitted to a record,
+its cost is built from the two distances.
+
+The name says what the criterion measures, and the citation says who published
+it. It was called ``NetworkCriterion`` in a module called ``network``, in a
+repository where a network is also a set of SFR reaches and a list of hosts a
+capability contacts. The protocol above it is already named after its method,
+``matching_hydrographic_network``, and the figure that draws it after what it
+draws; this is the third and last name of the trio. Nothing in it is fitted to a record,
 which is why it had to disguise itself to enter a signature built for a series.
 
 The estimator carries the difference the objective could not express. Under
@@ -36,7 +43,7 @@ def distance_pair(simulated: Sequence[float] | Any) -> tuple[float, float]:
     return float(values[0]), float(values[1])
 
 
-class NetworkCriterion:
+class HydrographicNetworkDistance:
     """The two published estimators of the stream-network method."""
 
     def __init__(self, estimator: Estimator) -> None:
@@ -81,4 +88,4 @@ class NetworkCriterion:
         )
 
 
-__all__ = ["Estimator", "NetworkCriterion", "distance_pair"]
+__all__ = ["Estimator", "HydrographicNetworkDistance", "distance_pair"]
