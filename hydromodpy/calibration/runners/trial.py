@@ -701,7 +701,7 @@ def _finalize_failed_context(ctx: WorkflowContext) -> None:
 
     sim_id = getattr(ctx, "sim_id", None)
     workspace = getattr(getattr(ctx, "setup", None), "workspace", None)
-    if sim_id is None or workspace is None:
+    if sim_id is None or workspace is None or ctx.execution.lightweight:
         return
     results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
     if not results_cfg.persistence.save_catalog:

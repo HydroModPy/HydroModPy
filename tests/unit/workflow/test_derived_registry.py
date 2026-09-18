@@ -347,7 +347,11 @@ class _CtxStub:
         self.store = store
         self.sim_id = sim_id
         self.cfg = SimpleNamespace(
-            simulation=SimpleNamespace(results=ResultsConfig()),
+            simulation=SimpleNamespace(
+                results=ResultsConfig.model_validate(
+                    {"persistence": {"save_catalog": store is not None}}
+                )
+            ),
             solver=SolverConfig(),
         )
         self.setup = SimpleNamespace(workspace=None if store is None else object())

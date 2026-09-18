@@ -42,16 +42,18 @@ def test_a_run_that_writes_an_index_is_catalogued() -> None:
 
 
 @pytest.mark.parametrize(
-    ("save_catalog", "lightweight", "workspace"),
-    [
-        (False, False, object()),
-        (True, True, object()),
-        (True, False, None),
-    ],
+    ("save_catalog", "lightweight"),
+    [(False, False), (True, True)],
 )
-def test_a_run_without_an_index_is_not_catalogued(save_catalog, lightweight, workspace) -> None:
-    ctx = _ctx(save_catalog=save_catalog, lightweight=lightweight, workspace=workspace)
+def test_a_run_that_asked_for_no_index_is_not_catalogued(save_catalog, lightweight) -> None:
+    ctx = _ctx(save_catalog=save_catalog, lightweight=lightweight, workspace=object())
     assert not run_is_catalogued(ctx)
+
+
+def test_a_missing_workspace_is_a_broken_run_and_not_an_uncatalogued_one() -> None:
+    """The predicate must not turn a loud misconfiguration into a silent skip."""
+    ctx = _ctx(save_catalog=True, lightweight=False, workspace=None)
+    assert run_is_catalogued(ctx)
 
 
 def test_the_scope_closes_the_handle_it_opened(tmp_path: Path) -> None:

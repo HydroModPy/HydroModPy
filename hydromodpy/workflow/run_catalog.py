@@ -34,19 +34,22 @@ def _persistence_of(ctx: WorkflowContext):
 
 
 def run_is_catalogued(ctx: WorkflowContext) -> bool:
-    """Say whether this run has a project index to write to.
+    """Say whether this run is meant to write to a project index.
 
     This is the question the pipeline used to ask as ``ctx.store is None``,
     which answered it by accident: a closed handle and a run that was never
     meant to be catalogued gave the same answer. A lightweight run (a
     calibration trial) writes nothing, and neither does a run whose
     ``[simulation.results.persistence] save_catalog`` is false.
+
+    Whether a workspace exists to hold that index is deliberately not part of
+    the answer: a run that asked to be catalogued and has nowhere to write is
+    a broken run, and :func:`run_catalog` raises on it rather than letting the
+    caller mistake it for a run that asked for nothing.
     """
     if getattr(getattr(ctx, "execution", None), "lightweight", False):
         return False
-    if not _persistence_of(ctx).save_catalog:
-        return False
-    return getattr(getattr(ctx, "setup", None), "workspace", None) is not None
+    return bool(_persistence_of(ctx).save_catalog)
 
 
 @contextmanager
