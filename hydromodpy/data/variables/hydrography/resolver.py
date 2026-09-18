@@ -175,7 +175,6 @@ def _bootstrap_api_source(
     gdf = fetch_network(
         source,
         Extent(xmin=bbox[0], ymin=bbox[1], xmax=bbox[2], ymax=bbox[3], crs="EPSG:4326"),
-        out_dir=output_dir / "scratch",
     )
     if gdf.empty:
         raise ValueError(

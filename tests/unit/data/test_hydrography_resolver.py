@@ -176,7 +176,7 @@ def test_an_api_source_downloads_on_the_outlet_box_clipped_to_the_dem(tmp_path, 
     )
     seen: dict[str, tuple[float, float, float, float]] = {}
 
-    def _fake_fetch(source, extent, *, out_dir):
+    def _fake_fetch(source, extent):
         assert source.source_id == "osm"
         seen["bbox"] = extent.bbox
         return gpd.GeoDataFrame({"id": [1]}, geometry=[_NETWORK], crs="EPSG:2154")
@@ -207,7 +207,7 @@ def test_a_downloaded_box_is_not_fetched_twice(tmp_path, monkeypatch):
     cfg = _cfg([SimpleNamespace(source="osm", path=None, force_refresh=False)])
     calls = {"n": 0}
 
-    def _fake_fetch(_source, _extent, *, out_dir):
+    def _fake_fetch(_source, _extent):
         calls["n"] += 1
         return gpd.GeoDataFrame({"id": [1]}, geometry=[_NETWORK], crs="EPSG:2154")
 

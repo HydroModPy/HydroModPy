@@ -25,6 +25,7 @@ this call. What moved is only the question "which class, built how".
 from __future__ import annotations
 
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
 from hydromodpy.core.exceptions import DataProductError
@@ -48,23 +49,24 @@ def source_from_section(source_cfg: object) -> DataSource:
     return registry.build_from_section(registry.get(source_id), source_cfg)
 
 
-def fetch_network(
-    source: DataSource,
-    extent: Extent,
-    *,
-    out_dir: Path,
-) -> gpd.GeoDataFrame:
+def fetch_network(source: DataSource, extent: Extent) -> gpd.GeoDataFrame:
     """Return the linework *source* answers with over *extent*.
 
     *extent* may be in any CRS: the port converts it into the one the source
     declares, which is what removed the hardcoded WGS84 both callers used to
-    pass. *out_dir* is the scratch a fetch is always given; the three sources
-    of this variable declare they leave it alone, and the conformance suite
-    reads it back to check.
+    pass.
+
+    The scratch a ``FetchRequest`` always carries is made here and owned here,
+    on D124's rule, rather than taken from the caller. Both callers used to be
+    handed a ``scratch/`` directory that nothing ever emptied -- one inside the
+    project's preprocessing tree, one inside the user cache -- and two runs of
+    one project shared it. A source of this variable declares it writes nothing
+    there anyway, and the conformance suite reads the directory back to check;
+    a source that broke that promise would now lose what it wrote, which is the
+    right answer for a payload this function refuses.
     """
-    out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    result = source.fetch(FetchRequest(out_dir=out_dir, extent=extent))
+    with TemporaryDirectory(prefix="hmp-hydrography-") as scratch:
+        result = source.fetch(FetchRequest(out_dir=Path(scratch), extent=extent))
     if result.kind != "features" or result.features is None:
         raise DataProductError(
             f"Source {result.source_id!r} answered hydrography with a {result.kind!r} "

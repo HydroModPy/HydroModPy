@@ -247,7 +247,7 @@ class HydrographyManager:
             if cached is not None:
                 return cached
 
-        gdf = fetch_network(source, extent, out_dir=self._data_folder / "scratch")
+        gdf = fetch_network(source, extent)
         self._persist_and_register(gdf, source_cfg.source, extent.bbox)
 
         return gdf

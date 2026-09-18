@@ -282,7 +282,7 @@ class TestHydrographyManager:
 
         seen = []
 
-        def _fetch(source, extent, *, out_dir):
+        def _fetch(source, extent):
             seen.append(extent)
             return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 

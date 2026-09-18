@@ -46,8 +46,8 @@ def _record_the_extent(monkeypatch) -> list:
     """Intercept the port call and keep the extent the manager built."""
     seen: list = []
 
-    def _fetch(source, extent, *, out_dir):
-        seen.append((source, extent, out_dir))
+    def _fetch(source, extent):
+        seen.append((source, extent))
         return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
     monkeypatch.setattr(
@@ -86,7 +86,7 @@ def test_the_request_box_leaves_in_the_crs_the_source_declares(tmp_path, monkeyp
 
     manager._fetch_from_source(cfg.sources[0])
 
-    source, extent, _ = seen[0]
+    source, extent = seen[0]
     assert extent.crs == source.extent_crs == "EPSG:4326"
     lon_min, lat_min, lon_max, lat_max = extent.bbox
     assert -3.0 < lon_min < lon_max < 0.0, (lon_min, lon_max)
