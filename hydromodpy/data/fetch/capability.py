@@ -39,8 +39,9 @@ each because the code on this tree says so:
 
 from __future__ import annotations
 
+import inspect
 from datetime import datetime
-from typing import Annotated, Literal, get_args
+from typing import Annotated, Any, Literal, get_args
 
 from pydantic import Field, model_validator
 
@@ -161,8 +162,97 @@ class Sim2PrecipitationOptions(HydroModelBase):
         return registry.get(self.id)(components=tuple(self.components))
 
 
+# Why a free-form bag here and nowhere else, since D122 refused one. D122
+# refused a bag **for a source this build describes**: there the shape is known
+# and publishing a free-form object instead of it throws away what the
+# description is for. Here the shape is not knowable -- the description ships in
+# a wheel built before the plugin existed -- and the bag is still not validated
+# against nothing: it is bound against the plugin's own constructor signature
+# before the job starts, which is the only authority that exists for it.
+#
+# The refusal below reads the **described** set and not the shipped one, which
+# is D146. ``euhydro`` and ``osm`` are registered by this build and have no
+# options model, so they arrive through this member rather than one of their
+# own. That is right: the description does not describe them either, so a
+# caller naming one gets the same unchecked bag and the same caveat about hosts
+# as a caller naming a third-party source.
+class InstalledSourceOptions(HydroModelBase):
+    """Ask a source this build does not describe, installed beside it.
+
+    The four members above each name a source shipped here and publish the
+    exact shape it accepts. This one carries the id of a source the
+    **installation** resolves -- one registered on the
+    ``hydromodpy.data.source`` entry-point group -- and the keyword arguments
+    its constructor takes. The id is refused before the job starts if nothing
+    answers to it, and so is an argument that source cannot be built with.
+
+    **The hosts this capability declares do not cover it.** ``hmp:invocation``
+    lists the network of the described sources, and that list ships frozen with
+    the build. A run naming an installed source may contact a host outside it;
+    ``outputs/fetch.json`` records the hosts the run really reached, and an
+    orchestrator that allows egress from the description alone has to widen it
+    itself.
+    """
+
+    id: Annotated[Literal["installed"], Profile.USER] = Field(
+        description="names a source this build does not describe, carried by 'name'",
+    )
+    name: Annotated[str, Profile.USER] = Field(
+        min_length=1,
+        description=(
+            "source id this installation resolves, registered on the "
+            "'hydromodpy.data.source' entry-point group"
+        ),
+        examples=["acme-radar"],
+    )
+    options: Annotated[dict[str, Any], Profile.USER] = Field(
+        default_factory=dict,
+        description=(
+            "keyword arguments handed to that source's constructor, verbatim; "
+            "bound against its signature before the job starts"
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _refuse_what_this_installation_cannot_answer(self) -> InstalledSourceOptions:
+        """Refuse a described name, an unresolvable one, and an option it cannot take.
+
+        All three before the job directory is touched, which is the promise
+        D123 made for every other member of this union. A padded name is not a
+        fourth refusal: ``HydroModelBase`` strips it, and ``min_length`` then
+        refuses a name that was nothing but padding.
+        """
+        name = self.name
+        if name in _served_source_ids():
+            raise ValueError(
+                f"{name!r} is a source this build describes, so it is named as "
+                f'{{"id": "{name}"}} with the shape the process description publishes. '
+                "This member is for a source the description cannot know."
+            )
+        try:
+            source_cls = registry.get(name)
+        except DataRequestError as exc:
+            raise ValueError(str(exc)) from exc
+        try:
+            inspect.signature(source_cls).bind(**self.options)
+        except TypeError as exc:
+            raise ValueError(
+                f"source {name!r} cannot be built from these options: {exc}. The options are "
+                "handed to its constructor as keyword arguments, and this build has no "
+                "description of that source to check them against beyond its signature."
+            ) from exc
+        return self
+
+    def build(self) -> DataSource:
+        return registry.get(self.name)(**self.options)
+
+
 SourceOptions = Annotated[
-    BdTopageOptions | HubeauPiezometryOptions | IgnDemOptions | Sim2PrecipitationOptions,
+    BdTopageOptions
+    | HubeauPiezometryOptions
+    | IgnDemOptions
+    | InstalledSourceOptions
+    | Sim2PrecipitationOptions,
     Field(discriminator="id"),
 ]
 """The source, and everything that configures it, as one tagged document.
@@ -175,13 +265,28 @@ would list an input whose shape it cannot know.
 same four sources beside it; it is now read off the discriminator of this one
 and resolved through the registry, so a source cannot be served without a
 document shape and a shape cannot be published without a source behind it.
+
+The fifth member tags no source, and that is what makes the union closed and
+the installation open: ``{"id": "installed", "name": ...}`` reaches anything the
+registry resolves, without this build naming it.
 """
 
 
 def _served_source_ids() -> tuple[str, ...]:
-    """The ids the union tags, read off its own discriminator."""
+    """The ids the union tags that are sources this build ships.
+
+    Every member tags something; only four of them tag a **source**. The fifth
+    tags the door to the ones this build does not ship, so its tag resolves to
+    no class and has no host, no payload kind and no options model to compare.
+    Filtering on :func:`~hydromodpy.data.source.registry.builtin_source_ids`
+    rather than on a marker means the filter states a fact the registry owns,
+    and ``test_the_union_tags_the_shipped_sources_and_one_door`` refuses the
+    day a member tags neither.
+    """
     union, _ = get_args(SourceOptions)
-    return tuple(get_args(member.model_fields["id"].annotation)[0] for member in get_args(union))
+    tags = tuple(get_args(member.model_fields["id"].annotation)[0] for member in get_args(union))
+    shipped = set(registry.builtin_source_ids())
+    return tuple(tag for tag in tags if tag in shipped)
 
 
 SERVED_SOURCES: tuple[type, ...] = tuple(
@@ -469,6 +574,7 @@ __all__ = [
     "DataFetchRequest",
     "HubeauPiezometryOptions",
     "IgnDemOptions",
+    "InstalledSourceOptions",
     "PeriodInput",
     "Sim2PrecipitationOptions",
     "SourceOptions",

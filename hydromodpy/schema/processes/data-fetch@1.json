@@ -67,6 +67,7 @@
             "bdtopage": "#/$defs/BdTopageOptions",
             "hubeau-piezometry": "#/$defs/HubeauPiezometryOptions",
             "ign-bdalti": "#/$defs/IgnDemOptions",
+            "installed": "#/$defs/InstalledSourceOptions",
             "sim2-precipitation": "#/$defs/Sim2PrecipitationOptions"
           },
           "propertyName": "id"
@@ -80,6 +81,9 @@
           },
           {
             "$ref": "#/$defs/IgnDemOptions"
+          },
+          {
+            "$ref": "#/$defs/InstalledSourceOptions"
           },
           {
             "$ref": "#/$defs/Sim2PrecipitationOptions"
@@ -211,6 +215,45 @@
               "id"
             ],
             "title": "IgnDemOptions",
+            "type": "object"
+          },
+          "InstalledSourceOptions": {
+            "additionalProperties": false,
+            "description": "Ask a source this build does not describe, installed beside it.\n\nThe four members above each name a source shipped here and publish the\nexact shape it accepts. This one carries the id of a source the\n**installation** resolves -- one registered on the\n``hydromodpy.data.source`` entry-point group -- and the keyword arguments\nits constructor takes. The id is refused before the job starts if nothing\nanswers to it, and so is an argument that source cannot be built with.\n\n**The hosts this capability declares do not cover it.** ``hmp:invocation``\nlists the network of the described sources, and that list ships frozen with\nthe build. A run naming an installed source may contact a host outside it;\n``outputs/fetch.json`` records the hosts the run really reached, and an\norchestrator that allows egress from the description alone has to widen it\nitself.",
+            "properties": {
+              "id": {
+                "const": "installed",
+                "description": "names a source this build does not describe, carried by 'name'",
+                "examples": [
+                  "installed"
+                ],
+                "title": "Id",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "name": {
+                "description": "source id this installation resolves, registered on the 'hydromodpy.data.source' entry-point group",
+                "examples": [
+                  "acme-radar"
+                ],
+                "minLength": 1,
+                "title": "Name",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "options": {
+                "additionalProperties": true,
+                "description": "keyword arguments handed to that source's constructor, verbatim; bound against its signature before the job starts",
+                "title": "Options",
+                "type": "object",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "title": "InstalledSourceOptions",
             "type": "object"
           },
           "Sim2PrecipitationOptions": {

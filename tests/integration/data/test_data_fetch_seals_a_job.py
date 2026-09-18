@@ -25,6 +25,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -1206,3 +1207,93 @@ def test_the_only_hosts_it_contacts_are_the_ones_it_declares(tmp_path):
     assert children == sorted(CHILD_PROCESSES_THE_JOB_SPAWNS), (
         f"it spawns {children}, and only {sorted(CHILD_PROCESSES_THE_JOB_SPAWNS)} is accounted for"
     )
+
+
+# --------------------------------------------------------------------------- #
+# A request naming a source this build does not describe
+# --------------------------------------------------------------------------- #
+
+
+class AcmeLineworkSource:
+    """A river-network source a third party ships, named in no file of this tree."""
+
+    source_id: ClassVar[str] = "acme-linework"
+    payload_kind: ClassVar[str] = "features"
+    extent_crs: ClassVar[str] = "EPSG:3035"
+    selectors: ClassVar[tuple[str, ...]] = ("extent",)
+    period_need: ClassVar[str] = "refused"
+    hosts: ClassVar[tuple[str, ...]] = ("linework.acme.example",)
+    writes_out_dir: ClassVar[bool] = False
+
+    def __init__(self, *, reaches: int = 2) -> None:
+        self.reaches = reaches
+        self.variables: tuple[str, ...] = ("stream_network",)
+
+    def fetch(self, request):
+        from hydromodpy.data.source.port import FetchResult, extent_for
+
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent_for(self, request),
+            features=_feature_frame(self.reaches),
+        )
+
+
+@pytest.fixture
+def installed_linework_source():
+    """Register the plugin the way an entry point would, and take it back out."""
+    from hydromodpy.data.source import registry
+
+    registry.register(AcmeLineworkSource)
+    yield AcmeLineworkSource
+    registry.unregister(AcmeLineworkSource.source_id)
+
+
+def test_a_request_json_names_an_installed_source_and_the_job_seals(
+    tmp_path, installed_linework_source
+):
+    """The exit gate of F5e-3: a document names a source this repository does not.
+
+    Nothing in ``hydromodpy/`` carries the string ``acme-linework``. The
+    document reaches the class through the registry, its constructor is fed the
+    option the document carries, and what comes back is sealed and verifiable
+    like any other run.
+    """
+    job = _staged(
+        tmp_path,
+        _request({"id": "installed", "name": "acme-linework", "options": {"reaches": 3}}),
+    )
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "successful", outcome.errors
+    assert verify_job(job).ok
+    assert len(gpd.read_file(job.root / FEATURES_PATH, layer=FEATURES_LAYER)) == 3
+
+
+def test_the_report_names_the_installed_source_and_the_host_it_reached(
+    tmp_path, installed_linework_source
+):
+    """The declaration cannot name that host, so the run is the only place it appears."""
+    job = _staged(tmp_path, _request({"id": "installed", "name": "acme-linework"}))
+    run(job, exit_code_for=exit_code_for)
+
+    report = json.loads((job.root / REPORT_PATH).read_text(encoding="utf-8"))
+
+    assert report["source"] == "acme-linework"
+    assert report["hosts"] == ["linework.acme.example"]
+    assert "linework.acme.example" not in DATA_FETCH.reaches_network
+
+
+def test_a_request_naming_an_absent_source_is_refused_with_the_directory_untouched(tmp_path):
+    """The plugin is not installed in this test, and the refusal happens on the document."""
+    job = _staged(tmp_path, _request({"id": "installed", "name": "acme-linework"}))
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "failed"
+    assert outcome.exit_code == EXIT_CONFIG
+    assert "acme-linework" in json.dumps(outcome.errors)
+    assert {entry.name for entry in job.root.iterdir()} == {"request.json", "outcome.json"}
