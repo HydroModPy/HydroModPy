@@ -62,8 +62,32 @@ def _unwrap(value: ast.expr) -> ast.expr:
     return value.value if isinstance(value, ast.NamedExpr) else value
 
 
+def _getattr_call(value: ast.expr) -> tuple[ast.expr, str] | None:
+    """Return ``(receiver, name)`` when ``value`` is a ``getattr`` read."""
+    if not isinstance(value, ast.Call) or not isinstance(value.func, ast.Name):
+        return None
+    if value.func.id != "getattr" or len(value.args) < 2:
+        return None
+    name = value.args[1]
+    if not isinstance(name, ast.Constant) or not isinstance(name.value, str):
+        return None
+    return value.args[0], name.value
+
+
 def _binds_the_state(value: ast.expr, contexts: set[str]) -> bool:
+    """Whether ``value`` reads ``state`` off a run context, in either spelling.
+
+    ``ctx.state`` and ``getattr(ctx, "state", None)`` are the same read, and the
+    second is the one that carries a default: it turns the ``AttributeError`` a
+    slotted view raises into a ``None`` the caller then misreads as an empty
+    scope. F8d found a consumer hiding behind exactly that spelling, months
+    after this gate shipped, so the gate now follows both.
+    """
     value = _unwrap(value)
+    through_getattr = _getattr_call(value)
+    if through_getattr is not None:
+        receiver, name = through_getattr
+        return name == "state" and isinstance(receiver, ast.Name) and receiver.id in contexts
     return (
         isinstance(value, ast.Attribute)
         and value.attr == "state"
@@ -73,7 +97,7 @@ def _binds_the_state(value: ast.expr, contexts: set[str]) -> bool:
 
 
 def _state_aliases(node: ast.AST, contexts: set[str]) -> set[str]:
-    """Locals bound to ``<context>.state`` inside this function, however bound."""
+    """Locals bound to the run-context state here, whatever the spelling."""
     aliases: set[str] = set()
     for child in ast.walk(node):
         if isinstance(child, ast.Assign):
@@ -87,6 +111,14 @@ def _state_aliases(node: ast.AST, contexts: set[str]) -> set[str]:
     return aliases
 
 
+def _reads_the_view(inner: ast.expr, contexts: set[str], aliases: set[str]) -> bool:
+    """Whether ``inner`` is the run-context state, directly or through an alias."""
+    inner = _unwrap(inner)
+    return _binds_the_state(inner, contexts) or (
+        isinstance(inner, ast.Name) and inner.id in aliases
+    )
+
+
 def _view_reads(tree: ast.AST) -> list[tuple[int, str]]:
     """Every ``(line, member)`` this module reads off a run-context state."""
     reads: list[tuple[int, str]] = []
@@ -98,13 +130,15 @@ def _view_reads(tree: ast.AST) -> list[tuple[int, str]]:
             continue
         aliases = _state_aliases(node, contexts)
         for child in ast.walk(node):
-            if not isinstance(child, ast.Attribute):
+            if isinstance(child, ast.Attribute):
+                if _reads_the_view(child.value, contexts, aliases):
+                    reads.append((child.lineno, child.attr))
                 continue
-            inner = _unwrap(child.value)
-            through_context = _binds_the_state(inner, contexts)
-            through_alias = isinstance(inner, ast.Name) and inner.id in aliases
-            if through_context or through_alias:
-                reads.append((child.lineno, child.attr))
+            through_getattr = _getattr_call(child)
+            if through_getattr is not None and _reads_the_view(
+                through_getattr[0], contexts, aliases
+            ):
+                reads.append((child.lineno, through_getattr[1]))
     return reads
 
 
@@ -203,6 +237,21 @@ OFFENDING_SPELLINGS = (
     (
         "annotated alias",
         "def f(ctx: RunContext) -> None:\n    s: RunState = ctx.state\n    return s.raw_toml\n",
+    ),
+    (
+        "getattr on the context",
+        "def f(ctx: RunContext) -> None:\n"
+        '    s = getattr(ctx, "state", None)\n'
+        "    return s.raw_toml\n",
+    ),
+    (
+        "getattr on the view",
+        'def f(ctx: RunContext) -> None:\n    return getattr(ctx.state, "raw_toml", None)\n',
+    ),
+    (
+        "getattr on both",
+        "def f(ctx: RunContext) -> None:\n"
+        '    return getattr(getattr(ctx, "state", None), "raw_toml", None)\n',
     ),
 )
 
