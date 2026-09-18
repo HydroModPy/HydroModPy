@@ -13,10 +13,14 @@ Sub-actions:
 - ``hmp process run <id> --job DIR``: run one. stdout carries exactly one JSON
   document, byte-identical to ``DIR/outcome.json``; everything human goes to
   stderr; the exit code is the typed one of the outcome.
+- ``hmp process chain --root DIR``: run several in a row, each step's file
+  inputs filled from the artefacts of an earlier one. It is the verb that
+  writes a ``request.json``, which is what makes two capabilities compose
+  without a glue script.
 - ``hmp process verify --job DIR``: re-check a finished directory against its
   own seal, reading only the disk.
 
-Two of the four write bytes a machine reads and never a rendering of them. The
+Three of the five write bytes a machine reads and never a rendering of them. The
 description is generated from the declaration and the Pydantic model by
 ``python -m tools.processes``, never written by hand, and a gate refuses a
 committed document the generator no longer reproduces.
@@ -27,12 +31,18 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli._conventions import add_action_subparsers
-from hydromodpy.cli.commands.process import describe, list_capabilities, run_job, verify_job
+from hydromodpy.cli.commands.process import (
+    chain,
+    describe,
+    list_capabilities,
+    run_job,
+    verify_job,
+)
 
 NAME: str = "process"
 HELP: str = "Run a capability as an external process, in one job directory"
 
-ACTIONS = (list_capabilities, describe, run_job, verify_job)
+ACTIONS = (list_capabilities, describe, run_job, chain, verify_job)
 
 
 def register(subparsers) -> argparse.ArgumentParser:

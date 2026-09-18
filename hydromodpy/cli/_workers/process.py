@@ -198,6 +198,62 @@ def _dismissed_text(job: JobDirectory) -> str:
     return text if document.get("status") == DISMISSED_STATUS else ""
 
 
+def declaration_for(capability_id: str) -> CapabilityDecl | None:
+    """Return one declaration, or ``None`` for an id this build does not serve.
+
+    The lookup a chain document is resolved against, and deliberately not
+    :func:`capability`: a name written in a file is bad input and gets a
+    pointer, where a name typed on the command line is a usage error. It reads
+    the declarations alone, so refusing a chain imports no engine at all.
+    """
+    for decl in capability_decls():
+        if decl.id == capability_id:
+            return decl
+    return None
+
+
+def run_capability_chain(chain_dir: str | Path) -> tuple[int, str]:
+    """Run every step of one chain document, and return its code and bytes.
+
+    The composition itself lives in :mod:`hydromodpy.schema.job.chain`, which
+    knows no capability: what this function adds is the registry that turns an
+    id into a declaration and into a body, which is what nothing below ``cli``
+    can see.
+
+    A chain document that does not resolve leaves the root exactly as the
+    caller staged it -- no step directory, no report -- because refusing a
+    document before it runs is the one case where writing anything would be
+    writing about work nobody did. Everything after the first step has started
+    ends in the report, including a cancellation.
+    """
+    from hydromodpy.cli.helpers import exit_code_for
+    from hydromodpy.schema.job.chain import CHAIN_FILENAME, read_chain, run_chain
+
+    root = Path(chain_dir).expanduser()
+    if not root.is_dir():
+        raise JobUsageError(f"chain directory {root} does not exist")
+    root = root.resolve()
+    chain_path = root / CHAIN_FILENAME
+    if not chain_path.is_file():
+        raise JobUsageError(f"chain directory {root} carries no {CHAIN_FILENAME}")
+    outcome = run_chain(
+        read_chain(chain_path),
+        root,
+        declaration=declaration_for,
+        run_step=run_capability,
+        exit_code_for=exit_code_for,
+    )
+    return outcome.exit_code, _chain_outcome_text(root)
+
+
+def _chain_outcome_text(root: Path) -> str:
+    """The exact bytes of the report, read back for the reason ``run`` gives."""
+    from hydromodpy.schema.job.chain import CHAIN_OUTCOME_FILENAME
+
+    path = root / CHAIN_OUTCOME_FILENAME
+    return path.read_text(encoding="utf-8") if path.is_file() else ""
+
+
 def verify_capability_job(job_dir: str | Path) -> SealVerification:
     """Re-check a finished job directory against its own seal.
 
@@ -215,8 +271,10 @@ __all__ = [
     "capability",
     "capability_decls",
     "capability_ids",
+    "declaration_for",
     "describe_capability",
     "list_capabilities",
     "run_capability",
+    "run_capability_chain",
     "verify_capability_job",
 ]

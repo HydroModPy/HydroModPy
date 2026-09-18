@@ -78,6 +78,16 @@ Sub-actions
     Re-running the same request into a directory that already holds it is a
     reuse, below.
 
+``hmp process chain --root DIR``
+    Run several capabilities in a row, in one command. ``DIR`` carries
+    ``chain.json`` and nothing else; the verb creates one job directory per
+    step, **writes each** ``request.json`` **itself**, and fills the file
+    inputs of a step from the artefacts an earlier one sealed. stdout carries
+    exactly one JSON document, byte for byte the content of
+    ``DIR/chain-outcome.json``, and the exit code is the typed one of the step
+    that stopped the chain. A document that does not resolve leaves ``DIR``
+    exactly as it was staged: no step directory, no report. Detailed below.
+
 ``hmp process verify --job DIR [--format {table,json,csv}]``
     Re-check a finished directory against its own seal, reading only the
     disk: every artefact still hashes to what the seal recorded, the input
@@ -134,8 +144,13 @@ The capabilities this build serves
         {"process": {"id": "data-fetch", "version": "1.0.0"},
          "inputs": {
            "source": {"id": "hubeau-piezometry", "product": "level"},
-           "mask": {"href": "../4711/outputs/watershed.gpkg"},
+           "mask": {"href": "/scratch/jobs/4711/outputs/watershed.gpkg"},
            "period": {"start": "2020-01-01", "end": "2020-12-31"}}}
+
+    The mask is named in full, and it has to be: a **relative** input path is
+    resolved against the job directory and refused if it walks out of it, which
+    is what the directory of another job is. ``hmp process chain`` writes that
+    path for the caller.
 
     Which artefact it writes depends on the source's payload kind, and the run
     writes exactly one of them: ``outputs/points.parquet``,
@@ -197,6 +212,80 @@ would break the seal that hashes it.
 A reuse does not re-hash the artefacts; it trusts the seal. ``hmp process
 verify`` is the verb that does not.
 
+Chaining capabilities
+---------------------
+
+Two capabilities compose through the disk: the GeoPackage ``terrain-delineate``
+seals is a mask ``data-fetch`` reads. Asking for a variable over a watershed is
+therefore two jobs, and ``chain`` is the verb that runs them as one command.
+
+The caller writes **one** document at the chain root::
+
+    $CHAINDIR/
+    `-- chain.json
+
+::
+
+    {"steps": [
+      {"id": "delineate",
+       "process": {"id": "terrain-delineate", "version": "1.0.0"},
+       "inputs": {"dem": {"href": "/data/dem_valley.tif"},
+                  "outlets": [{"site_id": "valley", "x": 300112.5, "y": 6701262.5}],
+                  "crs_project": "EPSG:2154"}},
+      {"id": "fetch",
+       "process": {"id": "data-fetch"},
+       "inputs": {"source": {"id": "hubeau-piezometry", "product": "level"},
+                  "period": {"start": "2020-01-01", "end": "2020-12-31"}},
+       "links": [{"member": "mask", "step": "delineate", "output": "watershed_vector"}]}
+    ]}
+
+A **link** is the whole point: ``member`` is the input of this step to fill,
+``step`` is an earlier step of the chain, and ``output`` is an artefact of that
+step **as its capability declares it** -- ``hmp process describe`` lists the
+names. The chain turns it into the absolute path that artefact takes, which is
+the only spelling a job directory accepts for a file in another one.
+
+Steps run in the order they are written, each in its own job directory named
+after its rank and its id::
+
+    $CHAINDIR/
+    |-- chain.json          written by the CALLER, the only file it writes
+    |-- chain-outcome.json  one record per declared step, in order
+    |-- 01-delineate/       an ordinary job directory, sealed
+    `-- 02-fetch/           its request.json names 01-delineate/outputs/watershed.gpkg
+
+Four rules, each of them checkable from the outside:
+
+* **a chain is refused before it runs.** A step naming a capability this build
+  does not serve, a link pointing forward, at itself or at an artefact the
+  producing capability does not declare: each is refused with the pointer of
+  the member that carries it, while the root is still empty. Nothing is run and
+  nothing is written.
+* **a failing step stops the chain**, and the steps after it are recorded as
+  ``skipped`` -- a statement that they did not run, never a failure attributed
+  to them. The exit code of the chain is the typed exit code of the step that
+  stopped it. The status of a step is read off **its exit code** and never off
+  the document it printed; a step whose document says otherwise has its
+  disagreement published as a fault of that step.
+* **a linked artefact that the run did not produce refuses its reader.** Half
+  the artefacts of this tree are optional -- a ``data-fetch`` run writes one
+  payload of four -- so the chain checks the file is there before starting the
+  step that reads it.
+* **idempotency composes.** Running the same chain into the same root again
+  re-submits each step with a byte-identical request, so each one is a reuse:
+  nothing is re-run, and ``chain-outcome.json`` says ``"reused": true`` for
+  each.
+
+A root already carrying a ``chain-outcome.json`` that is not a file is a usage
+error, refused before the first step: a chain that ran two capabilities and
+then had nowhere to write its report would have done the work and said so
+nowhere.
+
+A step directory carries exactly what any job directory carries, and the chain
+writes nothing inside it beyond the ``request.json`` a caller would have
+written by hand. ``hmp process verify --job $CHAINDIR/01-delineate`` is the
+same verb, on the same seal.
+
 A worked example
 ----------------
 
@@ -219,3 +308,25 @@ A worked example
 The produced directory opens with plain readers -- ``geopandas``,
 ``rasterio``, ``json`` -- with nothing of HydroModPy imported. That is
 asserted by ``tests/e2e/process/test_stdout_is_one_json_document.py``.
+
+The same two jobs, chained:
+
+.. code-block:: console
+
+   $ mkdir -p /scratch/chains/17
+   $ cat > /scratch/chains/17/chain.json <<'JSON'
+   {"steps": [
+     {"id": "delineate", "process": {"id": "terrain-delineate", "version": "1.0.0"},
+      "inputs": {"dem": {"href": "/data/dem_valley.tif"},
+                 "outlets": [{"site_id": "valley", "x": 300112.5, "y": 6701262.5}],
+                 "crs_project": "EPSG:2154"}},
+     {"id": "fetch", "process": {"id": "data-fetch"},
+      "inputs": {"source": {"id": "ign-bdalti"}},
+      "links": [{"member": "mask", "step": "delineate", "output": "watershed_vector"}]}]}
+   JSON
+   $ hmp process chain --root /scratch/chains/17 \
+       > /scratch/chains/17.stdout.json 2> /scratch/chains/17.stderr.log
+   $ echo $?
+   0
+   $ ls /scratch/chains/17
+   01-delineate  02-fetch  chain.json  chain-outcome.json
