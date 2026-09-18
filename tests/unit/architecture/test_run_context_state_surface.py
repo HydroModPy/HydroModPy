@@ -71,7 +71,7 @@ def _getattr_call(value: ast.expr) -> tuple[ast.expr, str] | None:
     name = value.args[1]
     if not isinstance(name, ast.Constant) or not isinstance(name.value, str):
         return None
-    return value.args[0], name.value
+    return _unwrap(value.args[0]), name.value
 
 
 def _binds_the_state(value: ast.expr, contexts: set[str]) -> bool:
@@ -252,6 +252,10 @@ OFFENDING_SPELLINGS = (
         "getattr on both",
         "def f(ctx: RunContext) -> None:\n"
         '    return getattr(getattr(ctx, "state", None), "raw_toml", None)\n',
+    ),
+    (
+        "walrus inside getattr",
+        'def f(ctx: RunContext) -> None:\n    return getattr((c := ctx), "state", None).raw_toml\n',
     ),
 )
 
