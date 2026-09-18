@@ -33,6 +33,7 @@ from hydromodpy.core.state.paths import (
     scratch_dir_for,
 )
 from hydromodpy.core.state.run_state import WorkflowContext
+from hydromodpy.spatial.domain.domain_config import DomainConfig
 
 
 class _DummyWorkspace:
@@ -91,7 +92,7 @@ def _patch_setup_deps(monkeypatch: pytest.MonkeyPatch) -> None:
         _DummyGeographic,
     )
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.Domain",
+        "hydromodpy.spatial.domain.build.Domain",
         lambda **kwargs: SimpleNamespace(**kwargs, zones={}),
     )
     monkeypatch.setattr(
@@ -288,7 +289,7 @@ def test_step_setup_registers_the_project_in_global_index(
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(project_root=project_root),
         geographic=SimpleNamespace(uses_synthetic_geographic=lambda: False),
-        domain=SimpleNamespace(zone_ids=[]),
+        domain=DomainConfig(),
         simulation=SimpleNamespace(name="demo_run", run_id="test", rng_seed=None),
     )
     run_state = WorkflowContext(

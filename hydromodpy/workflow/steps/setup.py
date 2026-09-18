@@ -14,9 +14,9 @@ from hydromodpy.core.state.global_index import auto_register_projects
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.simulation import ensure_flow, ensure_transport
-from hydromodpy.spatial.domain import Domain
+from hydromodpy.spatial.domain.build import build_domain
 from hydromodpy.spatial.domain.spatial_support import SupportBuildContext
-from hydromodpy.spatial.domain.zone_arming import BINDER_ZONE_IDS, arm_runtime_zone_ids
+from hydromodpy.spatial.domain.zone_arming import BINDER_ZONE_IDS
 from hydromodpy.spatial.geographic.artifacts import geographic_artifact_paths
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from hydromodpy.spatial.geographic.core.derived_features import (
@@ -433,12 +433,12 @@ def run_setup(
     setup_state.domain_geographic = setup_state.geographic_features.to_domain_geographic_context()
     surface_topo = setup_state.geographic_features.surface_topo
 
-    domain_cfg = cfg.domain
-    if hasattr(domain_cfg, "model_copy"):
-        domain_cfg = domain_cfg.model_copy(deep=True)
-    domain_cfg = arm_runtime_zone_ids(domain_cfg, requested_spatial_support_ids)
-
-    setup_state.domain = Domain(config=domain_cfg, surface_topo=surface_topo)
+    setup_state.domain = build_domain(
+        cfg.domain,
+        surface_topo=surface_topo,
+        zone_ids=requested_spatial_support_ids,
+    )
+    domain_cfg = setup_state.domain.config
     setup_state.domain_config_source = cfg.domain
     apply_catchment_zones_to_domain(
         domain=setup_state.domain,
@@ -509,13 +509,10 @@ def rebuild_domain_if_stale(run_state: WorkflowContext) -> bool:
     # domain able to receive the catchment and geology zones: ``run_setup``
     # arms a copy, so the declared section never carries them.
     armed_zone_ids = tuple(getattr(setup_state.domain.config, "zone_ids", ()) or ())
-    domain_cfg = run_state.cfg.domain
-    if hasattr(domain_cfg, "model_copy"):
-        domain_cfg = domain_cfg.model_copy(deep=True)
-    domain_cfg = arm_runtime_zone_ids(domain_cfg, armed_zone_ids)
-    domain = Domain(
-        config=domain_cfg,
+    domain = build_domain(
+        run_state.cfg.domain,
         surface_topo=setup_state.geographic_features.surface_topo,
+        zone_ids=armed_zone_ids,
     )
     # The spatial supports the project materialized are lateral zonations; a
     # different aquifer thickness does not invalidate them, and nothing runs

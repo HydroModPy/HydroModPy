@@ -25,6 +25,7 @@ from typing import Any
 import numpy as np
 from shapely.geometry import LineString
 
+from hydromodpy.spatial.domain.build import build_domain
 from hydromodpy.spatial.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     FlatSubstratumDepthModel,
@@ -182,7 +183,7 @@ def _build_domain_for_bundle(*, surface, domain_cfg: object | None) -> Domain:
     """Resolve topography/substratum surfaces used by bundle export."""
     if surface is None:
         raise ValueError("domain_geographic.surface_topo is required for bundle export")
-    domain = Domain(config=domain_cfg, surface_topo=surface)
+    domain = build_domain(domain_cfg, surface_topo=surface)
     if domain.substratum is None:
         raise ValueError(
             "domain.depth_model did not produce a substratum surface for bundle export"
