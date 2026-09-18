@@ -99,7 +99,7 @@ class BoussinesqFlowAdapter:
 
     def cleanup(self, ctx: RunContext) -> None:
         """Remove the scratch directory written by this run, if any."""
-        solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
+        solver_output_dir = ctx.output_dir
         if solver_output_dir is not None:
             cleanup_solver_files(solver_output_dir)
 
@@ -123,7 +123,7 @@ class BoussinesqFlowAdapter:
         if not requests:
             return {}
         require_unique_request_ids(requests)
-        output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
+        output_dir = ctx.output_dir
         if output_dir is None:
             raise SolverError(f"No solver output recorded for run {ctx.run.id!r}")
         output_dir = Path(output_dir)

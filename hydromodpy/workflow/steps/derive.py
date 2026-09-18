@@ -149,7 +149,6 @@ class DeriveStep:
             # now a guarded no-op and water-table readers find the registry's
             # slab-written field.
             if plan is not None:
-                from hydromodpy.core.state.run_state import RunState
                 from hydromodpy.simulation.extraction.post_run import derive_run_outputs
                 from hydromodpy.simulation.planning.plan import RunContext
 
@@ -157,7 +156,7 @@ class DeriveStep:
                     if not run.is_solver_backed:
                         continue
                     derive_run_outputs(
-                        ctx=RunContext(plan=plan, run=run, state=RunState.of(ctx), store=store),
+                        ctx=RunContext.of(ctx, plan=plan, run=run, store=store),
                         sim_id=sim_id,
                         results_config=results_cfg,
                         store=store,

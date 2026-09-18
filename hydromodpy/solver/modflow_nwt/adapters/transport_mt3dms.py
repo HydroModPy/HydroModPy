@@ -32,7 +32,7 @@ class Mt3dmsTransportAdapter:
 
     def cleanup(self, ctx: RunContext) -> None:
         """Remove the scratch directory written by this run, if any."""
-        solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
+        solver_output_dir = ctx.output_dir
         if solver_output_dir is not None:
             cleanup_solver_files(solver_output_dir)
 

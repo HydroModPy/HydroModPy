@@ -79,7 +79,7 @@ class ModflowNwtFlowAdapter:
         """
         import numpy as np
 
-        model = ctx.state.execution.models_by_run_id.get(ctx.run.id)
+        model = ctx.model
         if model is None:
             return None
         grid = getattr(getattr(model, "mf", None), "modelgrid", None)
@@ -97,7 +97,7 @@ class ModflowNwtFlowAdapter:
 
     def cleanup(self, ctx: RunContext) -> None:
         """Remove the scratch directory written by this run, if any."""
-        solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
+        solver_output_dir = ctx.output_dir
         if solver_output_dir is not None:
             cleanup_solver_files(solver_output_dir)
 
@@ -112,7 +112,7 @@ class ModflowNwtFlowAdapter:
         """Read observables from the scratch CBC and HDS files.
 
         Lightweight calibration trials never go through the ``store``: they
-        read ``ctx.state.execution.output_dirs_by_run_id`` directly. ``store``
+        read ``ctx.output_dir`` directly. ``store``
         is accepted for Protocol uniformity but unused here. MODFLOW-NWT has no
         lake package on this path, so anything the shared helper leaves unserved
         is refused by name.

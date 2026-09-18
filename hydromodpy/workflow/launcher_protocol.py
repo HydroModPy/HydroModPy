@@ -23,7 +23,7 @@ class Launcher(Protocol):
 
     The launcher is responsible for walking ``plan.runs`` in order, for
     setting up each process-family block, and for storing the produced
-    models back into ``state.execution.models_by_run_id``.
+    models back into the execution registry the runner owns.
 
     The single ``execute`` method takes the plan and the workflow state.
     Side-effects are observed through ``state`` mutations and through any

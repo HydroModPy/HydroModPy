@@ -48,12 +48,8 @@ def _context(tmp_path: Path, modflownwt: ModflowConfig) -> RunContext:
     state = RunState(
         cfg=SimpleNamespace(modflownwt=modflownwt),
         setup=SimpleNamespace(time_grid=None),
-        execution=SimpleNamespace(
-            output_dirs_by_run_id={run.id: tmp_path},
-            models_by_run_id={},
-        ),
     )
-    return RunContext(plan=plan, run=run, state=state)
+    return RunContext(plan=plan, run=run, state=state, output_dir=tmp_path)
 
 
 @pytest.fixture

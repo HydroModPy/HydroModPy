@@ -48,7 +48,6 @@ def _build_flow_run_context(*, flow_runtime_overrides: dict[str, object] | None)
             domain=SimpleNamespace(),
             flow_runtime_overrides=flow_runtime_overrides,
         ),
-        execution=SimpleNamespace(models_by_run_id={}),
     )
     return RunContext(plan=plan, run=plan.runs[0], state=state)
 

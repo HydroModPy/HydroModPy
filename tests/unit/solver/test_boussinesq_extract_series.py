@@ -49,17 +49,11 @@ def _build_ctx(run_id: str, output_dir: Path) -> RunContext:
         process_type="flow",
         solver="boussinesq",
     )
-    state = RunState(
-        setup=SimpleNamespace(),
-        execution=SimpleNamespace(
-            output_dirs_by_run_id={run.id: output_dir},
-            models_by_run_id={},
-        ),
-    )
     return RunContext(
         plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
         run=run,
-        state=state,
+        state=RunState(setup=SimpleNamespace()),
+        output_dir=output_dir,
     )
 
 
@@ -196,17 +190,10 @@ def test_extract_raises_when_no_output_dir_recorded(tmp_path: Path) -> None:
         process_type="flow",
         solver="boussinesq",
     )
-    state = RunState(
-        setup=SimpleNamespace(),
-        execution=SimpleNamespace(
-            output_dirs_by_run_id={},
-            models_by_run_id={},
-        ),
-    )
     ctx = RunContext(
         plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
         run=run,
-        state=state,
+        state=RunState(setup=SimpleNamespace()),
     )
 
     with pytest.raises(SolverError, match="No solver output recorded"):

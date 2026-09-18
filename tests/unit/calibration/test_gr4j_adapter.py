@@ -34,6 +34,8 @@ from hydromodpy.calibration.lumped import Gr4jAdapter, LumpedRamCache, stash_ser
 from hydromodpy.calibration.lumped.gr4j_adapter import GR4J_SERIES_UNITS
 from hydromodpy.core.contracts.observables import ObservableRequest
 from hydromodpy.core.exceptions import ObservableNotAvailableError
+from hydromodpy.core.state.run_state import WorkflowContext
+from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from tests._helpers.fixtures_catalog import simulation_catalog
 from tests._helpers.tolerances import tol
 
@@ -57,23 +59,29 @@ def _domain_request(
     return ObservableRequest(id=request_id, name=name, support="domain", key=station)
 
 
-@dataclass
-class _FakeExecution:
-    """Stand-in for the trial execution registry the adapter reads from."""
-
-    lumped_ram_cache: LumpedRamCache | None = None
-
-
-@dataclass
-class _FakeState:
-    execution: Any = None
+GR4J_RUN = ProcessRun(
+    id="flow_main::gr4j",
+    process_id="flow_main",
+    process_type="flow",
+    solver="gr4j",
+)
+GR4J_PLAN = SimulationPlan(name="gr4j", description="gr4j", runs=(GR4J_RUN,))
 
 
-@dataclass
-class _FakeCtx:
-    """Minimal RunContext-shaped object: only ``.state.execution`` is read."""
+def _trial_context() -> WorkflowContext:
+    """The pipeline runtime of a lumped calibration trial."""
+    return WorkflowContext(cfg=None, config_path=Path("run_gr4j.toml"), raw_toml={})
 
-    state: Any = field(default_factory=_FakeState)
+
+def _ctx(trial: WorkflowContext | None = None) -> RunContext:
+    """The context the adapter receives, built the way the pipeline builds it.
+
+    Through ``RunContext.of`` on a real ``WorkflowContext``, so the double
+    cannot serve a member the production path does not carry. A
+    ``SimpleNamespace`` here would have hidden F8d entirely: ``RunState`` has
+    ``slots``, and only a real one refuses a read of a scope it dropped.
+    """
+    return RunContext.of(trial or _trial_context(), plan=GR4J_PLAN, run=GR4J_RUN)
 
 
 def _synthetic_gr4j_run(n: int = 40) -> dict[str, pd.Series]:
@@ -149,9 +157,9 @@ class TestHotPathRamCache:
     """store=None: read the series the runner stashed in LumpedRamCache."""
 
     def test_round_trip_preserves_values(self, run):
-        execution = _FakeExecution()
-        stash_series(execution, "outlet", "discharge", run["outlet_discharge"])
-        ctx = _FakeCtx(state=_FakeState(execution=execution))
+        trial = _trial_context()
+        stash_series(trial.execution, "outlet", "discharge", run["outlet_discharge"])
+        ctx = _ctx(trial)
 
         served = Gr4jAdapter().extract_observables(ctx, None, [_domain_request("discharge")])
 
@@ -163,10 +171,10 @@ class TestHotPathRamCache:
         assert result.units == "m3/s"
 
     def test_batch_serves_each_request_under_its_own_id(self, run):
-        execution = _FakeExecution()
-        stash_series(execution, "outlet", "discharge", run["outlet_discharge"])
-        stash_series(execution, "outlet", "storage", run["outlet_storage"])
-        ctx = _FakeCtx(state=_FakeState(execution=execution))
+        trial = _trial_context()
+        stash_series(trial.execution, "outlet", "discharge", run["outlet_discharge"])
+        stash_series(trial.execution, "outlet", "storage", run["outlet_storage"])
+        ctx = _ctx(trial)
 
         served = Gr4jAdapter().extract_observables(
             ctx,
@@ -183,11 +191,11 @@ class TestHotPathRamCache:
         np.testing.assert_allclose(served["s"].values, run["outlet_storage"].to_numpy(), atol=ATOL)
 
     def test_time_index_reattached_when_lengths_match(self, run):
-        execution = _FakeExecution()
+        trial = _trial_context()
         # Stash a values-only series (no index) to exercise reindexing.
         bare = pd.Series(run["outlet_discharge"].to_numpy())
-        stash_series(execution, "outlet", "discharge", bare)
-        ctx = _FakeCtx(state=_FakeState(execution=execution))
+        stash_series(trial.execution, "outlet", "discharge", bare)
+        ctx = _ctx(trial)
 
         idx = run["outlet_discharge"].index
         result = Gr4jAdapter().extract_observables(
@@ -197,9 +205,9 @@ class TestHotPathRamCache:
         assert result.times.equals(idx)
 
     def test_mismatched_time_index_falls_back_to_positional(self, run):
-        execution = _FakeExecution()
-        stash_series(execution, "outlet", "discharge", run["outlet_discharge"])
-        ctx = _FakeCtx(state=_FakeState(execution=execution))
+        trial = _trial_context()
+        stash_series(trial.execution, "outlet", "discharge", run["outlet_discharge"])
+        ctx = _ctx(trial)
 
         short_idx = run["outlet_discharge"].index[:5]
         result = Gr4jAdapter().extract_observables(
@@ -210,30 +218,37 @@ class TestHotPathRamCache:
         np.testing.assert_allclose(result.values, run["outlet_discharge"].to_numpy(), atol=ATOL)
 
     def test_request_key_selects_station_id(self, run):
-        execution = _FakeExecution()
-        stash_series(execution, "BV2", "discharge", run["outlet_discharge"])
-        ctx = _FakeCtx(state=_FakeState(execution=execution))
+        trial = _trial_context()
+        stash_series(trial.execution, "BV2", "discharge", run["outlet_discharge"])
+        ctx = _ctx(trial)
 
         result = Gr4jAdapter().extract_observables(
             ctx, None, [_domain_request("discharge", station="BV2")]
         )["q"]
         np.testing.assert_allclose(result.values, run["outlet_discharge"].to_numpy(), atol=ATOL)
 
-    def test_missing_execution_state_raises(self, run):
-        ctx = _FakeCtx(state=_FakeState(execution=None))
-        with pytest.raises(NotImplementedError):
-            Gr4jAdapter().extract_observables(ctx, None, [_domain_request("discharge")])
+    def test_a_trial_that_stashed_nothing_is_refused_by_name(self, run):
+        """No cache at all reads like no series, and says which one is missing.
+
+        It used to raise ``NotImplementedError`` on a context whose execution
+        scope was absent. That branch answered a question about the shape of
+        the runtime, not about the data, and it was reachable only through a
+        ``getattr`` default that swallowed the refusal of a slotted view.
+        """
+        with pytest.raises(KeyError, match="discharge"):
+            Gr4jAdapter().extract_observables(_ctx(), None, [_domain_request("discharge")])
 
     def test_absent_series_raises_keyerror(self, run):
-        execution = _FakeExecution(lumped_ram_cache=LumpedRamCache())
-        ctx = _FakeCtx(state=_FakeState(execution=execution))
+        trial = _trial_context()
+        trial.execution.lumped_ram_cache = LumpedRamCache()
+        ctx = _ctx(trial)
         with pytest.raises(KeyError):
             Gr4jAdapter().extract_observables(ctx, None, [_domain_request("discharge")])
 
     def test_empty_series_raises_keyerror(self):
-        execution = _FakeExecution()
-        stash_series(execution, "outlet", "discharge", pd.Series(dtype=float))
-        ctx = _FakeCtx(state=_FakeState(execution=execution))
+        trial = _trial_context()
+        stash_series(trial.execution, "outlet", "discharge", pd.Series(dtype=float))
+        ctx = _ctx(trial)
         with pytest.raises(KeyError):
             Gr4jAdapter().extract_observables(ctx, None, [_domain_request("discharge")])
 
@@ -250,7 +265,7 @@ class TestColdPathCatalog:
 
     def test_round_trip_preserves_values(self, catalog, run):
         self._persist(catalog, run)
-        ctx = _FakeCtx()
+        ctx = _ctx()
 
         served = Gr4jAdapter().extract_observables(ctx, catalog, [_domain_request("discharge")])
 
@@ -263,7 +278,7 @@ class TestColdPathCatalog:
 
     def test_water_balance_survives_round_trip(self, catalog, run):
         self._persist(catalog, run)
-        ctx = _FakeCtx()
+        ctx = _ctx()
         adapter = Gr4jAdapter()
 
         # The catalog preserves insertion order (ORDER BY timestep), so the
@@ -284,7 +299,7 @@ class TestColdPathCatalog:
 
     def test_round_trip_non_negativity(self, catalog, run):
         self._persist(catalog, run)
-        ctx = _FakeCtx()
+        ctx = _ctx()
         adapter = Gr4jAdapter()
         q = adapter.extract_observables(ctx, catalog, [_domain_request("discharge")])["q"]
         store = adapter.extract_observables(ctx, catalog, [_domain_request("storage")])["q"]
@@ -293,7 +308,7 @@ class TestColdPathCatalog:
 
     def test_time_index_reattached_when_lengths_match(self, catalog, run):
         self._persist(catalog, run)
-        ctx = _FakeCtx()
+        ctx = _ctx()
         idx = pd.date_range("2021-01-01", periods=len(run["outlet_discharge"]), freq="D")
         result = Gr4jAdapter().extract_observables(
             ctx, catalog, [_domain_request("discharge")], time_index=idx
@@ -303,7 +318,7 @@ class TestColdPathCatalog:
 
     def test_request_key_selects_station_id(self, catalog, run):
         self._persist(catalog, run, station_id="gauge_A")
-        ctx = _FakeCtx()
+        ctx = _ctx()
         result = Gr4jAdapter().extract_observables(
             ctx, catalog, [_domain_request("discharge", station="gauge_A")]
         )["q"]
@@ -314,12 +329,12 @@ class TestColdPathCatalog:
         # user sees is the variable and the list of what GR4J publishes, not a
         # KeyError about a cache entry that was never going to be there.
         self._persist(catalog, run)
-        ctx = _FakeCtx()
+        ctx = _ctx()
         with pytest.raises(ObservableNotAvailableError, match="no unit for 'recharge'"):
             Gr4jAdapter().extract_observables(ctx, catalog, [_domain_request("recharge")])
 
     def test_no_simulation_in_store_raises_keyerror(self, catalog):
-        ctx = _FakeCtx()
+        ctx = _ctx()
         with pytest.raises(KeyError):
             Gr4jAdapter().extract_observables(ctx, catalog, [_domain_request("discharge")])
 
@@ -336,7 +351,7 @@ class TestColdPathCatalog:
         expected_sid = str(catalog.list_simulations(solver="gr4j").iloc[-1]["sim_id"])
         expected = catalog.query_timeseries(expected_sid, "outlet", "discharge")
 
-        ctx = _FakeCtx()
+        ctx = _ctx()
         served = Gr4jAdapter().extract_observables(ctx, catalog, [_domain_request("discharge")])
         np.testing.assert_allclose(served["q"].values, expected.to_numpy(), atol=ATOL)
 
@@ -410,17 +425,17 @@ class TestTheUnitsGr4jDeclares:
             assert f'"{variable}", {variable}, unit="{unit}"' in source, variable
 
     def test_a_series_gr4j_declares_no_unit_for_is_refused_by_name(self, run):
-        execution = _FakeExecution()
-        stash_series(execution, "outlet", "actual_evap", run["actual_evap"])
-        ctx = _FakeCtx(state=_FakeState(execution=execution))
+        trial = _trial_context()
+        stash_series(trial.execution, "outlet", "actual_evap", run["actual_evap"])
+        ctx = _ctx(trial)
 
         with pytest.raises(ObservableNotAvailableError, match="actual_evap"):
             Gr4jAdapter().extract_observables(ctx, None, [_domain_request("actual_evap")])
 
     def test_storage_is_not_served_as_a_flow(self, run):
-        execution = _FakeExecution()
-        stash_series(execution, "outlet", "storage", run["outlet_storage"])
-        ctx = _FakeCtx(state=_FakeState(execution=execution))
+        trial = _trial_context()
+        stash_series(trial.execution, "outlet", "storage", run["outlet_storage"])
+        ctx = _ctx(trial)
 
         served = Gr4jAdapter().extract_observables(ctx, None, [_domain_request("storage")])
         assert served["q"].units == "mm"
@@ -431,11 +446,11 @@ class TestAdapterRunnerContract:
 
     def test_execute_not_implemented(self):
         with pytest.raises(NotImplementedError):
-            Gr4jAdapter().execute(_FakeCtx())
+            Gr4jAdapter().execute(_ctx())
 
     def test_validate_and_cleanup_are_noops(self):
         adapter = Gr4jAdapter()
-        ctx = _FakeCtx()
+        ctx = _ctx()
         assert adapter.validate(ctx) is None
         assert adapter.cleanup(ctx) is None
 

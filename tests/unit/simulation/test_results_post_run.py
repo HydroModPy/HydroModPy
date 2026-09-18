@@ -35,7 +35,7 @@ def _build_run_context(
 ) -> RunContext:
     """Build a minimal RunContext for post_run_results tests.
 
-    The state carries ``execution.output_dirs_by_run_id`` for the
+    The context carries the solver output directory for the
     ``adapter.cleanup(ctx)`` path, plus the ``cfg`` the extraction phase reads
     to hand the configured dry-cell sentinels to the extractor.
     """
@@ -46,14 +46,10 @@ def _build_run_context(
         solver=solver_name,
     )
     plan = SimulationPlan(name="test", description="test", runs=(run,))
-    output_dirs: dict[str, Path] = {}
-    if solver_output_dir is not None:
-        output_dirs[run.id] = solver_output_dir
     state = RunState(
         cfg=SimpleNamespace(modflownwt=ModflowConfig(), solver=SolverConfig()),
-        execution=SimpleNamespace(output_dirs_by_run_id=output_dirs),
     )
-    return RunContext(plan=plan, run=run, state=state)
+    return RunContext(plan=plan, run=run, state=state, output_dir=solver_output_dir)
 
 
 class _FakeExtractor:
@@ -86,9 +82,8 @@ class _FakeAdapter:
 
     def cleanup(self, ctx: RunContext) -> None:
         self.cleanup_calls.append(ctx)
-        solver_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
-        if solver_dir is not None:
-            shutil.rmtree(solver_dir)
+        if ctx.output_dir is not None:
+            shutil.rmtree(ctx.output_dir)
 
 
 class _FakeProvider:

@@ -31,7 +31,6 @@ from hydromodpy.core.contracts.observables import (
 )
 from hydromodpy.core.exceptions import ObjectiveError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.run_state import RunState
 from hydromodpy.core.stream_network import build_simulated_network
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
 from hydromodpy.simulation.planning.plan import RunContext
@@ -87,7 +86,7 @@ def resolve_flow_adapter(trial_ctx: Any) -> tuple[Any, RunContext] | None:
         adapter = get_solver_adapter(flow_run.process_type, flow_run.solver)
     except KeyError:
         return None
-    run_ctx = RunContext(plan=plan, run=flow_run, state=RunState.of(trial_ctx))
+    run_ctx = RunContext.of(trial_ctx, plan=plan, run=flow_run)
     return adapter, run_ctx
 
 

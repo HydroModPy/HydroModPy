@@ -313,7 +313,6 @@ class ExportStep:
                 packaged = plan is not None and ctx.sim_id is not None
                 export_package: Callable[[], None] | None = None
                 if packaged:
-                    from hydromodpy.core.state.run_state import RunState
                     from hydromodpy.simulation.extraction.post_run import (
                         auto_export_package,
                         auto_export_results,
@@ -334,7 +333,7 @@ class ExportStep:
                         if not run.is_solver_backed:
                             continue
                         cleanup_solver_outputs(
-                            ctx=RunContext(plan=plan, run=run, state=RunState.of(ctx), store=store),
+                            ctx=RunContext.of(ctx, plan=plan, run=run, store=store),
                             results_config=results_cfg,
                             keep_solver_files=bool(
                                 getattr(results_cfg, "keep_solver_files", False)

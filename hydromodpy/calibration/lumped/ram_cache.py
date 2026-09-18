@@ -62,12 +62,11 @@ def stash_series(
 
 
 def load_series(
-    execution: Any,
+    cache: Any,
     station_id: str,
     variable: str,
 ) -> pd.Series | None:
-    """Read a hot simulated series from the trial's ``LumpedRamCache``."""
-    cache = getattr(execution, "lumped_ram_cache", None)
+    """Read a hot simulated series from a trial's ``LumpedRamCache``."""
     if cache is None:
         return None
     return cache.get(station_id, variable)

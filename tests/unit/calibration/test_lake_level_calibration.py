@@ -144,14 +144,9 @@ class TestAdapterBranch:
     def _ctx(self, tmp_path: Path):
         return SimpleNamespace(
             run=SimpleNamespace(id="r1"),
-            state=SimpleNamespace(
-                execution=SimpleNamespace(
-                    output_dirs_by_run_id={"r1": tmp_path},
-                    models_by_run_id={
-                        "r1": SimpleNamespace(model_output_name="m", solver_mesh=None)
-                    },
-                )
-            ),
+            state=SimpleNamespace(),
+            model=SimpleNamespace(model_output_name="m", solver_mesh=None),
+            output_dir=tmp_path,
         )
 
     def test_lake_request_needs_a_lake_key(self):

@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
+from hydromodpy.core.state.execution import ExecutionRegistry
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 from hydromodpy.workflow.internals.state import PipelineState
@@ -24,7 +25,7 @@ def test_extract_step_extracts_solver_outputs(monkeypatch, tmp_path: Path) -> No
     calls: list[tuple[str, str, Path]] = []
 
     def _extract_run_outputs(*, ctx, sim_id, results_config, store) -> None:
-        calls.append((ctx.run.id, sim_id, ctx.state.execution.output_dirs_by_run_id[ctx.run.id]))
+        calls.append((ctx.run.id, sim_id, ctx.output_dir))
         assert results_config is results
         assert store == "store"
 
@@ -46,7 +47,10 @@ def test_extract_step_extracts_solver_outputs(monkeypatch, tmp_path: Path) -> No
     monkeypatch.setattr("hydromodpy.workflow.steps.extract.run_catalog", _fake_scope)
 
     ctx = SimpleNamespace(
-        execution=SimpleNamespace(
+        # A real registry, not a namespace: the step builds its run contexts
+        # through ``RunContext.of``, so a double has to carry every scope that
+        # path reads rather than the ones this test happens to assert on.
+        execution=ExecutionRegistry(
             lightweight=False,
             simulation_plan=plan,
             output_dirs_by_run_id={run.id: output_dir},

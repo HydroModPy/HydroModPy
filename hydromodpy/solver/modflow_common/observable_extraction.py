@@ -67,8 +67,8 @@ def resolve_run_output(ctx: Any, *, name_attributes: Sequence[str]) -> tuple[Pat
     A lightweight trial writes nothing to the store, so the only trace of the
     run is the scratch directory the execution registry recorded.
     """
-    output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
-    model = ctx.state.execution.models_by_run_id.get(ctx.run.id)
+    output_dir = ctx.output_dir
+    model = ctx.model
     if output_dir is None or model is None:
         raise ObservableNotAvailableError(f"No solver output recorded for run {ctx.run.id!r}")
     model_name = next(

@@ -58,7 +58,8 @@ class _Mesh:
 def _ctx(model: object) -> SimpleNamespace:
     return SimpleNamespace(
         run=SimpleNamespace(id="r1"),
-        state=SimpleNamespace(execution=SimpleNamespace(models_by_run_id={"r1": model})),
+        state=SimpleNamespace(),
+        model=model,
     )
 
 

@@ -77,9 +77,9 @@ class SolverAdapter(Protocol):
         knows before the solve which timesteps it has to keep.
 
         Lightweight calibration trials read straight from the solver scratch
-        dir via ``ctx.state.execution.output_dirs_by_run_id``; ``store`` is the
-        cold-path :class:`Catalog` reserved for backends that already wrote
-        results to it.
+        dir via ``ctx.output_dir``; ``store`` is the cold-path
+        :class:`Catalog` reserved for backends that already wrote results
+        to it.
 
         An adapter that cannot produce a requested observable raises
         :class:`~hydromodpy.core.exceptions.ObservableNotAvailableError` naming

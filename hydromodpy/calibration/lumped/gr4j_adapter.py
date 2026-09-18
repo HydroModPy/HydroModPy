@@ -117,13 +117,7 @@ class Gr4jAdapter:
         if store is None:
             from hydromodpy.calibration.lumped.ram_cache import load_series
 
-            execution = getattr(getattr(ctx, "state", None), "execution", None)
-            if execution is None:
-                raise NotImplementedError(
-                    "GR4J lightweight calibration extraction requires a trial "
-                    "context that exposes execution state."
-                )
-            series = load_series(execution, station_id, variable)
+            series = load_series(ctx.lumped_cache, station_id, variable)
             if series is None or getattr(series, "empty", True):
                 raise KeyError(
                     f"No GR4J RAM-cached series for station={station_id!r}, "

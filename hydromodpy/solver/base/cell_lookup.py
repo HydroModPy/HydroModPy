@@ -19,7 +19,7 @@ def locate_cell_on_solver_mesh(ctx: RunContext, x: float, y: float) -> tuple[int
     ``(0, row, col)`` on a structured mesh, ``(0, 0, cell_id)`` on an
     unstructured one, which is the flat selector a DISV head extractor reads.
     """
-    model = ctx.state.execution.models_by_run_id.get(ctx.run.id)
+    model = ctx.model
     mesh = getattr(model, "solver_mesh", None)
     if mesh is None:
         return None

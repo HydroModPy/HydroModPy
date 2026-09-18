@@ -94,7 +94,6 @@ def _fake_run_ctx(bench, *, reference=None, generated=None):
     return SimpleNamespace(
         run=SimpleNamespace(id="r1", solver="modflow6"),
         state=SimpleNamespace(
-            execution=SimpleNamespace(models_by_run_id={"r1": model}),
             setup=SimpleNamespace(
                 geographic=SimpleNamespace(crs_project=CRS),
                 geographic_features=SimpleNamespace(
@@ -102,6 +101,7 @@ def _fake_run_ctx(bench, *, reference=None, generated=None):
                 ),
             ),
         ),
+        model=model,
     )
 
 

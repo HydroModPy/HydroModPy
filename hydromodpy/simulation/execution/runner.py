@@ -244,6 +244,9 @@ class SimulationRunner:
 
         dependency_models = self._resolve_dependency_models(state, run)
         adapter = get_solver_registry_provider().get_solver_adapter(run.process_type, run.solver)
+        # No ``model`` and no ``output_dir``: this run has produced neither yet,
+        # and it is the adapter's own ``execute`` that is about to produce them.
+        # Every context built after this one goes through ``RunContext.of``.
         result = adapter.execute(
             RunContext(
                 plan=plan,
@@ -294,10 +297,12 @@ class SimulationRunner:
     ) -> None:
         """Persist one completed run output back into the shared runtime state.
 
-        ``execution.models_by_run_id`` is the canonical per-run registry used for future
-        dependency resolution. ``execution.output_dirs_by_run_id`` mirrors it with the
-        solver scratch directory so RAM-only metric extractors (calibration trials) can
-        locate the raw solver binaries without going through the catalog.
+        ``execution.models_by_run_id`` is the registry this runner resolves against
+        when a later run declares a dependency. ``execution.output_dirs_by_run_id``
+        mirrors it with the solver scratch directory so RAM-only metric extractors
+        (calibration trials) locate the raw solver binaries without going through
+        the catalog. Neither is read outside this class: a consumer of what one run
+        produced receives it on the ``RunContext`` of that run.
         """
 
         state.execution.models_by_run_id[run.id] = result.primary_model

@@ -91,7 +91,7 @@ def geometry_from_run(
         water_body_mask,
     )
 
-    model = run_ctx.state.execution.models_by_run_id.get(run_ctx.run.id)
+    model = run_ctx.model
     if model is None:
         raise ValueError(f"no model recorded for run {run_ctx.run.id!r}")
     solver_mesh = getattr(model, "solver_mesh", None)

@@ -287,7 +287,6 @@ def test_run_flow_model_raises_when_solver_fails() -> None:
             domain=SimpleNamespace(),
             workspace=SimpleNamespace(simulations_folder="unused"),
         ),
-        execution=SimpleNamespace(models_by_run_id={}),
     )
 
     class _FailingFlowModel:
@@ -355,7 +354,6 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
             workspace=SimpleNamespace(simulations_folder="unused"),
             flow_runtime_overrides={"properties": {"K": [1.0, 2.0]}},
         ),
-        execution=SimpleNamespace(models_by_run_id={}),
     )
 
     class _SuccessfulFlowModel:
@@ -414,7 +412,6 @@ def test_run_flow_model_links_mt3dms_only_for_downstream_mt3dms_transport() -> N
             domain=SimpleNamespace(),
             flow_runtime_overrides=None,
         ),
-        execution=SimpleNamespace(models_by_run_id={}),
     )
 
     class _SuccessfulFlowModel:
