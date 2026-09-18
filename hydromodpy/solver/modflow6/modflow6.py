@@ -95,11 +95,28 @@ class Modflow6:
 
         self.preprocess_options = preprocess_options or ModflowPreprocessOptions()
         self._apply_preprocess_options(self.preprocess_options)
+        self._exposed_band_runoff_specs: list | None = None
         self._evt_rate_payload: dict[int, object] | None = None
         self._pending_negative_to_evt = False
         self._heterogeneous_recharge_source = None
         self._heterogeneous_negative_to_evt = False
         self._heterogeneous_interpolation_method = "nearest"
+
+    # dispatch -----------------------------------------------------------
+
+    def required_runner(self) -> str:
+        """Return the dispatch this model needs, 'subprocess' or 'api'.
+
+        Only MODFLOW 6 has a choice to make, so the declaration lives here
+        rather than in the shared helper: the caller asks the model instead of
+        reading how it was built. Exposed-band (marnage) runoff coupling forces
+        the in-process runner whatever the configuration says, because that
+        coupling sets the LAK RUNOFF per timestep through the BMI API.
+        """
+        if self._exposed_band_runoff_specs:
+            return "api"
+        runner = getattr(self.modflow_config.runtime, "mf6_runner", "subprocess")
+        return "api" if runner == "api" else "subprocess"
 
     # build helpers ------------------------------------------------------
 

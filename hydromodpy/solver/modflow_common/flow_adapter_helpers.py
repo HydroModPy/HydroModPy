@@ -219,23 +219,22 @@ def _requires_mt3dms_link(ctx: RunContext) -> bool:
 
 
 def resolve_modflow_runner(model_modflow: object) -> Literal["subprocess", "api"]:
-    """Return the solve dispatch ('subprocess' or 'api') for a flow model.
+    """Return the solve dispatch ('subprocess' or 'api') a flow model declares.
 
-    Only the MODFLOW 6 backend exposes a ``mf6_runner`` runtime field. NWT and
-    any other backend have no such field, so they default to 'subprocess' and
-    stay byte-for-byte unchanged. A model that built exposed-band (marnage) runoff
-    coupling specs forces the in-process 'api' runner, because that coupling sets
-    the LAK RUNOFF per timestep through the BMI API.
+    The model answers for itself: what forces the in-process runner is a
+    property of how MODFLOW 6 was built, and this helper is shared with a
+    backend that has no such choice. A model that declares nothing is solved by
+    subprocess, which is what NWT and every other backend do, byte for byte
+    unchanged.
 
-    This is the single source of truth for the dispatch: provenance reads it
-    back from the built model so it records the engine that actually ran, not
-    the one the configuration asked for.
+    Asking the built model is still the single source of truth for the
+    dispatch: provenance reads it back so it records the engine that actually
+    ran, not the one the configuration asked for.
     """
-    if getattr(model_modflow, "_exposed_band_runoff_specs", None):
-        return "api"
-    runtime = getattr(getattr(model_modflow, "modflow_config", None), "runtime", None)
-    runner = getattr(runtime, "mf6_runner", "subprocess")
-    return "api" if runner == "api" else "subprocess"
+    declared = getattr(model_modflow, "required_runner", None)
+    if declared is None:
+        return "subprocess"
+    return "api" if str(declared()) == "api" else "subprocess"
 
 
 def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExecutionResult:

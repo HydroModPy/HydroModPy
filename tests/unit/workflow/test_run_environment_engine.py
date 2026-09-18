@@ -41,7 +41,7 @@ def _ctx(
 def _marnage_model() -> SimpleNamespace:
     """A built MODFLOW 6 model whose exposed-band coupling forces the library."""
     return SimpleNamespace(
-        _exposed_band_runoff_specs=[object()],
+        required_runner=lambda: "api",
         modflow_config=SimpleNamespace(runtime=SimpleNamespace(mf6_runner="subprocess")),
     )
 
