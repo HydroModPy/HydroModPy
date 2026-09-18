@@ -22,7 +22,10 @@ from hydromodpy.core.migrations import (
     ensure_schema,
     target_version,
 )
-from hydromodpy.core.migrations.runner import repair_hint_for
+from hydromodpy.core.migrations.runner import (
+    _fold_schema_into_the_database_file,
+    repair_hint_for,
+)
 
 
 def _write(versions_dir: Path, version: int, slug: str, sql: str) -> Path:
@@ -285,3 +288,74 @@ def test_migration_model_forbids_extra_fields(versions_dir: Path) -> None:
             sql_path=sql_path,
             unknown="forbidden",
         )
+
+
+def test_an_applied_migration_is_in_the_file_not_in_the_journal(
+    versions_dir: Path, db_path: Path
+) -> None:
+    """Schema DDL must not be left for a write-ahead log to replay.
+
+    DuckDB fails to replay a journal carrying an ``ALTER TABLE`` of the
+    project catalog and raises inside ``connect``, so a database whose schema
+    is still in its journal when a process is killed cannot be opened again by
+    anything. The runner checkpoints after each migration; the journal is
+    therefore empty while the connection is still open.
+    """
+    _write(versions_dir, 1, "base", "CREATE TABLE t (i INTEGER);")
+    _write(versions_dir, 2, "grow", "ALTER TABLE t ADD COLUMN j INTEGER;")
+    connection = duckdb.connect(str(db_path))
+    try:
+        ensure_schema(connection, versions_dir=versions_dir, component=DEFAULT_COMPONENT)
+        wal = Path(f"{db_path}.wal")
+
+        assert not wal.exists() or wal.stat().st_size == 0, (
+            "the schema is still in the journal, a killed process would lose the database"
+        )
+    finally:
+        connection.close()
+
+
+def test_a_refused_checkpoint_is_a_warning_not_a_failed_migration(
+    versions_dir: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The schema is committed by the time the checkpoint runs.
+
+    Refusing the migration for a durability hint would leave the database
+    behind its code; the warning names what the journal still holds instead.
+    """
+
+    class _RefusesToCheckpoint:
+        def execute(self, sql: str, *_args: object, **_kwargs: object) -> None:
+            raise duckdb.Error(f"another writer holds the database ({sql})")
+
+    sql_path = _write(versions_dir, 7, "grow", "-- grow")
+    migration = Migration(version=7, slug="grow", sql_path=sql_path)
+
+    with caplog.at_level("WARNING"):
+        _fold_schema_into_the_database_file(_RefusesToCheckpoint(), migration, DEFAULT_COMPONENT)
+
+    assert "0007_grow" in caplog.text
+    assert "write-ahead log" in caplog.text
+
+
+def test_no_alter_table_runs_outside_a_migration_script() -> None:
+    """The checkpoint that saves a killed database only fires for migrations.
+
+    Replaying an ``ALTER TABLE`` from a DuckDB journal raises inside
+    ``connect`` and locks every reader out of the file. ``apply_migration``
+    checkpoints, so an ``ALTER TABLE`` in a ``.sql`` migration never reaches a
+    journal. One issued anywhere else would, and nothing would catch it.
+    """
+    package = Path(__file__).resolve().parents[4] / "hydromodpy"
+    offenders = sorted(
+        str(path.relative_to(package))
+        for path in package.rglob("*")
+        if path.suffix in {".py", ".sql"}
+        and path.name != "runner.py"
+        and "ALTER TABLE" in path.read_text(encoding="utf-8")
+    )
+
+    assert offenders == ["results/catalog/migrations/0003_calibration_session_phases.sql"], (
+        "an ALTER TABLE outside a migration script needs its own CHECKPOINT, "
+        "or a process killed afterwards leaves a database nobody can open"
+    )

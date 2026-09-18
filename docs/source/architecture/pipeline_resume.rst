@@ -81,3 +81,28 @@ Step contract recap
 
 In-memory steps (no ``artifacts``) are simply re-executed at resume:
 they must stay idempotent and fast.
+
+Surviving a process death
+-------------------------
+
+A resume exists for the deaths that run no handler: a lost machine, the
+OOM killer, a cancelled job. Nothing is flushed on the way out, so what
+the next process can do is decided entirely by what the disk already
+holds.
+
+Two consequences follow, and both are gated by
+``tests/e2e/test_resume_through_a_process_death.py``, which kills its own
+child with ``SIGKILL`` twice.
+
+* The step that was running when the process died keeps the status
+  ``running``, not ``failed``. ``failed`` is what an exception writes.
+  ``ResumePlanner`` restarts at that step either way.
+* The project index has to be openable afterwards. DuckDB commits into
+  ``.hmp/index.duckdb.wal`` and only folds it into the database file at a
+  clean close, and a journal carrying schema DDL is not replayable: the
+  replay runs inside ``duckdb.connect``, so a poisoned journal locks
+  every reader out, ``hmp`` and the DuckDB CLI alike. The migration
+  runner therefore checkpoints after each applied migration
+  (``hydromodpy/core/migrations/runner.py``), which leaves the journal
+  holding plain row changes. Those replay, and
+  ``connect_with_retry`` checkpoints them back at the next open.
