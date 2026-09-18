@@ -2,6 +2,7 @@
 
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     apply_side_boundary_start_heads,
+    assemble_constant_head_stress_period_data,
     boundary_attr,
     boundary_conditions_mapping,
     boundary_period_series,
@@ -154,6 +155,7 @@ __all__ = [
     "build_lake_table",
     "build_mvr_period_records",
     "build_drainage_mover_records",
+    "assemble_constant_head_stress_period_data",
     "build_ocean_boundary_chd_spd",
     "build_side_boundary_chd_spd",
     "build_sfr_mover_records",

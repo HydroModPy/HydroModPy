@@ -30,6 +30,7 @@ from hydromodpy.solver.base.observables import (
     scalar_observable,
     series_observable,
 )
+from hydromodpy.solver.modflow_common.boundary_roles import read_constant_head_roles
 from hydromodpy.solver.modflow_common.calibration_extractors import (
     ReleasePackage,
     extract_discharge_from_cbc,
@@ -86,15 +87,21 @@ def resolve_run_output(ctx: Any, *, name_attributes: Sequence[str]) -> tuple[Pat
 def _stream_role_cells(model: Any) -> np.ndarray | None:
     """Cells whose CHD rows carry the stream role, as the builder recorded them.
 
-    The MF6 build stores the mask it used to place the stream boundary, and it
-    is the only thing that tells a stream CHD apart from an ocean or a side CHD
-    once they share a single package in the budget.
+    The role is the only thing that tells a stream CHD apart from an ocean or a
+    side CHD once they share a single package in the budget, and the build
+    declares it beside the solver files: reading it needs the run directory,
+    never a live flopy model. The MF6 build also keeps the masks on the model
+    for its own packages, which is its business and stays inside its package.
+    A backend that builds no CHD package leaves no sidecar and rules nothing in.
     """
-    mask = getattr(model, "_stream_support_mask", None)
-    if mask is None:
+    directory = getattr(model, "full_path", None)
+    name = getattr(model, "model_output_name", None)
+    if directory is None or name is None:
         return None
-    flat = np.asarray(mask, dtype=bool).reshape(-1)
-    return flat if bool(flat.any()) else None
+    roles = read_constant_head_roles(directory, str(name))
+    if roles is None or not roles.has_role("stream"):
+        return None
+    return roles.mask_for("stream")
 
 
 def _drain_routes_to_mover(model: Any) -> bool:

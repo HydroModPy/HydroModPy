@@ -164,17 +164,27 @@ class TestTheModelDeclaresWhatItLeavesOut:
             excluded_release_records_for_model(SimpleNamespace(drn=object()))
         )
 
-    def test_a_constant_head_carrying_the_stream_role_is_not_ruled_out(self) -> None:
+    def test_a_constant_head_carrying_the_stream_role_is_not_ruled_out(
+        self, tmp_path: Path
+    ) -> None:
         from types import SimpleNamespace
 
+        from hydromodpy.solver.modflow_common.boundary_roles import write_constant_head_roles
         from hydromodpy.solver.modflow_common.observable_extraction import (
             excluded_release_records_for_model,
         )
 
+        write_constant_head_roles(
+            tmp_path,
+            "model",
+            n_cells=3,
+            masks_by_role={"stream": np.array([False, True, False])},
+        )
         model = SimpleNamespace(
             chd=object(),
             drn=object(),
-            _stream_support_mask=np.array([False, True, False]),
+            full_path=str(tmp_path),
+            model_output_name="model",
         )
         excluded = excluded_release_records_for_model(model)
         assert "CHD" not in excluded and "CONSTANT HEAD" not in excluded

@@ -17,6 +17,7 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     is_boundary_condition_active,
 )
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.solver.modflow_common.boundary_roles import write_constant_head_roles
 from hydromodpy.solver.modflow_common.drain_conductance import (
     drain_discharge_band,
     hk_fallback_drain_conductance,
@@ -448,6 +449,48 @@ def _sink_mask_flat(model, *, n_cells: int) -> np.ndarray:
     return mask
 
 
+def assemble_constant_head_stress_period_data(
+    model,
+    *,
+    ocean: tuple[dict[int, list[list[float]]], np.ndarray],
+    stream: tuple[dict[int, list[list[float]]], np.ndarray],
+    side: dict[int, list[list[float]]],
+) -> dict[int, list[list[float]]]:
+    """Merge the three constant-head boundaries and declare what each cell is.
+
+    MODFLOW 6 takes one CHD package, so the ocean, the stream and the lateral
+    boundaries end up in a single budget term. A cell claimed twice keeps the
+    last head written, which is why the merge order matters and why the
+    surviving row no longer says which boundary placed it.
+
+    The roles are therefore declared beside the solver files, from the masks
+    the three builders returned, at the same moment and under the same
+    condition as the package itself: a run with a CHD always has its roles on
+    disk, and a run without one never has a stale sidecar.
+    """
+    ocean_spd, ocean_mask = ocean
+    stream_spd, stream_mask = stream
+    merged: dict[int, list[list[float]]] = {}
+    for kper in range(int(model.nper)):
+        period_map: dict[tuple[int, int], list[float]] = {}
+        for entry in ocean_spd.get(kper, []):
+            period_map[(int(entry[0]), int(entry[1]))] = entry
+        for entry in stream_spd.get(kper, []):
+            period_map[(int(entry[0]), int(entry[1]))] = entry
+        for entry in side.get(kper, []):
+            period_map[(int(entry[0]), int(entry[1]))] = entry
+        merged[kper] = list(period_map.values())
+    collapsed = collapse_identical_periods(merged)
+    if any(len(rows) > 0 for rows in collapsed.values()):
+        write_constant_head_roles(
+            str(model.full_path),
+            str(model.model_output_name),
+            n_cells=int(model.ncpl),
+            masks_by_role={"ocean": ocean_mask, "stream": stream_mask},
+        )
+    return collapsed
+
+
 def _period_payloads_equal(left: object, right: object) -> bool:
     """Compare two stress-period payloads (row lists or array data)."""
     if isinstance(left, np.ndarray) or isinstance(right, np.ndarray):
@@ -478,6 +521,7 @@ def collapse_identical_periods(spd: dict[int, object]) -> dict[int, object]:
 
 __all__ = [
     "apply_side_boundary_start_heads",
+    "assemble_constant_head_stress_period_data",
     "boundary_attr",
     "boundary_conditions_mapping",
     "boundary_period_series",

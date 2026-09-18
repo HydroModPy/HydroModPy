@@ -17,6 +17,7 @@ from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow6.builders import (
     apply_lake_idomain_mask,
+    assemble_constant_head_stress_period_data,
     bind_recharge_from_flow,
     build_drain_stress_period_data,
     build_drainage_mover_records,
@@ -646,6 +647,11 @@ def run_pre_processing(  # noqa: PLR0915
     bind_recharge_from_flow(model)
     model._calibration_raw_output_payload_cache = {}
 
+    # Settle the output stem before anything names a file after it. On Windows a
+    # long solver path collapses it to a hashed name, and a sidecar written under
+    # the pre-collapse name is a file its reader never finds.
+    model.model_output_name = mf6_output_name(model)
+
     model.flow_regime = resolve_flow_regime(model) or "transient"
     reuse_signature = runtime_reuse_signature(
         model,
@@ -1171,18 +1177,12 @@ def run_pre_processing(  # noqa: PLR0915
             mover=bool(drainage_mover_rows),
         )
 
-    side_chd_spd = build_side_boundary_chd_spd(model)
-    chd_spd: dict[int, list[list[float]]] = {}
-    for kper in range(int(model.nper)):
-        period_map: dict[tuple[int, int], list[float]] = {}
-        for entry in ocean_chd_spd.get(kper, []):
-            period_map[(int(entry[0]), int(entry[1]))] = entry
-        for entry in stream_chd_spd.get(kper, []):
-            period_map[(int(entry[0]), int(entry[1]))] = entry
-        for entry in side_chd_spd.get(kper, []):
-            period_map[(int(entry[0]), int(entry[1]))] = entry
-        chd_spd[kper] = list(period_map.values())
-    chd_spd = collapse_identical_periods(chd_spd)
+    chd_spd = assemble_constant_head_stress_period_data(
+        model,
+        ocean=(ocean_chd_spd, ocean_support_mask),
+        stream=(stream_chd_spd, stream_support_mask),
+        side=build_side_boundary_chd_spd(model),
+    )
     if any(len(v) > 0 for v in chd_spd.values()):
         model.chd = flopy.mf6.ModflowGwfchd(model.gwf, stress_period_data=chd_spd, save_flows=True)
 
@@ -1198,8 +1198,6 @@ def run_pre_processing(  # noqa: PLR0915
             # the oscillation. No effect on cells that stay saturated.
             wel_kwargs["auto_flow_reduce"] = 0.1
         model.wel = flopy.mf6.ModflowGwfwel(model.gwf, **wel_kwargs)
-
-    model.model_output_name = mf6_output_name(model)
 
     # LAK (lake / reservoir) package. Built after model.wel and before model.oc.
     # Lake cells were already made inactive above, so the CONNECTIONDATA targets

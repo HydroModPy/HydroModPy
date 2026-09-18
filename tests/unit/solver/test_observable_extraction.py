@@ -20,6 +20,7 @@ import pytest
 from hydromodpy.core.contracts.observables import ObservableRequest
 from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.solver.modflow_common import calibration_extractors as extractors
+from hydromodpy.solver.modflow_common.boundary_roles import write_constant_head_roles
 from hydromodpy.solver.modflow_common.observable_extraction import (
     extract_common_modflow_observables,
     release_packages_for_model,
@@ -84,6 +85,7 @@ def write_cbc(
 
 
 def fake_model(
+    directory: Path,
     *,
     drn: bool = False,
     drn_mover: bool = False,
@@ -92,17 +94,30 @@ def fake_model(
     stream_cells: list[int] | None = None,
     n_cells: int = NCPL,
 ) -> SimpleNamespace:
-    """A run model declaring the packages the builder actually attached."""
+    """A run model declaring the packages the builder actually attached.
+
+    The stream role of a constant head is read back from the sidecar the build
+    leaves in the solver directory, so a model carrying a CHD writes one the
+    same way the MODFLOW 6 build does.
+    """
     mask = np.zeros(n_cells, dtype=bool)
     if stream_cells:
         mask[np.asarray(stream_cells, dtype=int)] = True
+    if chd:
+        write_constant_head_roles(
+            directory,
+            "model",
+            n_cells=n_cells,
+            masks_by_role={"stream": mask},
+        )
     # FloPy exposes an MF6 boolean option as an object answering get_data().
     drn_package = SimpleNamespace(mover=SimpleNamespace(get_data=lambda: drn_mover))
     return SimpleNamespace(
         drn=drn_package if drn else None,
         sfr=object() if sfr else None,
         chd=object() if chd else None,
-        _stream_support_mask=mask,
+        full_path=str(directory),
+        model_output_name="model",
         solver_mesh=SimpleNamespace(n_cells=n_cells),
     )
 
@@ -120,7 +135,7 @@ def release_frame(output_dir: Path, model: SimpleNamespace, **kwargs) -> pd.Data
 def test_release_flux_reads_drn_alone(tmp_path: Path) -> None:
     write_cbc(tmp_path, "model", [{"DRN": [(1, -2.0), (3, -0.5)]}])
 
-    frame = release_frame(tmp_path, fake_model(drn=True))
+    frame = release_frame(tmp_path, fake_model(tmp_path, drn=True))
 
     np.testing.assert_allclose(frame.to_numpy(), [[2.0, 0.0, 0.5, 0.0]])
 
@@ -130,7 +145,7 @@ def test_release_flux_reads_sfr_alone(tmp_path: Path) -> None:
     # losing reach releases nothing and must not turn into a negative seepage.
     write_cbc(tmp_path, "model", [{"SFR": [(2, -3.0), (3, 5.0)]}])
 
-    frame = release_frame(tmp_path, fake_model(sfr=True))
+    frame = release_frame(tmp_path, fake_model(tmp_path, sfr=True))
 
     np.testing.assert_allclose(frame.to_numpy(), [[0.0, 3.0, 0.0, 0.0]])
 
@@ -142,7 +157,7 @@ def test_release_flux_sums_an_overlapping_cell_once(tmp_path: Path) -> None:
         [{"DRN": [(1, -2.0), (2, -1.0)], "SFR": [(2, -3.0)]}],
     )
 
-    frame = release_frame(tmp_path, fake_model(drn=True, sfr=True))
+    frame = release_frame(tmp_path, fake_model(tmp_path, drn=True, sfr=True))
 
     assert list(frame.columns) == [0, 1, 2, 3]
     np.testing.assert_allclose(frame.to_numpy(), [[2.0, 4.0, 0.0, 0.0]])
@@ -162,7 +177,7 @@ def test_release_flux_adds_the_drain_routed_to_the_mover(tmp_path: Path) -> None
         [{"DRN": [(1, -0.5)], "DRN-TO-MVR": [(1, -1.5), (2, -4.0)]}],
     )
 
-    frame = release_frame(tmp_path, fake_model(drn=True, drn_mover=True))
+    frame = release_frame(tmp_path, fake_model(tmp_path, drn=True, drn_mover=True))
 
     np.testing.assert_allclose(frame.to_numpy(), [[2.0, 4.0, 0.0, 0.0]])
 
@@ -178,7 +193,7 @@ def test_release_flux_keeps_drn_apart_from_drn_to_mvr(tmp_path: Path) -> None:
         [{"DRN-TO-MVR": [(1, -1.5), (2, -4.0)], "DRN": [(1, -0.5)]}],
     )
 
-    frame = release_frame(tmp_path, fake_model(drn=True, drn_mover=True))
+    frame = release_frame(tmp_path, fake_model(tmp_path, drn=True, drn_mover=True))
 
     np.testing.assert_allclose(frame.to_numpy(), [[2.0, 4.0, 0.0, 0.0]])
 
@@ -187,7 +202,7 @@ def test_release_flux_ignores_the_mover_record_without_a_mover(tmp_path: Path) -
     """A DRN built without a mover writes no DRN-TO-MVR, and must not demand one."""
     write_cbc(tmp_path, "model", [{"DRN": [(1, -2.0)]}])
 
-    frame = release_frame(tmp_path, fake_model(drn=True))
+    frame = release_frame(tmp_path, fake_model(tmp_path, drn=True))
 
     np.testing.assert_allclose(frame.to_numpy(), [[2.0, 0.0, 0.0, 0.0]])
 
@@ -197,7 +212,7 @@ def test_release_flux_counts_only_the_stream_role_chd(tmp_path: Path) -> None:
     # rows in the same package; only the stream one is a release to the surface.
     write_cbc(tmp_path, "model", [{"CHD": [(1, -7.0), (3, -1.5)]}])
 
-    frame = release_frame(tmp_path, fake_model(chd=True, stream_cells=[2]))
+    frame = release_frame(tmp_path, fake_model(tmp_path, chd=True, stream_cells=[2]))
 
     np.testing.assert_allclose(frame.to_numpy(), [[0.0, 0.0, 1.5, 0.0]])
 
@@ -206,12 +221,12 @@ def test_release_flux_refuses_a_declared_package_with_no_budget_record(tmp_path:
     write_cbc(tmp_path, "model", [{"DRN": [(1, -2.0)]}])
 
     with pytest.raises(ObservableNotAvailableError, match="SFR"):
-        release_frame(tmp_path, fake_model(drn=True, sfr=True))
+        release_frame(tmp_path, fake_model(tmp_path, drn=True, sfr=True))
 
 
-def test_release_packages_refuses_a_model_with_no_release_package() -> None:
+def test_release_packages_refuses_a_model_with_no_release_package(tmp_path: Path) -> None:
     with pytest.raises(ObservableNotAvailableError, match="release"):
-        release_packages_for_model(fake_model(chd=True))
+        release_packages_for_model(fake_model(tmp_path, chd=True))
 
 
 def test_release_flux_keeps_the_time_index(tmp_path: Path) -> None:
@@ -222,7 +237,7 @@ def test_release_flux_keeps_the_time_index(tmp_path: Path) -> None:
     )
     index = pd.DatetimeIndex(["2020-01-01", "2020-01-02"])
 
-    frame = release_frame(tmp_path, fake_model(drn=True, sfr=True), time_index=index)
+    frame = release_frame(tmp_path, fake_model(tmp_path, drn=True, sfr=True), time_index=index)
 
     assert list(frame.index) == list(index)
     np.testing.assert_allclose(frame.to_numpy(), [[1.0, 2.0, 0.0, 0.0], [3.0, 4.0, 0.0, 0.0]])
@@ -239,7 +254,7 @@ def test_release_flux_observable_unions_sfr_with_drn(tmp_path: Path) -> None:
         "model",
         [{"DRN": [(1, -2.0)], "SFR": [(2, -3.0), (3, -1.0)]}],
     )
-    model = fake_model(drn=True, sfr=True)
+    model = fake_model(tmp_path, drn=True, sfr=True)
     request = ObservableRequest(id="net", name="release_flux", support="cells")
 
     served, unserved = extract_common_modflow_observables(tmp_path, "model", model, [request])
