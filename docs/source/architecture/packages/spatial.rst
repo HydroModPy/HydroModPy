@@ -15,10 +15,18 @@ Sub-modules
   identifying strings, sized by what the flow chain asks for rather than by
   the 66-method Whitebox facade. Products declare what cannot be read back
   from their values (pointer convention, accumulation units and transform,
-  conditioning method and extent, CRS). Two implementations serve it,
-  ``WhiteboxTerrainEngine`` and ``NumpyTerrainEngine``, and the same
-  conformance suite runs against both
-  (``tests/contract/test_terrain_engine_contract.py``).
+  conditioning method and extent, CRS). Two implementations ship,
+  ``WhiteboxTerrainEngine`` and ``NumpyTerrainEngine``, and ``registry.py``
+  resolves one by name -- from ``request.json`` for the ``terrain-delineate``
+  capability, or from the ``hydromodpy.terrain.engine`` entry-point group for an
+  engine installed beside this build. The conformance suite
+  (``tests/contract/test_terrain_engine_contract.py``) is parametrized on what
+  that registry resolves, so it runs against an outside engine without naming
+  it; ``tests/contract/test_terrain_conformance_reaches_an_installed_engine.py``
+  holds it to that, negative control included. Registration certifies the
+  members a class declares, and the port also requires files on disk that no
+  declaration mentions -- an engine is usable when the suite passes, not when
+  ``register()`` accepts it.
 - ``spatial/geographic/`` -- pre-simulation pipeline:
   ``flow_products`` (D8 correction and accumulation rasters),
   ``catchment_from_point`` and ``catchment_from_polygon``,
