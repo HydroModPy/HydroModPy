@@ -187,7 +187,6 @@ def _rebind_run_history_catalog(project: Project) -> None:
     store = project._store
     if store is None:
         return
-    project._ctx.store = store
     for run in project._run_history:
         run._catalog = store
 
@@ -350,7 +349,6 @@ class ProjectRunner:
         if project._store is not None:
             project._store.close()
             project._store = None
-        project._ctx.store = None
 
         initial = PipelineState(
             run_id=run_id,

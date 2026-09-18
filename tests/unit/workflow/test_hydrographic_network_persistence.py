@@ -133,8 +133,8 @@ def test_step_persist_forcings_writes_reference_network_feature(tmp_path: Path):
         ),
         hydrographic_networks=HydrographicNetworks(reference=reference),
     )
+    store = _FakeStore()
     ctx = SimpleNamespace(
-        store=_FakeStore(),
         sim_id="sim-1",
         loaded_data=LoadedDataContext(
             hydrography=_hydrography_load_result(
@@ -146,10 +146,10 @@ def test_step_persist_forcings_writes_reference_network_feature(tmp_path: Path):
         setup=SimpleNamespace(geographic_features=features),
     )
 
-    step_persist_forcings(ctx)
+    step_persist_forcings(ctx, store=store)
 
-    assert "hydrography_streams" in ctx.store.zarr.fields
-    assert HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME in ctx.store.feature_names
+    assert "hydrography_streams" in store.zarr.fields
+    assert HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME in store.feature_names
 
 
 def test_apply_structural_updates_from_data_attaches_reference_network(

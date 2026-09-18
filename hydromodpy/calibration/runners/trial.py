@@ -113,7 +113,7 @@ class TrialContext:
     ctx : WorkflowContext
         Prepared workflow context. ``ctx.setup`` and ``ctx.loaded_data``
         are populated; ``ctx.execution`` is the fresh one built by
-        :meth:`fork`; ``ctx.store`` is ``None`` in lightweight mode.
+        :meth:`fork`; a lightweight run writes no index at all.
         *Per-trial* (recreated on every fork).
     earliest : int
         Index of the first pipeline step that must re-run per trial.
@@ -584,7 +584,6 @@ def promote_prepared_trial(
     ctx.execution.lightweight = False
     ctx.execution.simulation_plan = None
     ctx.setup.run_id = name or "promoted"
-    ctx.store = None
     ctx.sim_id = None
     ctx.reserved_sim_id = None if sim_id is None else str(sim_id)
 
@@ -692,15 +691,23 @@ def _attach_tags_to_simulation(ctx: WorkflowContext, sim_id: str, tags: Sequence
 
 
 def _finalize_failed_context(ctx: WorkflowContext) -> None:
-    store = getattr(ctx, "store", None)
+    """Mark the run this context was driving as failed, if it has a row.
+
+    Gated on the same persistence switch the run wrote under: opening the
+    index here for a run that never registered would create the very file
+    ``save_catalog = false`` says not to write.
+    """
+    from hydromodpy.results.catalog import Catalog
+
     sim_id = getattr(ctx, "sim_id", None)
-    if store is None or sim_id is None:
+    workspace = getattr(getattr(ctx, "setup", None), "workspace", None)
+    if sim_id is None or workspace is None:
         return
-    try:
-        store.finalize(sim_id, status="failed")
-    finally:
-        store.close()
-        ctx.store = None
+    results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
+    if not results_cfg.persistence.save_catalog:
+        return
+    with Catalog.from_workspace(workspace, persistence=results_cfg.persistence) as catalog:
+        catalog.finalize(sim_id, status="failed")
 
 
 def _step_index_by_name(steps: Sequence[TrialStep], name: str) -> int | None:

@@ -277,12 +277,11 @@ def test_the_provenance_rows_reuse_the_digest_the_load_computed(tmp_path: Path) 
         workspace = type("_W", (), {"project_root": tmp_path})()
 
     class _Ctx:
-        store = _Store()
         sim_id = "sim"
         setup = _Setup()
         loaded_data = loaded
 
-    step_write_provenance(_Ctx())
+    step_write_provenance(_Ctx(), store=_Store())
 
     assert [row["source_sha256"] for row in rows] == ["0" * 64]
     assert rows[0]["variable"] == "recharge:recharge"

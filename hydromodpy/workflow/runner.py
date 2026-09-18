@@ -193,7 +193,6 @@ class Pipeline:
                 previous_hashes=prefix_hashes,
             )
         finally:
-            _close_dangling_store(state)
             if owns_catalog and catalog is not None:
                 try:
                     catalog.close()
@@ -710,24 +709,6 @@ class Pipeline:
             step_name="pipeline",
             sidecar_workspace=self.workspace,
         )
-
-
-def _close_dangling_store(state: PipelineState) -> None:
-    """Close the run store when the pipeline stops before the export step.
-
-    ``export`` owns the normal close. A pipeline truncated by ``--until``, or
-    one that raised, would otherwise leave the project index open: the DuckDB
-    write-ahead log survives the process and the next run has to replay it.
-    """
-    from hydromodpy.workflow.steps.export import step_close_store
-
-    ctx = state.get("ctx")
-    if ctx is None or getattr(ctx, "store", None) is None:
-        return
-    try:
-        step_close_store(ctx)
-    except Exception:
-        logger.debug("pipeline.store_close_failed", exc_info=True)
 
 
 def _collect_artifacts(

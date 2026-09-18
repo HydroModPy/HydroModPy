@@ -22,49 +22,36 @@ class _RecordingStore:
         self.close_calls += 1
 
 
-def test_step_finalize_store_finalizes_closes_and_detaches_store() -> None:
+def test_step_seal_store_finalizes_through_the_handle_it_was_given() -> None:
     store = _RecordingStore()
-    ctx = SimpleNamespace(store=store, sim_id="sim-123")
+    ctx = SimpleNamespace(sim_id="sim-123")
 
-    export_module.step_finalize_store(ctx, wall_seconds=12.5, status="failed")
+    export_module.step_seal_store(ctx, store=store, wall_seconds=12.5, status="failed")
 
     assert store.finalize_calls == [{"sim_id": "sim-123", "status": "failed"}]
-    assert store.close_calls == 1
-    assert ctx.store is None
+    # Sealing does not close: the scope that opened the handle owns its end.
+    assert store.close_calls == 0
 
 
-def test_step_finalize_store_still_closes_when_finalize_fails() -> None:
-    class FailingStore(_RecordingStore):
-        def finalize(self, sim_id: str, *, status: str) -> None:
-            super().finalize(sim_id, status=status)
-            raise RuntimeError("catalog write failed")
-
-    store = FailingStore()
-    ctx = SimpleNamespace(store=store, sim_id="sim-123")
-
-    with pytest.raises(RuntimeError, match="catalog write failed"):
-        export_module.step_finalize_store(ctx)
-
-    assert store.close_calls == 1
-    assert ctx.store is None
-
-
-def test_export_step_without_store_skips_store_work_but_cleans_scratch(monkeypatch) -> None:
+def test_an_uncatalogued_run_skips_store_work_but_cleans_scratch(monkeypatch) -> None:
     calls: list[tuple[str, object, bool | None]] = []
 
     def fail_save(*_args, **_kwargs) -> None:
-        raise AssertionError("step_save_run_artifacts should not run without a store")
+        raise AssertionError("step_save_run_artifacts should not run without an index")
 
     def fake_cleanup(ctx, *, keep_solver_files: bool) -> None:
         calls.append(("cleanup", ctx, keep_solver_files))
 
     monkeypatch.setattr(export_module, "step_save_run_artifacts", fail_save)
     monkeypatch.setattr(export_module, "step_cleanup_scratch", fake_cleanup)
-    results_cfg = SimpleNamespace(keep_solver_files=True)
+    results_cfg = SimpleNamespace(
+        keep_solver_files=True, persistence=SimpleNamespace(save_catalog=False)
+    )
     ctx = SimpleNamespace(
-        store=None,
         cfg=SimpleNamespace(simulation=SimpleNamespace(results=results_cfg)),
         effective_results_config=None,
+        execution=SimpleNamespace(lightweight=False),
+        setup=SimpleNamespace(workspace=None),
     )
     state = PipelineState(run_id="run-1", step_index=7, data={"ctx": ctx})
 
@@ -76,26 +63,21 @@ def test_export_step_without_store_skips_store_work_but_cleans_scratch(monkeypat
     assert advanced.get("ctx") is ctx
 
 
-def test_export_step_lightweight_store_path_saves_finalizes_and_skips_auto_export(
-    monkeypatch,
-) -> None:
+def test_a_lightweight_run_never_opens_the_index(monkeypatch) -> None:
     calls: list[str] = []
 
-    def fake_save(ctx, wall_seconds: float) -> None:
-        calls.append(f"save:{wall_seconds}")
-
-    def fake_finalize(ctx, *, wall_seconds: float = 0.0, status: str = "completed") -> None:
-        calls.append(f"finalize:{wall_seconds}:{status}")
+    def fail_open(_ctx):
+        raise AssertionError("a lightweight run must not open the index")
 
     def fake_cleanup(ctx, *, keep_solver_files: bool) -> None:
         calls.append(f"cleanup:{keep_solver_files}")
 
-    monkeypatch.setattr(export_module, "step_save_run_artifacts", fake_save)
-    monkeypatch.setattr(export_module, "step_finalize_store", fake_finalize)
+    monkeypatch.setattr(export_module, "run_catalog", fail_open)
     monkeypatch.setattr(export_module, "step_cleanup_scratch", fake_cleanup)
-    results_cfg = SimpleNamespace(keep_solver_files=False)
+    results_cfg = SimpleNamespace(
+        keep_solver_files=False, persistence=SimpleNamespace(save_catalog=True)
+    )
     ctx = SimpleNamespace(
-        store=object(),
         sim_id="sim-123",
         cfg=SimpleNamespace(simulation=SimpleNamespace(results=results_cfg)),
         effective_results_config=None,
@@ -103,13 +85,16 @@ def test_export_step_lightweight_store_path_saves_finalizes_and_skips_auto_expor
             simulation_plan=SimpleNamespace(runs=(SimpleNamespace(is_solver_backed=True),)),
             lightweight=True,
         ),
-        setup=SimpleNamespace(run_id="run-1"),
+        setup=SimpleNamespace(
+            run_id="run-1",
+            workspace=SimpleNamespace(solver_scratch_folder=Path("/nonexistent/scratch")),
+        ),
     )
     state = PipelineState(run_id="run-1", step_index=7, data={"ctx": ctx, "wall_seconds": 2.0})
 
     export_module.ExportStep().run(state)
 
-    assert calls == ["save:2.0", "finalize:2.0:completed", "cleanup:False"]
+    assert calls == ["cleanup:False"]
 
 
 def test_export_step_requires_context() -> None:
@@ -170,12 +155,11 @@ def test_step_drop_intermediate_budget_removes_a_reconciled_budget() -> None:
     # derived -> budget cascade is an intermediate and leaves no trace.
     handle = _FakeZarr(present=True)
     ctx = SimpleNamespace(
-        store=_ZarrStore(handle),
         sim_id="sim-123",
         forced_results_flags=("derived.accumulation_flux", "budget.spatial_fields"),
     )
 
-    export_module.step_drop_intermediate_budget(ctx)
+    export_module.step_drop_intermediate_budget(ctx, store=_ZarrStore(handle))
 
     assert handle.dropped == ["budget"]
     assert handle.closed == 1
@@ -184,11 +168,10 @@ def test_step_drop_intermediate_budget_removes_a_reconciled_budget() -> None:
 def test_step_drop_intermediate_budget_keeps_a_user_requested_budget() -> None:
     handle = _FakeZarr(present=True)
     ctx = SimpleNamespace(
-        store=_ZarrStore(handle),
         sim_id="sim-123",
         forced_results_flags=("derived.accumulation_flux",),
     )
 
-    export_module.step_drop_intermediate_budget(ctx)
+    export_module.step_drop_intermediate_budget(ctx, store=_ZarrStore(handle))
 
     assert handle.dropped == []

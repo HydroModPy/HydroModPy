@@ -1,9 +1,9 @@
 """Step 11 - auto-render the figures listed in ``[display].figures``.
 
 Runs after :class:`DeriveStep` and before :class:`ExportStep`. Figures are
-the last reader of the run: they draw from the still-open store, so they see
-the intermediate fields (the raw per-cell budget) that the export step drops
-right before sealing. Each figure declared in the TOML is written into
+the last reader of the run: they open the catalog for their own span and
+see the intermediate fields (the raw per-cell budget) that the export step
+drops right before sealing. Each figure declared in the TOML is written into
 ``<project_root>/runs/<run>/<display.output_dir>/``.
 
 Skipped silently when ``display.enabled`` is false, when ``display.figures``
@@ -30,6 +30,7 @@ from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import DerivedState, PipelineState
+from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -184,9 +185,8 @@ class DisplayStep:
         else:
             display_cfg = getattr(ctx.cfg, "display", None)
             sim_id = getattr(ctx, "sim_id", None)
-            store = getattr(ctx, "store", None)
-            if display_cfg is None or sim_id is None or store is None:
-                logger.debug("DisplayStep: no display config, sim_id or store, skipping")
+            if display_cfg is None or sim_id is None or not run_is_catalogued(ctx):
+                logger.debug("DisplayStep: no display config, no sim_id or no index, skipping")
             elif not display_cfg.enabled or not display_cfg.figures:
                 # At info, not debug: a run that draws nothing looks exactly
                 # like a run whose figure list silently emptied, and the second
@@ -200,19 +200,20 @@ class DisplayStep:
                 )
             else:
                 project_root = ctx.setup.workspace.project_root
-                sim = store[sim_id]
-                out_dir = resolve_run_output_dir(
-                    display_cfg,
-                    project_root=project_root,
-                    run_name=sim.name,
-                    sim_id=sim_id,
-                )
-                rendered = _render_figures_tracked(
-                    sim,
-                    display_cfg,
-                    output_dir=out_dir,
-                    figure_names=list(display_cfg.figures),
-                )
+                with run_catalog(ctx) as store:
+                    sim = store[sim_id]
+                    out_dir = resolve_run_output_dir(
+                        display_cfg,
+                        project_root=project_root,
+                        run_name=sim.name,
+                        sim_id=sim_id,
+                    )
+                    rendered = _render_figures_tracked(
+                        sim,
+                        display_cfg,
+                        output_dir=out_dir,
+                        figure_names=list(display_cfg.figures),
+                    )
                 if rendered:
                     logger.debug(
                         "DisplayStep rendered %d figure(s) in %s",

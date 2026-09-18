@@ -124,11 +124,10 @@ def test_store_sim_artifacts_returns_existing_project_relative_run_paths(
         tables_dir_for=lambda sim_id: tables_dir,
     )
     ctx = SimpleNamespace(
-        store=store,
         setup=SimpleNamespace(workspace=SimpleNamespace(project_root=project_root)),
     )
 
-    assert validate_module._store_sim_artifacts(ctx, "sim-123") == (
+    assert validate_module._store_sim_artifacts(ctx, "sim-123", store=store) == (
         f"{RUNS_DIRNAME}/demo_run/{FIELDS_STORE_NAME}",
         f"{RUNS_DIRNAME}/demo_run/{TABLES_DIRNAME}",
     )
@@ -144,8 +143,7 @@ def test_store_sim_artifacts_ignores_missing_and_external_paths(tmp_path: Path) 
         tables_dir_for=lambda sim_id: missing,
     )
     ctx = SimpleNamespace(
-        store=store,
         setup=SimpleNamespace(workspace=SimpleNamespace(project_root=project_root)),
     )
 
-    assert validate_module._store_sim_artifacts(ctx, "sim-123") == ()
+    assert validate_module._store_sim_artifacts(ctx, "sim-123", store=store) == ()

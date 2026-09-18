@@ -35,9 +35,14 @@ def _ctx(geographic: object, *, write_intermediates: bool = False) -> SimpleName
         setup=SimpleNamespace(geographic=geographic, workspace=None),
         cfg=SimpleNamespace(
             geographic=SimpleNamespace(write_intermediates=write_intermediates),
-            simulation=SimpleNamespace(results=SimpleNamespace(keep_solver_files=False)),
+            simulation=SimpleNamespace(
+                results=SimpleNamespace(
+                    keep_solver_files=False,
+                    persistence=SimpleNamespace(save_catalog=False),
+                )
+            ),
         ),
-        store=None,
+        execution=SimpleNamespace(lightweight=False),
     )
 
 

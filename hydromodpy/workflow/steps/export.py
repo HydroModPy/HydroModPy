@@ -17,11 +17,14 @@ from hydromodpy.core.exceptions import ConfigError, ExportError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIRNAME
 from hydromodpy.workflow.internals.state import DerivedState, ExportedState, PipelineState
+from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from hydromodpy.core.state.run_state import WorkflowContext
+    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.protocol import SimulationStore
     from hydromodpy.results.run import Run
 
 logger = get_logger(__name__)
@@ -37,6 +40,8 @@ _SCRATCH_CLEANUP_RETRY_DELAYS = (0.1, 0.2, 0.4, 0.8, 1.6)
 def step_save_run_artifacts(
     ctx: WorkflowContext,
     wall_seconds: float,
+    *,
+    store: Catalog,
 ) -> None:
     """Save optional run artifacts."""
     analysis_cfg = getattr(ctx.cfg, "analysis", None)
@@ -46,7 +51,7 @@ def step_save_run_artifacts(
     if gallery_cfg is not None and getattr(gallery_cfg, "enabled", False):
         if ctx.setup.workspace is None:
             raise ExportError("Workspace is required to save run artifacts.")
-        if ctx.store is None or ctx.sim_id is None:
+        if ctx.sim_id is None:
             raise ExportError("A registered run is required to publish the capability gallery.")
         from hydromodpy.analysis.capability_gallery import (
             publish_run_to_capability_gallery,
@@ -62,10 +67,10 @@ def step_save_run_artifacts(
 
         publish_run_to_capability_gallery(
             run_id=str(ctx.setup.run_id),
-            run_dir=ctx.store.run_dir_for(ctx.sim_id),
+            run_dir=store.run_dir_for(ctx.sim_id),
             config=gallery_cfg,
             solvers=tuple(str(s) for s in solvers_used),
-            run=_Run(ctx.sim_id, ctx.store),
+            run=_Run(ctx.sim_id, store),
             render_figure=_render,
         )
 
@@ -75,7 +80,7 @@ def step_save_run_artifacts(
 # ---------------------------------------------------------------------------
 
 
-def step_drop_intermediate_budget(ctx: WorkflowContext) -> None:
+def step_drop_intermediate_budget(ctx: WorkflowContext, *, store: SimulationStore) -> None:
     """Drop the per-cell budget group when reconciliation forced it on.
 
     Computing is not persisting. A user who writes
@@ -90,9 +95,8 @@ def step_drop_intermediate_budget(ctx: WorkflowContext) -> None:
 
     if BUDGET_SPATIAL_FLAG not in tuple(getattr(ctx, "forced_results_flags", ())):
         return
-    store = ctx.store
     sim_id = ctx.sim_id
-    if store is None or sim_id is None:
+    if sim_id is None:
         return
     sz = store.open_zarr(sim_id)
     try:
@@ -115,55 +119,26 @@ def step_drop_intermediate_budget(ctx: WorkflowContext) -> None:
 def step_seal_store(
     ctx: WorkflowContext,
     *,
+    store: SimulationStore,
     wall_seconds: float = 0.0,
     status: str = "completed",
 ) -> None:
-    """Finalize the simulation in the store, leaving the store open.
+    """Finalize the simulation in the store, leaving the handle open.
 
     Sealing is what writes ``manifest.json`` and ``provenance.json`` into the
     run directory. Whatever reads the *complete* run - the portable package
-    first of all - must therefore run after this call and before
-    :func:`step_close_store`.
+    first of all - must therefore run after this call and before the scope
+    that owns ``store`` closes it.
     """
-    if ctx.store is None:
-        return
-    ctx.store.finalize(ctx.sim_id, status=status)
-    _log_run_epilogue(ctx, wall_seconds=wall_seconds, status=status)
+    store.finalize(ctx.sim_id, status=status)
+    _log_run_epilogue(ctx, store=store, wall_seconds=wall_seconds, status=status)
 
 
-def step_close_store(ctx: WorkflowContext) -> None:
-    """Close the store and detach it from the context."""
-    if ctx.store is None:
-        return
-    try:
-        ctx.store.close()
-    finally:
-        ctx.store = None
-
-
-def step_finalize_store(
-    ctx: WorkflowContext,
-    *,
-    wall_seconds: float = 0.0,
-    status: str = "completed",
+def _log_run_epilogue(
+    ctx: WorkflowContext, *, store: Catalog, wall_seconds: float, status: str
 ) -> None:
-    """Seal the simulation in the store and close it.
-
-    After this step ``ctx.store`` is ``None``.
-    """
-    if ctx.store is None:
-        return
-
-    try:
-        step_seal_store(ctx, wall_seconds=wall_seconds, status=status)
-    finally:
-        step_close_store(ctx)
-
-
-def _log_run_epilogue(ctx: WorkflowContext, *, wall_seconds: float, status: str) -> None:
     """Best-effort self-teaching epilogue: identity card + next commands."""
     try:
-        store = ctx.store
         sid = str(ctx.sim_id)
         row = store.backend.fetch_one("SELECT name FROM simulations WHERE sim_id = ?", [sid])
         name = (row[0] if row else None) or sid[:8]
@@ -276,15 +251,12 @@ def step_drop_empty_scratch(ctx: WorkflowContext) -> None:
 
 
 def _release_cleanup_handles(ctx: WorkflowContext) -> None:
-    """Release best-effort runtime handles before deleting scratch files."""
-    store = getattr(ctx, "store", None)
-    close_zarr = getattr(store, "_close_open_zarr_handles", None)
-    if callable(close_zarr):
-        try:
-            close_zarr()
-        except Exception:
-            logger.debug("Could not close open Zarr handles before scratch cleanup", exc_info=True)
+    """Release best-effort runtime handles before deleting scratch files.
 
+    No catalog handle survives the step that opened it, so the Zarr handles a
+    catalog tracked are already closed by the time the scratch goes. What is
+    left to release is the delineation raster cache.
+    """
     try:
         from hydromodpy.spatial.geographic.geographic_io import (
             backend_has_callables,
@@ -308,18 +280,20 @@ def _release_cleanup_handles(ctx: WorkflowContext) -> None:
 
 
 class ExportStep:
-    """Save artefacts, finalize and close the catalog.
+    """Save artefacts, seal the run, clean the scratch.
 
     Composed of four concerns: gallery publication
     (:func:`step_save_run_artifacts`), automatic format export
-    (``auto_export_results``), sealing and closing the store
-    (:func:`step_seal_store`, :func:`step_close_store`) and scratch cleanup
-    (:func:`step_cleanup_scratch`, :func:`step_cleanup_preprocessing`). Each
-    remains addressable from notebooks via its function-based helper.
+    (``auto_export_results``), sealing (:func:`step_seal_store`) and scratch
+    cleanup (:func:`step_cleanup_scratch`,
+    :func:`step_cleanup_preprocessing`). Each remains addressable from
+    notebooks via its function-based helper.
 
-    The portable ``.hmp`` package is written between the seal and the close,
-    never before: an archive built on an unsealed run carries neither the
-    manifest nor the provenance.
+    Everything the catalog does happens inside one scope this step opens and
+    closes; the scratch is cleaned after it, when no handle is left to pin a
+    file. The portable ``.hmp`` package is written between the seal and that
+    close, never before: an archive built on an unsealed run carries neither
+    the manifest nor the provenance.
     """
 
     name = "export"
@@ -338,56 +312,54 @@ class ExportStep:
         wall_seconds = float(state.get("wall_seconds", 0.0) or 0.0)
 
         results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
-        if ctx.store is not None:
-            step_save_run_artifacts(ctx, wall_seconds)
-            plan = ctx.execution.simulation_plan
-            packaged = plan is not None and not ctx.execution.lightweight and ctx.sim_id is not None
-            export_package: Callable[[], None] | None = None
-            if packaged:
-                from hydromodpy.simulation.extraction.post_run import (
-                    auto_export_package,
-                    auto_export_results,
-                    cleanup_solver_outputs,
-                )
-                from hydromodpy.simulation.planning.plan import RunContext
-
-                export_cfg = ctx.cfg.export
-                save_catalog = bool(results_cfg.persistence.save_catalog)
-                auto_export_results(
-                    sim_id=ctx.sim_id,
-                    store=ctx.store,
-                    export_config=export_cfg,
-                    save_catalog=save_catalog,
-                    run_id=ctx.setup.run_id,
-                )
-                for run in plan.runs:
-                    if not run.is_solver_backed:
-                        continue
-                    cleanup_solver_outputs(
-                        ctx=RunContext(plan=plan, run=run, state=ctx),
-                        results_config=results_cfg,
-                        keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),
+        if run_is_catalogued(ctx):
+            with run_catalog(ctx) as store:
+                step_save_run_artifacts(ctx, wall_seconds, store=store)
+                plan = ctx.execution.simulation_plan
+                packaged = plan is not None and ctx.sim_id is not None
+                export_package: Callable[[], None] | None = None
+                if packaged:
+                    from hydromodpy.simulation.extraction.post_run import (
+                        auto_export_package,
+                        auto_export_results,
+                        cleanup_solver_outputs,
                     )
-                export_package = partial(
-                    auto_export_package,
-                    sim_id=ctx.sim_id,
-                    store=ctx.store,
-                    export_config=export_cfg,
-                    save_catalog=save_catalog,
-                    run_id=ctx.setup.run_id,
-                )
-            step_drop_intermediate_budget(ctx)
-            if export_package is None:
-                step_finalize_store(ctx, wall_seconds=wall_seconds)
-            else:
+                    from hydromodpy.simulation.planning.plan import RunContext
+
+                    export_cfg = ctx.cfg.export
+                    save_catalog = bool(results_cfg.persistence.save_catalog)
+                    auto_export_results(
+                        sim_id=ctx.sim_id,
+                        store=store,
+                        export_config=export_cfg,
+                        save_catalog=save_catalog,
+                        run_id=ctx.setup.run_id,
+                    )
+                    for run in plan.runs:
+                        if not run.is_solver_backed:
+                            continue
+                        cleanup_solver_outputs(
+                            ctx=RunContext(plan=plan, run=run, state=ctx, store=store),
+                            results_config=results_cfg,
+                            keep_solver_files=bool(
+                                getattr(results_cfg, "keep_solver_files", False)
+                            ),
+                        )
+                    export_package = partial(
+                        auto_export_package,
+                        sim_id=ctx.sim_id,
+                        store=store,
+                        export_config=export_cfg,
+                        save_catalog=save_catalog,
+                        run_id=ctx.setup.run_id,
+                    )
+                step_drop_intermediate_budget(ctx, store=store)
                 # Seal first, package second: the archive must carry the
-                # manifest and the provenance the seal writes. The store stays
-                # open for the packer, which reads the index and the live Zarr.
-                try:
-                    step_seal_store(ctx, wall_seconds=wall_seconds)
+                # manifest and the provenance the seal writes, and the packer
+                # reads the index and the live Zarr through the same handle.
+                step_seal_store(ctx, store=store, wall_seconds=wall_seconds)
+                if export_package is not None:
                     export_package()
-                finally:
-                    step_close_store(ctx)
         step_cleanup_scratch(
             ctx,
             keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),
@@ -445,10 +417,10 @@ class ExportStep:
         existing: list[Path] = []
         ws = getattr(getattr(ctx, "setup", None), "workspace", None)
         project_root: Path | None = getattr(ws, "project_root", None)
-        store = getattr(ctx, "store", None)
         sim_id = getattr(ctx, "sim_id", None)
-        if project_root is not None and store is not None and sim_id:
-            run_dir = store.run_dir_for(sim_id)
+        if project_root is not None and sim_id and run_is_catalogued(ctx):
+            with run_catalog(ctx) as store:
+                run_dir = store.run_dir_for(sim_id)
             if run_dir.is_dir():
                 existing.append(run_dir)
         elif project_root is not None:

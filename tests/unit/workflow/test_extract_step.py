@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -35,8 +36,14 @@ def test_extract_step_extracts_solver_outputs(monkeypatch, tmp_path: Path) -> No
     ingested: list[tuple[object, str]] = []
     monkeypatch.setattr(
         "hydromodpy.workflow.steps.extract.step_ingest_observations",
-        lambda ctx, sim_id: ingested.append((ctx, sim_id)),
+        lambda ctx, sim_id, *, store: ingested.append((ctx, sim_id)),
     )
+
+    @contextmanager
+    def _fake_scope(_ctx):
+        yield "store"
+
+    monkeypatch.setattr("hydromodpy.workflow.steps.extract.run_catalog", _fake_scope)
 
     ctx = SimpleNamespace(
         execution=SimpleNamespace(
@@ -44,7 +51,7 @@ def test_extract_step_extracts_solver_outputs(monkeypatch, tmp_path: Path) -> No
             simulation_plan=plan,
             output_dirs_by_run_id={run.id: output_dir},
         ),
-        store="store",
+        setup=SimpleNamespace(workspace=object()),
         sim_id="sim-1",
         loaded_data=None,
         cfg=SimpleNamespace(simulation=SimpleNamespace(results=results)),

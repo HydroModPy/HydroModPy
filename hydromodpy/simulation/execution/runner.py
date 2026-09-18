@@ -140,6 +140,7 @@ class SimulationRunner:
         state: Any,
         *,
         callbacks: ProcessCallbacks | None = None,
+        store: Any | None = None,
     ) -> tuple[tuple[ProcessRun, RunExecutionResult], ...]:
         """Execute each planned run in order against ``state``.
 
@@ -185,7 +186,7 @@ class SimulationRunner:
                         current_process_type = run.process_type
                         process_open = True
 
-                    result = self._run_process_run(plan, state, run)
+                    result = self._run_process_run(plan, state, run, store=store)
                     executed_results.append((run, result))
             except BaseException:
                 if process_open and current_process_type is not None:
@@ -229,6 +230,8 @@ class SimulationRunner:
         plan: SimulationPlan,
         state: Any,
         run: ProcessRun,
+        *,
+        store: Any | None = None,
     ) -> RunExecutionResult:
         """Execute one resolved process run through its registered adapter."""
 
@@ -246,6 +249,7 @@ class SimulationRunner:
                 run=run,
                 state=state,
                 dependency_models=dependency_models,
+                store=store,
             )
         )
         self._record_run_output(state, run, result)

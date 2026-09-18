@@ -325,6 +325,20 @@ class _StoreStub:
         return self._sz
 
 
+@pytest.fixture(autouse=True)
+def _catalog_scope_yields_the_stub(monkeypatch):
+    """The step opens the index itself; hand it the stub the context holds."""
+    from contextlib import contextmanager
+
+    import hydromodpy.workflow.steps.derive as derive_module
+
+    @contextmanager
+    def _fake_scope(ctx):
+        yield ctx.store
+
+    monkeypatch.setattr(derive_module, "run_catalog", _fake_scope)
+
+
 class _CtxStub:
     def __init__(self, store, sim_id: str = "stub") -> None:
 
@@ -336,10 +350,13 @@ class _CtxStub:
             simulation=SimpleNamespace(results=ResultsConfig()),
             solver=SolverConfig(),
         )
+        self.setup = SimpleNamespace(workspace=None if store is None else object())
         # Use the real ExecutionRegistry so the stub honours the same contract as
         # WorkflowContext.execution (notably models_by_run_id, which DeriveStep
-        # clears); a bare SimpleNamespace was missing that attribute.
-        self.execution = ExecutionRegistry(simulation_plan=None, lightweight=True)
+        # clears); a bare SimpleNamespace was missing that attribute. The run is
+        # catalogued: the step opens the index for its own span and the stub
+        # hands it this store.
+        self.execution = ExecutionRegistry(simulation_plan=None, lightweight=False)
 
 
 def test_derive_step_runs_registry(tmp_path):
@@ -381,7 +398,7 @@ def test_derive_step_without_ctx_raises():
         DeriveStep().run(state)
 
 
-def test_derive_step_without_store_is_noop():
+def test_derive_step_without_an_index_is_noop():
     ctx = _CtxStub(store=None)
     state = PipelineState(run_id="r", data={"ctx": ctx})
     out = DeriveStep().run(state)

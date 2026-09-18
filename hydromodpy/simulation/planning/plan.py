@@ -113,12 +113,18 @@ class RunContext:
     By the time an adapter receives this object, the planner has already fixed
     the run order and the runner has already resolved the concrete upstream
     models referenced by ``run.depends_on``.
+
+    ``store`` is the catalog handle of the enclosing run, or ``None`` when the
+    run writes no index (a calibration trial). It is a borrowed handle whose
+    owner closes it: an adapter reads or writes through it during its own
+    ``execute`` and keeps no reference past the call.
     """
 
     plan: SimulationPlan
     run: ProcessRun
     state: Any
     dependency_models: tuple[Any, ...] = ()
+    store: Any = None
 
 
 @dataclass(frozen=True)

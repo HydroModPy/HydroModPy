@@ -17,9 +17,6 @@ def _ctx(
     solver: str = "modflow6",
 ) -> SimpleNamespace:
     sink = {} if captured is None else captured
-    store = SimpleNamespace(
-        write_run_environment=lambda sim_id, **kwargs: sink.update({"sim_id": sim_id, **kwargs})
-    )
     run = SimpleNamespace(id="flow_main", process_type="flow", solver=solver)
     return SimpleNamespace(
         cfg=SimpleNamespace(
@@ -29,12 +26,18 @@ def _ctx(
         setup=SimpleNamespace(
             workspace=SimpleNamespace(project_root=Path("/tmp/project"), bin_path="/tmp/bin")
         ),
-        store=store,
         sim_id="sim-1",
         execution=SimpleNamespace(
             simulation_plan=SimpleNamespace(runs=(run,)),
             models_by_run_id={} if built_model is None else {"flow_main": built_model},
         ),
+    )
+
+
+def _store(captured: dict) -> SimpleNamespace:
+    """A store that records the one row the registration writes."""
+    return SimpleNamespace(
+        write_run_environment=lambda sim_id, **kwargs: captured.update({"sim_id": sim_id, **kwargs})
     )
 
 
@@ -71,7 +74,7 @@ def test_api_registration_records_the_library_engine(monkeypatch) -> None:
     )
     monkeypatch.setattr(dispatch_module, "_resolve_solver_engine", lambda *_a, **_k: engine)
 
-    dispatch_module._write_run_environment(ctx, "sim-1", "modflow6")
+    dispatch_module._write_run_environment(ctx, "sim-1", "modflow6", store=_store(captured))
 
     assert captured["solver_engine"] == "library"
     assert captured["solver_execution_mode"] == "api"
@@ -109,18 +112,22 @@ def test_refresh_rewrites_the_engine_once_the_model_exists(monkeypatch) -> None:
     monkeypatch.setattr(dispatch_module, "_resolve_solver_engine", lambda *_a, **_k: library)
     monkeypatch.setattr(dispatch_module, "_primary_solver_for_simulation", lambda _plan: "modflow6")
 
-    dispatch_module.refresh_run_environment(ctx)
+    dispatch_module.refresh_run_environment(ctx, store=_store(captured))
 
     assert captured["solver_execution_mode"] == "api"
     assert captured["solver_engine"] == "library"
     assert captured["solver_binary_path"] == Path("/tmp/bin/libmf6.so")
 
 
-def test_refresh_is_a_no_op_before_the_store_exists() -> None:
+def test_refresh_is_a_no_op_before_the_run_is_registered() -> None:
+    """No sim_id yet means no row to rewrite, whatever handle it was given."""
+    captured: dict = {}
     ctx = _ctx()
-    ctx.store = None
+    ctx.sim_id = None
 
-    dispatch_module.refresh_run_environment(ctx)
+    dispatch_module.refresh_run_environment(ctx, store=_store(captured))
+
+    assert captured == {}
 
 
 def test_a_solver_without_an_engine_still_records_its_mode(monkeypatch) -> None:
@@ -129,7 +136,7 @@ def test_a_solver_without_an_engine_still_records_its_mode(monkeypatch) -> None:
     ctx = _ctx(captured=captured)
     monkeypatch.setattr(dispatch_module, "_resolve_solver_engine", lambda *_a, **_k: None)
 
-    dispatch_module._write_run_environment(ctx, "sim-2", "boussinesq")
+    dispatch_module._write_run_environment(ctx, "sim-2", "boussinesq", store=_store(captured))
 
     assert captured["solver_name"] == "boussinesq"
     assert captured["solver_engine"] is None

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, ClassVar
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import OpenStoreState, PipelineState, SolverRanState
+from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
 
 if TYPE_CHECKING:
     from hydromodpy.workflow.launcher_protocol import Launcher
@@ -41,12 +42,13 @@ class RunSolverStep:
         from hydromodpy.workflow.steps.prepare_solver import _store_sim_artifacts
 
         ctx = state.get("ctx")
-        if ctx is None:
+        if ctx is None or not run_is_catalogued(ctx):
             return ()
         sim_id = getattr(ctx, "sim_id", None)
         if not sim_id:
             return ()
-        return _store_sim_artifacts(ctx, sim_id)
+        with run_catalog(ctx) as store:
+            return _store_sim_artifacts(ctx, sim_id, store=store)
 
     def rebuild_state(
         self,
@@ -66,17 +68,17 @@ class RunSolverStep:
         if ctx is None:
             raise ConfigError("RunSolverStep.rebuild_state requires 'ctx' in state.data")
         wall_seconds: float | None = None
-        store = getattr(ctx, "store", None)
         sim_id = getattr(ctx, "sim_id", None)
-        if store is not None and sim_id is not None:
-            try:
-                row = store.connection.execute(
-                    "SELECT duration_s FROM runs_environment WHERE sim_id = ? "
-                    "ORDER BY recorded_at DESC LIMIT 1",
-                    [sim_id],
-                ).fetchone()
-            except Exception:
-                row = None
+        if sim_id is not None and run_is_catalogued(ctx):
+            with run_catalog(ctx) as store:
+                try:
+                    row = store.backend.fetch_one(
+                        "SELECT duration_s FROM runs_environment WHERE sim_id = ? "
+                        "ORDER BY recorded_at DESC LIMIT 1",
+                        [sim_id],
+                    )
+                except Exception:
+                    row = None
             if row is not None and row[0] is not None:
                 wall_seconds = float(row[0])
         return prior_state.advance(
@@ -110,16 +112,25 @@ class RunSolverStep:
 
         t0 = time.monotonic()
         launcher = self.launcher if self.launcher is not None else SimulationRunner()
-        executed_results = launcher.execute(plan, ctx, callbacks=callbacks) or ()
-        for run, result in executed_results:
-            record_run_execution_metrics(
-                ctx=RunContext(plan=plan, run=run, state=ctx),
-                sim_id=ctx.sim_id,
-                store=ctx.store,
-                result=result,
-            )
+        if run_is_catalogued(ctx):
+            # One handle for the whole solve: the adapters reach the run's
+            # catalog through the ``RunContext`` the launcher builds, and the
+            # metrics of every executed run are written before it closes.
+            with run_catalog(ctx) as store:
+                executed_results = (
+                    launcher.execute(plan, ctx, callbacks=callbacks, store=store) or ()
+                )
+                for run, result in executed_results:
+                    record_run_execution_metrics(
+                        ctx=RunContext(plan=plan, run=run, state=ctx, store=store),
+                        sim_id=ctx.sim_id,
+                        store=store,
+                        result=result,
+                    )
+                refresh_run_environment(ctx, store=store)
+        else:
+            launcher.execute(plan, ctx, callbacks=callbacks)
         wall_seconds = time.monotonic() - t0
-        refresh_run_environment(ctx)
 
         return state.advance(
             step_index=state.step_index + 1,

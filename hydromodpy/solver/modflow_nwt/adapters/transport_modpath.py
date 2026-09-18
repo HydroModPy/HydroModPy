@@ -100,7 +100,7 @@ def _restore_seepage_clip_raster(ctx: RunContext, flow_model: Any) -> None:
     if _configured_zone_partic(ctx.state.setup.transport) != "seepage_clip":
         return
 
-    store = getattr(ctx.state, "store", None)
+    store = ctx.store
     sim_id = getattr(ctx.state, "sim_id", None)
     base_raster = getattr(flow_model, "dem_watershed_path", None)
     full_path = getattr(flow_model, "full_path", None)

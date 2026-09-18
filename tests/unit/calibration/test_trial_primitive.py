@@ -213,7 +213,9 @@ class TestFork:
         # Fresh execution registry: no residual plan / models carried
         # over from another trial or from the base.
         assert forked.ctx.execution.models_by_run_id == {}
-        assert forked.ctx.store is None
+        # A lightweight trial has no index to write to, and the context it
+        # forks carries no handle to one.
+        assert not hasattr(forked.ctx, "store")
 
     def test_loaded_data_is_shared_by_reference(self, tmp_path: Path) -> None:
         trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)

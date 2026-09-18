@@ -122,11 +122,21 @@ def test_run_solver_step_uses_injected_launcher() -> None:
             ),
         ),
     )
-    ctx = SimpleNamespace(execution=SimpleNamespace(simulation_plan=plan))
+    # A run with no index: the step drives the launcher and opens nothing.
+    ctx = SimpleNamespace(
+        execution=SimpleNamespace(simulation_plan=plan, lightweight=False),
+        cfg=SimpleNamespace(
+            simulation=SimpleNamespace(
+                results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=False))
+            )
+        ),
+        effective_results_config=None,
+        setup=SimpleNamespace(workspace=None),
+    )
 
     class _Launcher:
         def __init__(self) -> None:
-            self.calls: list[tuple[SimulationPlan, object, object]] = []
+            self.calls: list[tuple[SimulationPlan, object, object, object]] = []
 
         def execute(
             self,
@@ -134,19 +144,76 @@ def test_run_solver_step_uses_injected_launcher() -> None:
             state: object,
             *,
             callbacks: object | None = None,
+            store: object | None = None,
         ) -> None:
-            self.calls.append((plan, state, callbacks))
+            self.calls.append((plan, state, callbacks, store))
 
     launcher = _Launcher()
     state = PipelineState(run_id="run", data={"ctx": ctx})
 
     out = RunSolverStep(launcher=launcher).run(state)
 
-    called_plan, called_state, callbacks = launcher.calls[0]
+    called_plan, called_state, callbacks, store = launcher.calls[0]
     assert called_plan is plan
     assert called_state is ctx
     assert callbacks is not None
+    assert store is None
     assert out.get("wall_seconds") is not None
+
+
+def test_run_solver_step_hands_the_run_catalog_to_the_launcher(monkeypatch) -> None:
+    """A catalogued run passes its open handle down; the adapters read it there."""
+    from contextlib import contextmanager
+
+    import hydromodpy.workflow.steps.run_solver as run_solver_module
+
+    plan = SimulationPlan(
+        name="demo",
+        description="demo",
+        runs=(
+            ProcessRun(
+                id="flow_main::modflow_nwt",
+                process_id="flow_main",
+                process_type="flow",
+                solver="modflow_nwt",
+            ),
+        ),
+    )
+    handle = object()
+    ctx = SimpleNamespace(
+        execution=SimpleNamespace(simulation_plan=plan, lightweight=False),
+        cfg=SimpleNamespace(
+            simulation=SimpleNamespace(
+                results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=True))
+            )
+        ),
+        effective_results_config=None,
+        setup=SimpleNamespace(workspace=object()),
+        sim_id="sim-1",
+    )
+
+    @contextmanager
+    def _fake_scope(_ctx):
+        yield handle
+
+    monkeypatch.setattr(run_solver_module, "run_catalog", _fake_scope)
+    monkeypatch.setattr(
+        "hydromodpy.workflow.steps.prepare_solver.dispatch.refresh_run_environment",
+        lambda _ctx, *, store: None,
+    )
+
+    class _Launcher:
+        def __init__(self) -> None:
+            self.stores: list[object] = []
+
+        def execute(self, plan, state, *, callbacks=None, store=None):
+            self.stores.append(store)
+            return ()
+
+    launcher = _Launcher()
+    RunSolverStep(launcher=launcher).run(PipelineState(run_id="run", data={"ctx": ctx}))
+
+    assert launcher.stores == [handle]
 
 
 def test_runner_records_mesh_process_without_solver_adapter(monkeypatch) -> None:

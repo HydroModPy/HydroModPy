@@ -2,13 +2,13 @@
 
 Runs the registered :class:`DerivedComputation` objects over the
 simulation Zarr store. Each computation is responsible for its own
-input check; the step itself is a thin driver that resolves
-``ctx.store`` / ``ctx.sim_id``, opens the Zarr, and delegates to
-``registry.apply``. Skipped derivations are logged but do not raise.
+input check; the step itself is a thin driver that opens the run catalog
+for its own span, opens the Zarr, and delegates to ``registry.apply``.
+Skipped derivations are logged but do not raise.
 
 Inputs
 ------
-``ctx`` : WorkflowContext with ``store`` and ``sim_id`` populated.
+``ctx`` : WorkflowContext with ``sim_id`` populated.
 
 Outputs
 -------
@@ -25,6 +25,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.derived import DerivedResult
 from hydromodpy.workflow.internals.derived import registry as _default_registry
 from hydromodpy.workflow.internals.state import DerivedState, ExtractedState, PipelineState
+from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
 
 if TYPE_CHECKING:
     from hydromodpy.simulation.planning.results_config import ResultsConfig
@@ -58,22 +59,22 @@ class DeriveStep:
         if ctx is None:
             raise ConfigError("DeriveStep.rebuild_state requires 'ctx' in state.data")
         derived_names: list[str] = []
-        store = getattr(ctx, "store", None)
         sim_id = getattr(ctx, "sim_id", None)
-        if store is not None and sim_id is not None:
-            try:
-                sim_zarr = store.open_zarr(sim_id)
-            except Exception:
-                sim_zarr = None
-            if sim_zarr is not None:
+        if sim_id is not None and run_is_catalogued(ctx):
+            with run_catalog(ctx) as store:
                 try:
-                    derived_group = sim_zarr.root.get("derived")
-                    if derived_group is not None:
-                        derived_names = sorted(str(k) for k in derived_group.array_keys())
+                    sim_zarr = store.open_zarr(sim_id)
                 except Exception:
-                    derived_names = []
-                finally:
-                    _close_owned_zarr_handle(sim_zarr)
+                    sim_zarr = None
+                if sim_zarr is not None:
+                    try:
+                        derived_group = sim_zarr.root.get("derived")
+                        if derived_group is not None:
+                            derived_names = sorted(str(k) for k in derived_group.array_keys())
+                    except Exception:
+                        derived_names = []
+                    finally:
+                        _close_owned_zarr_handle(sim_zarr)
         return prior_state.advance(
             step_index=prior_state.step_index + 1,
             step_name=self.name,
@@ -86,10 +87,9 @@ class DeriveStep:
         if ctx is None:
             raise ConfigError("DeriveStep requires 'ctx' in state.data")
 
-        store = getattr(ctx, "store", None)
         sim_id = getattr(ctx, "sim_id", None)
-        if store is None or sim_id is None:
-            logger.debug("DeriveStep: no store/sim_id on ctx, skipping registry application")
+        if sim_id is None or not run_is_catalogued(ctx):
+            logger.debug("DeriveStep: this run has no index to derive into, skipping")
             return state.advance(
                 step_index=state.step_index + 1,
                 step_name=self.name,
@@ -114,51 +114,53 @@ class DeriveStep:
         enabled = self._enabled_registry_names(results_cfg)
         forced = tuple(getattr(ctx, "forced_results_flags", ()) or ())
         derived_names: list[str] = []
-        try:
-            sim_zarr = store.open_zarr(sim_id)
-        except Exception as exc:
-            raise ExtractError(f"DeriveStep cannot open Zarr for sim {sim_id}") from exc
-        try:
-            # Before the registry derives a seepage mask: the discharge band
-            # the drains were given changes what "this cell seeps" means, and a
-            # figure drawn months later reads it back from the store rather
-            # than from a config it no longer has. ``derive_run_outputs``
-            # writes the same value on the direct post-run path.
-            sim_zarr.drain_band_depth_m = float(ctx.cfg.solver.drain_band_depth_m)
-            if enabled and "head" in sim_zarr.root:
-                results = self._registry.apply(sim_zarr, names=enabled)
-                for result in results:
-                    if result.status == "computed":
-                        derived_names.append(result.name)
-                        logger.debug("DeriveStep: computed '%s'", result.name)
-                    else:
-                        self._log_skipped_derived(result, forced=forced)
-            elif not enabled:
-                logger.debug("DeriveStep: no derived field enabled, registry skipped")
-            else:
-                logger.debug(
-                    "DeriveStep: no 'head' field in Zarr for sim %s, registry skipped",
-                    sim_id,
-                )
-        finally:
-            _close_owned_zarr_handle(sim_zarr)
+        with run_catalog(ctx) as store:
+            try:
+                sim_zarr = store.open_zarr(sim_id)
+            except Exception as exc:
+                raise ExtractError(f"DeriveStep cannot open Zarr for sim {sim_id}") from exc
+            try:
+                # Before the registry derives a seepage mask: the discharge band
+                # the drains were given changes what "this cell seeps" means, and a
+                # figure drawn months later reads it back from the store rather
+                # than from a config it no longer has. ``derive_run_outputs``
+                # writes the same value on the direct post-run path.
+                sim_zarr.drain_band_depth_m = float(ctx.cfg.solver.drain_band_depth_m)
+                if enabled and "head" in sim_zarr.root:
+                    results = self._registry.apply(sim_zarr, names=enabled)
+                    for result in results:
+                        if result.status == "computed":
+                            derived_names.append(result.name)
+                            logger.debug("DeriveStep: computed '%s'", result.name)
+                        else:
+                            self._log_skipped_derived(result, forced=forced)
+                elif not enabled:
+                    logger.debug("DeriveStep: no derived field enabled, registry skipped")
+                else:
+                    logger.debug(
+                        "DeriveStep: no 'head' field in Zarr for sim %s, registry skipped",
+                        sim_id,
+                    )
+            finally:
+                _close_owned_zarr_handle(sim_zarr)
 
-        # compute_derived (opt-in transport/flux variables) plus catchment aggregation.
-        # Runs regardless of head, as before; its seepage step is now a guarded no-op and
-        # water-table readers find the registry's slab-written field.
-        if plan is not None and not ctx.execution.lightweight:
-            from hydromodpy.simulation.extraction.post_run import derive_run_outputs
-            from hydromodpy.simulation.planning.plan import RunContext
+            # compute_derived (opt-in transport/flux variables) plus catchment
+            # aggregation. Runs regardless of head, as before; its seepage step is
+            # now a guarded no-op and water-table readers find the registry's
+            # slab-written field.
+            if plan is not None:
+                from hydromodpy.simulation.extraction.post_run import derive_run_outputs
+                from hydromodpy.simulation.planning.plan import RunContext
 
-            for run in plan.runs:
-                if not run.is_solver_backed:
-                    continue
-                derive_run_outputs(
-                    ctx=RunContext(plan=plan, run=run, state=ctx),
-                    sim_id=sim_id,
-                    results_config=results_cfg,
-                    store=store,
-                )
+                for run in plan.runs:
+                    if not run.is_solver_backed:
+                        continue
+                    derive_run_outputs(
+                        ctx=RunContext(plan=plan, run=run, state=ctx, store=store),
+                        sim_id=sim_id,
+                        results_config=results_cfg,
+                        store=store,
+                    )
 
         return state.advance(
             step_index=state.step_index + 1,

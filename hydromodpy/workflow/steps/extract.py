@@ -16,9 +16,11 @@ from hydromodpy.core.state.paths import catalog_path_for
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.workflow.internals.state import ExtractedState, PipelineState, SolverRanState
+from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
+    from hydromodpy.results.catalog.protocol import SimulationStore
 
 logger = get_logger(__name__)
 
@@ -28,7 +30,7 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def step_ingest_observations(ctx: WorkflowContext, sim_id: str) -> None:
+def step_ingest_observations(ctx: WorkflowContext, sim_id: str, *, store: SimulationStore) -> None:
     """Ingest observation timeseries associated with this simulation.
 
     Observation ingestion is part of the scientific record. Failures abort
@@ -39,7 +41,7 @@ def step_ingest_observations(ctx: WorkflowContext, sim_id: str) -> None:
     )
 
     try:
-        ingest_observations(sim_id, ctx.store, ctx.loaded_data)
+        ingest_observations(sim_id, store, ctx.loaded_data)
     except Exception as exc:
         logger.exception("Failed to ingest observations for sim %s", sim_id)
         raise ExtractError(f"Failed to ingest observations for sim {sim_id}") from exc
@@ -112,7 +114,7 @@ class ExtractStep:
         ctx = state.get("ctx")
         if ctx is None:
             raise ConfigError("ExtractStep requires 'ctx' in state.data")
-        if ctx.execution.lightweight or ctx.store is None or ctx.sim_id is None:
+        if ctx.sim_id is None or not run_is_catalogued(ctx):
             return state.advance(
                 step_index=state.step_index + 1,
                 step_name=self.name,
@@ -141,21 +143,22 @@ class ExtractStep:
         ctx.effective_results_config = results_cfg
 
         extracted = 0
-        for run in plan.runs:
-            if not run.is_solver_backed:
-                continue
-            extract_run_outputs(
-                ctx=RunContext(plan=plan, run=run, state=ctx),
-                sim_id=ctx.sim_id,
-                results_config=results_cfg,
-                store=ctx.store,
-            )
-            extracted += 1
-        # Observation series (hydrometry, piezometry, ...) are part of the
-        # scientific record but are independent of solver extraction, so they
-        # are ingested here once the store is populated for this sim. Runs
-        # without observation data write nothing and do not raise.
-        step_ingest_observations(ctx, ctx.sim_id)
+        with run_catalog(ctx) as store:
+            for run in plan.runs:
+                if not run.is_solver_backed:
+                    continue
+                extract_run_outputs(
+                    ctx=RunContext(plan=plan, run=run, state=ctx, store=store),
+                    sim_id=ctx.sim_id,
+                    results_config=results_cfg,
+                    store=store,
+                )
+                extracted += 1
+            # Observation series (hydrometry, piezometry, ...) are part of the
+            # scientific record but are independent of solver extraction, so they
+            # are ingested here once the store is populated for this sim. Runs
+            # without observation data write nothing and do not raise.
+            step_ingest_observations(ctx, ctx.sim_id, store=store)
         return state.advance(
             step_index=state.step_index + 1,
             step_name=self.name,
@@ -168,12 +171,13 @@ class ExtractStep:
         from hydromodpy.workflow.steps.prepare_solver import _store_sim_artifacts
 
         ctx = state.get("ctx")
-        if ctx is None:
+        if ctx is None or not run_is_catalogued(ctx):
             return ()
         sim_id = getattr(ctx, "sim_id", None)
         if not sim_id:
             return ()
-        return _store_sim_artifacts(ctx, sim_id)
+        with run_catalog(ctx) as store:
+            return _store_sim_artifacts(ctx, sim_id, store=store)
 
     def rebuild_state(
         self,

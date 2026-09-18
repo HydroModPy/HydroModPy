@@ -22,11 +22,10 @@ def test_step_save_run_artifacts_does_not_write_config_snapshot_sidecars(
             analysis=SimpleNamespace(capability_gallery=SimpleNamespace(enabled=False))
         ),
         execution=SimpleNamespace(simulation_plan=SimpleNamespace(runs=[])),
-        store=None,
         sim_id=None,
     )
 
-    step_save_run_artifacts(ctx, wall_seconds=0.1)
+    step_save_run_artifacts(ctx, wall_seconds=0.1, store=SimpleNamespace())
 
     assert not (project_root / "_config_snapshot.toml").exists()
     assert not (project_root / "_config_snapshot.json").exists()

@@ -95,7 +95,7 @@ def step_persist_params(
         store.write_parameters(sim_id, params)
 
 
-def step_persist_mesh(ctx: WorkflowContext, sim_id: str) -> None:
+def step_persist_mesh(ctx: WorkflowContext, sim_id: str, *, store: SimulationStore) -> None:
     """Write mesh topology into the simulation's Zarr."""
     import numpy as np
 
@@ -130,7 +130,7 @@ def step_persist_mesh(ctx: WorkflowContext, sim_id: str) -> None:
         vertices = hydro_mesh.vertices
         connectivity = hydro_mesh.flat_connectivity
 
-    ctx.store.write_mesh(
+    store.write_mesh(
         sim_id,
         vertices=vertices,
         face_node_connectivity=connectivity,
@@ -138,7 +138,7 @@ def step_persist_mesh(ctx: WorkflowContext, sim_id: str) -> None:
     )
 
 
-def step_persist_geographic(ctx: WorkflowContext, sim_id: str) -> None:
+def step_persist_geographic(ctx: WorkflowContext, sim_id: str, *, store: SimulationStore) -> None:
     """Persist the geographic rasters (DEM, watershed masks) into the Zarr."""
     from hydromodpy.spatial.geographic.store_ingestion import (
         persist_geographic_to_store,
@@ -146,7 +146,7 @@ def step_persist_geographic(ctx: WorkflowContext, sim_id: str) -> None:
 
     if ctx.setup.geographic is None:
         return
-    persist_geographic_to_store(ctx.setup.geographic, ctx.store, sim_id=sim_id)
+    persist_geographic_to_store(ctx.setup.geographic, store, sim_id=sim_id)
 
 
 # ---------------------------------------------------------------------------
@@ -201,7 +201,7 @@ def _digests_the_load_already_computed(ctx: WorkflowContext) -> dict[str, str]:
     return source_digests(read_data_description(Path(project_root), str(run_id)))
 
 
-def step_write_provenance(ctx: WorkflowContext) -> None:
+def step_write_provenance(ctx: WorkflowContext, *, store: SimulationStore) -> None:
     """Record provenance fingerprints for each loaded data variable.
 
     The walk over the loaded scopes is the one ``load_data`` used to describe
@@ -209,7 +209,7 @@ def step_write_provenance(ctx: WorkflowContext) -> None:
     written here and the document it left cannot name a different set of inputs
     nor disagree on their bytes.
     """
-    if ctx.store is None or ctx.sim_id is None:
+    if ctx.sim_id is None:
         return
 
     import numpy as np
@@ -230,7 +230,7 @@ def step_write_provenance(ctx: WorkflowContext) -> None:
                 if arr is None:
                     continue
             digest = known_digests.get(str(source_path)) if source_path is not None else None
-            ctx.store.write_provenance(
+            store.write_provenance(
                 ctx.sim_id,
                 variable=label,
                 source_ref=str(getattr(rec, "source", "")),
@@ -280,15 +280,15 @@ def _watershed_mean_series(load_result: object):
     return series
 
 
-def step_persist_forcings(ctx: WorkflowContext) -> None:
+def step_persist_forcings(ctx: WorkflowContext, *, store: SimulationStore) -> None:
     """Persist input forcings into the Zarr ``forcing/`` group."""
-    if ctx.store is None or ctx.sim_id is None:
+    if ctx.sim_id is None:
         return
 
     import numpy as np
     import pandas as pd
 
-    sz = ctx.store.open_zarr(ctx.sim_id)
+    sz = store.open_zarr(ctx.sim_id)
     loaded = ctx.loaded_data
     written = 0
 
@@ -363,7 +363,7 @@ def step_persist_forcings(ctx: WorkflowContext) -> None:
                                 source=getattr(record, "source", ""),
                             )
                             written += 1
-                        _persist_reference_hydrographic_feature(ctx, obj)
+                        _persist_reference_hydrographic_feature(ctx, obj, store=store)
                 except Exception:
                     logger.debug("Failed to persist hydrography forcing")
                 continue
@@ -443,9 +443,11 @@ def step_persist_forcings(ctx: WorkflowContext) -> None:
 def _persist_reference_hydrographic_feature(
     ctx: WorkflowContext,
     hydrography_load_result: object,
+    *,
+    store: SimulationStore,
 ) -> bool:
     """Persist the imported hydrography vector as one canonical feature."""
-    if ctx.store is None or ctx.sim_id is None:
+    if ctx.sim_id is None:
         return False
 
     from hydromodpy.spatial.geographic.core.hydrographic_network import (
@@ -470,7 +472,7 @@ def _persist_reference_hydrographic_feature(
             return False
         if gdf.crs is None and getattr(network, "crs", None) not in (None, ""):
             gdf = gdf.set_crs(str(network.crs), allow_override=True)
-        ctx.store.write_geographic_feature(
+        store.write_geographic_feature(
             ctx.sim_id,
             HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
             gdf,

@@ -84,7 +84,6 @@ class TestSimulationGroup:
                     )
                     run_catalog.finalize(sim_id, "completed")
                 ctx.sim_id = sim_id
-                ctx.store = None
                 return PipelineState(
                     run_id=state.run_id,
                     step_index=0,

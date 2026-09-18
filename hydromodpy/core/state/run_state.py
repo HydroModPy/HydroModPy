@@ -6,7 +6,7 @@ Three canonical scopes:
 - ``loaded_data``: loaded support data (climatic, oceanic, hydrometry, ...);
 - ``execution``: run outputs and registries (planned runs, produced models).
 
-Plus result-store lifecycle fields (``store``, ``sim_id``,
+Plus the identity of the run being executed (``sim_id``,
 ``postprocess_runner``) used by the workflow layer.
 
 Canonical access is explicit:
@@ -34,8 +34,14 @@ class WorkflowContext:
     ``models_by_run_id`` is the source of truth for produced solver models.
     Concrete solver instances are resolved explicitly from that registry.
 
-    Also carries result-store lifecycle fields needed by the workflow layer:
-    ``store``, ``sim_id``, and ``postprocess_runner``.
+    Also carries the identity of the run being executed: ``sim_id`` and
+    ``postprocess_runner``.
+
+    It carries no live handle. The catalog a run writes to is opened by
+    whoever writes, for the span of that write, through
+    :func:`hydromodpy.workflow.run_catalog.run_catalog`: a DuckDB connection
+    and its lock are a resource, and a context that held one could not cross
+    a process boundary.
 
     ``cfg`` and ``data_plan`` are typed as ``Any`` because ``core`` cannot
     import from sibling layers. Concrete types are
@@ -50,8 +56,6 @@ class WorkflowContext:
     loaded_data: LoadedDataContext = field(default_factory=LoadedDataContext)
     execution: ExecutionRegistry = field(default_factory=ExecutionRegistry)
 
-    # Result-store lifecycle (formerly in WorkflowContext only).
-    store: Any = field(default=None, repr=False)
     sim_id: str | None = None
     parent_sim_id: str | None = None
 
