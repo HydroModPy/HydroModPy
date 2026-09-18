@@ -149,6 +149,14 @@ class TestRefused:
 
 
 class TestNetworkCriterionPairing:
+    """A criterion reads the supports it declares, and no list says which.
+
+    The pairing used to be a tuple of metric names written in the validator.
+    It comes from the criterion now, so the two refusals below are one rule read
+    from either side, and the message names what could read the output rather
+    than repeating a list held here.
+    """
+
     def _network_config(self, blocks: list[dict]) -> CalibrationConfig:
         return CalibrationConfig.model_validate(
             {
@@ -169,18 +177,35 @@ class TestNetworkCriterionPairing:
 
     def test_the_gap_metric_on_a_network_output_is_accepted(self) -> None:
         cfg = self._network_config(
-            [{"name": "abherve", "metric": "distance_gap", "uses_outputs": ["net"]}]
+            [
+                {"name": "network", "metric": "distance_gap", "uses_outputs": ["net"]},
+                # nse rather than rmse: a cost in metres and one in m3/s do not
+                # add up, and that refusal is a different rule from this one.
+                {"name": "discharge", "metric": "nse", "uses_outputs": ["q"]},
+            ]
         )
         assert cfg.objective_blocks[0].metric == "distance_gap"
 
     def test_the_gap_metric_on_anything_else_is_refused(self) -> None:
         # distance_gap reads the pair (D_so, D_os); a discharge series is not
         # that pair, and scoring it would produce a number with no meaning.
-        with pytest.raises(ValueError, match="is not a network output"):
+        with pytest.raises(ValueError, match="that criterion reads"):
             self._network_config(
                 [{"name": "wrong", "metric": "distance_gap", "uses_outputs": ["q"]}]
             )
 
     def test_a_network_output_nobody_scores_is_refused(self) -> None:
-        with pytest.raises(ValueError, match="no block declares either"):
+        with pytest.raises(ValueError, match="can be read by none of the criteria"):
             self._network_config([{"name": "b", "metric": "rmse", "uses_outputs": ["q"]}])
+
+    def test_the_refusal_names_what_could_have_read_it(self) -> None:
+        # Read off the registry, so a criterion added for the network appears
+        # here without a second list to remember.
+        with pytest.raises(ValueError, match="distance_gap, distance_mean"):
+            self._network_config([{"name": "b", "metric": "rmse", "uses_outputs": ["q"]}])
+
+    def test_a_series_metric_on_a_network_output_is_refused_too(self) -> None:
+        # The other side of the same rule: it used to be unwritten, and scoring
+        # the pair against an observed vector returns a number all the same.
+        with pytest.raises(ValueError, match="that criterion reads"):
+            self._network_config([{"name": "b", "metric": "rmse", "uses_outputs": ["net", "q"]}])

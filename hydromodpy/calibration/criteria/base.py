@@ -28,6 +28,14 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
+SERIES_SUPPORTS: tuple[str, ...] = ("point", "boundary", "cell", "lake")
+"""The supports whose output is a series of values through time.
+
+Held here rather than imported from the configuration: the contract has to be
+readable without loading the schema that writes it. A gate pins this vocabulary
+against ``OutputSupport`` so the two cannot drift apart in silence.
+"""
+
 
 @dataclass(frozen=True)
 class CriterionRequirements:
@@ -58,6 +66,22 @@ class CriterionRequirements:
     residual in metres is not. Dividing a dimensionless cost by the standard
     deviation of its own observations does not put two blocks on a common
     footing, it reweights one of them in silence."""
+
+    reads_supports: tuple[str, ...]
+    """The output supports this criterion can score, named as a declaration
+    writes them.
+
+    An output does not hand every criterion the same thing. A point, a boundary,
+    a cell and a lake all produce a series of values through time; a network
+    produces the pair ``(D_so, D_os)``, two distances and no time. A criterion
+    built for one cannot read the other, and until this was declared the two
+    were kept apart by a tuple of metric names written inside a configuration
+    validator -- a third list of what the network is, beside the registry's and
+    beside the one the objective holds.
+
+    Declared here, the pairing is checked in both directions from one answer: a
+    criterion is refused on an output whose support it does not name, whichever
+    side the mismatch comes from."""
 
     cost_unit: str | None = None
     """The unit of the cost when it has one, for a report that has to say it."""
@@ -125,6 +149,7 @@ class Criterion(Protocol):
 
 
 __all__ = [
+    "SERIES_SUPPORTS",
     "Criterion",
     "CriterionRequirements",
     "CriterionResult",

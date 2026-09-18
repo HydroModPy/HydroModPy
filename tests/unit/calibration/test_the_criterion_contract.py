@@ -13,10 +13,14 @@ refactor changed what is optimised.
 
 from __future__ import annotations
 
+from typing import get_args
+
 import numpy as np
 import pytest
 
+from hydromodpy.calibration.config import OutputSupport
 from hydromodpy.calibration.criteria import (
+    NETWORK_ESTIMATORS,
     NetworkCriterion,
     SeriesCriterion,
     available_criteria,
@@ -163,3 +167,42 @@ class TestTheCostsAreUnchanged:
         pair = np.array([137.5, 91.25])
 
         assert _same_number(criterion_for(name).score(pair).cost, float(METRICS[name](pair)))
+
+
+class TestWhatSupportACriterionReads:
+    """The criterion names the supports it scores, and nothing else holds a list.
+
+    The pairing used to be a tuple of metric names written inside a
+    configuration validator. Declared on the criterion, it is checked in both
+    directions from one answer, and these gates keep that answer honest against
+    the vocabulary a file actually writes.
+    """
+
+    def test_a_series_criterion_reads_every_support_but_the_network(self) -> None:
+        assert set(criterion_for("nse").requirements().reads_supports) == {
+            "point",
+            "boundary",
+            "cell",
+            "lake",
+        }
+
+    def test_the_network_criterion_reads_the_network_and_nothing_else(self) -> None:
+        for name in NETWORK_ESTIMATORS:
+            assert criterion_for(name).requirements().reads_supports == ("network",)
+
+    def test_the_two_vocabularies_partition_what_a_file_may_declare(self) -> None:
+        # A support no criterion reads could be declared and never scored; a
+        # support two families both claim would make the pairing meaningless.
+        declared = set(get_args(OutputSupport))
+        series = set(criterion_for("rmse").requirements().reads_supports)
+        network = set(criterion_for("distance_gap").requirements().reads_supports)
+
+        assert series | network == declared
+        assert series & network == set()
+
+    def test_every_registered_criterion_names_a_support_that_exists(self) -> None:
+        declared = set(get_args(OutputSupport))
+        for name in available_criteria():
+            supports = criterion_for(name).requirements().reads_supports
+            assert supports, name
+            assert set(supports) <= declared, name

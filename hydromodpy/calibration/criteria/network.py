@@ -49,12 +49,18 @@ class NetworkCriterion:
         self._estimator: Estimator = estimator
 
     def requirements(self) -> CriterionRequirements:
-        """No observations, no time axis, and a signed residual only for Eq. 1."""
+        """No observations, no time axis, and a signed residual only for Eq. 1.
+
+        It reads a network output and nothing else: the pair it scores exists on
+        no other support, and pointed at a series it would read two of its
+        values as two distances.
+        """
         return CriterionRequirements(
             needs_observations=False,
             has_time_axis=False,
             signed=self._estimator == "distance_gap",
             cost_is_dimensionless=False,
+            reads_supports=("network",),
             cost_unit="m",
         )
 

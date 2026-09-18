@@ -1551,39 +1551,96 @@ class CalibrationConfig(HydroModelBase):
         return self
 
     @model_validator(mode="after")
-    def _check_network_criterion_is_paired(self) -> CalibrationConfig:
-        """A network output and a distance metric only make sense together.
+    def _check_a_block_reads_a_support_its_criterion_scores(self) -> CalibrationConfig:
+        """Refuse a block whose criterion cannot read what its outputs produce.
+
+        The criterion names the supports it scores, so one answer covers both
+        directions of the mismatch: a distance metric pointed at a gauge, and a
+        series metric pointed at a network. Neither crashes on its own. The
+        first would read two values of a chronicle as two distances, the second
+        would score the pair ``(D_so, D_os)`` against an observed vector, and
+        both return a number a reader has no way to doubt.
+        """
+        from hydromodpy.calibration.criteria import criterion_for
+
+        for block in self.objective_blocks:
+            try:
+                needs = criterion_for(str(block.metric)).requirements()
+            except ValueError:
+                continue
+            readable = set(needs.reads_supports)
+            wrong = sorted(
+                (name, str(self.outputs[name].support))
+                for name in block.uses_outputs
+                if name in self.outputs and str(self.outputs[name].support) not in readable
+            )
+            if wrong:
+                listed = ", ".join(f"{name!r} (support {support!r})" for name, support in wrong)
+                raise ValueError(
+                    f"block {block.name!r} scores {block.metric!r} on {listed}, and that "
+                    f"criterion reads {sorted(readable)}. A network output produces the "
+                    "pair (D_so, D_os), two distances and no time; every other support "
+                    "produces a series. One criterion cannot read both."
+                )
+        return self
+
+    @model_validator(mode="after")
+    def _check_no_output_is_beyond_every_declared_criterion(self) -> CalibrationConfig:
+        """Refuse an output no criterion in this file is able to read.
 
         Runs after the implicit block is built, so the ``(objective, variable)``
-        route counts as a declaration. An unpaired network output would fall
-        through to the single-metric head route, which reads none of the
-        network fields and still returns a plausible number.
+        route counts as a declaration. Such an output is extracted at every
+        trial and can enter no cost, whatever block one adds: the calibration
+        runs, returns a plausible number, and the constraint the file meant to
+        apply is absent from it. A network output alone among series metrics is
+        the case that made it visible -- it falls through to the single-metric
+        head route, which reads none of its fields -- and the verdict comes from
+        the criteria rather than from its support being named here.
+
+        An output some declared criterion could read but that no block happens
+        to name is left alone. It is a narrower waste and a different fix: a
+        phase of a staged run inherits the outputs of the whole file and scores
+        the blocks of its own stage, so that shape is built by this package.
         """
-        network_outputs = {
-            name for name, output in self.outputs.items() if output.support == "network"
-        }
-        distance_metrics = ("distance_gap", "distance_mean")
-        scored: set[str] = set()
-        for block in self.objective_blocks:
-            if block.metric not in distance_metrics:
+        if not self.outputs:
+            return self
+        from hydromodpy.calibration.criteria import available_criteria, criterion_for
+
+        # With no block, the head route scores (objective, variable): that
+        # criterion is the only one in play, and it is the route a lone network
+        # output falls through while reading none of its fields.
+        declared = [str(block.metric) for block in self.objective_blocks] or [str(self.objective)]
+        readable: set[str] = set()
+        for metric in declared:
+            try:
+                readable.update(criterion_for(metric).requirements().reads_supports)
+            except ValueError:
                 continue
-            without = sorted(set(block.uses_outputs) - network_outputs)
-            if without:
-                raise ValueError(
-                    f"block {block.name!r} scores {block.metric!r} on {without}, which "
-                    "is not a network output. That metric reads the pair (D_so, D_os) "
-                    "only a network output produces."
-                )
-            scored.update(block.uses_outputs)
-        unpaired = sorted(network_outputs - scored)
-        if unpaired:
-            raise ValueError(
-                f"the network output(s) {unpaired} produce the pair (D_so, D_os), which "
-                "only the metrics 'distance_gap' and 'distance_mean' can read; no block "
-                "declares either on them. Left unscored they are silently ignored and "
-                "the calibration falls back to its single metric."
-            )
-        return self
+        if not readable:
+            return self
+        stranded = {
+            name: str(output.support)
+            for name, output in self.outputs.items()
+            if str(output.support) not in readable
+        }
+        if not stranded:
+            return self
+        wanted = sorted(
+            {
+                criterion
+                for criterion in available_criteria()
+                if set(criterion_for(criterion).requirements().reads_supports)
+                & set(stranded.values())
+            }
+        )
+        listed = ", ".join(
+            f"{name!r} (support {support!r})" for name, support in sorted(stranded.items())
+        )
+        raise ValueError(
+            f"the output(s) {listed} can be read by none of the criteria this calibration "
+            f"declares, which score {sorted(readable)}. They are computed at every trial "
+            f"and weigh nothing. Declare a block on them with one of: {', '.join(wanted)}."
+        )
 
     @model_validator(mode="after")
     def _check_uses_outputs_reference_declared(self) -> CalibrationConfig:
