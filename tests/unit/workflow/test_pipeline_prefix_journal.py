@@ -127,3 +127,36 @@ def test_the_suffix_chains_its_inputs_hash_onto_the_prefix(tmp_path: Path) -> No
     resumed = next(row for row in _rows(tmp_path, "resumed") if row.step_order == 1)
 
     assert resumed.inputs_hash == from_scratch.inputs_hash
+
+
+def test_a_rerun_of_the_same_name_does_not_keep_its_invalidated_head(tmp_path: Path) -> None:
+    """A re-run rebuilds its prefix, so the rows it aborted must not survive.
+
+    ``Pipeline.run`` invalidates the whole journal of a model-phase-ready
+    re-run before rebuilding it. A prefix row left at ``aborted`` describes a
+    run that never happened, and sends the next resume back to step zero.
+    """
+    from hydromodpy.workflow.tracking.resume import ResumePlanner
+
+    steps = [_Prebuilt("head"), _Prebuilt("middle"), _Terminal()]
+    state = PipelineState(run_id="rerun")
+    Pipeline(steps, workspace=tmp_path).run(state)
+    Pipeline(steps, workspace=tmp_path).run(state, resume_from=2, model_phase_ready=True)
+
+    rows = _rows(tmp_path, "rerun")
+    assert [(r.step_order, r.status) for r in rows] == [
+        (0, "completed"),
+        (1, "completed"),
+        (2, "completed"),
+    ]
+
+    catalog = Catalog(tmp_path)
+    try:
+        plan = ResumePlanner(WorkflowJournal(catalog), tmp_path).compute(
+            run_id="rerun",
+            current_config_sha256=None,
+            steps_blueprint=("head", "middle", "terminal"),
+        )
+    finally:
+        catalog.close()
+    assert plan.restart_index == 3

@@ -298,7 +298,7 @@ class Pipeline:
                     state,
                     index,
                     journal=journal,
-                    existing_row=row,
+                    keep_existing_row=row_completed,
                     config_sha256=config_sha256,
                     previous_hashes=previous_hashes,
                 )
@@ -313,15 +313,19 @@ class Pipeline:
         index: int,
         *,
         journal: WorkflowJournal | None,
-        existing_row: object | None,
+        keep_existing_row: bool,
         config_sha256: str | None,
         previous_hashes: Sequence[str],
     ) -> str:
         """Record a reconstructed prefix step and return its ``outputs_hash``.
 
-        A step the journal already describes keeps the row it wrote when it
-        really ran: that row is the evidence the resume planner just verified,
-        and recomputing it here would replace a measurement by a re-measurement.
+        A row already marked completed stays: it is the evidence the resume
+        planner just verified, and recomputing it here would replace a
+        measurement by a re-measurement. Any other row is replaced. A re-run of
+        the same name invalidates its whole journal to ``aborted`` before this
+        phase, so a surviving ``aborted`` row on a prefix this process has just
+        rebuilt would describe a run that never happened, and would send the
+        next resume back to step zero.
         """
         from hydromodpy.workflow.tracking.journal import WorkflowJournal as _Journal
 
@@ -331,7 +335,7 @@ class Pipeline:
         if self.workspace is not None:
             outputs_hash = _Journal.compute_outputs_hash(self.workspace, artifact_uris) or ""
 
-        if journal is None or existing_row is not None:
+        if journal is None or keep_existing_row:
             return outputs_hash
 
         inputs_hash = _Journal.compute_inputs_hash(
