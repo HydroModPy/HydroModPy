@@ -2,6 +2,16 @@
 
 Run with:
     python -m hydromodpy.data.variables.oceanic.cases.run_oceanic_case
+
+The ``web`` mode names its tide gauge with ``station_id`` rather than handing
+over a centroid to search from. That is what a deterministic case wants: which
+gauge is read is the thing being pinned, not something re-derived on every run
+from a point the TOML happened to carry.
+
+``cache_dir`` has **no default**. A ``DataStore`` handed a ``data_root``
+creates the directory and opens a DuckDB catalog with a lock file in it, and
+this module sits inside the installed package: the committed configuration
+leaves it unset so running the case writes nothing where the source lives.
 """
 
 from __future__ import annotations
@@ -10,7 +20,6 @@ import argparse
 import json
 import time
 import tomllib
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -18,16 +27,6 @@ import pandas as pd
 
 from hydromodpy.data.loading.store import DataStore
 from hydromodpy.data.variables.oceanic.config import OceanicConfig, OceanicSourceConfig
-
-
-@dataclass(slots=True)
-class _GeographicStub:
-    """Minimal geographic payload required by SHOM fetch helpers."""
-
-    centroid: tuple[float, float]
-    centroid_long_lat: tuple[float, float]
-    centroid_long_lat_Greenwich: tuple[float, float]
-    stable_folder: str
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -42,7 +41,6 @@ def _load_case_config(config_toml: Path) -> dict[str, Any]:
         raw = tomllib.load(stream)
 
     case_raw = dict(raw.get("oceanic_case", {}))
-    geo_raw = dict(raw.get("geographic", {}))
 
     source = str(case_raw.get("source", "local"))
     local_csv = case_raw.get("local_csv_path")
@@ -50,48 +48,21 @@ def _load_case_config(config_toml: Path) -> dict[str, Any]:
     if local_csv is not None:
         local_csv_path = (config_toml.parent / str(local_csv)).resolve()
 
-    centroid_vals = geo_raw.get("centroid_long_lat", [48.0, -4.0])
-    if len(centroid_vals) != 2:
-        raise ValueError("geographic.centroid_long_lat must contain exactly two values")
-
-    centroid_xy_vals = geo_raw.get("centroid_xy_l93")
-    centroid_xy = None
-    if centroid_xy_vals is not None:
-        if len(centroid_xy_vals) != 2:
-            raise ValueError("geographic.centroid_xy_l93 must contain exactly two values")
-        centroid_xy = (float(centroid_xy_vals[0]), float(centroid_xy_vals[1]))
-
-    centroid_greenwich_vals = geo_raw.get("centroid_long_lat_greenwich")
-    if centroid_greenwich_vals is None:
-        centroid_greenwich = (float(centroid_vals[0]), float(centroid_vals[1]))
-    else:
-        if len(centroid_greenwich_vals) != 2:
-            raise ValueError(
-                "geographic.centroid_long_lat_greenwich must contain exactly two values"
-            )
-        centroid_greenwich = (
-            float(centroid_greenwich_vals[0]),
-            float(centroid_greenwich_vals[1]),
-        )
-
-    stable_folder = (
-        config_toml.parent / str(geo_raw.get("stable_folder", "outputs/stable"))
-    ).resolve()
-
-    geographic = _GeographicStub(
-        centroid=(centroid_xy if centroid_xy is not None else (0.0, 0.0)),
-        centroid_long_lat=(float(centroid_vals[0]), float(centroid_vals[1])),
-        centroid_long_lat_Greenwich=centroid_greenwich,
-        stable_folder=str(stable_folder),
-    )
+    # No default: giving DataStore a data_root makes it create the directory and
+    # open a DuckDB catalog there, and this module ships inside the package tree.
+    raw_cache_dir = case_raw.get("cache_dir")
+    cache_dir = None
+    if raw_cache_dir is not None:
+        cache_dir = (config_toml.parent / str(raw_cache_dir)).resolve()
 
     return {
         "source": source,
         "local_csv_path": local_csv_path,
+        "station_id": str(case_raw.get("station_id", "152")),
+        "cache_dir": cache_dir,
         "default_msl": float(case_raw.get("default_msl", 0.0)),
         "start_date": str(case_raw.get("start_date", "2003-01-01")),
         "end_date": str(case_raw.get("end_date", "2003-01-30")),
-        "geographic": geographic,
     }
 
 
@@ -118,7 +89,7 @@ def run_oceanic_case_from_toml(
             col_datetime="timestamp",
         )
     elif source_mode == "web":
-        source_cfg = OceanicSourceConfig(source="shom")
+        source_cfg = OceanicSourceConfig(source="shom", station_ids=[cfg["station_id"]])
     elif source_mode == "auto":
         if cfg["local_csv_path"] is not None and Path(cfg["local_csv_path"]).exists():
             csv_path = Path(cfg["local_csv_path"])
@@ -128,9 +99,9 @@ def run_oceanic_case_from_toml(
                 col_datetime="timestamp",
             )
         else:
-            source_cfg = OceanicSourceConfig(source="shom")
+            source_cfg = OceanicSourceConfig(source="shom", station_ids=[cfg["station_id"]])
     else:
-        source_cfg = OceanicSourceConfig(source="shom")
+        source_cfg = OceanicSourceConfig(source="shom", station_ids=[cfg["station_id"]])
 
     oceanic_cfg = OceanicConfig(
         sources=[source_cfg],
@@ -140,12 +111,10 @@ def run_oceanic_case_from_toml(
 
     fetch_start = time.perf_counter()
     store = DataStore(
+        data_root=cfg["cache_dir"],
         project_period=(start, end),
     )
-    load_result = store.load_oceanic(
-        oceanic_cfg,
-        geographic=cfg["geographic"],
-    )
+    load_result = store.load_oceanic(oceanic_cfg)
     fetch_seconds = time.perf_counter() - fetch_start
 
     sea_records = [r for r in load_result.points if r.variable in ("sea_level", "oceanic")]

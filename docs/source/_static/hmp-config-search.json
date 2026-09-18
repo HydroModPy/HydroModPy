@@ -3317,7 +3317,7 @@
     "section": "data",
     "anchor": "data-oceanic-date-start",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L75",
     "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
@@ -3332,7 +3332,7 @@
     "section": "data",
     "anchor": "data-oceanic-date-end",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L75",
     "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
@@ -3347,7 +3347,7 @@
     "section": "data",
     "anchor": "data-oceanic-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L84",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L85",
     "description": "At least one data source."
   },
   {
@@ -3515,7 +3515,7 @@
     "section": "data",
     "anchor": "data-oceanic-sources-source",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L30",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L35",
     "description": "Data provider: 'custom' for user CSV/NC/TIF files, 'shom' for SHOM API, 'constant' for fixed MSL."
   },
   {
@@ -3527,7 +3527,7 @@
     "section": "data",
     "anchor": "data-oceanic-sources-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L36",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L41",
     "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file."
   },
   {
@@ -3539,20 +3539,8 @@
     "section": "data",
     "anchor": "data-oceanic-sources-value",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L46",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L51",
     "description": "Constant mean sea-level value in metres."
-  },
-  {
-    "path": "data.oceanic.sources.nearest",
-    "name": "nearest",
-    "type": "bool",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "data",
-    "anchor": "data-oceanic-sources-nearest",
-    "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L52",
-    "description": "Use nearest tide gauge to watershed centroid."
   },
   {
     "path": "data.oceanic.sources.require_observations",
@@ -3563,7 +3551,7 @@
     "section": "data",
     "anchor": "data-oceanic-sources-require-observations",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L56",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L57",
     "description": "Raise if SHOM returns no observations."
   },
   {

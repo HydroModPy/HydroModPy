@@ -16100,7 +16100,7 @@
       },
       "OceanicSourceConfig": {
         "additionalProperties": false,
-        "description": "Configuration for one oceanic boundary data source.\n\nOceanic sources describe sea-level information for coastal boundary\nconditions. Use ``custom`` for local files, ``shom`` for tide-gauge data,\nor ``constant`` for a fixed mean sea-level value.",
+        "description": "Configuration for one oceanic boundary data source.\n\nOceanic sources describe sea-level information for coastal boundary\nconditions. Use ``custom`` for local files, ``shom`` for tide-gauge data,\nor ``constant`` for a fixed mean sea-level value.\n\nA ``shom`` source declares exactly one selector: ``station_ids`` names the\ntide gauges, ``mask_path`` gives the point whose nearest gauge is read. The\n``nearest`` flag that used to sit here is gone -- it was read by nobody,\nand naming a station is what turning the search off actually means.",
         "properties": {
           "fallback_search_radius_km": {
             "anyOf": [
@@ -16303,16 +16303,6 @@
             "description": "Constant mean sea-level value in metres.",
             "title": "Value",
             "x-hmp-profile": "user"
-          },
-          "nearest": {
-            "default": true,
-            "description": "Use nearest tide gauge to watershed centroid.",
-            "examples": [
-              true
-            ],
-            "title": "Nearest",
-            "type": "boolean",
-            "x-hmp-profile": "dev"
           },
           "require_observations": {
             "default": true,

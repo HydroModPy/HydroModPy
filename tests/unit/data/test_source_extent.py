@@ -39,6 +39,7 @@ from hydromodpy.data.common.source_extent import (
 from hydromodpy.data.variables.dem.config import DemConfig, IgnGeoplateformeDemSource
 from hydromodpy.data.variables.dem.manager import DemManager
 from hydromodpy.data.variables.geology.manager import GeologyManager
+from hydromodpy.data.variables.oceanic.manager import OceanicManager
 
 # A one-kilometre square near Rennes, written twice: in Lambert-93 metres and
 # in the WGS84 degrees the same ground occupies.
@@ -191,42 +192,62 @@ def test_the_project_extent_crs_matches_what_site_selection_builds():
 
 
 @pytest.mark.fast
-@pytest.mark.parametrize("manager_cls", [DemManager, GeologyManager])
-def test_a_raster_manager_refuses_a_geographic_object(manager_cls):
+@pytest.mark.parametrize("manager_cls", [DemManager, GeologyManager, OceanicManager])
+def test_a_manager_refuses_a_geographic_object(manager_cls):
     """The parameter is gone, not ignored."""
     with pytest.raises(TypeError, match="geographic"):
         manager_cls(config=None, catalog=None, geographic=object())
 
 
-MANAGERS_STILL_TAKING_GEOGRAPHIC = {
-    "oceanic": (
-        "its extent is a centroid read off the object as centroid_long_lat, "
-        "not a box, which is why the DataSource port left shom.py unported in "
-        "F5b. F5d-2."
-    ),
-}
+@pytest.mark.fast
+def test_the_generic_load_path_cannot_carry_a_project_object_to_a_manager():
+    """``**extra_kwargs`` existed for one caller and one key, and it is gone.
+
+    While it stood, "no manager receives a ``geographic``" was a habit of the
+    loader rather than a property of the store, and any later caller could
+    reinstate it without touching a manager.
+    """
+    import inspect
+
+    from hydromodpy.data.loading.store import DataStore
+
+    params = inspect.signature(DataStore.load_variable).parameters
+    assert not any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()), params
+
+
+MANAGERS_STILL_TAKING_GEOGRAPHIC: dict[str, str] = {}
 """Every manager that still accepts a ``geographic`` object, with the reason.
 
-Pinned rather than counted: three more -- ``lake_abacus``,
-``lake_bathymetry`` and ``lake_geometry`` -- took the parameter, stored it,
-read it nowhere, and were passed it by nobody. A parameter no caller fills and
-no body reads is the decoration D34 refuses, and they lost it with this phase.
-A sixth manager growing one has to say here why.
+**It is empty, and that is the point of the pin.** Five managers took the
+parameter when F5d opened. Three of them -- ``lake_abacus``,
+``lake_bathymetry`` and ``lake_geometry`` -- stored it, read it nowhere, and
+were passed it by nobody, the decoration D34 refuses. ``dem`` and ``geology``
+lost it to ``mask_path`` in F5d-1, ``hydrography`` and ``oceanic`` in F5d-2.
+
+An entry here is no longer a note, it is a refusal being written down: a
+manager that grows the parameter back has to say here what a project-scoped
+object gives it that a file cannot, and ``DataStore.load_variable`` no longer
+has the ``**extra_kwargs`` that used to carry one to it.
 """
 
 
 @pytest.mark.fast
 def test_no_manager_grows_back_a_geographic_parameter():
-    """Anti-vacuity included: the two that remain must really still take one."""
+    """No manager takes one, and the pin is the door a new one would come through."""
     import inspect
 
     from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, get_manager_class
 
-    taking = {
-        name
+    signatures = {
+        name: inspect.signature(get_manager_class(name).__init__).parameters
         for name in VARIABLE_SPECS
-        if "geographic" in inspect.signature(get_manager_class(name).__init__).parameters
     }
+    # Anti-vacuity: an empty pin is only worth something if the walk really
+    # reached the managers and really reads their signatures.
+    assert len(signatures) >= 10, sorted(signatures)
+    assert "config" in signatures["oceanic"], signatures["oceanic"]
+
+    taking = {name for name, params in signatures.items() if "geographic" in params}
 
     assert taking == set(MANAGERS_STILL_TAKING_GEOGRAPHIC), (
         "a manager took or lost the geographic object without this pin moving; "

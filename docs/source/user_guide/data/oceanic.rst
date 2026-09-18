@@ -150,13 +150,22 @@ Minimal example
 
    [[data.oceanic.sources]]
    source = "shom"
-   extent = "study_area"
-   nearest = true
+   station_ids = ["152"]
+
+A ``shom`` source needs one selector. Name the gauges with ``station_ids`` when
+the choice is yours to pin; leave them out and the gauge nearest the centre of
+:ref:`mask_path <data-oceanic-sources-mask-path>` is read instead -- a project
+run fills that field in from the delineated watershed, so a project TOML
+usually names neither and gets the nearest gauge to its basin.
+
+``station_ids`` wins when both are present, because the project run fills the
+mask in on every source whether or not it asked for one.
 
 Operational checks
 """"""""""""""""""
 
-- ``nearest`` can help select a usable tide-gauge station near the study area.
+- Naming a station is what pins a run: the nearest-gauge search is a
+  convenience, and which gauge it lands on can move with the mask.
 - ``fallback_search_radius_km`` should be documented when it changes station
   selection.
 - Preserve cache and lockfile metadata for reproducibility.

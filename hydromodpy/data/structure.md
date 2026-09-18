@@ -824,23 +824,24 @@ class DataStore:
     def load_hydrometry(self, config) -> LoadResult:
         return self.load_variable("hydrometry", config)
 
-    def load_geology(self, config, *, geographic=None) -> LoadResult:
-        # Methode nommee car geology demande un objet geographic.
+    def load_geology(self, config, *, project_extent=None) -> LoadResult:
+        # Methode nommee car geology a son propre contrat d'etendue.
         ...
 
-    def load_dem(self, config, *, geographic=None) -> LoadResult:
-        # Methode nommee car dem demande un objet geographic.
+    def load_dem(self, config, *, project_extent=None) -> LoadResult:
+        # Methode nommee car dem a son propre contrat d'etendue.
         ...
 
-    def load_variable(self, variable, config, **extra_kwargs) -> LoadResult:
-        cls = get_manager_class(variable)  # data/_dispatch.py
+    def load_variable(self, variable, config) -> LoadResult:
+        # Aucun **extra_kwargs : cinq arguments pour tout manager, et aucun
+        # moyen de faire passer un objet de projet a l'un d'eux.
+        cls = get_manager_class(variable)  # data/loading/_dispatch.py
         mgr = cls(
             config=config,
             catalog=self.catalog,
             project_extent=self.project_extent,
             project_period=self.project_period,
             data_dir=self._data_dir(variable),
-            **extra_kwargs,
         )
         return mgr.load()
 
@@ -851,8 +852,10 @@ class DataManagersRuntimeLoader:
         store = DataStore(catalog=..., data_root=...)
         for type_name in self.data_plan.types:
             cfg = self._get_data_section(result, type_name)
-            extra = self._extra_kwargs(result, type_name)
-            load_result = store.load_variable(type_name, cfg, **extra)
+            # L'etendue passe par le document : mask_path, rempli depuis le
+            # bassin deline, sur la section ou sur chaque source.
+            self._apply_default_masks(cfg, result)
+            load_result = store.load_variable(type_name, cfg)
             setattr(result.loaded_data, type_name, load_result)
 ```
 

@@ -152,8 +152,9 @@ The important architectural point is not only "which API is called", but also
 Typical constraints today are:
 
 - SIM2-backed variables require a bounding box and a project time window,
-- SHOM loading requires a geographic context and a resolved date range,
-- geology and DEM loading often rely on geographic masks or raster support,
+- SHOM loading requires a resolved date range and one gauge selector: named
+  station identifiers, or a mask whose centre the nearest gauge is found from,
+- geology and DEM loading often rely on spatial masks or raster support,
 - hydrography and watershed preprocessing depend on the Whitebox backend for
   some derived products,
 - local custom sources remain first-class inputs and must not be silently

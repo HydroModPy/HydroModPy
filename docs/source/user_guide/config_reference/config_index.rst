@@ -1657,19 +1657,19 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-oceanic-date-start>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L75>`__
    * - ``data.oceanic.date_end``
      - ``str | None``
      - user
      - -
      - `data <data.html#data-oceanic-date-end>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L75>`__
    * - ``data.oceanic.sources``
      - ``list[OceanicSourceConfig]``
      - user
      - -
      - `data <data.html#data-oceanic-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L84>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L85>`__
    * - ``data.oceanic.sources.fallback_search_radius_km``
      - ``float | None``
      - dev
@@ -1753,31 +1753,25 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-oceanic-sources-source>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L30>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L35>`__
    * - ``data.oceanic.sources.path``
      - ``Path | None``
      - user
      - -
      - `data <data.html#data-oceanic-sources-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L36>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L41>`__
    * - ``data.oceanic.sources.value``
      - ``float | None``
      - user
      - -
      - `data <data.html#data-oceanic-sources-value>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L46>`__
-   * - ``data.oceanic.sources.nearest``
-     - ``bool``
-     - dev
-     - -
-     - `data <data.html#data-oceanic-sources-nearest>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L52>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L51>`__
    * - ``data.oceanic.sources.require_observations``
      - ``bool``
      - dev
      - -
      - `data <data.html#data-oceanic-sources-require-observations>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L56>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L57>`__
    * - ``data.piezometry``
      - ``PiezometryConfig | None``
      - user

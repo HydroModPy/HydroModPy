@@ -347,7 +347,7 @@ force_refresh = false
 # Ou API SHOM :
 # [[data.oceanic.sources]]
 # source = "shom"
-# nearest = true
+# station_ids = ["152"]
 # fallback_search_radius_km = 100.0
 
 

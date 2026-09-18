@@ -172,9 +172,6 @@ class DataManagersRuntimeLoader:
             period = self._resolve_period_for_spec(cfg, spec, result)
             self._apply_default_masks(cfg, result)
 
-            extra_kwargs = {}
-            if variable == "oceanic":
-                extra_kwargs["geographic"] = result.setup.geographic
             export_dir = None
             if spec.export_stable_subdir:
                 workspace_paths = self._workspace_paths(result)
@@ -188,7 +185,6 @@ class DataManagersRuntimeLoader:
                 project_period=period,
                 project_extent=None,
                 export_dir=export_dir,
-                **extra_kwargs,
             )
             setattr(result.loaded_data, variable, load_result)
         except Exception as exc:
@@ -205,7 +201,10 @@ class DataManagersRuntimeLoader:
         geographic = result.setup.geographic
         if geographic is None:
             return
-        watershed = Path(geographic.watershed_shp)
+        watershed_shp = getattr(geographic, "watershed_shp", None)
+        if not watershed_shp:
+            return
+        watershed = Path(watershed_shp)
         if "mask_path" in getattr(type(cfg), "model_fields", {}) and not getattr(
             cfg, "mask_path", None
         ):

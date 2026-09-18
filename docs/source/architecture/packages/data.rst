@@ -143,8 +143,8 @@ Exactly one payload artefact is written per run, and
 ``outputs/fetch.json`` is always written: it names which one, the extent
 that was really queried and the CRS it was really queried in.
 
-Where a raster manager's extent comes from
------------------------------------------
+Where a manager's extent comes from
+-----------------------------------
 
 ``DemManager`` and ``GeologyManager`` resolve the box they ask a
 provider over from **the source config alone**, through
@@ -173,6 +173,34 @@ nodata everywhere else in a rectangle sized to the accumulation grid,
 so its footprint is not its catchment. Measured on a 10x10 mask whose
 valid region is the central 4x4, that is ``(0, 0, 100, 100)`` against
 ``(30, 30, 70, 70)``.
+
+``mask_extent_in(path, crs)`` is the tighter answer when the shape is in
+hand, and hydrography's request box takes it: the bounds of a
+reprojected polygon are the image of its own vertices, while the bounds
+of a reprojected box are the image of a rectangle that contains it.
+Measured on a Nancon-sized basin from EPSG:2154 to EPSG:4326, the box
+route is 680 m to 1 030 m wider on each side -- and the catalog serves a
+cached download only when its entry is a superset of the request, so
+that width is a download that did not have to happen.
+
+``HydrographyManager`` and ``OceanicManager`` lost the object too, and
+they needed more than a box for it. Hydrography read it for three
+things: the project CRS, the polygon it clips to and ``watershed_dem``.
+Its mask is declared on the **section** and not on a source, because it
+concatenates every source before clipping once; the frame the clip
+happens in is the mask's own, so the project CRS stopped being an input
+at all; and the reference grid is a ``base_raster`` constructor
+argument, because it is not an extent and not a user's choice.
+``OceanicManager`` selects a SHOM gauge by ``station_ids`` or, failing
+that, by the point at the centre of its extent -- the named station
+wins, because the loader fills a mask into every source that declares
+the field whether or not it asked for one.
+
+``MANAGERS_STILL_TAKING_GEOGRAPHIC`` is now empty, and
+``DataStore.load_variable`` lost the ``**extra_kwargs`` that used to
+carry the object to the one manager that took it. No manager on the
+generic path receives a project-scoped object, and there is no longer a
+door through which one could.
 
 ``project_extent`` is still a bare tuple and is **not in one CRS**: the
 site-selection pipeline builds it in Lambert-93 for the DEM and in WGS84
