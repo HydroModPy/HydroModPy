@@ -731,7 +731,7 @@ Fields
               <code class="hmp-field-toml">[[data.hydrography.sources]]</code>
             </div>
 
-         :bdg-primary:`list[HydrographySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L143>`__
+         :bdg-primary:`list[HydrographySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L150>`__
 
             At least one hydrography data source.
 
@@ -908,7 +908,7 @@ Fields
               <code class="hmp-field-name">mask_path</code>
             </div>
 
-         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L148>`__
+         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L155>`__
 
             SHP/GPKG/GeoJSON/TIF whose shape the network is clipped to and whose bounds are the box the API sources are asked over. A project run has it filled in from the delineated watershed; a standalone call names it.
 

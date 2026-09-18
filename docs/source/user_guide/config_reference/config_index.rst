@@ -787,7 +787,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-hydrography-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L143>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L150>`__
    * - ``data.hydrography.sources.source``
      - ``str``
      - user
@@ -847,7 +847,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-hydrography-mask-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L148>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L155>`__
    * - ``data.hydrometry``
      - ``HydrometryConfig | None``
      - user

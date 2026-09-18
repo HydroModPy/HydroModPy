@@ -23,7 +23,10 @@ from hydromodpy.data.variables.hydrography.api_source import (
     NETWORK_PAYLOAD_KIND,
     source_from_section,
 )
-from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
+from hydromodpy.data.variables.hydrography.config import (
+    HydrographyConfig,
+    HydrographySourceConfig,
+)
 
 BOUND_FIELDS: dict[str, tuple[str, ...]] = {
     "bdtopage": ("typename", "page_size"),
@@ -311,3 +314,16 @@ def test_a_name_nothing_resolves_is_refused_by_the_document() -> None:
     """The refusal a closed ``Literal`` used to give, given by the registry now."""
     with pytest.raises(ValidationError, match="acme-linework"):
         HydrographySourceConfig(source="acme-linework")
+
+
+def test_the_refusal_names_the_field_and_not_only_the_entry() -> None:
+    """A section carries nine fields, so the fault has to say which one is wrong.
+
+    The check is a ``field_validator`` for this reason alone. On the model it
+    would locate at ``sources[0]``, and a reader would be told that something
+    in a nine-field table is wrong without being told what.
+    """
+    with pytest.raises(ValidationError) as raised:
+        HydrographyConfig(sources=[{"source": "sim2-precipitation"}])
+
+    assert raised.value.errors()[0]["loc"] == ("sources", 0, "source")

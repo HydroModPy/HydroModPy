@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -103,13 +103,20 @@ class HydrographySourceConfig(HydroModelBase):
             raise ValueError("Custom source requires 'path'.")
         return self
 
-    @model_validator(mode="after")
-    def _check_the_name_is_a_source_that_serves_a_network(self) -> HydrographySourceConfig:
+    @field_validator("source")
+    @classmethod
+    def _check_the_name_is_a_source_that_serves_a_network(cls, source: str) -> str:
         """Refuse a name no source answers to, or one that answers with the wrong shape.
 
         Both refusals are the registry's, re-raised as ``ValueError`` so the
-        fault names ``data.hydrography.sources[i].source`` instead of arriving
-        as an exception type a configuration reader has no place for.
+        fault arrives as a configuration error rather than as an exception type
+        a configuration reader has no place for.
+
+        On the **field** and not on the model, although only the model validator
+        below needs two values: pydantic locates a field validator's fault at
+        ``data.hydrography.sources[i].source`` and a model validator's at
+        ``data.hydrography.sources[i]``, and a section carrying nine fields
+        deserves to be told which one it got wrong.
 
         Checking only that the name resolves would let ``sim2-precipitation``
         into a hydrography section, refused much later by the fetch itself; the
@@ -118,13 +125,13 @@ class HydrographySourceConfig(HydroModelBase):
         tree: 0.2 ms and four modules for the first one, and no adapter pulls
         geopandas, rasterio or xarray at import.
         """
-        if self.source == "custom":
-            return self
+        if source == "custom":
+            return source
         try:
-            registry.get_serving(self.source, NETWORK_PAYLOAD_KIND)
+            registry.get_serving(source, NETWORK_PAYLOAD_KIND)
         except (DataRequestError, DataCapabilityError) as exc:
             raise ValueError(str(exc)) from exc
-        return self
+        return source
 
 
 class HydrographyConfig(HydroModelBase):
