@@ -9,20 +9,26 @@ the thing it was derived from.
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import pytest
 
+from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.data.fetch.artefacts import POINT_COLUMNS
 from hydromodpy.data.fetch.capability import (
     DATA_FETCH,
+    DOOR_TAG,
     PAYLOAD_PATHS,
     REACHED_HOSTS,
     REPORT_PATH,
     SERVED_SOURCES,
     BboxExtentInput,
     DataFetchRequest,
+    InstalledSourceOptions,
     PeriodInput,
     SourceOptions,
 )
+from hydromodpy.data.source import registry
 from hydromodpy.data.source.port import ALL_PAYLOAD_KINDS
 from hydromodpy.schema.capability import HOST_PATTERN
 
@@ -30,11 +36,20 @@ CALLER_EXTENT = {"bbox": [-1.85, 48.05, -1.55, 48.25], "crs": "EPSG:4326"}
 
 
 def _option_models() -> tuple[type, ...]:
-    """The four members of the tagged union, read off the annotation."""
+    """Every member of the tagged union, read off the annotation."""
     from typing import get_args
 
     union, _ = get_args(SourceOptions)
     return tuple(get_args(union))
+
+
+def _tag_of(model: type) -> str:
+    return model.model_fields["id"].annotation.__args__[0]
+
+
+def _describing_models() -> tuple[type, ...]:
+    """The members that name a source, which is every one but the door."""
+    return tuple(model for model in _option_models() if _tag_of(model) != DOOR_TAG)
 
 
 def test_the_served_sources_span_every_payload_kind() -> None:
@@ -44,16 +59,49 @@ def test_the_served_sources_span_every_payload_kind() -> None:
 
 
 def test_every_served_source_has_one_options_model_and_the_reverse() -> None:
-    models = _option_models()
-    tags = {model.model_fields["id"].annotation.__args__[0] for model in models}
+    models = _describing_models()
 
-    assert tags == {source.source_id for source in SERVED_SOURCES}
+    assert {_tag_of(model) for model in models} == {source.source_id for source in SERVED_SOURCES}
     assert len(models) == len(SERVED_SOURCES)
 
 
+def test_the_union_tags_the_shipped_sources_and_one_door() -> None:
+    """Exactly one member tags no source, and every other one tags a shipped source.
+
+    Read off the **frozen** ``SERVED_SOURCES``, not recomputed: the table is
+    built once at import and a test that recomputes both sides of the filter
+    agrees with itself whatever the filter does.
+    """
+    tags = {_tag_of(model) for model in _option_models()}
+    shipped = set(registry.builtin_source_ids())
+
+    assert DOOR_TAG == "installed"
+    assert tags - shipped == {DOOR_TAG}, "a member tags neither a shipped source nor the door"
+    assert {source.source_id for source in SERVED_SOURCES} == tags - {DOOR_TAG}
+    assert len(SERVED_SOURCES) == len(_option_models()) - 1
+
+
+def test_the_door_stays_out_of_the_table_when_a_builtin_is_unregistered(
+    isolated_registry: object,
+) -> None:
+    """The filter reads the union, never the registry, and this is why.
+
+    ``registry.unregister`` pops the built-in declaration, so a filter asking
+    the registry what this build ships would let a **described** source fall
+    out of ``SERVED_SOURCES`` and out of ``reaches_network`` -- silently, and
+    for the rest of the process, since the table is built once at import.
+    """
+    registry.unregister("bdtopage")
+
+    from hydromodpy.data.fetch.capability import _served_source_ids
+
+    assert "bdtopage" in _served_source_ids()
+    assert DOOR_TAG not in _served_source_ids()
+
+
 def test_an_options_model_builds_the_source_it_is_tagged_for() -> None:
-    for model in _option_models():
-        tag = model.model_fields["id"].annotation.__args__[0]
+    for model in _describing_models():
+        tag = _tag_of(model)
         built = model.model_validate({"id": tag}).build()
         assert built.source_id == tag
 
@@ -172,3 +220,187 @@ def test_a_date_without_a_time_is_read_as_a_window_bound() -> None:
 
     assert period.start.year == 2020
     assert period.end.day == 31
+
+
+# --------------------------------------------------------------------------- #
+# The member that names a source this build does not describe
+# --------------------------------------------------------------------------- #
+
+
+class AcmeRadarSource:
+    """A conforming source a third party ships, named in no file of this tree."""
+
+    source_id: ClassVar[str] = "acme-radar"
+    payload_kind: ClassVar[str] = "fields"
+    extent_crs: ClassVar[str] = "EPSG:3035"
+    selectors: ClassVar[tuple[str, ...]] = ("extent",)
+    period_need: ClassVar[str] = "required"
+    hosts: ClassVar[tuple[str, ...]] = ("radar.acme.example",)
+    writes_out_dir: ClassVar[bool] = False
+
+    def __init__(self, *, sweep: str = "long") -> None:
+        self.sweep = sweep
+        self.variables: tuple[str, ...] = ("radar_rainfall",)
+
+    def fetch(self, request: object) -> None:  # pragma: no cover - never fetched here
+        raise AssertionError("this test double is resolved, never run")
+
+
+def _installed(name: str, **options: object) -> dict:
+    return {"id": "installed", "name": name, "options": options}
+
+
+def test_a_request_names_a_source_this_repository_does_not_name(
+    isolated_registry: object,
+) -> None:
+    """The exit gate of F5e-3, on the request side.
+
+    ``grep -r acme-radar hydromodpy/`` finds nothing, and this document reaches
+    the class anyway, with the argument its own constructor names.
+    """
+    registry.register(AcmeRadarSource)
+
+    request = DataFetchRequest.model_validate(
+        {"source": _installed("acme-radar", sweep="short"), "extent": dict(CALLER_EXTENT)}
+    )
+    built = request.source.build()
+
+    assert type(built) is AcmeRadarSource
+    assert built.sweep == "short"
+
+
+def test_installing_a_source_does_not_move_what_the_build_describes(
+    isolated_registry: object,
+) -> None:
+    """D146 under the change: resolvable grew, described did not.
+
+    The published description is package data compared byte for byte, so a
+    plugin that widened ``SERVED_SOURCES`` or ``REACHED_HOSTS`` would make a
+    frozen document depend on what is installed next to it.
+    """
+    before_sources = tuple(SERVED_SOURCES)
+    before_hosts = tuple(REACHED_HOSTS)
+    registry.register(AcmeRadarSource)
+
+    assert registry.is_registered("acme-radar")
+    assert tuple(SERVED_SOURCES) == before_sources
+    assert tuple(REACHED_HOSTS) == before_hosts
+    assert "radar.acme.example" not in DATA_FETCH.reaches_network
+
+
+def test_a_name_this_installation_does_not_resolve_is_refused_before_the_job() -> None:
+    with pytest.raises(ValueError, match="acme-radar"):
+        DataFetchRequest.model_validate(
+            {"source": _installed("acme-radar"), "extent": dict(CALLER_EXTENT)}
+        )
+
+
+def test_a_described_source_is_refused_through_the_door_it_does_not_need() -> None:
+    """Two ways to ask for one source is how a request and its description diverge."""
+    with pytest.raises(ValueError, match="describes"):
+        DataFetchRequest.model_validate(
+            {"source": _installed("bdtopage"), "extent": dict(CALLER_EXTENT)}
+        )
+
+
+def test_a_shipped_but_undescribed_source_goes_through_this_member() -> None:
+    """``euhydro`` is registered here and has no options model, which is D146."""
+    request = DataFetchRequest.model_validate(
+        {
+            "source": _installed("euhydro", group_name="Canal_lines"),
+            "extent": dict(CALLER_EXTENT),
+        }
+    )
+
+    assert request.source.build().source_id == "euhydro"
+
+
+def test_an_option_the_installed_source_cannot_take_is_refused_by_name(
+    isolated_registry: object,
+) -> None:
+    """The bag is bound against the plugin's own signature, which is the only check there is."""
+    registry.register(AcmeRadarSource)
+
+    with pytest.raises(ValueError, match="resolution_m"):
+        DataFetchRequest.model_validate(
+            {
+                "source": _installed("acme-radar", resolution_m=25),
+                "extent": dict(CALLER_EXTENT),
+            }
+        )
+
+
+def test_a_constructor_that_names_nothing_refuses_nothing(isolated_registry: object) -> None:
+    """``**kwargs`` is a source saying it will take whatever it is handed.
+
+    Pinned rather than tolerated. A signature is the only authority this build
+    has over an installed source's options, and a bag declares no name, so
+    everything binds. The refusal above is real for a source that declares its
+    parameters and vacuous for one that does not, and a reader of the published
+    description has to be able to know which.
+    """
+
+    class BagSource(AcmeRadarSource):
+        source_id: ClassVar[str] = "acme-bag"
+
+        def __init__(self, **options: object) -> None:
+            self.options = options
+            self.variables: tuple[str, ...] = ("radar_rainfall",)
+
+    registry.register(BagSource)
+    request = DataFetchRequest.model_validate(
+        {
+            "source": _installed("acme-bag", anything={"nested": 1}),
+            "extent": dict(CALLER_EXTENT),
+        }
+    )
+
+    assert request.source.build().options == {"anything": {"nested": 1}}
+
+
+def test_a_constructor_that_refuses_its_options_is_a_fault_of_the_request(
+    isolated_registry: object,
+) -> None:
+    """A signature check catches a name and an arity, never a type.
+
+    Without this, a wrong-typed option reached the constructor, raised a
+    ``TypeError`` there and left as ``HMPY.E000`` and exit code 1 -- the code
+    that tells an orchestrator HydroModPy is broken when the request is. The
+    four described sources keep the old behaviour on purpose: their
+    constructors are this repository's, so one of them raising *is* a bug here.
+    """
+
+    class TypedSource(AcmeRadarSource):
+        source_id: ClassVar[str] = "acme-typed"
+
+        def __init__(self, *, sweeps: int = 4) -> None:
+            self.buffer = [0] * sweeps
+            self.variables: tuple[str, ...] = ("radar_rainfall",)
+
+    registry.register(TypedSource)
+    request = DataFetchRequest.model_validate(
+        {"source": _installed("acme-typed", sweeps="four"), "extent": dict(CALLER_EXTENT)}
+    )
+
+    with pytest.raises(DataRequestError, match="acme-typed"):
+        request.source.build()
+
+
+def test_an_argument_the_installed_source_demands_is_refused_when_missing(
+    isolated_registry: object,
+) -> None:
+    """Otherwise it is a ``TypeError`` mid-job, which maps to "this is a HydroModPy bug"."""
+
+    class DemandingSource(AcmeRadarSource):
+        source_id: ClassVar[str] = "acme-demanding"
+
+        def __init__(self, *, licence_key: str) -> None:
+            super().__init__()
+            self.licence_key = licence_key
+
+    registry.register(DemandingSource)
+
+    with pytest.raises(ValueError, match="licence_key"):
+        DataFetchRequest.model_validate(
+            {"source": _installed("acme-demanding"), "extent": dict(CALLER_EXTENT)}
+        )

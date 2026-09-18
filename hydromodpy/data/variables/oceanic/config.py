@@ -25,6 +25,11 @@ class OceanicSourceConfig(
     Oceanic sources describe sea-level information for coastal boundary
     conditions. Use ``custom`` for local files, ``shom`` for tide-gauge data,
     or ``constant`` for a fixed mean sea-level value.
+
+    A ``shom`` source declares exactly one selector: ``station_ids`` names the
+    tide gauges, ``mask_path`` gives the point whose nearest gauge is read. The
+    ``nearest`` flag that used to sit here is gone -- it was read by nobody,
+    and naming a station is what turning the search off actually means.
     """
 
     source: Annotated[Literal["custom", "shom", "constant"], Profile.USER] = Field(
@@ -49,10 +54,6 @@ class OceanicSourceConfig(
     )
 
     # --- SHOM API fields ---
-    nearest: Annotated[bool, Profile.DEV] = Field(
-        default=True,
-        description="Use nearest tide gauge to watershed centroid.",
-    )
     require_observations: Annotated[bool, Profile.DEV] = Field(
         default=True,
         description="Raise if SHOM returns no observations.",

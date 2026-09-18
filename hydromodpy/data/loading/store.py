@@ -117,9 +117,15 @@ class DataStore:
         project_extent: tuple | None = None,
         project_period: tuple[datetime, datetime] | None = None,
         export_dir: str | Path | None = None,
-        **extra_kwargs: Any,
     ) -> LoadResult:
-        """Instantiate the right manager and load data."""
+        """Instantiate the right manager and load data.
+
+        Every manager on this path takes the same five arguments and no
+        others. The escape hatch that used to sit here, ``**extra_kwargs``,
+        existed for one caller and one key -- ``geographic`` for oceanic --
+        and removing it is what makes "a manager receives no project-scoped
+        object" a property of the path rather than a habit of its callers.
+        """
         cls = get_manager_class(variable_name)
         mgr = cls(
             config=config,
@@ -127,7 +133,6 @@ class DataStore:
             project_extent=self.project_extent if project_extent is None else project_extent,
             project_period=self.project_period if project_period is None else project_period,
             data_dir=self._data_dir(variable_name),
-            **extra_kwargs,
         )
         result = mgr.load()
         if export_dir is not None:
@@ -204,7 +209,6 @@ class DataStore:
         self,
         config: Any,
         *,
-        geographic: Any = None,
         project_extent: tuple | None = None,
         project_period: tuple[datetime, datetime] | None = None,
     ) -> LoadResult:
@@ -213,7 +217,6 @@ class DataStore:
             config,
             project_extent=project_extent,
             project_period=project_period,
-            geographic=geographic,
         )
 
     def load_hydrometry(self, config) -> LoadResult:

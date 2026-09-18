@@ -19,9 +19,9 @@ each because the code on this tree says so:
   that differ by their output extension and by nothing else.
 - **``reaches_network`` is derived, not written.** It is the union of the
   ``hosts`` every served source declares, which is exactly why D110 made that
-  member a list of hosts rather than a boolean. Adding a source to
-  :data:`SERVED_SOURCES` moves the declaration, the generated description and
-  the firewall rule a caller writes, in one edit.
+  member a list of hosts rather than a boolean. Adding a member to
+  :data:`SourceOptions` moves the declaration, the generated description and the
+  firewall rule a caller writes, in one edit.
 - **``$TMPDIR`` is declared because a fetch is given a scratch directory, always.**
   :class:`~hydromodpy.data.source.port.FetchRequest` has a mandatory ``out_dir``
   and the sources disagree about whether they write into it: IGN lands archives,
@@ -39,8 +39,9 @@ each because the code on this tree says so:
 
 from __future__ import annotations
 
+import inspect
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, get_args
 
 from pydantic import Field, model_validator
 
@@ -56,14 +57,9 @@ from hydromodpy.core.exceptions import (
     DataSourceError,
     JobUsageError,
 )
-from hydromodpy.data.source.bdtopage import (
-    DEFAULT_PAGE_SIZE,
-    DEFAULT_TYPENAME,
-    BdTopageSource,
-)
-from hydromodpy.data.source.hubeau_piezometry import HubeauPiezometrySource
-from hydromodpy.data.source.ign_dem import IgnDemSource
-from hydromodpy.data.source.sim2_precipitation import Sim2PrecipitationSource
+from hydromodpy.data.source import registry
+from hydromodpy.data.source.bdtopage import DEFAULT_PAGE_SIZE, DEFAULT_TYPENAME
+from hydromodpy.data.source.port import DataSource
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
 from hydromodpy.schema.job.request import FileLink
 from hydromodpy.schema.media_types import (
@@ -76,30 +72,6 @@ from hydromodpy.schema.media_types import (
 
 CAPABILITY_ID = "data-fetch"
 CAPABILITY_VERSION = "1.0.0"
-
-SERVED_SOURCES = (
-    BdTopageSource,
-    HubeauPiezometrySource,
-    IgnDemSource,
-    Sim2PrecipitationSource,
-)
-"""The sources this build can be asked for, one per payload kind.
-
-A table and not a registry, on purpose and for the reason D117 gave for the
-port shipping without one: a selection point resolving a name nobody outside
-this repository can supply is decoration. The plugin surface that makes the
-name third-party is F5e, and it replaces this tuple rather than wrapping it.
-"""
-
-REACHED_HOSTS: tuple[str, ...] = tuple(
-    sorted({host for source in SERVED_SOURCES for host in source.hosts})
-)
-"""Every host any served source contacts, which is what the capability declares.
-
-The union and not the host of the source a given request names: an orchestrator
-allows egress before it reads the request, so what it has to allow is the set a
-run *may* reach. ``outputs/fetch.json`` records the one it did reach.
-"""
 
 MAX_STATIONS = 1_000
 """Declared because ``maxOccurs`` has to be a number in the description."""
@@ -130,8 +102,8 @@ class BdTopageOptions(HydroModelBase):
         description="features requested per page while the WFS result is walked",
     )
 
-    def build(self) -> BdTopageSource:
-        return BdTopageSource(typename=self.typename, page_size=self.page_size)
+    def build(self) -> DataSource:
+        return registry.get(self.id)(typename=self.typename, page_size=self.page_size)
 
 
 class HubeauPiezometryOptions(HydroModelBase):
@@ -149,8 +121,8 @@ class HubeauPiezometryOptions(HydroModelBase):
         description="drop a piezometer that has no observation inside the period",
     )
 
-    def build(self) -> HubeauPiezometrySource:
-        return HubeauPiezometrySource(
+    def build(self) -> DataSource:
+        return registry.get(self.id)(
             product=self.product,
             require_observations=self.require_observations,
         )
@@ -169,8 +141,8 @@ class IgnDemOptions(HydroModelBase):
         examples=[["035", "022"]],
     )
 
-    def build(self) -> IgnDemSource:
-        return IgnDemSource(departments=tuple(self.departments))
+    def build(self) -> DataSource:
+        return registry.get(self.id)(departments=tuple(self.departments))
 
 
 class Sim2PrecipitationOptions(HydroModelBase):
@@ -186,21 +158,207 @@ class Sim2PrecipitationOptions(HydroModelBase):
         description="precipitation components to fetch, one field per component",
     )
 
-    def build(self) -> Sim2PrecipitationSource:
-        return Sim2PrecipitationSource(components=tuple(self.components))
+    def build(self) -> DataSource:
+        return registry.get(self.id)(components=tuple(self.components))
+
+
+# Why a free-form bag here and nowhere else, since D122 refused one. D122
+# refused a bag **for a source this build describes**: there the shape is known
+# and publishing a free-form object instead of it throws away what the
+# description is for. Here the shape is not knowable -- the description ships in
+# a wheel built before the plugin existed -- and the bag is still not validated
+# against nothing: it is bound against the plugin's own constructor signature
+# before the job starts, which is the only authority that exists for it.
+#
+# The refusal below reads the **described** set and not the shipped one, which
+# is D146. ``euhydro`` and ``osm`` are registered by this build and have no
+# options model, so they arrive through this member rather than one of their
+# own. That is right: the description does not describe them either, so a
+# caller naming one gets the same unchecked bag and the same caveat about hosts
+# as a caller naming a third-party source.
+class InstalledSourceOptions(HydroModelBase):
+    """Ask a source this build does not describe, installed beside it.
+
+    The four members above each name a source shipped here and publish the
+    exact shape it accepts. This one carries the id of a source the
+    **installation** resolves -- one registered on the
+    ``hydromodpy.data.source`` entry-point group -- and the keyword arguments
+    its constructor takes. The id is refused before the job starts if nothing
+    answers to it, and so is an option its constructor could not be called
+    with.
+
+    **What that check does and does not cover.** The options are bound against
+    the constructor's signature, so a misspelled option and a missing required
+    one are refused by name, before the job directory is touched. Types are
+    not: a signature carries no runtime contract, so an option of the wrong
+    type is the source's to refuse, and a constructor that takes ``**kwargs``
+    names nothing and therefore refuses nothing. When the source does refuse,
+    the refusal is reported as a fault of this request -- a caller fixes it by
+    editing ``options`` -- and not as an internal failure of HydroModPy.
+
+    **The hosts this capability declares do not cover it.** ``hmp:invocation``
+    lists the network of the described sources, and that list ships frozen with
+    the build. A run naming an installed source may contact a host outside it;
+    ``outputs/fetch.json`` records the hosts the run really reached, and an
+    orchestrator that allows egress from the description alone has to widen it
+    itself.
+
+    **An option spelled at its default is a different submission.** For a
+    described source the request model fills the defaults, so two documents
+    that differ only by an omitted one carry the same ``job_id`` and the second
+    is recognised as a repeat. The defaults of an installed source live in its
+    constructor, which this build does not describe, so ``{}`` and
+    ``{"sweep": "long"}`` address two jobs even when ``long`` is the default.
+    Spell the options the same way twice, or accept a second run.
+    """
+
+    id: Annotated[Literal["installed"], Profile.USER] = Field(
+        description="names a source this build does not describe, carried by 'name'",
+    )
+    name: Annotated[str, Profile.USER] = Field(
+        min_length=1,
+        description=(
+            "source id this installation resolves, registered on the "
+            "'hydromodpy.data.source' entry-point group"
+        ),
+        examples=["acme-radar"],
+    )
+    options: Annotated[dict[str, Any], Profile.USER] = Field(
+        default_factory=dict,
+        description=(
+            "keyword arguments handed to that source's constructor, verbatim; "
+            "bound against its signature before the job starts"
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _refuse_what_this_installation_cannot_answer(self) -> InstalledSourceOptions:
+        """Refuse a described name, an unresolvable one, and an option it cannot take.
+
+        All three before the job directory is touched, which is the promise
+        D123 made for every other member of this union. A padded name is not a
+        fourth refusal: ``HydroModelBase`` strips it, and ``min_length`` then
+        refuses a name that was nothing but padding.
+        """
+        name = self.name
+        if name in _served_source_ids():
+            raise ValueError(
+                f"{name!r} is a source this build describes, so it is named as "
+                f'{{"id": "{name}"}} with the shape the process description publishes. '
+                "This member is for a source the description cannot know."
+            )
+        try:
+            source_cls = registry.get(name)
+        except DataRequestError as exc:
+            raise ValueError(str(exc)) from exc
+        try:
+            inspect.signature(source_cls).bind(**self.options)
+        except TypeError as exc:
+            raise ValueError(
+                f"source {name!r} cannot be built from these options: {exc}. The options are "
+                "handed to its constructor as keyword arguments, and this build has no "
+                "description of that source to check them against beyond its signature."
+            ) from exc
+        return self
+
+    def build(self) -> DataSource:
+        source_cls = registry.get(self.name)
+        try:
+            return source_cls(**self.options)
+        except Exception as exc:
+            # Every exception, and only for this member. The four described
+            # sources are built in this tree and tested here, so a constructor
+            # of one raising is a bug of this repository and deserves the exit
+            # code that says so. An installed source is somebody else's code
+            # reading somebody else's options: exiting 1 would tell an
+            # orchestrator that HydroModPy is broken when the request is.
+            raise DataRequestError(
+                f"source {self.name!r} refused the options this request carries: "
+                f"{type(exc).__name__}: {exc}. They are bound against its constructor's "
+                "signature before the job starts, which catches a name and an arity and "
+                "cannot catch a type."
+            ) from exc
 
 
 SourceOptions = Annotated[
-    BdTopageOptions | HubeauPiezometryOptions | IgnDemOptions | Sim2PrecipitationOptions,
+    BdTopageOptions
+    | HubeauPiezometryOptions
+    | IgnDemOptions
+    | InstalledSourceOptions
+    | Sim2PrecipitationOptions,
     Field(discriminator="id"),
 ]
 """The source, and everything that configures it, as one tagged document.
 
 Tagged on ``id`` rather than spelled as a source name beside a free-form option
 bag: a bag would be validated against nothing, and the description a shim reads
-would list an input whose shape it cannot know. The four members are exactly
-:data:`SERVED_SOURCES`, and ``test_every_served_source_has_an_options_model``
-refuses the day they stop matching.
+would list an input whose shape it cannot know.
+
+**This union is the list.** ``SERVED_SOURCES`` used to be a second tuple of the
+same four sources beside it; it is now read off the discriminator of this one
+and resolved through the registry, so a source cannot be served without a
+document shape and a shape cannot be published without a source behind it.
+
+The fifth member tags no source, and that is what makes the union closed and
+the installation open: ``{"id": "installed", "name": ...}`` reaches anything the
+registry resolves, without this build naming it.
+"""
+
+
+def _tag_of(options_model: type) -> str:
+    """The ``id`` one member of the union is tagged with."""
+    return get_args(options_model.model_fields["id"].annotation)[0]
+
+
+DOOR_TAG = _tag_of(InstalledSourceOptions)
+"""The one union tag that names no source, read off the member that carries it."""
+
+
+def _served_source_ids() -> tuple[str, ...]:
+    """The ids the union tags, the door excluded.
+
+    Every member tags something; only the described ones tag a **source**. The
+    door tags the way in for the sources this build does not ship, so its tag
+    resolves to no class and has no host, no payload kind and no adapter to
+    compare against.
+
+    Excluded by its own tag and **not** by asking the registry what this build
+    ships, although that reads better. ``registry.unregister`` pops
+    ``_BUILTIN_PATHS``, so a registry-driven filter would let a described
+    source fall silently out of ``SERVED_SOURCES``, ``REACHED_HOSTS`` and the
+    published declaration if anything removed a built-in before this module was
+    first imported. Filtered this way, a described source that stopped
+    resolving makes ``registry.get`` below raise at import, which is the
+    failure this table had before the door existed and the one it should keep.
+    """
+    union, _ = get_args(SourceOptions)
+    return tuple(tag for tag in map(_tag_of, get_args(union)) if tag != DOOR_TAG)
+
+
+SERVED_SOURCES: tuple[type, ...] = tuple(
+    registry.get(source_id) for source_id in _served_source_ids()
+)
+"""The source classes this build describes, in the order the union names them.
+
+Resolved through :mod:`hydromodpy.data.source.registry`, which is also what
+``build()`` calls, so substituting the class registered under an id substitutes
+what a run of this capability actually asks.
+
+Deliberately **not** ``registry.list_source_ids()``. A plugin installed beside
+this build is resolvable and is not describable: the description that would
+name it ships in the wheel, and the wheel was built before the plugin existed.
+The two answers are kept apart by ``builtin_source_ids`` and
+``list_source_ids``, and this is the member that needs the first.
+"""
+
+REACHED_HOSTS: tuple[str, ...] = tuple(
+    sorted({host for source in SERVED_SOURCES for host in source.hosts})
+)
+"""Every host any served source contacts, which is what the capability declares.
+
+The union and not the host of the source a given request names: an orchestrator
+allows egress before it reads the request, so what it has to allow is the set a
+run *may* reach. ``outputs/fetch.json`` records the one it did reach.
 """
 
 
@@ -454,6 +612,7 @@ __all__ = [
     "POINTS_PATH",
     "RASTER_PATH",
     "REACHED_HOSTS",
+    "DOOR_TAG",
     "REPORT_PATH",
     "SERVED_SOURCES",
     "WATERSHED_MASK_LAYER_HINT",
@@ -462,6 +621,7 @@ __all__ = [
     "DataFetchRequest",
     "HubeauPiezometryOptions",
     "IgnDemOptions",
+    "InstalledSourceOptions",
     "PeriodInput",
     "Sim2PrecipitationOptions",
     "SourceOptions",

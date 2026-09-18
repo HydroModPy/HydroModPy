@@ -90,6 +90,12 @@ the one a caller outside the process relies on:
   re-reported with ``reused`` set and nothing is written, a different
   one is refused. A reuse trusts the seal; ``verify_job()`` is what
   does not.
+- ``job/chain.py`` -- running several capabilities in a row, and the
+  one module of the package that composes rather than describes. It
+  knows no capability: it resolves each link against the
+  **declaration** of the step it comes from, writes each
+  ``request.json``, and takes the registry that produces a body as an
+  argument, because that registry lives in ``cli``.
 - ``job/documents.py``, ``job/digest.py``, ``job/refusal.py`` --
   atomic writes, the two digests, and the pointed refusal.
 
@@ -122,6 +128,8 @@ Key public symbols
 - ``hydromodpy.schema.job.read_request``
 - ``hydromodpy.schema.job.seal_job`` and
   ``hydromodpy.schema.job.verify_job``
+- ``hydromodpy.schema.job.read_chain`` and
+  ``hydromodpy.schema.job.run_chain``
 
 CLI bindings
 ------------

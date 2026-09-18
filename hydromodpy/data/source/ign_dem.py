@@ -3,12 +3,13 @@
 Wraps ``data/variables/dem/apis/ign_dem_fr.py``. This is the source that makes
 the port's central claim checkable: the Geoplateforme is queried in
 **EPSG:2154** while the Sandre WFS and Hub'Eau are queried in WGS84, and a
-caller asking both for the same basin passes one extent. Today that knowledge
-lives in the caller -- ``dem/manager.py`` runs its own ``_resolve_bbox_2154``
-while ``hydrography/manager.py`` runs ``_get_bbox_wgs84`` on the same watershed
-shapefile, twenty lines apart.
+caller asking both for the same basin passes one extent. That knowledge used to
+live in the caller -- ``dem/manager.py`` ran its own ``_resolve_bbox_2154``
+while ``hydrography/manager.py`` ran a ``_get_bbox_wgs84`` on the same watershed
+shapefile, twenty lines apart. Both are gone: a manager now reads the extent in
+the CRS the source it resolved declares.
 
-It is also the only one of the four shipped here that writes: it declares
+It is also the only one of the six shipped here that writes: it declares
 ``writes_out_dir = True`` and lands its archives, its extracted tiles and its
 merged GeoTIFF under the directory the request names. The conformance suite
 reads the directory back on every source, holds the other three to leaving it

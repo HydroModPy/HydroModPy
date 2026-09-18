@@ -588,16 +588,44 @@ def _toml_choice(value: Any) -> str:
     return str(value)
 
 
-def _render_allowed_values(field: FieldInfo, values: list[Any], indent: str) -> list[str]:
-    """Render the allowed values of a Literal as a block instead of a badge.
+def _documented_values(field: FieldInfo) -> list[str]:
+    """The values a field documents in ``value_docs``, in declaration order.
+
+    The fallback for a field whose annotation is **not** a ``Literal`` and whose
+    values are still a list worth printing: ``data.hydrography.sources.source``
+    names a source resolved against a registry a third party can join, so the
+    annotation is ``str`` and the closed list it used to carry is gone. Reading
+    the choices off ``value_docs`` keeps the table of documented values that the
+    ``Literal`` used to produce, without pretending the field is closed.
+    """
+    return list(_value_docs(field))
+
+
+def _render_allowed_values(
+    field: FieldInfo, values: list[Any], indent: str, *, closed: bool = True
+) -> list[str]:
+    """Render the allowed values of a field as a block instead of a badge.
 
     With per-value documentation this is a definition list, one row per value.
     Without it, a single line of chips: still readable, and it makes the missing
     documentation obvious rather than hiding it inside a 91-character badge.
+
+    ``closed`` is what the annotation says, not what the list looks like. A
+    ``Literal`` is closed and its values are the only ones accepted; a field
+    documenting values it does not restrict is open, and saying "one of" about
+    it would be the same lie the generator was built to stop telling.
     """
     docs = _value_docs(field)
     documented = [v for v in values if docs.get(str(v))]
-    lines = [f"{indent}.. rst-class:: hmp-field-values", ""]
+    lines: list[str] = []
+    if not closed:
+        lines.append(
+            f"{indent}Documented values, and the field accepts any other this "
+            "installation resolves:"
+        )
+        lines.append("")
+    lines.append(f"{indent}.. rst-class:: hmp-field-values")
+    lines.append("")
     if documented:
         for value in values:
             doc = docs.get(str(value), "").strip()
@@ -606,7 +634,7 @@ def _render_allowed_values(field: FieldInfo, values: list[Any], indent: str) -> 
             lines.append("")
         return lines
     rendered = " ".join(f"``{_toml_choice(value)}``" for value in values)
-    lines.append(f"{indent}**One of:** {rendered}")
+    lines.append(f"{indent}**{'One of' if closed else 'Includes'}:** {rendered}")
     lines.append("")
     return lines
 
@@ -825,8 +853,10 @@ def _render_field_block(
         lines.extend(description_lines)
         lines.append("")
     literal_values = _literal_values(field.annotation)
-    if len(literal_values) >= 2 and discriminator is None:
-        lines.extend(_render_allowed_values(field, literal_values, inner))
+    closed = len(literal_values) >= 2
+    values = literal_values if closed else _documented_values(field)
+    if len(values) >= 2 and discriminator is None:
+        lines.extend(_render_allowed_values(field, values, inner, closed=closed))
     examples = _field_examples(field)
     if len(examples) == 1:
         lines.append(f"{inner}**Example:** ``{_format_example_value(examples[0])}``")

@@ -29,7 +29,13 @@ class TestOceanicSourceConfig:
     def test_shom_source_valid(self):
         cfg = OceanicSourceConfig(source="shom")
         assert cfg.source == "shom"
-        assert cfg.nearest is True
+        assert cfg.station_ids is None
+        assert cfg.mask_path is None
+
+    def test_shom_no_longer_carries_a_nearest_flag(self):
+        """It was read by nobody; naming a station is what turning it off meant."""
+        with pytest.raises(ValidationError):
+            OceanicSourceConfig(source="shom", nearest=True)
 
     def test_shom_custom_radius(self):
         cfg = OceanicSourceConfig(source="shom", fallback_search_radius_km=50.0)
