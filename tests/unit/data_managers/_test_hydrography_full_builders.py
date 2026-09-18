@@ -7,8 +7,8 @@ LoadResult accessors, and the deterministic Whitebox stub backend.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import geopandas as gpd
 import numpy as np
@@ -65,19 +65,23 @@ def _watershed_gdf(crs="EPSG:2154"):
     )
 
 
-def _fake_geographic(tmp_path, crs="EPSG:2154"):
-    """Mock geographic object with required attributes."""
+@dataclass(frozen=True, slots=True)
+class _HydrographyInputs:
+    """The two files the manager takes, in place of the geographic object."""
+
+    mask_path: Path
+    base_raster: Path
+
+
+def _fake_inputs(tmp_path, crs="EPSG:2154") -> _HydrographyInputs:
+    """Write a watershed mask and a reference grid, and name them."""
     ws_path = tmp_path / "watershed.shp"
     _watershed_gdf(crs).to_file(ws_path)
 
     dem_path = tmp_path / "dem.tif"
     _write_dummy_tif(dem_path, crs=crs)
 
-    geo = MagicMock()
-    geo.watershed_shp = str(ws_path)
-    geo.watershed_dem = str(dem_path)
-    geo.crs_proj = crs
-    return geo
+    return _HydrographyInputs(mask_path=ws_path, base_raster=dem_path)
 
 
 def _write_dummy_tif(path, crs="EPSG:2154", shape=(100, 100)):

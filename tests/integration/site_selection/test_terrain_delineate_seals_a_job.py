@@ -585,16 +585,6 @@ def test_the_only_thing_it_writes_outside_the_job_is_what_it_declares(tmp_path):
 LOCAL_NAMES = frozenset({"localhost", "localhost.localdomain", "ip6-localhost"})
 """Names of the local machine. Not egress: reachable with no route out at all."""
 
-NETWORK_GATED_CAPABILITIES = ("terrain-delineate",)
-"""Every capability whose declared egress is checked against a real run.
-
-Pinned, and compared to the registry below, because ``reaches_network`` defaults
-to ``()``: a capability added without a gate would otherwise publish
-``"network": []`` and have nobody check it, which is the exact defect the member
-was introduced to remove. Adding a capability therefore fails this file until a
-run of it is recorded here too.
-"""
-
 CHILD_PROCESSES_THE_JOB_SPAWNS = ("git", "uname")
 """The executables the capability runs, and the ceiling of the two socket spies.
 
@@ -636,16 +626,6 @@ def _is_local(value: object) -> bool:
         return False
 
 
-def test_every_capability_this_build_serves_has_its_egress_checked() -> None:
-    """A declaration nobody compares to a run is the defect, not the default."""
-    from hydromodpy.cli._workers.process import capability_ids
-
-    assert set(capability_ids()) == set(NETWORK_GATED_CAPABILITIES), (
-        "a capability was added or removed without its egress gate; "
-        f"gated: {sorted(NETWORK_GATED_CAPABILITIES)}, served: {sorted(capability_ids())}"
-    )
-
-
 def test_the_only_hosts_it_contacts_are_the_ones_it_declares(tmp_path):
     """The confinement guarantee that had been prose since the day it was written.
 
@@ -664,6 +644,11 @@ def test_the_only_hosts_it_contacts_are_the_ones_it_declares(tmp_path):
     install would make this test pass on any capability at all, so the spy is
     made to catch a resolution and a connection of the harness's own before the
     recording is cleared and the capability starts.
+
+    That every served capability has a gate of this name is pinned one level up,
+    in ``tests/unit/schema/test_capability_egress_gates.py``: the claim is about
+    the registry, and it could not name the gate of a capability whose tests live
+    in another file.
     """
     seen = tmp_path / "seen.json"
     job = _staged(tmp_path, _request())

@@ -1,0 +1,468 @@
+"""``data-fetch``: asking one data source for one variable, from outside.
+
+The second externally invocable capability, and the one that closes the
+circularity the campaign opened this phase for. ``data.fetch`` used to take its
+extent off a ``geographic`` object built by the terrain chain, which took its
+DEM from ``data.fetch``: the extent is now an **input**, either a bounding box
+that carries its CRS or a vector mask already produced by another job, so the
+two steps chain through a directory instead of through an object graph.
+
+Four questions this declaration answers differently from ``terrain-delineate``,
+each because the code on this tree says so:
+
+- **The payload shape depends on the source, and the declaration says all four.**
+  A source serves ``points``, ``fields``, ``features`` or ``files``
+  (:data:`~hydromodpy.data.source.port.PayloadKind`), one per run, so the four
+  artefacts are declared and only one is produced. ``outputs/fetch.json`` is the
+  one that is always there, and it names which of the four the run wrote. The
+  alternative -- one capability per payload kind -- would publish four processes
+  that differ by their output extension and by nothing else.
+- **``reaches_network`` is derived, not written.** It is the union of the
+  ``hosts`` every served source declares, which is exactly why D110 made that
+  member a list of hosts rather than a boolean. Adding a source to
+  :data:`SERVED_SOURCES` moves the declaration, the generated description and
+  the firewall rule a caller writes, in one edit.
+- **``$TMPDIR`` is declared because a fetch is given a scratch directory, always.**
+  :class:`~hydromodpy.data.source.port.FetchRequest` has a mandatory ``out_dir``
+  and the sources disagree about whether they write into it: IGN lands archives,
+  extracted tiles and a merged GeoTIFF there, the other three leave it alone,
+  and SIM2 writes a temporary NetCDF on its own fetch path
+  (``sim2_edr.py:127``). None of that belongs under ``outputs/``, which carries
+  the declared artefacts and nothing else, so the scratch is a
+  ``TemporaryDirectory`` and the capability says it needs one.
+- **The three selectors are exclusive.** A request carries an extent, a mask or
+  a list of station identifiers, and exactly one of them. The port already
+  refuses two at once for every source (D116); refusing it here as well points
+  the refusal at the member of ``request.json`` that carries it, before a
+  provider is resolved.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Annotated, Literal
+
+from pydantic import Field, model_validator
+
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.exceptions import (
+    CapabilityVersionMismatchError,
+    ConfigValidationError,
+    DataCapabilityError,
+    DataContractViolation,
+    DataProductError,
+    DataRequestError,
+    DataSourceError,
+    JobUsageError,
+)
+from hydromodpy.data.source.bdtopage import (
+    DEFAULT_PAGE_SIZE,
+    DEFAULT_TYPENAME,
+    BdTopageSource,
+)
+from hydromodpy.data.source.hubeau_piezometry import HubeauPiezometrySource
+from hydromodpy.data.source.ign_dem import IgnDemSource
+from hydromodpy.data.source.sim2_precipitation import Sim2PrecipitationSource
+from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
+from hydromodpy.schema.job.request import FileLink
+from hydromodpy.schema.media_types import (
+    GEOPACKAGE_MEDIA_TYPE,
+    GEOTIFF_MEDIA_TYPE,
+    JSON_MEDIA_TYPE,
+    NETCDF_MEDIA_TYPE,
+    PARQUET_MEDIA_TYPE,
+)
+
+CAPABILITY_ID = "data-fetch"
+CAPABILITY_VERSION = "1.0.0"
+
+SERVED_SOURCES = (
+    BdTopageSource,
+    HubeauPiezometrySource,
+    IgnDemSource,
+    Sim2PrecipitationSource,
+)
+"""The sources this build can be asked for, one per payload kind.
+
+A table and not a registry, on purpose and for the reason D117 gave for the
+port shipping without one: a selection point resolving a name nobody outside
+this repository can supply is decoration. The plugin surface that makes the
+name third-party is F5e, and it replaces this tuple rather than wrapping it.
+"""
+
+REACHED_HOSTS: tuple[str, ...] = tuple(
+    sorted({host for source in SERVED_SOURCES for host in source.hosts})
+)
+"""Every host any served source contacts, which is what the capability declares.
+
+The union and not the host of the source a given request names: an orchestrator
+allows egress before it reads the request, so what it has to allow is the set a
+run *may* reach. ``outputs/fetch.json`` records the one it did reach.
+"""
+
+MAX_STATIONS = 1_000
+"""Declared because ``maxOccurs`` has to be a number in the description."""
+
+CRS_PATTERN = r"^EPSG:[0-9]{4,6}$"
+"""How an extent names its CRS at this boundary.
+
+Narrower than :class:`~hydromodpy.data.source.port.Extent`, which takes any
+string ``pyproj`` resolves: a document refused for writing ``"lambert93"`` is
+better than one accepted and answered by a CRS lookup failure three calls down.
+"""
+
+
+class BdTopageOptions(HydroModelBase):
+    """Ask the Sandre WFS for the BD Topage reference river network."""
+
+    id: Annotated[Literal["bdtopage"], Profile.USER] = Field(
+        description="identity of the source, as 'hmp process describe' lists it",
+    )
+    typename: Annotated[str, Profile.USER] = Field(
+        default=DEFAULT_TYPENAME,
+        min_length=1,
+        description="WFS feature type served by the Sandre endpoint",
+    )
+    page_size: Annotated[int, Profile.USER] = Field(
+        default=DEFAULT_PAGE_SIZE,
+        gt=0,
+        description="features requested per page while the WFS result is walked",
+    )
+
+    def build(self) -> BdTopageSource:
+        return BdTopageSource(typename=self.typename, page_size=self.page_size)
+
+
+class HubeauPiezometryOptions(HydroModelBase):
+    """Ask Hub'Eau for groundwater levels or depths at piezometers."""
+
+    id: Annotated[Literal["hubeau-piezometry"], Profile.USER] = Field(
+        description="identity of the source, as 'hmp process describe' lists it",
+    )
+    product: Annotated[Literal["level", "depth"], Profile.USER] = Field(
+        default="level",
+        description="which of the two Hub'Eau products the records carry",
+    )
+    require_observations: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="drop a piezometer that has no observation inside the period",
+    )
+
+    def build(self) -> HubeauPiezometrySource:
+        return HubeauPiezometrySource(
+            product=self.product,
+            require_observations=self.require_observations,
+        )
+
+
+class IgnDemOptions(HydroModelBase):
+    """Ask the Geoplateforme for BD ALTI 25 m tiles, merged over the extent."""
+
+    id: Annotated[Literal["ign-bdalti"], Profile.USER] = Field(
+        description="identity of the source, as 'hmp process describe' lists it",
+    )
+    departments: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        max_length=101,
+        description=("department codes to download, padded; empty lets the extent select them"),
+        examples=[["035", "022"]],
+    )
+
+    def build(self) -> IgnDemSource:
+        return IgnDemSource(departments=tuple(self.departments))
+
+
+class Sim2PrecipitationOptions(HydroModelBase):
+    """Ask the GeoSAS EDR service for daily SIM2 precipitation grids."""
+
+    id: Annotated[Literal["sim2-precipitation"], Profile.USER] = Field(
+        description="identity of the source, as 'hmp process describe' lists it",
+    )
+    components: Annotated[list[Literal["liquid", "solid", "total"]], Profile.USER] = Field(
+        default=["total"],
+        min_length=1,
+        max_length=3,
+        description="precipitation components to fetch, one field per component",
+    )
+
+    def build(self) -> Sim2PrecipitationSource:
+        return Sim2PrecipitationSource(components=tuple(self.components))
+
+
+SourceOptions = Annotated[
+    BdTopageOptions | HubeauPiezometryOptions | IgnDemOptions | Sim2PrecipitationOptions,
+    Field(discriminator="id"),
+]
+"""The source, and everything that configures it, as one tagged document.
+
+Tagged on ``id`` rather than spelled as a source name beside a free-form option
+bag: a bag would be validated against nothing, and the description a shim reads
+would list an input whose shape it cannot know. The four members are exactly
+:data:`SERVED_SOURCES`, and ``test_every_served_source_has_an_options_model``
+refuses the day they stop matching.
+"""
+
+
+class BboxExtentInput(HydroModelBase):
+    """A bounding box and the CRS it is expressed in."""
+
+    bbox: Annotated[list[float], Profile.USER] = Field(
+        min_length=4,
+        max_length=4,
+        description="xmin, ymin, xmax, ymax, in the units of crs",
+        examples=[[-1.85, 48.05, -1.55, 48.25]],
+    )
+    crs: Annotated[str, Profile.USER] = Field(
+        pattern=CRS_PATTERN,
+        description="CRS the four bounds are expressed in",
+        examples=["EPSG:4326"],
+    )
+
+    @model_validator(mode="after")
+    def _refuse_an_empty_or_inverted_box(self) -> BboxExtentInput:
+        """Refuse here what the port would refuse later, pointed at the member.
+
+        The port raises on the same condition, and its message names an
+        ``Extent`` the caller never wrote. Refusing in the model turns it into a
+        fault located at ``inputs.extent.bbox``, which is what a shim shows.
+        """
+        xmin, ymin, xmax, ymax = self.bbox
+        if xmin >= xmax or ymin >= ymax:
+            raise ValueError(
+                f"bbox ({xmin}, {ymin}, {xmax}, {ymax}) is empty or inverted; "
+                "expected xmin < xmax and ymin < ymax"
+            )
+        return self
+
+
+class PeriodInput(HydroModelBase):
+    """The closed time window a request asks for, both ends included."""
+
+    start: Annotated[datetime, Profile.USER] = Field(
+        description="first instant of the window, inclusive",
+        examples=["2020-01-01"],
+    )
+    end: Annotated[datetime, Profile.USER] = Field(
+        description="last instant of the window, inclusive",
+        examples=["2020-12-31"],
+    )
+
+    @model_validator(mode="after")
+    def _refuse_a_window_that_ends_before_it_starts(self) -> PeriodInput:
+        if self.end < self.start:
+            raise ValueError(f"period ends ({self.end}) before it starts ({self.start})")
+        return self
+
+
+class DataFetchRequest(HydroModelBase):
+    """The ``inputs`` member of a ``data-fetch`` request."""
+
+    source: Annotated[SourceOptions, Profile.USER] = Field(
+        description="which source to ask, and everything that configures it",
+    )
+    extent: Annotated[BboxExtentInput | None, Profile.USER] = Field(
+        default=None,
+        description="bounding box to fetch over, in the CRS it declares",
+    )
+    mask: Annotated[FileLink | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "vector file whose bounds are the extent, typically a watershed "
+            "produced by terrain-delineate"
+        ),
+    )
+    station_ids: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        max_length=MAX_STATIONS,
+        description="station codes to fetch, for a source that selects by station",
+    )
+    period: Annotated[PeriodInput | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "time window, required by a source with a time axis and refused by one without"
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _refuse_anything_but_one_selector(self) -> DataFetchRequest:
+        """Refuse a request that selects nothing, or that selects twice.
+
+        Two selectors at once is the defect D116 measured at the port: every
+        Hub'Eau adapter resolves it with ``if station_ids: ... elif bbox:``, so
+        the box is dropped without a word and the result looks exactly like a box
+        that held those stations and no others. The port refuses the pair for
+        every source; this refusal is the same one, one layer out, so that the
+        fault names the member of the document rather than a value type.
+        """
+        chosen = [
+            name
+            for name, given in (
+                ("extent", self.extent is not None),
+                ("mask", self.mask is not None),
+                ("station_ids", bool(self.station_ids)),
+            )
+            if given
+        ]
+        if not chosen:
+            raise ValueError(
+                "the request selects nothing: give exactly one of extent, mask or station_ids"
+            )
+        if len(chosen) > 1:
+            raise ValueError(
+                f"the request carries {', '.join(chosen)} at once, and no source of this "
+                "tree intersects them; ask for one, or submit two jobs"
+            )
+        repeated = sorted({code for code in self.station_ids if self.station_ids.count(code) > 1})
+        if repeated:
+            # Refused here although ``FetchRequest`` refuses it too. The port's
+            # check runs inside the fetch, after ``ensure_workspace`` has made
+            # ``outputs/`` and ``logs/`` -- which broke the one promise this
+            # model exists to keep, that a refused document leaves the directory
+            # exactly as the caller staged it.
+            raise ValueError(
+                f"station_ids repeat {repeated}; a station asked for twice is asked for once"
+            )
+        return self
+
+
+REPORT_PATH = "outputs/fetch.json"
+POINTS_PATH = "outputs/points.parquet"
+FIELDS_PATH = "outputs/fields.nc"
+FEATURES_PATH = "outputs/features.gpkg"
+RASTER_PATH = "outputs/raster.tif"
+
+PAYLOAD_PATHS: dict[str, str] = {
+    "points": POINTS_PATH,
+    "fields": FIELDS_PATH,
+    "features": FEATURES_PATH,
+    "files": RASTER_PATH,
+}
+"""Where each payload kind lands. One entry per value of ``PayloadKind``.
+
+``files`` maps to a single raster because that is what the one ``files`` source
+of this tree produces: ``fetch_ign_dem`` merges the tiles it downloaded and
+returns one GeoTIFF. A result carrying anything else is refused by the worker
+rather than sealed under a name that would not describe it.
+"""
+
+DATA_FETCH = CapabilityDecl(
+    id=CAPABILITY_ID,
+    version=CAPABILITY_VERSION,
+    title="Fetch one variable from one data source over a declared extent",
+    description=(
+        "Asks one declared data source for one variable over a bounding box, a "
+        "vector mask or a list of stations, and seals what came back as a single "
+        "artefact beside a report naming the extent that was really queried."
+    ),
+    keywords=("data", "fetch", "download", "hydrology", "France"),
+    request_model=DataFetchRequest,
+    outputs=(
+        OutputDecl(
+            id="report",
+            title="What was fetched, and the extent that was really queried",
+            path=REPORT_PATH,
+            media_type=JSON_MEDIA_TYPE,
+            roles=("metadata", "primary"),
+        ),
+        OutputDecl(
+            id="points",
+            title="Station time series, one row per observation",
+            path=POINTS_PATH,
+            media_type=PARQUET_MEDIA_TYPE,
+            roles=("data",),
+            required=False,
+        ),
+        OutputDecl(
+            id="fields",
+            title="Gridded fields, one data variable per fetched variable",
+            path=FIELDS_PATH,
+            media_type=NETCDF_MEDIA_TYPE,
+            roles=("data",),
+            required=False,
+            extra={"hmp:conformsTo": ["NetCDF-4"]},
+        ),
+        OutputDecl(
+            id="features",
+            title="Vector features, one layer",
+            path=FEATURES_PATH,
+            media_type=GEOPACKAGE_MEDIA_TYPE,
+            roles=("data",),
+            required=False,
+        ),
+        OutputDecl(
+            id="raster",
+            title="Merged raster covering the extent",
+            path=RASTER_PATH,
+            media_type=GEOTIFF_MEDIA_TYPE,
+            roles=("data",),
+            required=False,
+        ),
+        OutputDecl(
+            id="inputset",
+            title="Resolved, hashed, licence-annotated input set",
+            path="inputset.json",
+            media_type=JSON_MEDIA_TYPE,
+            roles=("metadata", "provenance"),
+        ),
+        OutputDecl(
+            id="outcome",
+            title="Typed job outcome",
+            path="outcome.json",
+            media_type=JSON_MEDIA_TYPE,
+            roles=("metadata",),
+        ),
+    ),
+    exceptions=(
+        JobUsageError,
+        CapabilityVersionMismatchError,
+        ConfigValidationError,
+        FileNotFoundError,
+        DataContractViolation,
+        DataRequestError,
+        DataCapabilityError,
+        DataSourceError,
+        DataProductError,
+    ),
+    env=("HMP_NO_PROGRESS", "HMP_LOG_LEVEL", "TMPDIR"),
+    # Every fetch is handed a scratch directory it owns, because ``out_dir`` is
+    # mandatory on a FetchRequest and what a source leaves there is provider
+    # junk -- IGN alone lands an archive tree beside its merged raster. Only the
+    # one artefact the declaration names is moved under ``outputs/``.
+    writes_outside_jobdir=("$TMPDIR",),
+    reaches_network=REACHED_HOSTS,
+)
+"""The capability that reaches a provider, and says which ones it may reach."""
+
+
+WATERSHED_MASK_LAYER_HINT = (
+    "a mask is read with geopandas: any single-layer vector file it opens, and "
+    "the GeoPackage terrain-delineate seals is one"
+)
+"""Spelled once, and quoted in the refusal a bad mask produces."""
+
+
+__all__ = [
+    "CAPABILITY_ID",
+    "CAPABILITY_VERSION",
+    "CRS_PATTERN",
+    "DATA_FETCH",
+    "FEATURES_PATH",
+    "FIELDS_PATH",
+    "MAX_STATIONS",
+    "PAYLOAD_PATHS",
+    "POINTS_PATH",
+    "RASTER_PATH",
+    "REACHED_HOSTS",
+    "REPORT_PATH",
+    "SERVED_SOURCES",
+    "WATERSHED_MASK_LAYER_HINT",
+    "BboxExtentInput",
+    "BdTopageOptions",
+    "DataFetchRequest",
+    "HubeauPiezometryOptions",
+    "IgnDemOptions",
+    "PeriodInput",
+    "Sim2PrecipitationOptions",
+    "SourceOptions",
+]

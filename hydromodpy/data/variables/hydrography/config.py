@@ -93,10 +93,23 @@ class HydrographyConfig(HydroModelBase):
     The section lists stream-network sources used by data loading and boundary
     preparation. It is commonly inferred when ``flow.active_bc`` contains a
     stream boundary condition.
+
+    ``mask_path`` sits here and not on a source because the manager concatenates
+    every source before clipping **once**: two sources disagreeing on the extent
+    would be concatenated and then clipped to one of the two, which is a
+    question the section level makes unaskable.
     """
 
     sources: Annotated[list[HydrographySourceConfig], Profile.USER] = Field(
         ...,
         min_length=1,
         description="At least one hydrography data source.",
+    )
+    mask_path: Annotated[Path | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "SHP/GPKG/GeoJSON/TIF whose shape the network is clipped to and whose "
+            "bounds are the box the API sources are asked over. A project run has it "
+            "filled in from the delineated watershed; a standalone call names it."
+        ),
     )

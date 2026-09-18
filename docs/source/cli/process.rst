@@ -9,16 +9,19 @@ state directory.
 Whether it reaches the network is declared, not assumed. Each description lists
 under ``hmp:invocation.network`` every host the capability contacts, and an empty
 list means it runs on a node with no route out at all -- which is what
-``terrain-delineate`` declares. A gate records every name the process resolves
-and every address it connects to and refuses one the declaration does not carry,
-so the list is checked rather than promised.
+``terrain-delineate`` declares. ``data-fetch`` declares the four providers it may
+reach, one per source it serves, because that is the set an orchestrator has to
+allow before it has read the request; which of them a given run reached is named
+host by host under ``hosts`` in ``outputs/fetch.json``. A gate records every name the process resolves and every
+address it connects to and refuses one the declaration does not carry, so the
+list is checked rather than promised.
 
 It is not, however, free of the filesystem outside the job. Each description
 lists under ``hmp:invocation.writes_outside_jobdir`` every location the
-capability needs writable; ``terrain-delineate`` names ``$TMPDIR``, where it
-assembles one catchment per outlet before writing the two vector products into
-the job. An empty list means the job directory is the only thing that has to be
-writable.
+capability needs writable; both capabilities name ``$TMPDIR``, where
+``terrain-delineate`` assembles one catchment per outlet and where ``data-fetch``
+gives each fetch a scratch directory it owns. An empty list means the job
+directory is the only thing that has to be writable.
 
 The invocation contract
 -----------------------
@@ -105,6 +108,47 @@ A third party writes their own shim against this document -- an OGC API
 Processes façade, a Galaxy tool, a workflow node -- without patching
 HydroModPy and without importing it. HydroModPy serves nothing over HTTP and
 never will.
+
+The capabilities this build serves
+----------------------------------
+
+``terrain-delineate``
+    Corrects a DEM, routes flow and delineates the upstream area of each
+    declared outlet. Reaches no network.
+
+``data-fetch``
+    Asks one declared data source for one variable over a bounding box, a
+    vector mask or a list of station codes, and seals what came back.
+
+    The extent is an **input**, never an object the process went looking for:
+    either ``extent``, a bounding box that carries the CRS it is expressed in,
+    or ``mask``, a vector file whose bounds are the extent. The second is what
+    chains the two capabilities -- the GeoPackage ``terrain-delineate`` seals is
+    a mask ``data-fetch`` reads -- through a directory rather than through an
+    object graph.
+
+    A source is asked for through a tagged document: ``source.id`` selects it and
+    the rest of the object configures it, so the description carries the exact
+    shape each source accepts instead of an option bag validated by nothing::
+
+        {"process": {"id": "data-fetch", "version": "1.0.0"},
+         "inputs": {
+           "source": {"id": "hubeau-piezometry", "product": "level"},
+           "mask": {"href": "../4711/outputs/watershed.gpkg"},
+           "period": {"start": "2020-01-01", "end": "2020-12-31"}}}
+
+    Which artefact it writes depends on the source's payload kind, and the run
+    writes exactly one of them: ``outputs/points.parquet``,
+    ``outputs/fields.nc``, ``outputs/features.gpkg`` or ``outputs/raster.tif``.
+    ``outputs/fetch.json`` is always there, and it names the one that was
+    written, the hosts this run contacted, the extent that was **really
+    queried** and the CRS it was really queried in -- a WGS84 box asked for a
+    DEM reaches the Geoplateforme in Lambert-93 metres, and nothing else on disk
+    says so.
+
+    A provider that holds nothing inside the extent is an answer, not a failure:
+    the run succeeds, ``fetch.json`` says ``"empty": true``, and no data artefact
+    is sealed.
 
 What the directory holds afterwards
 -----------------------------------

@@ -1,9 +1,13 @@
 """Runtime data loading orchestrator driven by a resolved data plan.
 
 This module centralizes launcher data-phase loading logic so that the launcher
-stays focused on orchestration order. It exposes :class:`DataManagersRuntimeLoader`
-for stateful orchestration and :func:`load_variable` as a thin pure helper for
-per-variable dispatch.
+stays focused on orchestration order. It exposes :class:`DataManagersRuntimeLoader`,
+and that is the whole surface: a second, module-level ``load_variable`` used to
+sit at the bottom as "a thin pure helper for per-variable dispatch", with no
+importer anywhere in the tree and its own divergent copy of the dem / geology /
+hydrography branch. It was the last caller that passed ``geographic`` to a
+raster manager without first filling ``mask_path`` in, and it went with that
+parameter rather than being repaired.
 """
 
 from __future__ import annotations
@@ -192,14 +196,25 @@ class DataManagersRuntimeLoader:
 
     @staticmethod
     def _apply_default_masks(cfg: Any, result: WorkflowContext) -> None:
+        """Fill every ``mask_path`` the model declares from the delineated watershed.
+
+        A section declares one when the extent is a property of the request and
+        not of a source -- hydrography concatenates its sources before clipping
+        once. Everything else declares it per source.
+        """
         geographic = result.setup.geographic
         if geographic is None:
             return
+        watershed = Path(geographic.watershed_shp)
+        if "mask_path" in getattr(type(cfg), "model_fields", {}) and not getattr(
+            cfg, "mask_path", None
+        ):
+            cfg.mask_path = watershed
         for src in getattr(cfg, "sources", ()):
             if "mask_path" not in getattr(type(src), "model_fields", {}):
                 continue
             if not getattr(src, "mask_path", None):
-                src.mask_path = Path(geographic.watershed_shp)
+                src.mask_path = watershed
 
     def _resolve_period_for_spec(
         self,
@@ -250,7 +265,6 @@ class DataManagersRuntimeLoader:
 
             result.loaded_data.dem = self._require_store().load_dem(
                 dem_cfg,
-                geographic=result.setup.geographic,
                 project_extent=None,
             )
         except Exception as exc:
@@ -281,7 +295,6 @@ class DataManagersRuntimeLoader:
 
             load_result = self._require_store().load_geology(
                 geology_cfg,
-                geographic=result.setup.geographic,
                 project_extent=None,
             )
 
@@ -413,11 +426,15 @@ class DataManagersRuntimeLoader:
 
         try:
             hydro_cfg = HydrographyConfig.model_validate(raw_section)
+            self._apply_default_masks(hydro_cfg, result)
             workspace_paths = self._workspace_paths(result)
+            geographic = result.setup.geographic
             result.loaded_data.hydrography = self._require_store().load_hydrography(
                 hydro_cfg,
-                geographic=result.setup.geographic,
                 out_path=workspace_paths.project_root,
+                base_raster=(
+                    None if geographic is None else getattr(geographic, "watershed_dem", None)
+                ),
                 stable_folder=workspace_paths.project_root / PREPROCESSING_DIR,
             )
         except Exception as exc:
@@ -540,41 +557,3 @@ class DataManagersRuntimeLoader:
                     out.append(text)
             return out
         return []
-
-
-def load_variable(
-    variable_name: str,
-    *,
-    catalog: DataCatalogDuckDB,
-    config: Any,
-    context: Any,
-) -> Any:
-    """Load one resolved variable config through DataStore."""
-    spec = VARIABLE_SPECS.get(variable_name)
-    if spec is None:
-        raise KeyError(f"Unknown variable: {variable_name!r}")
-
-    workspace_paths = None
-    workspace = getattr(getattr(context, "setup", None), "workspace", None)
-    if workspace is not None and hasattr(workspace, "paths"):
-        workspace_paths = workspace.paths
-    data_root = getattr(workspace_paths, "data_dir", None)
-    store = DataStore(catalog=catalog, data_root=data_root)
-
-    geographic = getattr(getattr(context, "setup", None), "geographic", None)
-    if variable_name == "dem":
-        return store.load_dem(config, geographic=geographic)
-    if variable_name == "geology":
-        return store.load_geology(config, geographic=geographic)
-    if variable_name == "hydrography":
-        if workspace_paths is None:
-            raise ValueError("Hydrography loading requires workspace paths.")
-        return store.load_hydrography(
-            config,
-            geographic=geographic,
-            out_path=workspace_paths.project_root,
-            stable_folder=workspace_paths.project_root / PREPROCESSING_DIR,
-        )
-    if variable_name == "oceanic":
-        return store.load_oceanic(config, geographic=geographic)
-    return store.load_variable(variable_name, config)

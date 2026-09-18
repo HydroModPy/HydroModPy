@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
+from hydromodpy.data.common.source_extent import resolve_source_extent
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.registry.constants import (
@@ -42,13 +43,11 @@ class GeologyManager:
         catalog: Any,
         project_extent: tuple | None = None,
         data_dir: Path | None = None,
-        geographic: Any = None,
     ):
         self.config = config
         self.catalog = catalog
         self.project_extent = project_extent
         self.data_dir = Path(data_dir) if data_dir else None
-        self.geographic = geographic
 
     def load(self) -> LoadResult:
         """Load geology data from all configured sources."""
@@ -80,49 +79,14 @@ class GeologyManager:
     # ------------------------------------------------------------------
 
     def _resolve_bbox(self, source_cfg) -> tuple | None:
-        """Resolve bounding box from mask, extent, or geographic."""
-        if getattr(source_cfg, "mask_path", None):
-            from hydromodpy.data.common.geo_helpers import (
-                geometry_to_bbox,
-                load_mask_geometry,
-            )
-
-            geom = load_mask_geometry(source_cfg.mask_path)
-            return geometry_to_bbox(geom)
-        if getattr(source_cfg, "extent", None) and self.project_extent:
-            return self.project_extent
-        if self.geographic is not None:
-            watershed_shp = getattr(self.geographic, "watershed_shp", None)
-            if watershed_shp:
-                from hydromodpy.data.common.geo_helpers import (
-                    geometry_to_bbox,
-                    load_mask_geometry,
-                )
-
-                geom = load_mask_geometry(watershed_shp)
-                return geometry_to_bbox(geom)
-        return None
+        """The request box in the CRS of whatever declared it."""
+        extent = resolve_source_extent(source_cfg, project_extent=self.project_extent)
+        return None if extent is None else extent.bbox
 
     def _resolve_bbox_2154(self, source_cfg) -> tuple | None:
-        """Resolve bbox and reproject to EPSG:2154 (BRGM data CRS)."""
-        bbox = self._resolve_bbox(source_cfg)
-        if bbox is None:
-            return None
-        # BRGM data is in EPSG:2154 - reproject bbox if needed
-        if self.geographic is not None:
-            watershed_shp = getattr(self.geographic, "watershed_shp", None)
-            if watershed_shp:
-                import geopandas as gpd
-                from shapely.geometry import box
-
-                gdf = gpd.GeoDataFrame(
-                    geometry=[box(*bbox)],
-                    crs=gpd.read_file(str(watershed_shp), rows=0).crs,
-                )
-                gdf_2154 = gdf.to_crs("EPSG:2154")
-                bounds = gdf_2154.total_bounds
-                return tuple(bounds)
-        return bbox
+        """The request box in EPSG:2154, which is the CRS BRGM publishes in."""
+        extent = resolve_source_extent(source_cfg, project_extent=self.project_extent)
+        return None if extent is None else extent.to_crs("EPSG:2154").bbox
 
     # ------------------------------------------------------------------
     # BRGM 1:1M
@@ -205,7 +169,7 @@ class GeologyManager:
         bbox = self._resolve_bbox_2154(source_cfg)
         if bbox is None:
             raise ValueError(
-                "brgm_50k source requires a bbox (set mask_path, extent, or geographic)"
+                "brgm_50k source requires a bbox (set mask_path, or extent together with a project extent)"
             )
         code_field = self._BRGM_CODE_FIELD
         force_refresh = getattr(source_cfg, "force_refresh", False)

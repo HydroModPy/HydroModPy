@@ -18,6 +18,10 @@ Sub-modules
 - ``data/source/`` -- the ``DataSource`` port and its adapters, see
   below. There is no source registry: dispatch on a provider name is
   still an ``if``/``elif`` in each variable manager.
+- ``data/fetch/`` -- the ``data-fetch`` capability: its declaration, the
+  body that runs it and the four artefact writers, see below. It is the
+  caller of the port, kept out of ``data/source/`` so the port stays
+  importable without pydantic.
 - ``data/managers/planner.py`` and ``data/managers/plan.py`` --
   ``DataPlanner`` and immutable ``DataLoadPlan``. The planner merges
   ``[data].types`` with rules that infer extra variables from foreign
@@ -106,6 +110,78 @@ refuses any import out of ``data/source/`` that is not ``core``,
 -- the provider entry point each adapter defers into its ``fetch``.
 The layer matrix cannot see that edge, ``data`` being one layer.
 
+The data-fetch capability
+-------------------------
+
+``data/fetch/`` turns the port into something invocable from outside:
+``hmp process run data-fetch --job <dir>`` reads one ``request.json``,
+asks one source, and seals what came back. It opens no workspace, no
+catalog and no DuckDB, and it never sees a ``geographic`` object -- the
+extent is an input, a bounding box carrying its CRS or a vector mask
+another job produced.
+
+- ``capability.py`` -- the ``CapabilityDecl``, the Pydantic request
+  model and the table of served sources. Three members are **derived**
+  from that table rather than written: ``reaches_network`` is the union
+  of the sources' ``hosts``, ``PAYLOAD_PATHS`` has one entry per
+  ``PayloadKind``, and the ``source`` input is a union tagged on
+  ``source.id`` with one member per source. The derivations are compared
+  to what they came from by
+  ``tests/unit/data/test_data_fetch_declaration.py``.
+- ``worker.py`` -- resolution, refusal, fetch, seal and the reuse
+  short-circuit, on the pattern ``terrain-delineate`` set. Every fetch
+  gets a ``TemporaryDirectory`` as its ``out_dir``, so what a provider
+  leaves beside its result never lands under ``outputs/``.
+- ``artefacts.py`` -- how each payload kind becomes one sealable file:
+  one GeoPackage layer for ``features``, one moved GeoTIFF for
+  ``files``, one long Parquet table for ``points``, one merged NetCDF-4
+  for ``fields``. Zarr is what a run directory uses for field arrays and
+  it is a directory: a seal inventories files, so a job artefact cannot
+  be one.
+
+Exactly one payload artefact is written per run, and
+``outputs/fetch.json`` is always written: it names which one, the extent
+that was really queried and the CRS it was really queried in.
+
+Where a raster manager's extent comes from
+-----------------------------------------
+
+``DemManager`` and ``GeologyManager`` resolve the box they ask a
+provider over from **the source config alone**, through
+``data/common/source_extent.py``: ``mask_path`` first, then ``extent``
+together with ``project_extent``. Neither takes a ``geographic``
+parameter any more, and neither does ``DataStore.load_dem`` or
+``load_geology``.
+
+The seam that replaces the object already existed and had not been
+named: ``DataManagersRuntimeLoader`` sets
+``src.mask_path = Path(geographic.watershed_shp)`` before handing the
+config to the store, so the path where "the watershed" is a **file** was
+already the one a project run took. The two managers read
+``self.geographic`` *in addition to* that injection, never instead of
+it, which is why this is a mechanism removed rather than one added.
+
+``mask_extent()`` returns an ``Extent`` -- the port's, bounds plus the
+CRS the file declares -- and the reprojection to the CRS a provider
+publishes in is ``Extent.to_crs``. A mask that declares no CRS is
+refused; it used to inherit the watershed's, which is right exactly as
+often as the two files are the same one.
+
+A raster mask goes through the valid-cell hull and not
+``rasterio.bounds``: a catchment mask is ``1`` on the catchment and
+nodata everywhere else in a rectangle sized to the accumulation grid,
+so its footprint is not its catchment. Measured on a 10x10 mask whose
+valid region is the central 4x4, that is ``(0, 0, 100, 100)`` against
+``(30, 30, 70, 70)``.
+
+``project_extent`` is still a bare tuple and is **not in one CRS**: the
+site-selection pipeline builds it in Lambert-93 for the DEM and in WGS84
+for the observation managers, and hands ``GeologyManager`` nothing at
+all today. ``PROJECT_EXTENT_CRS`` declares what the raster side
+receives, and ``tests/unit/data/test_source_extent.py`` pins it against
+``bbox_for_departments`` -- one branch of ``_dem_request_bbox`` out of
+four, which is what the test measures and all it claims.
+
 LoadResult contract
 -------------------
 
@@ -141,6 +217,8 @@ Key public symbols
   FetchResult}``
 - ``hydromodpy.data.source.{HubeauPiezometrySource, BdTopageSource,
   IgnDemSource, Sim2PrecipitationSource}``
+- ``hydromodpy.data.fetch.capability.{DATA_FETCH, DataFetchRequest}``
+- ``hydromodpy.data.fetch.worker.run``
 
 Recommended reading path
 ------------------------
@@ -148,6 +226,11 @@ Recommended reading path
 1. ``hydromodpy/data/README.md``
 2. ``hydromodpy/data/managers/base_manager_variable.py``
 3. ``hydromodpy/data/loading/loader.py`` for the dispatch model.
+   Its only surface is ``DataManagersRuntimeLoader``: the second,
+   module-level ``load_variable`` that used to sit at the bottom had
+   no importer and a divergent copy of the dem / geology /
+   hydrography branch, and it went with the ``geographic``
+   fallback it was the last caller of.
 4. ``hydromodpy/data/variables/hydrometry/`` for a complete point
    variable.
 5. ``hydromodpy/data/variables/dem/`` for a complete field variable.

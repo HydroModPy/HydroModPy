@@ -28,14 +28,12 @@ class LakeAbacusManager:
         project_extent: tuple | None = None,
         project_period: tuple | None = None,
         data_dir: Path | None = None,
-        geographic: Any = None,
     ):
         self.config = config
         self.catalog = catalog
         self.project_extent = project_extent
         self.project_period = project_period
         self.data_dir = Path(data_dir) if data_dir else None
-        self.geographic = geographic
 
     def load(self) -> LoadResult:
         """Load lake-abacus data from all configured sources."""

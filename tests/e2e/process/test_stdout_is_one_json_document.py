@@ -28,6 +28,15 @@ EXIT_USAGE = 2
 EXIT_CONFIG = 14
 EXIT_VALIDATION = 16
 
+UNSERVED_CAPABILITY = "no-such-capability"
+"""A name no build serves, used by the two usage-error tests below.
+
+It used to be ``data-fetch``, which stopped being unserved the day the second
+capability shipped and turned both of them red for the best possible reason.
+``test_the_unserved_name_is_still_unserved`` is what keeps the next one honest:
+a placeholder that becomes real must fail here, not silently assert nothing.
+"""
+
 
 def _request(**inputs: object) -> dict:
     payload: dict[str, object] = {
@@ -46,6 +55,13 @@ def _job(tmp_path: Path, document: dict, *, name: str = "job") -> Path:
     root.mkdir(parents=True)
     (root / "request.json").write_text(json.dumps(document), encoding="utf-8")
     return root
+
+
+def _served() -> tuple[str, ...]:
+    """Every capability this build serves, so the pipe is read for each of them."""
+    from hydromodpy.cli._workers.process import capability_ids
+
+    return capability_ids()
 
 
 def _hmp(*argv: str) -> subprocess.CompletedProcess[str]:
@@ -194,40 +210,50 @@ def test_a_real_run_produces_exactly_the_paths_the_description_declares(finished
     assert produced == declared
 
 
-def test_the_description_on_stdout_is_the_document_that_ships_in_the_wheel():
+@pytest.mark.parametrize("capability_id", _served())
+def test_the_description_on_stdout_is_the_document_that_ships_in_the_wheel(capability_id: str):
     from hydromodpy.schema.processes import read_description_text
 
-    completed = _hmp("process", "describe", "terrain-delineate")
+    completed = _hmp("process", "describe", capability_id)
 
     assert completed.returncode == 0, completed.stderr[-4000:]
-    assert completed.stdout == read_description_text("terrain-delineate")
+    assert completed.stdout == read_description_text(capability_id)
+
+
+def test_the_unserved_name_is_still_unserved() -> None:
+    """Anti-vacuity for the two tests below, which prove nothing about a served id."""
+    from hydromodpy.cli._workers.process import capability_ids
+
+    assert UNSERVED_CAPABILITY not in capability_ids()
 
 
 def test_describing_a_capability_nobody_serves_is_a_usage_error():
-    completed = _hmp("process", "describe", "data-fetch")
+    completed = _hmp("process", "describe", UNSERVED_CAPABILITY)
 
     assert completed.returncode == EXIT_USAGE
     assert completed.stdout == ""
-    assert "data-fetch" in completed.stderr
+    assert UNSERVED_CAPABILITY in completed.stderr
 
 
-def test_the_listing_names_the_capability_this_build_serves():
+def test_the_listing_names_every_capability_this_build_serves():
+    from hydromodpy.cli._workers.process import capability_ids
+
     completed = _hmp("process", "list", "--format", "json")
 
     assert completed.returncode == 0, completed.stderr[-4000:]
     served = {record["id"]: record for record in json.loads(completed.stdout)}
-    assert "terrain-delineate" in served
+    assert set(served) == set(capability_ids())
     assert served["terrain-delineate"]["major"] == 1
 
 
 def test_a_capability_nobody_serves_is_a_usage_error(tmp_path):
     job = _job(tmp_path, _request())
 
-    completed = _hmp("process", "run", "data-fetch", "--job", str(job))
+    completed = _hmp("process", "run", UNSERVED_CAPABILITY, "--job", str(job))
 
     assert completed.returncode == EXIT_USAGE
     assert completed.stdout == ""
-    assert "data-fetch" in completed.stderr
+    assert UNSERVED_CAPABILITY in completed.stderr
 
 
 def test_a_directory_without_a_request_is_a_usage_error(tmp_path):

@@ -46,11 +46,13 @@ def capability_decls() -> tuple[CapabilityDecl, ...]:
     A declaration is what the process description is generated from and what
     ``hmp process list`` prints; neither needs the body to exist in memory.
     Kept apart from :func:`_registry` because importing a body pulls its whole
-    engine stack in -- ``whitebox_workflows`` for this one.
+    engine stack in -- ``whitebox_workflows`` for one, geopandas, xarray and
+    pyarrow for the other.
     """
+    from hydromodpy.data.fetch.capability import DATA_FETCH
     from hydromodpy.spatial.site_selection.hydrology.capability import TERRAIN_DELINEATE
 
-    return (TERRAIN_DELINEATE,)
+    return (DATA_FETCH, TERRAIN_DELINEATE)
 
 
 def _registry() -> Mapping[str, Capability]:
@@ -62,9 +64,13 @@ def _registry() -> Mapping[str, Capability]:
     an unknown id into a usage error, and for *every* capability rather than the
     renamed one, mapped to the generic exit 1.
     """
+    from hydromodpy.data.fetch.worker import run as data_fetch
     from hydromodpy.spatial.site_selection.hydrology.worker import run as terrain_delineate
 
-    runners: Mapping[str, CapabilityRunner] = {"terrain-delineate": terrain_delineate}
+    runners: Mapping[str, CapabilityRunner] = {
+        "data-fetch": data_fetch,
+        "terrain-delineate": terrain_delineate,
+    }
     served: dict[str, Capability] = {}
     for decl in capability_decls():
         runner = runners.get(decl.id)
