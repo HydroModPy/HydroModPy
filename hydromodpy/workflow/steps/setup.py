@@ -394,6 +394,7 @@ def run_setup(
     requested_spatial_support_ids: tuple[str, ...] = (),
     requested_domain_supports: dict[str, object] | None = None,
     build_geographic_fn: Callable[..., object] = build_geographic_runtime,
+    run_id: str | None = None,
 ) -> None:
     """Initialise the structural objects shared by all later process runs.
 
@@ -443,9 +444,14 @@ def run_setup(
         geographic=setup_state.domain_geographic,
     )
 
-    # Internal run_id (journal/scratch key) follows the simulation name:
-    # explicit config name > derive from TOML filename > "default".
-    if cfg.simulation.name:
+    # Internal run_id (journal/scratch key): the name the caller gave this run
+    # > explicit config name > derive from TOML filename > "default". A caller
+    # that already named its run has decided; deriving a name again here would
+    # rename it halfway through, and the catalog would register it under a name
+    # the journal does not carry.
+    if run_id:
+        setup_state.run_id = run_id
+    elif cfg.simulation.name:
         setup_state.run_id = cfg.simulation.name
     else:
         import re
@@ -479,6 +485,7 @@ def step_setup(
     requested_spatial_support_ids: tuple[str, ...] = (),
     requested_domain_supports: dict[str, object] | None = None,
     reuse_existing_outputs: bool | None = None,
+    run_id: str | None = None,
 ) -> None:
     """Populate ``ctx.setup`` with workspace, geographic, domain, flow, transport."""
     run_setup(
@@ -490,6 +497,7 @@ def step_setup(
             build_geographic_runtime,
             reuse_existing_outputs=reuse_existing_outputs,
         ),
+        run_id=run_id,
     )
 
 
@@ -600,6 +608,7 @@ class BuildGeographicStep:
             requested_spatial_support_ids=requested_support_ids,
             requested_domain_supports=requested_supports,
             reuse_existing_outputs=reuse_existing_outputs,
+            run_id=state.get("run_name"),
         )
         step_spatial_supports(
             ctx,
