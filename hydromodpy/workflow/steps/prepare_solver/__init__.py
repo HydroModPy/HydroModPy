@@ -136,7 +136,11 @@ class PrepareSolverStep:
         derive and draw against the raw ``[simulation.results]`` section and
         silently drop the fields a figure had forced on.
         """
-        from hydromodpy.results.catalog import Catalog
+        from hydromodpy.results.catalog import (
+            AmbiguousReferenceError,
+            Catalog,
+            SimulationNotFoundError,
+        )
 
         ctx = prior_state.get("ctx")
         if ctx is None:
@@ -163,16 +167,15 @@ class PrepareSolverStep:
                 # registered attaches to the right simulation, not the newest one.
                 # The index is per project, so the directory name is not part of
                 # the lookup: renaming or copying a project must not break resume.
-                row = ctx.store.connection.execute(
-                    "SELECT sim_id FROM simulations WHERE name = ? ORDER BY created_at DESC LIMIT 1",
-                    [str(run_id)],
-                ).fetchone()
-                if row is None:
+                # ``resolve`` is the catalog's one reference resolver; a name that
+                # also reads as a run id prefix makes it raise instead of picking.
+                try:
+                    ctx.sim_id = ctx.store.resolve(run_id)
+                except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
                     raise ConfigError(
-                        f"resume: no simulation named {run_id!r} in the project index at "
-                        f"{ws.project_root}; cannot rebuild the run state."
-                    )
-                ctx.sim_id = str(row[0])
+                        f"resume: no single simulation named {run_id!r} in the project "
+                        f"index at {ws.project_root}; cannot rebuild the run state."
+                    ) from exc
 
         return prior_state.advance(
             step_index=prior_state.step_index + 1,
