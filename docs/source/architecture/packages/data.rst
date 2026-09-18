@@ -15,9 +15,10 @@ Sub-modules
   for field variables (rasters, gridded forcing).
 - ``data/managers/_base_manager_common.py`` -- shared cache and
   persistence logic.
-- ``data/source/`` -- the ``DataSource`` port and its adapters, see
-  below. There is no source registry: dispatch on a provider name is
-  still an ``if``/``elif`` in each variable manager.
+- ``data/source/`` -- the ``DataSource`` port, its adapters and the
+  registry that resolves a ``source_id`` to one of them, see below.
+  ``hydrography`` resolves through it; the other variables still dispatch
+  on a provider name with an ``if``/``elif`` in their manager.
 - ``data/fetch/`` -- the ``data-fetch`` capability: its declaration, the
   body that runs it and the four artefact writers, see below. It is the
   caller of the port, kept out of ``data/source/`` so the port stays
@@ -97,12 +98,23 @@ asking for a DEM and a river network over one basin passes one extent:
 it reaches the IGN Geoplateforme in Lambert-93 and the Sandre WFS in
 WGS84 without the caller knowing either.
 
-Four adapters ship, one per payload kind, picked for how much they
-disagree: ``HubeauPiezometrySource`` (point records, WGS84, a period is
-required), ``BdTopageSource`` (a feature table, WGS84, no time axis),
+Six adapters ship. Four of them are the conformance spread, one per
+payload kind and picked for how much they disagree:
+``HubeauPiezometrySource`` (point records, WGS84, a period is required),
+``BdTopageSource`` (a feature table, WGS84, no time axis),
 ``IgnDemSource`` (files, **EPSG:2154**, writes under the directory the
 request names) and ``Sim2PrecipitationSource`` (gridded fields,
-**EPSG:2154**, a period is required).
+**EPSG:2154**, a period is required). ``EuHydroSource`` and
+``OsmSource`` are the two the hydrography migration brought over.
+
+``data/source/registry.py`` maps ``source_id`` to class. In-tree sources
+are declared once, in ``_BUILTIN_PATHS``, and imported on first lookup;
+out-of-tree ones join through the ``hydromodpy.data.source`` entry-point
+group, with no ``[project.entry-points]`` table here and no patch to this
+repository. Two questions are kept apart on purpose: ``builtin_source_ids()``
+answers what this build **describes**, ``list_source_ids()`` what this
+installation **resolves**. A published, byte-gated description must read
+the first, because the wheel was built before any plugin existed.
 
 ``tests/unit/architecture/test_data_source_port_stands_alone.py``
 refuses any import out of ``data/source/`` that is not ``core``,
@@ -120,13 +132,15 @@ catalog and no DuckDB, and it never sees a ``geographic`` object -- the
 extent is an input, a bounding box carrying its CRS or a vector mask
 another job produced.
 
-- ``capability.py`` -- the ``CapabilityDecl``, the Pydantic request
-  model and the table of served sources. Three members are **derived**
-  from that table rather than written: ``reaches_network`` is the union
-  of the sources' ``hosts``, ``PAYLOAD_PATHS`` has one entry per
-  ``PayloadKind``, and the ``source`` input is a union tagged on
-  ``source.id`` with one member per source. The derivations are compared
-  to what they came from by
+- ``capability.py`` -- the ``CapabilityDecl`` and the Pydantic request
+  model. The ``source`` input is a union tagged on ``source.id``, and it
+  is **the** list: ``SERVED_SOURCES`` is read off its own discriminator
+  and resolved through the registry, and ``reaches_network`` is the union
+  of those sources' ``hosts``. One member of the union tags no source --
+  ``{"id": "installed", "name": ...}`` reaches anything the installation
+  resolves, including a source this build does not describe, and it is
+  excluded from every derivation for that reason. The derivations are
+  compared to what they came from by
   ``tests/unit/data/test_data_fetch_declaration.py``.
 - ``worker.py`` -- resolution, refusal, fetch, seal and the reuse
   short-circuit, on the pattern ``terrain-delineate`` set. Every fetch
@@ -244,7 +258,10 @@ Key public symbols
 - ``hydromodpy.data.source.{DataSource, Extent, Period, FetchRequest,
   FetchResult}``
 - ``hydromodpy.data.source.{HubeauPiezometrySource, BdTopageSource,
-  IgnDemSource, Sim2PrecipitationSource}``
+  EuHydroSource, IgnDemSource, OsmSource, Sim2PrecipitationSource}``
+- ``hydromodpy.data.source.registry.{get, get_serving, register,
+  list_source_ids, builtin_source_ids}`` -- ``source_id`` to class, and
+  the ``hydromodpy.data.source`` entry-point group a third party joins
 - ``hydromodpy.data.fetch.capability.{DATA_FETCH, DataFetchRequest}``
 - ``hydromodpy.data.fetch.worker.run``
 
