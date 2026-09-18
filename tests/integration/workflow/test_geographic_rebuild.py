@@ -104,6 +104,34 @@ def test_the_step_declares_the_tree_it_wrote(built_workspace: Path) -> None:
     assert {"watershed.shp", "watershed.shx", "watershed.dbf"} <= names
 
 
+def test_the_step_declares_every_file_a_rebuild_reads(built_workspace: Path) -> None:
+    """Nothing the reuse check requires is left out of the declaration.
+
+    ``watershed_buff.shp`` is named by no public attribute of either runtime
+    and was missing from the declaration, so the digest of the step did not
+    cover a file a resume refuses to run without.
+    """
+    from hydromodpy.spatial.geographic.pipeline import (
+        _raster_products_from_paths,
+        _required_geographic_cache_artifacts,
+    )
+    from hydromodpy.workflow.steps.setup import BuildGeographicStep
+
+    step = BuildGeographicStep()
+    state = step.run(_state_for(built_workspace / "project.toml"))
+    declared = {Path(item) for item in step.artifacts(state)}
+
+    ctx = state.get("ctx")
+    paths = ctx.setup.geographic._paths
+    required = _required_geographic_cache_artifacts(
+        config=ctx.cfg.geographic,
+        paths=paths,
+        raster_products=_raster_products_from_paths(paths),
+    )
+    missing = [str(item) for item in required if Path(item) not in declared]
+    assert not missing, f"required by a reuse but not declared: {missing}"
+
+
 def test_a_rebuild_does_not_delineate_again(
     built_workspace: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -168,3 +196,39 @@ def test_a_missing_tree_falls_back_to_a_full_build(
         run_id="naizin_rebuild",
     )
     assert rebuilt.get("ctx").setup.geographic is not None
+
+
+def test_the_fingerprint_sees_a_conditioning_vector_edited_in_place(tmp_path: Path) -> None:
+    """A stream-enforcement vector rewritten in place invalidates the tree.
+
+    The routing DEM is carved with these vectors, so every product below them
+    changes when one does, without a single config value changing. A resume now
+    forces the reuse, which is what makes the blind spot reachable.
+    """
+    import geopandas as gpd
+    from shapely.geometry import LineString
+
+    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+    from hydromodpy.spatial.geographic.pipeline import _geographic_cache_fingerprint
+
+    network = tmp_path / "streams.gpkg"
+
+    def _write(offset: float) -> None:
+        gpd.GeoDataFrame(
+            {"id": [1]},
+            geometry=[LineString([(0.0, offset), (100.0, offset + 100.0)])],
+            crs="EPSG:2154",
+        ).to_file(network, driver="GPKG")
+
+    payload = {
+        "source_mode": "standard",
+        "catchment": {"catch_def": "dem", "dem_init_path": str(DEM)},
+        "enforce_streams": {"enabled": True, "stream_geometry_path": str(network)},
+    }
+
+    _write(0.0)
+    before = _geographic_cache_fingerprint(GeographicConfig.model_validate(payload))
+    _write(500.0)
+    after = _geographic_cache_fingerprint(GeographicConfig.model_validate(payload))
+
+    assert before != after

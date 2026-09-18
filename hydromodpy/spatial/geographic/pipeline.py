@@ -183,6 +183,13 @@ def _geographic_cache_fingerprint(config: GeographicConfig) -> str:
             "dem_init_path": _path_signature(config.dem_init_path),
             "polyg_shp_path": _path_signature(config.polyg_shp_path),
             "bottom_path": _path_signature(config.bottom_path),
+            # The three vectors that condition the routing DEM and the model
+            # top. Editing one in place changes every product below without
+            # changing a single config value, so the config payload alone
+            # cannot see it.
+            "lake_geometry_path": _path_signature(config.enforce_lakes.lake_geometry_path),
+            "stream_geometry_path": _path_signature(config.enforce_streams.stream_geometry_path),
+            "dam_carve_line_path": _path_signature(config.dam_carve.line_path),
         },
     }
     encoded = json.dumps(payload, ensure_ascii=True, sort_keys=True).encode("utf-8")

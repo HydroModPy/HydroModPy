@@ -5,6 +5,12 @@ synthetic one - hydrate the same public attribute names once they have run.
 Asking the object rather than rebuilding paths from the config keeps the two on
 one answer, and keeps the list honest: a path the runtime names but never wrote
 is dropped, because a step declares what it left, not what it could have left.
+
+The declaration covers **every file a rebuild of the step reads** - the set
+``_required_geographic_cache_artifacts`` validates before reusing a tree - so a
+digest over it changes exactly when what a resume would reuse changes. Two of
+those files are named by no public attribute and are derived here from the two
+directory attributes that are.
 """
 
 from __future__ import annotations
@@ -50,6 +56,11 @@ _SHAPEFILE_SIDECARS = (".shp", ".shx", ".dbf", ".prj", ".cpg")
 
 DESCRIPTION_FILENAME = "_geographic_cache_manifest.json"
 
+# Required by a reuse, named by no attribute of either runtime: the buffered
+# watershed polygon, and the cell-count accumulation the river network reads.
+_DERIVED_UNDER_GEOGRAPHIC = ("watershed_buff.shp",)
+_DERIVED_UNDER_CORRECFLOW = ("dem_acc_cells.tif",)
+
 
 def _expand(raw: object) -> list[Path]:
     """Return the existing files one declared path stands for."""
@@ -77,7 +88,15 @@ def geographic_artifact_paths(geographic: object) -> tuple[Path, ...]:
     found: list[Path] = []
     geographic_path = getattr(geographic, "geographic_path", None)
     if geographic_path:
-        found.extend(_expand(Path(str(geographic_path)) / DESCRIPTION_FILENAME))
+        root = Path(str(geographic_path))
+        found.extend(_expand(root / DESCRIPTION_FILENAME))
+        for filename in _DERIVED_UNDER_GEOGRAPHIC:
+            found.extend(_expand(root / filename))
+
+    correcflow_path = getattr(geographic, "correcflow_path", None)
+    if correcflow_path:
+        for filename in _DERIVED_UNDER_CORRECFLOW:
+            found.extend(_expand(Path(str(correcflow_path)) / filename))
 
     for name in _FILE_ATTRIBUTES:
         found.extend(_expand(getattr(geographic, name, None)))
