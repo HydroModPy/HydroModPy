@@ -1,9 +1,19 @@
 """Conformance suite for the terrain port, run against every engine.
 
-The port is only worth its name if two independent implementations answer the
-same questions the same way, so every assertion here is parametrized over
-``WhiteboxTerrainEngine`` and ``NumpyTerrainEngine``. A member that only makes
-sense for one of them cannot survive this file.
+The port is only worth its name if independent implementations answer the same
+questions the same way, so almost every assertion here takes the ``engine``
+fixture, and that fixture is parametrized over what
+:mod:`hydromodpy.spatial.terrain.registry` resolves rather than over a list this
+file keeps. An engine installed beside this build is therefore run by this suite
+without a line of ``tests/`` naming it, which is the only way a third party can
+find out whether its engine is usable: ``register()`` certifies a class on the
+members it **declares**, and the real contract includes files on disk that no
+declaration mentions. A member that only makes sense for one implementation
+cannot survive this file.
+
+The exception is :data:`IN_TREE_ENGINE_IDS`, read by the handful of tests whose
+assertion *is* the agreement between the two engines of this tree. An outside
+engine owes the port, not cell-for-cell equality with Whitebox.
 
 The terrains are built here rather than loaded, because on a plane and on a V
 valley the answer is known in closed form: a plane draining east accumulates
@@ -50,6 +60,7 @@ from hydromodpy.spatial.terrain import (
     Outlet,
     TerrainEngine,
     missing_engine_members,
+    registry,
     snap_window_cells,
 )
 from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
@@ -70,33 +81,60 @@ REAL_DEM = Path(__file__).resolve().parents[1] / "data" / "sfr_cheze" / "dem_val
 # --------------------------------------------------------------------------- #
 
 
-def _numpy_engine():
-    from hydromodpy.spatial.terrain import NumpyTerrainEngine
+IN_TREE_ENGINE_IDS = ("numpy_d8", "whitebox_workflows")
+"""The two engines this repository ships, for the cross-engine agreement tests.
 
-    return NumpyTerrainEngine()
+Only the handful of tests whose assertion **is** the agreement between the two
+implementations of this tree read this tuple: an outside engine owes the port,
+not cell-for-cell equality with Whitebox. Everything else takes the ``engine``
+fixture and runs against whatever this installation resolves.
+"""
 
 
-def _whitebox_engine():
+def _make_whitebox_deterministic() -> None:
+    """Pin the Whitebox backend to one worker before it is built.
+
+    Determinism, never selection. The backend is multithreaded and its
+    tie-breaking is not stable across workers, so the cached handle is rebuilt
+    with one process. The engine itself still comes from the registry.
+    """
     pytest.importorskip("whitebox_workflows")
     from tests._helpers.whitebox import configure_whitebox_single_thread
 
     monkeypatch = pytest.MonkeyPatch()
     configure_whitebox_single_thread(monkeypatch)
+    monkeypatch.undo()
+
+
+def _engine(engine_id: str):
+    """Build what the registry serves under *engine_id*, or skip if it cannot.
+
+    The suite asks the registry instead of holding a dict of the classes it
+    imports, which is the whole point: an engine installed beside this build is
+    run by this file without this file naming it. The only name left here is
+    Whitebox's, and it buys thread determinism rather than an engine.
+
+    A built-in this environment cannot load is a skip -- ``whitebox_workflows``
+    is an optional extra and its absence is a normal local state. A plugin that
+    fails to build is not skipped: :func:`~hydromodpy.spatial.terrain.registry.
+    load_plugins` already dropped the ones that cannot load, so an id that
+    survived to here and then fails is a defect in the engine, not in the
+    environment, and the suite is what has to say so.
+    """
+    if engine_id == "whitebox_workflows":
+        _make_whitebox_deterministic()
     try:
-        from hydromodpy.spatial.terrain import WhiteboxTerrainEngine
-
-        return WhiteboxTerrainEngine()
-    finally:
-        monkeypatch.undo()
-
-
-ENGINE_FACTORIES = {"numpy_d8": _numpy_engine, "whitebox_workflows": _whitebox_engine}
+        return registry.create(engine_id)
+    except TerrainRequestError:
+        if engine_id in registry.builtin_engine_ids():
+            pytest.skip(f"{engine_id!r} is declared by this build and not installed here")
+        raise
 
 
-@pytest.fixture(params=sorted(ENGINE_FACTORIES))
+@pytest.fixture(params=registry.list_engine_ids())
 def engine(request):
-    """One terrain engine, once per implementation."""
-    return ENGINE_FACTORIES[request.param]()
+    """One terrain engine, once per implementation this installation serves."""
+    return _engine(request.param)
 
 
 # --------------------------------------------------------------------------- #
@@ -204,10 +242,30 @@ def test_a_digest_is_stable_across_calls(engine) -> None:
     assert engine.engine_digest() == engine.engine_digest()
 
 
-def test_two_engines_never_share_a_digest() -> None:
-    digests = {factory().engine_digest() for factory in ENGINE_FACTORIES.values()}
+def test_no_two_engines_share_a_digest() -> None:
+    """Over every engine this installation serves, the one it does not name included.
 
-    assert len(digests) == len(ENGINE_FACTORIES)
+    The digest is what the provenance of a sealed job is stamped with, so two
+    engines answering the same string make two different runs indistinguishable
+    after the fact. An engine arriving from outside is exactly the case where
+    that can happen by accident.
+    """
+    digests = {}
+    for engine_id in registry.list_engine_ids():
+        try:
+            digests[engine_id] = registry.create(engine_id).engine_digest()
+        except TerrainRequestError:
+            if engine_id not in registry.builtin_engine_ids():
+                raise
+            # A built-in this environment cannot load, Whitebox being the
+            # optional extra. Dropped here and accounted for below: it must not
+            # turn into a comparison of one engine with itself.
+            continue
+
+    if len(digests) < 2:
+        pytest.skip(f"only {sorted(digests)} resolves here, and one digest compares to nothing")
+
+    assert len(set(digests.values())) == len(digests), digests
 
 
 def test_an_outlet_id_that_is_not_a_directory_name_is_refused() -> None:
@@ -290,7 +348,7 @@ def test_a_conditioning_method_no_engine_serves_is_refused(engine, plane_east, t
 def test_the_numpy_engine_refuses_breaching_by_name(plane_east, tmp_path) -> None:
     """Least-cost breaching is not implemented there, and it says so."""
     with pytest.raises(TerrainCapabilityError, match="breach"):
-        _numpy_engine().condition_dem(
+        _engine("numpy_d8").condition_dem(
             plane_east,
             method="breach",
             extent=ConditioningExtent.regional(),
@@ -305,7 +363,7 @@ def test_the_numpy_engine_refuses_a_pointer_that_holds_a_cycle(valley, tmp_path)
     each other. The engine says the DEM behind the pointer was not conditioned
     rather than returning a count for the cells it could still order.
     """
-    engine = _numpy_engine()
+    engine = _engine("numpy_d8")
     out = tmp_path / "out"
     _conditioned, directions, _acc = _products(engine, valley, out)
     codes = _read(directions.path).copy()
@@ -837,8 +895,8 @@ def test_an_absent_cell_is_no_drainage_target_and_both_engines_say_so(
     dem = _write_dem(tmp_path / "holed.tif", surface)
 
     products = {}
-    for name, factory in sorted(ENGINE_FACTORIES.items()):
-        conditioned, directions, accumulation = _products(factory(), dem, tmp_path / name)
+    for name in IN_TREE_ENGINE_IDS:
+        conditioned, directions, accumulation = _products(_engine(name), dem, tmp_path / name)
         products[name] = (conditioned, directions, accumulation)
 
     for left, right in zip(*(products[name] for name in sorted(products)), strict=True):
@@ -878,8 +936,8 @@ def real_dem_products(tmp_path_factory) -> dict[str, object]:
     pytest.importorskip("whitebox_workflows")
     root = tmp_path_factory.mktemp("real_dem")
     products = {}
-    for name, factory in sorted(ENGINE_FACTORIES.items()):
-        engine = factory()
+    for name in IN_TREE_ENGINE_IDS:
+        engine = _engine(name)
         _conditioned, _directions, accumulation = _products(engine, REAL_DEM, root / name)
         products[name] = (engine, accumulation)
     return products
