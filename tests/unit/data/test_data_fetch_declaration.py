@@ -13,9 +13,11 @@ from typing import ClassVar
 
 import pytest
 
+from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.data.fetch.artefacts import POINT_COLUMNS
 from hydromodpy.data.fetch.capability import (
     DATA_FETCH,
+    DOOR_TAG,
     PAYLOAD_PATHS,
     REACHED_HOSTS,
     REPORT_PATH,
@@ -46,9 +48,8 @@ def _tag_of(model: type) -> str:
 
 
 def _describing_models() -> tuple[type, ...]:
-    """The members that name a source this build ships, which is not all of them."""
-    shipped = set(registry.builtin_source_ids())
-    return tuple(model for model in _option_models() if _tag_of(model) in shipped)
+    """The members that name a source, which is every one but the door."""
+    return tuple(model for model in _option_models() if _tag_of(model) != DOOR_TAG)
 
 
 def test_the_served_sources_span_every_payload_kind() -> None:
@@ -65,17 +66,37 @@ def test_every_served_source_has_one_options_model_and_the_reverse() -> None:
 
 
 def test_the_union_tags_the_shipped_sources_and_one_door() -> None:
-    """A member tagging neither a shipped source nor the door is a drift.
+    """Exactly one member tags no source, and every other one tags a shipped source.
 
-    ``SERVED_SOURCES`` is filtered on what this build ships, so a member added
-    with a tag nobody ships would vanish from every derivation -- the hosts,
-    the payload kinds, the options-model pairing -- without failing anything.
+    Read off the **frozen** ``SERVED_SOURCES``, not recomputed: the table is
+    built once at import and a test that recomputes both sides of the filter
+    agrees with itself whatever the filter does.
     """
+    tags = {_tag_of(model) for model in _option_models()}
     shipped = set(registry.builtin_source_ids())
-    undescribed = {_tag_of(model) for model in _option_models()} - shipped
 
-    assert undescribed == {"installed"}
-    assert _tag_of(InstalledSourceOptions) == "installed"
+    assert DOOR_TAG == "installed"
+    assert tags - shipped == {DOOR_TAG}, "a member tags neither a shipped source nor the door"
+    assert {source.source_id for source in SERVED_SOURCES} == tags - {DOOR_TAG}
+    assert len(SERVED_SOURCES) == len(_option_models()) - 1
+
+
+def test_the_door_stays_out_of_the_table_when_a_builtin_is_unregistered(
+    isolated_registry: object,
+) -> None:
+    """The filter reads the union, never the registry, and this is why.
+
+    ``registry.unregister`` pops the built-in declaration, so a filter asking
+    the registry what this build ships would let a **described** source fall
+    out of ``SERVED_SOURCES`` and out of ``reaches_network`` -- silently, and
+    for the rest of the process, since the table is built once at import.
+    """
+    registry.unregister("bdtopage")
+
+    from hydromodpy.data.fetch.capability import _served_source_ids
+
+    assert "bdtopage" in _served_source_ids()
+    assert DOOR_TAG not in _served_source_ids()
 
 
 def test_an_options_model_builds_the_source_it_is_tagged_for() -> None:
@@ -307,6 +328,62 @@ def test_an_option_the_installed_source_cannot_take_is_refused_by_name(
                 "extent": dict(CALLER_EXTENT),
             }
         )
+
+
+def test_a_constructor_that_names_nothing_refuses_nothing(isolated_registry: object) -> None:
+    """``**kwargs`` is a source saying it will take whatever it is handed.
+
+    Pinned rather than tolerated. A signature is the only authority this build
+    has over an installed source's options, and a bag declares no name, so
+    everything binds. The refusal above is real for a source that declares its
+    parameters and vacuous for one that does not, and a reader of the published
+    description has to be able to know which.
+    """
+
+    class BagSource(AcmeRadarSource):
+        source_id: ClassVar[str] = "acme-bag"
+
+        def __init__(self, **options: object) -> None:
+            self.options = options
+            self.variables: tuple[str, ...] = ("radar_rainfall",)
+
+    registry.register(BagSource)
+    request = DataFetchRequest.model_validate(
+        {
+            "source": _installed("acme-bag", anything={"nested": 1}),
+            "extent": dict(CALLER_EXTENT),
+        }
+    )
+
+    assert request.source.build().options == {"anything": {"nested": 1}}
+
+
+def test_a_constructor_that_refuses_its_options_is_a_fault_of_the_request(
+    isolated_registry: object,
+) -> None:
+    """A signature check catches a name and an arity, never a type.
+
+    Without this, a wrong-typed option reached the constructor, raised a
+    ``TypeError`` there and left as ``HMPY.E000`` and exit code 1 -- the code
+    that tells an orchestrator HydroModPy is broken when the request is. The
+    four described sources keep the old behaviour on purpose: their
+    constructors are this repository's, so one of them raising *is* a bug here.
+    """
+
+    class TypedSource(AcmeRadarSource):
+        source_id: ClassVar[str] = "acme-typed"
+
+        def __init__(self, *, sweeps: int = 4) -> None:
+            self.buffer = [0] * sweeps
+            self.variables: tuple[str, ...] = ("radar_rainfall",)
+
+    registry.register(TypedSource)
+    request = DataFetchRequest.model_validate(
+        {"source": _installed("acme-typed", sweeps="four"), "extent": dict(CALLER_EXTENT)}
+    )
+
+    with pytest.raises(DataRequestError, match="acme-typed"):
+        request.source.build()
 
 
 def test_an_argument_the_installed_source_demands_is_refused_when_missing(

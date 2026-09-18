@@ -184,7 +184,17 @@ class InstalledSourceOptions(HydroModelBase):
     **installation** resolves -- one registered on the
     ``hydromodpy.data.source`` entry-point group -- and the keyword arguments
     its constructor takes. The id is refused before the job starts if nothing
-    answers to it, and so is an argument that source cannot be built with.
+    answers to it, and so is an option its constructor could not be called
+    with.
+
+    **What that check does and does not cover.** The options are bound against
+    the constructor's signature, so a misspelled option and a missing required
+    one are refused by name, before the job directory is touched. Types are
+    not: a signature carries no runtime contract, so an option of the wrong
+    type is the source's to refuse, and a constructor that takes ``**kwargs``
+    names nothing and therefore refuses nothing. When the source does refuse,
+    the refusal is reported as a fault of this request -- a caller fixes it by
+    editing ``options`` -- and not as an internal failure of HydroModPy.
 
     **The hosts this capability declares do not cover it.** ``hmp:invocation``
     lists the network of the described sources, and that list ships frozen with
@@ -252,7 +262,22 @@ class InstalledSourceOptions(HydroModelBase):
         return self
 
     def build(self) -> DataSource:
-        return registry.get(self.name)(**self.options)
+        source_cls = registry.get(self.name)
+        try:
+            return source_cls(**self.options)
+        except Exception as exc:
+            # Every exception, and only for this member. The four described
+            # sources are built in this tree and tested here, so a constructor
+            # of one raising is a bug of this repository and deserves the exit
+            # code that says so. An installed source is somebody else's code
+            # reading somebody else's options: exiting 1 would tell an
+            # orchestrator that HydroModPy is broken when the request is.
+            raise DataRequestError(
+                f"source {self.name!r} refused the options this request carries: "
+                f"{type(exc).__name__}: {exc}. They are bound against its constructor's "
+                "signature before the job starts, which catches a name and an arity and "
+                "cannot catch a type."
+            ) from exc
 
 
 SourceOptions = Annotated[
@@ -280,21 +305,34 @@ registry resolves, without this build naming it.
 """
 
 
-def _served_source_ids() -> tuple[str, ...]:
-    """The ids the union tags that are sources this build ships.
+def _tag_of(options_model: type) -> str:
+    """The ``id`` one member of the union is tagged with."""
+    return get_args(options_model.model_fields["id"].annotation)[0]
 
-    Every member tags something; only four of them tag a **source**. The fifth
-    tags the door to the ones this build does not ship, so its tag resolves to
-    no class and has no host, no payload kind and no options model to compare.
-    Filtering on :func:`~hydromodpy.data.source.registry.builtin_source_ids`
-    rather than on a marker means the filter states a fact the registry owns,
-    and ``test_the_union_tags_the_shipped_sources_and_one_door`` refuses the
-    day a member tags neither.
+
+DOOR_TAG = _tag_of(InstalledSourceOptions)
+"""The one union tag that names no source, read off the member that carries it."""
+
+
+def _served_source_ids() -> tuple[str, ...]:
+    """The ids the union tags, the door excluded.
+
+    Every member tags something; only the described ones tag a **source**. The
+    door tags the way in for the sources this build does not ship, so its tag
+    resolves to no class and has no host, no payload kind and no adapter to
+    compare against.
+
+    Excluded by its own tag and **not** by asking the registry what this build
+    ships, although that reads better. ``registry.unregister`` pops
+    ``_BUILTIN_PATHS``, so a registry-driven filter would let a described
+    source fall silently out of ``SERVED_SOURCES``, ``REACHED_HOSTS`` and the
+    published declaration if anything removed a built-in before this module was
+    first imported. Filtered this way, a described source that stopped
+    resolving makes ``registry.get`` below raise at import, which is the
+    failure this table had before the door existed and the one it should keep.
     """
     union, _ = get_args(SourceOptions)
-    tags = tuple(get_args(member.model_fields["id"].annotation)[0] for member in get_args(union))
-    shipped = set(registry.builtin_source_ids())
-    return tuple(tag for tag in tags if tag in shipped)
+    return tuple(tag for tag in map(_tag_of, get_args(union)) if tag != DOOR_TAG)
 
 
 SERVED_SOURCES: tuple[type, ...] = tuple(
@@ -574,6 +612,7 @@ __all__ = [
     "POINTS_PATH",
     "RASTER_PATH",
     "REACHED_HOSTS",
+    "DOOR_TAG",
     "REPORT_PATH",
     "SERVED_SOURCES",
     "WATERSHED_MASK_LAYER_HINT",
