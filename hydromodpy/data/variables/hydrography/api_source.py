@@ -28,12 +28,20 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
-from hydromodpy.core.exceptions import DataProductError
+from hydromodpy.core.exceptions import DataCapabilityError, DataProductError
 from hydromodpy.data.source import registry
 from hydromodpy.data.source.port import DataSource, Extent, FetchRequest
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import geopandas as gpd
+
+
+NETWORK_PAYLOAD_KIND = "features"
+"""What a river network is, as the port names payload shapes.
+
+A variable that accepts one kind is the whole reason this refusal can be made
+on the declaration instead of on the answer.
+"""
 
 
 def source_from_section(source_cfg: object) -> DataSource:
@@ -44,9 +52,28 @@ def source_from_section(source_cfg: object) -> DataSource:
     naming a source nobody serves raises
     :class:`~hydromodpy.core.exceptions.DataRequestError` listing what this
     installation does serve, plugins included.
+
+    **A source serving another payload kind is refused here, on its
+    declaration, before it is built.** The adversarial gate of this phase is
+    why: the stream-burn resolver used to carry an allowlist of three names and
+    now branches on "not custom", so every id the registry resolves reaches
+    this function -- and reading the kind off the *answer* meant a DEM source
+    named in a hydrography section started downloading France-wide archives
+    before anything noticed. The typed `Literal` of the config model keeps that
+    unreachable from a real TOML today, but that guard lives in another module
+    and this seam is called with duck-typed objects.
     """
     source_id = str(getattr(source_cfg, "source", "")).strip()
-    return registry.build_from_section(registry.get(source_id), source_cfg)
+    source_cls = registry.get(source_id)
+    declared = getattr(source_cls, "payload_kind", None)
+    if declared != NETWORK_PAYLOAD_KIND:
+        raise DataCapabilityError(
+            f"Source {source_id!r} serves a {declared!r} payload, and a river network is a "
+            f"{NETWORK_PAYLOAD_KIND!r} one. A source of another kind belongs to another "
+            "variable, and asking it anyway would contact its provider before the answer "
+            "could be refused."
+        )
+    return registry.build_from_section(source_cls, source_cfg)
 
 
 def fetch_network(source: DataSource, extent: Extent) -> gpd.GeoDataFrame:
@@ -67,13 +94,14 @@ def fetch_network(source: DataSource, extent: Extent) -> gpd.GeoDataFrame:
     """
     with TemporaryDirectory(prefix="hmp-hydrography-") as scratch:
         result = source.fetch(FetchRequest(out_dir=Path(scratch), extent=extent))
-    if result.kind != "features" or result.features is None:
+    if result.kind != NETWORK_PAYLOAD_KIND or result.features is None:
         raise DataProductError(
-            f"Source {result.source_id!r} answered hydrography with a {result.kind!r} "
-            "payload, and a river network is a feature table. A source serving another "
-            "kind belongs to another variable."
+            f"Source {result.source_id!r} declares a {NETWORK_PAYLOAD_KIND!r} payload and "
+            f"answered with a {result.kind!r} one. The declaration was checked before the "
+            "fetch, so this is a source contradicting itself, not a section naming the "
+            "wrong source."
         )
     return result.features
 
 
-__all__ = ["fetch_network", "source_from_section"]
+__all__ = ["NETWORK_PAYLOAD_KIND", "fetch_network", "source_from_section"]

@@ -20,8 +20,11 @@ Resolution order for a single source:
   does not exist yet at this point in the pipeline. That regional extent is what
   the burn wants anyway: the trench is cut into the regional routing DEM, before
   delineation. The three names this module used to carry are gone: the section
-  says ``custom`` or it says a name the source registry resolves, and a name
-  nobody serves is refused there, listing what this installation does serve.
+  says ``custom`` or it names a source, and
+  :func:`~hydromodpy.data.variables.hydrography.api_source.source_from_section`
+  refuses both a name nobody serves and a source declaring another payload kind
+  -- **before** it is built, so nothing contacts a provider on the way to the
+  refusal.
 
 The bootstrap download is cached on disk under its own name and deliberately not
 registered in the data catalog, so the data manager fetches the same source once

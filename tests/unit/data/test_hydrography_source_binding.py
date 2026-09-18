@@ -10,12 +10,16 @@ binds, so a constructor parameter renamed into a collision fails here.
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import get_args
 
 import pytest
 
-from hydromodpy.core.exceptions import DataRequestError
+from hydromodpy.core.exceptions import DataCapabilityError, DataRequestError
 from hydromodpy.data.source import registry
-from hydromodpy.data.variables.hydrography.api_source import source_from_section
+from hydromodpy.data.variables.hydrography.api_source import (
+    NETWORK_PAYLOAD_KIND,
+    source_from_section,
+)
 from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
 BOUND_FIELDS: dict[str, tuple[str, ...]] = {
@@ -190,3 +194,28 @@ def test_the_declared_defaults_match_the_config() -> None:
     assert fields["group_name"].default == DEFAULT_GROUP_NAME
     assert fields["euhydro_page_size"].default == DEFAULT_PAGE_SIZE
     assert tuple(fields["waterway_types"].default_factory()) == DEFAULT_WATERWAY_TYPES
+
+
+def test_a_source_of_another_payload_kind_is_refused_before_it_is_built() -> None:
+    """The resolver branches on "not custom", so the kind has to be checked here.
+
+    Found by the adversarial gate of this phase: reading the kind off the
+    answer meant a DEM source named in a hydrography section downloaded
+    France-wide archives before anything refused it.
+    """
+    with pytest.raises(DataCapabilityError, match="ign-bdalti"):
+        source_from_section(SimpleNamespace(source="ign-bdalti"))
+
+
+def test_the_refusal_names_the_kind_the_variable_wants() -> None:
+    with pytest.raises(DataCapabilityError, match=NETWORK_PAYLOAD_KIND):
+        source_from_section(SimpleNamespace(source="sim2-precipitation"))
+
+
+def test_every_source_the_section_accepts_today_serves_a_network() -> None:
+    """Anti-vacuity: a refusal that refused everything would pass both tests."""
+    accepted = get_args(HydrographySourceConfig.model_fields["source"].annotation)
+    for name in accepted:
+        if name == "custom":
+            continue
+        assert source_from_section(SimpleNamespace(source=name)).source_id == name
