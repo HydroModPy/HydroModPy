@@ -16,6 +16,14 @@ reference grid it rasterises onto. The object is gone and the three are named:
 - the reference grid is ``base_raster``, a constructor argument beside
   ``out_path``, because it is not something a user configures: it is the grid
   the project already has.
+
+**Which CRS the request leaves in is no longer written here either.** The
+manager used to compute a WGS84 box, because the three fetch functions it
+dispatched to happened to want degrees. It now resolves the source the section
+names through :mod:`~hydromodpy.data.source.registry` and reads the CRS off it,
+so the literal is gone and a source answering in another frame is asked in that
+frame. What stayed is the catalogue: the superset lookup and the registration
+are the manager's, because a source knows nothing of DuckDB and must not.
 """
 
 from __future__ import annotations
@@ -34,6 +42,10 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.source_extent import mask_extent_in, mask_geometry
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.variables.hydrography.api_source import (
+    fetch_network,
+    source_from_section,
+)
 from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
     HydrographySourceConfig,
@@ -48,35 +60,6 @@ if TYPE_CHECKING:
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 logger = get_logger(__name__)
-
-
-def fetch_api_source(
-    source_cfg: HydrographySourceConfig,
-    bbox_wgs84: tuple[float, float, float, float],
-) -> gpd.GeoDataFrame:
-    """Dispatch one API source to its fetch function, in EPSG:4326.
-
-    Module level rather than a method because the stream burn resolver needs the
-    same dispatch before any manager exists: it downloads on an outlet box, at a
-    point in the pipeline where the watershed a manager clips against is not
-    delineated yet.
-    """
-    if source_cfg.source == "osm":
-        from hydromodpy.data.variables.hydrography.apis.osm import fetch
-
-        return fetch(source_cfg, bbox_wgs84)
-
-    if source_cfg.source == "bdtopage":
-        from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
-
-        return fetch(source_cfg, bbox_wgs84)
-
-    if source_cfg.source == "euhydro":
-        from hydromodpy.data.variables.hydrography.apis.euhydro import fetch
-
-        return fetch(source_cfg, bbox_wgs84)
-
-    raise ValueError(f"Unknown hydrography source: {source_cfg.source!r}")
 
 
 class HydrographyManager:
@@ -243,42 +226,31 @@ class HydrographyManager:
         return (bounds.left, bounds.bottom, bounds.right, bounds.top), crs
 
     # ------------------------------------------------------------------
-    # Source dispatch
+    # Source resolution
     # ------------------------------------------------------------------
 
     def _fetch_from_source(
         self,
         source_cfg: HydrographySourceConfig,
     ) -> gpd.GeoDataFrame | Path:
-        """Dispatch to the correct loader/API for *source_cfg*."""
+        """Load a local file, or ask the source the section names for the box."""
         if source_cfg.source == "custom":
             from hydromodpy.data.variables.hydrography.custom import load_custom
 
             return load_custom(source_cfg)
 
-        bbox = self._get_bbox_wgs84()
+        source = source_from_section(source_cfg)
+        extent = mask_extent_in(self._require_mask_path(), source.extent_crs)
 
-        # Cache check (API sources only)
         if not source_cfg.force_refresh:
-            cached = self._try_load_cached(source_cfg.source, bbox)
+            cached = self._try_load_cached(source_cfg.source, extent.bbox)
             if cached is not None:
                 return cached
 
-        # Fetch from API
-        gdf = self._fetch_api(source_cfg, bbox)
-
-        # Persist + register in catalog
-        self._persist_and_register(gdf, source_cfg.source, bbox)
+        gdf = fetch_network(source, extent, out_dir=self._data_folder / "scratch")
+        self._persist_and_register(gdf, source_cfg.source, extent.bbox)
 
         return gdf
-
-    def _fetch_api(
-        self,
-        source_cfg: HydrographySourceConfig,
-        bbox: tuple[float, float, float, float],
-    ) -> gpd.GeoDataFrame:
-        """Call the appropriate API fetch function."""
-        return fetch_api_source(source_cfg, bbox)
 
     # ------------------------------------------------------------------
     # Catalog cache helpers
@@ -289,7 +261,13 @@ class HydrographyManager:
         source: str,
         bbox: tuple[float, float, float, float],
     ) -> gpd.GeoDataFrame | None:
-        """Return cached GeoDataFrame if the catalog has a superset entry."""
+        """Return cached GeoDataFrame if the catalog has a superset entry.
+
+        *bbox* is the box in the CRS the source declares, and the catalogue
+        column carries no CRS of its own. The lookup is keyed on the source as
+        well, so one source's entries are all in one frame; two sources in two
+        frames never compare their boxes to each other.
+        """
         if self._catalog is None:
             return None
         entry = self._catalog.find_cached(
@@ -426,7 +404,3 @@ class HydrographyManager:
                 "same box; set data.hydrography.mask_path to a SHP/GPKG/GeoJSON/TIF."
             )
         return Path(mask_path)
-
-    def _get_bbox_wgs84(self) -> tuple[float, float, float, float]:
-        """The request box in WGS84, which is what the three APIs are asked in."""
-        return mask_extent_in(self._require_mask_path(), "EPSG:4326").bbox

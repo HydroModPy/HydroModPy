@@ -53,6 +53,12 @@ ALLOWED_PREFIXES = (
 """``core`` is the kernel leaf every layer may read, ``contracts`` holds the
 record types a payload is made of, and the rest is the port itself."""
 
+CONFIG_REASON = (
+    "the three hydrography fetch functions take a HydrographySourceConfig and read "
+    "one or two of its nine fields. The adapter builds one rather than changing the "
+    "api function, which keeps its own callers until the capability replaces them."
+)
+
 PROVIDER_REASON = (
     "the adapter serves its provider's fetch function, which is the whole point "
     "of the phase. The import is deferred into fetch() so importing the port "
@@ -67,15 +73,27 @@ DECLARED_EXCEPTIONS: dict[tuple[str, str], str] = {
     (
         "hydromodpy/data/source/bdtopage.py",
         "hydromodpy.data.variables.hydrography.config",
-    ): (
-        "bdtopage.fetch takes a HydrographySourceConfig and reads two of its nine "
-        "fields. The adapter builds one rather than changing the api function, "
-        "which keeps its own callers until the capability replaces them."
-    ),
+    ): CONFIG_REASON,
+    (
+        "hydromodpy/data/source/euhydro.py",
+        "hydromodpy.data.variables.hydrography.apis.euhydro",
+    ): PROVIDER_REASON,
+    (
+        "hydromodpy/data/source/euhydro.py",
+        "hydromodpy.data.variables.hydrography.config",
+    ): CONFIG_REASON,
     (
         "hydromodpy/data/source/hubeau_piezometry.py",
         "hydromodpy.data.variables.piezometry.apis.hubeau",
     ): PROVIDER_REASON,
+    (
+        "hydromodpy/data/source/osm.py",
+        "hydromodpy.data.variables.hydrography.apis.osm",
+    ): PROVIDER_REASON,
+    (
+        "hydromodpy/data/source/osm.py",
+        "hydromodpy.data.variables.hydrography.config",
+    ): CONFIG_REASON,
     (
         "hydromodpy/data/source/ign_dem.py",
         "hydromodpy.data.variables.dem.apis.ign_dem_fr",
@@ -95,7 +113,7 @@ DECLARED_EXCEPTIONS: dict[tuple[str, str], str] = {
 }
 """Every remaining edge out of ``data/source``, each with the reason it is taken.
 
-All four are inside ``fetch``: see
+Every one of them is inside ``fetch``: see
 :func:`test_every_provider_import_stays_deferred`.
 """
 
@@ -137,6 +155,9 @@ def test_the_scanner_sees_the_data_source_package() -> None:
     files = {_relative(edge) for edge in edges}
     assert "hydromodpy/data/source/port.py" in files
     assert "hydromodpy/data/source/bdtopage.py" in files
+    assert "hydromodpy/data/source/euhydro.py" in files
+    assert "hydromodpy/data/source/osm.py" in files
+    assert "hydromodpy/data/source/registry.py" in files
     assert "hydromodpy/data/source/hubeau_piezometry.py" in files
     assert "hydromodpy/data/source/ign_dem.py" in files
     assert "hydromodpy/data/source/sim2_precipitation.py" in files

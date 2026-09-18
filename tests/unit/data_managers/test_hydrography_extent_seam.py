@@ -42,31 +42,53 @@ def test_the_manager_refuses_a_geographic_object():
         HydrographyManager(config=None, out_path=".", geographic=object())
 
 
+def _record_the_extent(monkeypatch) -> list:
+    """Intercept the port call and keep the extent the manager built."""
+    seen: list = []
+
+    def _fetch(source, extent, *, out_dir):
+        seen.append((source, extent, out_dir))
+        return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+
+    monkeypatch.setattr(
+        "hydromodpy.data.variables.hydrography.manager.fetch_network",
+        _fetch,
+    )
+    return seen
+
+
 @pytest.mark.fast
-def test_a_section_without_a_mask_is_refused_by_name(tmp_path):
+def test_a_section_without_a_mask_is_refused_by_name(tmp_path, monkeypatch):
     """No extent is a refusal that names the field, not an AttributeError."""
+    _record_the_extent(monkeypatch)
     cfg = HydrographyConfig(sources=[{"source": "osm"}])
     with patch("hydromodpy.spatial.delineation.get_whitebox_backend"):
         manager = HydrographyManager(config=cfg, out_path=tmp_path)
     with pytest.raises(ValueError, match="mask_path"):
-        manager._get_bbox_wgs84()
+        manager._fetch_from_source(cfg.sources[0])
 
 
 @pytest.mark.fast
-def test_the_request_box_leaves_in_wgs84_whatever_the_mask_is_in(tmp_path):
-    """The three hydrography APIs are asked in degrees; the mask is in metres.
+def test_the_request_box_leaves_in_the_crs_the_source_declares(tmp_path, monkeypatch):
+    """The three hydrography sources declare degrees; the mask is in metres.
 
     Anti-vacuity: the Lambert-93 bounds of the fixture are around
     ``(300000, 6700000)``. Handing them over unconverted is the defect F5d-1
     removed from the raster managers, and it would fail every assertion here.
+    The CRS is no longer a literal in the manager: it is read off the source,
+    so a source answering in another frame is asked in that one.
     """
+    seen = _record_the_extent(monkeypatch)
     inputs = _fake_inputs(tmp_path, crs="EPSG:2154")
     cfg = HydrographyConfig(sources=[{"source": "osm"}], mask_path=inputs.mask_path)
     with patch("hydromodpy.spatial.delineation.get_whitebox_backend"):
         manager = HydrographyManager(config=cfg, out_path=tmp_path)
 
-    lon_min, lat_min, lon_max, lat_max = manager._get_bbox_wgs84()
+    manager._fetch_from_source(cfg.sources[0])
 
+    source, extent, _ = seen[0]
+    assert extent.crs == source.extent_crs == "EPSG:4326"
+    lon_min, lat_min, lon_max, lat_max = extent.bbox
     assert -3.0 < lon_min < lon_max < 0.0, (lon_min, lon_max)
     assert 47.0 < lat_min < lat_max < 50.0, (lat_min, lat_max)
 

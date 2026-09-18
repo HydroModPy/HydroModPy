@@ -64,14 +64,17 @@ from hydromodpy.data.source import (
     SOURCE_MEMBERS,
     BdTopageSource,
     DataSource,
+    EuHydroSource,
     Extent,
     FetchRequest,
     FetchResult,
     HubeauPiezometrySource,
     IgnDemSource,
+    OsmSource,
     Period,
     Sim2PrecipitationSource,
     missing_source_members,
+    registry,
 )
 
 pyproj = pytest.importorskip("pyproj")
@@ -137,6 +140,22 @@ CASES: tuple[SourceCase, ...] = (
         name="bdtopage",
         build=BdTopageSource,
         provider_module="hydromodpy.data.variables.hydrography.apis.bdtopage",
+        provider_attr="fetch",
+        read_bbox=lambda args, kwargs: args[1] if len(args) > 1 else kwargs.get("bbox_wgs84"),
+        canned=_empty_frame,
+    ),
+    SourceCase(
+        name="osm",
+        build=OsmSource,
+        provider_module="hydromodpy.data.variables.hydrography.apis.osm",
+        provider_attr="fetch",
+        read_bbox=lambda args, kwargs: args[1] if len(args) > 1 else kwargs.get("bbox_wgs84"),
+        canned=_empty_frame,
+    ),
+    SourceCase(
+        name="euhydro",
+        build=EuHydroSource,
+        provider_module="hydromodpy.data.variables.hydrography.apis.euhydro",
         provider_attr="fetch",
         read_bbox=lambda args, kwargs: args[1] if len(args) > 1 else kwargs.get("bbox_wgs84"),
         canned=_empty_frame,
@@ -213,6 +232,11 @@ def record_provider(monkeypatch: pytest.MonkeyPatch) -> Callable[[SourceCase], l
 # --------------------------------------------------------------------------- #
 # Anti-vacuity
 # --------------------------------------------------------------------------- #
+
+
+def test_the_suite_covers_every_source_this_build_ships() -> None:
+    """An adapter added to the registry and not here would be untested by omission."""
+    assert {case.name for case in CASES} == set(registry.builtin_source_ids())
 
 
 def test_the_suite_spans_the_vocabularies() -> None:

@@ -8,6 +8,10 @@ entry point in the ``hydromodpy.data.source`` group, never imported by name.
 
 from __future__ import annotations
 
+import json
+import pathlib
+import subprocess
+import sys
 from importlib.metadata import EntryPoint
 from typing import ClassVar
 
@@ -27,6 +31,8 @@ from hydromodpy.data.source.port import (
     extent_for,
     missing_class_members,
 )
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 
 
 class AcmeRadarSource:
@@ -123,22 +129,36 @@ def test_every_builtin_id_resolves_to_a_class_the_port_accepts() -> None:
         assert missing_class_members(source_cls) == ()
 
 
-def test_a_builtin_is_not_imported_until_it_is_asked_for(
-    isolated_registry: object,
-) -> None:
-    """The declaration is a dotted path, so declaring costs no import."""
-    import sys
+@pytest.mark.allow_subprocess
+def test_a_builtin_is_not_imported_until_it_is_asked_for() -> None:
+    """The declaration is a dotted path, so declaring costs no import.
 
-    module = "hydromodpy.data.source.ign_dem"
-    for name in [key for key in sys.modules if key == module]:
-        del sys.modules[name]
-    registry._REGISTRY.pop("ign-bdalti", None)
-
-    registry.get("bdtopage")
-    assert module not in sys.modules
-
-    registry.get("ign-bdalti")
-    assert module in sys.modules
+    Measured in a fresh interpreter, and deliberately not by deleting the
+    module from ``sys.modules`` here: the adversarial gate of this phase showed
+    that a purge no fixture restores leaves a second, distinct class object
+    behind, and two integration tests then monkeypatch the wrong one and pass
+    for the wrong reason.
+    """
+    script = (
+        "import json, sys;"
+        "from hydromodpy.data.source import registry;"
+        "target = 'hydromodpy.data.source.ign_dem';"
+        "registry.get('bdtopage');"
+        "before = target in sys.modules;"
+        "registry.get('ign-bdalti');"
+        "after = target in sys.modules;"
+        "print(json.dumps([before, after]))"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=REPO_ROOT,
+    )
+    before, after = json.loads(completed.stdout.strip().splitlines()[-1])
+    assert not before, "resolving one source imported another one's module"
+    assert after, "anti-vacuity: the module was never imported at all"
 
 
 def test_the_described_set_and_the_resolvable_set_are_different_questions(

@@ -176,12 +176,13 @@ def test_an_api_source_downloads_on_the_outlet_box_clipped_to_the_dem(tmp_path, 
     )
     seen: dict[str, tuple[float, float, float, float]] = {}
 
-    def _fake_fetch(_source_cfg, bbox_wgs84):
-        seen["bbox"] = bbox_wgs84
+    def _fake_fetch(source, extent, *, out_dir):
+        assert source.source_id == "osm"
+        seen["bbox"] = extent.bbox
         return gpd.GeoDataFrame({"id": [1]}, geometry=[_NETWORK], crs="EPSG:2154")
 
     monkeypatch.setattr(
-        "hydromodpy.data.variables.hydrography.manager.fetch_api_source",
+        "hydromodpy.data.variables.hydrography.api_source.fetch_network",
         _fake_fetch,
     )
 
@@ -206,12 +207,12 @@ def test_a_downloaded_box_is_not_fetched_twice(tmp_path, monkeypatch):
     cfg = _cfg([SimpleNamespace(source="osm", path=None, force_refresh=False)])
     calls = {"n": 0}
 
-    def _fake_fetch(_source_cfg, _bbox_wgs84):
+    def _fake_fetch(_source, _extent, *, out_dir):
         calls["n"] += 1
         return gpd.GeoDataFrame({"id": [1]}, geometry=[_NETWORK], crs="EPSG:2154")
 
     monkeypatch.setattr(
-        "hydromodpy.data.variables.hydrography.manager.fetch_api_source",
+        "hydromodpy.data.variables.hydrography.api_source.fetch_network",
         _fake_fetch,
     )
 

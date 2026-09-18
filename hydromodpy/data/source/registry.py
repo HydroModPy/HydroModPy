@@ -53,6 +53,7 @@ and the conformance suite holds an instance to the rest.
 from __future__ import annotations
 
 import importlib
+import inspect
 from importlib.metadata import entry_points
 
 from hydromodpy.core.exceptions import DataRequestError
@@ -66,8 +67,10 @@ ENTRY_POINT_GROUP = "hydromodpy.data.source"
 
 _BUILTIN_PATHS: dict[str, str] = {
     "bdtopage": "hydromodpy.data.source.bdtopage:BdTopageSource",
+    "euhydro": "hydromodpy.data.source.euhydro:EuHydroSource",
     "hubeau-piezometry": "hydromodpy.data.source.hubeau_piezometry:HubeauPiezometrySource",
     "ign-bdalti": "hydromodpy.data.source.ign_dem:IgnDemSource",
+    "osm": "hydromodpy.data.source.osm:OsmSource",
     "sim2-precipitation": "hydromodpy.data.source.sim2_precipitation:Sim2PrecipitationSource",
 }
 """Dotted paths to the in-tree source classes, imported on first lookup.
@@ -238,6 +241,36 @@ def load_plugins(*, force: bool = False) -> int:
     return count
 
 
+def build_from_section(source_cls: type, section: object) -> object:
+    """Build *source_cls* from a configuration section, by parameter name.
+
+    One rule, and it is the whole reason the ``if/elif`` could go: **a source is
+    handed the section field its constructor names, and nothing else.** The
+    parameters are read off the signature, keyword-only ones only -- which is
+    how all six in-tree sources declare theirs -- so a section field a source
+    does not ask for never reaches it and a constructor taking ``**kwargs``
+    receives nothing at all.
+
+    A source whose parameters the section does not carry is built with its own
+    defaults, which is the answer for a third-party source: the flat sections of
+    this tree are closed models, so a plugin cannot add a field to one, and
+    getting defaults is strictly better than being unreachable. Full
+    configuration of an out-of-tree source is the ``data-fetch`` capability's
+    job, where the request document carries it.
+
+    ``tests/unit/data/test_hydrography_source_binding.py`` pins, per built-in
+    source, which fields of ``[[data.hydrography.sources]]`` this binds -- the
+    one place a silent mis-binding could hide.
+    """
+    parameters = inspect.signature(source_cls).parameters
+    arguments = {
+        name: getattr(section, name)
+        for name, parameter in parameters.items()
+        if parameter.kind is inspect.Parameter.KEYWORD_ONLY and hasattr(section, name)
+    }
+    return source_cls(**arguments)
+
+
 def unregister(source_id: str) -> None:
     """Drop one entry, built-in declaration included. Primarily for tests.
 
@@ -265,6 +298,7 @@ def _name_of(candidate: object) -> str:
 
 __all__ = [
     "ENTRY_POINT_GROUP",
+    "build_from_section",
     "builtin_source_ids",
     "get",
     "is_registered",

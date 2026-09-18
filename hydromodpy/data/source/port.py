@@ -63,7 +63,7 @@ What a source promises, and who checks
 Eight declarations, each answering a divergence the census measured, and every
 one of them is compared against a real fetch by
 ``tests/contract/test_data_source_contract.py``. Seven are ``ClassVar``;
-``variables`` is the instance's, because two of the four adapters shipped here
+``variables`` is the instance's, because two of the adapters shipped here
 serve a narrower set once configured, and a declaration wider than what the
 source emits is a check that cannot fail.
 

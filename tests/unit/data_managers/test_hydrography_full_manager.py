@@ -275,16 +275,28 @@ class TestHydrographyManager:
         with pytest.raises(ValueError, match="empty"):
             mgr.load()
 
-    def test_get_bbox_wgs84(self, tmp_path):
+    def test_the_request_extent_is_reprojected_for_the_source(self, tmp_path, monkeypatch):
+        import geopandas as gpd
+
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
+        seen = []
+
+        def _fetch(source, extent, *, out_dir):
+            seen.append(extent)
+            return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+
+        monkeypatch.setattr(
+            "hydromodpy.data.variables.hydrography.manager.fetch_network",
+            _fetch,
+        )
         inputs = _fake_inputs(tmp_path)
         cfg = HydrographyConfig(sources=[{"source": "osm"}], mask_path=inputs.mask_path)
         mgr = HydrographyManager(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)
 
-        bbox = mgr._get_bbox_wgs84()
-        assert len(bbox) == 4
-        lon_min, lat_min, lon_max, lat_max = bbox
+        mgr._fetch_from_source(cfg.sources[0])
+
+        lon_min, lat_min, lon_max, lat_max = seen[0].bbox
         # Roughly France area after reprojection from EPSG:2154
         assert -10 < lon_min < lon_max < 15
         assert 40 < lat_min < lat_max < 55

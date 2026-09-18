@@ -15,11 +15,13 @@ Resolution order for a single source:
   first vector file when it points at a directory. A raster is skipped: the burn
   rasterizes geometries onto the DEM grid itself and has nothing to do with an
   already gridded network.
-- ``source = "osm" | "bdtopage" | "euhydro"`` downloads on a bootstrap bbox built
-  around the outlet, because the watershed the data manager clips against does
-  not exist yet at this point in the pipeline. That regional extent is what the
-  burn wants anyway: the trench is cut into the regional routing DEM, before
-  delineation.
+- any other source is a registered one, and it downloads on a bootstrap bbox
+  built around the outlet, because the watershed the data manager clips against
+  does not exist yet at this point in the pipeline. That regional extent is what
+  the burn wants anyway: the trench is cut into the regional routing DEM, before
+  delineation. The three names this module used to carry are gone: the section
+  says ``custom`` or it says a name the source registry resolves, and a name
+  nobody serves is refused there, listing what this installation does serve.
 
 The bootstrap download is cached on disk under its own name and deliberately not
 registered in the data catalog, so the data manager fetches the same source once
@@ -55,8 +57,6 @@ from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
 
 logger = get_logger(__name__)
 
-_API_SOURCES = ("osm", "bdtopage", "euhydro")
-
 _BOOTSTRAP_BUFFER_M = 30_000
 """Half-width of the outlet box the API sources are fetched on, in metres.
 
@@ -91,7 +91,7 @@ def resolve_stream_geometry_path_from_data_sources(
             resolved = _resolve_custom_path(source_cfg, config_dir)
             if resolved is not None:
                 return resolved
-        elif source_kind in _API_SOURCES:
+        else:
             return _bootstrap_api_source(
                 source_cfg,
                 cfg=cfg,
@@ -165,9 +165,18 @@ def _bootstrap_api_source(
         logger.info("Stream burn network already downloaded for this box: %s", out_path)
         return out_path
 
-    from hydromodpy.data.variables.hydrography.manager import fetch_api_source
+    from hydromodpy.data.source.port import Extent
+    from hydromodpy.data.variables.hydrography.api_source import (
+        fetch_network,
+        source_from_section,
+    )
 
-    gdf = fetch_api_source(source_cfg, bbox)
+    source = source_from_section(source_cfg)
+    gdf = fetch_network(
+        source,
+        Extent(xmin=bbox[0], ymin=bbox[1], xmax=bbox[2], ymax=bbox[3], crs="EPSG:4326"),
+        out_dir=output_dir / "scratch",
+    )
     if gdf.empty:
         raise ValueError(
             f"[data.hydrography] source {source_kind!r} returned no reach inside the "
