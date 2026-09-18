@@ -29,7 +29,7 @@ Two-phase execution
 from __future__ import annotations
 
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -144,8 +144,7 @@ class Pipeline:
         # head-only window - which is handed no workspace precisely so it
         # writes no run record - overwrite the documents of the run that
         # carries the same name.
-        if isinstance(state.data, Mapping):
-            state = state.with_data(run_workspace=self.workspace)
+        state = state.with_data(run_workspace=self.workspace)
 
         manifest: ResolvedRunManifest | None = None
         if self.workspace is not None:
@@ -758,13 +757,7 @@ def _to_relative_uri(item: object, workspace: Path | None) -> str | None:
 
 def _state_sim_id(state: PipelineState) -> str | None:
     """Return ``sim_id`` carried by the pipeline state if any."""
-    data = state.data
-    sim_id: object | None = None
-    if hasattr(data, "get"):
-        try:
-            sim_id = data.get("sim_id")  # type: ignore[union-attr]
-        except Exception:
-            sim_id = None
+    sim_id = state.get("sim_id")
     if not sim_id:
         ctx = state.get("ctx")
         sim_id = getattr(ctx, "sim_id", None) if ctx is not None else None

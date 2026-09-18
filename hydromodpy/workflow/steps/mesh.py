@@ -15,7 +15,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
 from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
     build_gmsh_support_metadata,
 )
-from hydromodpy.workflow.internals.state import LoadedState, MeshedState, PipelineState
+from hydromodpy.workflow.internals.state import PipelineState
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -406,8 +406,15 @@ class BuildMeshStep:
     """Build / import the mesh and complete the spatial supports."""
 
     name = "build_mesh"
-    tin: ClassVar[type] = LoadedState
-    tout: ClassVar[type] = MeshedState
+    reads: ClassVar[tuple[str, ...]] = (
+        "constraints_mode",
+        "ctx",
+        "external_mesh_input",
+        "mesh_section_data",
+        "requested_domain_supports",
+        "spatial_support_registry",
+    )
+    writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = (
         "domain.supports",
         "mesh_catchment",

@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, ClassVar
 from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.workflow.internals.state import DerivedState, PipelineState
+from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
 
 if TYPE_CHECKING:
@@ -126,8 +126,14 @@ class DisplayStep:
     """Render the figures declared in ``[display].figures`` before export."""
 
     name = "display"
-    tin: ClassVar[type] = DerivedState
-    tout: ClassVar[type] = DerivedState
+    reads: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "skip_display",
+    )
+    writes: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "rendered_figures",
+    )
     config_sections: ClassVar[tuple[str, ...]] = ("display",)
 
     def depends_on(self) -> tuple[str, ...]:

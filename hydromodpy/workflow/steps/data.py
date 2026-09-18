@@ -34,7 +34,7 @@ from hydromodpy.workflow.internals.data_description import (
     read_data_description,
     write_data_description,
 )
-from hydromodpy.workflow.internals.state import GeographicState, LoadedState, PipelineState
+from hydromodpy.workflow.internals.state import PipelineState
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -399,8 +399,8 @@ class LoadDataStep:
     """Ingest external + custom data via data managers."""
 
     name = "load_data"
-    tin: ClassVar[type] = GeographicState
-    tout: ClassVar[type] = LoadedState
+    reads: ClassVar[tuple[str, ...]] = ("ctx",)
+    writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = ("data",)
 
     def depends_on(self) -> tuple[str, ...]:

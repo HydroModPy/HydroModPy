@@ -34,7 +34,7 @@ from hydromodpy.workflow.internals.manifest import (
     state_config_payload,
     write_resolved_config,
 )
-from hydromodpy.workflow.internals.state import PipelineState, ValidatedState
+from hydromodpy.workflow.internals.state import PipelineState
 
 
 def _run_workspace_for(state: PipelineState) -> Path | None:
@@ -57,8 +57,16 @@ class ValidateStep:
     """Validate the config via Pydantic."""
 
     name = "validate"
-    tin: ClassVar[type | None] = None
-    tout: ClassVar[type] = ValidatedState
+    reads: ClassVar[tuple[str, ...]] = (
+        "cfg",
+        "config_path",
+        "raw_toml",
+        "run_workspace",
+    )
+    writes: ClassVar[tuple[str, ...]] = (
+        "cfg",
+        "config_path",
+    )
     config_sections: ClassVar[tuple[str, ...]] = ("workspace", "simulation")
 
     def depends_on(self) -> tuple[str, ...]:

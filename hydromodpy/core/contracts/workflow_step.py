@@ -17,26 +17,29 @@ honoured opportunistically:
     Workspace-relative paths persisted by the step. The runner hashes the
     set to produce ``outputs_hash`` rows in the workflow ledger.
 
-Concrete implementations live under :mod:`hydromodpy.workflow.steps` and
-re-expose this Protocol via :mod:`hydromodpy.workflow.internals.step`.
+``reads`` / ``writes``
+    The payload keys the step reads from and writes to the pipeline state.
+    ``tests/unit/architecture/test_step_payload_keys.py`` derives both from the
+    step's source and requires the declaration to match exactly.
+
+Concrete implementations live under :mod:`hydromodpy.workflow.steps`, behind the
+narrower :class:`hydromodpy.workflow.internals.step.Step` Protocol; this module
+states the contract, it does not re-export theirs.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, ClassVar, Protocol, TypeVar, runtime_checkable
-
-TIn = TypeVar("TIn", covariant=True)
-TOut = TypeVar("TOut", covariant=True)
+from typing import Any, ClassVar, Protocol, runtime_checkable
 
 
 @runtime_checkable
-class WorkflowStep(Protocol[TIn, TOut]):
+class WorkflowStep(Protocol):
     """Canonical workflow step contract with DAG dependency hooks."""
 
     name: ClassVar[str]
-    tin: ClassVar[type | None]
-    tout: ClassVar[type]
+    reads: ClassVar[tuple[str, ...]]
+    writes: ClassVar[tuple[str, ...]]
     config_sections: ClassVar[tuple[str, ...]]
 
     def depends_on(self) -> tuple[str, ...]:
@@ -49,7 +52,7 @@ class WorkflowStep(Protocol[TIn, TOut]):
 
 
 @runtime_checkable
-class ResumableWorkflowStep(WorkflowStep[TIn, TOut], Protocol[TIn, TOut]):
+class ResumableWorkflowStep(WorkflowStep, Protocol):
     """Workflow step that persists durable artefacts and supports resume."""
 
     def artifacts(self, state_out: Any) -> tuple[str, ...]:

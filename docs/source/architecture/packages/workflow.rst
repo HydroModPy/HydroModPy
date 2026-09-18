@@ -10,15 +10,17 @@ same TOML always drives the same lifecycle.
 Sub-modules
 -----------
 
-- ``workflow/internals/state.py`` -- ``PipelineState[TPayload]``
-  generic dataclass, immutable, specialised by step
-  (``ValidatedState``, ``ResolvedState``, ``GeographicState``,
-  ``LoadedState``, ``MeshedState``, ``SetupState``,
-  ``OpenStoreState``, ``SolverRanState``, ``ExtractedState``,
-  ``DerivedState``, ``ExportedState``). Transit through
-  ``state.advance(...)``.
-- ``workflow/internals/step.py`` -- ``Step[TIn, TOut]`` Protocol
-  (``name``, ``run(state) -> state``, optional ``config_sections``).
+- ``workflow/internals/state.py`` -- ``PipelineState``, an immutable
+  dataclass carrying a ``dict[str, Any]`` payload. Transit through
+  ``state.advance(...)``. The payload is one mapping shared by every
+  step, and its dominant member is ``ctx``, the ``WorkflowContext``:
+  eleven of the twelve steps read it and write it back.
+- ``workflow/internals/step.py`` -- ``Step`` Protocol (``name``,
+  ``run(state) -> state``, ``reads`` / ``writes`` payload keys,
+  optional ``config_sections``). ``reads`` and ``writes`` are exact:
+  ``tests/unit/architecture/test_step_payload_keys.py`` derives both
+  from each step's source and fails on a declaration that drifts in
+  either direction.
 - ``workflow/tracking/journal.py`` -- ``WorkflowJournal``, the DuckDB
   journal of executed steps; ``workflow/tracking/resume.py`` and
   ``workflow/tracking/heartbeat.py`` sit beside it. There is no
@@ -64,22 +66,38 @@ Step contract
 
    class XyzStep:
        name: ClassVar[str] = "xyz"
-       tin: ClassVar[type] = InputPayloadType
-       tout: ClassVar[type] = OutputPayloadType
+       reads: ClassVar[tuple[str, ...]] = ("ctx",)
+       writes: ClassVar[tuple[str, ...]] = ("ctx", "xyz_summary")
        config_sections: ClassVar[tuple[str, ...]] = ("flow.param",)
 
        def run(self, state: PipelineState) -> PipelineState:
+           ctx = state.get("ctx")
            ...
            return state.advance(
                step_index=...,
                step_name=self.name,
-               payload=...,
+               xyz_summary=...,
            )
 
-The ``config_sections`` annotation declares which TOML subtrees the
-step reads. ``earliest_affected_step`` walks every step's
-declarations to decide which phases can be skipped per calibration
-trial.
+Three declarations, and each one is consumed by something.
+
+``reads`` and ``writes`` name the payload keys the step touches.
+``tests/unit/architecture/test_step_payload_keys.py`` derives both from
+the step's own source - the class body plus any module-level function of
+the workflow package that takes a ``PipelineState`` and that the step
+reaches - and fails when a declaration and the code disagree in either
+direction. A step that starts reading a member of the shared payload
+says so in the same commit.
+
+``config_sections`` declares which TOML subtrees the step reads.
+``earliest_affected_step`` walks every step's declarations to decide
+which phases can be skipped per calibration trial.
+
+The pair these replaced, ``tin`` and ``tout``, named eleven frozen
+payload classes chained by inheritance. Nothing ever built one, no
+production code read the declaration, and ten of their sixteen fields
+named no payload key any step wrote - while ``ctx``, the key eleven of
+the twelve steps write back, appeared in none of them. They are removed.
 
 Key public symbols
 ------------------

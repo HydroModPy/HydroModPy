@@ -15,7 +15,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import catalog_path_for
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.workflow.internals.state import ExtractedState, PipelineState, SolverRanState
+from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
 
 if TYPE_CHECKING:
@@ -103,8 +103,14 @@ class ExtractStep:
     """Extract solver outputs and ingest observations into the result store."""
 
     name = "extract"
-    tin: ClassVar[type] = SolverRanState
-    tout: ClassVar[type] = ExtractedState
+    reads: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "skip_display",
+    )
+    writes: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "extraction_summary",
+    )
     config_sections: ClassVar[tuple[str, ...]] = ()
 
     def depends_on(self) -> tuple[str, ...]:

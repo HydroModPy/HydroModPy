@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.workflow.internals.state import OpenStoreState, PipelineState, SolverRanState
+from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
 
 if TYPE_CHECKING:
@@ -21,8 +21,14 @@ class RunSolverStep:
     """Execute the plan via the configured launcher."""
 
     name = "run_solver"
-    tin: ClassVar[type] = OpenStoreState
-    tout: ClassVar[type] = SolverRanState
+    reads: ClassVar[tuple[str, ...]] = (
+        "after_process",
+        "ctx",
+    )
+    writes: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "wall_seconds",
+    )
     config_sections: ClassVar[tuple[str, ...]] = (
         "flow",
         "transport",

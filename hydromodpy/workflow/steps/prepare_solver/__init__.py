@@ -22,7 +22,7 @@ from typing import ClassVar
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.workflow.internals.state import OpenStoreState, PipelineState, SetupState
+from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
 from hydromodpy.workflow.steps.prepare_solver.dispatch import (
     _register_tracked_input_files,
@@ -82,8 +82,11 @@ class PrepareSolverStep:
     """
 
     name = "prepare_solver"
-    tin: ClassVar[type] = SetupState
-    tout: ClassVar[type] = OpenStoreState
+    reads: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "skip_display",
+    )
+    writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = (
         "flow",
         "transport",

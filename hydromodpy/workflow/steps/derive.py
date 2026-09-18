@@ -24,7 +24,7 @@ from hydromodpy.core.exceptions import ConfigError, ExtractError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.derived import DerivedResult
 from hydromodpy.workflow.internals.derived import registry as _default_registry
-from hydromodpy.workflow.internals.state import DerivedState, ExtractedState, PipelineState
+from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
 
 if TYPE_CHECKING:
@@ -37,8 +37,11 @@ class DeriveStep:
     """Compute derived fields registered on the :class:`DerivedRegistry`."""
 
     name = "derive"
-    tin: ClassVar[type] = ExtractedState
-    tout: ClassVar[type] = DerivedState
+    reads: ClassVar[tuple[str, ...]] = ("ctx",)
+    writes: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "derived_names",
+    )
     config_sections: ClassVar[tuple[str, ...]] = ("postprocess",)
 
     def __init__(self, registry=None) -> None:

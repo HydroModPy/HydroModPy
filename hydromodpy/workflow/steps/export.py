@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, ClassVar, cast
 from hydromodpy.core.exceptions import ConfigError, ExportError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIRNAME
-from hydromodpy.workflow.internals.state import DerivedState, ExportedState, PipelineState
+from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
 
 if TYPE_CHECKING:
@@ -291,8 +291,16 @@ class ExportStep:
     """
 
     name = "export"
-    tin: ClassVar[type] = DerivedState
-    tout: ClassVar[type] = ExportedState
+    reads: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "export_paths",
+        "keep_preprocessing",
+        "wall_seconds",
+    )
+    writes: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "export_paths",
+    )
     config_sections: ClassVar[tuple[str, ...]] = ()
 
     def depends_on(self) -> tuple[str, ...]:

@@ -24,13 +24,7 @@ from hydromodpy.spatial.geographic.core.derived_features import (
 )
 from hydromodpy.spatial.geographic.structure_binders import apply_catchment_zones_to_domain
 from hydromodpy.spatial.geographic.synthetic import build_synthetic_geographic
-from hydromodpy.workflow.internals.state import (
-    GeographicState,
-    MeshedState,
-    PipelineState,
-    ResolvedState,
-    SetupState,
-)
+from hydromodpy.workflow.internals.state import PipelineState
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -608,8 +602,14 @@ class BuildGeographicStep:
     """
 
     name = "build_geographic"
-    tin: ClassVar[type] = ResolvedState
-    tout: ClassVar[type] = GeographicState
+    reads: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "requested_domain_supports",
+        "requested_spatial_support_ids",
+        "run_name",
+        "spatial_support_registry",
+    )
+    writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = ("geographic", "data.dem")
 
     def depends_on(self) -> tuple[str, ...]:
@@ -697,8 +697,8 @@ class SetupProcessStep:
     """Instantiate flow / transport process objects bound to the domain."""
 
     name = "setup_process"
-    tin: ClassVar[type] = MeshedState
-    tout: ClassVar[type] = SetupState
+    reads: ClassVar[tuple[str, ...]] = ("ctx",)
+    writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = (
         "domain.depth_model",
         "flow.ic",

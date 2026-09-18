@@ -3,20 +3,24 @@
 A step is a callable with a stable ``name`` that transforms an input
 :class:`~hydromodpy.workflow.internals.state.PipelineState` into an output state.
 
-The protocol is generic over the input/output payload types ``TIn`` and
-``TOut`` so that statically-checked steps can declare:
+A step declares the payload keys it touches, ``reads`` and ``writes``:
 
 ::
 
     class ResolveStep:
         name = "resolve"
-        tin: ClassVar[type] = ValidatedState
-        tout: ClassVar[type] = ResolvedState
+        reads: ClassVar[tuple[str, ...]] = ("cfg", "config_path", "ctx")
+        writes: ClassVar[tuple[str, ...]] = ("ctx", "raw_toml")
         config_sections: ClassVar[tuple[str, ...]] = ("workspace", "simulation")
 
-        def run(
-            self, state: PipelineState[ValidatedState]
-        ) -> PipelineState[ResolvedState]: ...
+        def run(self, state: PipelineState) -> PipelineState: ...
+
+Both declarations are exact, not indicative:
+``tests/unit/architecture/test_step_payload_keys.py`` derives the keys from the
+step's own source and fails when a declaration and the code disagree in either
+direction. That gate is the whole value of the declaration - the pair it replaced,
+``tin`` and ``tout``, named eleven payload classes that nothing ever built and no
+production code ever read.
 
 Steps may also declare a ``config_sections`` class variable listing the
 dotted TOML subtrees they read from. The attribute is *optional* on the
@@ -51,52 +55,48 @@ contract.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, ClassVar, Protocol, TypeVar, runtime_checkable
+from typing import ClassVar, Protocol, runtime_checkable
 
 from hydromodpy.workflow.internals.state import PipelineState
 
-TIn = TypeVar("TIn")
-TOut = TypeVar("TOut")
-
 
 @runtime_checkable
-class Step(Protocol[TIn, TOut]):
+class Step(Protocol):
     """Canonical pipeline step contract."""
 
     name: str
 
-    def run(self, state_in: PipelineState[TIn]) -> PipelineState[TOut]:
+    def run(self, state_in: PipelineState) -> PipelineState:
         """Return a successor state produced from ``state_in``."""
         ...
 
 
-class ResumableStep(Step[TIn, TOut], Protocol[TIn, TOut]):
+class ResumableStep(Step, Protocol):
     """Optional contract for steps that persist durable artefacts."""
 
-    def artifacts(self, state_out: PipelineState[TOut]) -> tuple[str, ...]:
+    def artifacts(self, state_out: PipelineState) -> tuple[str, ...]:
         """Return workspace-relative paths of durable outputs."""
         ...
 
     def rebuild_state(
         self,
         *,
-        prior_state: PipelineState[TIn],
+        prior_state: PipelineState,
         workspace: Path,
         run_id: str,
-    ) -> PipelineState[TOut]:
+    ) -> PipelineState:
         """Rebuild the output state by reading durable artefacts only."""
         ...
 
 
-# Lightweight marker mixin used by concrete steps to expose their TIn/TOut
-# at runtime (the Protocol type variables are erased). Steps may also assign
-# class-level attributes ``tin`` and ``tout`` directly.
+# Lightweight marker mixin used by concrete steps to expose, at runtime, the
+# payload keys they touch and the config sections they read.
 class _TypedStep:
-    """Optional base for steps that want to expose their ``tin``/``tout``."""
+    """Optional base for steps that want to expose their payload surface."""
 
-    tin: type[Any] | None = None
-    tout: type[Any] | None = None
+    reads: ClassVar[tuple[str, ...]] = ()
+    writes: ClassVar[tuple[str, ...]] = ()
     config_sections: ClassVar[tuple[str, ...]] = ()
 
 
-__all__ = ("ResumableStep", "Step", "TIn", "TOut", "_TypedStep")
+__all__ = ("ResumableStep", "Step", "_TypedStep")

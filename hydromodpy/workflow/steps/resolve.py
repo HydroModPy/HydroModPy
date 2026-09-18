@@ -24,15 +24,25 @@ from typing import ClassVar
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-from hydromodpy.workflow.internals.state import PipelineState, ResolvedState, ValidatedState
+from hydromodpy.workflow.internals.state import PipelineState
 
 
 class ResolveStep:
     """Resolve workspace + create a ``WorkflowContext`` bound to the config."""
 
     name = "resolve"
-    tin: ClassVar[type] = ValidatedState
-    tout: ClassVar[type] = ResolvedState
+    reads: ClassVar[tuple[str, ...]] = (
+        "cfg",
+        "config_path",
+        "ctx",
+        "raw_toml",
+        "requested_domain_supports",
+        "requested_spatial_support_ids",
+    )
+    writes: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "raw_toml",
+    )
     config_sections: ClassVar[tuple[str, ...]] = ("workspace", "simulation")
 
     def depends_on(self) -> tuple[str, ...]:

@@ -64,7 +64,7 @@ class ResolvedRunManifest:
             schema_version=SCHEMA_VERSION,
             run_id=state.run_id,
             config_sha256=_sha256_payload(config_payload) if config_payload else None,
-            config_path=_string_or_none(_state_get(state, "config_path")),
+            config_path=_string_or_none(state.get("config_path")),
             workspace=_string_or_none(workspace),
             steps=tuple(_step_name(step) for step in steps),
             step_index=int(state.step_index),
@@ -251,12 +251,6 @@ def _step_name(step: object) -> str:
     return str(getattr(step, "name", step.__class__.__name__))
 
 
-def _state_get(state: PipelineState, key: str) -> Any:
-    if isinstance(state.data, Mapping):
-        return state.data.get(key)
-    return getattr(state.data, key, None)
-
-
 def _strip_observability_keys(payload: Any) -> Any:
     """Drop config keys that toggle observability only (``workflow.profile``).
 
@@ -279,15 +273,18 @@ def _state_config_payload(state: PipelineState) -> Any:
     from the config frozen in its own run directory therefore fingerprints
     exactly like its original launch from the user TOML. ``raw_toml`` is the
     fallback for states carrying no config model.
+
+    The key is ``cfg``, and it used to be looked up under ``config`` first. No
+    step ever wrote that name - it came from ``ValidatedState.config``, a field
+    of the payload class chain that nothing built - so the first lookup always
+    missed and the fallback always fired.
     """
-    config = _state_get(state, "config")
-    if config is None:
-        config = _state_get(state, "cfg")
+    config = state.get("cfg")
     if isinstance(config, BaseModel):
         return _strip_observability_keys(config.model_dump(mode="json", exclude_none=True))
     if isinstance(config, Mapping):
         return _strip_observability_keys(config)
-    raw_toml = _state_get(state, "raw_toml")
+    raw_toml = state.get("raw_toml")
     if raw_toml:
         return _strip_observability_keys(raw_toml)
     return None

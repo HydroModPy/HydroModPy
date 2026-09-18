@@ -62,21 +62,23 @@ Step contract recap
 
 .. code-block:: python
 
-   class Step(Protocol[TIn, TOut]):
+   class Step(Protocol):
        name: str
+       reads: ClassVar[tuple[str, ...]]
+       writes: ClassVar[tuple[str, ...]]
 
-       def run(self, state_in: PipelineState[TIn]) -> PipelineState[TOut]: ...
+       def run(self, state_in: PipelineState) -> PipelineState: ...
 
-       def artifacts(self, state_out: PipelineState[TOut]) -> tuple[str, ...]:
+       def artifacts(self, state_out: PipelineState) -> tuple[str, ...]:
            """Workspace-relative paths of durable outputs. Empty tuple = in-memory."""
 
        def rebuild_state(
            self,
            *,
-           prior_state: PipelineState[TIn],
+           prior_state: PipelineState,
            workspace: Path,
            run_id: str,
-       ) -> PipelineState[TOut]:
+       ) -> PipelineState:
            """Restore the output state from disk. Must not re-run the heavy op."""
 
 In-memory steps (no ``artifacts``) are simply re-executed at resume:
