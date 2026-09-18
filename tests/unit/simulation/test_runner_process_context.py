@@ -250,7 +250,10 @@ def test_runner_records_mesh_process_without_solver_adapter(monkeypatch) -> None
     ).execute(plan, state)
 
     assert observed_runs[0][0].id == "mesh_main::catchment"
-    assert state.execution.models_by_run_id["mesh_main::catchment"] == {
+    # A mesh run materialises a mesh, not a model: it records nothing in the
+    # registry, and what it built is execution metadata.
+    assert "mesh_main::catchment" not in state.execution.models_by_run_id
+    assert observed_runs[0][1].metrics == {
         "backend": "catchment",
         "summary": {"output_mesh": "mesh.msh", "n_cells": 12},
     }

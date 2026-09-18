@@ -261,16 +261,24 @@ class SimulationRunner:
         return result
 
     def _run_mesh_process(self, state: Any, run: ProcessRun) -> RunExecutionResult:
-        """Record the mesh artifacts already materialized by the mesh phase."""
+        """Record the mesh artifacts already materialized by the mesh phase.
+
+        A mesh run produces no model. What it has to say about what it built is
+        execution metadata, and it travels as such: the summary used to sit in
+        ``primary_model``, where it was the one value in that field that was not
+        a model, and where nothing ever read it back.
+        """
         backend = run.backend or run.solver
         if backend != "catchment":
             raise ValueError(f"Unsupported mesh process backend: {backend!r}")
         mesh_summary = getattr(getattr(state, "setup", None), "mesh_summary", None)
-        primary_model = {
-            "backend": backend,
-            "summary": dict(mesh_summary) if isinstance(mesh_summary, dict) else mesh_summary,
-        }
-        return RunExecutionResult(primary_model=primary_model)
+        return RunExecutionResult(
+            primary_model=None,
+            metrics={
+                "backend": backend,
+                "summary": dict(mesh_summary) if isinstance(mesh_summary, dict) else mesh_summary,
+            },
+        )
 
     def _resolve_dependency_models(
         self,
@@ -281,12 +289,16 @@ class SimulationRunner:
 
         models: list[object] = []
         for dependency_id in run.depends_on:
-            if dependency_id not in state.execution.models_by_run_id:
+            # A recorded ``None`` is a run that produced no model, which is not
+            # the same thing as a run that has not executed; both are refused
+            # here, and for the same reason: there is nothing to hand over.
+            model = state.execution.models_by_run_id.get(dependency_id)
+            if model is None:
                 raise ValueError(
                     f"Process run '{run.id}' depends on '{dependency_id}', "
-                    "but that run has not produced a model yet."
+                    "but that run has produced no model."
                 )
-            models.append(state.execution.models_by_run_id[dependency_id])
+            models.append(model)
         return tuple(models)
 
     def _record_run_output(
@@ -298,13 +310,18 @@ class SimulationRunner:
         """Persist one completed run output back into the shared runtime state.
 
         ``execution.models_by_run_id`` is the registry this runner resolves against
-        when a later run declares a dependency. ``execution.output_dirs_by_run_id``
+        when a later run declares a dependency; a run absent from it produced no
+        model, and a mesh run is the one case in the repository. ``execution.output_dirs_by_run_id``
         mirrors it with the solver scratch directory so RAM-only metric extractors
         (calibration trials) locate the raw solver binaries without going through
         the catalog. Neither is read outside this class: a consumer of what one run
         produced receives it on the ``RunContext`` of that run.
         """
 
-        state.execution.models_by_run_id[run.id] = result.primary_model
+        # A run that produced no model records none. Writing ``None`` under its
+        # id would make the registry answer "yes, and it is nothing" to every
+        # consumer that iterates its values.
+        if result.primary_model is not None:
+            state.execution.models_by_run_id[run.id] = result.primary_model
         if result.solver_output_dir is not None:
             state.execution.output_dirs_by_run_id[run.id] = result.solver_output_dir

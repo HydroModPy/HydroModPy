@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.contracts.solver_model import SolverModel
 from hydromodpy.core.state.run_state import RunState
 
 
@@ -184,19 +185,23 @@ class RunContext:
 class RunExecutionResult:
     """Payload returned by a solver adapter after one run completes.
 
-    ``primary_model`` is the exact model produced by the run and is always
-    recorded by the runner, which resolves it later for a run that declares
-    this one in ``depends_on``.
+    ``primary_model`` is the model produced by the run, recorded by the runner
+    so it can resolve it for a run that declares this one in ``depends_on``. It
+    is ``None`` for a run that produces no model: a mesh run materialises a
+    mesh, not a model, and the summary of what it built travels in ``metrics``.
 
     ``solver_output_dir`` is the directory where the solver wrote its raw
     output files (e.g. ``.hds``, ``.cbc``). May be ``None`` for in-memory
     solvers.
 
-    ``metrics`` carries lightweight scalar execution metadata produced by
-    the solver itself. It is intentionally optional so older/custom adapters
-    can keep returning only a model and an output directory.
+    ``metrics`` carries execution metadata the run produced about itself. The
+    catalog only persists what converts to a finite float and skips the rest,
+    which is why a mesh run can put its nested build summary here: it is what
+    that run has to say about what it made, and no consumer of a scalar sees
+    it. It is intentionally optional so an adapter can keep returning only a
+    model and an output directory.
     """
 
-    primary_model: Any
+    primary_model: SolverModel | None
     solver_output_dir: Path | None = None
     metrics: Mapping[str, Any] = field(default_factory=dict)
