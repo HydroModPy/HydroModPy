@@ -426,9 +426,9 @@ def refuse_a_normalisation_that_means_nothing(block: str, metric: str) -> None:
     if not needs.needs_observations:
         raise ValueError(
             f"Block {block!r}: normalize_cost = true has nothing to read a scale from "
-            f"for {metric!r}. That criterion balances two simulated quantities, so its "
-            "observed vector is a pair of zeros and the scale collapses to one. Set the "
-            "share you want in 'weight'."
+            f"for {metric!r}. That criterion balances two simulated quantities, so no "
+            "observed record exists to take a spread from. Set the share you want in "
+            "'weight'."
         )
 
 

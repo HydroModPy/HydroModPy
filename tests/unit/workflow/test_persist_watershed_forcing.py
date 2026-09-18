@@ -60,8 +60,8 @@ def _register_sim(catalog) -> str:
     return sid
 
 
-def _ctx(catalog, sid: str, loaded: _Loaded) -> SimpleNamespace:
-    return SimpleNamespace(store=catalog, sim_id=sid, loaded_data=loaded)
+def _ctx(sid: str, loaded: _Loaded) -> SimpleNamespace:
+    return SimpleNamespace(sim_id=sid, loaded_data=loaded)
 
 
 def test_gridded_runoff_persists_watershed_mean(tmp_path):
@@ -71,7 +71,7 @@ def test_gridded_runoff_persists_watershed_mean(tmp_path):
 
     with simulation_catalog(tmp_path / "ws") as catalog:
         sid = _register_sim(catalog)
-        step_persist_forcings(_ctx(catalog, sid, loaded))
+        step_persist_forcings(_ctx(sid, loaded), store=catalog)
 
         sz = catalog.open_zarr(sid)
         try:
@@ -104,7 +104,7 @@ def test_station_backed_runoff_skips_watershed_mean(tmp_path):
 
     with simulation_catalog(tmp_path / "ws") as catalog:
         sid = _register_sim(catalog)
-        step_persist_forcings(_ctx(catalog, sid, loaded))
+        step_persist_forcings(_ctx(sid, loaded), store=catalog)
 
         sz = catalog.open_zarr(sid)
         try:
@@ -124,7 +124,7 @@ def test_non_allowlisted_family_keeps_field_only(tmp_path):
 
     with simulation_catalog(tmp_path / "ws") as catalog:
         sid = _register_sim(catalog)
-        step_persist_forcings(_ctx(catalog, sid, loaded))
+        step_persist_forcings(_ctx(sid, loaded), store=catalog)
 
         sz = catalog.open_zarr(sid)
         try:
@@ -148,7 +148,7 @@ def test_watershed_mean_failure_is_non_fatal(tmp_path, monkeypatch):
 
     with simulation_catalog(tmp_path / "ws") as catalog:
         sid = _register_sim(catalog)
-        step_persist_forcings(_ctx(catalog, sid, loaded))
+        step_persist_forcings(_ctx(sid, loaded), store=catalog)
 
         sz = catalog.open_zarr(sid)
         try:

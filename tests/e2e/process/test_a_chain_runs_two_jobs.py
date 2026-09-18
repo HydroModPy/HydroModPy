@@ -176,3 +176,61 @@ def test_a_refused_document_leaves_the_root_exactly_as_staged(tmp_path: Path) ->
     assert completed.returncode == EXIT_CONFIG
     assert completed.stdout == ""
     assert [entry.name for entry in root.iterdir()] == ["chain.json"]
+
+
+def test_a_terrain_and_a_domain_chain_into_a_sealed_geometry(tmp_path: Path) -> None:
+    """The pair F7e exists for, run for real through one command.
+
+    The mesh generator of this tree reads its vertical extent off a live
+    ``Domain`` built one step after the meshing. What this asserts is that the
+    same geometry is reachable as a directory a stranger can open: the
+    delineation seals a corrected DEM and a catchment, and the domain seals a
+    bottom, a thickness and a document naming the digest of the terrain it came
+    from -- with no workspace, no catalog and no database anywhere in between.
+    """
+    root = _root(
+        tmp_path,
+        {
+            "steps": [
+                {
+                    "id": "delineate",
+                    "process": {"id": "terrain-delineate", "version": "1.0.0"},
+                    "inputs": {
+                        "dem": {"href": str(DEM), "type": "image/tiff; application=geotiff"},
+                        "outlets": [OUTLET],
+                        "crs_project": "EPSG:2154",
+                        "snap_distance_m": 100,
+                    },
+                },
+                {
+                    "id": "domain",
+                    "process": {"id": "domain-build", "version": "1.0.0"},
+                    "inputs": {
+                        "depth_model": {"kind": "constant_thickness", "thickness": 30.0},
+                        "mask_layer": "watershed",
+                    },
+                    "links": [
+                        {"member": "dem", "step": "delineate", "output": "dem_corrected"},
+                        {"member": "mask", "step": "delineate", "output": "watershed_vector"},
+                    ],
+                },
+            ]
+        },
+        name="terrain_to_domain",
+    )
+
+    completed = _hmp("process", "chain", "--root", str(root))
+
+    assert completed.returncode == 0, completed.stderr[-4000:]
+    assert (root / "02-domain" / "manifest.json").is_file()
+    document = json.loads(
+        (root / "02-domain" / "outputs" / "domain.json").read_text(encoding="utf-8")
+    )
+    inputset = json.loads((root / "02-domain" / "inputset.json").read_text(encoding="utf-8"))
+    consumed = {resource["name"]: resource for resource in inputset["resources"]}
+
+    assert document["layers"][0]["top"]["sha256"] == consumed["dem"]["sha256"]
+    assert document["active_cells"]["mask"]["sha256"] == consumed["mask"]["sha256"]
+    assert document["depth_model"] == {"kind": "constant_thickness", "thickness": 30.0}
+    assert 0 < document["active_cells"]["count"] < document["active_cells"]["total"]
+    assert document["statistics"]["thickness"]["min"] == 30.0

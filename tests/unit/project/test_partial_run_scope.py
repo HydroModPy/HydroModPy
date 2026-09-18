@@ -1,11 +1,15 @@
-"""A partial run pays for the steps it asks for, and for nothing else.
+"""A run pays for the steps it asks for, and the Pipeline executes them.
 
 ``Project.simulate`` used to build the whole model phase - geographic, data,
 mesh - before the Pipeline was even constructed, so ``until_step`` could only
 ever make a run *shorter*, never *cheaper*: asking for a catchment outline still
-downloaded the forcings and meshed the domain. The eager build now happens only
-when the requested window reaches ``setup_process``, the first step that
-consumes the shared model phase.
+downloaded the forcings and meshed the domain. That eager build is gone: the
+Pipeline executes ``build_geographic``, ``load_data`` and ``build_mesh`` itself,
+which is what gives each of them a journal row.
+
+One run still builds the model phase up front, and only one: a run whose
+overrides patch it, because the plan builder rebuilds the domain and replays the
+data binders on a model that must already exist.
 
 Two levels are covered here: the decision itself, through a dry run that
 executes no step, and its effect on a real synthetic project run in process.
@@ -25,6 +29,20 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 SYNTHETIC_PROJECT = REPO_ROOT / "examples" / "projects" / "00_getting_started" / "project.toml"
 
 
+def _declared_config(root: Path):
+    """The narrow slice of a real configuration a dry run reads."""
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.workspace.config import WorkspaceConfig
+    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+
+    return HydroModPyConfig(
+        workflow={"mode": "simulation"},
+        workspace=WorkspaceConfig(project_root=str(root), root=str(root)),
+        geographic=GeographicConfig(source_mode="synthetic"),
+        domain={"depth_model": {"kind": "constant_thickness", "thickness": 50.0}},
+    )
+
+
 class _StubProject:
     """The narrow slice of ``Project`` that a dry run reads."""
 
@@ -33,7 +51,10 @@ class _StubProject:
         self._run_counter = 0
         self._no_display = True
         self._config_path = root / "project.toml"
-        self._cfg = SimpleNamespace(workspace=SimpleNamespace(project_root=root))
+        # A real configuration, not a namespace: the runner resolves the one
+        # this run is defined by before it decides anything, so a double that
+        # cannot be copied with an override folded in proves nothing.
+        self._cfg = _declared_config(root)
         # All three fields are what ``_is_model_phase_ready`` reads; a double
         # that sets only some of them proves nothing about the ready branch.
         self._ctx = SimpleNamespace(
@@ -89,13 +110,29 @@ def test_a_window_below_the_process_phase_builds_no_model_phase(
 
 
 @pytest.mark.parametrize("until_step", [None, "setup_process", "run_solver", "export", 11])
-def test_a_window_reaching_the_process_phase_still_builds_it(
+def test_a_window_reaching_the_process_phase_leaves_it_to_the_pipeline(
     tmp_path: Path, until_step: str | int | None
 ) -> None:
-    """The reuse path is untouched: anything that consumes the model phase gets it."""
+    """No window builds the model phase up front; the Pipeline executes it."""
     project = _StubProject(tmp_path)
 
     _dry_run(project, until_step=until_step)
+
+    assert project.built == 0
+
+
+@pytest.mark.parametrize("patch", [{"Sy": 0.05}, {"thickness": 30.0}, {"first_clim": "2000-01"}])
+def test_a_run_that_patches_the_model_phase_builds_it_first(
+    tmp_path: Path, patch: dict[str, object]
+) -> None:
+    """``step_build_plan`` patches a model, so that model has to be there.
+
+    It rebuilds the domain on a new thickness and replays the data binders on
+    the loaded forcings; neither works on an untouched Project.
+    """
+    project = _StubProject(tmp_path)
+
+    _dry_run(project, **patch)
 
     assert project.built == 1
 

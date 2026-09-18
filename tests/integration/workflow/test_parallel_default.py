@@ -9,7 +9,6 @@ preserves the merged state.
 from __future__ import annotations
 
 import threading
-from typing import ClassVar
 
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.runner import Pipeline
@@ -28,8 +27,6 @@ class _SourceStep:
         self._key = key
         self._value = value
         self.run_thread_id: int | None = None
-        self.tin: ClassVar[type | None] = None
-        self.tout: ClassVar[type | None] = None
 
     def depends_on(self) -> tuple[str, ...]:
         return ()
@@ -47,8 +44,6 @@ class _SinkStep:
     """Joining step that depends on two upstream sources."""
 
     name = "sink"
-    tin: ClassVar[type | None] = None
-    tout: ClassVar[type | None] = None
 
     def __init__(self, upstream: tuple[str, str]) -> None:
         self._upstream = upstream
@@ -115,8 +110,6 @@ def test_pipeline_parallel_cohort_runs_in_threads() -> None:
         def __init__(self, name: str, key: str) -> None:
             self.name = name
             self._key = key
-            self.tin = None
-            self.tout = None
 
         def depends_on(self) -> tuple[str, ...]:
             return ()
@@ -136,8 +129,6 @@ def test_pipeline_parallel_cohort_runs_in_threads() -> None:
 
     class _ReleaseStep:
         name = "release"
-        tin = None
-        tout = None
 
         def depends_on(self) -> tuple[str, ...]:
             return ()

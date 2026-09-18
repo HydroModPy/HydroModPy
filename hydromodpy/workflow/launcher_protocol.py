@@ -23,7 +23,7 @@ class Launcher(Protocol):
 
     The launcher is responsible for walking ``plan.runs`` in order, for
     setting up each process-family block, and for storing the produced
-    models back into ``state.execution.models_by_run_id``.
+    models back into the execution registry the runner owns.
 
     The single ``execute`` method takes the plan and the workflow state.
     Side-effects are observed through ``state`` mutations and through any
@@ -36,6 +36,7 @@ class Launcher(Protocol):
         state: Any,
         *,
         callbacks: Any | None = None,
+        store: Any | None = None,
     ) -> tuple[tuple[ProcessRun, RunExecutionResult], ...] | None:
         """Execute every planned run in order against ``state``.
 
@@ -45,4 +46,7 @@ class Launcher(Protocol):
         DAG while letting concrete launchers depend on the real type.
         ``callbacks`` is launcher-specific metadata; the default launcher
         accepts :class:`hydromodpy.simulation.execution.runner.ProcessCallbacks`.
+        ``store`` is the catalog handle of the enclosing run, passed down to
+        the adapters that read a persisted field while they build; ``None``
+        says this run writes no index.
         """

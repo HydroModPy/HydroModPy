@@ -295,6 +295,19 @@ def test_each_phase_scores_only_on_the_blocks_it_names(tmp_path, runner) -> None
     assert [block.name for block in transient.objective_blocks] == ["h_block"]
 
 
+def test_a_phase_that_names_no_output_gets_the_ones_its_blocks_read(tmp_path, runner) -> None:
+    # The transient phase selects a block and no output. It used to inherit
+    # every declared one, so the steady stage's discharge was extracted from
+    # each of its trials and entered no cost. Worse where the two stages score
+    # different families: a network output handed to a stage scored on a series
+    # is refused outright, and the whole staged file stopped running.
+    run_staged_calibration(_write(tmp_path))
+
+    _, transient = (call.cfg for call in runner.calls)
+
+    assert list(transient.outputs) == ["h"]
+
+
 # -- freezing ----------------------------------------------------------------
 
 

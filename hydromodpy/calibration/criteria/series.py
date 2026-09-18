@@ -19,7 +19,11 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.calibration.criteria.base import CriterionRequirements, CriterionResult
+from hydromodpy.calibration.criteria.base import (
+    SERIES_SUPPORTS,
+    CriterionRequirements,
+    CriterionResult,
+)
 
 # Kernels whose score rises with agreement, so the cost is one minus the score.
 HIGHER_IS_BETTER: frozenset[str] = frozenset(
@@ -67,13 +71,18 @@ class SeriesCriterion:
         self._takes_log = self.name in LOG_METRICS
 
     def requirements(self) -> CriterionRequirements:
-        """A series criterion fits observations and publishes no residual."""
+        """A series criterion fits observations and publishes no residual.
+
+        It reads a series, so it scores the supports that produce one and no
+        other: a network output hands it two distances, not a chronicle.
+        """
         dimensionless = self.name in DIMENSIONLESS
         return CriterionRequirements(
             needs_observations=True,
             has_time_axis=True,
             signed=False,
             cost_is_dimensionless=dimensionless,
+            reads_supports=SERIES_SUPPORTS,
             cost_unit=None if dimensionless else _OBSERVED_UNIT,
         )
 

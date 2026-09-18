@@ -27,9 +27,10 @@ class _DummyWorkspace:
 
 
 class _DummyGeographic:
-    def __init__(self, config, workspace) -> None:
+    def __init__(self, config, workspace, *, reuse_existing_outputs=None) -> None:
         self.config = config
         self.workspace = workspace
+        self.reuse_existing_outputs = reuse_existing_outputs
 
     def get_domain_surface_topo(self):
         return SimpleNamespace(support=object())
@@ -69,6 +70,9 @@ def _patch_launcher_deps(monkeypatch):
     """
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.Workspace", _DummyWorkspace)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.CatchmentDelineation", _DummyGeographic)
-    monkeypatch.setattr("hydromodpy.workflow.steps.setup.Domain", _DummyDomain)
+    # One module deeper than the step: ``build_domain`` is the constructor the
+    # step calls, and it is the copy-then-arm of the declared section these
+    # tests are about. Stubbing it whole would stub what they assert.
+    monkeypatch.setattr("hydromodpy.spatial.domain.build.Domain", _DummyDomain)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.ensure_flow", _noop_ensure)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.ensure_transport", _noop_ensure)

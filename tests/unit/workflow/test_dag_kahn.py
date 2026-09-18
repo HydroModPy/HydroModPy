@@ -16,8 +16,6 @@ class _FakeStep:
     def __init__(self, name: str, deps: tuple[str, ...] = ()) -> None:
         self.name = name
         self._deps = deps
-        self.tin: ClassVar[type | None] = None
-        self.tout: ClassVar[type | None] = None
         self.config_sections: ClassVar[tuple[str, ...]] = ()
 
     def depends_on(self) -> tuple[str, ...]:

@@ -86,11 +86,13 @@ def test_step_build_plan_uses_override_branch_when_partial_inputs_are_supplied(
     )
 
     assert returned is override_plan
+    # ``thickness`` selects this branch but is not forwarded: its value is
+    # already resolved into ``ctx.cfg`` by ``resolve_run_config``, and the
+    # domain builder reads it there.
     assert captured == {
         "ctx": ctx,
         "name": "calibration-trial",
         "overrides": {"hydraulic_conductivity": 2.5},
-        "thickness": 30.0,
         "first_clim": "wet",
         "solver": "modflow6",
     }
@@ -458,3 +460,62 @@ def test_step_configure_results_leaves_modflow_seepage_on_the_geometric_criterio
 
     assert reconciled.config.budget.spatial_fields is False
     assert reconciled.forced_flags == ()
+
+
+# ---------------------------------------------------------------------------
+# resolve_run_config - an override defines the configuration of the run
+# ---------------------------------------------------------------------------
+
+
+def _config_with_thickness(tmp_path, thickness: float):
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.workspace.config import WorkspaceConfig
+    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+
+    return HydroModPyConfig(
+        workflow={"mode": "simulation"},
+        workspace=WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
+        geographic=GeographicConfig(source_mode="synthetic"),
+        domain={"depth_model": {"kind": "constant_thickness", "thickness": thickness}},
+    )
+
+
+def test_resolve_run_config_returns_the_declared_config_when_nothing_is_overridden(
+    tmp_path,
+) -> None:
+    cfg = _config_with_thickness(tmp_path, 50.0)
+
+    assert planning_module.resolve_run_config(cfg, thickness=None) is cfg
+
+
+def test_resolve_run_config_carries_the_override_into_the_domain_section(tmp_path) -> None:
+    cfg = _config_with_thickness(tmp_path, 50.0)
+
+    resolved = planning_module.resolve_run_config(cfg, thickness=99.0)
+
+    assert resolved.domain.depth_model.thickness == 99.0
+
+
+def test_resolve_run_config_leaves_the_declared_config_untouched(tmp_path) -> None:
+    """The project keeps the configuration it declares; the run gets its own."""
+    cfg = _config_with_thickness(tmp_path, 50.0)
+
+    planning_module.resolve_run_config(cfg, thickness=99.0)
+
+    assert cfg.domain.depth_model.thickness == 50.0
+
+
+def test_resolve_run_config_shares_every_section_the_override_does_not_touch(tmp_path) -> None:
+    """Only the overridden section is copied: identity elsewhere is the point.
+
+    A deep copy of the whole configuration would detach the sections a Project
+    resolved once at load time, such as the spatial supports it hands to the
+    setup step.
+    """
+    cfg = _config_with_thickness(tmp_path, 50.0)
+
+    resolved = planning_module.resolve_run_config(cfg, thickness=99.0)
+
+    assert resolved.flow is cfg.flow
+    assert resolved.simulation is cfg.simulation
+    assert resolved.domain is not cfg.domain

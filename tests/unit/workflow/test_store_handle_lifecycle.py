@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from hydromodpy.workflow.run_catalog import run_catalog
 from hydromodpy.workflow.steps import prepare_solver as prepare_solver_module
 
 
@@ -17,48 +18,7 @@ class _FakeZarr:
         self.close_calls += 1
 
 
-class _FakeStore:
-    def __init__(self, registration) -> None:
-        self.registration = registration
-        self.calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
-        self.environment_calls: list[dict[str, object]] = []
-
-    def register_simulation(self, *args, **kwargs):
-        self.calls.append((args, kwargs))
-        return self.registration
-
-    def write_run_environment(self, *args, **kwargs) -> None:
-        self.environment_calls.append({"args": args, "kwargs": kwargs})
-
-
-def test_step_register_simulation_closes_unused_bootstrap_zarr(monkeypatch) -> None:
-    fake_zarr = _FakeZarr()
-    registration = SimpleNamespace(name="run_0001", replaced_sim_id=None, zarr=fake_zarr)
-    store = _FakeStore(registration)
-    ctx = SimpleNamespace(
-        parent_sim_id="parent-123",
-        store=store,
-        cfg=SimpleNamespace(simulation=SimpleNamespace(if_exists="replace")),
-        setup=SimpleNamespace(time_grid=None, workspace=SimpleNamespace(project_root=None)),
-    )
-    plan = SimpleNamespace(runs=[SimpleNamespace(solver="boussinesq", process_type="flow")])
-
-    monkeypatch.setattr(prepare_solver_module, "collect_registration_kwargs", lambda ctx: {})
-
-    final_name = prepare_solver_module.step_register_simulation(
-        ctx,
-        "sim-123",
-        plan=plan,
-        project_name="demo_project",
-        name="requested_name",
-    )
-
-    assert final_name == "run_0001"
-    assert store.calls[0][1]["parent_sim_id"] == "parent-123"
-    assert fake_zarr.close_calls == 1
-
-
-def _fake_catalog_class(registration):
+def _fake_catalog_class(registration, opened: list):
     """Return a Catalog stand-in recording what it was asked to register."""
 
     class FakeCatalog:
@@ -66,6 +26,8 @@ def _fake_catalog_class(registration):
             self.workspace_root = workspace_root
             self.persistence = persistence
             self.calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.closed = 0
+            opened.append(self)
 
         @classmethod
         def from_workspace(cls, workspace, *, persistence=None):
@@ -75,14 +37,22 @@ def _fake_catalog_class(registration):
             self.calls.append((args, kwargs))
             return registration
 
+        def close(self) -> None:
+            self.closed += 1
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc) -> None:
+            self.close()
+
     return FakeCatalog
 
 
 def _open_store_ctx(tmp_path: Path, *, reserved_sim_id: str | None = None) -> SimpleNamespace:
-    """A context shaped the way ``step_open_store`` expects to find it."""
+    """A context shaped the way ``step_register_run`` expects to find it."""
     return SimpleNamespace(
         parent_sim_id="parent-456",
-        store=None,
         sim_id=None,
         reserved_sim_id=reserved_sim_id,
         cfg=SimpleNamespace(
@@ -109,12 +79,14 @@ def _open_store_ctx(tmp_path: Path, *, reserved_sim_id: str | None = None) -> Si
 
 
 def _silence_store_writes(monkeypatch, catalog_class) -> None:
-    """Neutralise everything ``step_open_store`` persists besides the id."""
+    """Neutralise everything ``step_register_run`` persists besides the id."""
     import hydromodpy.results.catalog as catalog_module
 
     monkeypatch.setattr(catalog_module, "Catalog", catalog_class)
     monkeypatch.setattr(prepare_solver_module, "collect_registration_kwargs", lambda ctx: {})
-    monkeypatch.setattr(prepare_solver_module, "_register_tracked_input_files", lambda ctx: None)
+    monkeypatch.setattr(
+        prepare_solver_module, "_register_tracked_input_files", lambda *args, **kwargs: None
+    )
     monkeypatch.setattr(prepare_solver_module, "step_persist_params", lambda *args, **kwargs: None)
     monkeypatch.setattr(prepare_solver_module, "step_persist_mesh", lambda *args, **kwargs: None)
     monkeypatch.setattr(
@@ -122,23 +94,27 @@ def _silence_store_writes(monkeypatch, catalog_class) -> None:
     )
 
 
-def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Path) -> None:
+def test_step_register_run_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Path) -> None:
     fake_zarr = _FakeZarr()
     registration = SimpleNamespace(name="run_0002", replaced_sim_id=None, zarr=fake_zarr)
     ctx = _open_store_ctx(tmp_path)
+    opened: list = []
 
-    _silence_store_writes(monkeypatch, _fake_catalog_class(registration))
+    _silence_store_writes(monkeypatch, _fake_catalog_class(registration, opened))
 
-    prepare_solver_module.step_open_store(ctx)
+    with run_catalog(ctx) as store:
+        prepare_solver_module.step_register_run(ctx, store=store)
 
-    assert ctx.store is not None
     assert ctx.sim_id is not None
     assert ctx.setup.run_id == "run_0002"
-    assert ctx.store.calls[0][1]["parent_sim_id"] == "parent-456"
+    assert opened[0].calls[0][1]["parent_sim_id"] == "parent-456"
     assert fake_zarr.close_calls == 1
+    # The scope that opened the handle is the one that closed it.
+    assert opened[0].closed == 1
+    assert not hasattr(ctx, "store")
 
 
-def test_step_open_store_takes_the_reserved_id_once(monkeypatch, tmp_path: Path) -> None:
+def test_step_register_run_takes_the_reserved_id_once(monkeypatch, tmp_path: Path) -> None:
     """A reserved id becomes the run id, and is not handed to a second run.
 
     Calibration promotion reserves the id so it can link the run to its
@@ -149,17 +125,19 @@ def test_step_open_store_takes_the_reserved_id_once(monkeypatch, tmp_path: Path)
     registration = SimpleNamespace(name="run_0003", replaced_sim_id=None, zarr=None)
     reserved = "0e6a5f5c-6f3c-4a6b-9c2f-2f0f5c1b7a11"
     ctx = _open_store_ctx(tmp_path, reserved_sim_id=reserved)
+    opened: list = []
 
-    _silence_store_writes(monkeypatch, _fake_catalog_class(registration))
+    _silence_store_writes(monkeypatch, _fake_catalog_class(registration, opened))
 
-    prepare_solver_module.step_open_store(ctx)
+    with run_catalog(ctx) as store:
+        prepare_solver_module.step_register_run(ctx, store=store)
 
     assert ctx.sim_id == reserved
-    assert ctx.store.calls[0][0][0] == reserved
+    assert opened[0].calls[0][0][0] == reserved
     assert ctx.reserved_sim_id is None
 
-    ctx.store = None
-    prepare_solver_module.step_open_store(ctx)
+    with run_catalog(ctx) as store:
+        prepare_solver_module.step_register_run(ctx, store=store)
 
     assert ctx.sim_id != reserved
 
@@ -295,12 +273,8 @@ def test_step_persist_forcings_closes_zarr_when_no_forcings() -> None:
     from hydromodpy.workflow.steps.prepare_solver.prepare import step_persist_forcings
 
     fake_zarr = _FakeZarr()
-    ctx = SimpleNamespace(
-        store=SimpleNamespace(open_zarr=lambda _sim_id: fake_zarr),
-        sim_id="sim-123",
-        loaded_data=_LoadedForcings(),
-    )
+    ctx = SimpleNamespace(sim_id="sim-123", loaded_data=_LoadedForcings())
 
-    step_persist_forcings(ctx)
+    step_persist_forcings(ctx, store=SimpleNamespace(open_zarr=lambda _sim_id: fake_zarr))
 
     assert fake_zarr.close_calls == 1

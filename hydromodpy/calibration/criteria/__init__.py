@@ -10,7 +10,10 @@ from hydromodpy.calibration.criteria.base import (
     CriterionResult,
     Validity,
 )
-from hydromodpy.calibration.criteria.network import NetworkCriterion, distance_pair
+from hydromodpy.calibration.criteria.hydrographic_network_distance import (
+    HydrographicNetworkDistance,
+    distance_pair,
+)
 from hydromodpy.calibration.criteria.registry import (
     NETWORK_ESTIMATORS,
     available_criteria,
@@ -23,7 +26,7 @@ __all__ = [
     "Criterion",
     "CriterionRequirements",
     "CriterionResult",
-    "NetworkCriterion",
+    "HydrographicNetworkDistance",
     "SeriesCriterion",
     "Validity",
     "available_criteria",

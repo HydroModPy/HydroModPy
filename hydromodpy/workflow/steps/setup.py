@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
@@ -13,22 +14,17 @@ from hydromodpy.core.state.global_index import auto_register_projects
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.simulation import ensure_flow, ensure_transport
-from hydromodpy.spatial.domain import Domain
+from hydromodpy.spatial.domain.build import build_domain
 from hydromodpy.spatial.domain.spatial_support import SupportBuildContext
-from hydromodpy.spatial.domain.zone_arming import arm_runtime_zone_ids
+from hydromodpy.spatial.domain.zone_arming import BINDER_ZONE_IDS
+from hydromodpy.spatial.geographic.artifacts import geographic_artifact_paths
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from hydromodpy.spatial.geographic.core.derived_features import (
     coerce_geographic_derived_features,
 )
 from hydromodpy.spatial.geographic.structure_binders import apply_catchment_zones_to_domain
 from hydromodpy.spatial.geographic.synthetic import build_synthetic_geographic
-from hydromodpy.workflow.internals.state import (
-    GeographicState,
-    MeshedState,
-    PipelineState,
-    ResolvedState,
-    SetupState,
-)
+from hydromodpy.workflow.internals.state import PipelineState
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -41,7 +37,12 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def build_geographic_runtime(cfg: object, workspace: object) -> object:
+def build_geographic_runtime(
+    cfg: object,
+    workspace: object,
+    *,
+    reuse_existing_outputs: bool | None = None,
+) -> object:
     """Build the geographic runtime selected by the validated TOML config."""
     geographic_cfg = cfg.geographic
     uses_synthetic = getattr(geographic_cfg, "uses_synthetic_geographic", None)
@@ -51,7 +52,11 @@ def build_geographic_runtime(cfg: object, workspace: object) -> object:
             output_dir=Path(workspace.project_root) / PREPROCESSING_DIR / "geographic",
             workspace=workspace,
         )
-    return CatchmentDelineation(geographic_cfg, workspace)
+    return CatchmentDelineation(
+        geographic_cfg,
+        workspace,
+        reuse_existing_outputs=reuse_existing_outputs,
+    )
 
 
 def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
@@ -383,6 +388,7 @@ def run_setup(
     requested_spatial_support_ids: tuple[str, ...] = (),
     requested_domain_supports: dict[str, object] | None = None,
     build_geographic_fn: Callable[..., object] = build_geographic_runtime,
+    run_id: str | None = None,
 ) -> None:
     """Initialise the structural objects shared by all later process runs.
 
@@ -421,20 +427,26 @@ def run_setup(
     setup_state.domain_geographic = setup_state.geographic_features.to_domain_geographic_context()
     surface_topo = setup_state.geographic_features.surface_topo
 
-    domain_cfg = cfg.domain
-    if hasattr(domain_cfg, "model_copy"):
-        domain_cfg = domain_cfg.model_copy(deep=True)
-    domain_cfg = arm_runtime_zone_ids(domain_cfg, requested_spatial_support_ids)
-
-    setup_state.domain = Domain(config=domain_cfg, surface_topo=surface_topo)
+    setup_state.domain = build_domain(
+        cfg.domain,
+        surface_topo=surface_topo,
+        zone_ids=requested_spatial_support_ids,
+    )
+    domain_cfg = setup_state.domain.config
+    setup_state.domain_config_source = cfg.domain
     apply_catchment_zones_to_domain(
         domain=setup_state.domain,
         geographic=setup_state.domain_geographic,
     )
 
-    # Internal run_id (journal/scratch key) follows the simulation name:
-    # explicit config name > derive from TOML filename > "default".
-    if cfg.simulation.name:
+    # Internal run_id (journal/scratch key): the name the caller gave this run
+    # > explicit config name > derive from TOML filename > "default". A caller
+    # that already named its run has decided; deriving a name again here would
+    # rename it halfway through, and the catalog would register it under a name
+    # the journal does not carry.
+    if run_id:
+        setup_state.run_id = run_id
+    elif cfg.simulation.name:
         setup_state.run_id = cfg.simulation.name
     else:
         import re
@@ -457,6 +469,61 @@ def run_setup(
     )
 
 
+def rebuild_domain_if_stale(run_state: WorkflowContext) -> bool:
+    """Rebuild ``setup.domain`` when another configuration built it.
+
+    A Project builds its model phase once and then drives several runs through
+    it. Each run resolves the configuration it is defined by, so a sweep point,
+    or a plain run following an overridden one, can arrive with a ``domain``
+    section the live geometry was not built from. Nothing downstream compares
+    the two: the run would use the previous run's geometry while archiving its
+    own configuration beside it.
+
+    Only the domain is rebuilt. The geographic tree and the loaded forcings it
+    stands on belong to the project, not to the run, and re-deriving them would
+    mean delineating the catchment again at every sweep point.
+
+    Returns True when a rebuild happened.
+    """
+    from hydromodpy.spatial.geographic.structure_binders import apply_geology_to_domain
+
+    setup_state = run_state.setup
+    if setup_state.domain is None:
+        return False
+    if setup_state.domain_config_source is run_state.cfg.domain:
+        return False
+    if setup_state.geographic_features is None:
+        raise ConfigError(
+            "The domain was built from another configuration and cannot be rebuilt: "
+            "the geographic runtime it stands on is missing from the context."
+        )
+
+    # The zone ids the live domain ended up with, binder ids included. Arming
+    # from them rather than from the declared section is what keeps a rebuilt
+    # domain able to receive the catchment and geology zones: ``run_setup``
+    # arms a copy, so the declared section never carries them.
+    armed_zone_ids = tuple(getattr(setup_state.domain.config, "zone_ids", ()) or ())
+    domain = build_domain(
+        run_state.cfg.domain,
+        surface_topo=setup_state.geographic_features.surface_topo,
+        zone_ids=armed_zone_ids,
+    )
+    # The spatial supports the project materialized are lateral zonations; a
+    # different aquifer thickness does not invalidate them, and nothing runs
+    # ``step_spatial_supports`` again for a repeat run on a live Project.
+    # Dropping them here would leave the solver reading no field while
+    # ``validate_domain_support_contract``, which reads the config, still passes.
+    for zone_id, zone in (getattr(setup_state.domain, "zones", None) or {}).items():
+        if zone_id not in BINDER_ZONE_IDS:
+            domain.set_zone(zone_id, zone)
+    apply_catchment_zones_to_domain(domain=domain, geographic=setup_state.domain_geographic)
+    if run_state.loaded_data.geology is not None:
+        apply_geology_to_domain(domain=domain, geology=run_state.loaded_data.geology)
+    setup_state.domain = domain
+    setup_state.domain_config_source = run_state.cfg.domain
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Step entry point (unified signature for workflow pipelines)
 # ---------------------------------------------------------------------------
@@ -467,6 +534,8 @@ def step_setup(
     *,
     requested_spatial_support_ids: tuple[str, ...] = (),
     requested_domain_supports: dict[str, object] | None = None,
+    reuse_existing_outputs: bool | None = None,
+    run_id: str | None = None,
 ) -> None:
     """Populate ``ctx.setup`` with workspace, geographic, domain, flow, transport."""
     run_setup(
@@ -474,6 +543,11 @@ def step_setup(
         ctx,
         requested_spatial_support_ids=requested_spatial_support_ids,
         requested_domain_supports=requested_domain_supports,
+        build_geographic_fn=partial(
+            build_geographic_runtime,
+            reuse_existing_outputs=reuse_existing_outputs,
+        ),
+        run_id=run_id,
     )
 
 
@@ -528,14 +602,55 @@ class BuildGeographicStep:
     """
 
     name = "build_geographic"
-    tin: ClassVar[type] = ResolvedState
-    tout: ClassVar[type] = GeographicState
+    reads: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "requested_domain_supports",
+        "requested_spatial_support_ids",
+        "run_name",
+        "spatial_support_registry",
+    )
+    writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = ("geographic", "data.dem")
 
     def depends_on(self) -> tuple[str, ...]:
         return ("resolve",)
 
     def run(self, state: PipelineState) -> PipelineState:
+        return self._build(state, reuse_existing_outputs=None)
+
+    def artifacts(self, state_out: PipelineState) -> tuple[str, ...]:
+        """Return the geographic tree this step wrote, as the runtime names it."""
+        ctx = state_out.get("ctx")
+        if ctx is None:
+            return ()
+        return tuple(
+            str(path) for path in geographic_artifact_paths(getattr(ctx.setup, "geographic", None))
+        )
+
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace: Path,
+        run_id: str,
+    ) -> PipelineState:
+        """Rebuild the geographic runtime by reading the tree it left on disk.
+
+        The read is forced whatever ``[geographic] reuse_existing_outputs``
+        says: that flag decides what a fresh run does with a tree another run
+        left, and a resume re-delineating its own products is a defect. A tree
+        that is incomplete, or whose description does not match the config,
+        still falls back to a full build - which is what the step would have
+        done anyway - and says so.
+        """
+        return self._build(prior_state, reuse_existing_outputs=True)
+
+    def _build(
+        self,
+        state: PipelineState,
+        *,
+        reuse_existing_outputs: bool | None,
+    ) -> PipelineState:
         ctx = state.get("ctx")
         if ctx is None:
             raise ConfigError("BuildGeographicStep requires 'ctx' in state.data")
@@ -548,6 +663,8 @@ class BuildGeographicStep:
             ctx,
             requested_spatial_support_ids=requested_support_ids,
             requested_domain_supports=requested_supports,
+            reuse_existing_outputs=reuse_existing_outputs,
+            run_id=state.get("run_name"),
         )
         step_spatial_supports(
             ctx,
@@ -561,16 +678,6 @@ class BuildGeographicStep:
             step_name=self.name,
             ctx=ctx,
         )
-
-    def rebuild_state(
-        self,
-        *,
-        prior_state: PipelineState,
-        workspace: Path,
-        run_id: str,
-    ) -> PipelineState:
-        """Re-run setup: idempotent given the cached DEM / watershed."""
-        return self.run(prior_state)
 
     def is_prebuilt(self, state: PipelineState) -> bool:
         """True when the in-memory ctx already carries the setup products."""
@@ -590,8 +697,8 @@ class SetupProcessStep:
     """Instantiate flow / transport process objects bound to the domain."""
 
     name = "setup_process"
-    tin: ClassVar[type] = MeshedState
-    tout: ClassVar[type] = SetupState
+    reads: ClassVar[tuple[str, ...]] = ("ctx",)
+    writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = (
         "domain.depth_model",
         "flow.ic",

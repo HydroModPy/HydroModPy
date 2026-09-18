@@ -187,7 +187,6 @@ def _rebind_run_history_catalog(project: Project) -> None:
     store = project._store
     if store is None:
         return
-    project._ctx.store = store
     for run in project._run_history:
         run._catalog = store
 
@@ -228,7 +227,8 @@ class ProjectRunner:
         from hydromodpy.workflow.internals.state import PipelineState
         from hydromodpy.workflow.orchestrator import standard_steps
         from hydromodpy.workflow.runner import Pipeline
-        from hydromodpy.workflow.steps.planning import step_build_plan
+        from hydromodpy.workflow.steps.planning import resolve_run_config, step_build_plan
+        from hydromodpy.workflow.steps.setup import rebuild_domain_if_stale
 
         project = self._project
 
@@ -254,13 +254,9 @@ class ProjectRunner:
                 )
             steps = tuple(all_steps[: until_idx + 1])
 
-        # The eager model phase exists so that repeated runs on one Project
-        # share a geographic / data / mesh runtime. A window that stops before
-        # ``setup_process`` consumes none of it, so it executes its own steps
-        # instead of paying the whole model phase up front: this is what makes
-        # delineating a catchment alone possible. Such a window also reaches no
-        # step able to register a simulation, so it is not a run and writes no
-        # run record - see the Pipeline workspace below.
+        # A window that stops before ``setup_process`` reaches no step able to
+        # register a simulation, so it is not a run and writes no run record -
+        # see the Pipeline workspace below.
         model_phase_index = _model_phase_index(all_steps)
         head_only = until_idx is not None and until_idx < model_phase_index
         if head_only and resume is not None:
@@ -269,7 +265,22 @@ class ProjectRunner:
                 f"journal to resume from. Drop --resume, or widen the window."
             )
         needs_model_phase = not head_only
-        if needs_model_phase:
+        # The Pipeline owns the model phase: it executes ``build_geographic``,
+        # ``load_data`` and ``build_mesh`` itself, so each of them gets a
+        # journal row and a process death inside one of them leaves a trace.
+        # Building them here first would put that work before the Pipeline has
+        # started, where nothing records it.
+        #
+        # One run still needs the model built up front: ``step_build_plan``
+        # below patches an existing model when the caller overrides it - it
+        # rebuilds the domain on a new thickness and replays the data binders
+        # on the loaded forcings. Such a run is always a repeat on a Project
+        # whose model phase is already there (``sweep`` builds it explicitly),
+        # so this only covers a hand-written override on an untouched Project.
+        plan_patches_model_phase = (
+            bool(overrides) or thickness is not None or first_clim is not None
+        )
+        if needs_model_phase and plan_patches_model_phase:
             project._ensure_model_built()
 
         workspace_path = self._resolve_workspace_path()
@@ -304,6 +315,18 @@ class ProjectRunner:
             )
             return None
 
+        # The configuration this run is defined by, overrides included. It is
+        # what the Pipeline signs, what the run archives, and what every
+        # builder reads, including the prefix a resume reconstructs in another
+        # process. ``project._cfg`` stays the configuration the project
+        # declares; the context carries the one of the run in flight. A dry run
+        # never gets here: a preview changes nothing.
+        cfg_run = resolve_run_config(project._cfg, thickness=thickness)
+        project._ctx.cfg = cfg_run
+        # A Project builds its model phase once; this run may be defined by
+        # another configuration than the one that built it.
+        rebuild_domain_if_stale(project._ctx)
+
         step_build_plan(
             project._ctx,
             name=name,
@@ -326,13 +349,12 @@ class ProjectRunner:
         if project._store is not None:
             project._store.close()
             project._store = None
-        project._ctx.store = None
 
         initial = PipelineState(
             run_id=run_id,
             data={
                 "ctx": project._ctx,
-                "cfg": project._cfg,
+                "cfg": cfg_run,
                 "config_path": project._config_path,
                 "raw_toml": getattr(project._ctx, "raw_toml", {}) or {},
                 "skip_display": skip_display,
@@ -343,6 +365,17 @@ class ProjectRunner:
                 "spatial_support_registry": project._spatial_support_registry,
                 "requested_spatial_support_ids": project._requested_support_ids,
                 "requested_domain_supports": project._requested_domain_supports,
+                # ``BuildMeshStep`` reads its mesh sections from the state; the
+                # facade verb reads the same three off the Project. A Pipeline
+                # that builds the mesh without them would ignore
+                # [mesh_catchment] and [mesh_input] entirely.
+                "mesh_section_data": project._mesh_section_data,
+                "constraints_mode": project._mesh_constraints_mode,
+                "external_mesh_input": project._external_mesh_input,
+                # This run is already named. ``run_setup`` derives a name from
+                # the config when nobody gives it one, which would rename a run
+                # the caller named differently.
+                "run_name": name,
             },
         )
 
@@ -393,9 +426,11 @@ class ProjectRunner:
                     project_root=restore_frozen_root,
                 )
 
-        if head_only:
-            # The window built part of the model phase on the Project's own
-            # ctx; the phase marker has to say so or the next call rebuilds it.
+        if not model_phase_ready:
+            # The Pipeline built the model phase on the Project's own ctx - a
+            # head-only window, a fresh run, or a resume that reconstructed its
+            # prefix. The phase marker has to say so or the next call rebuilds
+            # what is already there.
             from hydromodpy.project import phases as adopt_phases
 
             adopt_phases.adopt_pipeline_phase(

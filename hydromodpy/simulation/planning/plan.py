@@ -24,6 +24,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.contracts.solver_model import SolverModel
+from hydromodpy.core.state.run_state import RunState
+
 
 @dataclass(frozen=True)
 class ProcessRun:
@@ -113,30 +116,92 @@ class RunContext:
     By the time an adapter receives this object, the planner has already fixed
     the run order and the runner has already resolved the concrete upstream
     models referenced by ``run.depends_on``.
+
+    ``state`` is the reduced view of the workflow runtime an adapter may read
+    (:class:`hydromodpy.core.state.run_state.RunState`), never the workflow
+    context itself.
+
+    ``store`` is the catalog handle of the enclosing run, or ``None`` when the
+    run writes no index (a calibration trial). It is a borrowed handle whose
+    owner closes it: an adapter reads or writes through it during its own
+    ``execute`` and keeps no reference past the call.
+
+    ``model``, ``output_dir`` and ``lumped_cache`` are what *this* run produced:
+    the solver model the adapter built, the directory the solver wrote into,
+    and the series a lightweight lumped run kept in RAM instead of writing.
+    All three are ``None`` while the run executes, because it has produced
+    nothing yet, and they are set on the contexts built after it completed.
+    They are carried here rather than looked up in a registry: every consumer
+    asked the registry for the entry keyed by its own ``run.id``, which is not
+    a registry lookup but a self-reference routed through shared mutable state.
     """
 
     plan: SimulationPlan
     run: ProcessRun
-    state: Any
+    state: RunState
     dependency_models: tuple[Any, ...] = ()
+    store: Any = None
+    model: Any = None
+    output_dir: Path | None = None
+    lumped_cache: Any = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.state, RunState):
+            raise TypeError(
+                "RunContext.state must be a RunState view of the workflow runtime, "
+                f"got {type(self.state).__name__}."
+            )
+
+    @classmethod
+    def of(
+        cls,
+        ctx: Any,
+        *,
+        plan: SimulationPlan,
+        run: ProcessRun,
+        store: Any = None,
+    ) -> RunContext:
+        """Return the context of ``run`` inside the pipeline runtime ``ctx``.
+
+        The single construction path for every consumer that runs *after* the
+        solver: it reads the produced model and the solver output directory the
+        runner recorded for ``run``, and hands them over explicitly. The runner
+        itself does not use it, because at the time it builds a context the run
+        has produced neither.
+        """
+        execution = ctx.execution
+        return cls(
+            plan=plan,
+            run=run,
+            state=RunState.of(ctx),
+            store=store,
+            model=execution.models_by_run_id.get(run.id),
+            output_dir=execution.output_dirs_by_run_id.get(run.id),
+            lumped_cache=execution.lumped_ram_cache,
+        )
 
 
 @dataclass(frozen=True)
 class RunExecutionResult:
     """Payload returned by a solver adapter after one run completes.
 
-    ``primary_model`` is the exact model produced by the run and is always
-    stored under ``state.execution.models_by_run_id[run.id]`` by the runner.
+    ``primary_model`` is the model produced by the run, recorded by the runner
+    so it can resolve it for a run that declares this one in ``depends_on``. It
+    is ``None`` for a run that produces no model: a mesh run materialises a
+    mesh, not a model, and the summary of what it built travels in ``metrics``.
 
     ``solver_output_dir`` is the directory where the solver wrote its raw
     output files (e.g. ``.hds``, ``.cbc``). May be ``None`` for in-memory
     solvers.
 
-    ``metrics`` carries lightweight scalar execution metadata produced by
-    the solver itself. It is intentionally optional so older/custom adapters
-    can keep returning only a model and an output directory.
+    ``metrics`` carries execution metadata the run produced about itself. The
+    catalog only persists what converts to a finite float and skips the rest,
+    which is why a mesh run can put its nested build summary here: it is what
+    that run has to say about what it made, and no consumer of a scalar sees
+    it. It is intentionally optional so an adapter can keep returning only a
+    model and an output directory.
     """
 
-    primary_model: Any
+    primary_model: SolverModel | None
     solver_output_dir: Path | None = None
     metrics: Mapping[str, Any] = field(default_factory=dict)

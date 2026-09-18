@@ -35,6 +35,17 @@ A solver implements the ``SolverAdapter`` Protocol declared in
 ``RunExecutionResult`` is a small dataclass exposing
 ``success: bool`` and ``outputs: dict | None``.
 
+``ctx.state`` is a ``RunState``: the reduced view of the workflow runtime
+an adapter is allowed to read, and not the pipeline state itself. It
+carries four members and no more - ``setup`` (workspace, domain, flow,
+mesh ...), ``cfg``, ``execution`` (the produced models and the solver
+output directory of each run), and ``sim_id``. Reading anything else
+raises ``AttributeError``, and a static gate in
+``tests/unit/architecture/`` says so before the solver ever runs. The
+catalog handle of the enclosing run is not in there: it arrives as
+``ctx.store``, borrowed for the span of the call, and an adapter keeps no
+reference to it past ``execute``.
+
 A separate **output adapter** (the *extractor*) ingests the persisted
 outputs into the catalog. It is registered on the same
 ``(process_type, solver_name)`` pair as the adapter and implements:

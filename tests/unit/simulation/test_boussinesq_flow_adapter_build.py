@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from hydromodpy.core.state.run_state import RunState
 from hydromodpy.physics.flow import Flow
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.simulation.planning.plan import (
@@ -116,7 +117,7 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_flow_parameters(
             }
         )
     )
-    state = SimpleNamespace(
+    state = RunState(
         setup=SimpleNamespace(
             mesh_planar=planar_mesh,
             mesh_bundle=None,
@@ -205,7 +206,7 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_heterogeneous_flow_param
             }
         )
     )
-    state = SimpleNamespace(
+    state = RunState(
         setup=SimpleNamespace(
             mesh_planar=planar_mesh,
             mesh_bundle=None,
@@ -280,7 +281,7 @@ def test_boussinesq_flow_adapter_falls_back_to_bundle_and_overrides_properties(
             }
         )
     )
-    state = SimpleNamespace(
+    state = RunState(
         setup=SimpleNamespace(
             mesh_planar=planar_mesh,
             mesh_bundle=None,
@@ -318,7 +319,7 @@ def test_boussinesq_flow_adapter_falls_back_to_bundle_and_overrides_properties(
 
 def test_boussinesq_flow_adapter_loads_bundle_from_mesh_summary(tmp_path: Path) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
-    state = SimpleNamespace(
+    state = RunState(
         setup=SimpleNamespace(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
@@ -355,7 +356,7 @@ def test_boussinesq_flow_adapter_completes_bundle_storage_from_metadata_default(
         storage_values=("", ""),
         storage_default=0.02,
     )
-    state = SimpleNamespace(
+    state = RunState(
         setup=SimpleNamespace(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
@@ -392,7 +393,7 @@ def test_boussinesq_flow_adapter_allows_missing_bundle_storage_in_steady_mode(
         tmp_path / "bundle_steady_missing_storage",
         storage_values=("", ""),
     )
-    state = SimpleNamespace(
+    state = RunState(
         setup=SimpleNamespace(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},

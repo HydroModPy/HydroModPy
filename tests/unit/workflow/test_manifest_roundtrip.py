@@ -200,20 +200,14 @@ def test_roundtrip_preserves_none_config_fields(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# config payload extraction from non-mapping / model / mapping configs
+# What the manifest fingerprints, off the payload the pipeline really carries
 # ---------------------------------------------------------------------------
-
-
-from dataclasses import dataclass  # noqa: E402
-
-
-@dataclass(frozen=True, slots=True)
-class _TypedPayload:
-    """Stand-in for a typed (non-Mapping) PipelineState payload."""
-
-    config_path: str | None = None
-    config: object | None = None
-    raw_toml: dict | None = None
+#
+# These four used to build a frozen dataclass payload and put the config under a
+# ``config`` key, because ``_state_config_payload`` had a branch for each. It had
+# them for the eleven typed payload classes, whose field was named ``config`` -
+# and no step ever built one, nor ever wrote that key. Both branches are gone,
+# and these tests now use ``cfg``, which is what ``ValidateStep`` writes.
 
 
 class _TinyConfig(BaseModel):
@@ -225,20 +219,21 @@ class _TinyConfig(BaseModel):
     name: str = "demo"
 
 
-def test_from_state_typed_payload_reads_attributes():
-    """Non-Mapping payload: config_path is read via getattr (line 142)."""
-    payload = _TypedPayload(config_path="/typed/cfg.toml", raw_toml={"k": 1})
-    state = PipelineState(run_id="typed", step_index=0, step_name="validate", data=payload)
+def test_from_state_reads_the_config_path_off_the_payload():
+    state = PipelineState(
+        run_id="typed",
+        step_index=0,
+        step_name="validate",
+        data={"config_path": "/typed/cfg.toml", "raw_toml": {"k": 1}},
+    )
     manifest = ResolvedRunManifest.from_state(state, _steps(), workspace=None)
     assert manifest.config_path == "/typed/cfg.toml"
     assert manifest.config_sha256 is not None
 
 
 def test_from_state_hashes_pydantic_config_via_model_dump():
-    """A BaseModel config is hashed through model_dump (line 153)."""
     cfg = _TinyConfig(k=2.0, name="basin")
-    payload = _TypedPayload(config=cfg)
-    state = PipelineState(run_id="model", step_index=0, step_name="validate", data=payload)
+    state = PipelineState(run_id="model", step_index=0, step_name="validate", data={"cfg": cfg})
     manifest = ResolvedRunManifest.from_state(state, _steps(), workspace=None)
 
     import hashlib
@@ -249,10 +244,11 @@ def test_from_state_hashes_pydantic_config_via_model_dump():
     assert manifest.config_sha256 == expected
 
 
-def test_from_state_hashes_mapping_config_key():
-    """A dict under the 'config' key (no raw_toml) is hashed directly (line 155)."""
-    payload = {"config": {"k": 5}}
-    state = PipelineState(run_id="mapcfg", step_index=0, step_name="validate", data=payload)
+def test_from_state_hashes_a_mapping_config():
+    """A plain dict under ``cfg`` is hashed as it stands, no raw_toml fallback."""
+    state = PipelineState(
+        run_id="mapcfg", step_index=0, step_name="validate", data={"cfg": {"k": 5}}
+    )
     manifest = ResolvedRunManifest.from_state(state, _steps(), workspace=None)
 
     import hashlib
@@ -261,10 +257,23 @@ def test_from_state_hashes_mapping_config_key():
     assert manifest.config_sha256 == expected
 
 
+def test_a_config_under_the_key_no_step_writes_is_not_a_config():
+    """``config`` is not a payload key, and reading one would be inventing it."""
+    state = PipelineState(
+        run_id="wrongkey", step_index=0, step_name="validate", data={"config": {"k": 5}}
+    )
+    manifest = ResolvedRunManifest.from_state(state, _steps(), workspace=None)
+    assert manifest.config_sha256 is None
+
+
 def test_pydantic_config_roundtrips_on_disk(tmp_path):
     cfg = _TinyConfig(k=3.0)
-    payload = _TypedPayload(config=cfg, config_path="/p.toml")
-    state = PipelineState(run_id="model", step_index=1, step_name="resolve", data=payload)
+    state = PipelineState(
+        run_id="model",
+        step_index=1,
+        step_name="resolve",
+        data={"cfg": cfg, "config_path": "/p.toml"},
+    )
     workspace = tmp_path / "ws"
     original = ResolvedRunManifest.from_state(state, _steps(), workspace=workspace)
     original.write_atomic(workspace)

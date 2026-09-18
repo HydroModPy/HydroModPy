@@ -7,8 +7,8 @@ The original 941-LOC monolith now lives in three sibling modules:
 - :mod:`validate` - pure validators and artefact discovery helpers
   (``_primary_solver_for_simulation``, ``collect_registration_kwargs``,
   ``_store_sim_artifacts``).
-- :mod:`dispatch` - registration and store opening
-  (``step_register_simulation``, ``step_open_store``).
+- :mod:`dispatch` - registration of the run and of what it was built from
+  (``step_register_run``).
 
 The :class:`PrepareSolverStep` class itself sits in this ``__init__`` so
 its public import path is preserved
@@ -22,11 +22,11 @@ from typing import ClassVar
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.workflow.internals.state import OpenStoreState, PipelineState, SetupState
+from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
 from hydromodpy.workflow.steps.prepare_solver.dispatch import (
     _register_tracked_input_files,
-    step_open_store,
-    step_register_simulation,
+    step_register_run,
 )
 from hydromodpy.workflow.steps.prepare_solver.prepare import (
     step_persist_forcings,
@@ -72,15 +72,21 @@ def _resolve_plan_and_results(ctx, *, skip_display: bool) -> None:
 
 
 class PrepareSolverStep:
-    """Build the simulation plan + open the store.
+    """Build the simulation plan and register the run it will execute.
 
     Composed from three sibling modules: :mod:`prepare` (writes inputs),
-    :mod:`validate` (introspection) and :mod:`dispatch` (catalog setup).
+    :mod:`validate` (introspection) and :mod:`dispatch` (registration).
+
+    Every write goes through a catalog this step opens and closes itself, so
+    the handle is gone by the time the next step starts.
     """
 
     name = "prepare_solver"
-    tin: ClassVar[type] = SetupState
-    tout: ClassVar[type] = OpenStoreState
+    reads: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "skip_display",
+    )
+    writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = (
         "flow",
         "transport",
@@ -99,12 +105,11 @@ class PrepareSolverStep:
 
         _resolve_plan_and_results(ctx, skip_display=bool(state.get("skip_display")))
 
-        if not ctx.execution.lightweight:
-            step_open_store(ctx)
-
-            if ctx.store is not None:
-                step_write_provenance(ctx)
-                step_persist_forcings(ctx)
+        if run_is_catalogued(ctx):
+            with run_catalog(ctx) as store:
+                step_register_run(ctx, store=store)
+                step_write_provenance(ctx, store=store)
+                step_persist_forcings(ctx, store=store)
 
         return state.advance(
             step_index=state.step_index + 1,
@@ -115,12 +120,13 @@ class PrepareSolverStep:
     def artifacts(self, state: PipelineState) -> tuple[str, ...]:
         """Return workspace-relative paths persisted by this step."""
         ctx = state.get("ctx")
-        if ctx is None or getattr(ctx, "store", None) is None:
+        if ctx is None or not run_is_catalogued(ctx):
             return ()
         sim_id = getattr(ctx, "sim_id", None)
         if not sim_id:
             return ()
-        return _store_sim_artifacts(ctx, sim_id)
+        with run_catalog(ctx) as store:
+            return _store_sim_artifacts(ctx, sim_id, store=store)
 
     def rebuild_state(
         self,
@@ -129,14 +135,17 @@ class PrepareSolverStep:
         workspace: Path,
         run_id: str,
     ) -> PipelineState:
-        """Reopen the simulation store written by a previous ``run`` call.
+        """Recover the identity of the run a previous ``run`` call registered.
 
         The plan and the reconciled results config are pure functions of the
         config, so they are recomputed here: without them a resumed run would
         derive and draw against the raw ``[simulation.results]`` section and
         silently drop the fields a figure had forced on.
         """
-        from hydromodpy.results.catalog import Catalog
+        from hydromodpy.results.catalog import (
+            AmbiguousReferenceError,
+            SimulationNotFoundError,
+        )
 
         ctx = prior_state.get("ctx")
         if ctx is None:
@@ -150,29 +159,27 @@ class PrepareSolverStep:
                 "PrepareSolverStep.rebuild_state requires a resolved workspace on the context"
             )
 
-        sim_id = getattr(ctx, "sim_id", None)
-        results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
-        if ctx.store is None and results_cfg.persistence.save_catalog:
-            ctx.store = Catalog.from_workspace(
-                ws,
-                persistence=results_cfg.persistence,
-            )
-            if sim_id is None:
-                # Resolve the resumed run by its NAME (the identity column), not by
-                # "latest sim in project", so a resume after a later run was
-                # registered attaches to the right simulation, not the newest one.
-                # The index is per project, so the directory name is not part of
-                # the lookup: renaming or copying a project must not break resume.
-                row = ctx.store.connection.execute(
-                    "SELECT sim_id FROM simulations WHERE name = ? ORDER BY created_at DESC LIMIT 1",
-                    [str(run_id)],
-                ).fetchone()
-                if row is None:
-                    raise ConfigError(
-                        f"resume: no simulation named {run_id!r} in the project index at "
-                        f"{ws.project_root}; cannot rebuild the run state."
-                    )
-                ctx.sim_id = str(row[0])
+        if getattr(ctx, "sim_id", None) is None and run_is_catalogued(ctx):
+            # Resolve the resumed run by its NAME (the identity column), not by
+            # "latest sim in project", so a resume after a later run was
+            # registered attaches to the right simulation, not the newest one.
+            # The index is per project, so the directory name is not part of
+            # the lookup: renaming or copying a project must not break resume.
+            # ``find`` and not ``resolve``: the resume knows the name it wrote
+            # and wants that row or nothing. ``resolve`` also accepts a run id
+            # prefix and falls back to the newest version of a name stem, and
+            # a resume that lands on ``foo.v3`` because ``foo`` no longer
+            # exists writes a journal into the wrong simulation.
+            with run_catalog(ctx) as store:
+                sim_ids = store.find(name=run_id).sim_ids
+            if not sim_ids:
+                raise SimulationNotFoundError(
+                    f"resume: no simulation named {run_id!r} in the project index at "
+                    f"{ws.project_root}; cannot rebuild the run state."
+                )
+            if len(sim_ids) > 1:
+                raise AmbiguousReferenceError(run_id, [(sid, run_id) for sid in sim_ids])
+            ctx.sim_id = sim_ids[0]
 
         return prior_state.advance(
             step_index=prior_state.step_index + 1,
@@ -187,11 +194,10 @@ __all__ = (
     "_store_sim_artifacts",
     "collect_effective_config_snapshot",
     "collect_registration_kwargs",
-    "step_open_store",
     "step_persist_forcings",
     "step_persist_geographic",
     "step_persist_mesh",
     "step_persist_params",
-    "step_register_simulation",
+    "step_register_run",
     "step_write_provenance",
 )

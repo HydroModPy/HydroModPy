@@ -24,6 +24,11 @@ class ExecutionRegistry:
     metric extractors read the solver binaries (``.hds`` / ``.cbc``)
     directly from these paths without touching the catalog.
 
+    ``lumped_ram_cache`` is where a lightweight lumped run keeps the series it
+    produced: the in-RAM counterpart of the solver scratch directory a
+    file-backed run writes. It reaches a solver adapter through
+    ``RunContext.lumped_cache``, never through this registry.
+
     ``rng`` is the master :class:`RngManager` for the simulation.
     Stochastic consumers derive their own deterministic ``Generator``
     from ``rng.child_rng(label)``. It is ``None`` when no master seed
@@ -40,5 +45,6 @@ class ExecutionRegistry:
     process_runs_by_id: dict[str, Any] = field(default_factory=dict)
     models_by_run_id: dict[str, Any] = field(default_factory=dict)
     output_dirs_by_run_id: dict[str, Path] = field(default_factory=dict)
+    lumped_ram_cache: Any = None
     lightweight: bool = False
     rng: RngManager | None = None

@@ -89,6 +89,7 @@ def test_geographic_cache_loads_matching_complete_artifacts(tmp_path: Path) -> N
             watershed_box_buff_shp=paths.box_buff,
         ),
         catchment_area_km2=12.0,
+        catchment_products=None,
     )
 
     cached = _load_cached_geographic_products(
@@ -124,6 +125,7 @@ def test_geographic_cache_rejects_changed_fingerprint(tmp_path: Path) -> None:
             watershed_box_buff_shp=paths.box_buff,
         ),
         catchment_area_km2=12.0,
+        catchment_products=None,
     )
     changed_catchment = config.catchment.model_copy(update={"x_outlet": 99.0})
     changed_config = config.model_copy(update={"catchment": changed_catchment})
@@ -167,6 +169,7 @@ def test_geographic_cache_rejects_a_raster_it_cannot_describe(tmp_path: Path) ->
             watershed_box_buff_shp=paths.box_buff,
         ),
         catchment_area_km2=12.0,
+        catchment_products=None,
     )
     accumulation = Path(paths.correcflow_path) / "dem_acc.tif"
     with rasterio.open(

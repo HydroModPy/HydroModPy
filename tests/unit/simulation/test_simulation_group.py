@@ -84,7 +84,6 @@ class TestSimulationGroup:
                     )
                     run_catalog.finalize(sim_id, "completed")
                 ctx.sim_id = sim_id
-                ctx.store = None
                 return PipelineState(
                     run_id=state.run_id,
                     step_index=0,
@@ -105,11 +104,16 @@ class TestSimulationGroup:
             catalog_path=catalog_path_for(project_root),
             runs_dir=runs_dir_for(project_root),
         )
+        # The domain of a built model phase names the configuration section it
+        # was built from, so a run defined by that same configuration keeps it.
+        declared_cfg = SimpleNamespace(domain=object())
         ctx = SimpleNamespace(
+            cfg=declared_cfg,
             setup=SimpleNamespace(
                 workspace=workspace,
                 geographic=object(),
                 domain=object(),
+                domain_config_source=declared_cfg.domain,
                 run_id=None,
                 flow_runtime_overrides=None,
             ),
@@ -119,7 +123,7 @@ class TestSimulationGroup:
         )
         project = SimpleNamespace(
             _ctx=ctx,
-            _cfg=SimpleNamespace(),
+            _cfg=declared_cfg,
             _config_path=tmp_path / "hydromodpy.toml",
             # The double stands for a project whose model phase is built, which
             # is what the geographic / domain objects on its ctx declare.
@@ -127,6 +131,9 @@ class TestSimulationGroup:
             _spatial_support_registry=None,
             _requested_support_ids=(),
             _requested_domain_supports={},
+            _mesh_section_data=None,
+            _mesh_constraints_mode=None,
+            _external_mesh_input=None,
             _store=None,
             _run_counter=0,
             _solver="modflow6",
@@ -185,11 +192,14 @@ class TestSimulationGroup:
             root=tmp_path / "workspace",
             project_root=tmp_path / "project",
         )
+        declared_cfg = SimpleNamespace(domain=object())
         ctx = SimpleNamespace(
+            cfg=declared_cfg,
             setup=SimpleNamespace(
                 workspace=workspace,
                 geographic=object(),
                 domain=object(),
+                domain_config_source=declared_cfg.domain,
                 run_id=None,
                 flow_runtime_overrides=None,
             ),
@@ -200,7 +210,7 @@ class TestSimulationGroup:
         )
         project = SimpleNamespace(
             _ctx=ctx,
-            _cfg=SimpleNamespace(),
+            _cfg=declared_cfg,
             _config_path=tmp_path / "hydromodpy.toml",
             # The double stands for a project whose model phase is built, which
             # is what the geographic / domain objects on its ctx declare.
@@ -208,6 +218,9 @@ class TestSimulationGroup:
             _spatial_support_registry=None,
             _requested_support_ids=(),
             _requested_domain_supports={},
+            _mesh_section_data=None,
+            _mesh_constraints_mode=None,
+            _external_mesh_input=None,
             _store=None,
             _run_counter=0,
             _solver="modflow6",

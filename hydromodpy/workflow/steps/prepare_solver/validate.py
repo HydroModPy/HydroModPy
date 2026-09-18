@@ -17,6 +17,7 @@ from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
+    from hydromodpy.results.catalog.protocol import SimulationStore
     from hydromodpy.simulation.planning.plan import SimulationPlan
 
 logger = get_logger(__name__)
@@ -135,11 +136,10 @@ def collect_effective_config_snapshot(ctx: WorkflowContext) -> dict:
     return payload
 
 
-def _store_sim_artifacts(ctx: WorkflowContext, sim_id: str) -> tuple[str, ...]:
+def _store_sim_artifacts(
+    ctx: WorkflowContext, sim_id: str, *, store: SimulationStore
+) -> tuple[str, ...]:
     """Return workspace-relative paths produced for ``sim_id`` by the store."""
-    store = getattr(ctx, "store", None)
-    if store is None:
-        return ()
     workspace = getattr(ctx, "setup", None)
     workspace = getattr(workspace, "workspace", None)
     project_root: Path | None = getattr(workspace, "project_root", None)

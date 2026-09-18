@@ -25,6 +25,7 @@ from filelock import FileLock
 from pydantic import BaseModel, ConfigDict
 
 from hydromodpy.core.io.filesystem import native_io_path
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.migrations.errors import (
     MigrationDiscoveryError,
     MigrationExecutionError,
@@ -33,6 +34,8 @@ from hydromodpy.core.migrations.errors import (
 
 if TYPE_CHECKING:
     import duckdb
+
+logger = get_logger(__name__)
 
 DEFAULT_COMPONENT = "catalog"
 DEFAULT_LOCK_TIMEOUT = 30.0
@@ -216,11 +219,56 @@ def apply_migration(
             f"To repair, {repair_hint_for(component)}."
         ) from exc
 
+    _fold_schema_into_the_database_file(connection, migration, component)
+
     if post_apply is not None:
         try:
             post_apply(connection, migration, component)
         except Exception:
             return
+
+
+def _fold_schema_into_the_database_file(
+    connection: duckdb.DuckDBPyConnection,
+    migration: Migration,
+    component: str,
+) -> None:
+    """Checkpoint so an ``ALTER TABLE`` lives in the database file, not in the journal.
+
+    DuckDB commits into ``<db>.wal`` and only folds it into the database file
+    at a clean close. One statement must not be left there: replaying an
+    ``ALTER TABLE`` re-binds the table it alters, and on DuckDB 1.5.5 that
+    binding raises ``INTERNAL Error: ... Calling
+    DatabaseManager::GetDefaultDatabase with no default database set``. The
+    replay happens inside ``duckdb.connect``, so the database is then unopenable
+    - not by ``hmp``, not by the DuckDB CLI, not read-only - and no repair at
+    our layer can reach it. Measured with migration 0003 over the 0001 + 0002
+    schema: a process killed by an uncatchable signal at any point of its first
+    session left an index nobody could open again, which is every row of the
+    workflow journal a resume needs.
+
+    This covers the whole failure mode because the only ``ALTER TABLE`` the
+    codebase runs is in a migration script, and ``tests/unit/core/migrations``
+    keeps it that way. Views, sequences and indexes replay fine; one added
+    outside a migration would need its own checkpoint.
+
+    A checkpoint here costs one page flush per applied migration - a few
+    milliseconds, incremental - and only on the session that bootstraps or
+    upgrades a database. Rows written afterwards are plain DML and replay
+    normally, which is what makes a hard death survivable.
+    """
+    try:
+        connection.execute("CHECKPOINT")
+    except Exception as exc:  # noqa: BLE001 - duckdb is a TYPE_CHECKING import here
+        logger.warning(
+            "Migration %04d_%s (%s) is committed but still in the write-ahead "
+            "log: %s. Close this database cleanly before killing the process, "
+            "a journal holding schema changes cannot be replayed.",
+            migration.version,
+            migration.slug,
+            component,
+            exc,
+        )
 
 
 def ensure_schema(

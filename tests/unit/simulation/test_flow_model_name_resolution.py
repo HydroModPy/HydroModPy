@@ -2,6 +2,7 @@
 
 from types import SimpleNamespace
 
+from hydromodpy.core.state.run_state import RunState
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.modflow6.build import mf6_output_name, mf6_safe_name
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
@@ -40,7 +41,7 @@ def test_build_preprocess_options_returns_defaults() -> None:
     from hydromodpy.solver.base.solver_config import SolverConfig
     from hydromodpy.solver.modflow_nwt import ModflowPreprocessOptions
 
-    state = SimpleNamespace(setup=SimpleNamespace(), cfg=SimpleNamespace(solver=SolverConfig()))
+    state = RunState(setup=SimpleNamespace(), cfg=SimpleNamespace(solver=SolverConfig()))
     options = build_preprocess_options(state)
 
     defaults = ModflowPreprocessOptions()
@@ -65,7 +66,7 @@ def test_resolve_run_model_name_prefers_runtime_override() -> None:
     ctx = RunContext(
         plan=plan,
         run=plan.runs[0],
-        state=SimpleNamespace(
+        state=RunState(
             setup=SimpleNamespace(
                 run_id="candidate_run_id",
                 flow_runtime_overrides={"model_name_override": "stable_runtime_model"},

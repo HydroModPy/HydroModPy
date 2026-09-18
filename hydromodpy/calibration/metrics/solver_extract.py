@@ -86,7 +86,7 @@ def resolve_flow_adapter(trial_ctx: Any) -> tuple[Any, RunContext] | None:
         adapter = get_solver_adapter(flow_run.process_type, flow_run.solver)
     except KeyError:
         return None
-    run_ctx = RunContext(plan=plan, run=flow_run, state=trial_ctx)
+    run_ctx = RunContext.of(trial_ctx, plan=plan, run=flow_run)
     return adapter, run_ctx
 
 

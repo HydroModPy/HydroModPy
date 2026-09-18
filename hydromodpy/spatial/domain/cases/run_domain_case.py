@@ -34,7 +34,7 @@ if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.spatial.domain import Domain
-from hydromodpy.spatial.domain.zone_arming import arm_runtime_zone_ids
+from hydromodpy.spatial.domain.build import build_domain
 from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
     DomainGeographicContext,
     build_domain_geographic_context,
@@ -155,11 +155,7 @@ def run_domain_case_from_toml(
 
     # 2) Build the domain from prepared topography support.
     surface_topo = geographic_context.surface_topo
-    domain_cfg = arm_runtime_zone_ids(cfg.domain.model_copy(deep=True))
-    domain = Domain(
-        config=domain_cfg,
-        surface_topo=surface_topo,
-    )
+    domain = build_domain(cfg.domain, surface_topo=surface_topo)
     catchment_zone_loaded = False
     if catchment_zone_field is not None:
         domain.set_zone("catchment", catchment_zone_field)

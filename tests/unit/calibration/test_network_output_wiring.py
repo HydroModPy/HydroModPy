@@ -101,10 +101,8 @@ def _fake_run_ctx(bench, *, lake_cells=()):
     )
     return SimpleNamespace(
         run=SimpleNamespace(id="r1", solver="modflow6"),
-        state=SimpleNamespace(
-            execution=SimpleNamespace(models_by_run_id={"r1": model}),
-            setup=SimpleNamespace(geographic=SimpleNamespace(crs_project=CRS)),
-        ),
+        state=SimpleNamespace(setup=SimpleNamespace(geographic=SimpleNamespace(crs_project=CRS))),
+        model=model,
     )
 
 

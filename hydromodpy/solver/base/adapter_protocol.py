@@ -40,7 +40,14 @@ class RunResult:
 
 @runtime_checkable
 class SolverAdapter(Protocol):
-    """One adapter binds one ``(process_type, solver_name)`` pair."""
+    """One adapter binds one ``(process_type, solver_name)`` pair.
+
+    ``ctx.state`` is a :class:`~hydromodpy.core.state.run_state.RunState`: the
+    setup scope, the configuration, the execution registry and the run
+    identity, and nothing else of the pipeline the run belongs to. An adapter
+    that needs something the view does not carry is asking for something a run
+    invoked from outside would not have.
+    """
 
     process_type: ClassVar[str]
     solver_name: ClassVar[str]
@@ -70,9 +77,9 @@ class SolverAdapter(Protocol):
         knows before the solve which timesteps it has to keep.
 
         Lightweight calibration trials read straight from the solver scratch
-        dir via ``ctx.state.execution.output_dirs_by_run_id``; ``store`` is the
-        cold-path :class:`Catalog` reserved for backends that already wrote
-        results to it.
+        dir via ``ctx.output_dir``; ``store`` is the cold-path
+        :class:`Catalog` reserved for backends that already wrote results
+        to it.
 
         An adapter that cannot produce a requested observable raises
         :class:`~hydromodpy.core.exceptions.ObservableNotAvailableError` naming

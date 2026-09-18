@@ -138,13 +138,21 @@ class Pipeline:
         restart_index = 0 if resume_from is None else int(resume_from)
         restart_index = max(0, min(restart_index, len(self.steps)))
 
+        # A step that leaves a document beside the run checkpoint has to write
+        # it where this pipeline owns a run record, and nowhere when it owns
+        # none. Reading the project root off the config instead would let a
+        # head-only window - which is handed no workspace precisely so it
+        # writes no run record - overwrite the documents of the run that
+        # carries the same name.
+        state = state.with_data(run_workspace=self.workspace)
+
         manifest: ResolvedRunManifest | None = None
         if self.workspace is not None:
             existing = ResolvedRunManifest.read(self.workspace, state.run_id)
             if restart_index > 0 and not model_phase_ready and existing is not None:
                 # Genuine resume: the prefix is reconstructed from the prior
                 # run's artefacts, so its config/pipeline must still match.
-                existing.verify_state(state, self.steps)
+                existing.verify_state(state, self.steps, workspace=self.workspace)
                 manifest = existing
             else:
                 # Fresh run (restart_index 0) or a model-phase-ready re-run
@@ -167,7 +175,13 @@ class Pipeline:
                 )
 
         try:
-            state = self._rebuild_prefix(state, restart_index, journal)
+            config_sha256 = _config_sha256_from_manifest(manifest)
+            state, prefix_hashes = self._rebuild_prefix(
+                state,
+                restart_index,
+                journal,
+                config_sha256=config_sha256,
+            )
             state = self._execute_suffix(
                 state,
                 restart_index,
@@ -175,9 +189,9 @@ class Pipeline:
                 manifest=manifest,
                 heartbeat_cls=HeartbeatPulse,
                 events=events,
+                previous_hashes=prefix_hashes,
             )
         finally:
-            _close_dangling_store(state)
             if owns_catalog and catalog is not None:
                 try:
                     catalog.close()
@@ -194,10 +208,24 @@ class Pipeline:
         state: PipelineState,
         restart_index: int,
         journal: WorkflowJournal | None,
-    ) -> PipelineState:
-        """Reconstruct ``state`` for every step before ``restart_index``."""
+        *,
+        config_sha256: str | None = None,
+    ) -> tuple[PipelineState, list[str]]:
+        """Reconstruct ``state`` for every step before ``restart_index``.
+
+        Returns the reconstructed state and the ``outputs_hash`` of each prefix
+        step, in order, so the executed suffix chains its ``inputs_hash`` onto
+        the same sequence a from-scratch run would have produced.
+
+        A prefix step the journal does not know about gets a row here. The
+        model phase of a run driven by the facade is built before the pipeline
+        starts and reaches this branch every time: without the row, the journal
+        of a finished run describes its tail only, and a later resume has
+        nothing to tell it what the head left on disk.
+        """
+        previous_hashes: list[str] = []
         if restart_index <= 0:
-            return state
+            return state, previous_hashes
 
         journal_rows = {}
         if journal is not None and self.workspace is not None:
@@ -271,7 +299,82 @@ class Pipeline:
                     run_id=state.run_id,
                 ) from exc
 
-        return state
+            previous_hashes.append(
+                self._journal_rebuilt_step(
+                    step,
+                    state,
+                    index,
+                    journal=journal,
+                    keep_existing_row=row_completed,
+                    config_sha256=config_sha256,
+                    previous_hashes=previous_hashes,
+                )
+            )
+
+        return state, previous_hashes
+
+    def _journal_rebuilt_step(
+        self,
+        step: Step,
+        state_out: PipelineState,
+        index: int,
+        *,
+        journal: WorkflowJournal | None,
+        keep_existing_row: bool,
+        config_sha256: str | None,
+        previous_hashes: Sequence[str],
+    ) -> str:
+        """Record a reconstructed prefix step and return its ``outputs_hash``.
+
+        A row already marked completed stays: it is the evidence the resume
+        planner just verified, and recomputing it here would replace a
+        measurement by a re-measurement. Any other row is replaced. A re-run of
+        the same name invalidates its whole journal to ``aborted`` before this
+        phase, so a surviving ``aborted`` row on a prefix this process has just
+        rebuilt would describe a run that never happened, and would send the
+        next resume back to step zero.
+        """
+        from hydromodpy.workflow.tracking.journal import WorkflowJournal as _Journal
+
+        name = _step_name(step)
+        artifact_uris = _collect_artifacts(step, state_out, self.workspace)
+        outputs_hash = ""
+        if self.workspace is not None:
+            outputs_hash = _Journal.compute_outputs_hash(self.workspace, artifact_uris) or ""
+
+        if journal is None or keep_existing_row:
+            return outputs_hash
+
+        inputs_hash = _Journal.compute_inputs_hash(
+            step_name=name,
+            step_order=index,
+            config_sha256=config_sha256,
+            upstream_outputs_hashes=list(previous_hashes),
+        )
+        try:
+            step_id = journal.start_step(
+                run_id=state_out.run_id,
+                step_order=index,
+                step_name=name,
+                inputs_hash=inputs_hash,
+            )
+        except Exception as exc:
+            logger.warning(
+                "journal.rebuild_start_step_failed run_id=%s step=%s err=%s",
+                state_out.run_id,
+                name,
+                exc,
+            )
+            return outputs_hash
+        self._finish_journal_step(
+            journal,
+            step_id,
+            status="completed",
+            outputs_hash=outputs_hash or None,
+            artifact_uris=artifact_uris,
+            error_message=None,
+        )
+        return outputs_hash
 
     # ------------------------------------------------------------------
     # Phase 2 - execute remaining steps with journal updates
@@ -286,6 +389,7 @@ class Pipeline:
         manifest: object | None,
         heartbeat_cls: type,
         events: object | None = None,
+        previous_hashes: Sequence[str] = (),
     ) -> PipelineState:
         """Run every step from ``restart_index`` to the end with journal writes."""
         from hydromodpy.workflow.internals.manifest import ResolvedRunManifest
@@ -298,7 +402,7 @@ class Pipeline:
         if restart_index >= len(self.steps):
             return state
 
-        previous_hashes: list[str] = []
+        chained_hashes: list[str] = list(previous_hashes)
         config_sha256 = _config_sha256_from_manifest(manifest)
         heartbeat_ctx = self._heartbeat_for(state, heartbeat_cls, events=events)
 
@@ -320,7 +424,7 @@ class Pipeline:
                     journal=journal,
                     journal_cls=_Journal,
                     config_sha256=config_sha256,
-                    previous_hashes=previous_hashes,
+                    previous_hashes=chained_hashes,
                     events=events,
                 )
                 if self.workspace is not None:
@@ -606,24 +710,6 @@ class Pipeline:
         )
 
 
-def _close_dangling_store(state: PipelineState) -> None:
-    """Close the run store when the pipeline stops before the export step.
-
-    ``export`` owns the normal close. A pipeline truncated by ``--until``, or
-    one that raised, would otherwise leave the project index open: the DuckDB
-    write-ahead log survives the process and the next run has to replay it.
-    """
-    from hydromodpy.workflow.steps.export import step_close_store
-
-    ctx = state.get("ctx")
-    if ctx is None or getattr(ctx, "store", None) is None:
-        return
-    try:
-        step_close_store(ctx)
-    except Exception:
-        logger.debug("pipeline.store_close_failed", exc_info=True)
-
-
 def _collect_artifacts(
     step: Step,
     state_out: PipelineState,
@@ -671,13 +757,7 @@ def _to_relative_uri(item: object, workspace: Path | None) -> str | None:
 
 def _state_sim_id(state: PipelineState) -> str | None:
     """Return ``sim_id`` carried by the pipeline state if any."""
-    data = state.data
-    sim_id: object | None = None
-    if hasattr(data, "get"):
-        try:
-            sim_id = data.get("sim_id")  # type: ignore[union-attr]
-        except Exception:
-            sim_id = None
+    sim_id = state.get("sim_id")
     if not sim_id:
         ctx = state.get("ctx")
         sim_id = getattr(ctx, "sim_id", None) if ctx is not None else None

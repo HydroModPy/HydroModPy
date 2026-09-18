@@ -203,6 +203,16 @@ class SimulationStore(Protocol):
     ) -> None:
         """Persist the simulation mesh for ``sim_id``."""
 
+    def write_geographic_feature(
+        self,
+        sim_id: str | UUID,
+        feature_name: str,
+        gdf: Any,
+        *,
+        geoparquet_path: str | None = None,
+    ) -> None:
+        """Persist one named vector feature of ``sim_id``."""
+
     def write_metric(
         self,
         sim_id: str | UUID,
@@ -299,6 +309,15 @@ class SimulationStore(Protocol):
         ``named_only=True`` drops technical rows: replaced runs whose name was
         cleared (``name IS NULL``) and effective-config snapshots (dotted names).
         """
+
+    def run_dir_for(self, sim_id: str | UUID) -> Path:
+        """Return the directory holding everything ``sim_id`` produced."""
+
+    def fields_path_for(self, sim_id: str | UUID) -> Path:
+        """Return the field-array store of ``sim_id``."""
+
+    def tables_dir_for(self, sim_id: str | UUID) -> Path:
+        """Return the directory holding the tabular payloads of ``sim_id``."""
 
     def open_zarr(self, sim_id: str | UUID) -> SimulationZarr:
         """Open the per-simulation Zarr store for ``sim_id``."""

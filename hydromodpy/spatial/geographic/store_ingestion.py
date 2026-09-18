@@ -251,28 +251,6 @@ def _cleanup_intermediate_dirs(geographic: Any) -> None:
             logger.debug("Removed empty stable folder %s", stable_path)
 
 
-def dump_cached_rasters_to_disk(geographic: Any) -> None:
-    backend = resolve_delineation_backend()
-    raster_backend = getattr(backend, "raster", None)
-    if raster_backend is None or not getattr(raster_backend, "_raster_cache", {}):
-        return
-
-    for path, raster in raster_backend._raster_cache.items():
-        raster_backend._ensure_parent(path)
-        raster_backend._run_env_operation(
-            raster_backend._env.write_raster,
-            raster,
-            path,
-            compress=raster_backend._compress_rasters,
-        )
-        logger.debug("Dumped cached raster to %s", path)
-
-    logger.info(
-        "Wrote %d cached rasters to disk (write_intermediates=True)",
-        len(raster_backend._raster_cache),
-    )
-
-
 def cleanup_stable_folder(geographic: Any, *, keep: bool = False) -> int:
     """Drop the geographic preprocessing tree, returning the bytes freed.
 
@@ -283,8 +261,10 @@ def cleanup_stable_folder(geographic: Any, *, keep: bool = False) -> int:
     whole trial loop - so only the code that owns the END of a session may drop
     it. ``keep`` honours ``[geographic] write_intermediates``.
 
-    The in-memory raster cache is released either way: it pins the same rasters
-    in RAM and outlives the folder otherwise.
+    The in-memory raster cache is released either way, and releasing it loses
+    nothing: the backend writes a raster to disk and caches it afterwards
+    (``whitebox_workflows_backend/raster.py:_write_raster``), so every entry of
+    that cache already has its file. ``keep`` therefore keeps the rasters.
     """
     import shutil
 

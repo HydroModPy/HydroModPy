@@ -26,6 +26,7 @@ EGRESS_GATE_NAME = "test_the_only_hosts_it_contacts_are_the_ones_it_declares"
 
 EGRESS_GATES: dict[str, str] = {
     "data-fetch": "tests/integration/data/test_data_fetch_seals_a_job.py",
+    "domain-build": "tests/integration/domain/test_domain_build_seals_a_job.py",
     "terrain-delineate": ("tests/integration/site_selection/test_terrain_delineate_seals_a_job.py"),
 }
 """Which module runs each capability and reads back what it reached.

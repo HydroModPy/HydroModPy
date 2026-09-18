@@ -28,6 +28,11 @@ class _Model:
         self.flow = _Flow(lakes)
         self._lake_bed_reconstruction = reconstruction
         self._marnage_lake_ids = marnage
+        self._exposed_band_runoff_specs = None
+
+    def required_runner(self) -> str:
+        """The dispatch MODFLOW 6 declares, as the real model declares it."""
+        return "api" if self._exposed_band_runoff_specs else "subprocess"
 
 
 def _marnage_lake(*, exposed_band: bool):
@@ -70,6 +75,6 @@ def test_resolve_runner_forces_api_with_specs():
     assert resolve_modflow_runner(model) == "api"
 
     class _Bare:
-        pass
+        """A backend that declares no dispatch, as MODFLOW-NWT does."""
 
     assert resolve_modflow_runner(_Bare()) == "subprocess"

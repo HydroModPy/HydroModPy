@@ -582,6 +582,7 @@ def test_project_runner_binds_the_project_root_it_runs(
             run_id=None,
             flow_runtime_overrides=None,
         ),
+        data_plan=SimpleNamespace(types=()),
         raw_toml={},
         store=None,
         sim_id=None,
@@ -590,9 +591,12 @@ def test_project_runner_binds_the_project_root_it_runs(
         _ctx=ctx,
         _cfg=None,
         _config_path=config_path,
-        # The double stands for a project whose model phase is already built,
-        # which is what its ``setup.workspace`` above declares.
+        # The double stands for a project the Pipeline builds itself: no
+        # geographic and no domain on its ctx, so the run executes the model
+        # phase and the Project adopts the phase the Pipeline reached.
         _ensure_model_built=lambda: None,
+        _phase="uninitialized",
+        _data_loaded=set(),
         _no_display=True,
         _run_counter=0,
         _solver=None,
@@ -601,6 +605,9 @@ def test_project_runner_binds_the_project_root_it_runs(
         _spatial_support_registry=None,
         _requested_support_ids=None,
         _requested_domain_supports=None,
+        _mesh_section_data=None,
+        _mesh_constraints_mode=None,
+        _external_mesh_input=None,
     )
 
     assert ProjectRunner(project).run(name="frozen_run", frozen=True) is None

@@ -1,0 +1,426 @@
+{
+  "$schema": "urn:hmp:profile:process:v1",
+  "id": "domain-build",
+  "version": "1.0.0",
+  "title": "Aquifer domain geometry from a terrain and a depth model",
+  "description": "Places the bottom of the aquifer below a topographic surface, bounds the active grid with an optional polygon, and describes the resulting vertical extent as one document a mesh generator can be handed.",
+  "keywords": [
+    "hydrogeology",
+    "domain",
+    "aquifer",
+    "geometry",
+    "substratum"
+  ],
+  "jobControlOptions": [
+    "sync-execute"
+  ],
+  "outputTransmission": [
+    "reference"
+  ],
+  "hmp:invocation": {
+    "argv": [
+      "hmp",
+      "process",
+      "run",
+      "domain-build",
+      "--job",
+      "{jobdir}"
+    ],
+    "request_file": "request.json",
+    "outcome_file": "outcome.json",
+    "stdout": "application/json, exactly one document, byte-identical to outcome.json; on a reuse, that document with \"reused\": true",
+    "writes_outside_jobdir": [],
+    "reads_outside_jobdir": "only the paths declared in request.json",
+    "network": [],
+    "cancellation": {
+      "signal": "SIGTERM",
+      "status": "dismissed",
+      "exit_code": 130
+    },
+    "idempotency": {
+      "job_id": "sha256 of the process identity and of the resolved inputs, every file link replaced by the digest of its bytes",
+      "reuse": "a job directory already sealed under the same job_id is re-reported: nothing is written, stdout carries its outcome.json with \"reused\": true, and the process exits 0",
+      "conflict": "a job directory sealed under another job_id is refused, as HMPY.E1100"
+    },
+    "env": [
+      "HMP_NO_PROGRESS",
+      "HMP_LOG_LEVEL"
+    ]
+  },
+  "inputs": {
+    "dem": {
+      "title": "Dem",
+      "minOccurs": 1,
+      "maxOccurs": 1,
+      "schema": {
+        "$ref": "#/$defs/FileLink",
+        "description": "elevation raster carrying its own CRS and an axis-aligned grid; band 1 is the top surface of the domain and its grid is what every output is written on",
+        "x-hmp-profile": "user",
+        "$defs": {
+          "FileLink": {
+            "additionalProperties": false,
+            "description": "A file input: where it is, what it is, and optionally what it hashes to.",
+            "properties": {
+              "href": {
+                "description": "absolute path, or a path relative to the job directory",
+                "title": "Href",
+                "type": "string"
+              },
+              "type": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "IANA media type of the file",
+                "title": "Type"
+              },
+              "sha256": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "expected digest, lowercase hex",
+                "title": "Sha256"
+              }
+            },
+            "required": [
+              "href"
+            ],
+            "title": "FileLink",
+            "type": "object"
+          }
+        },
+        "$id": "urn:hmp:schema:domain-build:1.0.0:dem",
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "description": "elevation raster carrying its own CRS and an axis-aligned grid; band 1 is the top surface of the domain and its grid is what every output is written on"
+    },
+    "depth_model": {
+      "title": "Depth Model",
+      "minOccurs": 1,
+      "maxOccurs": 1,
+      "schema": {
+        "description": "how the bottom of the aquifer is placed below the top surface; the [domain.depth_model] section of a project, verbatim",
+        "discriminator": {
+          "mapping": {
+            "constant_thickness": "#/$defs/ConstantThicknessDepthModel",
+            "flat_substratum": "#/$defs/FlatSubstratumDepthModel"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/ConstantThicknessDepthModel"
+          },
+          {
+            "$ref": "#/$defs/FlatSubstratumDepthModel"
+          }
+        ],
+        "title": "Depth Model",
+        "x-hmp-profile": "user",
+        "$defs": {
+          "ConstantThicknessDepthModel": {
+            "additionalProperties": false,
+            "description": "Vertical model using one constant thickness below topography.\n\nBottom elevation is computed cell-wise as:\n``bottom = top_surface - thickness``.",
+            "properties": {
+              "kind": {
+                "const": "constant_thickness",
+                "default": "constant_thickness",
+                "description": "Depth-model kind discriminator. Use 'constant_thickness' to define bottom as top-thickness.",
+                "examples": [
+                  "constant_thickness"
+                ],
+                "title": "Kind",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "thickness": {
+                "default": 50.0,
+                "description": "Constant aquifer thickness applied below topography (canonical metres). Accepts inline units, e.g. '0.2 km'.",
+                "examples": [
+                  50.0
+                ],
+                "exclusiveMinimum": 0.0,
+                "title": "Thickness",
+                "type": "number",
+                "x-hmp-profile": "user"
+              }
+            },
+            "title": "ConstantThicknessDepthModel",
+            "type": "object"
+          },
+          "FlatSubstratumDepthModel": {
+            "additionalProperties": false,
+            "description": "Vertical model using one flat (constant-elevation) substratum.\n\nBottom elevation is constant over the whole domain:\n``bottom = substratum_elevation``.",
+            "properties": {
+              "kind": {
+                "const": "flat_substratum",
+                "default": "flat_substratum",
+                "description": "Depth-model kind discriminator. Use 'flat_substratum' to define one constant bottom elevation.",
+                "examples": [
+                  "flat_substratum"
+                ],
+                "title": "Kind",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "substratum_elevation": {
+                "default": 0.0,
+                "description": "Flat substratum elevation applied over the full domain (canonical metres). Accepts inline units, e.g. '40 m'. This is an ABSOLUTE elevation, not a depth below topography: where the land surface drops under it, no aquifer is left. Use 'constant_thickness' to follow the relief instead.",
+                "examples": [
+                  0.0
+                ],
+                "title": "Substratum Elevation",
+                "type": "number",
+                "x-hmp-profile": "user"
+              }
+            },
+            "title": "FlatSubstratumDepthModel",
+            "type": "object"
+          }
+        },
+        "$id": "urn:hmp:schema:domain-build:1.0.0:depth_model",
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "description": "how the bottom of the aquifer is placed below the top surface; the [domain.depth_model] section of a project, verbatim"
+    },
+    "mask": {
+      "title": "Mask",
+      "minOccurs": 0,
+      "maxOccurs": 1,
+      "schema": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/FileLink"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "polygon layer bounding the active part of the grid, for example the catchment terrain-delineate seals; a layer of lines or points is refused, and without a mask every cell carrying data is active",
+        "x-hmp-profile": "user",
+        "$defs": {
+          "FileLink": {
+            "additionalProperties": false,
+            "description": "A file input: where it is, what it is, and optionally what it hashes to.",
+            "properties": {
+              "href": {
+                "description": "absolute path, or a path relative to the job directory",
+                "title": "Href",
+                "type": "string"
+              },
+              "type": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "IANA media type of the file",
+                "title": "Type"
+              },
+              "sha256": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "expected digest, lowercase hex",
+                "title": "Sha256"
+              }
+            },
+            "required": [
+              "href"
+            ],
+            "title": "FileLink",
+            "type": "object"
+          }
+        },
+        "$id": "urn:hmp:schema:domain-build:1.0.0:mask",
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "description": "polygon layer bounding the active part of the grid, for example the catchment terrain-delineate seals; a layer of lines or points is refused, and without a mask every cell carrying data is active"
+    },
+    "mask_layer": {
+      "title": "Mask Layer",
+      "minOccurs": 0,
+      "maxOccurs": 1,
+      "schema": {
+        "anyOf": [
+          {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "layer of the mask file to read; required only when the file holds more than one, and refused when it names none of them",
+        "examples": [
+          "watershed"
+        ],
+        "title": "Mask Layer",
+        "x-hmp-profile": "user",
+        "$id": "urn:hmp:schema:domain-build:1.0.0:mask_layer",
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "description": "layer of the mask file to read; required only when the file holds more than one, and refused when it names none of them"
+    }
+  },
+  "outputs": {
+    "domain": {
+      "title": "Grid, depth model and vertical extent of the domain",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "application/json"
+      },
+      "hmp:path": "outputs/domain.json",
+      "hmp:role": [
+        "data",
+        "primary"
+      ],
+      "minOccurs": 1,
+      "hmp:conformsTo": [
+        "hmp-domain/v1"
+      ]
+    },
+    "bottom": {
+      "title": "Bottom elevation of the aquifer on the active cells",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "image/tiff; application=geotiff"
+      },
+      "hmp:path": "outputs/bottom.tif",
+      "hmp:role": [
+        "data"
+      ],
+      "minOccurs": 1,
+      "hmp:nodata": "nan",
+      "hmp:units": "m"
+    },
+    "thickness": {
+      "title": "Aquifer thickness on the active cells",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "image/tiff; application=geotiff"
+      },
+      "hmp:path": "outputs/thickness.tif",
+      "hmp:role": [
+        "data"
+      ],
+      "minOccurs": 1,
+      "hmp:nodata": "nan",
+      "hmp:units": "m"
+    },
+    "active_cells": {
+      "title": "Cells the domain is defined on",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "image/tiff; application=geotiff"
+      },
+      "hmp:path": "outputs/active_cells.tif",
+      "hmp:role": [
+        "data",
+        "intermediate"
+      ],
+      "minOccurs": 1,
+      "hmp:values": {
+        "0": "inactive",
+        "1": "active"
+      }
+    },
+    "inputset": {
+      "title": "Resolved, hashed, licence-annotated input set",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "application/json"
+      },
+      "hmp:path": "inputset.json",
+      "hmp:role": [
+        "metadata",
+        "provenance"
+      ],
+      "minOccurs": 1
+    },
+    "outcome": {
+      "title": "Typed job outcome",
+      "schema": {
+        "type": "string",
+        "contentMediaType": "application/json"
+      },
+      "hmp:path": "outcome.json",
+      "hmp:role": [
+        "metadata"
+      ],
+      "minOccurs": 1
+    }
+  },
+  "hmp:exceptions": [
+    {
+      "type": "urn:hmp:error:HMPY.E1100",
+      "code": "HMPY.E1100",
+      "exit_code": 2,
+      "title": "The job directory is not usable as the caller gave it."
+    },
+    {
+      "type": "urn:hmp:error:HMPY.E1101",
+      "code": "HMPY.E1101",
+      "exit_code": 11,
+      "title": "The request targets a different major version of the capability."
+    },
+    {
+      "type": "urn:hmp:error:HMPY.E101",
+      "code": "HMPY.E101",
+      "exit_code": 14,
+      "title": "The configuration document failed validation."
+    },
+    {
+      "type": "urn:hmp:error:FileNotFoundError",
+      "code": "FileNotFoundError",
+      "exit_code": 10,
+      "title": "File not found."
+    },
+    {
+      "type": "urn:hmp:error:HMPY.E201",
+      "code": "HMPY.E201",
+      "exit_code": 16,
+      "title": "A dataset does not satisfy its declared contract."
+    }
+  ],
+  "hmp:artifacts": {
+    "seal": "manifest.json",
+    "seal_rule": "present if and only if the job succeeded and every declared output exists and hashes"
+  },
+  "links": [
+    {
+      "rel": "self",
+      "href": "domain-build@1.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "describedby",
+      "href": "urn:hmp:profile:process:v1",
+      "type": "application/json"
+    }
+  ]
+}

@@ -1,9 +1,9 @@
-"""Concern 3 of PrepareSolverStep: registration + store opening.
+"""Concern 3 of PrepareSolverStep: registering a run and its inputs.
 
-Hosts the helpers that open the Catalog, register the
-simulation row, and write the per-sim CRS/time metadata to the Zarr.
-These functions mutate the catalog and the on-disk store, so they are
-kept separate from the pure validation helpers in :mod:`validate`.
+Hosts the helpers that register the simulation row and write the per-sim
+CRS/time metadata to the Zarr. Every one of them writes through a catalog
+handle its caller owns and closes; none of them opens one, and none reads a
+handle off the context.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from hydromodpy.workflow.steps.prepare_solver.validate import _primary_solver_fo
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.simulation.planning.plan import SimulationPlan
+    from hydromodpy.results.catalog.protocol import SimulationStore
     from hydromodpy.solver.modflow_common.binaries import SolverEngine
 
 logger = get_logger(__name__)
@@ -87,10 +87,16 @@ def _resolve_solver_engine(ctx: WorkflowContext, solver_name: str | None) -> Sol
     )
 
 
-def _write_run_environment(ctx: WorkflowContext, sim_id: str, solver_name: str | None) -> None:
+def _write_run_environment(
+    ctx: WorkflowContext,
+    sim_id: str,
+    solver_name: str | None,
+    *,
+    store: SimulationStore,
+) -> None:
     """Persist the host environment plus the engine identity for one run."""
     engine = _resolve_solver_engine(ctx, solver_name)
-    ctx.store.write_run_environment(
+    store.write_run_environment(
         sim_id,
         project_root=getattr(getattr(ctx.setup, "workspace", None), "project_root", None),
         solver_name=solver_name,
@@ -102,7 +108,7 @@ def _write_run_environment(ctx: WorkflowContext, sim_id: str, solver_name: str |
     )
 
 
-def refresh_run_environment(ctx: WorkflowContext) -> None:
+def refresh_run_environment(ctx: WorkflowContext, *, store: SimulationStore) -> None:
     """Rewrite the engine identity of a run once its model has been solved.
 
     Registration happens before the model exists, so the row it writes can only
@@ -112,13 +118,14 @@ def refresh_run_environment(ctx: WorkflowContext) -> None:
     ``provenance.json`` names the executable or the shared library that really
     ran, with its own version and digest.
     """
-    store = getattr(ctx, "store", None)
     sim_id = getattr(ctx, "sim_id", None)
     plan = getattr(getattr(ctx, "execution", None), "simulation_plan", None)
-    if store is None or not sim_id or plan is None:
+    if not sim_id or plan is None:
         return
     try:
-        _write_run_environment(ctx, str(sim_id), _primary_solver_for_simulation(plan))
+        _write_run_environment(
+            ctx, str(sim_id), _primary_solver_for_simulation(plan), store=store
+        )
     except Exception:
         logger.exception("Failed to refresh the run environment for sim %s", str(sim_id)[:8])
 
@@ -140,7 +147,7 @@ def _crs_grid_mapping_attrs(crs: object) -> dict[str, object]:
         return {"crs_wkt": str(crs)}
 
 
-def _write_zarr_crs(ctx: WorkflowContext, sim_id: str) -> None:
+def _write_zarr_crs(ctx: WorkflowContext, sim_id: str, *, store: SimulationStore) -> None:
     """Persist CRS metadata in the simulation Zarr store when configured."""
     geographic_cfg = getattr(ctx.cfg, "geographic", None)
     crs = getattr(geographic_cfg, "crs_project", None)
@@ -150,7 +157,7 @@ def _write_zarr_crs(ctx: WorkflowContext, sim_id: str) -> None:
     epsg_raw = attrs.get("epsg_code")
     semi_major_raw = attrs.get("semi_major_axis")
     inverse_flattening_raw = attrs.get("inverse_flattening")
-    ctx.store.write_crs(
+    store.write_crs(
         sim_id,
         crs_wkt=str(attrs.get("crs_wkt", str(crs))),
         grid_mapping_name=str(attrs.get("grid_mapping_name", "latitude_longitude")),
@@ -164,7 +171,7 @@ def _write_zarr_crs(ctx: WorkflowContext, sim_id: str) -> None:
     )
 
 
-def _write_zarr_time(ctx: WorkflowContext, sim_id: str) -> None:
+def _write_zarr_time(ctx: WorkflowContext, sim_id: str, *, store: SimulationStore) -> None:
     """Persist simulation period-end timestamps as CF time coordinates."""
     time_grid = getattr(ctx.setup, "time_grid", None)
     boundaries = getattr(time_grid, "boundaries", None)
@@ -184,7 +191,7 @@ def _write_zarr_time(ctx: WorkflowContext, sim_id: str) -> None:
         period_ends = period_ends.tz_convert("UTC")
     epoch = pd.Timestamp("1970-01-01T00:00:00Z")
     seconds = ((period_ends - epoch).total_seconds()).astype("int64")
-    ctx.store.write_time(
+    store.write_time(
         sim_id,
         np.asarray(seconds, dtype="int64"),
         epoch="1970-01-01T00:00:00Z",
@@ -192,63 +199,19 @@ def _write_zarr_time(ctx: WorkflowContext, sim_id: str) -> None:
     )
 
 
-def _freeze_run_config(ctx: WorkflowContext, sim_id: str) -> None:
+def _freeze_run_config(ctx: WorkflowContext, sim_id: str, *, store: SimulationStore) -> None:
     """Write the resolved configuration into the run directory."""
     from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 
     try:
-        run_dir = ctx.store.run_dir_for(sim_id)
+        run_dir = store.run_dir_for(sim_id)
         run_dir.mkdir(parents=True, exist_ok=True)
         ctx.cfg.to_toml(run_dir / RUN_CONFIG_FILENAME, profile="expert")
     except Exception:
         logger.exception("Failed to freeze the resolved config for sim %s", sim_id[:8])
 
 
-def step_register_simulation(
-    ctx: WorkflowContext,
-    sim_id: str,
-    *,
-    plan: SimulationPlan,
-    project_name: str,
-    name: str,
-) -> str:
-    """Register the simulation in the catalog and return the final run name."""
-    from hydromodpy.workflow.steps import prepare_solver as ps_module
-
-    reg_kwargs = ps_module.collect_registration_kwargs(ctx)
-    if ctx.parent_sim_id is not None:
-        reg_kwargs["parent_sim_id"] = ctx.parent_sim_id
-
-    primary_solver = _primary_solver_for_simulation(plan)
-    registration = ctx.store.register_simulation(
-        sim_id,
-        project=project_name,
-        solver=primary_solver,
-        name=name,
-        if_exists=ctx.cfg.simulation.if_exists,
-        **reg_kwargs,
-    )
-    final_name = registration.name or name
-    replaced = registration.replaced_sim_id
-    short = sim_id[:8]
-    if replaced:
-        logger.info("Run '%s' stored [%s] (replaced %s)", final_name, short, replaced[:8])
-    else:
-        logger.info("Run '%s' stored [%s]", final_name, short)
-    if registration.zarr is not None:
-        registration.zarr.close()
-    _freeze_run_config(ctx, sim_id)
-    _write_zarr_time(ctx, sim_id)
-    _write_zarr_crs(ctx, sim_id)
-
-    try:
-        _write_run_environment(ctx, sim_id, primary_solver)
-    except Exception:
-        logger.exception("Failed to capture run environment for sim %s", short)
-    return final_name
-
-
-def _register_tracked_input_files(ctx: WorkflowContext) -> None:
+def _register_tracked_input_files(ctx: WorkflowContext, *, store: SimulationStore) -> None:
     """Walk the config tree and persist every InputFile-marked path."""
     from hydromodpy.core.tracking import collect_input_files
 
@@ -265,7 +228,7 @@ def _register_tracked_input_files(ctx: WorkflowContext) -> None:
     portable = [e for e in entries if e.portable]
     if not portable:
         return
-    written = ctx.store.register_tracked_files(ctx.sim_id, portable)
+    written = store.register_tracked_files(ctx.sim_id, portable)
     logger.debug(
         "Registered %d tracked input file(s) for simulation %s",
         written,
@@ -273,8 +236,8 @@ def _register_tracked_input_files(ctx: WorkflowContext) -> None:
     )
 
 
-def step_open_store(ctx: WorkflowContext) -> None:
-    """Open a ``Catalog`` and register the current simulation.
+def step_register_run(ctx: WorkflowContext, *, store: SimulationStore) -> None:
+    """Register the current simulation and persist what it was built from.
 
     The run takes the id its caller reserved on ``ctx.reserved_sim_id``, and
     mints one when there is none. The reservation is consumed here, so a
@@ -284,23 +247,13 @@ def step_open_store(ctx: WorkflowContext) -> None:
     package namespace so unit tests can monkeypatch them via
     ``prepare_solver_module.<helper>``.
     """
-    from hydromodpy.workflow.steps import prepare_solver as ps_module
-
-    results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
-    if not results_cfg.persistence.save_catalog:
-        return
-
     from uuid import uuid4
 
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.workflow.steps import prepare_solver as ps_module
 
     workspace = ctx.setup.workspace
     if workspace is None:
-        raise PipelineError("Workspace is required before opening the simulation catalog.")
-    ctx.store = Catalog.from_workspace(
-        workspace,
-        persistence=results_cfg.persistence,
-    )
+        raise PipelineError("Workspace is required before registering a run.")
     reserved = ctx.reserved_sim_id
     ctx.reserved_sim_id = None
     ctx.sim_id = reserved or str(uuid4())
@@ -312,7 +265,7 @@ def step_open_store(ctx: WorkflowContext) -> None:
     if ctx.parent_sim_id is not None:
         reg_kwargs["parent_sim_id"] = ctx.parent_sim_id
     primary_solver = _primary_solver_for_simulation(plan)
-    registration = ctx.store.register_simulation(
+    registration = store.register_simulation(
         ctx.sim_id,
         project=project_name,
         solver=primary_solver,
@@ -324,31 +277,30 @@ def step_open_store(ctx: WorkflowContext) -> None:
         ctx.setup.run_id = registration.name
     if registration.zarr is not None:
         registration.zarr.close()
-    _freeze_run_config(ctx, ctx.sim_id)
-    _write_zarr_time(ctx, ctx.sim_id)
-    _write_zarr_crs(ctx, ctx.sim_id)
+    _freeze_run_config(ctx, ctx.sim_id, store=store)
+    _write_zarr_time(ctx, ctx.sim_id, store=store)
+    _write_zarr_crs(ctx, ctx.sim_id, store=store)
 
     try:
-        _write_run_environment(ctx, ctx.sim_id, primary_solver)
+        _write_run_environment(ctx, ctx.sim_id, primary_solver, store=store)
     except Exception:
         logger.exception("Failed to capture run environment for sim %s", ctx.sim_id[:8])
 
-    ps_module._register_tracked_input_files(ctx)
+    ps_module._register_tracked_input_files(ctx, store=store)
 
     if ctx.setup.flow is not None:
         ps_module.step_persist_params(
-            ctx.store,
+            store,
             ctx.sim_id,
             ctx.setup.flow,
             domain=ctx.setup.domain,
         )
 
-    ps_module.step_persist_mesh(ctx, ctx.sim_id)
-    ps_module.step_persist_geographic(ctx, ctx.sim_id)
+    ps_module.step_persist_mesh(ctx, ctx.sim_id, store=store)
+    ps_module.step_persist_geographic(ctx, ctx.sim_id, store=store)
 
 
 __all__ = (
     "refresh_run_environment",
-    "step_open_store",
-    "step_register_simulation",
+    "step_register_run",
 )

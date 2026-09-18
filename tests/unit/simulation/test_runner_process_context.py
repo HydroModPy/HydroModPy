@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.core.exceptions import SolverDivergedError
+from hydromodpy.core.state.run_state import RunState
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.transport.transport_config import TransportConfig
 from hydromodpy.simulation.execution.runner import ProcessCallbacks, SimulationRunner
@@ -47,6 +48,7 @@ def _build_state() -> SimpleNamespace:
         execution=SimpleNamespace(
             models_by_run_id={},
         ),
+        sim_id=None,
     )
 
 
@@ -122,11 +124,21 @@ def test_run_solver_step_uses_injected_launcher() -> None:
             ),
         ),
     )
-    ctx = SimpleNamespace(execution=SimpleNamespace(simulation_plan=plan))
+    # A run with no index: the step drives the launcher and opens nothing.
+    ctx = SimpleNamespace(
+        execution=SimpleNamespace(simulation_plan=plan, lightweight=False),
+        cfg=SimpleNamespace(
+            simulation=SimpleNamespace(
+                results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=False))
+            )
+        ),
+        effective_results_config=None,
+        setup=SimpleNamespace(workspace=None),
+    )
 
     class _Launcher:
         def __init__(self) -> None:
-            self.calls: list[tuple[SimulationPlan, object, object]] = []
+            self.calls: list[tuple[SimulationPlan, object, object, object]] = []
 
         def execute(
             self,
@@ -134,19 +146,76 @@ def test_run_solver_step_uses_injected_launcher() -> None:
             state: object,
             *,
             callbacks: object | None = None,
+            store: object | None = None,
         ) -> None:
-            self.calls.append((plan, state, callbacks))
+            self.calls.append((plan, state, callbacks, store))
 
     launcher = _Launcher()
     state = PipelineState(run_id="run", data={"ctx": ctx})
 
     out = RunSolverStep(launcher=launcher).run(state)
 
-    called_plan, called_state, callbacks = launcher.calls[0]
+    called_plan, called_state, callbacks, store = launcher.calls[0]
     assert called_plan is plan
     assert called_state is ctx
     assert callbacks is not None
+    assert store is None
     assert out.get("wall_seconds") is not None
+
+
+def test_run_solver_step_hands_the_run_catalog_to_the_launcher(monkeypatch) -> None:
+    """A catalogued run passes its open handle down; the adapters read it there."""
+    from contextlib import contextmanager
+
+    import hydromodpy.workflow.steps.run_solver as run_solver_module
+
+    plan = SimulationPlan(
+        name="demo",
+        description="demo",
+        runs=(
+            ProcessRun(
+                id="flow_main::modflow_nwt",
+                process_id="flow_main",
+                process_type="flow",
+                solver="modflow_nwt",
+            ),
+        ),
+    )
+    handle = object()
+    ctx = SimpleNamespace(
+        execution=SimpleNamespace(simulation_plan=plan, lightweight=False),
+        cfg=SimpleNamespace(
+            simulation=SimpleNamespace(
+                results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=True))
+            )
+        ),
+        effective_results_config=None,
+        setup=SimpleNamespace(workspace=object()),
+        sim_id="sim-1",
+    )
+
+    @contextmanager
+    def _fake_scope(_ctx):
+        yield handle
+
+    monkeypatch.setattr(run_solver_module, "run_catalog", _fake_scope)
+    monkeypatch.setattr(
+        "hydromodpy.workflow.steps.prepare_solver.dispatch.refresh_run_environment",
+        lambda _ctx, *, store: None,
+    )
+
+    class _Launcher:
+        def __init__(self) -> None:
+            self.stores: list[object] = []
+
+        def execute(self, plan, state, *, callbacks=None, store=None):
+            self.stores.append(store)
+            return ()
+
+    launcher = _Launcher()
+    RunSolverStep(launcher=launcher).run(PipelineState(run_id="run", data={"ctx": ctx}))
+
+    assert launcher.stores == [handle]
 
 
 def test_runner_records_mesh_process_without_solver_adapter(monkeypatch) -> None:
@@ -181,7 +250,10 @@ def test_runner_records_mesh_process_without_solver_adapter(monkeypatch) -> None
     ).execute(plan, state)
 
     assert observed_runs[0][0].id == "mesh_main::catchment"
-    assert state.execution.models_by_run_id["mesh_main::catchment"] == {
+    # A mesh run materialises a mesh, not a model: it records nothing in the
+    # registry, and what it built is execution metadata.
+    assert "mesh_main::catchment" not in state.execution.models_by_run_id
+    assert observed_runs[0][1].metrics == {
         "backend": "catchment",
         "summary": {"output_mesh": "mesh.msh", "n_cells": 12},
     }
@@ -200,7 +272,7 @@ def test_run_flow_model_raises_when_solver_fails() -> None:
             ),
         ),
     )
-    state = SimpleNamespace(
+    state = RunState(
         cfg=SimpleNamespace(
             postprocess=SimpleNamespace(
                 flow=SimpleNamespace(
@@ -218,7 +290,6 @@ def test_run_flow_model_raises_when_solver_fails() -> None:
             domain=SimpleNamespace(),
             workspace=SimpleNamespace(simulations_folder="unused"),
         ),
-        execution=SimpleNamespace(models_by_run_id={}),
     )
 
     class _FailingFlowModel:
@@ -263,7 +334,7 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
             ),
         ),
     )
-    state = SimpleNamespace(
+    state = RunState(
         cfg=SimpleNamespace(
             postprocess=SimpleNamespace(
                 flow=SimpleNamespace(
@@ -286,7 +357,6 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
             workspace=SimpleNamespace(simulations_folder="unused"),
             flow_runtime_overrides={"properties": {"K": [1.0, 2.0]}},
         ),
-        execution=SimpleNamespace(models_by_run_id={}),
     )
 
     class _SuccessfulFlowModel:
@@ -339,13 +409,12 @@ def test_run_flow_model_links_mt3dms_only_for_downstream_mt3dms_transport() -> N
         description="demo",
         runs=(flow_run, transport_run),
     )
-    state = SimpleNamespace(
+    state = RunState(
         setup=SimpleNamespace(
             flow=SimpleNamespace(active_bc=[]),
             domain=SimpleNamespace(),
             flow_runtime_overrides=None,
         ),
-        execution=SimpleNamespace(models_by_run_id={}),
     )
 
     class _SuccessfulFlowModel:

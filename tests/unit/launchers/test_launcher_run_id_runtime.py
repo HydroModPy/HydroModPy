@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 from hydromodpy.core.state.paths import scratch_dir_for
 from hydromodpy.core.state.run_state import WorkflowContext
+from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.workflow.steps.mesh import step_mesh_input
 
 from ._launcher_run_id_builders import (
@@ -37,9 +38,10 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
             self.solver_scratch_folder = scratch_dir_for(self.project_root)
 
     class _DummyRunGeographic:
-        def __init__(self, config, workspace) -> None:
+        def __init__(self, config, workspace, *, reuse_existing_outputs=None) -> None:
             self.config = config
             self.workspace = workspace
+            self.reuse_existing_outputs = reuse_existing_outputs
 
         def get_domain_geographic_context(self):
             return SimpleNamespace(surface_topo=object())
@@ -80,7 +82,7 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
     _patch_launcher_deps(monkeypatch)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.Workspace", _DummyRunWorkspace)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.CatchmentDelineation", _DummyRunGeographic)
-    monkeypatch.setattr("hydromodpy.workflow.steps.setup.Domain", _DummyRunDomain)
+    monkeypatch.setattr("hydromodpy.spatial.domain.build.Domain", _DummyRunDomain)
     monkeypatch.setattr(
         "hydromodpy.workflow.steps.data._build_data_runtime_loader",
         lambda *a, **kw: _DummyRuntimeLoader(),
@@ -106,7 +108,7 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
         geographic=SimpleNamespace(
             uses_synthetic_geographic=lambda: False, river_network=SimpleNamespace(enabled=False)
         ),
-        domain=SimpleNamespace(zone_ids=[], supports={}),
+        domain=DomainConfig(),
         data=SimpleNamespace(types=()),
         flow=SimpleNamespace(active_bc=(), param={}),
         simulation=SimpleNamespace(
@@ -164,9 +166,10 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
             self.solver_scratch_folder = scratch_dir_for(self.project_root)
 
     class _DummyRunGeographic:
-        def __init__(self, config, workspace) -> None:
+        def __init__(self, config, workspace, *, reuse_existing_outputs=None) -> None:
             self.config = config
             self.workspace = workspace
+            self.reuse_existing_outputs = reuse_existing_outputs
 
         def get_domain_geographic_context(self):
             return SimpleNamespace(surface_topo=object())
@@ -193,7 +196,7 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
     _patch_launcher_deps(monkeypatch)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.Workspace", _DummyRunWorkspace)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.CatchmentDelineation", _DummyRunGeographic)
-    monkeypatch.setattr("hydromodpy.workflow.steps.setup.Domain", _DummyRunDomain)
+    monkeypatch.setattr("hydromodpy.spatial.domain.build.Domain", _DummyRunDomain)
     monkeypatch.setattr(
         "hydromodpy.workflow.steps.data._build_data_runtime_loader",
         lambda *a, **kw: _DummyRuntimeLoader(),
@@ -216,7 +219,7 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
         geographic=SimpleNamespace(
             uses_synthetic_geographic=lambda: False, river_network=SimpleNamespace(enabled=False)
         ),
-        domain=SimpleNamespace(zone_ids=[], supports={}),
+        domain=DomainConfig(),
         data=SimpleNamespace(types=()),
         flow=SimpleNamespace(active_bc=(), param={}),
         simulation=SimpleNamespace(

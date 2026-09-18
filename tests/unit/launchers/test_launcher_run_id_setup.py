@@ -10,6 +10,7 @@ import pytest
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.run_state import WorkflowContext
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.workflow.steps.setup import step_setup
 
 from ._launcher_run_id_builders import (
@@ -28,7 +29,7 @@ def test_run_setup_uses_simulation_name(monkeypatch) -> None:
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
-        domain=SimpleNamespace(),
+        domain=DomainConfig(),
         simulation=SimpleNamespace(name="my_run_id"),
     )
     run_state = WorkflowContext(
@@ -48,7 +49,7 @@ def test_run_setup_defaults_run_id_when_name_empty(monkeypatch) -> None:
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
-        domain=SimpleNamespace(),
+        domain=DomainConfig(),
         simulation=SimpleNamespace(name=""),
     )
     run_state = WorkflowContext(
@@ -79,7 +80,7 @@ def test_run_setup_stores_explicit_domain_geographic_context(monkeypatch) -> Non
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
-        domain=SimpleNamespace(),
+        domain=DomainConfig(),
         simulation=SimpleNamespace(name="test"),
     )
     run_state = WorkflowContext(
@@ -104,7 +105,7 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
         _DummyWorkspace,
     )
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.Domain",
+        "hydromodpy.spatial.domain.build.Domain",
         _DummyDomain,
     )
 
@@ -140,7 +141,7 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
         geographic=geographic_cfg,
-        domain=SimpleNamespace(zone_ids=[]),
+        domain=DomainConfig(),
         simulation=SimpleNamespace(name="test"),
     )
     run_state = WorkflowContext(
@@ -214,7 +215,7 @@ def test_run_setup_declares_the_binder_zone_ids(monkeypatch) -> None:
         _DummyGeographic,
     )
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.Domain",
+        "hydromodpy.spatial.domain.build.Domain",
         _DummyDomain,
     )
     monkeypatch.setattr(
@@ -233,7 +234,7 @@ def test_run_setup_declares_the_binder_zone_ids(monkeypatch) -> None:
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
-        domain=SimpleNamespace(zone_ids=[]),
+        domain=DomainConfig(),
         simulation=SimpleNamespace(name="test"),
     )
     run_state = WorkflowContext(
@@ -259,7 +260,7 @@ def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
         _DummyGeographic,
     )
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.Domain",
+        "hydromodpy.spatial.domain.build.Domain",
         _DummyDomain,
     )
     monkeypatch.setattr(
@@ -270,7 +271,7 @@ def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
-        domain=SimpleNamespace(zone_ids=[]),
+        domain=DomainConfig(),
         simulation=SimpleNamespace(name="test"),
     )
     run_state = WorkflowContext(
@@ -319,7 +320,7 @@ def test_run_setup_rejects_heterogeneous_flow_when_support_is_undeclared(monkeyp
         _DummyGeographic,
     )
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.Domain",
+        "hydromodpy.spatial.domain.build.Domain",
         _DummyDomain,
     )
     monkeypatch.setattr(
@@ -330,7 +331,7 @@ def test_run_setup_rejects_heterogeneous_flow_when_support_is_undeclared(monkeyp
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
-        domain=SimpleNamespace(zone_ids=[]),
+        domain=DomainConfig(),
         simulation=SimpleNamespace(name="test"),
     )
     run_state = WorkflowContext(

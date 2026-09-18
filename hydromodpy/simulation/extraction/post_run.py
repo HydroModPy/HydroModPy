@@ -130,7 +130,7 @@ def extract_run_outputs(
 
     provider = get_solver_registry_provider()
     solver_name = ctx.run.solver
-    solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
+    solver_output_dir = ctx.output_dir
 
     extractor = provider.get_extractor_instance(ctx.run.process_type, solver_name)
     if extractor is None:
@@ -159,15 +159,6 @@ def extract_run_outputs(
     _finalize_run_provenance(ctx=ctx, sim_id=sim_id, store=store)
 
 
-def _run_model(ctx: RunContext) -> Any:
-    """Return the model the runner produced for this run, or None."""
-    execution = getattr(getattr(ctx, "state", None), "execution", None)
-    models = getattr(execution, "models_by_run_id", None)
-    if isinstance(models, Mapping):
-        return models.get(ctx.run.id)
-    return None
-
-
 def _finalize_run_provenance(*, ctx: RunContext, sim_id: str, store: Any) -> None:
     """Backfill provenance known only after the solver grid is built and run.
 
@@ -175,7 +166,7 @@ def _finalize_run_provenance(*, ctx: RunContext, sim_id: str, store: Any) -> Non
     metadata for DISV-from-raster runs), and the recorded binary is a best guess;
     both are refined here from the model the run actually produced.
     """
-    model = _run_model(ctx)
+    model = ctx.model
     if model is None:
         return
     grid = _resolve_run_grid_metadata(model)

@@ -50,9 +50,10 @@ def capability_decls() -> tuple[CapabilityDecl, ...]:
     pyarrow for the other.
     """
     from hydromodpy.data.fetch.capability import DATA_FETCH
+    from hydromodpy.spatial.domain.capability import DOMAIN_BUILD
     from hydromodpy.spatial.site_selection.hydrology.capability import TERRAIN_DELINEATE
 
-    return (DATA_FETCH, TERRAIN_DELINEATE)
+    return (DATA_FETCH, DOMAIN_BUILD, TERRAIN_DELINEATE)
 
 
 def _registry() -> Mapping[str, Capability]:
@@ -65,10 +66,12 @@ def _registry() -> Mapping[str, Capability]:
     renamed one, mapped to the generic exit 1.
     """
     from hydromodpy.data.fetch.worker import run as data_fetch
+    from hydromodpy.spatial.domain.worker import run as domain_build
     from hydromodpy.spatial.site_selection.hydrology.worker import run as terrain_delineate
 
     runners: Mapping[str, CapabilityRunner] = {
         "data-fetch": data_fetch,
+        "domain-build": domain_build,
         "terrain-delineate": terrain_delineate,
     }
     served: dict[str, Capability] = {}
