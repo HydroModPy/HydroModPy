@@ -149,6 +149,11 @@ hydromodpy = "hydromodpy.cli:main"
 # The "hydromodpy.solver" and "hydromodpy.solver.extractor" entry-point groups
 # are the out-of-tree plugin surface. In-tree backends are declared once, in
 # hydromodpy.solver.base.registry, so a backend never carries two names.
+#
+# "hydromodpy.data.source" is the same surface for data sources, read by
+# hydromodpy.data.source.registry, and in-tree sources are declared once there
+# for the same reason. An entry-point name must equal the source_id its class
+# declares, and a name this build already ships is refused.
 
 [project.urls]
 Homepage = "https://docs.hydromodpy.fr/"

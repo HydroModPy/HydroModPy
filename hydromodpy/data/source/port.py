@@ -48,9 +48,10 @@ and a request built that way comes back short of what was asked for.
 
 What is deliberately absent
 ---------------------------
-**No registry.** A selection point with no caller is decoration; it arrives
-with the plugin surface that has to resolve a third-party name, and that is a
-phase of its own. **No cache.** ``fetch_with_smart_cache`` needs a manager, a
+**No registry in this module.** Resolving a name to a class is
+:mod:`hydromodpy.data.source.registry`, which the vocabulary must not depend on:
+a source implements the port, and nothing it implements should require it to be
+findable. **No cache.** ``fetch_with_smart_cache`` needs a manager, a
 catalog and a project directory, and those are exactly the three things a
 source must not know about. **No config object in the signature.** Seven of the
 nine SIM2 adapters never read the config they are handed, and each hydrography
@@ -490,9 +491,43 @@ silently lost one.
 """
 
 
+INSTANCE_SOURCE_MEMBERS: tuple[str, ...] = ("variables",)
+"""The members only an instance carries, so a class cannot be asked for them.
+
+One member, and it is the one D114 moved off the class on purpose: a Hub'Eau
+piezometry class serves two products and an instance built with
+``product="level"`` serves one, so the set is the instance's or it is a union
+that no check can falsify. The consequence is that ``hasattr`` on the class is
+``False`` for it, and anything that validates a *class* -- the registry, which
+resolves a name before anyone can construct it -- has to know that and say so
+rather than report a conformance failure that is really a design choice.
+"""
+
+CLASS_SOURCE_MEMBERS: tuple[str, ...] = tuple(
+    name for name in SOURCE_MEMBERS if name not in INSTANCE_SOURCE_MEMBERS
+)
+"""What a source class promises before anybody builds one.
+
+:data:`SOURCE_MEMBERS` minus :data:`INSTANCE_SOURCE_MEMBERS`, and
+``test_the_two_member_sets_partition_the_port`` refuses the day the two stop
+covering it exactly.
+"""
+
+
 def missing_source_members(candidate: object) -> tuple[str, ...]:
     """Return the members of :data:`SOURCE_MEMBERS` ``candidate`` does not have."""
     return tuple(name for name in SOURCE_MEMBERS if not hasattr(candidate, name))
+
+
+def missing_class_members(candidate: object) -> tuple[str, ...]:
+    """Return the members of :data:`CLASS_SOURCE_MEMBERS` ``candidate`` lacks.
+
+    For a class, which is what a registry holds. A class that passes this is
+    not yet a conforming source -- ``variables`` is still owed by every
+    instance it makes -- and that remaining promise is read on a real fetch by
+    ``tests/contract/test_data_source_contract.py``.
+    """
+    return tuple(name for name in CLASS_SOURCE_MEMBERS if not hasattr(candidate, name))
 
 
 # --------------------------------------------------------------------------- #
@@ -573,6 +608,9 @@ __all__ = [
     "ALL_PAYLOAD_KINDS",
     "ALL_PERIOD_NEEDS",
     "ALL_SELECTORS",
+    "CLASS_SOURCE_MEMBERS",
+    "INSTANCE_SOURCE_MEMBERS",
+    "SOURCE_MEMBERS",
     "DataSource",
     "Extent",
     "FetchRequest",
@@ -580,9 +618,9 @@ __all__ = [
     "PayloadKind",
     "Period",
     "PeriodNeed",
-    "SOURCE_MEMBERS",
     "Selector",
     "extent_for",
+    "missing_class_members",
     "missing_source_members",
     "require_declared_variables",
     "require_period",

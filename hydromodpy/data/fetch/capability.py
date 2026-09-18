@@ -19,9 +19,9 @@ each because the code on this tree says so:
   that differ by their output extension and by nothing else.
 - **``reaches_network`` is derived, not written.** It is the union of the
   ``hosts`` every served source declares, which is exactly why D110 made that
-  member a list of hosts rather than a boolean. Adding a source to
-  :data:`SERVED_SOURCES` moves the declaration, the generated description and
-  the firewall rule a caller writes, in one edit.
+  member a list of hosts rather than a boolean. Adding a member to
+  :data:`SourceOptions` moves the declaration, the generated description and the
+  firewall rule a caller writes, in one edit.
 - **``$TMPDIR`` is declared because a fetch is given a scratch directory, always.**
   :class:`~hydromodpy.data.source.port.FetchRequest` has a mandatory ``out_dir``
   and the sources disagree about whether they write into it: IGN lands archives,
@@ -40,7 +40,7 @@ each because the code on this tree says so:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, get_args
 
 from pydantic import Field, model_validator
 
@@ -56,14 +56,9 @@ from hydromodpy.core.exceptions import (
     DataSourceError,
     JobUsageError,
 )
-from hydromodpy.data.source.bdtopage import (
-    DEFAULT_PAGE_SIZE,
-    DEFAULT_TYPENAME,
-    BdTopageSource,
-)
-from hydromodpy.data.source.hubeau_piezometry import HubeauPiezometrySource
-from hydromodpy.data.source.ign_dem import IgnDemSource
-from hydromodpy.data.source.sim2_precipitation import Sim2PrecipitationSource
+from hydromodpy.data.source import registry
+from hydromodpy.data.source.bdtopage import DEFAULT_PAGE_SIZE, DEFAULT_TYPENAME
+from hydromodpy.data.source.port import DataSource
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
 from hydromodpy.schema.job.request import FileLink
 from hydromodpy.schema.media_types import (
@@ -76,30 +71,6 @@ from hydromodpy.schema.media_types import (
 
 CAPABILITY_ID = "data-fetch"
 CAPABILITY_VERSION = "1.0.0"
-
-SERVED_SOURCES = (
-    BdTopageSource,
-    HubeauPiezometrySource,
-    IgnDemSource,
-    Sim2PrecipitationSource,
-)
-"""The sources this build can be asked for, one per payload kind.
-
-A table and not a registry, on purpose and for the reason D117 gave for the
-port shipping without one: a selection point resolving a name nobody outside
-this repository can supply is decoration. The plugin surface that makes the
-name third-party is F5e, and it replaces this tuple rather than wrapping it.
-"""
-
-REACHED_HOSTS: tuple[str, ...] = tuple(
-    sorted({host for source in SERVED_SOURCES for host in source.hosts})
-)
-"""Every host any served source contacts, which is what the capability declares.
-
-The union and not the host of the source a given request names: an orchestrator
-allows egress before it reads the request, so what it has to allow is the set a
-run *may* reach. ``outputs/fetch.json`` records the one it did reach.
-"""
 
 MAX_STATIONS = 1_000
 """Declared because ``maxOccurs`` has to be a number in the description."""
@@ -130,8 +101,8 @@ class BdTopageOptions(HydroModelBase):
         description="features requested per page while the WFS result is walked",
     )
 
-    def build(self) -> BdTopageSource:
-        return BdTopageSource(typename=self.typename, page_size=self.page_size)
+    def build(self) -> DataSource:
+        return registry.get(self.id)(typename=self.typename, page_size=self.page_size)
 
 
 class HubeauPiezometryOptions(HydroModelBase):
@@ -149,8 +120,8 @@ class HubeauPiezometryOptions(HydroModelBase):
         description="drop a piezometer that has no observation inside the period",
     )
 
-    def build(self) -> HubeauPiezometrySource:
-        return HubeauPiezometrySource(
+    def build(self) -> DataSource:
+        return registry.get(self.id)(
             product=self.product,
             require_observations=self.require_observations,
         )
@@ -169,8 +140,8 @@ class IgnDemOptions(HydroModelBase):
         examples=[["035", "022"]],
     )
 
-    def build(self) -> IgnDemSource:
-        return IgnDemSource(departments=tuple(self.departments))
+    def build(self) -> DataSource:
+        return registry.get(self.id)(departments=tuple(self.departments))
 
 
 class Sim2PrecipitationOptions(HydroModelBase):
@@ -186,8 +157,8 @@ class Sim2PrecipitationOptions(HydroModelBase):
         description="precipitation components to fetch, one field per component",
     )
 
-    def build(self) -> Sim2PrecipitationSource:
-        return Sim2PrecipitationSource(components=tuple(self.components))
+    def build(self) -> DataSource:
+        return registry.get(self.id)(components=tuple(self.components))
 
 
 SourceOptions = Annotated[
@@ -198,9 +169,45 @@ SourceOptions = Annotated[
 
 Tagged on ``id`` rather than spelled as a source name beside a free-form option
 bag: a bag would be validated against nothing, and the description a shim reads
-would list an input whose shape it cannot know. The four members are exactly
-:data:`SERVED_SOURCES`, and ``test_every_served_source_has_an_options_model``
-refuses the day they stop matching.
+would list an input whose shape it cannot know.
+
+**This union is the list.** ``SERVED_SOURCES`` used to be a second tuple of the
+same four sources beside it; it is now read off the discriminator of this one
+and resolved through the registry, so a source cannot be served without a
+document shape and a shape cannot be published without a source behind it.
+"""
+
+
+def _served_source_ids() -> tuple[str, ...]:
+    """The ids the union tags, read off its own discriminator."""
+    union, _ = get_args(SourceOptions)
+    return tuple(get_args(member.model_fields["id"].annotation)[0] for member in get_args(union))
+
+
+SERVED_SOURCES: tuple[type, ...] = tuple(
+    registry.get(source_id) for source_id in _served_source_ids()
+)
+"""The source classes this build describes, in the order the union names them.
+
+Resolved through :mod:`hydromodpy.data.source.registry`, which is also what
+``build()`` calls, so substituting the class registered under an id substitutes
+what a run of this capability actually asks.
+
+Deliberately **not** ``registry.list_source_ids()``. A plugin installed beside
+this build is resolvable and is not describable: the description that would
+name it ships in the wheel, and the wheel was built before the plugin existed.
+The two answers are kept apart by ``builtin_source_ids`` and
+``list_source_ids``, and this is the member that needs the first.
+"""
+
+REACHED_HOSTS: tuple[str, ...] = tuple(
+    sorted({host for source in SERVED_SOURCES for host in source.hosts})
+)
+"""Every host any served source contacts, which is what the capability declares.
+
+The union and not the host of the source a given request names: an orchestrator
+allows egress before it reads the request, so what it has to allow is the set a
+run *may* reach. ``outputs/fetch.json`` records the one it did reach.
 """
 
 

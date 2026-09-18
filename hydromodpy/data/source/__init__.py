@@ -6,9 +6,10 @@ neither geopandas, nor pandas, nor requests, nor pydantic. The adapters are
 resolved lazily for the same reason, and each of them reaches its provider's
 api module from inside ``fetch`` rather than at import time.
 
-There is deliberately no source registry here. A selection point with no caller
-is decoration -- the same reason the terrain port ships without one. It arrives
-with the plugin surface that has to resolve a third-party name.
+``registry`` resolves a name to a source class, and is the surface a
+third-party source registers on. It is not re-exported here: the canonical path
+is ``hydromodpy.data.source.registry``, beside ``hydromodpy.solver.base.registry``,
+and importing it pulls in no adapter at all.
 """
 
 from __future__ import annotations
