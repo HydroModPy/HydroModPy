@@ -16,7 +16,7 @@ from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.simulation import ensure_flow, ensure_transport
 from hydromodpy.spatial.domain import Domain
 from hydromodpy.spatial.domain.spatial_support import SupportBuildContext
-from hydromodpy.spatial.domain.zone_arming import arm_runtime_zone_ids
+from hydromodpy.spatial.domain.zone_arming import BINDER_ZONE_IDS, arm_runtime_zone_ids
 from hydromodpy.spatial.geographic.artifacts import geographic_artifact_paths
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from hydromodpy.spatial.geographic.core.derived_features import (
@@ -439,6 +439,7 @@ def run_setup(
     domain_cfg = arm_runtime_zone_ids(domain_cfg, requested_spatial_support_ids)
 
     setup_state.domain = Domain(config=domain_cfg, surface_topo=surface_topo)
+    setup_state.domain_config_source = cfg.domain
     apply_catchment_zones_to_domain(
         domain=setup_state.domain,
         geographic=setup_state.domain_geographic,
@@ -472,6 +473,64 @@ def run_setup(
         flow=setup_state.flow,
         requested_domain_supports=requested_domain_supports,
     )
+
+
+def rebuild_domain_if_stale(run_state: WorkflowContext) -> bool:
+    """Rebuild ``setup.domain`` when another configuration built it.
+
+    A Project builds its model phase once and then drives several runs through
+    it. Each run resolves the configuration it is defined by, so a sweep point,
+    or a plain run following an overridden one, can arrive with a ``domain``
+    section the live geometry was not built from. Nothing downstream compares
+    the two: the run would use the previous run's geometry while archiving its
+    own configuration beside it.
+
+    Only the domain is rebuilt. The geographic tree and the loaded forcings it
+    stands on belong to the project, not to the run, and re-deriving them would
+    mean delineating the catchment again at every sweep point.
+
+    Returns True when a rebuild happened.
+    """
+    from hydromodpy.spatial.geographic.structure_binders import apply_geology_to_domain
+
+    setup_state = run_state.setup
+    if setup_state.domain is None:
+        return False
+    if setup_state.domain_config_source is run_state.cfg.domain:
+        return False
+    if setup_state.geographic_features is None:
+        raise ConfigError(
+            "The domain was built from another configuration and cannot be rebuilt: "
+            "the geographic runtime it stands on is missing from the context."
+        )
+
+    # The zone ids the live domain ended up with, binder ids included. Arming
+    # from them rather than from the declared section is what keeps a rebuilt
+    # domain able to receive the catchment and geology zones: ``run_setup``
+    # arms a copy, so the declared section never carries them.
+    armed_zone_ids = tuple(getattr(setup_state.domain.config, "zone_ids", ()) or ())
+    domain_cfg = run_state.cfg.domain
+    if hasattr(domain_cfg, "model_copy"):
+        domain_cfg = domain_cfg.model_copy(deep=True)
+    domain_cfg = arm_runtime_zone_ids(domain_cfg, armed_zone_ids)
+    domain = Domain(
+        config=domain_cfg,
+        surface_topo=setup_state.geographic_features.surface_topo,
+    )
+    # The spatial supports the project materialized are lateral zonations; a
+    # different aquifer thickness does not invalidate them, and nothing runs
+    # ``step_spatial_supports`` again for a repeat run on a live Project.
+    # Dropping them here would leave the solver reading no field while
+    # ``validate_domain_support_contract``, which reads the config, still passes.
+    for zone_id, zone in (getattr(setup_state.domain, "zones", None) or {}).items():
+        if zone_id not in BINDER_ZONE_IDS:
+            domain.set_zone(zone_id, zone)
+    apply_catchment_zones_to_domain(domain=domain, geographic=setup_state.domain_geographic)
+    if run_state.loaded_data.geology is not None:
+        apply_geology_to_domain(domain=domain, geology=run_state.loaded_data.geology)
+    setup_state.domain = domain
+    setup_state.domain_config_source = run_state.cfg.domain
+    return True
 
 
 # ---------------------------------------------------------------------------

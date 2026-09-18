@@ -29,6 +29,20 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 SYNTHETIC_PROJECT = REPO_ROOT / "examples" / "projects" / "00_getting_started" / "project.toml"
 
 
+def _declared_config(root: Path):
+    """The narrow slice of a real configuration a dry run reads."""
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.workspace.config import WorkspaceConfig
+    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+
+    return HydroModPyConfig(
+        workflow={"mode": "simulation"},
+        workspace=WorkspaceConfig(project_root=str(root), root=str(root)),
+        geographic=GeographicConfig(source_mode="synthetic"),
+        domain={"depth_model": {"kind": "constant_thickness", "thickness": 50.0}},
+    )
+
+
 class _StubProject:
     """The narrow slice of ``Project`` that a dry run reads."""
 
@@ -37,7 +51,10 @@ class _StubProject:
         self._run_counter = 0
         self._no_display = True
         self._config_path = root / "project.toml"
-        self._cfg = SimpleNamespace(workspace=SimpleNamespace(project_root=root))
+        # A real configuration, not a namespace: the runner resolves the one
+        # this run is defined by before it decides anything, so a double that
+        # cannot be copied with an override folded in proves nothing.
+        self._cfg = _declared_config(root)
         # All three fields are what ``_is_model_phase_ready`` reads; a double
         # that sets only some of them proves nothing about the ready branch.
         self._ctx = SimpleNamespace(

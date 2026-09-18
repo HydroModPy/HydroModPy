@@ -13,12 +13,41 @@ if TYPE_CHECKING:
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.simulation.planning.plan import SimulationPlan
     from hydromodpy.simulation.planning.results_config import ResultsConfig
-    from hydromodpy.spatial.domain import Domain
 
 logger = get_logger(__name__)
 
 
 DEFAULT_FLOW_PROCESS_ID = "flow_main"
+
+
+def resolve_run_config(cfg: Any, *, thickness: float | None) -> Any:
+    """Return the configuration this run is defined by.
+
+    An override of a declared value belongs to the configuration of the run,
+    not to an object built from it. The domain is built from ``cfg.domain`` by
+    every path that builds it - a fresh run, a prefix reconstruction after a
+    process death, another process entirely - so a thickness patched onto the
+    built ``Domain`` is lost the next time one of them runs, and the
+    configuration the run archives beside its results describes a run that
+    never happened.
+
+    The returned configuration shares every section with ``cfg`` except the one
+    an override touches, so a run that overrides nothing gets ``cfg`` itself,
+    and the domain section is an object identity a later run can compare against
+    what built its geometry. A deep copy of the whole configuration would detach
+    the sections a Project resolved once at load time and still hands around.
+
+    ``model_copy(update=...)`` does not re-run the cross-section validators of
+    ``HydroModPyConfig``, and none of them reads ``domain``: the copy is as
+    valid as the configuration it derives from. A section any of them does read
+    - ``flow``, ``solver``, ``transport``, ``calibration``, ``data`` - cannot be
+    folded in this way without validating the result.
+    """
+    if thickness is None:
+        return cfg
+    domain_cfg = cfg.domain.model_copy(deep=True)
+    domain_cfg.depth_model.thickness = thickness
+    return cfg.model_copy(update={"domain": domain_cfg})
 
 
 def step_build_plan(
@@ -36,13 +65,16 @@ def step_build_plan(
     single-flow plan with patched Flow parameters. Otherwise delegate to
     SimulationPlanner using the declared simulation.process list. Sets
     ctx.setup.run_id, ctx.execution.simulation_plan and the process-run map.
+
+    ``thickness`` is read here only to know that this run is a single-process
+    parameter probe: its value is already resolved into ``ctx.cfg`` by
+    :func:`resolve_run_config`, and the domain builder reads it there.
     """
     if overrides or thickness is not None or first_clim is not None:
         return _build_plan_with_overrides(
             ctx,
             name=name,
             overrides=overrides or {},
-            thickness=thickness,
             first_clim=first_clim,
             solver=solver,
         )
@@ -64,7 +96,6 @@ def _build_plan_with_overrides(
     *,
     name: str,
     overrides: dict[str, Any],
-    thickness: float | None,
     first_clim: str | None,
     solver: str | None,
 ) -> SimulationPlan:
@@ -80,13 +111,8 @@ def _build_plan_with_overrides(
         if "recharge" in recharge_ss:
             recharge_ss["recharge"].first_clim = first_clim
 
-    domain = ctx.setup.domain
-    if thickness is not None:
-        domain = step_rebuild_domain(ctx, thickness=thickness)
-
     ctx.setup.flow = flow
     ctx.setup.run_id = name
-    ctx.setup.domain = domain
 
     # Run the SAME full binder cascade the canonical data step and the trial fork
     # use, so an override / sweep run keeps every forcing (lake meteo and flux,
@@ -117,35 +143,6 @@ def step_apply_flow_overrides(flow, overrides: dict[str, Any]) -> None:
             available = ", ".join(sorted(flow.parameters))
             raise ConfigError(f"Unknown parameter '{key}'. Available: {available}")
         flow.parameters[key].value = value
-
-
-def step_rebuild_domain(ctx: WorkflowContext, *, thickness: float) -> Domain:
-    """Rebuild the Domain with a new aquifer thickness.
-
-    Reapplies catchment zones and geology binders so the returned Domain is
-    fully hydrated. Does not mutate ctx.setup.domain; the caller stores the
-    result once the run consumes it.
-    """
-    from hydromodpy.spatial.domain import Domain
-    from hydromodpy.spatial.geographic.structure_binders import (
-        apply_catchment_zones_to_domain,
-        apply_geology_to_domain,
-    )
-
-    domain_cfg = ctx.cfg.domain.model_copy(deep=True)
-    domain_cfg.depth_model.thickness = thickness
-    surface_topo = ctx.setup.geographic_features.surface_topo
-    domain = Domain(config=domain_cfg, surface_topo=surface_topo)
-    apply_catchment_zones_to_domain(
-        domain=domain,
-        geographic=ctx.setup.domain_geographic,
-    )
-    if ctx.loaded_data.geology is not None:
-        apply_geology_to_domain(
-            domain=domain,
-            geology=ctx.loaded_data.geology,
-        )
-    return domain
 
 
 def _default_flow_solver(ctx: WorkflowContext) -> str:

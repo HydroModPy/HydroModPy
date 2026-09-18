@@ -228,7 +228,8 @@ class ProjectRunner:
         from hydromodpy.workflow.internals.state import PipelineState
         from hydromodpy.workflow.orchestrator import standard_steps
         from hydromodpy.workflow.runner import Pipeline
-        from hydromodpy.workflow.steps.planning import step_build_plan
+        from hydromodpy.workflow.steps.planning import resolve_run_config, step_build_plan
+        from hydromodpy.workflow.steps.setup import rebuild_domain_if_stale
 
         project = self._project
 
@@ -315,6 +316,18 @@ class ProjectRunner:
             )
             return None
 
+        # The configuration this run is defined by, overrides included. It is
+        # what the Pipeline signs, what the run archives, and what every
+        # builder reads, including the prefix a resume reconstructs in another
+        # process. ``project._cfg`` stays the configuration the project
+        # declares; the context carries the one of the run in flight. A dry run
+        # never gets here: a preview changes nothing.
+        cfg_run = resolve_run_config(project._cfg, thickness=thickness)
+        project._ctx.cfg = cfg_run
+        # A Project builds its model phase once; this run may be defined by
+        # another configuration than the one that built it.
+        rebuild_domain_if_stale(project._ctx)
+
         step_build_plan(
             project._ctx,
             name=name,
@@ -343,7 +356,7 @@ class ProjectRunner:
             run_id=run_id,
             data={
                 "ctx": project._ctx,
-                "cfg": project._cfg,
+                "cfg": cfg_run,
                 "config_path": project._config_path,
                 "raw_toml": getattr(project._ctx, "raw_toml", {}) or {},
                 "skip_display": skip_display,

@@ -24,6 +24,13 @@ class SetupContext:
     geographic_features: Any = None
     domain_geographic: Any = None
     domain: Any = None
+    # The ``cfg.domain`` section ``domain`` was built from. A Project builds its
+    # model phase once and drives several runs through it; a run defined by
+    # another configuration - a thickness sweep, a run following an overridden
+    # one - must not inherit the previous run's geometry, and this is what says
+    # so. Identity, not equality: ``resolve_run_config`` hands back the declared
+    # section itself when a run overrides nothing.
+    domain_config_source: Any = None
     flow: Any = None
     transport: Any = None
     mesh_summary: dict[str, Any] | None = None
