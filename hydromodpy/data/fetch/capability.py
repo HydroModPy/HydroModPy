@@ -192,6 +192,14 @@ class InstalledSourceOptions(HydroModelBase):
     ``outputs/fetch.json`` records the hosts the run really reached, and an
     orchestrator that allows egress from the description alone has to widen it
     itself.
+
+    **An option spelled at its default is a different submission.** For a
+    described source the request model fills the defaults, so two documents
+    that differ only by an omitted one carry the same ``job_id`` and the second
+    is recognised as a repeat. The defaults of an installed source live in its
+    constructor, which this build does not describe, so ``{}`` and
+    ``{"sweep": "long"}`` address two jobs even when ``long`` is the default.
+    Spell the options the same way twice, or accept a second run.
     """
 
     id: Annotated[Literal["installed"], Profile.USER] = Field(
