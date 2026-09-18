@@ -162,16 +162,21 @@ class PrepareSolverStep:
             # registered attaches to the right simulation, not the newest one.
             # The index is per project, so the directory name is not part of
             # the lookup: renaming or copying a project must not break resume.
-            # ``resolve`` is the catalog's one reference resolver; a name that
-            # also reads as a run id prefix makes it raise instead of picking.
+            # ``find`` and not ``resolve``: the resume knows the name it wrote
+            # and wants that row or nothing. ``resolve`` also accepts a run id
+            # prefix and falls back to the newest version of a name stem, and
+            # a resume that lands on ``foo.v3`` because ``foo`` no longer
+            # exists writes a journal into the wrong simulation.
             with run_catalog(ctx) as store:
-                try:
-                    ctx.sim_id = store.resolve(run_id)
-                except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
-                    raise ConfigError(
-                        f"resume: no single simulation named {run_id!r} in the project "
-                        f"index at {ws.project_root}; cannot rebuild the run state."
-                    ) from exc
+                sim_ids = store.find(name=run_id).sim_ids
+            if not sim_ids:
+                raise SimulationNotFoundError(
+                    f"resume: no simulation named {run_id!r} in the project index at "
+                    f"{ws.project_root}; cannot rebuild the run state."
+                )
+            if len(sim_ids) > 1:
+                raise AmbiguousReferenceError(run_id, [(sid, run_id) for sid in sim_ids])
+            ctx.sim_id = sim_ids[0]
 
         return prior_state.advance(
             step_index=prior_state.step_index + 1,
