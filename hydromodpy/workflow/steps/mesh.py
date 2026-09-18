@@ -23,6 +23,18 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+# Where the embedded meshing writes its final artefacts, under the project
+# root. ``[mesh_catchment] output_layout`` governs the dedicated launcher, not
+# this path: the runtime variant a simulation drives always lands here, which
+# is also where ``mesh_cache`` looks.
+_MESH_DIRNAME = "mesh"
+
+
+def _mesh_dir_for(ctx: WorkflowContext) -> Path | None:
+    """Return the project mesh directory, or None before the workspace exists."""
+    project_root = getattr(getattr(ctx.setup, "workspace", None), "project_root", None)
+    return None if project_root is None else Path(project_root) / _MESH_DIRNAME
+
 
 # ---------------------------------------------------------------------------
 # Optional mesh section resolution
@@ -221,6 +233,10 @@ def run_mesh_phase(
         mesh_cache_is_valid,
         write_mesh_cache_key,
     )
+    from hydromodpy.spatial.mesh.runtime_description import (
+        read_mesh_description,
+        write_mesh_description,
+    )
 
     setup_state = run_state.setup
     extra_size_fields = _build_lake_mesh_refinement(
@@ -230,7 +246,7 @@ def run_mesh_phase(
     # Gmsh is not reproducible run to run (see mesh_cache), so when caching is enabled
     # reuse a previously generated mesh whose inputs are unchanged instead of
     # regenerating. Fail-safe: a key mismatch or any missing file regenerates.
-    mesh_dir = Path(getattr(setup_state.workspace, "project_root", ".")) / "mesh"
+    mesh_dir = _mesh_dir_for(run_state) or Path(".") / _MESH_DIRNAME
     cache_key: str | None = None
     if bool(getattr(mesh_section_data, "cache", False)):
         cache_key = compute_mesh_cache_key(
@@ -242,6 +258,15 @@ def run_mesh_phase(
             domain_geographic=setup_state.domain_geographic,
         )
         if mesh_cache_is_valid(mesh_dir, cache_key):
+            # The description was written by the build that produced this very
+            # mesh, so it is what describes it. Without it the reused mesh came
+            # back with a three-key summary while a freshly built one carried
+            # the whole meshing diagnostic.
+            described = read_mesh_description(mesh_dir)
+            if described is not None:
+                setup_state.mesh_summary = dict(described)
+                load_mesh_artifacts_from_summary(run_state, strict=True)
+                return
             cached_msh, cached_bundle, _ = cached_mesh_paths(mesh_dir)
             run_mesh_input_phase(
                 run_state,
@@ -264,6 +289,7 @@ def run_mesh_phase(
     setup_state.mesh_summary = mesh_runtime.summary
     setup_state.mesh_planar = mesh_runtime.mesh_planar
     load_mesh_artifacts_from_summary(run_state, strict=False, preserve_preloaded=True)
+    write_mesh_description(mesh_dir, setup_state.mesh_summary)
     if cache_key is not None:
         write_mesh_cache_key(mesh_dir, cache_key)
 
@@ -420,6 +446,21 @@ class BuildMeshStep:
             ctx=ctx,
         )
 
+    def artifacts(self, state_out: PipelineState) -> tuple[str, ...]:
+        """Return the mesh this step left on disk, as the runtime names it."""
+        from hydromodpy.spatial.mesh.runtime_description import mesh_artifact_paths
+
+        ctx = state_out.get("ctx")
+        if ctx is None:
+            return ()
+        return tuple(
+            str(path)
+            for path in mesh_artifact_paths(
+                getattr(ctx.setup, "mesh_summary", None),
+                _mesh_dir_for(ctx),
+            )
+        )
+
     def rebuild_state(
         self,
         *,
@@ -427,10 +468,25 @@ class BuildMeshStep:
         workspace: Path,
         run_id: str,
     ) -> PipelineState:
-        """Reload the mesh from disk artefacts when present, fallback to re-run."""
+        """Reload the mesh a previous process generated, fallback to re-meshing.
+
+        The read is what makes a resume honest: Gmsh is not reproducible run to
+        run, so re-meshing here would not repeat the step's work, it would
+        change the mesh every number downstream is computed on. An in-memory
+        summary is preferred when this process already holds one; a fresh
+        process has none and reads the description the build left beside the
+        mesh.
+        """
+        from hydromodpy.spatial.mesh.runtime_description import read_mesh_description
+
         ctx = prior_state.get("ctx")
         if ctx is None:
             raise ConfigError("BuildMeshStep.rebuild_state requires 'ctx' in state.data")
+        if getattr(ctx.setup, "mesh_summary", None) is None:
+            mesh_dir = _mesh_dir_for(ctx) or Path(workspace) / _MESH_DIRNAME
+            described = read_mesh_description(mesh_dir)
+            if described is not None:
+                ctx.setup.mesh_summary = dict(described)
         try:
             load_mesh_artifacts_from_summary(ctx, strict=False, preserve_preloaded=True)
         except Exception:
