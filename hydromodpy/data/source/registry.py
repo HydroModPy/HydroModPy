@@ -56,7 +56,7 @@ import importlib
 import inspect
 from importlib.metadata import entry_points
 
-from hydromodpy.core.exceptions import DataRequestError
+from hydromodpy.core.exceptions import DataCapabilityError, DataRequestError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.source.port import missing_class_members
 
@@ -184,6 +184,39 @@ def get(source_id: str) -> type:
         f"A third-party source joins that list through the {ENTRY_POINT_GROUP!r} "
         "entry-point group, without a patch to HydroModPy."
     )
+
+
+def get_serving(source_id: str, payload_kind: str) -> type:
+    """Return the class registered under *source_id*, of that payload kind only.
+
+    Resolving a name and checking what it serves is one question, asked by two
+    callers that both answer it before anything is built: the configuration
+    model of a variable, which refuses a document, and the seam that builds a
+    source from a section, which is handed duck-typed objects the model never
+    saw.
+
+    The kind is read off the **declaration**, so a source of the wrong shape is
+    refused before its constructor runs and therefore long before its provider
+    is contacted. Reading it off the answer instead is what let a DEM source
+    named in a hydrography section start downloading France-wide archives.
+
+    Raises
+    ------
+    DataRequestError
+        When no source answers to that name, from :func:`get`.
+    DataCapabilityError
+        When one does and it serves another payload kind.
+    """
+    source_cls = get(source_id)
+    declared = getattr(source_cls, "payload_kind", None)
+    if declared != payload_kind:
+        raise DataCapabilityError(
+            f"Source {source_id!r} serves a {declared!r} payload, and this one accepts a "
+            f"{payload_kind!r} payload. A source of another kind belongs to another "
+            "variable, and asking it anyway would contact its provider before the answer "
+            "could be refused."
+        )
+    return source_cls
 
 
 def load_plugins(*, force: bool = False) -> int:
@@ -329,6 +362,7 @@ __all__ = [
     "build_from_section",
     "builtin_source_ids",
     "get",
+    "get_serving",
     "is_registered",
     "list_source_ids",
     "load_plugins",

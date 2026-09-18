@@ -3,27 +3,44 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.exceptions import DataCapabilityError, DataRequestError
 from hydromodpy.core.tracking import InputFile
+from hydromodpy.data.source import registry
+from hydromodpy.data.variables.hydrography.api_source import NETWORK_PAYLOAD_KIND
 
 
 class HydrographySourceConfig(HydroModelBase):
     """Configuration for one hydrography data source.
 
     Hydrography sources describe river-network vector or raster data. Use
-    ``custom`` for local files, ``osm`` for OpenStreetMap waterways,
-    ``bdtopage`` for the Sandre WFS service, or ``euhydro`` for the EEA
-    EU-Hydro service.
+    ``custom`` for local files, and otherwise the id of a source that serves
+    river linework -- ``osm``, ``bdtopage`` and ``euhydro`` ship here, and a
+    third party adds one by registering it on the
+    ``hydromodpy.data.source`` entry-point group.
+
+    **The name is not a closed list, and that is the point.** It used to be a
+    ``Literal`` of four words, which was the fourth copy of a list the registry
+    now owns and the one place a plugin could not reach: a source installed
+    beside HydroModPy was resolvable by every caller and nameable by no
+    document. It is validated against the registry instead, so the exported
+    JSON Schema stays a plain string and does not describe what happens to be
+    installed next to the build that exported it.
     """
 
-    source: Annotated[Literal["custom", "osm", "bdtopage", "euhydro"], Profile.USER] = Field(
+    source: Annotated[str, Profile.USER] = Field(
         ...,
-        description="Data provider.",
+        description=(
+            "Data provider. Any source id this installation resolves and that serves river "
+            "linework is accepted, so a third-party source registered on the "
+            "'hydromodpy.data.source' entry-point group is named here by its id."
+        ),
+        examples=["custom"],
         json_schema_extra={
             "value_docs": {
                 "custom": "Loads a river network from a local vector or raster file you provide.",
@@ -84,6 +101,29 @@ class HydrographySourceConfig(HydroModelBase):
     def _check_custom_requires_path(self) -> HydrographySourceConfig:
         if self.source == "custom" and self.path is None:
             raise ValueError("Custom source requires 'path'.")
+        return self
+
+    @model_validator(mode="after")
+    def _check_the_name_is_a_source_that_serves_a_network(self) -> HydrographySourceConfig:
+        """Refuse a name no source answers to, or one that answers with the wrong shape.
+
+        Both refusals are the registry's, re-raised as ``ValueError`` so the
+        fault names ``data.hydrography.sources[i].source`` instead of arriving
+        as an exception type a configuration reader has no place for.
+
+        Checking only that the name resolves would let ``sim2-precipitation``
+        into a hydrography section, refused much later by the fetch itself; the
+        payload kind is read here for the same reason it is read at the build
+        seam, and it costs an import of the adapter module. Measured on this
+        tree: 0.2 ms and four modules for the first one, and no adapter pulls
+        geopandas, rasterio or xarray at import.
+        """
+        if self.source == "custom":
+            return self
+        try:
+            registry.get_serving(self.source, NETWORK_PAYLOAD_KIND)
+        except (DataRequestError, DataCapabilityError) as exc:
+            raise ValueError(str(exc)) from exc
         return self
 
 

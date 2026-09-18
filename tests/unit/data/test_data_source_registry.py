@@ -84,15 +84,6 @@ class IdlessSource:
         raise AssertionError("a class with no source_id must not be registrable")
 
 
-@pytest.fixture
-def isolated_registry(monkeypatch: pytest.MonkeyPatch):
-    """Give one test its own registry state, restored afterwards."""
-    monkeypatch.setattr(registry, "_REGISTRY", dict(registry._REGISTRY))
-    monkeypatch.setattr(registry, "_BUILTIN_PATHS", dict(registry._BUILTIN_PATHS))
-    monkeypatch.setattr(registry, "_PLUGINS_LOADED", False)
-    return registry
-
-
 def _entry_points_returning(*points: EntryPoint):
     def fake_entry_points(*, group: str):
         assert group == registry.ENTRY_POINT_GROUP

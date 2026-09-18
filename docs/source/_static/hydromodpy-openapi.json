@@ -11013,16 +11013,10 @@
       },
       "HydrographySourceConfig": {
         "additionalProperties": false,
-        "description": "Configuration for one hydrography data source.\n\nHydrography sources describe river-network vector or raster data. Use\n``custom`` for local files, ``osm`` for OpenStreetMap waterways,\n``bdtopage`` for the Sandre WFS service, or ``euhydro`` for the EEA\nEU-Hydro service.",
+        "description": "Configuration for one hydrography data source.\n\nHydrography sources describe river-network vector or raster data. Use\n``custom`` for local files, and otherwise the id of a source that serves\nriver linework -- ``osm``, ``bdtopage`` and ``euhydro`` ship here, and a\nthird party adds one by registering it on the\n``hydromodpy.data.source`` entry-point group.\n\n**The name is not a closed list, and that is the point.** It used to be a\n``Literal`` of four words, which was the fourth copy of a list the registry\nnow owns and the one place a plugin could not reach: a source installed\nbeside HydroModPy was resolvable by every caller and nameable by no\ndocument. It is validated against the registry instead, so the exported\nJSON Schema stays a plain string and does not describe what happens to be\ninstalled next to the build that exported it.",
         "properties": {
           "source": {
-            "description": "Data provider.",
-            "enum": [
-              "custom",
-              "osm",
-              "bdtopage",
-              "euhydro"
-            ],
+            "description": "Data provider. Any source id this installation resolves and that serves river linework is accepted, so a third-party source registered on the 'hydromodpy.data.source' entry-point group is named here by its id.",
             "examples": [
               "custom"
             ],

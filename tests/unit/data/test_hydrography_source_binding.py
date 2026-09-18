@@ -9,13 +9,16 @@ binds, so a constructor parameter renamed into a collision fails here.
 
 from __future__ import annotations
 
+import tomllib
 from types import SimpleNamespace
-from typing import get_args
+from typing import ClassVar
 
 import pytest
+from pydantic import ValidationError
 
 from hydromodpy.core.exceptions import DataCapabilityError, DataRequestError
 from hydromodpy.data.source import registry
+from hydromodpy.data.source.port import FetchRequest, FetchResult, PayloadKind, extent_for
 from hydromodpy.data.variables.hydrography.api_source import (
     NETWORK_PAYLOAD_KIND,
     source_from_section,
@@ -212,10 +215,99 @@ def test_the_refusal_names_the_kind_the_variable_wants() -> None:
         source_from_section(SimpleNamespace(source="sim2-precipitation"))
 
 
-def test_every_source_the_section_accepts_today_serves_a_network() -> None:
+def _documented_names() -> tuple[str, ...]:
+    """The source names the section documents, read off the field itself.
+
+    The section used to carry a ``Literal`` and this list was read off it. It
+    is read off ``value_docs`` now, for the reason the phase exists: the field
+    accepts any id the registry resolves, so there is no closed annotation left
+    to enumerate, and the only list the section still owns is the one it
+    documents.
+    """
+    extra = HydrographySourceConfig.model_fields["source"].json_schema_extra
+    return tuple(extra["value_docs"])
+
+
+def test_every_source_the_section_documents_serves_a_network() -> None:
     """Anti-vacuity: a refusal that refused everything would pass both tests."""
-    accepted = get_args(HydrographySourceConfig.model_fields["source"].annotation)
-    for name in accepted:
-        if name == "custom":
-            continue
+    names = [name for name in _documented_names() if name != "custom"]
+    assert len(names) == 3, "the documented list lost a source without anyone noticing"
+    for name in names:
         assert source_from_section(SimpleNamespace(source=name)).source_id == name
+
+
+# --------------------------------------------------------------------------- #
+# What a document may name, which is the whole of F5e-3
+# --------------------------------------------------------------------------- #
+
+
+class AcmeLineworkSource:
+    """A river-network source a third party ships, named in no file of this tree."""
+
+    source_id: ClassVar[str] = "acme-linework"
+    payload_kind: ClassVar[PayloadKind] = "features"
+    extent_crs: ClassVar[str] = "EPSG:3035"
+    selectors: ClassVar[tuple[str, ...]] = ("extent",)
+    period_need: ClassVar[str] = "refused"
+    hosts: ClassVar[tuple[str, ...]] = ("linework.acme.example",)
+    writes_out_dir: ClassVar[bool] = False
+
+    def __init__(self, *, waterway_types: list[str] | None = None) -> None:
+        self.waterway_types = tuple(waterway_types or ())
+        self.variables: tuple[str, ...] = ("stream_network",)
+
+    def fetch(self, request: FetchRequest) -> FetchResult:  # pragma: no cover - not fetched here
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent_for(self, request),
+        )
+
+
+class AcmeGaugeSource(AcmeLineworkSource):
+    """Installed, resolvable, and not a river network."""
+
+    source_id: ClassVar[str] = "acme-gauge"
+    payload_kind: ClassVar[PayloadKind] = "points"
+
+
+SECTION_TOML = """
+source = "acme-linework"
+waterway_types = ["canal"]
+"""
+
+
+def test_a_toml_section_names_a_source_this_repository_does_not_name(
+    isolated_registry: object,
+) -> None:
+    """The exit gate of F5e-3, on the configuration side.
+
+    The name reaches the source through a real TOML document and through the
+    binder, and ``grep -r acme-linework hydromodpy/`` finds nothing: the list
+    of names lives in the registry and the section no longer copies it.
+    """
+    registry.register(AcmeLineworkSource)
+
+    section = HydrographySourceConfig.model_validate(tomllib.loads(SECTION_TOML))
+
+    assert section.source == "acme-linework"
+    built = source_from_section(section)
+    assert type(built) is AcmeLineworkSource
+    assert built.waterway_types == ("canal",), "the binder fed the plugin its own parameter"
+
+
+def test_an_installed_source_of_another_kind_is_refused_by_the_document(
+    isolated_registry: object,
+) -> None:
+    """Resolvable is not acceptable, and the document is where that is said."""
+    registry.register(AcmeGaugeSource)
+
+    with pytest.raises(ValidationError, match=NETWORK_PAYLOAD_KIND):
+        HydrographySourceConfig(source="acme-gauge")
+
+
+def test_a_name_nothing_resolves_is_refused_by_the_document() -> None:
+    """The refusal a closed ``Literal`` used to give, given by the registry now."""
+    with pytest.raises(ValidationError, match="acme-linework"):
+        HydrographySourceConfig(source="acme-linework")

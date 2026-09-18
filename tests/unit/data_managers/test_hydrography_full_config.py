@@ -366,20 +366,38 @@ class TestTomlFormatAcceptance:
 class TestDocumentedContracts:
     """Verify the documented public API surface."""
 
-    def test_source_literals(self):
-        """The four supported source types are exactly these."""
-        info = HydrographySourceConfig.model_fields["source"]
-        # Extract Literal args from Annotated
-        for arg in get_args(info.annotation):
-            if get_origin(arg) is Literal or hasattr(arg, "__args__"):
-                literals = set(get_args(arg))
-                if literals:
-                    assert literals == {"custom", "osm", "bdtopage", "euhydro"}
-                    return
-        # Fallback: check via model_json_schema
-        schema = HydrographySourceConfig.model_json_schema()
-        source_enum = schema["properties"]["source"]["enum"]
-        assert set(source_enum) == {"custom", "osm", "bdtopage", "euhydro"}
+    def test_the_source_name_is_open_and_the_exported_schema_says_so(self):
+        """No enum, and no ``Literal`` behind it: the list moved to the registry.
+
+        This used to pin the four names, and it was the fourth copy of them.
+        What replaces it is the property that matters to a third party: the
+        exported schema constrains the name to a string and not to what this
+        build happens to ship, so a document naming an installed source is a
+        valid document by the schema a shim reads.
+        """
+        schema = HydrographySourceConfig.model_json_schema()["properties"]["source"]
+
+        assert schema["type"] == "string"
+        assert "enum" not in schema
+        assert not any(
+            get_args(arg)
+            for arg in get_args(HydrographySourceConfig.model_fields["source"].annotation)
+            if get_origin(arg) is Literal
+        )
+
+    def test_the_four_names_this_build_ships_still_validate(self):
+        """Anti-vacuity for the test above: open is not unchecked."""
+        for name in ("osm", "bdtopage", "euhydro"):
+            assert HydrographySourceConfig(source=name).source == name
+
+    def test_a_source_serving_another_payload_kind_is_refused_by_the_document(self):
+        """``sim2-precipitation`` resolves, and it is not a river network.
+
+        Validating only that the name resolves would let it through here and
+        refuse it inside the fetch, after a provider had been contacted.
+        """
+        with pytest.raises(ValidationError, match="features"):
+            HydrographySourceConfig(source="sim2-precipitation")
 
     def test_custom_vector_formats(self):
         """custom.py supports SHP, GPKG, GeoJSON."""

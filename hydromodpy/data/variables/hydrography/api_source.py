@@ -7,7 +7,7 @@ Three independent copies of the same four words. ``manager.py`` dispatched with
 each branch importing a provider function by hand; ``resolver.py`` carried a
 tuple of the three names so the stream burn could tell an API source from a
 local file, and imported the manager's chain to run one; and the config model
-carries a ``Literal`` of the same list. Nothing made the three agree, and the
+carried a ``Literal`` of the same list. Nothing made the three agree, and the
 solver registry had already shown what happens when a name exists in two places.
 
 Now the name is resolved by :mod:`hydromodpy.data.source.registry` and the
@@ -28,7 +28,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
-from hydromodpy.core.exceptions import DataCapabilityError, DataProductError
+from hydromodpy.core.exceptions import DataProductError
 from hydromodpy.data.source import registry
 from hydromodpy.data.source.port import DataSource, Extent, FetchRequest
 
@@ -53,26 +53,20 @@ def source_from_section(source_cfg: object) -> DataSource:
     :class:`~hydromodpy.core.exceptions.DataRequestError` listing what this
     installation does serve, plugins included.
 
-    **A source serving another payload kind is refused here, on its
-    declaration, before it is built.** The adversarial gate of this phase is
-    why: the stream-burn resolver used to carry an allowlist of three names and
-    now branches on "not custom", so every id the registry resolves reaches
-    this function -- and reading the kind off the *answer* meant a DEM source
-    named in a hydrography section started downloading France-wide archives
-    before anything noticed. The typed `Literal` of the config model keeps that
-    unreachable from a real TOML today, but that guard lives in another module
-    and this seam is called with duck-typed objects.
+    **A source serving another payload kind is refused on its declaration,
+    before it is built**, which is :func:`~hydromodpy.data.source.registry.get_serving`.
+    The adversarial gate of this phase is why: the stream-burn resolver used to
+    carry an allowlist of three names and now branches on "not custom", so
+    every id the registry resolves reaches this function -- and reading the kind
+    off the *answer* meant a DEM source named in a hydrography section started
+    downloading France-wide archives before anything noticed.
+
+    The configuration model refuses the same thing on the same rule, and this
+    check is not redundant with it: the model sees a document, this seam is
+    called with duck-typed objects that never went through one.
     """
     source_id = str(getattr(source_cfg, "source", "")).strip()
-    source_cls = registry.get(source_id)
-    declared = getattr(source_cls, "payload_kind", None)
-    if declared != NETWORK_PAYLOAD_KIND:
-        raise DataCapabilityError(
-            f"Source {source_id!r} serves a {declared!r} payload, and a river network is a "
-            f"{NETWORK_PAYLOAD_KIND!r} one. A source of another kind belongs to another "
-            "variable, and asking it anyway would contact its provider before the answer "
-            "could be refused."
-        )
+    source_cls = registry.get_serving(source_id, NETWORK_PAYLOAD_KIND)
     return registry.build_from_section(source_cls, source_cfg)
 
 

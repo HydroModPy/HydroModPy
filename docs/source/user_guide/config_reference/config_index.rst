@@ -787,67 +787,67 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-hydrography-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L103>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L143>`__
    * - ``data.hydrography.sources.source``
-     - ``Literal['custom', 'osm', 'bdtopage', 'euhydro']``
+     - ``str``
      - user
      - -
      - `data <data.html#data-hydrography-sources-source>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L24>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L36>`__
    * - ``data.hydrography.sources.path``
      - ``Path | None``
      - user
      - -
      - `data <data.html#data-hydrography-sources-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L38>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L55>`__
    * - ``data.hydrography.sources.rasterize_field``
      - ``str``
      - user
      - -
      - `data <data.html#data-hydrography-sources-rasterize-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L46>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L63>`__
    * - ``data.hydrography.sources.typename``
      - ``str``
      - dev
      - -
      - `data <data.html#data-hydrography-sources-typename>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L52>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L69>`__
    * - ``data.hydrography.sources.page_size``
      - ``int``
      - dev
      - -
      - `data <data.html#data-hydrography-sources-page-size>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L56>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L73>`__
    * - ``data.hydrography.sources.group_name``
      - ``str``
      - dev
      - -
      - `data <data.html#data-hydrography-sources-group-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L62>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L79>`__
    * - ``data.hydrography.sources.euhydro_page_size``
      - ``int``
      - dev
      - -
      - `data <data.html#data-hydrography-sources-euhydro-page-size>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L66>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L83>`__
    * - ``data.hydrography.sources.force_refresh``
      - ``bool``
      - dev
      - -
      - `data <data.html#data-hydrography-sources-force-refresh>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L72>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L89>`__
    * - ``data.hydrography.sources.waterway_types``
      - ``list[str]``
      - dev
      - -
      - `data <data.html#data-hydrography-sources-waterway-types>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L78>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L95>`__
    * - ``data.hydrography.mask_path``
      - ``Path | None``
      - user
      - -
      - `data <data.html#data-hydrography-mask-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L108>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L148>`__
    * - ``data.hydrometry``
      - ``HydrometryConfig | None``
      - user
