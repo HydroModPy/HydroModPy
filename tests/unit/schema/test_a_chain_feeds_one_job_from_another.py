@@ -473,3 +473,55 @@ def test_the_two_capabilities_of_this_build_chain_on_the_watershed(tmp_path: Pat
 
     assert resolved[1].links[0].path == f"01-delineate/{WATERSHED_VECTOR_PATH}"
     assert resolved[1].links[0].media_type == "application/geopackage+sqlite3"
+
+
+def test_the_terrain_and_the_domain_chain_on_the_corrected_dem_and_the_watershed() -> None:
+    """The contract F7e was opened for, against the real declarations.
+
+    What the audit called missing between terrain and mesh is a capability
+    whose inputs are artefacts the delineation already seals: the corrected DEM
+    is the top surface of the domain, and the catchment polygon is what bounds
+    it. The two links are read off the declarations rather than off a path
+    written here, so renaming an output on either side lands in this test.
+    """
+    from hydromodpy.spatial.domain.capability import DOMAIN_BUILD
+    from hydromodpy.spatial.site_selection.hydrology.capability import (
+        DEM_CORRECTED_PATH,
+        TERRAIN_DELINEATE,
+        WATERSHED_VECTOR_PATH,
+    )
+
+    served = {DOMAIN_BUILD.id: DOMAIN_BUILD, TERRAIN_DELINEATE.id: TERRAIN_DELINEATE}
+    chain = ChainRequest.model_validate(
+        {
+            "steps": [
+                {
+                    "id": "delineate",
+                    "process": {"id": TERRAIN_DELINEATE.id, "version": "1.0.0"},
+                    "inputs": {
+                        "dem": {"href": "/data/dem.tif"},
+                        "outlets": [{"site_id": "valley", "x": 300112.5, "y": 6701262.5}],
+                        "crs_project": "EPSG:2154",
+                    },
+                },
+                {
+                    "id": "domain",
+                    "process": {"id": DOMAIN_BUILD.id},
+                    "inputs": {
+                        "depth_model": {"kind": "constant_thickness", "thickness": 30.0},
+                        "mask_layer": "watershed",
+                    },
+                    "links": [
+                        {"member": "dem", "step": "delineate", "output": "dem_corrected"},
+                        {"member": "mask", "step": "delineate", "output": "watershed_vector"},
+                    ],
+                },
+            ]
+        }
+    )
+
+    resolved = resolve_chain(chain, declaration=served.get)
+
+    assert resolved[1].links[0].path == f"01-delineate/{DEM_CORRECTED_PATH}"
+    assert resolved[1].links[1].path == f"01-delineate/{WATERSHED_VECTOR_PATH}"
+    assert resolved[1].links[1].media_type == "application/geopackage+sqlite3"

@@ -9,19 +9,22 @@ state directory.
 Whether it reaches the network is declared, not assumed. Each description lists
 under ``hmp:invocation.network`` every host the capability contacts, and an empty
 list means it runs on a node with no route out at all -- which is what
-``terrain-delineate`` declares. ``data-fetch`` declares the four providers it may
-reach, one per source it serves, because that is the set an orchestrator has to
-allow before it has read the request; which of them a given run reached is named
-host by host under ``hosts`` in ``outputs/fetch.json``. A gate records every name the process resolves and every
-address it connects to and refuses one the declaration does not carry, so the
-list is checked rather than promised.
+``terrain-delineate`` and ``domain-build`` declare. ``data-fetch`` declares the
+four providers it may reach, one per source it serves, because that is the set an
+orchestrator has to allow before it has read the request; which of them a given
+run reached is named host by host under ``hosts`` in ``outputs/fetch.json``. A
+gate records every name the process resolves and every address it connects to and
+refuses one the declaration does not carry, so the list is checked rather than
+promised.
 
-It is not, however, free of the filesystem outside the job. Each description
+It is not always free of the filesystem outside the job either. Each description
 lists under ``hmp:invocation.writes_outside_jobdir`` every location the
-capability needs writable; both capabilities name ``$TMPDIR``, where
-``terrain-delineate`` assembles one catchment per outlet and where ``data-fetch``
-gives each fetch a scratch directory it owns. An empty list means the job
-directory is the only thing that has to be writable.
+capability needs writable. ``terrain-delineate`` and ``data-fetch`` name
+``$TMPDIR``, where the first assembles one catchment per outlet and the second
+gives each fetch a scratch directory it owns; ``domain-build`` names nothing,
+because the job directory is the only thing it writes into. An empty list means
+exactly that, and a gate runs the capability under a controlled ``TMPDIR`` and a
+controlled ``HOME`` to hold it to it.
 
 The invocation contract
 -----------------------
@@ -126,6 +129,46 @@ The capabilities this build serves
     Corrects a DEM, routes flow and delineates the upstream area of each
     declared outlet. Reaches no network.
 
+``domain-build``
+    Places the bottom of the aquifer below a topographic surface and seals the
+    vertical extent that comes out: ``outputs/bottom.tif``,
+    ``outputs/thickness.tif``, ``outputs/active_cells.tif`` and
+    ``outputs/domain.json``, which carries the grid, the depth model and the
+    extent over the active cells. Reaches no network, and writes nowhere but
+    its job directory.
+
+    The two elevation rasters are float64 and carry **NaN** outside the domain,
+    declared as their nodata. Not the terrain's own sentinel: a flat substratum
+    clamps a nodata cell instead of preserving it, and neither depth model marks
+    a cell the mask excluded, so a consumer masking on a finite tag would read a
+    fabricated elevation. ``outputs/active_cells.tif`` says the same thing in
+    integers, 1 for active and 0 for not.
+
+    The terrain must carry a CRS and an axis-aligned grid, and the mask must be
+    made of polygons. Each of the three is refused rather than worked around: a
+    rotated grid has no cell size for the document to publish, and a layer of
+    lines burns a one-cell-wide diagonal that would come back as a successful
+    job with a sliver for a domain.
+
+    It takes the ``[domain.depth_model]`` section of a project verbatim, and
+    only that section: ``domain.supports`` is built by providers that read
+    loaded forcings and a workspace, which a capability has neither of. The
+    working CRS is the terrain's own, so a DEM carrying none is refused rather
+    than stamped with one the caller asserted.
+
+    The top surface is **not** re-emitted. ``domain.json`` carries the digest of
+    the raster the bottom was derived from, so a reader holding a DEM can prove
+    it is that one, and the largest write of the job is not doubled to produce a
+    copy of its own input. The two artefacts a chain feeds it are the corrected
+    DEM and the catchment ``terrain-delineate`` seals::
+
+        {"process": {"id": "domain-build", "version": "1.0.0"},
+         "inputs": {
+           "dem": {"href": "/scratch/jobs/4711/outputs/dem_corrected.tif"},
+           "depth_model": {"kind": "constant_thickness", "thickness": 30.0},
+           "mask": {"href": "/scratch/jobs/4711/outputs/watershed.gpkg"},
+           "mask_layer": "watershed"}}
+
 ``data-fetch``
     Asks one declared data source for one variable over a bounding box, a
     vector mask or a list of station codes, and seals what came back.
@@ -215,9 +258,11 @@ verify`` is the verb that does not.
 Chaining capabilities
 ---------------------
 
-Two capabilities compose through the disk: the GeoPackage ``terrain-delineate``
-seals is a mask ``data-fetch`` reads. Asking for a variable over a watershed is
-therefore two jobs, and ``chain`` is the verb that runs them as one command.
+Capabilities compose through the disk: the GeoPackage ``terrain-delineate``
+seals is a mask ``data-fetch`` reads, and the corrected DEM it seals beside it is
+the top surface ``domain-build`` places a bottom under. Asking for a variable
+over a watershed, or for the geometry of an aquifer under one, is therefore two
+jobs, and ``chain`` is the verb that runs them as one command.
 
 The caller writes **one** document at the chain root::
 

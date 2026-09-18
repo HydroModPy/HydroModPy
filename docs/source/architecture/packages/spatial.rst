@@ -29,7 +29,16 @@ Sub-modules
 - ``spatial/domain/`` -- ``Domain`` aggregates ``surface_topo``,
   ``substratum`` (via depth model), and ``zones``. Two depth models
   ship: ``ConstantThicknessDepthModel`` (homogeneous offset),
-  ``FlatSubstratumDepthModel`` (fixed elevation).
+  ``FlatSubstratumDepthModel`` (fixed elevation). ``build.py`` is the one
+  constructor of that geometry -- it copies the declared section before arming
+  the binder zone ids on it -- and the setup step, the rebuild a second run on a
+  live project triggers, the domain case script and the bundle exporter all go
+  through it. Beside it, the ``domain-build`` capability: ``capability.py``
+  declares it (``DOMAIN_BUILD``, ``DomainBuildRequest``) and ``worker.py`` runs
+  it, sealing a bottom, a thickness, an active-cell mask and one
+  ``domain.json`` from a terrain and a depth model. It declares
+  ``reaches_network=()`` and ``writes_outside_jobdir=()``, and a gate holds it
+  to both.
 - ``spatial/mesh/cartesian_grid/`` -- DIS / structured path. Pydantic
   ``SGridConfig``, ``StructuredGridBuilder``, FloPy ``StructuredGrid``
   output.
@@ -63,6 +72,8 @@ Key public symbols
 - ``hydromodpy.spatial.geographic.core.river_network``
 - ``hydromodpy.spatial.geographic.core.hydrographic_network.HydrographicNetwork``
 - ``hydromodpy.spatial.domain.Domain``
+- ``hydromodpy.spatial.domain.build.build_domain``
+- ``hydromodpy.spatial.domain.capability.DOMAIN_BUILD``
 - ``hydromodpy.spatial.mesh.cartesian_grid.{SGridConfig, StructuredGridBuilder}``
 - ``hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh.GmshPlanarMesh2D``
 - ``hydromodpy.spatial.mesh.gmsh_grid.extruded_prism_mesh.ExtrudedPrismMesh3D``

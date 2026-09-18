@@ -9,6 +9,13 @@
       "file": "data-fetch@1.json"
     },
     {
+      "id": "domain-build",
+      "version": "1.0.0",
+      "major": 1,
+      "title": "Aquifer domain geometry from a terrain and a depth model",
+      "file": "domain-build@1.json"
+    },
+    {
       "id": "terrain-delineate",
       "version": "1.0.0",
       "major": 1,
