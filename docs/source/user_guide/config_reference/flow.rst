@@ -6779,6 +6779,7 @@ Validation gallery cases that reference fields from this section:
 - :doc:`/capability_gallery/cases/dupuit_circular_island_ocean_2d`
 - :doc:`/capability_gallery/cases/dupuit_divide_river_1d`
 - :doc:`/capability_gallery/cases/dupuit_fixed_head_1d`
+- :doc:`/capability_gallery/cases/dupuit_seepage_limit_1d`
 - :doc:`/capability_gallery/cases/dupuit_uniform_recharge_1d`
 - :doc:`/capability_gallery/cases/late_time_unconfined_pumping_2d`
 - :doc:`/capability_gallery/cases/linearized_unconfined_boundary_piecewise_1d`

@@ -6937,6 +6937,7 @@ Validation gallery cases that reference fields from this section:
 - :doc:`/capability_gallery/cases/brutsaert_recession_linearized_deep_1d`
 - :doc:`/capability_gallery/cases/dupuit_circular_island_ocean_2d`
 - :doc:`/capability_gallery/cases/dupuit_divide_river_1d`
+- :doc:`/capability_gallery/cases/dupuit_seepage_limit_1d`
 - :doc:`/capability_gallery/cases/dupuit_uniform_recharge_1d`
 - :doc:`/capability_gallery/cases/linearized_unconfined_recharge_periodic_1d`
 - :doc:`/capability_gallery/cases/linearized_unconfined_recharge_step_1d`

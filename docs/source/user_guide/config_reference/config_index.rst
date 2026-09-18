@@ -25,13 +25,13 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `workflow <workflow.html#workflow-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L103>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L107>`__
    * - ``workflow.profile``
      - ``bool | str``
      - expert
      - -
      - `workflow <workflow.html#workflow-profile>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L135>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L139>`__
    * - ``workspace.project_root``
      - ``Path | UPath``
      - user
@@ -73,97 +73,97 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `geographic <geographic.html#geographic-source-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L535>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L545>`__
    * - ``geographic.catchment``
      - ``Optional[DemCatchDef | TxtCatchDef | OutletCatchDef | PolygonCatchDef]``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L543>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L553>`__
    * - ``geographic.catchment.dem_init_path``
      - ``Path | None``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment-dem-init-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L60>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L70>`__
    * - ``geographic.catchment.catch_def``
      - ``Literal['dem']``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L63>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L73>`__
    * - ``geographic.catchment.cell_size``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment-cell-size>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L76>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L86>`__
    * - ``geographic.catchment.x_outlet``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment-x-outlet>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L92>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L102>`__
    * - ``geographic.catchment.y_outlet``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment-y-outlet>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L95>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L105>`__
    * - ``geographic.catchment.snap_dist``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment-snap-dist>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L98>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L108>`__
    * - ``geographic.catchment.buff_area``
      - ``str | float``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment-buff-area>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L105>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L115>`__
    * - ``geographic.catchment.polyg_shp_path``
      - ``Path``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment-polyg-shp-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L126>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L136>`__
    * - ``geographic.crs_project``
      - ``str | None``
      - user
      - -
      - `geographic <geographic.html#geographic-crs-project>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L555>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L565>`__
    * - ``geographic.dem_correc_type``
      - ``Literal['breach', 'fill']``
      - user
      - -
      - `geographic <geographic.html#geographic-dem-correc-type>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L559>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L569>`__
    * - ``geographic.domain_extent``
      - ``Literal['box', 'watershed_buff', 'watershed']``
      - user
      - -
      - `geographic <geographic.html#geographic-domain-extent>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L563>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L573>`__
    * - ``geographic.bottom_path``
      - ``Path | None``
      - user
      - -
      - `geographic <geographic.html#geographic-bottom-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L575>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L585>`__
    * - ``geographic.reg_fold``
      - ``Path | None``
      - dev
      - -
      - `geographic <geographic.html#geographic-reg-fold>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L583>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L593>`__
    * - ``geographic.synthetic``
      - ``SyntheticGeographicConfig``
      - user
      - -
      - `geographic <geographic.html#geographic-synthetic>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L587>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L597>`__
    * - ``geographic.synthetic.case_id``
      - ``str``
      - user
@@ -277,217 +277,217 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `geographic <geographic.html#geographic-river-network>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L594>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L604>`__
    * - ``geographic.river_network.enabled``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L163>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L173>`__
    * - ``geographic.river_network.threshold_mode``
      - ``Literal['area_km2', 'cells']``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-threshold-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L170>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L180>`__
    * - ``geographic.river_network.threshold_area_km2``
      - ``float | None``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-threshold-area-km2>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L178>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L188>`__
    * - ``geographic.river_network.threshold_cells``
      - ``float | None``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-threshold-cells>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L188>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L198>`__
    * - ``geographic.river_network.prune_short_streams``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-prune-short-streams>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L196>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L206>`__
    * - ``geographic.river_network.min_stream_length_m``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-min-stream-length-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L200>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L210>`__
    * - ``geographic.river_network.compute_strahler_order``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-compute-strahler-order>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L208>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L218>`__
    * - ``geographic.river_network.compute_stream_links``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-compute-stream-links>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L212>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L222>`__
    * - ``geographic.river_network.all_vertices``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-all-vertices>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L216>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L226>`__
    * - ``geographic.enforce_streams``
      - ``StreamEnforcementConfig``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-streams>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L601>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L611>`__
    * - ``geographic.enforce_streams.enabled``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-streams-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L355>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L365>`__
    * - ``geographic.enforce_streams.stream_geometry_path``
      - ``Path | None``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-streams-stream-geometry-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L362>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L372>`__
    * - ``geographic.enforce_streams.mode``
      - ``Literal['constant', 'adaptive']``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-streams-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L376>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L386>`__
    * - ``geographic.enforce_streams.depth_m``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-streams-depth-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L385>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L395>`__
    * - ``geographic.enforce_streams.adaptive_percentile``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-streams-adaptive-percentile>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L400>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L410>`__
    * - ``geographic.enforce_streams.relief_report_percentile``
      - ``float``
      - expert
      - -
      - `geographic <geographic.html#geographic-enforce-streams-relief-report-percentile>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L413>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L423>`__
    * - ``geographic.enforce_streams.rasterize_all_touched``
      - ``bool``
      - expert
      - -
      - `geographic <geographic.html#geographic-enforce-streams-rasterize-all-touched>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L425>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L435>`__
    * - ``geographic.enforce_streams.dem_nodata_fallback``
      - ``float``
      - expert
      - -
      - `geographic <geographic.html#geographic-enforce-streams-dem-nodata-fallback>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L435>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L445>`__
    * - ``geographic.enforce_streams.alpha_warning_threshold``
      - ``float``
      - expert
      - -
      - `geographic <geographic.html#geographic-enforce-streams-alpha-warning-threshold>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L443>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L453>`__
    * - ``geographic.enforce_streams.max_catchment_area_drift``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-streams-max-catchment-area-drift>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L457>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L467>`__
    * - ``geographic.enforce_lakes``
      - ``LakeEnforcementConfig``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-lakes>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L609>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L619>`__
    * - ``geographic.enforce_lakes.enabled``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-lakes-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L271>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L281>`__
    * - ``geographic.enforce_lakes.lake_geometry_path``
      - ``Path | None``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-lakes-lake-geometry-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L278>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L288>`__
    * - ``geographic.enforce_lakes.slope``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-lakes-slope>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L289>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L299>`__
    * - ``geographic.enforce_lakes.buffer_m``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-lakes-buffer-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L298>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L308>`__
    * - ``geographic.enforce_lakes.capture_radius_m``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-lakes-capture-radius-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L306>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L316>`__
    * - ``geographic.enforce_lakes.capture_max_streams``
      - ``int``
      - expert
      - -
      - `geographic <geographic.html#geographic-enforce-lakes-capture-max-streams>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L316>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L326>`__
    * - ``geographic.enforce_lakes.capture_min_acc_fraction``
      - ``float``
      - expert
      - -
      - `geographic <geographic.html#geographic-enforce-lakes-capture-min-acc-fraction>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L324>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L334>`__
    * - ``geographic.dam_carve``
      - ``DamCarveConfig``
      - user
      - -
      - `geographic <geographic.html#geographic-dam-carve>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L617>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L627>`__
    * - ``geographic.dam_carve.enabled``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-dam-carve-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L484>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L494>`__
    * - ``geographic.dam_carve.line_path``
      - ``Path | None``
      - user
      - -
      - `geographic <geographic.html#geographic-dam-carve-line-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L491>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L501>`__
    * - ``geographic.dam_carve.buffer_m``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-dam-carve-buffer-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L503>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L513>`__
    * - ``geographic.dam_carve.search_radius_m``
      - ``Optional[float]``
      - user
      - -
      - `geographic <geographic.html#geographic-dam-carve-search-radius-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L512>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L522>`__
    * - ``geographic.reuse_existing_outputs``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-reuse-existing-outputs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L625>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L635>`__
    * - ``geographic.write_intermediates``
      - ``bool``
      - dev
      - -
      - `geographic <geographic.html#geographic-write-intermediates>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L635>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L645>`__
    * - ``domain.zone_ids``
      - ``list[str]``
      - user
@@ -8395,115 +8395,115 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L50>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L51>`__
    * - ``calibration.protocol.version``
      - ``str | None``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-version>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L53>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L54>`__
    * - ``calibration.protocol.conductivity``
      - ``str``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-conductivity>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L61>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L62>`__
    * - ``calibration.protocol.storage``
      - ``str | None``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-storage>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L66>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L67>`__
    * - ``calibration.protocol.network_output``
      - ``str | None``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-network-output>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L72>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L73>`__
    * - ``calibration.protocol.steady_metric``
      - ``Literal['distance_gap', 'distance_mean']``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-steady-metric>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L77>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L78>`__
    * - ``calibration.protocol.steady_method``
      - ``str``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-steady-method>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L84>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L85>`__
    * - ``calibration.protocol.steady_max_iter``
      - ``int``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-steady-max-iter>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L90>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L91>`__
    * - ``calibration.protocol.steady_tolerance``
      - ``Optional[float]``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-steady-tolerance>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L95>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L96>`__
    * - ``calibration.protocol.steady_engine_options``
      - ``dict[str, Any]``
      - dev
      - -
      - `calibration <calibration.html#calibration-protocol-steady-engine-options>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L102>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L103>`__
    * - ``calibration.protocol.steady_window``
      - ``dict[str, str] | None``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-steady-window>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L111>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L112>`__
    * - ``calibration.protocol.transient_metric``
      - ``str``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-transient-metric>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L116>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L117>`__
    * - ``calibration.protocol.transient_method``
      - ``str``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-transient-method>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L121>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L122>`__
    * - ``calibration.protocol.transient_max_iter``
      - ``int``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-transient-max-iter>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L125>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L126>`__
    * - ``calibration.protocol.transient_tolerance``
      - ``Optional[float]``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-transient-tolerance>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L130>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L131>`__
    * - ``calibration.protocol.transient_engine_options``
      - ``dict[str, Any]``
      - dev
      - -
      - `calibration <calibration.html#calibration-protocol-transient-engine-options>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L135>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L136>`__
    * - ``calibration.protocol.discharge_variable``
      - ``str``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-discharge-variable>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L141>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L142>`__
    * - ``calibration.protocol.observed_station_id``
      - ``str | None``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-observed-station-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L145>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L146>`__
    * - ``calibration.protocol.scoring_window``
      - ``dict[str, str] | None``
      - user
      - -
      - `calibration <calibration.html#calibration-protocol-scoring-window>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L149>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/protocols/matching_hydrographic_network.py#L150>`__
    * - ``calibration.method``
      - ``str``
      - user
