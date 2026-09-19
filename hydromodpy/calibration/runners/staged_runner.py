@@ -36,6 +36,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import ValidationError
 
 from hydromodpy.calibration.config import CalibPhaseDecl, CalibrationConfig
+from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.optim.optimizer import FAILED_EVAL_COST
 from hydromodpy.calibration.optim.parameters import (
     CalibParameter,
@@ -602,6 +603,19 @@ def run_staged_calibration(
     """
     cfg_path = Path(config_path).expanduser().resolve()
     cfg, _raw = load_toml_calibration(cfg_path)
+    if not evaluation_registry.needs_prepared_model(cfg.evaluator):
+        # A staged calibration freezes a phase's result into the configuration
+        # the next phase runs with, and that configuration is the pipeline's.
+        # An evaluator that reads none of it would run every phase on the same
+        # unfrozen parameters and report a protocol it did not follow -- silently,
+        # because each phase would still return a number.
+        raise CalibrationError(
+            f"calibration.evaluator names {cfg.evaluator!r}, which runs no HydroModPy model, "
+            "and this document declares phases. A staged protocol passes each phase's result "
+            "to the next by freezing it into the model configuration, which that evaluator "
+            "never reads. Run the phases as separate single-phase documents, or name an "
+            "evaluator that runs the pipeline."
+        )
     plans = _phase_plans(cfg, _phases_to_run(cfg, phase))
     declared = space_from_config(cfg)
 

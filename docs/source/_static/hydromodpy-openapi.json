@@ -2147,6 +2147,20 @@
             "type": "string",
             "x-hmp-profile": "user"
           },
+          "evaluator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What turns one parameter sample into a cost. Unset runs the HydroModPy pipeline, which is what every calibrated number in this repository was produced with. A string and not an enumeration: the values that resolve depend on what is installed beside HydroModPy, which is how a surrogate or a foreign model is named without a patch.",
+            "title": "Evaluator",
+            "x-hmp-profile": "user"
+          },
           "max_iter": {
             "default": 100,
             "description": "Maximum number of calibration iterations.",

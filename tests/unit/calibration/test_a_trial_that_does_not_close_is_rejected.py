@@ -102,14 +102,22 @@ class TestTheTrialActsOnIt:
 
         assert "water_budget_verdict" in source
 
-    def test_the_runner_forwards_what_the_file_declared(self) -> None:
+    def test_the_evaluator_forwards_what_the_file_declared(self) -> None:
+        """The declaration reaches the trial from wherever the trial is launched.
+
+        It used to be launched from ``run_calibration_core``; since the evaluator
+        is resolved by name it is launched from the evaluator that runs the
+        pipeline, and that is where the threshold has to be forwarded.
+        """
         import inspect
 
-        from hydromodpy.calibration.runners import cli_runner
+        from hydromodpy.calibration.evaluation.pipeline_evaluator import (
+            PipelineTrialEvaluator,
+        )
 
-        source = inspect.getsource(cli_runner.run_calibration_core)
+        source = inspect.getsource(PipelineTrialEvaluator.evaluate)
 
-        assert "reject_water_budget_above=cfg.reject_water_budget_above" in source
+        assert "reject_water_budget_above=self._cfg.reject_water_budget_above" in source
 
     def test_a_rejected_trial_keeps_its_metrics_so_the_reason_is_readable(self) -> None:
         import inspect

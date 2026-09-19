@@ -1076,6 +1076,16 @@ class CalibrationConfig(HydroModelBase):
             "cma_es and Optuna's cmaes sampler."
         ),
     )
+    evaluator: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "What turns one parameter sample into a cost. Unset runs the HydroModPy "
+            "pipeline, which is what every calibrated number in this repository was "
+            "produced with. A string and not an enumeration: the values that resolve "
+            "depend on what is installed beside HydroModPy, which is how a surrogate "
+            "or a foreign model is named without a patch."
+        ),
+    )
     max_iter: Annotated[int, Profile.USER] = Field(
         default=100,
         ge=1,
@@ -1264,6 +1274,34 @@ class CalibrationConfig(HydroModelBase):
         description="Single switch governing every persistence sink "
         "(catalog, Zarr, Parquet, lockfile) for calibration outputs.",
     )
+
+    @field_validator("evaluator")
+    @classmethod
+    def _check_evaluator_resolves(cls, value: str | None) -> str | None:
+        """Refuse an evaluator this installation cannot serve, while reading the document.
+
+        Here rather than at the first trial because a file naming an evaluator
+        nobody installed is a broken document, and learning that after
+        ``prepare_trials`` has run the whole geographic, mesh and data prefix
+        costs that prefix.
+
+        ``None`` is not checked: it means "whatever this build defaults to", and a
+        default that does not resolve is an environment fault the registry reports
+        with its own message.
+        """
+        if value is None:
+            return value
+        from hydromodpy.calibration.evaluation import registry as evaluator_registry
+
+        if evaluator_registry.is_registered(value):
+            return value
+        served = ", ".join(evaluator_registry.list_evaluator_ids()) or "none"
+        raise ValueError(
+            f"calibration.evaluator names {value!r}, and this installation serves {served}. "
+            f"A third-party evaluator joins that list through the "
+            f"{evaluator_registry.ENTRY_POINT_GROUP!r} entry-point group, without a patch to "
+            "HydroModPy."
+        )
 
     @model_validator(mode="after")
     def _check_the_error_weighting_has_something_to_divide_by(self) -> CalibrationConfig:

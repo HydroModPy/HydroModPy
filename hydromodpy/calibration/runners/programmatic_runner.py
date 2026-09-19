@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.runners.cli_runner import run_calibration_core
 from hydromodpy.calibration.runners.state import (
     CalibrationStoreFactory,
@@ -70,10 +71,12 @@ def run_calibration_programmatic(
     else:
         cfg_path = Path(src_path).expanduser().resolve()
 
-    trial_ctx = prepare_trials(
-        cfg_path,
-        override_paths=paths,
-        parameter_space=space,
+    # Same question as the CLI route asks, from the name alone: an evaluator that
+    # replaces the model has no use for the model's setup prefix.
+    trial_ctx = (
+        prepare_trials(cfg_path, override_paths=paths, parameter_space=space)
+        if evaluation_registry.needs_prepared_model(cfg.evaluator)
+        else None
     )
 
     report = run_calibration_core(
