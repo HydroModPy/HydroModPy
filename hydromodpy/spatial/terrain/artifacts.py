@@ -19,10 +19,7 @@ import numpy as np
 import rasterio
 
 from hydromodpy.core.exceptions import TerrainProductError
-
-MASK_INSIDE = 1
-MASK_NODATA = -32768
-"""What the Whitebox watershed tool writes outside the catchment."""
+from hydromodpy.spatial.terrain.port import MASK_INSIDE, MASK_NODATA
 
 
 def mask_cell_count(path: str | Path) -> int:

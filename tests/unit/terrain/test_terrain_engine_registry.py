@@ -253,19 +253,91 @@ def test_a_broken_entry_point_group_does_not_take_down_a_built_in(
     assert registry.get("numpy_d8") is not None
 
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+"""Anchored on this file, never on the working directory.
+
+``Path("hydromodpy").rglob(...)`` reads the cwd, so the two gates below scanned
+**zero files and passed** whenever pytest was invoked from anywhere but the
+repository root -- ``cd tests && pytest unit/terrain/...`` was enough. A gate
+that answers "nothing names it" by looking at nothing is the hollow green F10b
+already paid for once, and :func:`_python_files` is what keeps it from being
+answerable that way.
+"""
+
+SECOND_DISTRIBUTION_NAMES = (
+    "hydromodpy-terrain-scipy",
+    "hydromodpy_terrain_scipy",
+    "scipy_d8",
+)
+"""Every spelling of the second distribution: the project, the package, the id.
+
+The three are searched and not just the id, because naming the import package in
+``hydromodpy/`` would couple the host to it just as surely, and a
+``pyproject.toml`` extra naming the project would put it back in the build.
+"""
+
+
+def _python_files(tree: str) -> list[Path]:
+    """Return the Python files of one tree, and refuse to return none.
+
+    The floor is the anti-vacuity control: both trees hold hundreds of modules,
+    so a handful means the scan is looking somewhere else and the assertion
+    below would hold over an empty set.
+    """
+    files = sorted((REPO_ROOT / tree).rglob("*.py"))
+    assert len(files) > 100, f"{tree} scan found {len(files)} files, so it is not scanning {tree}"
+    return files
+
+
+def _names_found(paths: list[Path], names: tuple[str, ...]) -> dict[str, list[str]]:
+    found: dict[str, list[str]] = {name: [] for name in names}
+    for path in paths:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for name in names:
+            if name in text:
+                found[name].append(str(path.relative_to(REPO_ROOT)))
+    return {name: hits for name, hits in found.items() if hits}
+
+
 def test_no_repository_file_names_the_third_party_engine() -> None:
     """The point of the whole phase, asserted rather than assumed.
 
-    ``pysheds`` stands for any engine a third party ships. If this ever fails,
-    an engine that is supposed to arrive from outside has been named inside.
-    """
-    hits = [
-        path
-        for path in Path("hydromodpy").rglob("*.py")
-        if "pysheds" in path.read_text(encoding="utf-8")
-    ]
+    ``hydromodpy-terrain-scipy`` is a real distribution of this tree, installed
+    beside the build and resolved through the entry-point group. If it is ever
+    named by a module of ``hydromodpy/``, an engine that is supposed to arrive
+    from outside has been wired in, and the substitutability the port claims is
+    back to being a claim.
 
-    assert hits == []
+    ``pysheds`` is kept alongside it, for ``hydromodpy/`` only: it is the name
+    the campaign first planned to ship and the one the tests of this file use as
+    an engine no installation serves, so it has to stay absent from the package
+    while staying available to the tests.
+    """
+    assert _names_found(_python_files("hydromodpy"), (*SECOND_DISTRIBUTION_NAMES, "pysheds")) == {}
+
+
+def test_no_test_of_this_repository_names_the_second_distribution() -> None:
+    """The other half: the suites that judge it must not know it either.
+
+    This file is the one exception and says so by excluding itself. It has to
+    name the distribution somewhere in order to assert its absence everywhere
+    else, which is the same shape the F10b gate takes for its probe.
+    """
+    elsewhere = [path for path in _python_files("tests") if path != Path(__file__).resolve()]
+
+    assert _names_found(elsewhere, SECOND_DISTRIBUTION_NAMES) == {}
+
+
+def test_the_naming_gate_sees_a_file_that_does_name_it() -> None:
+    """The negative control. Without it the two gates above prove nothing.
+
+    They are string scans, and a string scan that looks at the wrong tree is
+    green for free. This one plants every spelling in a file and requires the
+    same helper to report all three.
+    """
+    planted = _names_found([Path(__file__).resolve()], SECOND_DISTRIBUTION_NAMES)
+
+    assert sorted(planted) == sorted(SECOND_DISTRIBUTION_NAMES)
 
 
 # ---------------------------------------------------------------------------
