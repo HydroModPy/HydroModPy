@@ -162,11 +162,16 @@ class TestMinSamplesReachesThePairing:
 
         assert paired.n_paired["q"] == 3
 
-    def test_the_runner_forwards_what_the_file_declared(self) -> None:
+    def test_the_evaluator_forwards_what_the_file_declared(self) -> None:
+        """Where the metric extractor is built is where the declaration is read.
+
+        It is built by the evaluator that runs the pipeline, because building it
+        needs that evaluator's trial context.
+        """
         import inspect
 
-        from hydromodpy.calibration.runners import cli_runner
+        from hydromodpy.calibration.evaluation import pipeline_evaluator
 
-        source = inspect.getsource(cli_runner.run_calibration_core)
+        source = inspect.getsource(pipeline_evaluator._extractor_for)
 
         assert "min_samples=int(cfg.aggregate.min_samples)" in source

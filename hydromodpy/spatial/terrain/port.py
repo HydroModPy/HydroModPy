@@ -39,6 +39,25 @@ false declaration this campaign spent two phases removing. No engine registry
 either: a selection point with no caller is decoration, and it arrives with the
 capability that has to choose.
 
+What an out-of-tree engine names
+--------------------------------
+Two HydroModPy imports and no more: this module, and
+``hydromodpy.core.exceptions``. That is a statement about the source of an
+engine, not about what the interpreter ends up loading -- measured, either
+import pulls ``hydromodpy/__init__.py`` and with it nineteen modules of the
+package, the catalog layer and ``_api`` included. The eagerness of the package
+root is not something a port can fix, and claiming otherwise here would be one
+more false declaration in the module that exists to end them.
+
+Writing a second implementation as its own distribution is what measured both,
+and it moved one thing: :data:`MASK_INSIDE` and :data:`MASK_NODATA` were
+declared in ``artifacts``, a module that pulls in ``rasterio`` and
+``geopandas``. They are not readback helpers. They are the two values a
+catchment mask and a flow pointer are *written* with, so an engine that has to
+guess them writes a pointer whose absent cells the conformance suite measures as
+present, and a mask a pipeline reads back as an empty catchment. They are
+declared here, and ``artifacts`` reads them from here.
+
 Batch delineation means shared products
 ---------------------------------------
 ``delineate`` takes N outlets against one accumulation because the products are
@@ -64,6 +83,21 @@ from pathlib import Path
 from typing import ClassVar, Literal, Protocol, runtime_checkable
 
 from hydromodpy.core.exceptions import TerrainProductError, TerrainRequestError
+
+MASK_INSIDE = 1
+"""What a catchment mask and a stream mask carry on the cells they select."""
+
+MASK_NODATA = -32768
+"""What every mask and every flow pointer carries where it selects nothing.
+
+The value Whitebox writes, and therefore the one every golden in this tree was
+produced against. It is part of the on-disk contract and not a detail of one
+engine: ``tests/contract/test_terrain_engine_contract.py`` reads a pointer
+raster back and treats ``-32768`` as "absent" when it checks that no interior
+cell drains nowhere, so an engine that marks absence with anything else is
+measured on the wrong cells.
+"""
+
 
 ConditioningMethod = Literal["fill", "breach"]
 """``fill`` raises depression cells until each drains; ``breach`` carves out."""
@@ -335,7 +369,8 @@ class TerrainEngine(Protocol):
 
     Engines conform structurally: there is no base class, just five methods and
     two ``ClassVar`` strings that identify the implementation. A third-party
-    engine needs no import from HydroModPy beyond this module.
+    engine writes two HydroModPy imports, this module and
+    :mod:`hydromodpy.core.exceptions`, and no third one.
 
     Every member writes to the path the caller names and returns the product
     that describes what it wrote. An engine that cannot serve an option raises
@@ -632,6 +667,8 @@ __all__ = [
     "AccumulationTransform",
     "AccumulationUnits",
     "DEFAULT_CATCHMENT_LAYOUT",
+    "MASK_INSIDE",
+    "MASK_NODATA",
     "OUTLET_LAYER_NAME",
     "SNAPPED_OUTLET_LAYER_NAME",
     "Catchment",

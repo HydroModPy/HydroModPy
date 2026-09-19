@@ -42,6 +42,7 @@ def DEM_correcflow_analysis(
     dem_out_dir_path: str,
     dem_correc_type: str,
     backend: object | None = None,
+    engine_id: str | None = None,
 ) -> dict:
     """
     Build the 3 core regional rasters needed by watershed delineation.
@@ -65,6 +66,11 @@ def DEM_correcflow_analysis(
         - ``"fill"``
         - ``"breach"``
         Any other value raises a ``ValueError``.
+    engine_id : str, optional
+        Flow-routing engine to route with. Unset uses the default of this build.
+        Carried through because this function is a facade over
+        ``build_regional_flow_products``, and a wrapper that cannot pass on the
+        engine is a wrapper through which no engine can be substituted.
 
     Returns
     -------
@@ -78,6 +84,7 @@ def DEM_correcflow_analysis(
         dem_out_dir_path=dem_out_dir_path,
         dem_correc_type=dem_correc_type,
         backend=tool,
+        engine_id=engine_id,
     )
     return {
         "correc": products.correc,
@@ -151,6 +158,14 @@ class CatchmentDelineation:
             str(config.polyg_shp_path) if config.polyg_shp_path is not None else None
         )
         self.dem_correc_type = config.dem_correc_type
+        self.terrain_engine = config.terrain_engine
+        """Engine the delineation routed with, carried for whoever routes after it.
+
+        A solver builds its own routing rasters over its own DEM, and it reads
+        them off this object rather than off the configuration. Without this
+        line the two sides of one run route with two different engines, and
+        nothing downstream can say so.
+        """
 
         self.processing()
 

@@ -116,6 +116,7 @@ def build_standard_catchment(
             output_dir=paths.geographic_path,
             crs_project=crs_project,
             backend=tool,
+            engine_id=config.terrain_engine,
         )
 
     if config.catch_def == "from_polyg_shp":

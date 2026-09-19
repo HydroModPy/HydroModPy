@@ -1925,6 +1925,20 @@
           "type": "string",
           "x-hmp-profile": "user"
         },
+        "evaluator": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What turns one parameter sample into a cost. Unset runs the HydroModPy pipeline, which is what every calibrated number in this repository was produced with. A string and not an enumeration: the values that resolve depend on what is installed beside HydroModPy, which is how a surrogate or a foreign model is named without a patch.",
+          "title": "Evaluator",
+          "x-hmp-profile": "user"
+        },
         "max_iter": {
           "default": 100,
           "description": "Maximum number of calibration iterations.",
@@ -10220,6 +10234,20 @@
           ],
           "title": "Dem Correc Type",
           "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "terrain_engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Flow-routing engine that conditions the DEM and delineates the catchment. Unset uses the engine this build defaults to. A string and not an enumeration: the values that resolve depend on what is installed beside HydroModPy, which is how a third-party engine is named without a patch.",
+          "title": "Terrain Engine",
           "x-hmp-profile": "user"
         },
         "domain_extent": {

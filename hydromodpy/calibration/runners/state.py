@@ -206,13 +206,34 @@ def mesh_fingerprint(ctx: Any) -> dict[str, object] | None:
 def build_cache_context(
     *,
     cfg: CalibrationConfig,
-    trial_ctx: TrialContext,
+    trial_ctx: TrialContext | None,
     space: ParameterSpace,
     override_paths: dict[str, str],
     objective_entrypoint: str | None,
 ) -> dict[str, object]:
-    """Return the scientific context that scopes calibration cache hits."""
-    model_payload = trial_ctx.base_cfg.model_dump(mode="json")
+    """Return the scientific context that scopes calibration cache hits.
+
+    Two evaluators asked the same parameters return different costs, so the
+    resolved evaluator id enters the key -- **resolved**, and only when it is not
+    the default. Both halves of that sentence are load-bearing. Resolved, because
+    an unset field and the default's own spelling name one evaluator and must not
+    key differently. Only when it is not the default, because the payload is the
+    whole calibration section and a key that appears in it for every document
+    would move the hash of every calibration computed before this field existed,
+    re-solving trials whose answer had not changed.
+
+    ``trial_ctx`` is ``None`` when the named evaluator declares it needs no
+    prepared model, and then the three members read off it -- the resolved
+    configuration, the input-file fingerprints and the mesh -- describe a model
+    that was never built and are left out rather than faked.
+    """
+    # Direct attribute access and not getattr with a default: a TrialContext
+    # always carries base_cfg, so a default here would hide its absence
+    # instead of failing on it.
+    base_cfg = trial_ctx.base_cfg if trial_ctx is not None else None
+    model_payload: dict[str, object] = (
+        base_cfg.model_dump(mode="json") if base_cfg is not None else {}
+    )
     model_payload.pop("calibration", None)
     model_payload.pop("display", None)
     model_payload.pop("overview", None)
@@ -237,6 +258,13 @@ def build_cache_context(
     ):
         calibration_payload.pop(runtime_key, None)
 
+    from hydromodpy.calibration.evaluation import registry as evaluation_registry
+
+    resolved_evaluator = evaluation_registry.resolve_id(cfg.evaluator)
+    calibration_payload.pop("evaluator", None)
+    if resolved_evaluator != evaluation_registry.DEFAULT_EVALUATOR_ID:
+        calibration_payload["evaluator"] = resolved_evaluator
+
     from hydromodpy.core.version import __version__ as _hmp_version
 
     context: dict[str, object] = {
@@ -248,19 +276,20 @@ def build_cache_context(
         "calibration": calibration_payload,
         "override_paths": dict(sorted(override_paths.items())),
         "parameter_space": _parameter_space_context(space),
-        "input_files": _input_file_fingerprints(trial_ctx.base_cfg),
+        "input_files": _input_file_fingerprints(base_cfg) if base_cfg is not None else {},
         # The mesh that was built, not the one that was requested: gmsh is not
         # reproducible and the network criterion is normalised by cell size.
-        "mesh": mesh_fingerprint(trial_ctx.ctx),
+        "mesh": mesh_fingerprint(trial_ctx.ctx) if trial_ctx is not None else None,
     }
 
     if objective_entrypoint:
         context["objective_entrypoint"] = objective_entrypoint
 
-    domain = getattr(getattr(trial_ctx.ctx, "setup", None), "domain", None)
-    domain_config = getattr(domain, "config", None)
-    if domain_config is not None and hasattr(domain_config, "model_dump"):
-        context["effective_domain"] = domain_config.model_dump(mode="json")
+    if trial_ctx is not None:
+        domain = getattr(getattr(trial_ctx.ctx, "setup", None), "domain", None)
+        domain_config = getattr(domain, "config", None)
+        if domain_config is not None and hasattr(domain_config, "model_dump"):
+            context["effective_domain"] = domain_config.model_dump(mode="json")
 
     return context
 

@@ -25,6 +25,7 @@ def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path:
         dem_correc_type,
         crs_project,
         backend,
+        engine_id,
     ):
         captured.update(
             {
@@ -33,6 +34,7 @@ def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path:
                 "dem_correc_type": dem_correc_type,
                 "crs_project": crs_project,
                 "backend": backend,
+                "engine_id": engine_id,
             }
         )
         return fake_flow_products(
@@ -52,6 +54,7 @@ def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path:
         dem_correc_type="breach",
         crs_project="EPSG:2154",
         backend="fake-wbt",
+        engine_id="test-engine",
     )
 
     assert isinstance(ctx, SolverRoutingContext)
@@ -63,6 +66,10 @@ def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path:
     assert captured["dem_correc_type"] == "breach"
     assert captured["crs_project"] == "EPSG:2154"
     assert captured["backend"] == "fake-wbt"
+    # The solver routes over its own DEM and has to do it with the engine the
+    # geographic configuration named, or the reaches of a stream package follow
+    # a different talweg from the one the catchment was delineated with.
+    assert captured["engine_id"] == "test-engine"
 
 
 def test_build_solver_routing_context_requires_existing_dem(tmp_path: Path):

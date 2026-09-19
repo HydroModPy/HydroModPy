@@ -4,17 +4,23 @@ Workflow:
 
 1. Load the TOML and validate the ``[calibration]`` section into a
    :class:`CalibrationConfig`.
-2. Prepare the downstream pipeline once via :func:`prepare_trials`,
-   reusing the earliest-affected-step optimisation so setup phases do
-   not re-run per trial.
-3. Drive the ask/tell loop through :class:`CalibrationEngine`, where
-   each evaluation forks the prepared context, runs the solver in
-   lightweight mode, and extracts the objective in RAM via
-   :func:`hydromodpy.calibration.metrics.build_metric_extractor`.
-4. Persist every iteration into the DuckDB ``calibration_iterations``
+2. Resolve the evaluator ``[calibration].evaluator`` names, through
+   :mod:`hydromodpy.calibration.evaluation.registry`. What turns a parameter
+   sample into a cost lives behind that name, and this module does not know
+   which implementation answers.
+3. Prepare the downstream pipeline once via :func:`prepare_trials` **when the
+   resolved evaluator declares it needs one**, reusing the earliest-affected-step
+   optimisation so setup phases do not re-run per trial. An evaluator that
+   replaces the model skips this entirely and is handed ``trial_ctx=None``.
+4. Drive the ask/tell loop through :class:`CalibrationEngine`, which calls the
+   evaluator once per suggestion. For the in-tree ``hydromodpy_pipeline``
+   evaluator that means forking the prepared context, running the solver in
+   lightweight mode, and extracting the objective in RAM.
+5. Persist every iteration into the DuckDB ``calibration_iterations``
    table (``sim_id`` left ``NULL`` by default).
-5. Honor ``save_runs`` -- ``"best_n"`` / ``"all"`` promote the chosen
-   trials through :mod:`hydromodpy.calibration.optim.promotion`.
+6. Honor ``save_runs`` -- ``"best_n"`` / ``"all"`` promote the chosen
+   trials through :mod:`hydromodpy.calibration.optim.promotion`. Promotion
+   replays the pipeline, so it is refused outright when no model was prepared.
 
 The ``objective`` argument is a Python escape hatch
 (``"module.path:fn"``) for users who need a custom scalar -- the TOML
@@ -32,7 +38,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.config import CalibrationConfig, scoring_window_bounds
-from hydromodpy.calibration.metrics import build_metric_extractor
+from hydromodpy.calibration.evaluation import TrialRequest
+from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.optim.cache import ParamsHashCache
 from hydromodpy.calibration.optim.diagnostics import correlated_parameter_pairs
 from hydromodpy.calibration.optim.engine import CalibrationEngine
@@ -69,7 +76,7 @@ from hydromodpy.calibration.runners.trial import (
     TrialMetricFn,
     prepare_trials,
 )
-from hydromodpy.core.exceptions import ObjectiveError
+from hydromodpy.core.exceptions import CalibrationError, ObjectiveError
 from hydromodpy.core.interrupts import TerminationRequested, terminate_as_interrupt
 from hydromodpy.core.logging import get_logger
 
@@ -339,7 +346,7 @@ def _persist_observed_for_report(catalog: Any, trial_ctx: Any, variable: str) ->
 # ---------------------------------------------------------------------------
 
 
-def _release_session_scratch(trial_ctx: TrialContext) -> None:
+def _release_session_scratch(trial_ctx: TrialContext | None) -> None:
     """Drop the preprocessing tree the session shared across its trials.
 
     Trials skip the setup steps and read the tree built once for the session,
@@ -347,9 +354,14 @@ def _release_session_scratch(trial_ctx: TrialContext) -> None:
     step that normally does. A session that promotes nothing therefore used to
     leave hundreds of MB of DEM and flow rasters under ``.hmp/scratch``. This
     runs on every exit path (success, failure, SIGINT) and never raises.
+
+    ``None`` when the named evaluator prepared no model: nothing was built, so
+    there is nothing to release.
     """
     from hydromodpy.spatial.geographic.store_ingestion import cleanup_stable_folder
 
+    if trial_ctx is None:
+        return
     geographic = getattr(getattr(trial_ctx.ctx, "setup", None), "geographic", None)
     if geographic is None:
         return
@@ -578,7 +590,7 @@ def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: A
 
 def run_calibration_core(
     cfg: CalibrationConfig,
-    trial_ctx: TrialContext,
+    trial_ctx: TrialContext | None,
     *,
     workspace: Path,
     space: ParameterSpace,
@@ -600,7 +612,10 @@ def run_calibration_core(
     The caller is responsible for:
 
     - building a :class:`TrialContext` (via :func:`prepare_trials` with the
-      appropriate ``parameter_space`` and ``override_paths``),
+      appropriate ``parameter_space`` and ``override_paths``) when the named
+      evaluator declares it needs one, and passing ``None`` when it does not --
+      :func:`hydromodpy.calibration.evaluation.registry.needs_prepared_model`
+      answers that from the name alone, before the preparation is paid for,
     - resolving the workspace,
     - building the :class:`ParameterSpace`,
     - providing ``cfg_path`` when ``cfg.materialize_candidates`` is True
@@ -641,25 +656,39 @@ def run_calibration_core(
         except Exception:
             logger.debug("Cache preload skipped (fresh catalog or schema mismatch)")
 
-    if metric_fn is None:
-        if objective and ":" in objective:
-            metric_fn = load_metric_fn_entry_point(objective)
-        else:
-            metric_fn = build_metric_extractor(
-                cfg.variable,
-                cfg.objective,
-                trial_ctx.ctx,
-                outputs=cfg.outputs or None,
-                objective_blocks=cfg.objective_blocks or None,
-                warmup_periods=int(cfg.warmup_periods),
-                scoring_window=scoring_window_bounds(cfg.scoring_window),
-                observed_station_id=cfg.observed_station_id,
-                min_samples=int(cfg.aggregate.min_samples),
-            )
+    if metric_fn is None and objective and ":" in objective:
+        metric_fn = load_metric_fn_entry_point(objective)
 
     use_api_isolation = _api_isolation_needed(cfg.parallel)
-    _assert_bounds_valid(trial_ctx, space)
-    _assert_network_conductance_proportional(cfg, trial_ctx)
+    # Both probe the configuration the pipeline was built from. An evaluator that
+    # declares it needs no prepared model built none, so there is nothing to
+    # probe: guarded here rather than left to two getattr chains that would
+    # return early and look like a check that passed.
+    if trial_ctx is not None:
+        _assert_bounds_valid(trial_ctx, space)
+        _assert_network_conductance_proportional(cfg, trial_ctx)
+
+    # The evaluator is resolved by the name the document wrote, and built with
+    # only the options its class names. Before the session row, because an
+    # evaluator that cannot be built must not leave a session behind claiming a
+    # search happened.
+    evaluator = evaluation_registry.create(
+        cfg.evaluator,
+        cfg=cfg,
+        trial_ctx=trial_ctx,
+        space=space,
+        workspace=workspace,
+        cfg_path=cfg_path,
+        metric_fn=metric_fn,
+    )
+    if trial_ctx is None and (cfg.save_runs != "none" or cfg.rerun_best_with_outputs):
+        raise CalibrationError(
+            f"calibration.evaluator names {getattr(evaluator, 'evaluator_id', cfg.evaluator)!r}, "
+            "which runs no HydroModPy model, and save_runs / rerun_best_with_outputs ask for "
+            "the best trials to be replayed through the pipeline and written as simulations. "
+            "There is no pipeline to replay them through. Refused here rather than at the end "
+            "of a search that would have had nothing to promote."
+        )
 
     session_id = chain.session_id if chain is not None else uuid.uuid4().hex
     persistence.start_session(
@@ -705,17 +734,7 @@ def run_calibration_core(
         materialize_root.mkdir(parents=True, exist_ok=True)
 
     def wrapped_evaluator(sugg: ParamSuggestion) -> EvaluationResult:
-        from hydromodpy.calibration.runners.trial import run_trial_light
-
-        result = run_trial_light(
-            trial_ctx,
-            sugg.values,
-            objective=cfg.objective,
-            variable=cfg.variable,
-            metric_fn=metric_fn,
-            trial_id=sugg.trial_id,
-            reject_water_budget_above=cfg.reject_water_budget_above,
-        )
+        result = evaluator.evaluate(TrialRequest(trial_id=sugg.trial_id, values=sugg.values))
         # calibration_iterations CHECK accepts only finite lifecycle states.
         # Map "failed" metric errors onto "crashed" for persistence.
         db_status = "crashed" if result.status == "failed" else result.status
@@ -724,7 +743,7 @@ def run_calibration_core(
             meta["error"] = result.error
             logger.warning("Calibration trial %d %s: %s", sugg.trial_id, db_status, result.error)
         if cfg.persist_iteration_detail == "full":
-            meta["block_costs"] = dict(result.metrics) if result.metrics else {}
+            meta["block_costs"] = dict(result.components)
         if materialize_root is not None and cfg_path is not None:
             from hydromodpy.calibration.runners.materialize import materialize_candidate
 
@@ -746,10 +765,10 @@ def run_calibration_core(
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=None,
-            objective_value=result.primary_metric,
+            objective_value=result.cost,
             status=db_status,
             duration_s=result.duration_s,
-            components=dict(result.metrics) if result.metrics else None,
+            components=dict(result.components) or None,
             metadata=meta,
         )
 
@@ -978,20 +997,33 @@ def run_calibration_cli(
         instead of its ``to_dict()`` payload.
     """
     cfg_path = Path(config_path).expanduser().resolve()
-    cfg, _raw = load_toml_calibration(cfg_path)
+    cfg, raw = load_toml_calibration(cfg_path)
     space = space_from_config(cfg)
     paths = resolve_override_paths(cfg)
 
-    trial_ctx = prepare_trials(
-        cfg_path,
-        override_paths=paths,
-        parameter_space=space,
+    # Asked of the class, before anything is built: preparing trials runs the
+    # whole geographic, mesh and data prefix of the pipeline, and an evaluator
+    # that replaces the model has no use for the model's setup. Paying for it
+    # anyway is what would make a surrogate as slow as what it stands in for.
+    trial_ctx = (
+        prepare_trials(cfg_path, override_paths=paths, parameter_space=space)
+        if evaluation_registry.needs_prepared_model(cfg.evaluator)
+        else None
     )
 
     if workspace is not None:
         ws_root = Path(workspace).expanduser().resolve()
-    else:
+    elif trial_ctx is not None:
         ws_root = trial_ctx.workspace
+    else:
+        # No prepared context to read the project root off, so the document is
+        # asked directly. Falling straight through to the file's directory would
+        # write the session journal somewhere else than a run of the same file
+        # that names the pipeline evaluator, over the same declared root.
+        declared = (raw.get("workspace") or {}).get("project_root")
+        ws_root = Path(declared).expanduser() if declared else cfg_path.parent
+        if not ws_root.is_absolute():
+            ws_root = (cfg_path.parent / ws_root).resolve()
 
     def _one_search(restart_seed: int, start_at):
         return run_calibration_core(
@@ -1036,6 +1068,13 @@ def run_calibration_cli(
                 else "",
             )
     elif getattr(uncertainty, "method", None) == "linearized":
+        if trial_ctx is None:
+            raise CalibrationError(
+                "uncertainty.method is 'linearized', which perturbs each calibrated value and "
+                "rebuilds the model to read the sensitivity off it. The evaluator named here "
+                "runs no HydroModPy model, so there is nothing to rebuild. Use 'cost_profile', "
+                "which reads the trace the search already produced, or 'multistart'."
+            )
         report = _one_search(cfg.seed or 0, None)
         report = attach_a_linearized_width(
             report,
