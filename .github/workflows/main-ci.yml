@@ -358,6 +358,94 @@ jobs:
       - name: Run hmp doctor from wheel install
         run: /tmp/hmp-smoke/bin/hmp doctor --json
 
+  # The proof that the terrain port is a port. A second implementation ships as
+  # its own distribution, no file of HydroModPy names it, and the conformance
+  # suite runs it in an environment where the default engine is not installed.
+  terrain-second-engine:
+    name: Terrain / second distribution in a clean environment py3.12
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Build both wheels
+        run: |
+          pip install --upgrade pip "build>=1.2"
+          python -m build --wheel --outdir dist .
+          python -m build --wheel --outdir dist terrain_scipy
+
+      # No delineation extra on purpose: whitebox-workflows is the engine this
+      # job must not be able to fall back on. A run that passes here passes on
+      # an engine that came from an entry point.
+      - name: Install both wheels into a fresh environment
+        run: |
+          python -m venv /tmp/hmp-terrain
+          /tmp/hmp-terrain/bin/pip install --upgrade pip
+          /tmp/hmp-terrain/bin/pip install "$(ls dist/hydromodpy-*.whl)[test]"
+          /tmp/hmp-terrain/bin/pip install dist/hydromodpy_terrain_scipy-*.whl
+
+      # Run from outside the checkout on purpose: at the repository root the
+      # working directory shadows the installed package with its own source,
+      # and this step is about what was installed.
+      - name: The registry resolves the installed engine, and not the default one
+        working-directory: /
+        run: |
+          /tmp/hmp-terrain/bin/python - <<'PY'
+          import importlib.util
+          import inspect
+
+          import hydromodpy
+          from hydromodpy.spatial.terrain import registry
+
+          served = registry.list_engine_ids()
+          builtin = registry.builtin_engine_ids()
+          assert "scipy_d8" in served, f"the wheel published nothing the registry resolves: {served}"
+          assert "scipy_d8" not in builtin, f"scipy_d8 must come from the entry point, not from {builtin}"
+          assert importlib.util.find_spec("whitebox_workflows") is None, (
+              "the default engine is installed here, so this job would prove nothing"
+          )
+          engine_file = inspect.getfile(registry.get("scipy_d8"))
+          assert "site-packages" in engine_file, f"resolved from a source tree: {engine_file}"
+          assert "site-packages" in hydromodpy.__file__, hydromodpy.__file__
+          print(f"resolvable engines: {served}")
+          print(f"scipy_d8 resolved from {engine_file}")
+          PY
+
+      # The suite is read from the checkout, so HydroModPy itself is imported
+      # from the source tree here, as in every other job. The engine is not:
+      # terrain_scipy/src is on no path, so scipy_d8 can only come from the
+      # wheel installed above, which is what this job is about.
+      - name: Run the terrain conformance suite
+        run: |
+          /tmp/hmp-terrain/bin/python -m pytest tests/contract/test_terrain_engine_contract.py \
+            -q -p no:cacheprovider --timeout=600 --junitxml=/tmp/conformance.xml
+
+      # Without this the job is green when the entry point fails to load: the
+      # suite is parametrized by what the registry resolves, so an engine that
+      # never arrives simply produces fewer test nodes.
+      - name: The installed engine ran the suite, it was not skipped
+        run: |
+          /tmp/hmp-terrain/bin/python - <<'PY'
+          import xml.etree.ElementTree as ET
+
+          cases = [
+              case
+              for case in ET.parse("/tmp/conformance.xml").getroot().iter("testcase")
+              if "scipy_d8" in case.get("name", "")
+          ]
+          executed = [case for case in cases if case.find("skipped") is None]
+          assert len(executed) >= 40, f"{len(executed)} of {len(cases)} nodes ran on the installed engine"
+          print(f"{len(executed)} conformance nodes executed against hydromodpy-terrain-scipy")
+          PY
+
   typing:
     name: Typing / mypy baseline py3.12 (advisory)
     runs-on: ubuntu-latest

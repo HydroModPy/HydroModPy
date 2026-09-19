@@ -379,3 +379,70 @@ def test_a_request_that_names_no_engine_carries_the_default() -> None:
     )
 
     assert inputs.engine == registry.DEFAULT_ENGINE_ID
+
+
+# ---------------------------------------------------------------------------
+# The proof itself is a CI job, so the job is held to shape
+# ---------------------------------------------------------------------------
+#
+# Substitutability is not shown by a conformance suite running beside this
+# repository: both engines this build ships are on the import path there
+# whatever the port is worth. It is shown by a second distribution built as a
+# wheel, installed where the default engine is absent, and resolved through its
+# entry-point group alone. That proof lives in one workflow file and nowhere
+# else, which makes it deletable in one line with nothing turning red. These
+# assertions are what turns that line red. They live in this file because this
+# file is the single exception to the gate above: naming the distribution is
+# what they are for.
+
+CI_WORKFLOW = ".github/workflows/main-ci.yml"
+CI_JOB_ID = "terrain-second-engine"
+CONFORMANCE_SUITE_PATH = "tests/contract/test_terrain_engine_contract.py"
+
+
+@pytest.fixture(scope="module")
+def second_distribution_job() -> dict:
+    yaml = pytest.importorskip("yaml")
+    workflow = yaml.safe_load((REPO_ROOT / CI_WORKFLOW).read_text(encoding="utf-8"))
+    assert CI_JOB_ID in workflow["jobs"], (
+        f"the proof of the terrain port is gone: {list(workflow['jobs'])}"
+    )
+    return workflow["jobs"][CI_JOB_ID]
+
+
+def _job_script(job: dict) -> str:
+    return "\n".join(str(step.get("run", "")) for step in job["steps"])
+
+
+def test_the_ci_job_builds_and_installs_the_second_distribution(second_distribution_job) -> None:
+    script = _job_script(second_distribution_job)
+
+    assert "build --wheel --outdir dist terrain_scipy" in script
+    assert "dist/hydromodpy_terrain_scipy-*.whl" in script
+
+
+def test_the_ci_job_installs_no_engine_of_this_build(second_distribution_job) -> None:
+    """The delineation extra is what would make that job prove nothing.
+
+    With ``whitebox-workflows`` installed the suite would pass on an engine this
+    build ships, and the out-of-tree one could contribute nothing to the result.
+    """
+    script = _job_script(second_distribution_job)
+
+    assert "delineation" not in script
+    assert "whitebox_workflows" in script, "the job must assert the default engine is absent"
+
+
+def test_the_ci_job_refuses_a_vacuous_pass(second_distribution_job) -> None:
+    """A suite parametrized by the registry stays green when no engine arrives.
+
+    It simply collects fewer nodes. Reading the executed count back out of the
+    JUnit report is the only thing between that and a job claiming a proof, and
+    it was measured: with the wheel uninstalled the suite still reports 63
+    passed and 0 failed.
+    """
+    script = _job_script(second_distribution_job)
+
+    assert CONFORMANCE_SUITE_PATH in script
+    assert "--junitxml" in script
+    assert "site-packages" in script, "the engine must be proven to come from an install"
