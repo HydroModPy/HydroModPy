@@ -550,6 +550,7 @@ def build_geographic_runtime_context(
             dem_correc_type=str(config.dem_correc_type),
             crs_project=setup.crs_project,
             backend=tool,
+            engine_id=config.terrain_engine,
         )
 
         if config.catch_def == "dem":
@@ -630,6 +631,7 @@ def build_geographic_runtime_context(
                     dem_correc_type=str(config.dem_correc_type),
                     crs_project=setup.crs_project,
                     backend=tool,
+                    engine_id=config.terrain_engine,
                 )
                 build_standard_catchment(
                     config=config,

@@ -13,6 +13,12 @@ pip install -e terrain_scipy
 {"inputs": {"engine": "scipy_d8", "dem": {"path": "dem.tif"}, "outlets": [...]}}
 ```
 
+```toml
+# or the project TOML, which routes the whole geographic chain through it
+[geographic]
+terrain_engine = "scipy_d8"
+```
+
 ## What it is for
 
 The point of the port is that an implementation can be replaced without

@@ -140,30 +140,36 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `geographic <geographic.html#geographic-dem-correc-type>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L569>`__
+   * - ``geographic.terrain_engine``
+     - ``str | None``
+     - user
+     - -
+     - `geographic <geographic.html#geographic-terrain-engine>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L573>`__
    * - ``geographic.domain_extent``
      - ``Literal['box', 'watershed_buff', 'watershed']``
      - user
      - -
      - `geographic <geographic.html#geographic-domain-extent>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L573>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L582>`__
    * - ``geographic.bottom_path``
      - ``Path | None``
      - user
      - -
      - `geographic <geographic.html#geographic-bottom-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L585>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L594>`__
    * - ``geographic.reg_fold``
      - ``Path | None``
      - dev
      - -
      - `geographic <geographic.html#geographic-reg-fold>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L593>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L602>`__
    * - ``geographic.synthetic``
      - ``SyntheticGeographicConfig``
      - user
      - -
      - `geographic <geographic.html#geographic-synthetic>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L597>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L606>`__
    * - ``geographic.synthetic.case_id``
      - ``str``
      - user
@@ -277,7 +283,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `geographic <geographic.html#geographic-river-network>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L604>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L613>`__
    * - ``geographic.river_network.enabled``
      - ``bool``
      - user
@@ -337,7 +343,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-streams>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L611>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L620>`__
    * - ``geographic.enforce_streams.enabled``
      - ``bool``
      - user
@@ -403,7 +409,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-lakes>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L619>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L628>`__
    * - ``geographic.enforce_lakes.enabled``
      - ``bool``
      - user
@@ -451,7 +457,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `geographic <geographic.html#geographic-dam-carve>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L627>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L636>`__
    * - ``geographic.dam_carve.enabled``
      - ``bool``
      - user
@@ -481,13 +487,13 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `geographic <geographic.html#geographic-reuse-existing-outputs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L635>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L644>`__
    * - ``geographic.write_intermediates``
      - ``bool``
      - dev
      - -
      - `geographic <geographic.html#geographic-write-intermediates>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L645>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L654>`__
    * - ``domain.zone_ids``
      - ``list[str]``
      - user

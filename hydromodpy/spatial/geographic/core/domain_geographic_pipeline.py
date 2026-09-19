@@ -152,6 +152,7 @@ def _delineate(*, config: GeographicConfig, setup, routing_dem_path: str):
         dem_out_dir_path=setup.paths.correcflow_path,
         dem_correc_type=effective,
         crs_project=setup.crs_project,
+        engine_id=config.terrain_engine,
     )
     try:
         build_standard_catchment(
@@ -173,6 +174,7 @@ def _delineate(*, config: GeographicConfig, setup, routing_dem_path: str):
             dem_out_dir_path=setup.paths.correcflow_path,
             dem_correc_type=effective,
             crs_project=setup.crs_project,
+            engine_id=config.terrain_engine,
         )
         build_standard_catchment(
             config=config,

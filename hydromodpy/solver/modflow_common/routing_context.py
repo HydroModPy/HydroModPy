@@ -29,8 +29,15 @@ def build_solver_routing_context(
     dem_correc_type: str,
     crs_project: str | None = None,
     backend: WhiteboxWorkflowsBackend | None = None,
+    engine_id: str | None = None,
 ) -> SolverRoutingContext:
-    """Build flow-correction and D8 routing rasters from one solver DEM."""
+    """Build flow-correction and D8 routing rasters from one solver DEM.
+
+    ``engine_id`` is the one the geographic configuration named. The solver
+    routes over its own DEM, but over the same terrain: two engines on the two
+    sides would send the reaches of a stream package down a different talweg
+    from the one the catchment was delineated with.
+    """
     dem_in = Path(dem_path)
     if not dem_in.exists():
         raise FileNotFoundError(f"Solver DEM raster not found: {dem_in}")
@@ -44,6 +51,7 @@ def build_solver_routing_context(
         dem_correc_type=str(dem_correc_type),
         crs_project=crs_project,
         backend=backend,
+        engine_id=engine_id,
     )
     return SolverRoutingContext(
         dem_path=str(dem_in),

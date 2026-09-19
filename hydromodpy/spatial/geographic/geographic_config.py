@@ -570,6 +570,15 @@ class GeographicConfig(HydroModelBase):
         default="breach",
         description="DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point.",
     )
+    terrain_engine: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Flow-routing engine that conditions the DEM and delineates the catchment. "
+            "Unset uses the engine this build defaults to. A string and not an enumeration: "
+            "the values that resolve depend on what is installed beside HydroModPy, which is "
+            "how a third-party engine is named without a patch."
+        ),
+    )
     domain_extent: Annotated[Literal["box", "watershed_buff", "watershed"], Profile.USER] = Field(
         default="box",
         description=(
@@ -767,6 +776,35 @@ class GeographicConfig(HydroModelBase):
     def synthetic_case(cls, **overrides) -> GeographicConfig:
         """Analytical synthetic geographic support (bypasses DEM delineation)."""
         return cls(source_mode="synthetic", **overrides)
+
+    @field_validator("terrain_engine")
+    @classmethod
+    def _check_terrain_engine_resolves(cls, value: str | None) -> str | None:
+        """Refuse an engine this installation cannot serve, while reading the document.
+
+        The same refusal the ``terrain-delineate`` capability performs on
+        ``inputs.engine``, at the other door. It happens here rather than at the
+        first delineation because a project that names an engine nobody installed
+        is a broken document, and learning that after a DEM has been conditioned
+        costs the conditioning.
+
+        ``None`` is not checked: it means "whatever this build defaults to", and
+        a default that does not resolve is an environment fault the registry
+        reports with its own message.
+        """
+        if value is None:
+            return value
+        from hydromodpy.spatial.terrain import registry as terrain_registry
+
+        if terrain_registry.is_registered(value):
+            return value
+        served = ", ".join(terrain_registry.list_engine_ids()) or "none"
+        raise ValueError(
+            f"geographic.terrain_engine names {value!r}, and this installation serves "
+            f"{served}. A third-party engine joins that list through the "
+            f"{terrain_registry.ENTRY_POINT_GROUP!r} entry-point group, without a patch to "
+            "HydroModPy."
+        )
 
     @model_validator(mode="after")
     def _check_source_mode_payload(self, info: ValidationInfo) -> GeographicConfig:

@@ -322,6 +322,7 @@ class ModflowNwt:
             output_dir=os.path.join(self.full_path, "_solver_routing"),
             dem_correc_type=str(getattr(self.geographic, "dem_correc_type", "breach")),
             crs_project=getattr(self.geographic, "crs_proj", None),
+            engine_id=getattr(self.geographic, "terrain_engine", None),
         )
         return self.routing_ctx
 

@@ -305,6 +305,22 @@ Fields
    **One of:** ``"breach"`` ``"fill"``
 
 
+.. index:: ! terrain_engine
+
+.. container:: hmp-field hmp-field-level-user
+   :name: geographic-terrain-engine
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="geographic.terrain_engine">
+        <code class="hmp-field-name">terrain_engine</code>
+      </div>
+
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L573>`__
+
+      Flow-routing engine that conditions the DEM and delineates the catchment. Unset uses the engine this build defaults to. A string and not an enumeration: the values that resolve depend on what is installed beside HydroModPy, which is how a third-party engine is named without a patch.
+
+
 .. index:: ! domain_extent
 
 .. container:: hmp-field hmp-field-level-user
@@ -316,7 +332,7 @@ Fields
         <code class="hmp-field-name">domain_extent</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "box"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L573>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "box"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L582>`__
 
       Selects the DEM surface used for the domain. 'box' (default) keeps the full buffered rectangular support. 'watershed' / 'watershed_buff' select the catchment (optionally with a buffer ring) surface. Note: the MODFLOW 6 mesh still covers the buffered box (the buffer stays active for inter-basin exchange); out-of-watershed drainage is kept out of the catchment discharge by the DRN watershed-routing, not by an idomain mask. Experimental.
 
@@ -336,7 +352,7 @@ Fields
         <code class="hmp-field-name">bottom_path</code>
       </div>
 
-   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L585>`__
+   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L594>`__
 
       Path to a raster representing the aquifer bottom elevation. Must share the same grid as the model domain.
 
@@ -352,7 +368,7 @@ Fields
         <code class="hmp-field-name">reg_fold</code>
       </div>
 
-   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L593>`__
+   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L602>`__
 
       Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed.
 
@@ -370,7 +386,7 @@ Fields
         <code class="hmp-field-toml">[geographic.synthetic]</code>
       </div>
 
-   :bdg-primary:`SyntheticGeographicConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L597>`__
+   :bdg-primary:`SyntheticGeographicConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L606>`__
 
       Synthetic geographic support used when source_mode='synthetic'. This analytical mode bypasses watershed delineation from external DEM files.
 
@@ -729,7 +745,7 @@ Fields
         <code class="hmp-field-toml">[geographic.river_network]</code>
       </div>
 
-   :bdg-primary:`RiverNetworkConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L604>`__
+   :bdg-primary:`RiverNetworkConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L613>`__
 
       Optional DEM-derived river-network extraction settings. When disabled, no stream network is generated in geographic preprocessing.
 
@@ -900,7 +916,7 @@ Fields
         <code class="hmp-field-toml">[geographic.enforce_streams]</code>
       </div>
 
-   :bdg-primary:`StreamEnforcementConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L611>`__
+   :bdg-primary:`StreamEnforcementConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L620>`__
 
       Optional stream burning of the routing DEM: lower the mapped network cells so the computed D8 paths follow the observed network, without touching the model grid top. Applied before the lake carve.
 
@@ -1085,7 +1101,7 @@ Fields
         <code class="hmp-field-toml">[geographic.enforce_lakes]</code>
       </div>
 
-   :bdg-primary:`LakeEnforcementConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L619>`__
+   :bdg-primary:`LakeEnforcementConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L628>`__
 
       Optional lake hydro-enforcement of the routing DEM: carve the lake footprints so streams route into the lakes and drain to the outlet, without touching the model grid top.
 
@@ -1220,7 +1236,7 @@ Fields
         <code class="hmp-field-toml">[geographic.dam_carve]</code>
       </div>
 
-   :bdg-primary:`DamCarveConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L627>`__
+   :bdg-primary:`DamCarveConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L636>`__
 
       Optional dam structure-carve of the model-top DEM: lower the dam footprint to the valley floor so a cutoff wall sits at the dam on a raw DEM (mirror of enforce_lakes, on the top instead of the routing DEM).
 
@@ -1303,7 +1319,7 @@ Fields
         <code class="hmp-field-name">reuse_existing_outputs</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L635>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L644>`__
 
       If true, reuse previously generated geographic artifacts when the cached fingerprint matches the current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated simulation runs in the same workspace.
 
@@ -1319,7 +1335,7 @@ Fields
         <code class="hmp-field-name">write_intermediates</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L645>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L654>`__
 
       Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), .hmp/scratch/_preprocessing/ is removed after ingestion into the run field store.
 
@@ -1341,6 +1357,7 @@ Starter TOML snippet
       # source_mode = "standard"
       # crs_project = ...  # default = None
       # dem_correc_type = "breach"
+      # terrain_engine = ...  # default = None
       # domain_extent = "box"
       # bottom_path = ...  # default = None
       # reuse_existing_outputs = false

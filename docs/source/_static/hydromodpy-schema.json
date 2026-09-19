@@ -10222,6 +10222,20 @@
           "type": "string",
           "x-hmp-profile": "user"
         },
+        "terrain_engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Flow-routing engine that conditions the DEM and delineates the catchment. Unset uses the engine this build defaults to. A string and not an enumeration: the values that resolve depend on what is installed beside HydroModPy, which is how a third-party engine is named without a patch.",
+          "title": "Terrain Engine",
+          "x-hmp-profile": "user"
+        },
         "domain_extent": {
           "default": "box",
           "description": "Selects the DEM surface used for the domain. 'box' (default) keeps the full buffered rectangular support. 'watershed' / 'watershed_buff' select the catchment (optionally with a buffer ring) surface. Note: the MODFLOW 6 mesh still covers the buffered box (the buffer stays active for inter-basin exchange); out-of-watershed drainage is kept out of the catchment discharge by the DRN watershed-routing, not by an idomain mask. Experimental.",

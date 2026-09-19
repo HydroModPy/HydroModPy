@@ -281,6 +281,9 @@ def catchment_area_without_burn(
         dem_correc_type=str(config.dem_correc_type),
         crs_project=setup.crs_project,
         backend=backend,
+        # The reference area has to come from the same engine as the burned one,
+        # or the drift this guard measures is a difference of engines.
+        engine_id=getattr(config, "terrain_engine", None),
     )
     build_standard_catchment(
         config=config,

@@ -525,6 +525,7 @@ def ensure_solver_routing_context(model) -> SolverRoutingContext:
         output_dir=os.path.join(model.full_path, "_solver_routing"),
         dem_correc_type=str(getattr(model.geographic, "dem_correc_type", "breach")),
         crs_project=getattr(model.geographic, "crs_proj", None),
+        engine_id=getattr(model.geographic, "terrain_engine", None),
     )
     return model.routing_ctx
 
