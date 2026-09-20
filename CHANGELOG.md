@@ -60,8 +60,12 @@ Each release section includes the following standard categories:
   staged run reusing every phase from disk never reached the use site, and a
   refused call used to pay the whole geographic, mesh and data prefix first and
   leave a catalog, a lock and a WAL in a workspace where no calibration ran.
-  `examples/projects/06_vire_selune` passes a metric name this way and now
-  fails: its `run_*.toml` needs the metric moved into an objective block.
+  One caller in the repository passes a metric name this way and now fails,
+  `examples/projects/new_to_sort/11_nancon_watershed/python/06_python_calibration.py`,
+  which asks for `objective="kge"` beside `variable="discharge"` and was
+  calibrating on the default all along. Python mode filters `objective` out of
+  the config payload, so the metric goes in `objective_blocks=[...]` there.
+  `run_trial_light` keeps its own `objective` argument and is not touched.
 - A staged calibration declaring `uncertainty.method = "linearized"` now gets a
   width per phase, taken around that phase's own optimum. It got none at all:
   the dispatch that builds one lives in the non-staged route, so the search was
