@@ -620,6 +620,35 @@ def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: A
     return kwargs
 
 
+def refuse_an_objective_that_is_not_an_entry_point(objective: str | None) -> None:
+    """Refuse an ``objective=`` that does not name a Python callable.
+
+    ``objective=`` is an entry point specification, ``"module.path:callable"``,
+    on all three routes. A metric NAME handed to it was silently ignored: a
+    caller asking for ``objective="kge"`` on a document declaring ``nse``
+    calibrated on ``nse`` and nothing said so.
+
+    Called at the entry of each public route rather than where the value is
+    consumed. Two reasons, both measured. A staged run that reuses its phases
+    from disk never reaches the consumer, so the value travelled into the reuse
+    fingerprint without ever being checked. And the consumer sits after
+    ``prepare_trials``, so a refused call used to pay the whole geographic,
+    mesh and data prefix first, and leave a fresh catalog, a lock and a WAL
+    behind in a workspace where no calibration ever ran.
+    """
+    if not objective or ":" in objective:
+        return
+    raise CalibrationError(
+        f"objective={objective!r} is not a 'module.path:callable' entry point. "
+        "objective= names a Python callable to build the metric extractor with, and "
+        "a metric name is not one. Declare the metric where the document declares "
+        "metrics: [calibration] objective for the single-metric route, a block's "
+        "'metric' for the composite one, or objective_blocks=[{'name': ..., "
+        "'metric': ..., 'uses_outputs': [...]}] when calling Project.calibrate, "
+        "which passes no [calibration] table."
+    )
+
+
 def run_calibration_core(
     cfg: CalibrationConfig,
     trial_ctx: TrialContext | None,
@@ -688,6 +717,7 @@ def run_calibration_core(
         except Exception:
             logger.debug("Cache preload skipped (fresh catalog or schema mismatch)")
 
+    refuse_an_objective_that_is_not_an_entry_point(objective)
     if metric_fn is None and objective and ":" in objective:
         metric_fn = load_metric_fn_entry_point(objective)
 
@@ -1016,7 +1046,8 @@ def run_calibration_cli(
         ``[simulation]`` / ``[flow]`` / ``[data]`` blocks.
     objective
         Optional escape hatch: ``"module.path:callable"`` selects the
-        RAM metric extractor. Takes precedence over ``metric_fn``.
+        RAM metric extractor. ``metric_fn`` wins when both are given;
+        a value that is not an entry point is refused.
     workspace
         Override the project catalog root (defaults to the one resolved
         from the TOML).
@@ -1028,6 +1059,7 @@ def run_calibration_cli(
         When True, return the structured :class:`CalibrationReport`
         instead of its ``to_dict()`` payload.
     """
+    refuse_an_objective_that_is_not_an_entry_point(objective)
     cfg_path = Path(config_path).expanduser().resolve()
     cfg, raw = load_toml_calibration(cfg_path)
     space = space_from_config(cfg)
@@ -1124,6 +1156,7 @@ def run_calibration_cli(
 
 __all__ = [
     "attach_a_linearized_width",
+    "refuse_an_objective_that_is_not_an_entry_point",
     "load_toml_calibration",
     "run_calibration_cli",
     "run_calibration_core",

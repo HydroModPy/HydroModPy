@@ -49,6 +49,19 @@ Each release section includes the following standard categories:
   `ResolvedSimulationTimeGrid`, not reviving a parallel temporal model.
 
 ### Changed
+- `objective=` refuses a value that is not a `module.path:callable` entry
+  point, at the entry of every calibration route, instead of ignoring it. It
+  has always been an entry point specification on all three routes, so
+  `project.calibrate(objective="kge")` on a document declaring `nse` calibrated
+  on `nse` and said nothing. The refusal names the value it was handed and the
+  three places a metric is actually declared, including
+  `objective_blocks=[...]` for `Project.calibrate`, which passes no
+  `[calibration]` table. Checked at the entry, not where the value is used: a
+  staged run reusing every phase from disk never reached the use site, and a
+  refused call used to pay the whole geographic, mesh and data prefix first and
+  leave a catalog, a lock and a WAL in a workspace where no calibration ran.
+  `examples/projects/06_vire_selune` passes a metric name this way and now
+  fails: its `run_*.toml` needs the metric moved into an objective block.
 - A staged calibration declaring `uncertainty.method = "linearized"` now gets a
   width per phase, taken around that phase's own optimum. It got none at all:
   the dispatch that builds one lives in the non-staged route, so the search was

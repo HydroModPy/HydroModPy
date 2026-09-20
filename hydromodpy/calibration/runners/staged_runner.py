@@ -50,6 +50,7 @@ from hydromodpy.calibration.protocols import (
 from hydromodpy.calibration.runners.cli_runner import (
     attach_a_linearized_width,
     load_toml_calibration,
+    refuse_an_objective_that_is_not_an_entry_point,
     run_calibration_core,
 )
 from hydromodpy.calibration.runners.restarts import RestartSpread, run_restarts
@@ -705,6 +706,10 @@ def run_staged_calibration(
         together with ``[calibration] reuse_completed_phases = true``; every
         phase is still solved when either is missing.
     """
+    # Before the reuse branch, not inside the search: a run that reuses every
+    # phase from disk never reaches the consumer, and the value travels into
+    # the reuse fingerprint either way.
+    refuse_an_objective_that_is_not_an_entry_point(objective)
     cfg_path = Path(config_path).expanduser().resolve()
     cfg, _raw = load_toml_calibration(cfg_path)
     if not evaluation_registry.needs_prepared_model(cfg.evaluator):
