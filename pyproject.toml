@@ -244,6 +244,7 @@ extend-exclude = [
     ".venv",
     "build",
     "dist",
+    "addon_tempo",       # untracked scratch tree with its own nested git repo
     "*.ipynb",           # skip notebooks (stray scratch files like Test_delete.ipynb)
 ]
 
