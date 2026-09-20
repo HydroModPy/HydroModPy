@@ -117,6 +117,13 @@ class ForwardModel(Protocol):
         model with the document's criteria catches it and reports a ``failed``
         trial carrying ``nan``, so the search walks out of the region rather
         than stopping on it.
+
+        A name the model cannot place is refused the same way, and not ignored:
+        a model that quietly drops a parameter the document declared turns that
+        knob into no knob at all, every sample of the search costs the same, and
+        the report names a best that means nothing. The refusal is deliberate,
+        which is to say it says which name it did not understand rather than
+        surfacing as the ``KeyError`` of an unguarded lookup.
         """
         ...
 

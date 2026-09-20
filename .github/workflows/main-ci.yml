@@ -555,6 +555,115 @@ jobs:
           assert report["best_objective"] < 1e-20, report
           PY
 
+  forward-second-model:
+    name: Calibration / installed foreign forward model py3.12
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Build both wheels
+        run: |
+          pip install --upgrade pip "build>=1.2"
+          python -m build --wheel --outdir dist .
+          python -m build --wheel --outdir dist forward_cascade
+
+      - name: Install both wheels into a fresh environment
+        run: |
+          python -m venv /tmp/hmp-forward
+          /tmp/hmp-forward/bin/pip install --upgrade pip
+          /tmp/hmp-forward/bin/pip install "$(ls dist/hydromodpy-*.whl)[test]"
+          /tmp/hmp-forward/bin/pip install dist/hydromodpy_forward_cascade-*.whl
+
+      - name: Verify the model came from the installed wheel
+        working-directory: /
+        run: |
+          /tmp/hmp-forward/bin/python - <<'PY'
+          import inspect
+
+          import hydromodpy
+          from hydromodpy.calibration.evaluation import forward_registry
+
+          served = forward_registry.list_model_ids()
+          assert "two_reservoir_cascade" in served, served
+          assert "two_reservoir_cascade" not in forward_registry.builtin_model_ids()
+          source = inspect.getfile(forward_registry.get("two_reservoir_cascade"))
+          assert "site-packages" in source, source
+          assert "site-packages" in hydromodpy.__file__, hydromodpy.__file__
+          print(source)
+          PY
+
+      - name: Run the registry-driven conformance suite
+        working-directory: /
+        run: |
+          /tmp/hmp-forward/bin/python - <<'PY'
+          import os
+          from pathlib import Path
+
+          import hydromodpy
+          import pytest
+
+          assert "site-packages" in hydromodpy.__file__, hydromodpy.__file__
+          suite = Path(os.environ["GITHUB_WORKSPACE"]) / "tests/contract/test_forward_model_contract.py"
+          raise SystemExit(pytest.main([
+              str(suite), "-q", "-p", "no:cacheprovider",
+              "--junitxml=/tmp/forward-conformance.xml",
+          ]))
+          PY
+
+      - name: Verify the installed model executed its conformance nodes
+        run: |
+          /tmp/hmp-forward/bin/python - <<'PY'
+          import xml.etree.ElementTree as ET
+
+          cases = [
+              case
+              for case in ET.parse("/tmp/forward-conformance.xml").getroot().iter("testcase")
+              if "two_reservoir_cascade" in case.get("name", "")
+          ]
+          executed = [case for case in cases if case.find("skipped") is None]
+          assert len(executed) >= 10, f"{len(executed)} of {len(cases)} nodes ran on the installed model"
+          print(f"{len(executed)} conformance nodes ran on the installed forward model")
+          PY
+
+      - name: Score the foreign model with the criteria of its document
+        working-directory: /
+        run: |
+          /tmp/hmp-forward/bin/python - <<'PY'
+          import inspect
+          import os
+          from pathlib import Path
+
+          import hydromodpy as hmp
+          from hydromodpy.calibration.evaluation import forward_registry
+          import hydromodpy.calibration.runners.cli_runner as cli_runner
+
+          assert "site-packages" in hmp.__file__, hmp.__file__
+          model_file = inspect.getfile(forward_registry.get("two_reservoir_cascade"))
+          assert "site-packages" in model_file, model_file
+
+          def forbidden_prepare(*args, **kwargs):
+              raise AssertionError("a document-scored model prepared the HydroModPy model")
+
+          cli_runner.prepare_trials = forbidden_prepare
+          report = hmp.calibrate(
+              Path(os.environ["GITHUB_WORKSPACE"]) / "forward_cascade/cascade_calibration.toml",
+              workspace=Path("/tmp/hmp-cascade-calibration"),
+          )
+          assert report["n_iterations"] == 9, report
+          assert abs(report["best_parameters"]["k_fast"] - 0.25) < 1e-10, report
+          assert abs(report["best_parameters"]["k_slow"] - 0.05) < 1e-10, report
+          assert report["best_objective"] < 1e-12, report
+          PY
+
   typing:
     name: Typing / mypy baseline py3.12 (advisory)
     runs-on: ubuntu-latest
