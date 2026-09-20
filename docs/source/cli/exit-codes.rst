@@ -5,7 +5,7 @@ Every :command:`hmp` verb maps its outcome to a typed exit code defined
 in ``hydromodpy/cli/helpers.py``. The same mapping powers
 ``exit_code_for(exc)``, which routes Python exceptions to the matching
 code. Scripts and CI gates can rely on the table below; new failure
-categories reuse the 10..21 band before introducing new ranges.
+categories reuse the 10..22 band before introducing new ranges.
 
 .. list-table::
    :header-rows: 1
@@ -65,6 +65,11 @@ categories reuse the 10..21 band before introducing new ranges.
      - ``EXIT_CALIBRATION``
      - Calibration loop failed: objective evaluation or optimizer backend
        raised an unrecoverable error.
+   * - 22
+     - ``EXIT_CATALOG_UNREADABLE``
+     - The catalog index exists and will not open. Delete it and rebuild
+       with ``hmp catalog reindex``, which never reads the broken file:
+       it writes a fresh database beside it and publishes it atomically.
    * - 130
      - ``EXIT_SIGINT``
      - Interrupted by ``Ctrl+C`` (``KeyboardInterrupt``). POSIX
@@ -82,7 +87,7 @@ reference maps to 20. Domain exceptions defined in
 ``ConfigMissingError``, ``SolverError``, ``DataError``,
 ``CrossProjectsError``, ``BackupFailedError``, ``MigrationFailedError``)
 map to codes 11..19 respectively. ``CalibrationError`` (and its
-``ObjectiveError`` / ``OptimizerError`` subclasses) maps to 21. The two
+``ObjectiveError`` / ``OptimizerError`` subclasses) maps to 21. ``CatalogUnreadableError`` maps to 22. The two
 exceptions of the external-process boundary map with them: ``JobUsageError``
 to 2 and ``CapabilityVersionMismatchError`` to 11. ``TerrainError`` and its
 subclasses map to 15, beside the solvers: at a process boundary the terrain

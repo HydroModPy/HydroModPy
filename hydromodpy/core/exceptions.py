@@ -572,6 +572,50 @@ class MigrationFailedError(CatalogError):
     code = "HMPY.E807"
 
 
+# Mirrors ``REPAIR_HINTS["catalog"]`` in ``hydromodpy/core/migrations/runner.py``
+# (lines 44-47), duplicated rather than imported: importing that module runs
+# ``hydromodpy/core/migrations/__init__.py``, which imports ``auto_boot.py``,
+# which imports ``BackupFailedError`` from this module - a real import cycle,
+# not merely a layering tolerance. Keep this in sync with the runner's hint by
+# hand; both name the same command because there is exactly one repair for a
+# DuckDB index this project keeps, and it is always a rebuild, never a repair
+# in place.
+_CATALOG_REPAIR_HINT = (
+    "the index is rebuildable: delete it and run 'hmp catalog reindex' - "
+    "reindex writes a fresh index next to the broken one and publishes it by "
+    "atomic replace, so it never has to reopen the file that failed"
+)
+
+
+class CatalogUnreadableError(CatalogError):
+    """The catalog index file exists but DuckDB could not open it.
+
+    Distinct from lock contention, which
+    :func:`hydromodpy.core.io.db_retry.connect_with_retry` retries
+    transparently and never raises for: this is raised once that retry has
+    ruled out a concurrent writer and the open still fails, e.g. a truncated
+    write or a torn journal replay. The message carries the index path and
+    the exact rebuild command rather than the raw DuckDB trace, since nothing
+    at this layer can repair the file in place.
+    """
+
+    code = "HMPY.E808"
+
+    def __init__(
+        self,
+        db_path: str,
+        *,
+        sim_id: str | None = None,
+        run_id: str | None = None,
+        **context: Any,
+    ) -> None:
+        message = (
+            f"Catalog index at {db_path!r} exists but could not be opened: {_CATALOG_REPAIR_HINT}."
+        )
+        super().__init__(message, sim_id=sim_id, run_id=run_id, **context)
+        self.db_path = db_path
+
+
 class ZarrStoreError(StorageError):
     """Zarr store read/write failure."""
 
@@ -684,6 +728,7 @@ __all__ = [
     "CrossProjectsError",
     "BackupFailedError",
     "MigrationFailedError",
+    "CatalogUnreadableError",
     "ZarrStoreError",
     # Results
     "ResultsError",

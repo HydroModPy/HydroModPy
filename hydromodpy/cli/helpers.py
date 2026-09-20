@@ -36,6 +36,9 @@ EXIT_MIGRATION_FAILED = 19
 # the following slots. CLAUDE.md documents the band as 10..21.
 EXIT_AMBIGUOUS_REFERENCE = 20
 EXIT_CALIBRATION = 21
+# 10..21 is now fully assigned too: this one goes one past the band CLAUDE.md
+# still documents as 10..21, same way 20/21 once did.
+EXIT_CATALOG_UNREADABLE = 22
 EXIT_SIGINT = 130
 
 
@@ -49,6 +52,7 @@ def exit_code_for(exc: BaseException) -> int:
         BackupFailedError,
         CalibrationError,
         CapabilityVersionMismatchError,
+        CatalogUnreadableError,
         ConfigError,
         ConfigMissingError,
         CrossProjectsError,
@@ -93,6 +97,7 @@ def exit_code_for(exc: BaseException) -> int:
         (CrossProjectsError, EXIT_CROSS_PROJECTS),
         (BackupFailedError, EXIT_BACKUP_FAILED),
         (MigrationFailedError, EXIT_MIGRATION_FAILED),
+        (CatalogUnreadableError, EXIT_CATALOG_UNREADABLE),
         # Last of the list on purpose: CalibrationError is a sibling of the
         # others, but ObjectiveError and OptimizerError derive from it, so a
         # more specific mapping would have to come before this one.
@@ -324,6 +329,7 @@ __all__ = (
     "EXIT_BACKUP_FAILED",
     "EXIT_MIGRATION_FAILED",
     "EXIT_AMBIGUOUS_REFERENCE",
+    "EXIT_CATALOG_UNREADABLE",
     "EXIT_SIGINT",
     "exit_code_for",
     "find_project_root",
