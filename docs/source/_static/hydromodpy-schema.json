@@ -1939,6 +1939,20 @@
           "title": "Evaluator",
           "x-hmp-profile": "user"
         },
+        "forward_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What produces the simulated observables when the evaluator is the one that scores a model with the criteria of this file ('scored_forward_model'). The model answers the outputs declared under [calibration.outputs] and the objective blocks weigh them, so changing a metric or a weight is a change to this document and never a patch to the model. A string and not an enumeration: what resolves depends on what is installed beside HydroModPy, through the 'hydromodpy.calibration.forward_model' entry-point group. Unset runs 'linear_reservoir', the closed-form reservoir this build ships, which is how a set of criteria is rehearsed before a model is installed. Read by no other evaluator.",
+          "title": "Forward Model",
+          "x-hmp-profile": "user"
+        },
         "max_iter": {
           "default": 100,
           "description": "Maximum number of calibration iterations.",
@@ -18825,6 +18839,16 @@
             true
           ],
           "title": "Execute",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "share_regional_flow": {
+          "default": false,
+          "description": "Materialize one sealed regional flow job for eligible child simulations.",
+          "examples": [
+            false
+          ],
+          "title": "Share Regional Flow",
           "type": "boolean",
           "x-hmp-profile": "user"
         },

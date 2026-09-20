@@ -134,6 +134,22 @@ Fields
             If False, the planner runs but no child workflows are launched.
 
 
+      .. index:: ! share_regional_flow
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: analysis-batch-share-regional-flow
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="analysis.batch.share_regional_flow">
+              <code class="hmp-field-name">share_regional_flow</code>
+            </div>
+
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L616>`__
+
+            Materialize one sealed regional flow job for eligible child simulations.
+
+
       .. index:: ! continue_on_error
 
       .. container:: hmp-field hmp-field-level-user
@@ -145,7 +161,7 @@ Fields
               <code class="hmp-field-name">continue_on_error</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L616>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L620>`__
 
             If True, keep dispatching siblings after a child failure.
 
@@ -161,7 +177,7 @@ Fields
               <code class="hmp-field-name">validate_config_paths</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L620>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L624>`__
 
             If True, ensure each rendered child config path exists before run.
 
@@ -177,7 +193,7 @@ Fields
               <code class="hmp-field-name">resume_from_report</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L624>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L628>`__
 
             If True, replay the previous report to skip already-completed cases.
 
@@ -193,7 +209,7 @@ Fields
               <code class="hmp-field-name">skip_completed_cases</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L628>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L632>`__
 
             If True, do not re-run cases marked as completed in the report.
 
@@ -211,7 +227,7 @@ Fields
               <code class="hmp-field-toml">[analysis.batch.catalog]</code>
             </div>
 
-         :bdg-primary:`RegionalLabCatalogConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L632>`__
+         :bdg-primary:`RegionalLabCatalogConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L636>`__
 
             Site catalog source declaring the columns and filters used to enumerate runs.
 
@@ -597,7 +613,7 @@ Fields
               <code class="hmp-field-toml">[analysis.batch.selection]</code>
             </div>
 
-         :bdg-primary:`RegionalLabSelectionConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L635>`__
+         :bdg-primary:`RegionalLabSelectionConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L639>`__
 
             Top-level site selection filters applied before cluster rules and recipes.
 
@@ -782,7 +798,7 @@ Fields
               <code class="hmp-field-toml">[[analysis.batch.cluster_rules]]</code>
             </div>
 
-         :bdg-primary:`tuple[RegionalLabClusterRuleConfig, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L638>`__
+         :bdg-primary:`tuple[RegionalLabClusterRuleConfig, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L642>`__
 
             Optional cluster enrichment rules applied on top of the catalog.
 
@@ -1142,7 +1158,7 @@ Fields
               <code class="hmp-field-toml">[[analysis.batch.recipes]]</code>
             </div>
 
-         :bdg-primary:`tuple[RegionalLabRecipeConfig, ...]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L642>`__
+         :bdg-primary:`tuple[RegionalLabRecipeConfig, ...]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L646>`__
 
             Per-recipe expansion plans declaring which child launchers run on which sites.
 
@@ -2406,6 +2422,7 @@ Starter TOML snippet
       # lab_id = ""  # REQUIRED
       # output_root = ""  # REQUIRED
       # execute = true
+      # share_regional_flow = false
       # continue_on_error = true
       # validate_config_paths = true
       # resume_from_report = true
