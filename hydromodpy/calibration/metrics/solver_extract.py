@@ -8,7 +8,7 @@ mapping helpers that locate observation stations on a structured grid.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -17,6 +17,11 @@ import pandas as pd
 from hydromodpy.calibration.metrics.downslope_network import (
     DISTANCE_METHOD,
     seepage_distance_cost,
+)
+from hydromodpy.calibration.metrics.observable_scoring import (
+    dated_series,
+    select_observable_times,
+    slice_time,
 )
 from hydromodpy.calibration.metrics.series import (
     ObservedSeries,
@@ -88,24 +93,6 @@ def resolve_flow_adapter(trial_ctx: Any) -> tuple[Any, RunContext] | None:
         return None
     run_ctx = RunContext.of(trial_ctx, plan=plan, run=flow_run)
     return adapter, run_ctx
-
-
-def slice_time(values: np.ndarray, time: Any, reducer: str) -> list[float]:
-    """Apply ``time`` selector and ``reducer`` to a 1D array of simulated values."""
-    arr = np.asarray(values, dtype=float).ravel()
-    if arr.size == 0:
-        return []
-    if time == "first":
-        arr = arr[:1]
-    elif time == "last":
-        arr = arr[-1:]
-    if reducer == "mean":
-        return [float(np.nanmean(arr))]
-    if reducer == "sum":
-        return [float(np.nansum(arr))]
-    if reducer == "last":
-        return [float(arr[-1])]
-    return [float(v) for v in arr]
 
 
 def _coerce_length_to_m(value: Any) -> float | None:
@@ -365,6 +352,8 @@ def score_network_output(
 class ExtractedOutputs:
     """What one batch of output extraction produced.
 
+    ``observables`` retains series with their units after runoff correction.
+    Network fields are represented only by their prepared distances below.
     ``values`` holds the scored vector of every output, after its time selector
     and reducer. ``series`` holds the same values still carrying their
     timestamps, for the outputs the run could date; an output scored against a
@@ -373,6 +362,7 @@ class ExtractedOutputs:
     cost.
     """
 
+    observables: dict[str, ObservableResult]
     values: dict[str, list[float]]
     series: dict[str, pd.Series]
     diagnostics: dict[str, float]
@@ -429,6 +419,7 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
         run_ctx, None, requests, time_index=resolve_time_index(ctx, n_timesteps=0)
     )
 
+    observables: dict[str, ObservableResult] = {}
     simulated: dict[str, list[float]] = {}
     series: dict[str, pd.Series] = {}
     diagnostics: dict[str, float] = {}
@@ -441,7 +432,7 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
             diagnostics.update(scored)
             continue
         values = result.values
-        dated = _dated_series(result)
+        dated = dated_series(result)
         if name in gauge_comparable and not getattr(result, "includes_runoff", False):
             if dated is None:
                 raise NotImplementedError(
@@ -459,10 +450,16 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
                 diagnostics[f"{name}.drained_fraction"] = fraction
             dated = add_runoff_to_discharge(dated, ctx, area_m2=area)
             values = dated.to_numpy()
-        simulated[name] = slice_time(values, output.time, output.reducer)
+            result = replace(result, values=values, times=dated.index, includes_runoff=True)
+        result = select_observable_times(result, output.time)
+        dated = dated_series(result)
+        observables[name] = result
+        simulated[name] = slice_time(result.values, "all", output.reducer)
         if dated is not None:
             series[name] = dated
-    return ExtractedOutputs(values=simulated, series=series, diagnostics=diagnostics)
+    return ExtractedOutputs(
+        observables=observables, values=simulated, series=series, diagnostics=diagnostics
+    )
 
 
 def report_the_area_a_gauge_drains(
@@ -507,18 +504,6 @@ def _is_a_gauge_comparable_discharge(output: Any, request: ObservableRequest) ->
         and request.support == "cell"
         and getattr(output, "observes", None) is not None
     )
-
-
-def _dated_series(result: Any) -> pd.Series | None:
-    """Return the result as a timestamped series, or ``None`` when it is not one."""
-    times = getattr(result, "times", None)
-    if times is None:
-        return None
-    values = np.asarray(result.values, dtype=float).ravel()
-    index = pd.DatetimeIndex(times)
-    if values.size == 0 or len(index) != values.size:
-        return None
-    return pd.Series(values, index=index)
 
 
 # ---------------------------------------------------------------------------
@@ -695,5 +680,4 @@ __all__ = [
     "require_release_flux_unit",
     "resolve_flow_adapter",
     "resolve_station_cells",
-    "slice_time",
 ]

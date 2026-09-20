@@ -30,6 +30,9 @@ from hydromodpy.calibration.metrics import (
 )
 from hydromodpy.calibration.metrics import solver_extract as _solver_extract_module
 from hydromodpy.calibration.metrics.composite import _build_composite_metric_extractor  # noqa: F401
+from hydromodpy.calibration.metrics.observable_scoring import (
+    slice_time as _slice_time,
+)
 from hydromodpy.calibration.metrics.scalar import score as _score
 from hydromodpy.calibration.metrics.solver_extract import (
     _coerce_length_to_m,
@@ -42,9 +45,6 @@ from hydromodpy.calibration.metrics.solver_extract import (
 )
 from hydromodpy.calibration.metrics.solver_extract import (
     resolve_station_cells as _resolve_station_cells,
-)
-from hydromodpy.calibration.metrics.solver_extract import (
-    slice_time as _slice_time,
 )
 from hydromodpy.core.contracts.observables import ObservableResult
 

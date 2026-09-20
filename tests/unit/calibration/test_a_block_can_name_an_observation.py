@@ -15,6 +15,7 @@ aligned on the simulated timestamps, and the block scores that.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -257,12 +258,17 @@ class TestTheExtractor:
     def _extracted(monkeypatch, *, sim_outlet: list[float], sim_piezo: list[float]) -> None:
         from hydromodpy.calibration.metrics import composite
         from hydromodpy.calibration.metrics.solver_extract import ExtractedOutputs
+        from hydromodpy.core.contracts.observables import ObservableResult
 
         times = pd.DatetimeIndex(["2000-01-01", "2000-01-02"])
         monkeypatch.setattr(
             composite,
             "extract_outputs",
             lambda ctx, outputs: ExtractedOutputs(
+                observables={
+                    "outlet": ObservableResult("outlet", np.asarray(sim_outlet), "m3/s", times),
+                    "piezo": ObservableResult("piezo", np.asarray(sim_piezo), "m", times),
+                },
                 values={"outlet": sim_outlet, "piezo": sim_piezo},
                 series={
                     "outlet": pd.Series(sim_outlet, index=times),
