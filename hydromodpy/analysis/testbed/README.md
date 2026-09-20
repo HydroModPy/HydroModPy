@@ -56,6 +56,18 @@ recipes, but shares the common catalog loader in `hydromodpy.analysis.catalog`,
 the site-selection manifest catalog resolver, and the child-runner contract
 used by generic testbeds.
 
+For a regional campaign whose child simulations use the same routing DEM, set
+`[regional_lab] share_regional_flow = true`. The launcher writes one sealed
+regional flow job per DEM content, correction, CRS, and terrain engine. It
+materializes child TOMLs under `output_root/materialized_configs/`; each child
+receives its own copies of the verified flow rasters and delineates its own
+outlet. The plan and report contain `regional_flow` job counts and references.
+This mode currently accepts simulation recipes with outlet catchments and no
+lake enforcement, stream enforcement, or river-network extraction. The launcher
+rejects other combinations rather than sharing site-dependent products.
+Completed children are reused only when their resolved configuration and
+regional job id still match the prior report.
+
 Supported pairs are currently:
 
 | Subject | Runner | Generated child workflow |

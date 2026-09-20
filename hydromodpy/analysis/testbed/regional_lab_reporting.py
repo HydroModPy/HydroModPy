@@ -122,6 +122,7 @@ def build_plan_payload(
     selected_sites: list[RegionalLabSiteRecord],
     planned_cases: list[RegionalLabPlannedCase],
     skipped_cases: list[RegionalLabSkippedCase],
+    regional_flow: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build one JSON-serializable execution plan."""
     return {
@@ -164,6 +165,7 @@ def build_plan_payload(
             for recipe in cfg.recipes
         ],
         "cases": [case.to_summary_mapping() for case in planned_cases],
+        "regional_flow": dict(regional_flow) if regional_flow is not None else None,
         "skipped_cases": [case.to_summary_mapping() for case in skipped_cases],
     }
 
@@ -708,6 +710,7 @@ def build_report_payload(
     skipped_cases: list[RegionalLabSkippedCase],
     executions: list[RegionalLabExecution],
     synthesis_paths: Mapping[str, str],
+    regional_flow: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build one JSON-serializable execution report."""
     execution_by_case_id = _execution_by_case_id(executions)
@@ -756,6 +759,7 @@ def build_report_payload(
         "failed_case_count": len(failed),
         "pending_case_count": pending_count,
         "all_passed": len(failed) == 0 and pending_count == 0,
+        "regional_flow": dict(regional_flow) if regional_flow is not None else None,
         "selected_sites": [site.to_summary_mapping() for site in selected_sites],
         "cases": cases_payload,
         "skipped_cases": [case.to_summary_mapping() for case in skipped_cases],
@@ -763,7 +767,9 @@ def build_report_payload(
     }
 
 
-def load_previous_ok_case_ids(report_path: Path) -> set[str]:
+def load_previous_ok_case_ids(
+    report_path: Path, *, regional_flow: Mapping[str, Any] | None = None
+) -> set[str]:
     """Return case identifiers already marked as successful in one previous report."""
     if not report_path.is_file():
         return set()
@@ -774,6 +780,17 @@ def load_previous_ok_case_ids(report_path: Path) -> set[str]:
     cases = payload.get("cases", [])
     if not isinstance(cases, list):
         return set()
+    previous_inputs: Mapping[str, Any] = {}
+    current_inputs: Mapping[str, Any] = {}
+    if regional_flow is not None:
+        previous_flow = payload.get("regional_flow")
+        if isinstance(previous_flow, Mapping):
+            candidate = previous_flow.get("case_inputs")
+            if isinstance(candidate, Mapping):
+                previous_inputs = candidate
+        candidate = regional_flow.get("case_inputs")
+        if isinstance(candidate, Mapping):
+            current_inputs = candidate
     out: set[str] = set()
     for case in cases:
         if not isinstance(case, Mapping):
@@ -783,5 +800,10 @@ def load_previous_ok_case_ids(report_path: Path) -> set[str]:
         if case_id is None or status is None:
             continue
         if status.lower() in {"ok", "skipped_existing_ok"}:
+            if regional_flow is not None and (
+                case_id not in current_inputs
+                or previous_inputs.get(case_id) != current_inputs[case_id]
+            ):
+                continue
             out.add(case_id)
     return out

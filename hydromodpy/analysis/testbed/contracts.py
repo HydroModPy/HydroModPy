@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from hydromodpy.analysis.testbed.regional_lab_types import RegionalLabPlannedCase
 
 
 @runtime_checkable
@@ -19,6 +22,16 @@ class TestbedRunnerProvider(Protocol):
 
     def run_calibration(self, config_path: Path) -> Mapping[str, Any]:
         """Run one calibration child configuration."""
+
+
+@runtime_checkable
+class RegionalLabFlowMaterializer(Protocol):
+    """Prepare one shared regional flow job before child dispatch."""
+
+    def materialize_regional_flow(
+        self, cases: Sequence[RegionalLabPlannedCase], *, output_root: Path
+    ) -> tuple[Sequence[RegionalLabPlannedCase], Mapping[str, Any]]:
+        """Return child configs and regional job evidence."""
 
 
 @runtime_checkable
@@ -153,6 +166,7 @@ def run_testbed_child_workflow(
 __all__ = [
     "CalibrationTestbedWorkflowAdapter",
     "ComparisonTestbedWorkflowAdapter",
+    "RegionalLabFlowMaterializer",
     "SimulationTestbedWorkflowAdapter",
     "TestbedRunnerProvider",
     "TestbedWorkflowAdapter",
