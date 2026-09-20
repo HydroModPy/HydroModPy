@@ -548,9 +548,13 @@ class ConfigBlockObjective:
         # metric. Slicing per output keeps every series' own leading periods aligned. Outputs
         # with no time axis never reach here with a burn-in: __init__ refuses that pairing.
         if self._warmup > 0:
-            simulated = np.concatenate([part[self._warmup :] for part in simulated_parts])
-            observed = np.concatenate([part[self._warmup :] for part in self._observed_parts])
+            scored_parts = [part[self._warmup :] for part in simulated_parts]
+            observed_parts = [part[self._warmup :] for part in self._observed_parts]
+            simulated = np.concatenate(scored_parts)
+            observed = np.concatenate(observed_parts)
         else:
+            scored_parts = simulated_parts
+            observed_parts = list(self._observed_parts)
             simulated = np.concatenate(simulated_parts) if simulated_parts else np.empty(0)
             observed = self._observed
         if simulated.size == 0:
@@ -561,11 +565,27 @@ class ConfigBlockObjective:
         else:
             if observed.size == 0:
                 return ObjectiveValue(total=float("inf"), components={})
-            if simulated.size != observed.size:
-                raise ValueError(
-                    f"Block {self.name!r}: simulated length {simulated.size} does not "
-                    f"match observed length {observed.size}"
-                )
+            # Output by output, not on the concatenation. Two outputs each
+            # wrong - 20 simulated against 30 observed, then 40 against 30 -
+            # sum to 60 on both sides and pass a check made on the totals,
+            # while the metric scores the second output's first ten values
+            # against the first one's last ten.
+            #
+            # Placed here, and on the post-burn-in lengths, for two reasons:
+            # these are the vectors the metric actually receives, and the two
+            # early returns above keep the trials they used to reject softly.
+            # A trial the optimizer steps over must not become an exception:
+            # its only production caller turns one into an aborted run.
+            for name, scored_part, observed_part in zip(
+                self._outputs, scored_parts, observed_parts, strict=True
+            ):
+                if scored_part.size != observed_part.size:
+                    burn_in = f", after a burn-in of {self._warmup}" if self._warmup else ""
+                    raise ValueError(
+                        f"Block {self.name!r}: output {name!r}: simulated length "
+                        f"{scored_part.size} does not match observed length "
+                        f"{observed_part.size}{burn_in}"
+                    )
             scored = self._criterion.score(simulated, observed)
         cost = scored.cost
         n_clipped = int(scored.diagnostics.get("n_clipped", 0))

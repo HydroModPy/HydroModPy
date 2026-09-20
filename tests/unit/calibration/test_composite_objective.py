@@ -45,6 +45,87 @@ def test_config_block_warmup_drops_leading_periods_per_output() -> None:
     assert warmed.components["x.n_values"] == 6.0  # (5 - 2) periods x 2 outputs
 
 
+def test_config_block_refuses_mismatched_output_lengths_even_when_totals_match() -> None:
+    """Two outputs individually wrong on length can still sum to a matching total.
+
+    Output "a" has 20 observations against a 30-length simulated series, and
+    output "b" has 40 against 30. Concatenated, both sides total 60: a check
+    made after concatenation would let this trial through and score a cost.
+    """
+    observed = {"a": [1.0] * 20, "b": [2.0] * 40}
+    sim = {"a": [1.0] * 30, "b": [2.0] * 30}
+
+    block = ConfigBlockObjective(
+        name="x", metric="nse", uses_outputs=["a", "b"], observed_by_output=observed
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        block.evaluate(sim)
+
+    message = str(excinfo.value)
+    assert "output 'a'" in message
+    assert "simulated length 30" in message
+    assert "observed length 20" in message
+
+
+def test_config_block_names_the_offending_output_when_it_is_not_the_first() -> None:
+    """The mismatch is on "b", so checking only the first output is not enough.
+
+    With the defect on output index 0, an implementation that checks the first
+    output and stops answers exactly like one that checks every output. Three
+    outputs, 10/20/40 observed against 10/30/30 simulated, put the mismatch
+    where only the second kind of implementation can see it.
+    """
+    observed = {"a": [1.0] * 10, "b": [2.0] * 20, "c": [3.0] * 40}
+    sim = {"a": [1.0] * 10, "b": [2.0] * 30, "c": [3.0] * 30}
+
+    block = ConfigBlockObjective(
+        name="x", metric="nse", uses_outputs=["a", "b", "c"], observed_by_output=observed
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        block.evaluate(sim)
+
+    assert "output 'b'" in str(excinfo.value)
+
+
+def test_config_block_scores_unequal_but_paired_output_lengths() -> None:
+    """Outputs need not be the same length as each other, only as their own record."""
+    observed = {"a": [1.0, 2.0, 3.0, 4.0], "b": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]}
+
+    block = ConfigBlockObjective(
+        name="x", metric="rmse", uses_outputs=["a", "b"], observed_by_output=observed
+    )
+
+    assert block.evaluate(dict(observed)).total == 0.0
+
+
+@pytest.mark.parametrize(
+    ("observed", "sim", "warmup"),
+    [
+        ({"a": []}, {"a": [1.0, 2.0, 3.0]}, 0),
+        ({"a": [1.0, 2.0, 3.0]}, {"a": []}, 0),
+        ({"a": [1.0, 2.0, 3.0]}, {"a": [1.0, 2.0]}, 5),
+    ],
+    ids=["no observation", "no simulated value", "burn-in empties both sides"],
+)
+def test_a_trial_the_optimizer_used_to_step_over_is_not_turned_into_an_exception(
+    observed, sim, warmup
+) -> None:
+    """The length check must not swallow the three soft rejections around it.
+
+    Each of these returned an infinite cost, which a search steps over. Their
+    only production caller re-raises anything ``evaluate`` throws as a
+    ``RuntimeError``, so a length check placed ahead of them turns a rejected
+    trial into an aborted run.
+    """
+    block = ConfigBlockObjective(
+        name="x", metric="rmse", uses_outputs=["a"], observed_by_output=observed, warmup=warmup
+    )
+
+    assert block.evaluate(sim).total == float("inf")
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

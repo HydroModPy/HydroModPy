@@ -133,6 +133,15 @@ Each release section includes the following standard categories:
   no-width path already behaved.
 
 ### Fixed
+- An objective block scoring several outputs checks each output's length
+  against its own record, instead of checking the two concatenated totals. Two
+  outputs individually wrong - twenty simulated values against thirty observed,
+  then forty against thirty - sum to sixty on both sides and passed, while the
+  metric scored the second output's first ten values against the first one's
+  last ten. Measured: no block in `examples/projects/`, `tests/validation/` or
+  `tests/e2e/` scores more than one output, so no existing result moves. The
+  refusal names the output and both lengths, counted after the burn-in, which
+  is what the metric receives.
 - `hydrograph_log_nse` wrote its note across its own legend: pinned to the
   upper left, its longest line reaches the upper right whatever the axes width.
   The note sits on the log floor, a band the limits leave empty by
