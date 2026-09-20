@@ -59,6 +59,13 @@ from hydromodpy.core.exceptions import (
 )
 from hydromodpy.data.source import registry
 from hydromodpy.data.source.bdtopage import DEFAULT_PAGE_SIZE, DEFAULT_TYPENAME
+from hydromodpy.data.source.euhydro import (
+    DEFAULT_GROUP_NAME,
+)
+from hydromodpy.data.source.euhydro import (
+    DEFAULT_PAGE_SIZE as DEFAULT_EUHYDRO_PAGE_SIZE,
+)
+from hydromodpy.data.source.osm import DEFAULT_WATERWAY_TYPES
 from hydromodpy.data.source.port import DataSource
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
 from hydromodpy.schema.job.request import FileLink
@@ -106,6 +113,31 @@ class BdTopageOptions(HydroModelBase):
         return registry.get(self.id)(typename=self.typename, page_size=self.page_size)
 
 
+class EuHydroOptions(HydroModelBase):
+    """Ask the EEA Discomap service for the EU-Hydro river network."""
+
+    id: Annotated[Literal["euhydro"], Profile.USER] = Field(
+        description="identity of the source, as 'hmp process describe' lists it",
+    )
+    group_name: Annotated[str, Profile.USER] = Field(
+        default=DEFAULT_GROUP_NAME,
+        min_length=1,
+        pattern=r"\S",
+        description="MapServer group whose feature layers are fetched",
+    )
+    euhydro_page_size: Annotated[int, Profile.USER] = Field(
+        default=DEFAULT_EUHYDRO_PAGE_SIZE,
+        gt=0,
+        description="features requested per EU-Hydro REST page",
+    )
+
+    def build(self) -> DataSource:
+        return registry.get(self.id)(
+            group_name=self.group_name,
+            euhydro_page_size=self.euhydro_page_size,
+        )
+
+
 class HubeauPiezometryOptions(HydroModelBase):
     """Ask Hub'Eau for groundwater levels or depths at piezometers."""
 
@@ -145,6 +177,23 @@ class IgnDemOptions(HydroModelBase):
         return registry.get(self.id)(departments=tuple(self.departments))
 
 
+class OsmOptions(HydroModelBase):
+    """Ask the Overpass API for OpenStreetMap waterways."""
+
+    id: Annotated[Literal["osm"], Profile.USER] = Field(
+        description="identity of the source, as 'hmp process describe' lists it",
+    )
+    waterway_types: Annotated[list[Annotated[str, Field(pattern=r"\S")]], Profile.USER] = Field(
+        default=list(DEFAULT_WATERWAY_TYPES),
+        min_length=1,
+        description="OpenStreetMap waterway tag values to fetch",
+        examples=[["river", "stream"]],
+    )
+
+    def build(self) -> DataSource:
+        return registry.get(self.id)(waterway_types=tuple(self.waterway_types))
+
+
 class Sim2PrecipitationOptions(HydroModelBase):
     """Ask the GeoSAS EDR service for daily SIM2 precipitation grids."""
 
@@ -171,15 +220,13 @@ class Sim2PrecipitationOptions(HydroModelBase):
 # before the job starts, which is the only authority that exists for it.
 #
 # The refusal below reads the **described** set and not the shipped one, which
-# is D146. ``euhydro`` and ``osm`` are registered by this build and have no
-# options model, so they arrive through this member rather than one of their
-# own. That is right: the description does not describe them either, so a
-# caller naming one gets the same unchecked bag and the same caveat about hosts
-# as a caller naming a third-party source.
+# is D146. A source in this member is resolvable but intentionally absent from
+# the union and the generated description. The sources shipped by this build
+# are all described above, so they cannot enter through this member.
 class InstalledSourceOptions(HydroModelBase):
     """Ask a source this build does not describe, installed beside it.
 
-    The four members above each name a source shipped here and publish the
+    The typed members above each name a source shipped here and publish the
     exact shape it accepts. This one carries the id of a source the
     **installation** resolves -- one registered on the
     ``hydromodpy.data.source`` entry-point group -- and the keyword arguments
@@ -266,7 +313,7 @@ class InstalledSourceOptions(HydroModelBase):
         try:
             return source_cls(**self.options)
         except Exception as exc:
-            # Every exception, and only for this member. The four described
+            # Every exception, and only for this member. The described
             # sources are built in this tree and tested here, so a constructor
             # of one raising is a bug of this repository and deserves the exit
             # code that says so. An installed source is somebody else's code
@@ -282,9 +329,11 @@ class InstalledSourceOptions(HydroModelBase):
 
 SourceOptions = Annotated[
     BdTopageOptions
+    | EuHydroOptions
     | HubeauPiezometryOptions
     | IgnDemOptions
     | InstalledSourceOptions
+    | OsmOptions
     | Sim2PrecipitationOptions,
     Field(discriminator="id"),
 ]
@@ -295,7 +344,7 @@ bag: a bag would be validated against nothing, and the description a shim reads
 would list an input whose shape it cannot know.
 
 **This union is the list.** ``SERVED_SOURCES`` used to be a second tuple of the
-same four sources beside it; it is now read off the discriminator of this one
+same sources beside it; it is now read off the discriminator of this one
 and resolved through the registry, so a source cannot be served without a
 document shape and a shape cannot be published without a source behind it.
 
@@ -619,9 +668,11 @@ __all__ = [
     "BboxExtentInput",
     "BdTopageOptions",
     "DataFetchRequest",
+    "EuHydroOptions",
     "HubeauPiezometryOptions",
     "IgnDemOptions",
     "InstalledSourceOptions",
+    "OsmOptions",
     "PeriodInput",
     "Sim2PrecipitationOptions",
     "SourceOptions",

@@ -37,6 +37,8 @@
       "api.geosas.fr",
       "data.geopf.fr",
       "hubeau.eaufrance.fr",
+      "image.discomap.eea.europa.eu",
+      "overpass-api.de",
       "services.sandre.eaufrance.fr"
     ],
     "cancellation": {
@@ -65,9 +67,11 @@
         "discriminator": {
           "mapping": {
             "bdtopage": "#/$defs/BdTopageOptions",
+            "euhydro": "#/$defs/EuHydroOptions",
             "hubeau-piezometry": "#/$defs/HubeauPiezometryOptions",
             "ign-bdalti": "#/$defs/IgnDemOptions",
             "installed": "#/$defs/InstalledSourceOptions",
+            "osm": "#/$defs/OsmOptions",
             "sim2-precipitation": "#/$defs/Sim2PrecipitationOptions"
           },
           "propertyName": "id"
@@ -77,6 +81,9 @@
             "$ref": "#/$defs/BdTopageOptions"
           },
           {
+            "$ref": "#/$defs/EuHydroOptions"
+          },
+          {
             "$ref": "#/$defs/HubeauPiezometryOptions"
           },
           {
@@ -84,6 +91,9 @@
           },
           {
             "$ref": "#/$defs/InstalledSourceOptions"
+          },
+          {
+            "$ref": "#/$defs/OsmOptions"
           },
           {
             "$ref": "#/$defs/Sim2PrecipitationOptions"
@@ -133,6 +143,50 @@
               "id"
             ],
             "title": "BdTopageOptions",
+            "type": "object"
+          },
+          "EuHydroOptions": {
+            "additionalProperties": false,
+            "description": "Ask the EEA Discomap service for the EU-Hydro river network.",
+            "properties": {
+              "id": {
+                "const": "euhydro",
+                "description": "identity of the source, as 'hmp process describe' lists it",
+                "examples": [
+                  "euhydro"
+                ],
+                "title": "Id",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "group_name": {
+                "default": "River_Net_lines",
+                "description": "MapServer group whose feature layers are fetched",
+                "examples": [
+                  "River_Net_lines"
+                ],
+                "minLength": 1,
+                "pattern": "\\S",
+                "title": "Group Name",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "euhydro_page_size": {
+                "default": 1000,
+                "description": "features requested per EU-Hydro REST page",
+                "examples": [
+                  1000
+                ],
+                "exclusiveMinimum": 0,
+                "title": "Euhydro Page Size",
+                "type": "integer",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "title": "EuHydroOptions",
             "type": "object"
           },
           "HubeauPiezometryOptions": {
@@ -219,7 +273,7 @@
           },
           "InstalledSourceOptions": {
             "additionalProperties": false,
-            "description": "Ask a source this build does not describe, installed beside it.\n\nThe four members above each name a source shipped here and publish the\nexact shape it accepts. This one carries the id of a source the\n**installation** resolves -- one registered on the\n``hydromodpy.data.source`` entry-point group -- and the keyword arguments\nits constructor takes. The id is refused before the job starts if nothing\nanswers to it, and so is an option its constructor could not be called\nwith.\n\n**What that check does and does not cover.** The options are bound against\nthe constructor's signature, so a misspelled option and a missing required\none are refused by name, before the job directory is touched. Types are\nnot: a signature carries no runtime contract, so an option of the wrong\ntype is the source's to refuse, and a constructor that takes ``**kwargs``\nnames nothing and therefore refuses nothing. When the source does refuse,\nthe refusal is reported as a fault of this request -- a caller fixes it by\nediting ``options`` -- and not as an internal failure of HydroModPy.\n\n**The hosts this capability declares do not cover it.** ``hmp:invocation``\nlists the network of the described sources, and that list ships frozen with\nthe build. A run naming an installed source may contact a host outside it;\n``outputs/fetch.json`` records the hosts the run really reached, and an\norchestrator that allows egress from the description alone has to widen it\nitself.\n\n**An option spelled at its default is a different submission.** For a\ndescribed source the request model fills the defaults, so two documents\nthat differ only by an omitted one carry the same ``job_id`` and the second\nis recognised as a repeat. The defaults of an installed source live in its\nconstructor, which this build does not describe, so ``{}`` and\n``{\"sweep\": \"long\"}`` address two jobs even when ``long`` is the default.\nSpell the options the same way twice, or accept a second run.",
+            "description": "Ask a source this build does not describe, installed beside it.\n\nThe typed members above each name a source shipped here and publish the\nexact shape it accepts. This one carries the id of a source the\n**installation** resolves -- one registered on the\n``hydromodpy.data.source`` entry-point group -- and the keyword arguments\nits constructor takes. The id is refused before the job starts if nothing\nanswers to it, and so is an option its constructor could not be called\nwith.\n\n**What that check does and does not cover.** The options are bound against\nthe constructor's signature, so a misspelled option and a missing required\none are refused by name, before the job directory is touched. Types are\nnot: a signature carries no runtime contract, so an option of the wrong\ntype is the source's to refuse, and a constructor that takes ``**kwargs``\nnames nothing and therefore refuses nothing. When the source does refuse,\nthe refusal is reported as a fault of this request -- a caller fixes it by\nediting ``options`` -- and not as an internal failure of HydroModPy.\n\n**The hosts this capability declares do not cover it.** ``hmp:invocation``\nlists the network of the described sources, and that list ships frozen with\nthe build. A run naming an installed source may contact a host outside it;\n``outputs/fetch.json`` records the hosts the run really reached, and an\norchestrator that allows egress from the description alone has to widen it\nitself.\n\n**An option spelled at its default is a different submission.** For a\ndescribed source the request model fills the defaults, so two documents\nthat differ only by an omitted one carry the same ``job_id`` and the second\nis recognised as a repeat. The defaults of an installed source live in its\nconstructor, which this build does not describe, so ``{}`` and\n``{\"sweep\": \"long\"}`` address two jobs even when ``long`` is the default.\nSpell the options the same way twice, or accept a second run.",
             "properties": {
               "id": {
                 "const": "installed",
@@ -254,6 +308,48 @@
               "name"
             ],
             "title": "InstalledSourceOptions",
+            "type": "object"
+          },
+          "OsmOptions": {
+            "additionalProperties": false,
+            "description": "Ask the Overpass API for OpenStreetMap waterways.",
+            "properties": {
+              "id": {
+                "const": "osm",
+                "description": "identity of the source, as 'hmp process describe' lists it",
+                "examples": [
+                  "osm"
+                ],
+                "title": "Id",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "waterway_types": {
+                "default": [
+                  "river",
+                  "stream"
+                ],
+                "description": "OpenStreetMap waterway tag values to fetch",
+                "examples": [
+                  [
+                    "river",
+                    "stream"
+                  ]
+                ],
+                "items": {
+                  "pattern": "\\S",
+                  "type": "string"
+                },
+                "minItems": 1,
+                "title": "Waterway Types",
+                "type": "array",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "title": "OsmOptions",
             "type": "object"
           },
           "Sim2PrecipitationOptions": {
