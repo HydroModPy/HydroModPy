@@ -93,6 +93,14 @@ Each release section includes the following standard categories:
   station, rather than the `no overlapping samples` message of the alignment
   step. The head and lake messages gain that station name with it, and the
   lake one now says `lake_level` where it said `lake stage`.
+- A linearized parameter width is refused when the calibration it is taken
+  around drops leading samples. `[calibration].warmup_periods`, and a block's
+  own `warmup`, truncate each output before the cost is computed; the residual
+  at each observation is not truncated and two blocks may drop different
+  counts, so the covariance described a window the search was told to ignore.
+  `hmp calibrate --check` names it before anything solves. A search that ran
+  anyway keeps its report and loses only the width, the way every other
+  no-width path already behaved.
 
 ### Fixed
 - `hydrograph_log_nse` wrote its note across its own legend: pinned to the

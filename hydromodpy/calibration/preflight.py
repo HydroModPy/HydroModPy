@@ -378,6 +378,24 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
                     "which reads the trace instead.",
                 )
             )
+        # Same reason as the precision below: the width is built after the last
+        # solve, so `hmp calibrate --check` is where a document that can never
+        # carry one is named, before any of it is paid for. Skipped on a phased
+        # document, where no width is attached at all today.
+        elif not (calibration.phases or []):
+            from hydromodpy.calibration.metrics.composite import (
+                refuse_a_burn_in_the_residuals_cannot_honour,
+            )
+            from hydromodpy.core.exceptions import UncertaintyNotAvailableError
+
+            try:
+                refuse_a_burn_in_the_residuals_cannot_honour(
+                    calibration.outputs or {},
+                    list(calibration.objective_blocks or []),
+                    int(calibration.warmup_periods or 0),
+                )
+            except UncertaintyNotAvailableError as exc:
+                findings.append(PreflightFinding("error", "[calibration.uncertainty]", str(exc)))
     restarts = getattr(getattr(calibration, "uncertainty", None), "restarts", None)
     for where, method, tolerance, kwargs in _declared_precisions(calibration):
         if restarts is not None and method in known:

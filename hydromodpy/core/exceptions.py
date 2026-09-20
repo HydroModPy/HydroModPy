@@ -493,6 +493,19 @@ class OptimizerError(CalibrationError):
     code = "HMPY.E602"
 
 
+class UncertaintyNotAvailableError(CalibrationError):
+    """The search ran, and what it produced cannot carry the width asked for.
+
+    Typed apart from the rest of the family because it is the one calibration
+    failure that must not lose the answer: the search has already been paid
+    for, and the declaration it cannot honour is a property of the document,
+    not of the run. Its catcher reports the width as absent and returns the
+    report.
+    """
+
+    code = "HMPY.E603"
+
+
 # -- Display -------------------------------------------------------------------
 
 
@@ -658,6 +671,7 @@ __all__ = [
     "CalibrationError",
     "ObjectiveError",
     "OptimizerError",
+    "UncertaintyNotAvailableError",
     # Display
     "DisplayError",
     "FigureNotFoundError",

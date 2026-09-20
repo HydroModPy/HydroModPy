@@ -76,7 +76,11 @@ from hydromodpy.calibration.runners.trial import (
     TrialMetricFn,
     prepare_trials,
 )
-from hydromodpy.core.exceptions import CalibrationError, ObjectiveError
+from hydromodpy.core.exceptions import (
+    CalibrationError,
+    ObjectiveError,
+    UncertaintyNotAvailableError,
+)
 from hydromodpy.core.interrupts import TerminationRequested, terminate_as_interrupt
 from hydromodpy.core.logging import get_logger
 
@@ -545,12 +549,23 @@ def attach_a_linearized_width(
         logger.warning("No candidate was scored, so there is no answer to put a width beside.")
         return report
 
-    capture_fn, captured = build_paired_vector_capture(
-        cfg.outputs or {},
-        ctx=trial_ctx.ctx,
-        scoring_window=scoring_window_bounds(cfg.scoring_window),
-        min_samples=int(cfg.aggregate.min_samples),
-    )
+    # Only the typed refusal, which says the document cannot carry a width at
+    # all: every other way this function declines leaves the report standing,
+    # and a search already paid for is too expensive to throw away over a
+    # declaration. A record that failed to load, or an output naming no
+    # station, still leaves loudly the way it always did.
+    try:
+        capture_fn, captured = build_paired_vector_capture(
+            cfg.outputs or {},
+            ctx=trial_ctx.ctx,
+            objective_blocks=list(cfg.objective_blocks or []),
+            warmup_periods=int(cfg.warmup_periods or 0),
+            scoring_window=scoring_window_bounds(cfg.scoring_window),
+            min_samples=int(cfg.aggregate.min_samples),
+        )
+    except UncertaintyNotAvailableError as exc:
+        logger.warning("No width is reported: %s", exc)
+        return report
 
     def _simulate(values):
         run_trial_light(

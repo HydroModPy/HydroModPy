@@ -34,6 +34,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.calibration.metrics.observed_pairing import (
+    PairedOutputs,
     observing_outputs,
     pair_outputs_with_observations,
 )
@@ -186,6 +187,44 @@ class ObservableScorer:
             None if self._observed else build_objective_from_config(self._cfg)
         )
 
+    def pair(self, observables: Mapping[str, ObservableResult]) -> PairedOutputs:
+        """Return the vectors a cost is computed from, without computing it.
+
+        A linearized covariance needs the simulated value AT EACH OBSERVATION,
+        which scoring reduces to one number. This stops one step earlier, on
+        the same alignment: same records, same window, same minimum overlap,
+        because residuals taken against a different pairing than the one the
+        search followed would describe the slope of a surface nobody climbed.
+
+        Only the outputs that name a station are aligned. A network pair, or a
+        vector typed into the document, carries no date and no record to take
+        a residual against.
+        """
+        if not self._observed:
+            raise ValueError(
+                "no calibration output names a station to be compared against, so there is "
+                'no residual to align. Declare observes = "<station>" on the outputs this '
+                "calibration is fitted to."
+            )
+        dated: dict[str, pd.Series] = {}
+        for name in self._observed:
+            result = observables.get(name)
+            if result is None:
+                continue
+            series = dated_series(select_observable_times(result, self._outputs[name].time))
+            if series is not None:
+                dated[name] = series
+        return self._align(dated)
+
+    def _align(self, series: Mapping[str, pd.Series]) -> PairedOutputs:
+        """The one place a record meets an answer, for the cost and the residuals."""
+        return pair_outputs_with_observations(
+            observed=self._observed,
+            simulated={name: series[name] for name in self._observed if name in series},
+            scoring_window=self._scoring_window,
+            min_samples=self._min_samples,
+        )
+
     def score(
         self,
         observables: Mapping[str, ObservableResult],
@@ -216,12 +255,7 @@ class ObservableScorer:
         objective = self._composite
         paired_counts: dict[str, int] = {}
         if self._observed:
-            paired = pair_outputs_with_observations(
-                observed=self._observed,
-                simulated={name: series[name] for name in self._observed if name in series},
-                scoring_window=self._scoring_window,
-                min_samples=self._min_samples,
-            )
+            paired = self._align(series)
             simulated.update(paired.simulated)
             paired_counts = dict(paired.n_paired)
             objective = build_objective_from_config(self._cfg, observed_by_output=paired.observed)

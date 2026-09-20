@@ -300,3 +300,42 @@ class TestAFileThatWillNotLoad:
         findings = _preflight(path)
 
         assert "calibration" in _messages(findings)
+
+
+class TestALinearizedWidth:
+    """A width is built after the last solve, so what forbids it is checked first."""
+
+    _LINEARIZED = """
+[calibration]
+method = "grid"
+max_iter = 4
+warmup_periods = WARMUP
+
+[calibration.uncertainty]
+method = "linearized"
+perturbation = 0.01
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+transform = "log"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+[calibration.outputs.gauge]
+variable = "discharge"
+support = "boundary"
+boundary_id = "outlet"
+observes = "NANCON"
+"""
+
+    def _findings(self, tmp_path, warmup: int):
+        return _preflight(_write(tmp_path, self._LINEARIZED.replace("WARMUP", str(warmup))))
+
+    def test_a_burn_in_is_refused_before_the_first_solve(self, tmp_path) -> None:
+        findings = self._findings(tmp_path, 6)
+
+        assert any(item.severity == "error" for item in findings)
+        assert "warmup_periods drops the first 6" in _messages(findings)
+
+    def test_without_one_the_width_is_not_refused(self, tmp_path) -> None:
+        assert "warmup_periods drops" not in _messages(self._findings(tmp_path, 0))

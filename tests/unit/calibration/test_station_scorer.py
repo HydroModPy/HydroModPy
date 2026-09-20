@@ -245,6 +245,13 @@ class TestThePipelineTakesTheSameRoute:
         with pytest.raises(ValueError, match="Build a second extractor"):
             metric_fn(ctx, objective="nse", variable="discharge")
 
+    def test_the_refusal_comes_before_anything_is_read(self) -> None:
+        """A call naming another route is wrong whatever state the run is in."""
+        metric_fn = build_metric_extractor("discharge", "rmse", self._ctx())
+
+        with pytest.raises(ValueError, match="Build a second extractor"):
+            metric_fn(SimpleNamespace(), objective="nse", variable="discharge")
+
     def test_a_trial_may_not_rename_the_variable_either(self, monkeypatch) -> None:
         served = {"_catchment": _answer("_catchment", [2.0, 2.0, 2.0])}
         monkeypatch.setattr(
