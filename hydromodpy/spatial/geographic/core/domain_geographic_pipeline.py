@@ -54,6 +54,7 @@ from hydromodpy.spatial.geographic.core.stream_enforcement import (
     check_catchment_area_drift,
 )
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
+from hydromodpy.spatial.geographic.regional_flow_copy import copy_regional_flow_from_job
 from hydromodpy.spatial.surface import Surface
 
 if TYPE_CHECKING:
@@ -147,13 +148,21 @@ def _delineate(*, config: GeographicConfig, setup, routing_dem_path: str):
     twice per run: every step overwrites its fixed output rasters in place.
     """
     effective = str(config.dem_correc_type)
-    flow = build_regional_flow_products(
-        dem_init_path=routing_dem_path,
-        dem_out_dir_path=setup.paths.correcflow_path,
-        dem_correc_type=effective,
-        crs_project=setup.crs_project,
-        engine_id=config.terrain_engine,
-    )
+    if config.reg_fold is None:
+        flow = build_regional_flow_products(
+            dem_init_path=routing_dem_path,
+            dem_out_dir_path=setup.paths.correcflow_path,
+            dem_correc_type=effective,
+            crs_project=setup.crs_project,
+            engine_id=config.terrain_engine,
+        )
+    else:
+        flow = copy_regional_flow_from_job(
+            config=config,
+            routing_dem_path=routing_dem_path,
+            output_dir=setup.paths.correcflow_path,
+            crs_project=setup.crs_project,
+        )
     try:
         build_standard_catchment(
             config=config,
@@ -162,6 +171,10 @@ def _delineate(*, config: GeographicConfig, setup, routing_dem_path: str):
             crs_project=setup.crs_project,
         )
     except EmptyCatchmentError as exc:
+        if config.reg_fold is not None:
+            raise ValueError(
+                "Shared regional flow produced an empty catchment; rerun without reg_fold"
+            ) from exc
         if not _should_retry_with_fill(config=config, error=exc):
             raise
         logger.warning(

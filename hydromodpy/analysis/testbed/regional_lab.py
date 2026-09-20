@@ -7,6 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.analysis.testbed.child_artifacts import extract_child_artifacts
+from hydromodpy.analysis.testbed.contracts import (
+    RegionalLabFlowMaterializer,
+    get_testbed_runner_provider,
+)
 from hydromodpy.analysis.testbed.regional_lab_adapter import run_case_with_testbed_provider
 from hydromodpy.analysis.testbed.regional_lab_catalog import load_site_catalog
 from hydromodpy.analysis.testbed.regional_lab_config import RegionalLabConfig
@@ -37,6 +41,17 @@ class RegionalLabProfileLauncher:
         cfg.output_root.mkdir(parents=True, exist_ok=True)
         sites = load_site_catalog(cfg.catalog)
         selected_sites, planned_cases, skipped_cases = build_regional_lab_plan(cfg, sites)
+        regional_flow: dict[str, Any] | None = None
+        if cfg.execute and cfg.share_regional_flow:
+            provider = get_testbed_runner_provider()
+            if not isinstance(provider, RegionalLabFlowMaterializer):
+                raise RuntimeError("The testbed provider cannot materialize regional flow")
+            materialized_cases, job_report = provider.materialize_regional_flow(
+                planned_cases, output_root=cfg.output_root
+            )
+            planned_cases = list(materialized_cases)
+            regional_flow = dict(job_report)
+            write_json_payload(cfg.output_root / "regional_flow_jobs.json", regional_flow)
 
         plan_path = (cfg.output_root / "regional_lab_plan.json").resolve()
         report_path = (cfg.output_root / "regional_lab_report.json").resolve()
@@ -47,12 +62,15 @@ class RegionalLabProfileLauncher:
                 selected_sites=selected_sites,
                 planned_cases=planned_cases,
                 skipped_cases=skipped_cases,
+                regional_flow=regional_flow,
             ),
         )
 
         previous_ok_case_ids: set[str] = set()
         if cfg.resume_from_report and cfg.skip_completed_cases:
-            previous_ok_case_ids = load_previous_ok_case_ids(report_path)
+            previous_ok_case_ids = load_previous_ok_case_ids(
+                report_path, regional_flow=regional_flow
+            )
 
         executions: list[RegionalLabExecution] = []
         synthesis_paths = write_summary_artifacts(
@@ -71,6 +89,7 @@ class RegionalLabProfileLauncher:
                 skipped_cases=skipped_cases,
                 executions=executions,
                 synthesis_paths=synthesis_paths,
+                regional_flow=regional_flow,
             ),
         )
 
@@ -116,6 +135,7 @@ class RegionalLabProfileLauncher:
                             skipped_cases=skipped_cases,
                             executions=executions,
                             synthesis_paths=synthesis_paths,
+                            regional_flow=regional_flow,
                         ),
                     )
                     bar.advance()
@@ -135,6 +155,7 @@ class RegionalLabProfileLauncher:
             "failed_case_count": len([item for item in executions if item.status == "failed"]),
             "plan_path": str(plan_path),
             "report_path": str(report_path),
+            "regional_flow": regional_flow,
             **synthesis_paths,
         }
 

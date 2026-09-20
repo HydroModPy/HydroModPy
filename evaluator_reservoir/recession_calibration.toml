@@ -1,0 +1,19 @@
+[workspace]
+project_root = "."
+
+[calibration]
+evaluator = "reservoir_recession"
+method = "grid"
+max_iter = 9
+optimizer_kwargs = { points_per_dim = 3 }
+
+# The transformed 3 by 3 grid contains the reference truth: k = 1e-4 1/day
+# and porosity = 0.155.
+[calibration.parameters.k]
+path = "flow.properties.k_aquifer"
+bounds = [1e-6, 1e-2]
+transform = "log"
+
+[calibration.parameters.porosity]
+path = "flow.properties.porosity"
+bounds = [0.01, 0.3]

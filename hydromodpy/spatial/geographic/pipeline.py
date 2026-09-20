@@ -65,6 +65,7 @@ from hydromodpy.spatial.geographic.domain_rasters import (
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.geographic.geographic_io import resolve_delineation_backend
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
+from hydromodpy.spatial.geographic.regional_flow_copy import copy_regional_flow_from_job
 
 logger = get_logger(__name__)
 
@@ -544,14 +545,23 @@ def build_geographic_runtime_context(
         routing_dem_path = routing_dem_from_config(
             config, setup, dem_in_path=burned_dem_from_config(config, setup)
         )
-        flow_products = build_regional_flow_products(
-            dem_init_path=routing_dem_path,
-            dem_out_dir_path=setup.paths.correcflow_path,
-            dem_correc_type=str(config.dem_correc_type),
-            crs_project=setup.crs_project,
-            backend=tool,
-            engine_id=config.terrain_engine,
-        )
+        if config.reg_fold is None:
+            flow_products = build_regional_flow_products(
+                dem_init_path=routing_dem_path,
+                dem_out_dir_path=setup.paths.correcflow_path,
+                dem_correc_type=str(config.dem_correc_type),
+                crs_project=setup.crs_project,
+                backend=tool,
+                engine_id=config.terrain_engine,
+            )
+        else:
+            flow_products = copy_regional_flow_from_job(
+                config=config,
+                routing_dem_path=routing_dem_path,
+                output_dir=setup.paths.correcflow_path,
+                crs_project=setup.crs_project,
+                backend=tool,
+            )
 
         if config.catch_def == "dem":
             dem_products = build_direct_dem_domain(

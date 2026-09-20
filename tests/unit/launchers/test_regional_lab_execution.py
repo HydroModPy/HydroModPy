@@ -94,6 +94,37 @@ def test_regional_lab_executes_children_through_testbed_provider(tmp_path: Path)
     assert [case["status"] for case in report["cases"]] == ["ok", "ok", "ok"]
 
 
+def test_regional_lab_records_materialized_flow_jobs(tmp_path: Path) -> None:
+    config_path = write_regional_lab_config(tmp_path, execute=True)
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            "execute = true", "execute = true\nshare_regional_flow = true"
+        ),
+        encoding="utf-8",
+    )
+    write_csv_catalog(tmp_path)
+    write_planned_configs(tmp_path)
+
+    class _Provider:
+        def materialize_regional_flow(self, cases, *, output_root):
+            assert output_root == tmp_path / "outputs"
+            return cases, {"job_count": 1, "executed_job_count": 1, "reused_job_count": 0}
+
+        def run_simulation(self, config_path: Path, *, no_display: bool):
+            return {"name": config_path.stem}
+
+        def run_comparison(self, config_path: Path):
+            return {"name": config_path.stem}
+
+    register_testbed_runner_provider(_Provider())
+    summary = RegionalLabProfileLauncher(config_path).run()
+    assert summary["regional_flow"]["executed_job_count"] == 1
+    plan = json.loads(Path(summary["plan_path"]).read_text(encoding="utf-8"))
+    report = json.loads(Path(summary["report_path"]).read_text(encoding="utf-8"))
+    assert plan["regional_flow"]["job_count"] == 1
+    assert report["regional_flow"]["job_count"] == 1
+
+
 def test_regional_lab_resume_skips_completed_cases(tmp_path: Path) -> None:
     config_path = write_regional_lab_config(
         tmp_path,

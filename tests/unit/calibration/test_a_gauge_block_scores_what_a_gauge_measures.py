@@ -91,6 +91,11 @@ def test_a_baseflow_discharge_fitted_to_a_gauge_gets_the_runoff(wired) -> None:
     # The positional values the block scores have to carry the same correction,
     # or the two faces of one output disagree.
     assert np.asarray(extracted.values["gauge"]) == pytest.approx(BASEFLOW + RUNOFF_ADDED)
+    observable = extracted.observables["gauge"]
+    assert observable.values == pytest.approx(BASEFLOW + RUNOFF_ADDED)
+    assert observable.times.equals(TIMES)
+    assert observable.units == "m3 s-1"
+    assert observable.includes_runoff is True
 
 
 def test_the_area_that_cell_drains_is_asked_for(wired) -> None:

@@ -9,12 +9,15 @@ calibration engine.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
 
+from hydromodpy.calibration.metrics.observable_scoring import (
+    ObservableScorer,
+    refuse_window_without_dates,
+)
 from hydromodpy.calibration.metrics.observed_pairing import (
     observed_series_for_outputs,
     observing_outputs,
@@ -33,7 +36,6 @@ from hydromodpy.calibration.metrics.solver_extract import (
     resolve_flow_adapter,
     resolve_station_cells,
 )
-from hydromodpy.calibration.optim.objective import build_objective_from_config
 from hydromodpy.core.contracts.observables import ObservableRequest
 from hydromodpy.core.logging import get_logger
 
@@ -353,44 +355,6 @@ def build_metric_extractor(
     return metric_fn
 
 
-def _refuse_a_window_without_dates(
-    outputs: Mapping[str, CalibOutputDecl],
-    objective_blocks: list[CalibObjectiveBlockDecl],
-    scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None,
-    observing: Mapping[str, str],
-) -> None:
-    """Refuse a window on the blocks whose outputs carry no dates to cut on.
-
-    An output that names a station is aligned on the simulated timestamps, so a
-    window applies to it exactly. One scored positionally has no date to compare
-    a bound against: honouring the window is impossible, and dropping it would
-    report a cost over the whole run under the name of a windowed one.
-    """
-    if scoring_window is None or not any(bound is not None for bound in scoring_window):
-        return
-    dateless_by_block: dict[str, list[str]] = {}
-    for block in objective_blocks:
-        dateless = sorted(
-            str(name)
-            for name in block.uses_outputs
-            if str(name) in outputs and str(name) not in observing
-        )
-        if dateless:
-            dateless_by_block[str(block.name)] = dateless
-    if not dateless_by_block:
-        return
-    start, end = scoring_window
-    listed = "; ".join(
-        f"block {name!r} on output(s) {outputs_}" for name, outputs_ in dateless_by_block.items()
-    )
-    raise ValueError(
-        f"scoring_window {start} to {end} cannot be applied to {listed}: those outputs "
-        "are scored on extracted value vectors, which carry no time axis to cut on. "
-        "Point them at a loaded record with 'observes', use warmup_periods, which "
-        "counts samples, or score on a single variable."
-    )
-
-
 def _build_composite_metric_extractor(
     outputs: Mapping[str, CalibOutputDecl],
     objective_blocks: list[CalibObjectiveBlockDecl],
@@ -402,17 +366,16 @@ def _build_composite_metric_extractor(
 ) -> Callable[..., tuple[float, Mapping[str, float]]]:
     """Build a metric_fn that routes through ``build_objective_from_config``."""
     observing = observing_outputs(outputs)
-    _refuse_a_window_without_dates(outputs, objective_blocks, scoring_window, observing)
-    cfg_subset = SimpleNamespace(
-        outputs=dict(outputs),
-        objective_blocks=list(objective_blocks),
-        warmup_periods=int(warmup_periods),
-    )
-    # An observed record does not move with a parameter, so it is loaded once
-    # per phase. Only its alignment is per trial, because the simulated
-    # timestamps are what a trial produces.
+    refuse_window_without_dates(outputs, objective_blocks, scoring_window, observing)
     observed_records = observed_series_for_outputs(outputs, ctx) if observing else {}
-    composite = None if observed_records else build_objective_from_config(cfg_subset)
+    scorer = ObservableScorer(
+        outputs,
+        objective_blocks,
+        observed_records=observed_records,
+        warmup_periods=warmup_periods,
+        scoring_window=scoring_window,
+        min_samples=min_samples,
+    )
 
     def metric_fn(trial_ctx: Any, *, objective: str | None = None, variable: str | None = None):
         del objective, variable
@@ -426,47 +389,15 @@ def _build_composite_metric_extractor(
             logger.exception("Output extraction failed")
             raise
 
-        simulated_by_output: dict[str, Any] = dict(extracted.values)
-        objective_for_trial = composite
-        paired_counts: dict[str, int] = {}
-        if observed_records:
-            paired = pair_outputs_with_observations(
-                observed=observed_records,
-                simulated={
-                    name: extracted.series[name]
-                    for name in observed_records
-                    if name in extracted.series
-                },
-                scoring_window=scoring_window,
-                min_samples=min_samples,
-            )
-            simulated_by_output.update(paired.simulated)
-            paired_counts = dict(paired.n_paired)
-            objective_for_trial = build_objective_from_config(
-                cfg_subset, observed_by_output=paired.observed
-            )
-
-        try:
-            value = objective_for_trial.evaluate(simulated_by_output)
-        except Exception as exc:
-            logger.exception("Composite objective evaluation failed")
-            raise RuntimeError(
-                f"Composite objective evaluation failed: {type(exc).__name__}: {exc}"
-            ) from exc
-
-        components = {key: float(val) for key, val in value.components.items()}
-        # The criterion emits its thirty diagnostics beside the cost, so a
-        # session records them in trials.jsonl and in the iteration table
-        # without promoting a single run.
-        components.update({key: float(val) for key, val in extracted.diagnostics.items()})
-        # How many dated samples each observed output actually contributed. A
-        # block whose overlap collapsed still returns a number, and this is what
-        # says the number rests on three points.
-        components.update(
-            {f"{name}.n_paired": float(count) for name, count in paired_counts.items()}
+        return scorer.score(
+            extracted.observables,
+            network_values={
+                name: extracted.values[name]
+                for name, output in outputs.items()
+                if output.support == "network"
+            },
+            diagnostics=extracted.diagnostics,
         )
-        total = float(value.total)
-        return total, components
 
     return metric_fn
 

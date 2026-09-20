@@ -1,7 +1,7 @@
 """Conformance suite for the data-source port, run against every source.
 
 The port is only worth its name if adapters that agree on nothing else answer
-the same questions the same way, so the four sources parametrized here
+the same questions the same way, so the six sources parametrized here
 were picked for how much they disagree:
 
 ================== ============ ============= ========= ==============
@@ -21,7 +21,7 @@ collapses that spread.
 Two layers, and why both are needed
 -----------------------------------
 **Layer A** records the provider entry point each adapter delegates to and
-reads the arguments off it. It is uniform over the four sources and it is
+reads the arguments off it. It is uniform over the six sources and it is
 where the declarations are compared against a real call. A source that reached
 the network behind its own provider function would be caught by
 the ``no_network`` fixture, which makes every transport of this tree raise.
@@ -524,6 +524,10 @@ class _CannedResponse:
     def json(self) -> object:
         return self._payload
 
+    @property
+    def text(self) -> str:
+        return self.content.decode("utf-8")
+
     def close(self) -> None:
         return None
 
@@ -595,6 +599,49 @@ def test_the_bbox_on_the_hubeau_wire_is_the_reprojected_one(tmp_path: Path, wire
     assert tuple(float(v) for v in sent.split(",")) == pytest.approx(expected, rel=0, abs=1e-6)
     assert result.is_empty
     assert result.extent is not None and result.extent.crs == "EPSG:4326"
+
+
+def test_the_bbox_on_the_euhydro_wire_is_the_reprojected_one(tmp_path: Path, wire: Wire) -> None:
+    """The real ArcGIS discovery and query run; only their transport is canned."""
+    wire.responses.extend(
+        [
+            _CannedResponse(
+                payload={
+                    "layers": [
+                        {"id": 12, "type": "Group Layer", "name": "River_Net_lines"},
+                        {"id": 13, "type": "Feature Layer", "parentLayerId": 12},
+                    ]
+                }
+            ),
+            _CannedResponse(payload={"name": "main"}),
+            _CannedResponse(payload={"features": []}),
+        ]
+    )
+    source = EuHydroSource()
+    result = source.fetch(FetchRequest(out_dir=tmp_path, extent=CALLER_EXTENT_L93))
+
+    assert all("image.discomap.eea.europa.eu" in call["url"] for call in wire.calls)
+    query = wire.calls[-1]
+    sent = query["params"]["geometry"].split(",")
+    expected = _expected_bbox(CALLER_EXTENT_L93, source.extent_crs)
+    assert tuple(float(value) for value in sent) == pytest.approx(expected, rel=0, abs=1e-6)
+    assert result.is_empty
+
+
+def test_the_bbox_on_the_osm_wire_is_the_reprojected_one(tmp_path: Path, wire: Wire) -> None:
+    """The real Overpass query is built; only its HTTP request is canned."""
+    wire.responses.append(_CannedResponse(content=b'{"elements": []}'))
+    source = OsmSource(waterway_types=("river", "canal"))
+    result = source.fetch(FetchRequest(out_dir=tmp_path, extent=CALLER_EXTENT_L93))
+
+    assert [call["url"] for call in wire.calls] == ["https://overpass-api.de/api/interpreter"]
+    query = wire.calls[0]["params"]["data"]
+    lon_min, lat_min, lon_max, lat_max = _expected_bbox(CALLER_EXTENT_L93, source.extent_crs)
+    bbox = f"{lat_min},{lon_min},{lat_max},{lon_max}"
+    assert bbox in query
+    assert 'way["waterway"="river"]' in query
+    assert 'way["waterway"="canal"]' in query
+    assert result.is_empty
 
 
 def test_reprojection_is_what_makes_the_request_answerable() -> None:

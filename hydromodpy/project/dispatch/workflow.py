@@ -238,6 +238,15 @@ class ProjectTestbedRunnerProvider:
         """Run one calibration child configuration."""
         return dict(run_calibration(config_path))
 
+    def materialize_regional_flow(
+        self, cases: Sequence[Any], *, output_root: Path
+    ) -> tuple[Sequence[Any], Mapping[str, Any]]:
+        """Build shared regional flow jobs and child configs."""
+        from hydromodpy.workflow.regional_lab_materialization import materialize_regional_lab_flow
+
+        materialized = materialize_regional_lab_flow(cases, output_root=output_root)
+        return materialized.cases, materialized.report
+
 
 def run_testbed(config_path: str | Path) -> dict[str, Any]:
     """Run a method-testbed workflow from a TOML file."""

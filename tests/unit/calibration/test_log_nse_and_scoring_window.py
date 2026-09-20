@@ -27,6 +27,7 @@ from hydromodpy.calibration.optim.objective import (
     distance_gap,
     distance_mean,
 )
+from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.metrics import log_nse
 
 
@@ -243,7 +244,10 @@ class TestBlockRouteBurnIn:
             composite,
             "extract_outputs",
             lambda ctx, outputs: ExtractedOutputs(
-                values={"q": [0.0, 0.0, 1.0, 1.0]}, series={}, diagnostics={}
+                observables={"q": ObservableResult("q", np.asarray([0.0, 0.0, 1.0, 1.0]), "m3/s")},
+                values={"q": [0.0, 0.0, 1.0, 1.0]},
+                series={},
+                diagnostics={},
             ),
         )
         metric_fn = build_metric_extractor(
@@ -264,7 +268,10 @@ class TestBlockRouteBurnIn:
             composite,
             "extract_outputs",
             lambda ctx, outputs: ExtractedOutputs(
-                values={"q": [0.0, 0.0, 1.0, 1.0]}, series={}, diagnostics={}
+                observables={"q": ObservableResult("q", np.asarray([0.0, 0.0, 1.0, 1.0]), "m3/s")},
+                values={"q": [0.0, 0.0, 1.0, 1.0]},
+                series={},
+                diagnostics={},
             ),
         )
         metric_fn = build_metric_extractor(

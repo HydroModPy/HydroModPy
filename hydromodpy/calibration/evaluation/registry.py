@@ -27,10 +27,10 @@ Why a class, and why binding by parameter name
 ----------------------------------------------
 :func:`get` returns the class and :func:`create` builds it, binding only the
 constructor parameters the class names -- the rule the terrain and data-source
-registries already use. It is what lets the runner hand out ``trial_ctx``,
-``cfg``, ``metric_fn`` and ``cfg_path`` without knowing which evaluator wants
-what: the in-tree one names them, a surrogate names none of them and is built
-with nothing.
+registries already use. It is what lets the runner hand out every option of
+:data:`CONSTRUCTION_OPTIONS` without knowing which evaluator wants what: the
+pipeline evaluator names the trial context, the analytic one names the space, and
+a surrogate that needs neither is built with nothing.
 
 :func:`needs_prepared_model` is read off the **class**, before anything is built,
 because the answer decides whether the caller runs ``prepare_trials`` at all.
@@ -53,6 +53,28 @@ logger = get_logger(__name__)
 ENTRY_POINT_GROUP = "hydromodpy.calibration.evaluator"
 """The out-of-tree plugin group. One entry point per evaluator, named on its id."""
 
+CONSTRUCTION_OPTIONS: tuple[str, ...] = (
+    "cfg",
+    "cfg_path",
+    "metric_fn",
+    "space",
+    "trial_ctx",
+    "workspace",
+)
+"""Every option the production path offers an evaluator's constructor.
+
+:func:`create` binds only the parameters a class names, so this is the vocabulary
+a third party writes its ``__init__`` in: a parameter named outside this tuple is
+never filled, and one that is also required makes the evaluator unbuildable at
+the first calibration that names it. The conformance suite holds an evaluator to
+it, and a gate derived from the source holds ``cli_runner`` to passing exactly
+these -- one list, not two.
+
+``trial_ctx`` is ``None`` for an evaluator that declares no prepared model, and
+``cfg_path`` is ``None`` for a search launched programmatically rather than from
+a document. The other four are always present.
+"""
+
 DEFAULT_EVALUATOR_ID = "hydromodpy_pipeline"
 """The evaluator a document that names none gets.
 
@@ -64,6 +86,7 @@ _BUILTIN_PATHS: dict[str, str] = {
     "hydromodpy_pipeline": (
         "hydromodpy.calibration.evaluation.pipeline_evaluator:PipelineTrialEvaluator"
     ),
+    "analytic_bowl": "hydromodpy.calibration.evaluation.analytic_bowl:AnalyticBowlEvaluator",
 }
 """Dotted paths to the in-tree evaluator classes, imported on first lookup.
 

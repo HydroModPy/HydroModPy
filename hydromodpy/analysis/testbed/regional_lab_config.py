@@ -613,6 +613,10 @@ class RegionalLabConfig(HydroModelBase):
         default=True,
         description="If False, the planner runs but no child workflows are launched.",
     )
+    share_regional_flow: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="Materialize one sealed regional flow job for eligible child simulations.",
+    )
     continue_on_error: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="If True, keep dispatching siblings after a child failure.",

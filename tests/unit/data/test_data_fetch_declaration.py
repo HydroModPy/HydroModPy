@@ -1,6 +1,6 @@
 """What the ``data-fetch`` declaration promises, held against the port.
 
-The declaration composes four sources, and three of its members are **derived**
+The declaration composes six sources, and three of its members are **derived**
 from them rather than written: the hosts it may reach, the payload paths it may
 write, and the option documents a request may carry. A derivation nobody checks
 is a copy that drifts on the first source added, so each one is compared here to
@@ -24,7 +24,9 @@ from hydromodpy.data.fetch.capability import (
     SERVED_SOURCES,
     BboxExtentInput,
     DataFetchRequest,
+    EuHydroOptions,
     InstalledSourceOptions,
+    OsmOptions,
     PeriodInput,
     SourceOptions,
 )
@@ -104,6 +106,55 @@ def test_an_options_model_builds_the_source_it_is_tagged_for() -> None:
         tag = _tag_of(model)
         built = model.model_validate({"id": tag}).build()
         assert built.source_id == tag
+
+
+@pytest.mark.parametrize(
+    ("model", "document", "expected"),
+    [
+        (
+            EuHydroOptions,
+            {"id": "euhydro", "group_name": "Canal_lines", "euhydro_page_size": 250},
+            ("Canal_lines", 250),
+        ),
+        (
+            OsmOptions,
+            {"id": "osm", "waterway_types": ["canal", "ditch"]},
+            ("canal", "ditch"),
+        ),
+    ],
+    ids=["euhydro", "osm"],
+)
+def test_the_newly_described_sources_build_from_their_typed_options(
+    model: type, document: dict[str, object], expected: tuple[object, ...]
+) -> None:
+    source = model.model_validate(document).build()
+
+    if source.source_id == "euhydro":
+        assert (source.group_name, source.euhydro_page_size) == expected
+    else:
+        assert source.waterway_types == expected
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        {"id": "euhydro", "euhydro_page_size": 0},
+        {"id": "euhydro", "group_name": " \t"},
+        {"id": "osm", "waterway_types": []},
+        {"id": "osm", "waterway_types": ["river", " \n"]},
+        {"id": "osm", "waterway_types": ["river"], "group_name": "wrong-source"},
+    ],
+    ids=[
+        "euhydro-page-size",
+        "euhydro-blank-group",
+        "osm-empty-types",
+        "osm-blank-type",
+        "osm-foreign-option",
+    ],
+)
+def test_typed_source_options_refuse_a_value_their_adapter_cannot_serve(source: dict) -> None:
+    with pytest.raises(ValueError):
+        DataFetchRequest.model_validate({"source": source, "extent": dict(CALLER_EXTENT)})
 
 
 def test_the_declared_hosts_are_the_union_of_what_the_sources_declare() -> None:
@@ -303,16 +354,10 @@ def test_a_described_source_is_refused_through_the_door_it_does_not_need() -> No
         )
 
 
-def test_a_shipped_but_undescribed_source_goes_through_this_member() -> None:
-    """``euhydro`` is registered here and has no options model, which is D146."""
-    request = DataFetchRequest.model_validate(
-        {
-            "source": _installed("euhydro", group_name="Canal_lines"),
-            "extent": dict(CALLER_EXTENT),
-        }
-    )
-
-    assert request.source.build().source_id == "euhydro"
+@pytest.mark.parametrize("name", ["euhydro", "osm"])
+def test_a_described_source_is_refused_through_the_door_it_no_longer_needs(name: str) -> None:
+    with pytest.raises(ValueError, match="describes"):
+        DataFetchRequest.model_validate({"source": _installed(name), "extent": dict(CALLER_EXTENT)})
 
 
 def test_an_option_the_installed_source_cannot_take_is_refused_by_name(
@@ -366,7 +411,7 @@ def test_a_constructor_that_refuses_its_options_is_a_fault_of_the_request(
     Without this, a wrong-typed option reached the constructor, raised a
     ``TypeError`` there and left as ``HMPY.E000`` and exit code 1 -- the code
     that tells an orchestrator HydroModPy is broken when the request is. The
-    four described sources keep the old behaviour on purpose: their
+    described sources keep the old behaviour on purpose: their
     constructors are this repository's, so one of them raising *is* a bug here.
     """
 
