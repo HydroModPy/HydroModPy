@@ -125,19 +125,6 @@ def point_xy_from_output(output: CalibOutputPoint) -> tuple[float, float] | None
     return float(coords[0]), float(coords[1])
 
 
-def observable_series(result: ObservableResult, *, name: str) -> pd.Series:
-    """Rebuild a pandas series from an observable, for the scoring helpers.
-
-    ``score`` aligns on a time index, so an observable that carries one keeps
-    it; one that does not falls back to a positional index, exactly as the
-    binary readers did before.
-    """
-    values = np.asarray(result.values, dtype=float).reshape(-1)
-    if result.times is not None and len(result.times) == values.size:
-        return pd.Series(values, index=result.times, name=name)
-    return pd.Series(values, name=name)
-
-
 def _request_times(time: Any) -> TimeSelector:
     """Map an output declaration's time selector onto the observable contract.
 
@@ -675,7 +662,6 @@ __all__ = [
     "find_cell_at_point",
     "observable_request_for_output",
     "report_the_area_a_gauge_drains",
-    "observable_series",
     "point_xy_from_output",
     "require_release_flux_unit",
     "resolve_flow_adapter",

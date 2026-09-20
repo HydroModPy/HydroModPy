@@ -1,14 +1,26 @@
-"""Composite metric extractors.
+"""What a trial context can answer with, for both scoring routes.
 
-The ``build_metric_extractor`` factory and its composite variant live here.
-They wire ``CalibrationConfig.outputs`` and ``objective_blocks`` to the solver
-extractors and produce the ``(primary, components)`` payload consumed by the
-calibration engine.
+The ``build_metric_extractor`` factory lives here and so does every producer
+behind it: resolving the flow adapter, placing a gauge on the mesh, reading the
+discharge routed to its cell, adding the runoff forcing to a drain budget and
+scaling it by the area that cell drains. All of it is measured in the
+pipeline's own terms and none of it can be asked of a model that is not it.
+
+Scoring is the other half and it is not here. Both routes hand their
+observables to a scorer of
+:mod:`hydromodpy.calibration.metrics.observable_scoring`, which holds no
+context: ``[calibration.outputs]`` and ``[[calibration.objective_blocks]]`` go
+to :class:`~hydromodpy.calibration.metrics.observable_scoring.ObservableScorer`,
+``variable`` and ``objective`` to
+:class:`~hydromodpy.calibration.metrics.observable_scoring.StationScorer`.
+What this module produces is therefore the same thing a forward model produces,
+and the criterion that scores it cannot tell which one answered.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -16,6 +28,8 @@ import pandas as pd
 
 from hydromodpy.calibration.metrics.observable_scoring import (
     ObservableScorer,
+    StationScorer,
+    observable_series,
     refuse_window_without_dates,
 )
 from hydromodpy.calibration.metrics.observed_pairing import (
@@ -23,7 +37,6 @@ from hydromodpy.calibration.metrics.observed_pairing import (
     observing_outputs,
     pair_outputs_with_observations,
 )
-from hydromodpy.calibration.metrics.scalar import score
 from hydromodpy.calibration.metrics.series import (
     add_runoff_to_discharge,
     load_observed,
@@ -31,12 +44,11 @@ from hydromodpy.calibration.metrics.series import (
 )
 from hydromodpy.calibration.metrics.solver_extract import (
     extract_outputs,
-    observable_series,
     report_the_area_a_gauge_drains,
     resolve_flow_adapter,
     resolve_station_cells,
 )
-from hydromodpy.core.contracts.observables import ObservableRequest
+from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
@@ -56,62 +68,39 @@ def _area_id(station_id: str) -> str:
     return f"_area:{station_id}"
 
 
-def _discharge_target(observed: list, declared_station_id: str | None):
-    """Return the observed station whose cost the optimizer minimises.
-
-    Every loaded gauge is compared to the simulated discharge AT ITS OWN
-    POSITION, the way ``head`` already is: ``resolve_station_cells`` gives each
-    one its cell and ``_simulated_discharge_by_station`` reads the discharge
-    routed to it, with its runoff scaled by the area that cell drains. Each cost
-    is reported as ``cost:<objective>@<station_id>``.
-
-    What this function picks is which of those costs the search follows. One
-    station drives it and the others stay diagnostic, because a weighted sum
-    across gauges needs weights, an error model and a decision about nested
-    gauges sharing the same water, none of which this single-metric route
-    carries. Averaging them, which is what this did before, gave every gauge the
-    same say whatever its record was worth.
-    """
-    if not observed:
-        raise ValueError("No observed discharge station is available for calibration")
-    by_id = {rec.station_id: rec for rec in observed}
-    if declared_station_id is not None:
-        target = by_id.get(str(declared_station_id))
-        if target is None:
-            raise ValueError(
-                f"calibration.observed_station_id={declared_station_id!r} is not among the "
-                f"loaded discharge stations {sorted(by_id)}. Check the id, or the "
-                "station_ids / extent of the hydrometry source that loads it."
-            )
-        return target
-    if len(observed) == 1:
-        return observed[0]
-    raise ValueError(
-        f"{len(observed)} discharge stations are loaded ({sorted(by_id)}) but a trial can only "
-        "read one simulated discharge series, the whole-catchment outlet: comparing each gauge "
-        "at its own position needs a per-cell discharge observable that no solver adapter "
-        "serves yet. Score the gauge that sits at the outlet by naming it in "
-        "calibration.observed_station_id (or on the phase), or load only that one with "
-        "station_ids on the hydrometry source. The others stay reported, unscored."
-    )
-
-
-def _series_for(results: Mapping[str, Any], request_id: str, *, name: str) -> pd.Series:
+def _result_for(results: Mapping[str, Any], request_id: str, *, name: str) -> ObservableResult:
     """Read one observable out of a batch, or say which one is missing."""
     result = results.get(request_id)
     if result is None:
         raise NotImplementedError(f"Solver returned no {name} observable for {request_id!r}")
-    return observable_series(result, name=name)
+    return result
 
 
-def _simulated_discharge_by_station(
+def _corrected(result: ObservableResult, series: pd.Series, *, request_id: str) -> ObservableResult:
+    """Carry a runoff-corrected series back into the observable it was read from.
+
+    The correction is a producer's business -- it needs the forcing of this run
+    and the area a cell drains -- so what leaves here is the observable a model
+    would have answered with had it served the whole streamflow itself.
+    """
+    index = series.index if isinstance(series.index, pd.DatetimeIndex) else None
+    return replace(
+        result,
+        request_id=request_id,
+        values=series.to_numpy(dtype=float),
+        times=index,
+        includes_runoff=True,
+    )
+
+
+def _discharge_by_station(
     adapter: Any,
     run_ctx: Any,
     trial_ctx: Any,
     observed: list,
     *,
     time_index: Any,
-) -> dict[str, pd.Series]:
+) -> dict[str, ObservableResult]:
     """Return, per station, the simulated discharge AT THAT STATION'S cell.
 
     A gauge away from the outlet closes a smaller catchment. It is asked for on
@@ -154,7 +143,8 @@ def _simulated_discharge_by_station(
         results = adapter.extract_observables(run_ctx, None, requests[:1], time_index=time_index)
         station_cells = {}
 
-    catchment = _series_for(results, _CATCHMENT, name="discharge")
+    whole = _result_for(results, _CATCHMENT, name="discharge")
+    catchment = observable_series(whole, name="discharge")
     if catchment.empty:
         raise NotImplementedError(
             f"Solver {run_ctx.run.solver!r} returned no discharge calibration series"
@@ -162,14 +152,14 @@ def _simulated_discharge_by_station(
     # A routed SFR network already carries the runoff: it was injected into the
     # reaches, so adding the forcing again would count it twice. Only a
     # drain-budget discharge is baseflow alone.
-    if not results[_CATCHMENT].includes_runoff:
+    if not whole.includes_runoff:
         catchment = add_runoff_to_discharge(catchment, trial_ctx)
 
-    out: dict[str, pd.Series] = {}
+    out: dict[str, ObservableResult] = {}
     for obs_rec in observed:
         station_id = obs_rec.station_id
         if station_id not in station_cells:
-            out[station_id] = catchment
+            out[station_id] = _corrected(whole, catchment, request_id=station_id)
             continue
         result = results[_cell_id(station_id)]
         series = observable_series(result, name="discharge")
@@ -180,8 +170,115 @@ def _simulated_discharge_by_station(
             area = float(np.asarray(results[_area_id(station_id)].values).reshape(-1)[0])
             report_the_area_a_gauge_drains(station_id, trial_ctx, area_m2=area)
             series = add_runoff_to_discharge(series, trial_ctx, area_m2=area)
-        out[station_id] = series
+        out[station_id] = _corrected(result, series, request_id=station_id)
     return out
+
+
+def _head_by_station(
+    adapter: Any,
+    run_ctx: Any,
+    trial_ctx: Any,
+    observed: list,
+    *,
+    time_index: Any,
+) -> dict[str, ObservableResult]:
+    """Return, per piezometer, the head simulated in the cell it sits in.
+
+    One batch for every station: the head file opens once. A station the mesh
+    cannot place is absent from the answer, and the scorer reports it unscored.
+    """
+    station_cells = resolve_station_cells(trial_ctx, observed)
+    if not station_cells:
+        raise NotImplementedError("No station-to-cell mapping available for head calibration")
+    placed = [obs_rec for obs_rec in observed if obs_rec.station_id in station_cells]
+    results = adapter.extract_observables(
+        run_ctx,
+        None,
+        [
+            ObservableRequest(
+                id=obs_rec.station_id,
+                name="head",
+                support="cell",
+                cell=station_cells[obs_rec.station_id],
+            )
+            for obs_rec in placed
+        ],
+        time_index=time_index,
+    )
+    return {
+        obs_rec.station_id: _result_for(results, obs_rec.station_id, name="head")
+        for obs_rec in placed
+    }
+
+
+def _lake_level_by_station(
+    adapter: Any,
+    run_ctx: Any,
+    trial_ctx: Any,
+    observed: list,
+    *,
+    time_index: Any,
+) -> dict[str, ObservableResult]:
+    """Return, per lake, the stage simulated for it, in one batch."""
+    del trial_ctx
+    results = adapter.extract_observables(
+        run_ctx,
+        None,
+        [
+            ObservableRequest(
+                id=obs_rec.station_id,
+                name="stage",
+                support="lake",
+                key=obs_rec.station_id,
+            )
+            for obs_rec in observed
+        ],
+        time_index=time_index,
+    )
+    return {
+        obs_rec.station_id: _result_for(results, obs_rec.station_id, name="stage")
+        for obs_rec in observed
+    }
+
+
+PRODUCERS: Mapping[str, Callable[..., dict[str, ObservableResult]]] = {
+    "discharge": _discharge_by_station,
+    "head": _head_by_station,
+    "lake_level": _lake_level_by_station,
+}
+"""How the pipeline answers a station request, per calibration variable.
+
+Keyed on the vocabulary :attr:`StationScorer.SUPPORTED` declares, so the route
+a document names is either produced and scored or refused by the scorer before
+a search starts. A test holds the two in step."""
+
+
+def refuse_a_call_that_renames_the_route(
+    route: str | None,
+    criterion: str | None,
+    *,
+    called_variable: str | None,
+    called_objective: str | None,
+) -> None:
+    """Refuse a trial that asks a built extractor for another route.
+
+    ``variable`` picks the producer, the observed family and the gauge the
+    search follows; ``objective`` picks the criterion and keys every reported
+    component. All four are resolved once, from one document, when the
+    extractor is built. Honouring a different pair at call time would score a
+    record loaded for one variable through the producer of another, and report
+    it under a criterion the session never recorded.
+    """
+    called_route = str(called_variable) if called_variable else None
+    called_criterion = str(called_objective) if called_objective else None
+    if called_route == route and called_criterion == criterion:
+        return
+    raise ValueError(
+        f"this metric extractor was built on variable={route!r} objective={criterion!r} "
+        f"and was called with variable={called_route!r} objective={called_criterion!r}. "
+        "The producer, the observed records and the station the search follows are all "
+        "chosen at build time, so the two cannot differ. Build a second extractor."
+    )
 
 
 def build_metric_extractor(
@@ -200,6 +297,10 @@ def build_metric_extractor(
 
     The returned callable matches the ``TrialMetricFn`` signature:
     ``metric_fn(ctx, *, objective=..., variable=...) -> (primary, metrics)``.
+    Both arguments have to repeat what the extractor was built on, and a call
+    that renames either is refused: the producer, the loaded records and the
+    gauge the search follows are all chosen here, so a criterion swapped at
+    call time would report a cost the document cannot account for.
 
     When ``outputs`` and ``objective_blocks`` are both provided, the extractor
     routes through :func:`build_objective_from_config`. Otherwise the
@@ -226,128 +327,43 @@ def build_metric_extractor(
     observed = load_observed(ctx, variable) if variable else []
     if not observed:
         logger.warning("No observations for variable=%r.", variable)
+    # Built once, before the search: the records, the criterion, the burn-in and
+    # the window do not move between samples, and none of them needs a context.
+    route = str(variable) if variable else None
+    scorer = (
+        StationScorer(
+            route,
+            objective,
+            observed,
+            observed_station_id=observed_station_id,
+            warmup_periods=warmup_periods,
+            scoring_window=scoring_window,
+        )
+        if observed
+        else None
+    )
+
+    criterion = str(objective) if objective else None
 
     def metric_fn(trial_ctx: Any, *, objective: str = objective, variable: str = variable):
         resolved = resolve_flow_adapter(trial_ctx)
         if resolved is None:
             raise NotImplementedError("No flow solver adapter available for calibration")
-        if not observed:
-            raise ValueError(f"No observations available for calibration variable {variable!r}")
+        if scorer is None:
+            raise ValueError(f"No observations available for calibration variable {route!r}")
+        refuse_a_call_that_renames_the_route(
+            route, criterion, called_variable=variable, called_objective=objective
+        )
         adapter, run_ctx = resolved
-
-        time_idx = resolve_time_index(trial_ctx, n_timesteps=0)
         try:
-            if variable == "discharge":
-                simulated_by_station = _simulated_discharge_by_station(
-                    adapter,
-                    run_ctx,
-                    trial_ctx,
-                    observed,
-                    time_index=time_idx,
-                )
-                target = _discharge_target(observed, observed_station_id)
-                components: dict[str, float] = {}
-                for obs_rec in observed:
-                    components[f"cost:{objective}@{obs_rec.station_id}"] = score(
-                        obs_rec.series,
-                        simulated_by_station[obs_rec.station_id],
-                        objective,
-                        warmup_periods=warmup_periods,
-                        scoring_window=scoring_window,
-                    )
-                primary = components[f"cost:{objective}@{target.station_id}"]
-                if not np.isfinite(primary):
-                    raise ValueError(
-                        f"Discharge cost at the calibration station {target.station_id!r} is "
-                        f"{primary}. Check the observed record covers the scored window."
-                    )
-                return float(primary), components
-
-            elif variable == "head":
-                station_cells = resolve_station_cells(trial_ctx, observed)
-                if not station_cells:
-                    raise NotImplementedError(
-                        "No station-to-cell mapping available for head calibration"
-                    )
-                components = {}
-                costs = []
-                # One call for every piezometer: the head file opens once.
-                results = adapter.extract_observables(
-                    run_ctx,
-                    None,
-                    [
-                        ObservableRequest(
-                            id=obs_rec.station_id,
-                            name="head",
-                            support="cell",
-                            cell=station_cells[obs_rec.station_id],
-                        )
-                        for obs_rec in observed
-                        if obs_rec.station_id in station_cells
-                    ],
-                    time_index=time_idx,
-                )
-                for obs_rec in observed:
-                    if obs_rec.station_id not in station_cells:
-                        continue
-                    sim = _series_for(results, obs_rec.station_id, name="head")
-                    if sim.empty:
-                        raise NotImplementedError(
-                            f"Solver {run_ctx.run.solver!r} returned no head calibration series"
-                        )
-                    cost = score(
-                        obs_rec.series,
-                        sim,
-                        objective,
-                        warmup_periods=warmup_periods,
-                        scoring_window=scoring_window,
-                    )
-                    components[f"cost:{objective}@{obs_rec.station_id}"] = cost
-                    if np.isfinite(cost):
-                        costs.append(cost)
-                if not costs:
-                    raise ValueError("No finite head calibration costs were produced")
-                return float(np.mean(costs)), components
-
-            elif variable == "lake_level":
-                components = {}
-                costs = []
-                results = adapter.extract_observables(
-                    run_ctx,
-                    None,
-                    [
-                        ObservableRequest(
-                            id=obs_rec.station_id,
-                            name="stage",
-                            support="lake",
-                            key=obs_rec.station_id,
-                        )
-                        for obs_rec in observed
-                    ],
-                    time_index=time_idx,
-                )
-                for obs_rec in observed:
-                    sim = _series_for(results, obs_rec.station_id, name="stage")
-                    if sim.empty:
-                        raise NotImplementedError(
-                            f"Solver {run_ctx.run.solver!r} returned no lake stage series"
-                        )
-                    cost = score(
-                        obs_rec.series,
-                        sim,
-                        objective,
-                        warmup_periods=warmup_periods,
-                        scoring_window=scoring_window,
-                    )
-                    components[f"cost:{objective}@{obs_rec.station_id}"] = cost
-                    if np.isfinite(cost):
-                        costs.append(cost)
-                if not costs:
-                    raise ValueError("No finite lake-level calibration costs were produced")
-                return float(np.mean(costs)), components
-
-            else:
-                raise NotImplementedError(f"Calibration variable {variable!r} is not supported")
+            produced = PRODUCERS[route](
+                adapter,
+                run_ctx,
+                trial_ctx,
+                observed,
+                time_index=resolve_time_index(trial_ctx, n_timesteps=0),
+            )
+            return scorer.score(produced, source=f"Solver {run_ctx.run.solver!r}")
         except Exception:
             logger.exception("Metric extractor failed")
             raise

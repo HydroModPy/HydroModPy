@@ -77,6 +77,22 @@ Each release section includes the following standard categories:
   period length) and the solver cost is linear in it, so raising it silently
   would rewrite every existing result and multiply every calibration budget.
   A validation case now states the size of the drift.
+- A calibration declaring `variable` and `objective` is now refused before its
+  session exists rather than at every trial. Two loaded gauges without
+  `calibration.observed_station_id` used to build an extractor, write a session
+  row, spend the whole search budget and fail each trial with the same message;
+  the refusal now names the two candidates while `hmp calibrate` is still
+  reading the document.
+- A trial that asks a built metric extractor for another `variable` or another
+  `objective` is refused instead of silently scored. The producer, the observed
+  records and the gauge the search follows are all chosen when the extractor is
+  built, so a criterion renamed at call time reported a cost under a key the
+  session never recorded.
+- A solver serving an empty per-station discharge series now fails the trial
+  with the same message the head and lake routes already used, naming the
+  station, rather than the `no overlapping samples` message of the alignment
+  step. The head and lake messages gain that station name with it, and the
+  lake one now says `lake_level` where it said `lake stage`.
 
 ### Fixed
 - `hydrograph_log_nse` wrote its note across its own legend: pinned to the
