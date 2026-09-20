@@ -25,6 +25,11 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import WORKSPACE_TOML_FILENAME
 from hydromodpy.core.workspace.workspace_toml import load_workspace_toml
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
+from hydromodpy.schema.media_types import (
+    PARQUET_MEDIA_TYPE,
+    TOML_MEDIA_TYPE,
+    ZARR_MEDIA_TYPE,
+)
 
 logger = get_logger(__name__)
 
@@ -232,7 +237,7 @@ def _collect_assets(
             AssetEntry(
                 key="zarr",
                 relative_path=str(zarr_rel).replace("\\", "/"),
-                media_type="application/x.zarr-store",
+                media_type=ZARR_MEDIA_TYPE,
                 roles=("data", "fields"),
                 sha256=None,
                 size_bytes=None,
@@ -250,7 +255,7 @@ def _collect_assets(
                 AssetEntry(
                     key=f"parquet:{pq.stem}",
                     relative_path=str(rel).replace("\\", "/"),
-                    media_type="application/vnd.apache.parquet",
+                    media_type=PARQUET_MEDIA_TYPE,
                     roles=("data", "metadata"),
                     sha256=_sha256_file(pq),
                     size_bytes=pq.stat().st_size,
@@ -267,7 +272,7 @@ def _collect_assets(
                 AssetEntry(
                     key="lockfile",
                     relative_path=str(rel).replace("\\", "/"),
-                    media_type="application/toml",
+                    media_type=TOML_MEDIA_TYPE,
                     roles=("metadata", "provenance"),
                     sha256=_sha256_file(lock_path),
                     size_bytes=lock_path.stat().st_size,

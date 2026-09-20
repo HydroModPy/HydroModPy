@@ -24,6 +24,7 @@ from hydromodpy.results.export.context import (
     to_json,
 )
 from hydromodpy.results.export.prov import HYDROMODPY_NAMESPACE, build_prov_document
+from hydromodpy.schema.media_types import OCTET_STREAM_MEDIA_TYPE
 
 RO_CRATE_CONFORMS = "https://w3id.org/ro/crate/1.1"
 RO_CRATE_CONTEXT = "https://w3id.org/ro/crate/1.1/context"
@@ -61,7 +62,7 @@ def _input_node(idx: int, entry: Any) -> dict[str, Any]:
         "@id": base_id,
         "@type": "File",
         "name": Path(entry.original_path).name or entry.role,
-        "encodingFormat": "application/octet-stream",
+        "encodingFormat": OCTET_STREAM_MEDIA_TYPE,
         "hydromodpy:role": entry.role,
         "hydromodpy:category": entry.category,
     }

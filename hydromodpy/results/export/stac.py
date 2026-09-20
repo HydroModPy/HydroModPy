@@ -28,6 +28,7 @@ from hydromodpy.results.export.context import (
     build_context,
     to_json,
 )
+from hydromodpy.schema.media_types import GEOJSON_MEDIA_TYPE, JSON_MEDIA_TYPE
 
 _LICENSE_URL_TO_SPDX = {
     "https://creativecommons.org/licenses/by/4.0/": "CC-BY-4.0",
@@ -181,7 +182,7 @@ def build_stac_item(context: FairExportContext) -> dict[str, Any]:
         {
             "rel": "self",
             "href": f"{context.sim_id}.json",
-            "type": "application/geo+json",
+            "type": GEOJSON_MEDIA_TYPE,
         }
     ]
     if sim_row.get("project"):
@@ -189,7 +190,7 @@ def build_stac_item(context: FairExportContext) -> dict[str, Any]:
             {
                 "rel": "collection",
                 "href": "../collection.json",
-                "type": "application/json",
+                "type": JSON_MEDIA_TYPE,
                 "title": str(sim_row["project"]),
             }
         )
@@ -303,14 +304,14 @@ def build_stac_collection(
             {
                 "rel": "self",
                 "href": "collection.json",
-                "type": "application/json",
+                "type": JSON_MEDIA_TYPE,
             },
-            {"rel": "root", "href": "../catalog.json", "type": "application/json"},
+            {"rel": "root", "href": "../catalog.json", "type": JSON_MEDIA_TYPE},
             *(
                 {
                     "rel": "item",
                     "href": f"items/{item['id']}.json",
-                    "type": "application/geo+json",
+                    "type": GEOJSON_MEDIA_TYPE,
                     "title": item.get("properties", {}).get("title"),
                 }
                 for item in items
@@ -342,13 +343,13 @@ def build_stac_catalog(
             {
                 "rel": "self",
                 "href": "catalog.json",
-                "type": "application/json",
+                "type": JSON_MEDIA_TYPE,
             },
             *(
                 {
                     "rel": "child",
                     "href": f"collections/{coll}/collection.json",
-                    "type": "application/json",
+                    "type": JSON_MEDIA_TYPE,
                     "title": coll,
                 }
                 for coll in collection_ids
