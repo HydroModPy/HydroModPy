@@ -6,8 +6,9 @@ Three canonical scopes:
 - ``loaded_data``: loaded support data (climatic, oceanic, hydrometry, ...);
 - ``execution``: run outputs and registries (planned runs, produced models).
 
-Plus the identity of the run being executed (``sim_id``,
-``postprocess_runner``) used by the workflow layer.
+Plus the identity of the run being executed: ``sim_id``, the ``parent_sim_id``
+a run is pinned to, and the ``reserved_sim_id`` minted before the pipeline
+starts. The project layer pins the lineage, the workflow layer reads it.
 
 Canonical access is explicit:
 
@@ -41,8 +42,10 @@ class WorkflowContext:
     models a run declares in ``depends_on``. Every other consumer reads what
     one run produced, and receives it through ``RunContext``.
 
-    Also carries the identity of the run being executed: ``sim_id`` and
-    ``postprocess_runner``.
+    Also carries the identity of the run being executed: ``sim_id``, the
+    ``parent_sim_id`` a run is pinned to - whether it descends from a
+    calibration promotion or from a rerun, which pin it the same way - and the
+    ``reserved_sim_id`` minted before the pipeline starts.
 
     It carries no live handle. The catalog a run writes to is opened by
     whoever writes, for the span of that write, through
@@ -70,7 +73,6 @@ class WorkflowContext:
     # the store-opening step. Calibration promotion reserves it so the row
     # linking the run to its session exists before the run draws its figures.
     reserved_sim_id: str | None = None
-    postprocess_runner: Any = field(default=None, repr=False)
     effective_results_config: Any = field(default=None, repr=False)
 
     # Dotted results-config paths the planning reconciliation turned on by
@@ -83,13 +85,12 @@ class WorkflowContext:
 class RunState:
     """What a solver adapter reads of the workflow runtime, and nothing else.
 
-    A :class:`WorkflowContext` is the state of a whole pipeline: the loaded
-    support data, the raw TOML, the data plan, the post-processing runner, the
-    flags the planner forced. An adapter executes one run and reads two scopes
-    of it. Handing it the context made everything else reachable, and the field
-    that carried it was typed ``Any``, so nothing said what an adapter was
-    allowed to read. This view says it: the three members below are the whole
-    surface, and reaching for anything else raises ``AttributeError``.
+    A :class:`WorkflowContext` is the state of a whole pipeline: the loaded support
+    data, the raw TOML, the data plan, the flags the planner forced. An adapter executes
+    one run and reads two scopes of it. Handing it the context made everything else
+    reachable, and the field that carried it was typed ``Any``, so nothing said what an
+    adapter was allowed to read. This view says it: the three members below are the
+    whole surface, and reaching for anything else raises ``AttributeError``.
 
     ``setup`` is the context's own scope, shared by reference and mutable. The
     view owns it, and it carries no live handle - the catalog of the enclosing

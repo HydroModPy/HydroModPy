@@ -127,7 +127,6 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
     ctx.setup.time_grid = SimpleNamespace(window=SimpleNamespace())
     ctx.data_plan = SimpleNamespace(types=(), inferred_types=(), reasons_for=lambda t: ())
     ctx.execution.simulation_plan = SimpleNamespace(runs=[])
-    ctx.postprocess_runner = None
 
     try:
         prepare_runtime(
@@ -238,7 +237,6 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
     ctx.setup.time_grid = SimpleNamespace(window=SimpleNamespace())
     ctx.data_plan = SimpleNamespace(types=(), inferred_types=(), reasons_for=lambda t: ())
     ctx.execution.simulation_plan = SimpleNamespace(runs=[])
-    ctx.postprocess_runner = None
 
     try:
         prepare_runtime(ctx, external_mesh_input=external_mesh_input)
