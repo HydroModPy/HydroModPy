@@ -164,7 +164,6 @@ thickness = "30.0 m"
 [data]
 # EPSG code or WKT string of the project coordinate reference system. When set, all loaded data is
 # reprojected to this CRS. Example: 'EPSG:2154' (Lambert-93).
-project_crs = "EPSG:2154"
 # Ordered list of data-manager types explicitly requested in [data]. The launcher may append
 # inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc).
 # Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry',

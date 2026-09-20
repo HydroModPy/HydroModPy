@@ -18,8 +18,10 @@ small enough to read in one pass:
    start_datetime = "2018-01-01"
    end_datetime = "2020-12-31"
 
+   [geographic]
+   crs_project = "EPSG:2154"
+
    [data]
-   project_crs = "EPSG:2154"
    inference_mode = "strict"
    types = ["dem", "geology", "hydrography", "hydrometry", "piezometry", "recharge"]
 
@@ -55,7 +57,7 @@ small enough to read in one pass:
 Read it from top to bottom:
 
 - ``types`` is the explicit family list.
-- ``project_crs`` is the target CRS for normalized project data.
+- ``[geographic].crs_project`` is the target CRS for normalized project data.
 - ``extent = "watershed"`` asks compatible providers to use the project
   watershed or study-area extent.
 - Date windows come from ``[simulation.time]``, or from ``[overview]`` in

@@ -101,7 +101,6 @@ first_clim = "first"
 negative_to_evt = true
 
 [data]
-project_crs = "EPSG:2154"
 types = ["dem", "hydrography", "recharge"]
 inference_mode = "warn"
 

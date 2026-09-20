@@ -14,8 +14,10 @@ typed data sections, bare filenames can also be resolved against the workspace
 
 .. code-block:: toml
 
+   [geographic]
+   crs_project = "EPSG:2154"
+
    [data]
-   project_crs = "EPSG:2154"
    types = ["dem", "geology", "hydrometry", "recharge"]
 
    [[data.dem.sources]]

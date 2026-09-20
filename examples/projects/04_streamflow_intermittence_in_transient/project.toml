@@ -60,7 +60,6 @@ thickness = "30.0 m"
 
 
 [data]
-project_crs = "EPSG:2154"
 types = ["dem", "hydrography", "hydrometry", "recharge", "runoff"]
 
 [[data.dem.sources]]

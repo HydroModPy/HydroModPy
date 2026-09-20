@@ -37,7 +37,6 @@ snap_dist = "150 m"
 buff_area = "10%"
 
 [data]
-project_crs = "EPSG:2154"
 types = ["geology", "hydrography", "hydrometry", "intermittency"]
 inference_mode = "warn"
 

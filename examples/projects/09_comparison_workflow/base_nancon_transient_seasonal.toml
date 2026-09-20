@@ -92,7 +92,6 @@ first_clim = "mean"
 negative_to_evt = true
 
 [data]
-project_crs = "EPSG:2154"
 types = ["dem", "recharge"]
 inference_mode = "warn"
 
