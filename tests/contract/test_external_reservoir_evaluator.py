@@ -16,6 +16,12 @@ PACKAGE_ROOT = REPO_ROOT / "evaluator_reservoir"
 EVALUATOR_ID = "reservoir_recession"
 CONFORMANCE_SUITE = REPO_ROOT / "tests/contract/test_trial_evaluator_contract.py"
 
+# One worker for everything that builds a wheel out of this checkout. ``pip
+# wheel`` writes into the repository's own ``build/`` directory, so two workers
+# building at once collide there -- "File exists: .../hydromodpy-*.dist-info"
+# and a red that names no test of the diff.
+pytestmark = pytest.mark.xdist_group(name="wheel_build")
+
 
 @pytest.fixture(scope="module")
 def installed_evaluator(tmp_path_factory: pytest.TempPathFactory) -> Path:

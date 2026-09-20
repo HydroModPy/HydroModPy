@@ -143,6 +143,15 @@ def _corner(space: ParameterSpace) -> dict[str, float]:
 
 
 def _config(**overrides: object) -> CalibrationConfig:
+    """The document every evaluator of this suite is built from.
+
+    It declares criteria as well as a space, because an evaluator that scores
+    through the document -- the one composing a forward model with the blocks of
+    F6 -- has nothing to ask for and nothing to weigh without them. Written in
+    the document's own vocabulary and naming no implementation: an output on a
+    boundary, compared to a value typed into the file. The evaluators that bring
+    their own cost bind ``cfg`` for nothing and are unaffected.
+    """
     payload: dict[str, object] = {
         "method": "grid",
         "max_iter": 9,
@@ -151,6 +160,16 @@ def _config(**overrides: object) -> CalibrationConfig:
             "k": {"path": "flow.properties.k_aquifer", "bounds": [1e-6, 1e-2], "transform": "log"},
             "porosity": {"path": "flow.properties.porosity", "bounds": [0.01, 0.3]},
         },
+        "outputs": {
+            "outlet_flow": {
+                "support": "boundary",
+                "variable": "discharge",
+                "boundary_id": "outlet",
+                "time": "last",
+                "observed_values": [99.7104200938112],
+            }
+        },
+        "objective_blocks": [{"name": "flow", "metric": "rmse", "uses_outputs": ["outlet_flow"]}],
     }
     payload.update(overrides)
     return CalibrationConfig.model_validate(payload)

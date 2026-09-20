@@ -316,6 +316,23 @@ def _search_space_payload(space: ParameterSpace) -> dict[str, Any]:
     }
 
 
+def _session_config_payload(cfg: CalibrationConfig, evaluator: object) -> dict[str, Any]:
+    """Return the configuration a session records, with what was resolved on it.
+
+    A document that names no evaluator and no forward model still runs one of
+    each, and the defaults are exactly the case a first study hits. Recording
+    the raw field would journal ``None`` beside trials produced by a named
+    class, so the session would not say what ran. The ids come off the built
+    evaluator, which is the object that answered, never off the document.
+    """
+    payload = cfg.model_dump()
+    payload["evaluator"] = getattr(evaluator, "evaluator_id", None) or cfg.evaluator
+    forward_model = getattr(evaluator, "forward_model_id", None)
+    if forward_model is not None:
+        payload["forward_model"] = forward_model
+    return payload
+
+
 def _persist_observed_for_report(catalog: Any, trial_ctx: Any, variable: str) -> None:
     """Store the calibration observations so the report can draw obs-vs-sim.
 
@@ -697,7 +714,7 @@ def run_calibration_core(
         method=cfg.method,
         objective_name=cfg.objective,
         search_space=_search_space_payload(space),
-        config=cfg.model_dump(),
+        config=_session_config_payload(cfg, evaluator),
         parent_session_id=chain.parent_session_id if chain is not None else None,
         root_session_id=chain.root_session_id if chain is not None else None,
         phase_name=chain.phase_name if chain is not None else None,

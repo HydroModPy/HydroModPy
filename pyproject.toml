@@ -159,6 +159,15 @@ hydromodpy = "hydromodpy.cli:main"
 # hydromodpy.spatial.terrain.registry, under the same three rules. It is what a
 # terrain-delineate request names in its "engine" member, so a flow-routing
 # engine is substituted from outside without a patch to this package.
+#
+# "hydromodpy.calibration.evaluator" and "hydromodpy.calibration.forward_model"
+# are the two of the calibration, read by
+# hydromodpy.calibration.evaluation.registry and by
+# hydromodpy.calibration.evaluation.forward_registry. The first turns a
+# parameter sample into a cost and is named by [calibration] evaluator; the
+# second answers the observables [calibration.outputs] declares and is named by
+# [calibration] forward_model, so a foreign model is scored by the criteria of
+# the document and brings none of its own.
 
 [project.urls]
 Homepage = "https://docs.hydromodpy.fr/"
