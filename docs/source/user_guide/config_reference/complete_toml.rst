@@ -560,7 +560,7 @@ Sub-models are linked back to their per-section page.
       # protocol = ...  # default = None
       # Optimization method. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.
       method = "grid"
-      # What turns one parameter sample into a cost. Unset runs the HydroModPy pipeline, which is what every calibrated number in this repository was produced with. A string and not an enumeration: the values that resolve depend on what is installed beside HydroModPy, which is how a surrogate or a foreign model is named without a patch.
+      # What turns one parameter sample into a cost. Unset runs the HydroModPy pipeline, which is what every calibrated number in this repository was produced with. A string and not an enumeration: the values that resolve depend on what is installed beside HydroModPy, which is how a surrogate or a foreign model is named without a patch. This build also ships 'analytic_bowl', which runs no model and scores a closed-form surface whose minimum is the midpoint of each parameter's interval: it rehearses a whole search -- space, optimizer, stopping rule, report -- in milliseconds, against an answer known in advance.
       # evaluator = ...  # default = None
       # Maximum number of calibration iterations.
       max_iter = 100
