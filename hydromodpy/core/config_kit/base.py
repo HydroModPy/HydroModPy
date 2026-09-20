@@ -97,6 +97,40 @@ class HydroModelBase(BaseModel):
     contradiction, and picking a winner silently would hide it.
     """
 
+    model_retired_keys: ClassVar[frozenset[str]] = frozenset()
+    """Keys this model used to accept and no longer has, at all.
+
+    ``model_legacy_keys`` covers a key that was renamed; this covers a key that
+    was removed. The distinction matters because ``extra="forbid"`` refuses both
+    the same way, and a removed key has no new spelling to migrate to.
+
+    A run seals its resolved configuration and ``hmp run --resume`` replays that
+    file, so dropping a field from the schema makes every sealed run unreplayable
+    unless its key keeps loading. Listing it here accepts it, ignores it, and
+    warns, which is what lets the field disappear from the schema without
+    rewriting history on disk.
+    """
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_retired_keys(cls, data: Any) -> Any:
+        retired = cls.model_retired_keys
+        if not retired or not isinstance(data, Mapping):
+            return data
+        present = [key for key in retired if key in data]
+        if not present:
+            return data
+        kept = dict(data)
+        for key in present:
+            warnings.warn(
+                f"{key!r} is no longer read by {cls.__name__}; it is accepted so that "
+                "files written before its removal keep loading, and it has no effect.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            kept.pop(key)
+        return kept
+
     @model_validator(mode="before")
     @classmethod
     def _accept_legacy_keys(cls, data: Any) -> Any:

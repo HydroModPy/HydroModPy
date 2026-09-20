@@ -153,7 +153,6 @@ thickness = 30.0
 # EPSG code or WKT string of the project coordinate reference system.
 # When set, all loaded data is reprojected to this CRS.
 # Type: string (optional) | Optional
-project_crs = "EPSG:2154"
 
 # Ordered list of data-manager types explicitly requested in [data].
 # Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography',

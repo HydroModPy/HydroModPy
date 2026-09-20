@@ -6,7 +6,13 @@ process is also open on the same file, the second caller raises
 with exponential backoff so short-lived contention (e.g. ``hmp catalog ls``
 running while ``hmp run`` commits) resolves transparently.
 
-Only ``duckdb.IOException`` is retried. Other exceptions propagate.
+Only that lock-contention ``duckdb.IOException`` is retried. Any other
+``duckdb.Error`` raised while opening a file that is actually there - a
+truncated write, a torn journal replay, on-disk corruption - is not a race
+to wait out, so it is reraised at once as
+:class:`~hydromodpy.core.exceptions.CatalogUnreadableError` instead of
+DuckDB's own trace. A missing path is a different, already legible failure
+and propagates unwrapped.
 
 The open is also where a write-ahead log left by an unclean shutdown is
 checkpointed back into the database file (see :func:`_absorb_stale_wal`).
@@ -20,10 +26,11 @@ import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import TypeVar
+from typing import NoReturn, TypeVar
 
 import duckdb
 
+from hydromodpy.core.exceptions import CatalogUnreadableError
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -61,6 +68,18 @@ def _is_lock_contention(exc: duckdb.IOException) -> bool:
     """Return whether ``exc`` looks like a transient DuckDB file-lock error."""
     message = str(exc).lower()
     return any(snippet in message for snippet in _LOCK_ERROR_SNIPPETS)
+
+
+def _raise_open_failure(db_path: str, exc: duckdb.Error) -> NoReturn:
+    """Raise for a DuckDB open failure that is not lock contention.
+
+    Wrapped into :class:`CatalogUnreadableError` when the file is actually
+    there and DuckDB still refused to open it - a missing path is a
+    different, already legible failure and propagates unwrapped.
+    """
+    if db_path != ":memory:" and Path(db_path).exists():
+        raise CatalogUnreadableError(db_path) from exc
+    raise exc
 
 
 def _is_attach_path_conflict(exc: duckdb.BinderException) -> bool:
@@ -200,7 +219,7 @@ def connect_with_retry(
             return connection
         except duckdb.IOException as exc:
             if not _is_lock_contention(exc):
-                raise
+                _raise_open_failure(db_path, exc)
             last_exc = exc
             if attempt == retries - 1:
                 break
@@ -213,6 +232,8 @@ def connect_with_retry(
                 retries,
                 sleep_for,
             )
+        except duckdb.Error as exc:
+            _raise_open_failure(db_path, exc)
     assert last_exc is not None
     raise last_exc
 

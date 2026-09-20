@@ -106,7 +106,6 @@ kind = "constant_thickness" # Depth-model kind discriminator. Use 'constant_thic
 thickness = 30.0 # Constant aquifer thickness applied below topography (canonical metres). Accepts inline units, e.g. '0.2 km'.
 
 [data]
-project_crs = "EPSG:2154" # EPSG code or WKT string of the project coordinate reference system. When set, all loaded data is reprojected to this CRS. Example: 'EPSG:2154' (Lambert-93).
 types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff"] # Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
 inference_mode = "warn" # Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred type has no explicit data.<type> section (except geology, which can use its default typed config).
 

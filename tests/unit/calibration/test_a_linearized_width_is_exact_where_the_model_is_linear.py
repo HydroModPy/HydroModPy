@@ -158,8 +158,25 @@ class TestThePassOverAReport:
         state: dict[str, object] = {"runs": 0}
         captured: dict[str, object] = {}
 
-        def _capture(_outputs, *, ctx=None, scoring_window=None, min_samples=1):
-            del ctx, scoring_window, min_samples
+        def _capture(
+            _outputs,
+            *,
+            ctx=None,
+            objective_blocks=None,
+            warmup_periods=0,
+            scoring_window=None,
+            min_samples=1,
+        ):
+            # Recorded, not discarded: the runner is what reads the blocks and
+            # the burn-in off the document, and a stub that shrugs at them would
+            # keep passing if it stopped.
+            state["capture_kwargs"] = {
+                "objective_blocks": objective_blocks,
+                "warmup_periods": warmup_periods,
+                "scoring_window": scoring_window,
+                "min_samples": min_samples,
+            }
+            del ctx
 
             def metric_fn(trial_ctx, *, objective=None, variable=None):
                 del objective, variable
@@ -199,6 +216,8 @@ class TestThePassOverAReport:
     def _cfg(self):
         return SimpleNamespace(
             outputs={"gauge": SimpleNamespace(observes="NANCON")},
+            objective_blocks=[],
+            warmup_periods=0,
             objective=None,
             variable=None,
             scoring_window=None,
@@ -208,6 +227,68 @@ class TestThePassOverAReport:
 
     def _space(self):
         return SimpleNamespace(names=("K", "Sy"))
+
+    def test_the_criteria_of_the_document_reach_the_capture(self, wired) -> None:
+        """The residuals have to be aligned the way the cost was."""
+        from hydromodpy.calibration.runners.cli_runner import attach_a_linearized_width
+
+        state, _captured = wired
+        cfg = self._cfg()
+        cfg.objective_blocks = ["a block"]
+        cfg.warmup_periods = 7
+        attach_a_linearized_width(
+            self._report(),
+            cfg=cfg,
+            trial_ctx=SimpleNamespace(ctx=None),
+            space=self._space(),
+            perturbation=0.01,
+        )
+
+        assert state["capture_kwargs"]["objective_blocks"] == ["a block"]
+        assert state["capture_kwargs"]["warmup_periods"] == 7
+        assert state["capture_kwargs"]["min_samples"] == 1
+
+    def test_a_document_that_carries_no_width_keeps_its_report(self, monkeypatch) -> None:
+        """A search already paid for is not thrown away over a declaration."""
+        from hydromodpy.calibration.metrics import composite as _composite
+        from hydromodpy.calibration.runners.cli_runner import attach_a_linearized_width
+        from hydromodpy.core.exceptions import UncertaintyNotAvailableError
+
+        def _refuses(*_args, **_kwargs):
+            raise UncertaintyNotAvailableError("this document cannot carry a width")
+
+        monkeypatch.setattr(_composite, "build_paired_vector_capture", _refuses)
+        report = self._report()
+
+        kept = attach_a_linearized_width(
+            report,
+            cfg=self._cfg(),
+            trial_ctx=SimpleNamespace(ctx=None),
+            space=self._space(),
+            perturbation=0.01,
+        )
+
+        assert kept is report
+        assert kept.parameter_uncertainty == ()
+
+    def test_a_record_that_failed_to_load_still_leaves_loudly(self, monkeypatch) -> None:
+        """Only the typed refusal is absorbed; a broken document is not."""
+        from hydromodpy.calibration.metrics import composite as _composite
+        from hydromodpy.calibration.runners.cli_runner import attach_a_linearized_width
+
+        def _breaks(*_args, **_kwargs):
+            raise ValueError("observes station 'GHOST', which the discharge family did not load")
+
+        monkeypatch.setattr(_composite, "build_paired_vector_capture", _breaks)
+
+        with pytest.raises(ValueError, match="did not load"):
+            attach_a_linearized_width(
+                self._report(),
+                cfg=self._cfg(),
+                trial_ctx=SimpleNamespace(ctx=None),
+                space=self._space(),
+                perturbation=0.01,
+            )
 
     def test_one_run_per_parameter_plus_the_reference(self, wired) -> None:
         from hydromodpy.calibration.runners.cli_runner import attach_a_linearized_width

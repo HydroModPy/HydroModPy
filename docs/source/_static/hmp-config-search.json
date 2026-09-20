@@ -13773,6 +13773,18 @@
     "description": "If False, the planner runs but no child workflows are launched."
   },
   {
+    "path": "analysis.batch.share_regional_flow",
+    "name": "share_regional_flow",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "analysis",
+    "anchor": "analysis-batch-share-regional-flow",
+    "page": "analysis.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L616",
+    "description": "Materialize one sealed regional flow job for eligible child simulations."
+  },
+  {
     "path": "analysis.batch.continue_on_error",
     "name": "continue_on_error",
     "type": "bool",
@@ -13781,7 +13793,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-continue-on-error",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L616",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L620",
     "description": "If True, keep dispatching siblings after a child failure."
   },
   {
@@ -13793,7 +13805,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-validate-config-paths",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L620",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L624",
     "description": "If True, ensure each rendered child config path exists before run."
   },
   {
@@ -13805,7 +13817,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-resume-from-report",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L624",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L628",
     "description": "If True, replay the previous report to skip already-completed cases."
   },
   {
@@ -13817,7 +13829,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-skip-completed-cases",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L628",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L632",
     "description": "If True, do not re-run cases marked as completed in the report."
   },
   {
@@ -13829,7 +13841,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L632",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L636",
     "description": "Site catalog source declaring the columns and filters used to enumerate runs."
   },
   {
@@ -14105,7 +14117,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-selection",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L635",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L639",
     "description": "Top-level site selection filters applied before cluster rules and recipes."
   },
   {
@@ -14237,7 +14249,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L638",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L642",
     "description": "Optional cluster enrichment rules applied on top of the catalog."
   },
   {
@@ -14513,7 +14525,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L642",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L646",
     "description": "Per-recipe expansion plans declaring which child launchers run on which sites."
   },
   {
@@ -17187,6 +17199,18 @@
     "description": "What turns one parameter sample into a cost. Unset runs the HydroModPy pipeline, which is what every calibrated number in this repository was produced with. A string and not an enumeration: the values that resolve depend on what is installe"
   },
   {
+    "path": "calibration.forward_model",
+    "name": "forward_model",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "calibration",
+    "anchor": "calibration-forward-model",
+    "page": "calibration.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1093",
+    "description": "What produces the simulated observables when the evaluator is the one that scores a model with the criteria of this file ('scored_forward_model'). The model answers the outputs declared under [calibration.outputs] and the objective blocks w"
+  },
+  {
     "path": "calibration.max_iter",
     "name": "max_iter",
     "type": "int",
@@ -17195,7 +17219,7 @@
     "section": "calibration",
     "anchor": "calibration-max-iter",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1093",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1109",
     "description": "Maximum number of calibration iterations."
   },
   {
@@ -17207,7 +17231,7 @@
     "section": "calibration",
     "anchor": "calibration-tolerance",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1098",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1114",
     "description": "How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a log-transformed parameter that is a ratio, which is how a conductivity is known "
   },
   {
@@ -17219,7 +17243,7 @@
     "section": "calibration",
     "anchor": "calibration-batch-size",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1114",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1130",
     "description": "Number of suggestions drawn per ask (for parallel optimizers)."
   },
   {
@@ -17231,7 +17255,7 @@
     "section": "calibration",
     "anchor": "calibration-parallel",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1119",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1135",
     "description": "Number of trials evaluated concurrently inside one batch via a thread pool. parallel=1 keeps the legacy sequential loop."
   },
   {
@@ -17243,7 +17267,7 @@
     "section": "calibration",
     "anchor": "calibration-reject-water-budget-above",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1127",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1143",
     "description": "Percent water-balance discrepancy past which a trial is rejected instead of scored. The solver reports the figure on every run; unset, it is recorded and nothing acts on it, so a run at twelve per cent is ranked beside one that closed even "
   },
   {
@@ -17255,7 +17279,7 @@
     "section": "calibration",
     "anchor": "calibration-warmup-periods",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1140",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1156",
     "description": "Spin-up (burn-in) periods excluded from every objective block. The first warmup_periods of each observed/simulated series are dropped before the metric, so the window where the state still depends on the initial condition does not bias the "
   },
   {
@@ -17267,7 +17291,7 @@
     "section": "calibration",
     "anchor": "calibration-scoring-window",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1152",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1168",
     "description": "Dates bounding the samples every metric is computed on. Mutually exclusive with warmup_periods, which counts samples instead of dates."
   },
   {
@@ -17303,7 +17327,7 @@
     "section": "calibration",
     "anchor": "calibration-phases",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1159",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1175",
     "description": "Stages run one after the other, each calibrating its own parameters and freezing them for the next. Declaring this table is what switches the runner to staged mode; without it nothing changes for an existing configuration. The default is No"
   },
   {
@@ -17555,7 +17579,7 @@
     "section": "calibration",
     "anchor": "calibration-reuse-completed-phases",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1170",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1186",
     "description": "Read a phase's frozen values back from a session that already completed it in the resumed chain, instead of solving the phase again. What it reuses: the physical values of the best trial that session's own record shows for that phase's para"
   },
   {
@@ -17567,7 +17591,7 @@
     "section": "calibration",
     "anchor": "calibration-seed",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1184",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1200",
     "description": "Random seed for reproducibility."
   },
   {
@@ -17579,7 +17603,7 @@
     "section": "calibration",
     "anchor": "calibration-save-runs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1188",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1204",
     "description": "How much to persist per iteration: - 'none': 1 DuckDB row per iteration, no Zarr. - 'best_n': same + promote top N to full simulations after the loop. - 'all': every iteration becomes a full simulation (Zarr included)."
   },
   {
@@ -17591,7 +17615,7 @@
     "section": "calibration",
     "anchor": "calibration-save-best-n",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1197",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1213",
     "description": "Number of top iterations to promote when save_runs='best_n'."
   },
   {
@@ -17603,7 +17627,7 @@
     "section": "calibration",
     "anchor": "calibration-use-cache",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1202",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1218",
     "description": "Enable params_hash content-addressable cache."
   },
   {
@@ -17615,7 +17639,7 @@
     "section": "calibration",
     "anchor": "calibration-lightweight-extraction",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1206",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1222",
     "description": "Skip Parquet/Zarr writes for lumped models (GR4J, ...) and read simulated series from the per-trial RAM cache instead. Only the promoted runs go through the catalog write path."
   },
   {
@@ -17627,7 +17651,7 @@
     "section": "calibration",
     "anchor": "calibration-objective",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1212",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1228",
     "description": "Metric scoring the single simulated series, when no objective block is declared. Same vocabulary as a block's 'metric'; typed here so a bad value is reported against the key that was written."
   },
   {
@@ -17639,7 +17663,7 @@
     "section": "calibration",
     "anchor": "calibration-variable",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1218",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1234",
     "description": "Observed variable (for ObservationSet)."
   },
   {
@@ -17651,7 +17675,7 @@
     "section": "calibration",
     "anchor": "calibration-observed-station-id",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1222",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1238",
     "description": "Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when"
   },
   {
@@ -17663,7 +17687,7 @@
     "section": "calibration",
     "anchor": "calibration-optimizer-kwargs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1226",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1242",
     "description": "Extra keyword arguments forwarded to the optimizer adapter."
   },
   {
@@ -17675,7 +17699,7 @@
     "section": "calibration",
     "anchor": "calibration-parameters",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1230",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1246",
     "description": "Per-parameter declarations (bounds, transform, prior, path)."
   },
   {
@@ -17771,7 +17795,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1234",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1250",
     "description": "Named observables extracted from each candidate run."
   },
   {
@@ -18107,7 +18131,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1238",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1254",
     "description": "Weighted blocks making up a composite objective. When empty, a single implicit block is built from 'objective' and 'variable'."
   },
   {
@@ -18203,7 +18227,7 @@
     "section": "calibration",
     "anchor": "calibration-persist-iteration-detail",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1243",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1259",
     "description": "'none' skips component metrics; 'summary' keeps block totals; 'full' also stores per-block raw and normalized costs."
   },
   {
@@ -18215,7 +18239,7 @@
     "section": "calibration",
     "anchor": "calibration-persist-model-distribution",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1248",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1264",
     "description": "Persist the candidate distribution alongside the session."
   },
   {
@@ -18227,7 +18251,7 @@
     "section": "calibration",
     "anchor": "calibration-rerun-best-with-outputs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1252",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1268",
     "description": "Replay the best candidate with full outputs after the loop."
   },
   {
@@ -18239,7 +18263,7 @@
     "section": "calibration",
     "anchor": "calibration-materialize-candidates",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1256",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1272",
     "description": "Write a standalone override TOML for each candidate under 'candidates_root' so runs can be replayed later."
   },
   {
@@ -18251,7 +18275,7 @@
     "section": "calibration",
     "anchor": "calibration-candidates-root",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1261",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1277",
     "description": "Directory for per-candidate overlay TOMLs. Required when materialize_candidates is True."
   },
   {
@@ -18263,7 +18287,7 @@
     "section": "calibration",
     "anchor": "calibration-aggregate",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1266",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1282",
     "description": "How several scored targets become one cost: what made them comparable, how nested gauges are read, and what one unscorable member does."
   },
   {
@@ -18323,7 +18347,7 @@
     "section": "calibration",
     "anchor": "calibration-uncertainty",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1271",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1287",
     "description": "How wide the search reports its own answer to be. The calibrated value is unaffected; this only decides the interval printed beside it."
   },
   {
@@ -18395,7 +18419,7 @@
     "section": "calibration",
     "anchor": "calibration-persistence",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1276",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1292",
     "description": "Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for calibration outputs."
   },
   {

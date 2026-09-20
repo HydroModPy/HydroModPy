@@ -99,14 +99,13 @@ class DataManagersConfig(HydroModelBase):
     by ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.
     """
 
-    project_crs: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "EPSG code or WKT string of the project coordinate reference system. "
-            "When set, all loaded data is reprojected to this CRS. "
-            "Example: 'EPSG:2154' (Lambert-93)."
-        ),
-    )
+    model_retired_keys = frozenset({"project_crs"})
+    """``project_crs`` promised reprojection and nothing read it.
+
+    The carrier is ``geographic.crs_project``. The key stays accepted, and
+    ignored, so the runs sealed while it existed keep replaying.
+    """
+
     types: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description=(

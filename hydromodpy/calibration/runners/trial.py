@@ -416,9 +416,14 @@ def run_trial_light(
         ``trial_ctx.override_paths``).
     objective
         Name of the scalar metric (``"nse"``, ``"kge"``, ``"rmse"``, …).
-        Forwarded to ``metric_fn`` when one is supplied.
+        Forwarded to ``metric_fn`` when one is supplied, which repeats what
+        that extractor was built on rather than choosing anything: the single
+        metric extractor refuses a pair it was not built for, because the
+        producer, the loaded records and the gauge the search follows are
+        chosen when it is built.
     variable
         Observed variable to compare against (``"head"``, ``"discharge"``).
+        Same rule as ``objective``.
     metric_fn
         Optional RAM-only extractor with signature
         ``(ctx, objective, variable) -> (primary, metrics)``. When

@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.administrative_france import validate_french_regions
 from hydromodpy.core.config_kit.base import HydroModelBase
@@ -1157,6 +1157,15 @@ class SiteSelectionConfig(HydroModelBase):
         default=None,
         description="Optional seed used by stochastic candidate thinning.",
     )
+    terrain_engine: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Flow-routing engine that conditions the DEM and delineates candidate "
+            "catchments. Unset uses the engine this build defaults to. A string and "
+            "not an enumeration, mirroring geographic.terrain_engine: the values that "
+            "resolve depend on what is installed beside HydroModPy."
+        ),
+    )
     strategy: Annotated[StrategyConfig, Profile.USER] = Field(default_factory=StrategyConfig)
     territory: Annotated[TerritoryConfig, Profile.USER] = Field(
         ...,
@@ -1180,6 +1189,28 @@ class SiteSelectionConfig(HydroModelBase):
     map_context: Annotated[MapContextConfig, Profile.USER] = Field(
         default_factory=MapContextConfig,
     )
+
+    @field_validator("terrain_engine")
+    @classmethod
+    def _check_terrain_engine_resolves(cls, value: str | None) -> str | None:
+        """Refuse an engine this installation cannot serve, while reading the document.
+
+        Mirror of ``GeographicConfig._check_terrain_engine_resolves``. ``None`` is
+        not checked: it means "whatever this build defaults to".
+        """
+        if value is None:
+            return value
+        from hydromodpy.spatial.terrain import registry as terrain_registry
+
+        if terrain_registry.is_registered(value):
+            return value
+        served = ", ".join(terrain_registry.list_engine_ids()) or "none"
+        raise ValueError(
+            f"site_selection.terrain_engine names {value!r}, and this installation serves "
+            f"{served}. A third-party engine joins that list through the "
+            f"{terrain_registry.ENTRY_POINT_GROUP!r} entry-point group, without a patch to "
+            "HydroModPy."
+        )
 
     @model_validator(mode="after")
     def _validate_selection_config(self) -> SiteSelectionConfig:

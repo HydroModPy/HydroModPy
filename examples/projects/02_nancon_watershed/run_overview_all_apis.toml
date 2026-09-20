@@ -76,7 +76,6 @@ snap_dist = "150 m"
 buff_area = "10%"
 
 [data]
-project_crs = "EPSG:2154"
 
 # Variable families exercised in this overview.
 # Only variables that the overview report can actually render are kept

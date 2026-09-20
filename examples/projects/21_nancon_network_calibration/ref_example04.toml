@@ -110,7 +110,6 @@ thickness = 30.0
 # injecte dans toute section qui n'en porte pas.
 
 [data]
-project_crs = "EPSG:2154"
 types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff"]
 
 [[data.dem.sources]]

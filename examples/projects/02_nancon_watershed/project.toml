@@ -95,7 +95,6 @@ thickness = 30.0
 
 [data]
 # All loaded data is reprojected to Lambert-93 to match the project CRS.
-project_crs = "EPSG:2154"
 
 # Data families needed for the Nançon simulations:
 #   dem          : topography

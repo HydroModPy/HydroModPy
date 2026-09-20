@@ -87,6 +87,9 @@ _BUILTIN_PATHS: dict[str, str] = {
         "hydromodpy.calibration.evaluation.pipeline_evaluator:PipelineTrialEvaluator"
     ),
     "analytic_bowl": "hydromodpy.calibration.evaluation.analytic_bowl:AnalyticBowlEvaluator",
+    "scored_forward_model": (
+        "hydromodpy.calibration.evaluation.scored_forward:ScoredForwardEvaluator"
+    ),
 }
 """Dotted paths to the in-tree evaluator classes, imported on first lookup.
 

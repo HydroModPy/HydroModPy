@@ -1,0 +1,17 @@
+[project]
+name = "hydromodpy-forward-cascade"
+version = "0.1.0"
+description = "An out-of-tree two-reservoir cascade forward model for HydroModPy calibration"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = ["hydromodpy"]
+
+[project.entry-points."hydromodpy.calibration.forward_model"]
+two_reservoir_cascade = "hydromodpy_forward_cascade.model:CascadeForwardModel"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

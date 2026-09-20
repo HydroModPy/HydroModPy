@@ -66,6 +66,5 @@ def test_solver_extract_module_exposes_extractors() -> None:
     assert callable(solver_extract.resolve_flow_adapter)
     assert callable(solver_extract.extract_outputs)
     assert callable(solver_extract.observable_request_for_output)
-    assert callable(solver_extract.observable_series)
     assert callable(solver_extract.resolve_station_cells)
     assert callable(solver_extract.find_cell_at_point)

@@ -13,7 +13,12 @@ back, and the twelfth is ``ValidateStep``, which runs before there is one.
 Everything the typed-state docstring used to promise -
 a resolved data plan, a geographic runtime, a mesh, a setup, an open store, a
 solver result - travels on that one object, not as a payload key. Naming the
-coupling is the first step of removing it; F8 is that removal.
+coupling is the first step of removing it, and the measurement that followed
+said what removal could mean: the context is a typed parameter threaded from
+step to step, and the coupling that matters is the mutable ``SetupContext``
+reached through it, which no narrow view withholds. So the contract is not that
+the object disappears, it is that every member it carries has a reader, gated in
+``tests/unit/architecture/test_workflow_context_members_have_a_reader.py``.
 
 The payload is a mapping and not something narrower because the runner needs it
 to be one, on three paths: a cohort of parallel steps is merged by unioning
@@ -26,7 +31,7 @@ had zero instantiations anywhere in the repository and lived only as ``tin`` /
 ``tout`` class variables that no production code read. Ten of their sixteen
 fields named no payload key that any step ever wrote, and ``ctx`` - the key every
 step but the first reads - appeared in none of them. They documented a
-decomposition that did not exist, in the shape of the accumulator F8 dissolves.
+decomposition that did not exist, in the shape of the accumulator F8 narrows.
 What replaced them is a per-step declaration of the payload keys a step reads
 and writes, gated in ``tests/unit/architecture/test_step_payload_keys.py``: a
 narrow statement that is checked against the code instead of a wide one that was

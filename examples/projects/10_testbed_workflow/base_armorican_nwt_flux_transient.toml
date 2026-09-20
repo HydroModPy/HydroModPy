@@ -36,7 +36,6 @@ kind = "constant_thickness"
 thickness = "30.0 m"
 
 [data]
-project_crs = "EPSG:2154"
 types = ["dem", "hydrography", "recharge"]
 inference_mode = "warn"
 

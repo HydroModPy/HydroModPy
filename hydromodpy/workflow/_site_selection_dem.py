@@ -93,6 +93,7 @@ def _maybe_delineate_from_outlets(
         crs_project=_first_outlet_crs(catchments),
         backend=backend,
         builder=flow_products_builder or build_regional_flow_products,
+        engine_id=config.terrain_engine,
     )
     reference_network, reference_bundle = _maybe_load_reference_network(
         config=config,
@@ -109,6 +110,7 @@ def _maybe_delineate_from_outlets(
             site_id=catchment.site_id,
             backend=backend,
             builder=delineation_builder or extract_catchment_from_point,
+            engine_id=config.terrain_engine,
             area_reader=area_reader,
             reference_network=reference_network,
             reference_network_source=("" if reference_bundle is None else reference_bundle.source),

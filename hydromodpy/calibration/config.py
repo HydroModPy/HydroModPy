@@ -1090,6 +1090,22 @@ class CalibrationConfig(HydroModelBase):
             "milliseconds, against an answer known in advance."
         ),
     )
+    forward_model: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "What produces the simulated observables when the evaluator is the one "
+            "that scores a model with the criteria of this file "
+            "('scored_forward_model'). The model answers the outputs declared under "
+            "[calibration.outputs] and the objective blocks weigh them, so changing a "
+            "metric or a weight is a change to this document and never a patch to the "
+            "model. A string and not an enumeration: what resolves depends on what is "
+            "installed beside HydroModPy, through the "
+            "'hydromodpy.calibration.forward_model' entry-point group. Unset runs "
+            "'linear_reservoir', the closed-form reservoir this build ships, which is "
+            "how a set of criteria is rehearsed before a model is installed. Read by "
+            "no other evaluator."
+        ),
+    )
     max_iter: Annotated[int, Profile.USER] = Field(
         default=100,
         ge=1,
@@ -1304,6 +1320,29 @@ class CalibrationConfig(HydroModelBase):
             f"calibration.evaluator names {value!r}, and this installation serves {served}. "
             f"A third-party evaluator joins that list through the "
             f"{evaluator_registry.ENTRY_POINT_GROUP!r} entry-point group, without a patch to "
+            "HydroModPy."
+        )
+
+    @field_validator("forward_model")
+    @classmethod
+    def _check_forward_model_resolves(cls, value: str | None) -> str | None:
+        """Refuse a model this installation cannot serve, while reading the document.
+
+        Same place and same reason as the evaluator above: a file naming a model
+        nobody installed is a broken document, and finding out at the first trial
+        costs everything the search set up before it.
+        """
+        if value is None:
+            return value
+        import hydromodpy.calibration.evaluation.forward_registry as forward_registry
+
+        if forward_registry.is_registered(value):
+            return value
+        served = ", ".join(forward_registry.list_model_ids()) or "none"
+        raise ValueError(
+            f"calibration.forward_model names {value!r}, and this installation serves "
+            f"{served}. A third-party model joins that list through the "
+            f"{forward_registry.ENTRY_POINT_GROUP!r} entry-point group, without a patch to "
             "HydroModPy."
         )
 

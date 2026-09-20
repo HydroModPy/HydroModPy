@@ -116,6 +116,7 @@ def build_site_selection_from_point_records(
         hydrology=config.hydrology,
         crs_project=target_crs,
         backend=backend,
+        engine_id=config.terrain_engine,
         builder=flow_products_builder or build_regional_flow_products,
     )
     reference_network, reference_bundle = load_reference_network_for_station_candidates(
@@ -132,6 +133,7 @@ def build_site_selection_from_point_records(
         snap_dist_m=config.outlets.snap_dist_m,
         crs_project=target_crs or first_candidate_crs(candidates),
         backend=backend,
+        engine_id=config.terrain_engine,
         delineation_builder=delineation_builder,
         area_reader=area_reader,
         reference_network=reference_network,
@@ -234,6 +236,7 @@ def build_site_selection_from_generated_network(
         hydrology=config.hydrology,
         crs_project=target_crs,
         backend=backend,
+        engine_id=config.terrain_engine,
         builder=flow_products_builder or build_regional_flow_products,
     )
     candidate_result = build_generated_network_candidates(
@@ -253,6 +256,7 @@ def build_site_selection_from_generated_network(
         snap_dist_m=config.outlets.snap_dist_m,
         crs_project=target_crs or first_candidate_crs(candidates),
         backend=backend,
+        engine_id=config.terrain_engine,
         delineation_builder=delineation_builder,
         area_reader=area_reader,
         reference_network=(
@@ -376,6 +380,7 @@ def build_site_selection_from_dem_area_light(
         hydrology=config.hydrology,
         crs_project=target_crs,
         backend=backend,
+        engine_id=config.terrain_engine,
         builder=flow_products_builder or build_regional_flow_products,
     )
     candidate_result = build_dem_area_light_candidates(
@@ -397,6 +402,7 @@ def build_site_selection_from_dem_area_light(
         snap_dist_m=1,
         crs_project=target_crs or first_candidate_crs(candidates),
         backend=backend,
+        engine_id=config.terrain_engine,
         delineation_builder=delineation_builder,
         area_reader=area_reader,
     )
