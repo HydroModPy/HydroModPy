@@ -28,6 +28,8 @@ def methods_paragraph(
     chosen: Mapping[str, object] | None = None,
     options: Sequence[Mapping[str, object]] | None = None,
     backend: str | None = None,
+    conditional_widths: Mapping[str, str] | None = None,
+    absent_widths: Mapping[str, str] | None = None,
 ) -> str:
     """Return the Methods prose for one calibration that ran.
 
@@ -37,6 +39,19 @@ def methods_paragraph(
     departs from its publication on, ``options`` the protocol options it moved off
     the recipe, and ``backend`` the solver, whose support status is stated when it
     is not one this repository tests.
+
+    ``conditional_widths`` names, per stage, a parameter uncertainty that WAS
+    reported but is conditional rather than absolute -- typically frozen
+    upstream values it does not carry. A conditional width read as an absolute
+    one is a wrong number, not a missing detail, so it belongs in the paragraph
+    a reader actually cites, not only in a log line.
+
+    ``absent_widths`` names, per stage, why NO parameter uncertainty was built
+    at all (a reused stage that was not resolved, or a stage with no residual
+    vector to take a width from). This must stay a separate key from
+    ``conditional_widths``: a stage with nothing to report is not the same
+    claim as a stage reporting a number that comes with a caveat, and folding
+    the two together reads as if every listed stage carried a width.
     """
     protocol = get_protocol(name)
     parts: list[str] = []
@@ -90,6 +105,14 @@ def methods_paragraph(
             f"{item['key']} = {item['here']!r} instead of {item['recipe']!r}" for item in options
         )
         parts.append(f"Protocol options were moved off the recipe: {listed}.")
+
+    if conditional_widths:
+        listed = "; ".join(f"{stage}: {note}" for stage, note in sorted(conditional_widths.items()))
+        parts.append(f"Reported parameter uncertainty is conditional on the following: {listed}.")
+
+    if absent_widths:
+        listed = "; ".join(f"{stage}: {note}" for stage, note in sorted(absent_widths.items()))
+        parts.append(f"No parameter uncertainty was built for: {listed}.")
 
     if backend:
         verdict = protocol.support.get(str(backend))

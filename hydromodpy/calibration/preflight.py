@@ -362,40 +362,49 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
     findings: list[PreflightFinding] = []
     uncertainty = getattr(calibration, "uncertainty", None)
     if getattr(uncertainty, "method", None) == "linearized":
-        observing = [
-            name
-            for name, decl in (calibration.outputs or {}).items()
-            if getattr(decl, "observes", None) is not None
-        ]
-        if not observing:
-            findings.append(
-                PreflightFinding(
-                    "error",
-                    "[calibration.uncertainty]",
-                    "method='linearized' is built from residuals, and no output names a "
-                    'station to be compared against. Declare observes = "<station>" on the '
-                    "outputs this calibration is fitted to, or use method='cost_profile', "
-                    "which reads the trace instead.",
-                )
-            )
-        # Same reason as the precision below: the width is built after the last
-        # solve, so `hmp calibrate --check` is where a document that can never
-        # carry one is named, before any of it is paid for. Skipped on a phased
-        # document, where no width is attached at all today.
-        elif not (calibration.phases or []):
-            from hydromodpy.calibration.metrics.composite import (
-                refuse_a_burn_in_the_residuals_cannot_honour,
-            )
-            from hydromodpy.core.exceptions import UncertaintyNotAvailableError
+        # Same reason as the precision below: the width is built after the
+        # last solve, so `hmp calibrate --check` is where a document that can
+        # never carry one is named, before any of it is paid for. A phased
+        # document gets one width per phase (D234), built from what THAT
+        # PHASE scores, so each phase is checked on its own selection rather
+        # than on the whole file's.
+        from hydromodpy.calibration.metrics.composite import (
+            refuse_a_burn_in_the_residuals_cannot_honour,
+        )
+        from hydromodpy.core.exceptions import UncertaintyNotAvailableError
 
+        for where, outputs, blocks, single_metric in _linearized_scored_outputs(calibration):
+            observing = [
+                name
+                for name, decl in outputs.items()
+                if getattr(decl, "observes", None) is not None
+            ]
+            if not observing:
+                if single_metric:
+                    detail = (
+                        "scores on variable/objective directly, not on paired residuals: it "
+                        "builds no residual vector for a linearized width to be taken from. "
+                        "A single-metric phase inherits none of the calibration's outputs, "
+                        "whatever another output in this file declares -- see _phase_config -- "
+                        "so naming observes elsewhere is not a remedy here. Read the width "
+                        "with method='cost_profile', or restructure this phase to score "
+                        "objective_blocks."
+                    )
+                else:
+                    detail = (
+                        "method='linearized' is built from residuals, and no output names a "
+                        'station to be compared against. Declare observes = "<station>" on '
+                        "the outputs this calibration is fitted to, or use "
+                        "method='cost_profile', which reads the trace instead."
+                    )
+                findings.append(PreflightFinding("error", where, detail))
+                continue
             try:
                 refuse_a_burn_in_the_residuals_cannot_honour(
-                    calibration.outputs or {},
-                    list(calibration.objective_blocks or []),
-                    int(calibration.warmup_periods or 0),
+                    outputs, blocks, int(calibration.warmup_periods or 0)
                 )
             except UncertaintyNotAvailableError as exc:
-                findings.append(PreflightFinding("error", "[calibration.uncertainty]", str(exc)))
+                findings.append(PreflightFinding("error", where, str(exc)))
     restarts = getattr(getattr(calibration, "uncertainty", None), "restarts", None)
     for where, method, tolerance, kwargs in _declared_precisions(calibration):
         if restarts is not None and method in known:
@@ -505,15 +514,17 @@ def _flow_adapter_for(config: Any) -> Any | None:
 
 def _searches(calibration: Any) -> list[tuple[str, str, list[str], set[str], int]]:
     """Return one entry per search: where it is written, and what it is handed."""
-    blocks = {block.name: str(block.metric) for block in calibration.objective_blocks or []}
-    every_metric = set(blocks.values())
 
     def _metrics_of(selected: list[str], single: str | None) -> set[str]:
         if single:
             return {str(single)}
-        if selected:
-            return {blocks[name] for name in selected if name in blocks}
-        return set(every_metric)
+        # Collapsed by name, last one wins. Two blocks may share a name - the
+        # file is refused for it, but this runs before that refusal is reached,
+        # and keeping both would change which of the other findings fire.
+        by_name = {
+            block.name: str(block.metric) for block in _phase_named_blocks(calibration, selected)
+        }
+        return set(by_name.values())
 
     if not calibration.phases:
         return [
@@ -535,6 +546,66 @@ def _searches(calibration: Any) -> list[tuple[str, str, list[str], set[str], int
         )
         for phase in calibration.phases
     ]
+
+
+def _phase_named_blocks(calibration: Any, names: list[str]) -> list[Any]:
+    """Return the objective blocks named, or every declared one when none are.
+
+    The name-matching rule ``_searches`` applies to build each search's metric
+    set, factored out so a linearized width's per-phase check does not write a
+    second version of it. ``_searches`` collapses the result by block name on
+    top of this; the width check reads the block objects themselves.
+    """
+    declared = list(calibration.objective_blocks or [])
+    if not names:
+        return declared
+    selected = set(names)
+    return [block for block in declared if block.name in selected]
+
+
+def _linearized_scored_outputs(
+    calibration: Any,
+) -> list[tuple[str, Mapping[str, Any], list[Any], bool]]:
+    """Return, per search, its label, what it actually scores, and whether it is single-metric.
+
+    Mirrors the output and block selection
+    ``hydromodpy.calibration.runners.staged_runner._phase_config`` builds for
+    a phase: naming no block reads every declared one, naming no output reads
+    what the blocks read, and a single-metric phase (naming its own
+    ``variable`` or ``objective`` instead of blocks) reads neither -- there is
+    nothing there for a linearized width to be built from, which is a finding
+    of its own rather than a silent skip.
+
+    The output filter below reads ``phase.objective_blocks`` -- the phase's OWN
+    declaration -- exactly as ``_phase_config`` does. Reading the resolved
+    ``blocks`` list instead (non-empty whenever the calibration declares any
+    block at all, even one the phase never named) filters outputs down to what
+    OTHER phases' blocks read, dropping an output this phase would have kept.
+    """
+    if not calibration.phases:
+        return [
+            (
+                "[calibration.uncertainty]",
+                calibration.outputs or {},
+                list(calibration.objective_blocks or []),
+                False,
+            )
+        ]
+    result: list[tuple[str, Mapping[str, Any], list[Any], bool]] = []
+    for phase in calibration.phases:
+        where = f"[[calibration.phases]] {phase.name!r}"
+        if phase.is_single_metric:
+            result.append((where, {}, [], True))
+            continue
+        outputs = dict(calibration.outputs or {})
+        blocks = _phase_named_blocks(calibration, list(phase.objective_blocks))
+        if phase.outputs:
+            outputs = {name: outputs[name] for name in phase.outputs if name in outputs}
+        elif phase.objective_blocks:
+            read = {name for block in blocks for name in block.uses_outputs}
+            outputs = {name: value for name, value in outputs.items() if name in read}
+        result.append((where, outputs, blocks, False))
+    return result
 
 
 def _missing(

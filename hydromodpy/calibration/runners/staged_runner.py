@@ -29,7 +29,7 @@ from __future__ import annotations
 import math
 import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -48,6 +48,7 @@ from hydromodpy.calibration.protocols import (
     protocol_record,
 )
 from hydromodpy.calibration.runners.cli_runner import (
+    attach_a_linearized_width,
     load_toml_calibration,
     run_calibration_core,
 )
@@ -394,6 +395,109 @@ def _frozen_by(
     )
 
 
+#: Why no width exists when the phase itself cannot carry one. Written on both
+#: paths - the phase that was solved and the phase that was reused - so the
+#: Methods paragraph gives the same reason either way.
+_NO_STATION_TO_TAKE_A_WIDTH_FROM = (
+    "not attached: none of the outputs this phase scores can name a station, so "
+    "there is no residual vector to take a width from"
+)
+
+
+def _attach_linearized_width(
+    report: CalibrationReport,
+    *,
+    cfg: CalibrationConfig,
+    phase_cfg: CalibrationConfig,
+    phase_name: str,
+    trial_ctx: TrialContext,
+    space: ParameterSpace,
+    frozen: Sequence[FrozenParameter],
+) -> CalibrationReport:
+    """Attach a linearized width to one phase's report, when the document asks for one.
+
+    ``uncertainty.method`` is declared once for the whole document, so every
+    phase shares it (D234 in the campaign decisions): the width is built at the
+    end of each phase, from the parameters and the outputs THAT PHASE scored --
+    ``phase_cfg``, not ``cfg``.
+
+    A phase none of whose outputs can name a station cannot structurally carry
+    a width. That is refused early, before paying for a call this phase could
+    never answer, and the refusal never destroys the report: the search
+    already paid for it in solver hours (D231), a width is only ever an
+    optional reading of it.
+
+    The line is drawn on what an output CAN declare, not on what it did. An
+    output that could have named a station and did not is a document mistake,
+    still left to fail loudly the way it always has, by the un-caught call
+    below - that is D231's own exception and it is kept intact.
+    """
+    uncertainty = getattr(cfg, "uncertainty", None)
+    if getattr(uncertainty, "method", None) != "linearized":
+        return report
+    if not _phase_can_carry_a_linearized_width(phase_cfg):
+        logger.warning(
+            "Phase %s: no linearized width is attached, none of the outputs it scores "
+            "can name a station to take residuals from. Use method='cost_profile', or "
+            "score an output whose support carries observations.",
+            phase_name,
+        )
+        # The Methods paragraph reads this. A width that was never built has to
+        # say so there too, not only in a log line nobody quotes in a paper.
+        return replace(
+            report,
+            extra={
+                **report.extra,
+                "parameter_uncertainty_absent_note": _NO_STATION_TO_TAKE_A_WIDTH_FROM,
+            },
+        )
+    report = attach_a_linearized_width(
+        report,
+        cfg=phase_cfg,
+        trial_ctx=trial_ctx,
+        space=space,
+        perturbation=float(uncertainty.perturbation),
+    )
+    if frozen and report.parameter_uncertainty:
+        held = ", ".join(sorted({item.name for item in frozen}))
+        note = (
+            f"conditional on {held}, frozen by an earlier phase rather than recalibrated "
+            "here: this width does not carry their uncertainty"
+        )
+        logger.info("Phase %s: width is %s", phase_name, note)
+        report = replace(report, extra={**report.extra, "parameter_uncertainty_note": note})
+    return report
+
+
+def _phase_can_carry_a_linearized_width(phase_cfg: CalibrationConfig) -> bool:
+    """Whether this phase scores an output a linearized width can be taken from.
+
+    The question is whether a residual vector can exist here at all, and
+    ``bool(phase_cfg.outputs)`` is not that question. The only registered
+    protocol scores its steady stage on a ``support = "network"`` output, and
+    ``CalibOutputNetwork`` carries no ``observes`` field - the loader refuses
+    one. That phase holds an output, holds no station, and can never hold one:
+    asking for a width there killed the whole staged run after the steady
+    search had been paid for.
+
+    So two levels, and they are not the same answer:
+
+    - an output that names a station: a width can be taken, return True;
+    - none names one, but one COULD: a document mistake, return True and let
+      the call below fail loudly, which is what D231 asks for;
+    - none can, because no output of this phase even carries the field: the
+      shape of the phase, not a mistake in the file. Return False.
+
+    A single-metric phase lands in the third case for a different reason:
+    ``_phase_config`` empties its ``outputs`` whatever the rest of the file
+    declares.
+    """
+    outputs = phase_cfg.outputs or {}
+    if any(getattr(decl, "observes", None) is not None for decl in outputs.values()):
+        return True
+    return any(hasattr(decl, "observes") for decl in outputs.values())
+
+
 def _require_result_for_dependents(
     decl: CalibPhaseDecl,
     report: CalibrationReport,
@@ -684,6 +788,23 @@ def run_staged_calibration(
                 decl.name,
                 session_id,
             )
+            if getattr(getattr(cfg, "uncertainty", None), "method", None) == "linearized":
+                if _phase_can_carry_a_linearized_width(phase_cfg):
+                    note = (
+                        "not attached: this phase was reused from a previous run "
+                        "(reuse_completed_phases) rather than solved, and building a "
+                        "linearized width perturbs and reruns the model -- the exact "
+                        "cost this reuse was written to avoid"
+                    )
+                else:
+                    # Reuse is not why this one is absent: a phase whose outputs
+                    # cannot name a station carries no width whether it is reused
+                    # or solved.
+                    note = _NO_STATION_TO_TAKE_A_WIDTH_FROM
+                logger.info("Phase %s: linearized width is %s", decl.name, note)
+                report = replace(
+                    report, extra={**report.extra, "parameter_uncertainty_absent_note": note}
+                )
         else:
             session_id = uuid.uuid4().hex
             if root_session_id is None:
@@ -749,6 +870,15 @@ def run_staged_calibration(
                     seed=phase_cfg.seed,
                 )
             restart_spreads.extend(spread)
+            report = _attach_linearized_width(
+                report,
+                cfg=cfg,
+                phase_cfg=phase_cfg,
+                phase_name=decl.name,
+                trial_ctx=trial_ctx,
+                space=space,
+                frozen=frozen,
+            )
             froze = _frozen_by(decl, report, declared)
 
         _require_result_for_dependents(decl, report, plans[position + 1 :])
@@ -801,12 +931,24 @@ def _methods_paragraph_for(
             value = getattr(output, key, None)
             if value is not None:
                 chosen.setdefault(key, value)
+    conditional_widths = {
+        run.name: run.report.extra["parameter_uncertainty_note"]
+        for run in runs
+        if run.report.extra.get("parameter_uncertainty_note")
+    }
+    absent_widths = {
+        run.name: run.report.extra["parameter_uncertainty_absent_note"]
+        for run in runs
+        if run.report.extra.get("parameter_uncertainty_absent_note")
+    }
     return methods_paragraph(
         cfg.protocol.name,
         stages_that_ran=completed,
         calibrated=calibrated or None,
         chosen=chosen or None,
         options=protocol_options_away_from_the_recipe(cfg.protocol.name, cfg.protocol) or None,
+        conditional_widths=conditional_widths or None,
+        absent_widths=absent_widths or None,
     )
 
 

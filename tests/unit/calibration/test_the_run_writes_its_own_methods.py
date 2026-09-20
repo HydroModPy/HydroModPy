@@ -103,6 +103,65 @@ def test_an_unknown_protocol_is_refused_with_the_list() -> None:
         methods_paragraph("abherve", stages_that_ran=[])
 
 
+class TestItReportsParameterUncertaintyWidths:
+    """A width that WAS attached but is conditional is a different claim from
+
+    no width having been built at all -- ``conditional_widths`` and
+    ``absent_widths`` must render as two distinct sentences, never merged into
+    one that would read as if every listed stage carried a number.
+    """
+
+    def test_a_conditional_width_is_reported_in_its_own_sentence(self) -> None:
+        # Negative control: delete the `if conditional_widths:` block in
+        # boilerplate.py and this goes red.
+        text = methods_paragraph(
+            NAME,
+            stages_that_ran=["steady_conductivity", "transient_storage"],
+            conditional_widths={
+                "transient_storage": "conditional on K, frozen by steady_conductivity"
+            },
+        )
+
+        assert (
+            "Reported parameter uncertainty is conditional on the following: "
+            "transient_storage: conditional on K, frozen by steady_conductivity."
+        ) in text
+
+    def test_an_absent_width_is_reported_in_a_different_sentence(self) -> None:
+        # Negative control: delete the `if absent_widths:` block in
+        # boilerplate.py and this goes red.
+        text = methods_paragraph(
+            NAME,
+            stages_that_ran=["steady_conductivity"],
+            absent_widths={"steady_conductivity": "not attached: this phase was reused"},
+        )
+
+        assert (
+            "No parameter uncertainty was built for: "
+            "steady_conductivity: not attached: this phase was reused."
+        ) in text
+        assert "is conditional on the following" not in text
+
+    def test_neither_key_appears_when_no_width_note_exists(self) -> None:
+        text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"])
+
+        assert "parameter uncertainty" not in text.lower()
+
+    def test_the_two_families_never_share_one_sentence(self) -> None:
+        # Both present at once: still two sentences, not one blended claim,
+        # and no double period from a note that already ends with one.
+        text = methods_paragraph(
+            NAME,
+            stages_that_ran=["steady_conductivity", "transient_storage"],
+            conditional_widths={"transient_storage": "conditional on K"},
+            absent_widths={"steady_conductivity": "not attached: this phase was reused"},
+        )
+
+        assert "is conditional on the following" in text
+        assert "was built for" in text
+        assert ".." not in text
+
+
 class TestTheStagedReportCarriesIt:
     def test_the_report_holds_the_paragraph(self) -> None:
         from hydromodpy.calibration.runners.staged_runner import StagedCalibrationReport

@@ -49,6 +49,36 @@ Each release section includes the following standard categories:
   `ResolvedSimulationTimeGrid`, not reviving a parallel temporal model.
 
 ### Changed
+- A staged calibration declaring `uncertainty.method = "linearized"` now gets a
+  width per phase, taken around that phase's own optimum. It got none at all:
+  the dispatch that builds one lives in the non-staged route, so the search was
+  paid for in solver hours and nothing came back. Of the three declared
+  methods two were already honoured per phase - `cost_profile` inside the core
+  the staged route calls, `multistart` reimplemented by the staged runner - and
+  `linearized` was orphaned by anatomy, not by meaning.
+- A width taken after an earlier phase froze parameters is conditional on that
+  freeze, and the Methods paragraph says so instead of reporting it as an
+  absolute. It also tells a width that was built and is conditional from one
+  that was never built: "Reported parameter uncertainty is conditional on the
+  following" covers the first, "No parameter uncertainty was built for" the
+  second. A run whose phases were all reused from disk used to claim a reported
+  uncertainty where there was none.
+- A phase none of whose outputs can name a station keeps its report instead of
+  losing it. `CalibOutputNetwork` carries no `observes` field, so the steady
+  stage of `matching_hydrographic_network` - the only registered protocol -
+  holds an output, holds no station and can never hold one; asking for a width
+  there ended the whole staged run after the steady search had been paid for.
+  An output that could have named a station and did not is still a document
+  mistake and still fails loudly.
+- `hmp calibrate --check` counts two refusals on a document declaring phases
+  that it did not count before, and exits non-zero where it exited 0. The
+  burn-in guard for `method = "linearized"` skipped every phased document,
+  since no width was built for one, and now applies phase by phase. And the
+  refusal for an output naming no station is raised once per search rather than
+  once per file, so a five-phase document says which phase cannot carry a
+  width. On a single-metric phase the message names the real mechanism, a phase
+  scored on `variable`/`objective` inherits none of the calibration's outputs,
+  instead of pointing at an `observes` the schema refuses on that phase.
 - Example 04 renders eight figures instead of twenty. What went were the
   duplicates, not the diagnostics: four comparison panels folding the same 36
   residuals, a duration curve over 36 monthly points, a boxplot of three
