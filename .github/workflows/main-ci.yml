@@ -446,6 +446,115 @@ jobs:
           print(f"{len(executed)} conformance nodes executed against hydromodpy-terrain-scipy")
           PY
 
+  evaluator-second-model:
+    name: Calibration / installed foreign evaluator py3.12
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Build both wheels
+        run: |
+          pip install --upgrade pip "build>=1.2"
+          python -m build --wheel --outdir dist .
+          python -m build --wheel --outdir dist evaluator_reservoir
+
+      - name: Install both wheels into a fresh environment
+        run: |
+          python -m venv /tmp/hmp-evaluator
+          /tmp/hmp-evaluator/bin/pip install --upgrade pip
+          /tmp/hmp-evaluator/bin/pip install "$(ls dist/hydromodpy-*.whl)[test]"
+          /tmp/hmp-evaluator/bin/pip install dist/hydromodpy_evaluator_reservoir-*.whl
+
+      - name: Verify the evaluator came from the installed wheel
+        working-directory: /
+        run: |
+          /tmp/hmp-evaluator/bin/python - <<'PY'
+          import inspect
+
+          import hydromodpy
+          from hydromodpy.calibration.evaluation import registry
+
+          served = registry.list_evaluator_ids()
+          assert "reservoir_recession" in served, served
+          assert "reservoir_recession" not in registry.builtin_evaluator_ids()
+          source = inspect.getfile(registry.get("reservoir_recession"))
+          assert "site-packages" in source, source
+          assert "site-packages" in hydromodpy.__file__, hydromodpy.__file__
+          print(source)
+          PY
+
+      - name: Run the registry-driven conformance suite
+        working-directory: /
+        run: |
+          /tmp/hmp-evaluator/bin/python - <<'PY'
+          import os
+          from pathlib import Path
+
+          import hydromodpy
+          import pytest
+
+          assert "site-packages" in hydromodpy.__file__, hydromodpy.__file__
+          suite = Path(os.environ["GITHUB_WORKSPACE"]) / "tests/contract/test_trial_evaluator_contract.py"
+          raise SystemExit(pytest.main([
+              str(suite), "-q", "-p", "no:cacheprovider",
+              "--junitxml=/tmp/evaluator-conformance.xml",
+          ]))
+          PY
+
+      - name: Verify the installed evaluator executed its conformance nodes
+        run: |
+          /tmp/hmp-evaluator/bin/python - <<'PY'
+          import xml.etree.ElementTree as ET
+
+          cases = [
+              case
+              for case in ET.parse("/tmp/evaluator-conformance.xml").getroot().iter("testcase")
+              if "reservoir_recession" in case.get("name", "")
+          ]
+          executed = [case for case in cases if case.find("skipped") is None]
+          assert len(executed) >= 10, f"{len(executed)} of {len(cases)} nodes ran"
+          print(f"{len(executed)} conformance nodes ran on the installed evaluator")
+          PY
+
+      - name: Calibrate the foreign model from its TOML
+        working-directory: /
+        run: |
+          /tmp/hmp-evaluator/bin/python - <<'PY'
+          import inspect
+          import os
+          from pathlib import Path
+
+          import hydromodpy as hmp
+          from hydromodpy.calibration.evaluation import registry
+          import hydromodpy.calibration.runners.cli_runner as cli_runner
+
+          assert "site-packages" in hmp.__file__, hmp.__file__
+          evaluator_file = inspect.getfile(registry.get("reservoir_recession"))
+          assert "site-packages" in evaluator_file, evaluator_file
+
+          def forbidden_prepare(*args, **kwargs):
+              raise AssertionError("a foreign evaluator prepared the HydroModPy model")
+
+          cli_runner.prepare_trials = forbidden_prepare
+          report = hmp.calibrate(
+              Path(os.environ["GITHUB_WORKSPACE"]) / "evaluator_reservoir/recession_calibration.toml",
+              workspace=Path("/tmp/hmp-reservoir-calibration"),
+          )
+          assert report["n_iterations"] == 9, report
+          assert abs(report["best_parameters"]["k"] - 1e-4) < 1e-10, report
+          assert abs(report["best_parameters"]["porosity"] - 0.155) < 1e-10, report
+          assert report["best_objective"] < 1e-20, report
+          PY
+
   typing:
     name: Typing / mypy baseline py3.12 (advisory)
     runs-on: ubuntu-latest
