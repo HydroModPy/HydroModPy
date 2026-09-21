@@ -24,8 +24,8 @@ What this tutorial teaches
 - Install HydroModPy and fetch the MODFLOW solver binaries.
 - Scaffold a workspace and prove it works with the bundled demo before any
   real data is involved.
-- Bring one real catchment's data onto your machine by hand, the honest gap
-  before a dedicated command exists.
+- Bring one real catchment's configs and data onto your machine with one
+  command, and know what it cached and why.
 - Build a config from nothing to a monthly transient run with exports,
   through five layered files and the ``base_config`` merge rules.
 - Try a variation with ``--overlay`` and ``--set`` instead of writing a
@@ -89,19 +89,80 @@ This finishes in well under a minute on a cached solver install, and prints
 ``Run completed: demo [<id>] ...`` on success. If it fails, run
 ``hmp doctor`` before going further.
 
-5. Get the Nançon data onto your machine
--------------------------------------------
+5. Get the Nançon example onto your machine
+---------------------------------------------
+
+One command fetches the five step configs, the three run variants, the README
+and the seven data files they read, and writes them where this workspace
+expects them:
+
+.. code-block:: bash
+
+   hmp example add 04
+
+It prints what it downloaded and where it wrote it:
+
+.. code-block:: text
+
+   [example add] Downloaded 18 file(s), 92.0 MiB, from https://raw.githubusercontent.com/HydroModPy/HydroModPy/v2.0.0a1.
+   [example add] Workspace: ~/hydromodpy
+   [example add] Project:   ~/hydromodpy/projects/04_streamflow_intermittence_in_transient
+   [example add] 18 file(s) written, 0 already up to date.
+
+Look before you fetch, if you like. ``hmp example list`` reads the catalogue
+that ships inside the wheel, so it answers offline and tells you how much of
+the payload this machine is still missing; ``hmp example show 04`` lists the
+18 files one by one, each marked cached or missing:
+
+.. code-block:: bash
+
+   hmp example list
+   hmp example show 04
+
+Where the files land
+~~~~~~~~~~~~~~~~~~~~~~
+
+The eleven authored files go into their own project folder, and the seven
+data files into the shared ``data/<variable>/`` folders of the workspace,
+which is where every project of this workspace reads them from:
+
+.. code-block:: text
+
+   ~/hydromodpy/
+   ├── data/
+   │   ├── dem/DEM_armorican_massif.tif                                90 MiB
+   │   ├── hydrography/nancon_stream_network.gpkg
+   │   ├── hydrometry/hydrometry_custom_NANCON_19820201_20220125_D.csv
+   │   ├── recharge/recharge_custom_NANCON_20000101_20021231_M.csv
+   │   ├── recharge/recharge_custom_NANCON_REA_19900101_20201231_D.csv
+   │   ├── runoff/runoff_custom_NANCON_20000101_20021231_M.csv
+   │   └── runoff/runoff_custom_NANCON_REA_19900101_20201231_D.csv
+   └── projects/04_streamflow_intermittence_in_transient/
+       ├── README.md
+       ├── project.toml  run_daily.toml  run_calibration.toml
+       ├── run_calibration_by_hand.toml  run_manual.py
+       └── step1_minimal.toml ... step5_export.toml
+
+The 90 MiB DEM is the whole cost of this step. It is cached by content under
+``<cache>/examples/blobs/``, not by example, because many example projects
+read that same regional DEM: running ``hmp example add 04`` a second time
+downloads nothing and reports everything already cached. Every file is
+checked against the sha256 the catalogue declares, and a mismatch deletes the
+partial download rather than writing it.
 
 .. note::
 
-   There is no dedicated command for this step yet, so the bridge below is
-   manual: five files to place in ``data/<variable>/``, by hand. A single
-   command is planned to replace this section; until it ships, this is the
-   working path, and it stays correct once that command lands, since it
-   fetches the same files into the same folders.
+   ``--ref`` fetches from another git ref, and the environment variable
+   ``HMP_EXAMPLES_SOURCE`` replaces the whole
+   ``https://raw.githubusercontent.com/HydroModPy/HydroModPy/<ref>`` prefix
+   with another URL or a local directory, for an offline install or a
+   mirror. See :doc:`/cli/example`.
 
-Download each file into the matching ``data/<variable>/`` folder of the
-workspace you just created. The DEM is 90 MiB; the other four are small.
+Doing it by hand instead
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Only needed when the machine cannot reach GitHub from Python, or when you
+want a specific file. The same files, the same folders:
 
 .. code-block:: bash
 
@@ -116,33 +177,17 @@ workspace you just created. The DEM is 90 MiB; the other four are small.
    curl -L -o ~/hydromodpy/data/runoff/runoff_custom_NANCON_20000101_20021231_M.csv \
        "$D/runoff/runoff_custom_NANCON_20000101_20021231_M.csv"
 
-.. list-table::
-   :header-rows: 1
-   :widths: 30 25
-
-   * - File
-     - Goes into
-   * - ``DEM_armorican_massif.tif`` (90 MiB)
-     - ``data/dem/``
-   * - ``nancon_stream_network.gpkg``
-     - ``data/hydrography/``
-   * - ``hydrometry_custom_NANCON_19820201_20220125_D.csv``
-     - ``data/hydrometry/``
-   * - ``recharge_custom_NANCON_20000101_20021231_M.csv``
-     - ``data/recharge/``
-   * - ``runoff_custom_NANCON_20000101_20021231_M.csv``
-     - ``data/runoff/``
-
-Then fetch the five step configs into their own project folder:
-
-.. code-block:: bash
-
    B=https://raw.githubusercontent.com/HydroModPy/HydroModPy/v2.0.0a1/examples/projects/04_streamflow_intermittence_in_transient
+   P=~/hydromodpy/projects/04_streamflow_intermittence_in_transient
 
-   mkdir -p ~/hydromodpy/projects/04_nancon_tutorial
+   mkdir -p $P
    for f in step1_minimal step2_local_data step3_api_data step4_transient step5_export; do
-       curl -L -o ~/hydromodpy/projects/04_nancon_tutorial/$f.toml "$B/$f.toml"
+       curl -L -o $P/$f.toml "$B/$f.toml"
    done
+
+Those five data files are what the five steps read. ``run_daily.toml`` also
+reads the two ``NANCON_REA`` daily series, which ``hmp example add`` fetches
+and this list leaves out.
 
 6. The five-step staircase
 -----------------------------
@@ -159,7 +204,7 @@ step1_minimal.toml — run ``nancon_step1_minimal``, no ``base_config``
 
    .. code-block:: bash
 
-      hmp run ~/hydromodpy/projects/04_nancon_tutorial/step1_minimal.toml
+      hmp run ~/hydromodpy/projects/04_streamflow_intermittence_in_transient/step1_minimal.toml
 
 step2_local_data.toml — run ``nancon_step2_local``, ``base_config = "step1_minimal.toml"``
    Adds the mapped stream network and the burn, from the local files you
@@ -185,7 +230,7 @@ step5_export.toml — run ``nancon_step5_export``, ``base_config = "step4_transi
 
    .. code-block:: bash
 
-      hmp run ~/hydromodpy/projects/04_nancon_tutorial/step5_export.toml
+      hmp run ~/hydromodpy/projects/04_streamflow_intermittence_in_transient/step5_export.toml
 
    A format toggle such as ``geotiff = true`` writes one file per name in
    ``export.variables``, not one file, so naming four fields there makes
@@ -221,7 +266,7 @@ change without saving a sixth step file:
    value = 0.08
    EOF
 
-   hmp run ~/hydromodpy/projects/04_nancon_tutorial/step4_transient.toml \
+   hmp run ~/hydromodpy/projects/04_streamflow_intermittence_in_transient/step4_transient.toml \
        --overlay /tmp/wetter_aquifer.toml \
        --set flow.param.K.field.value=1e-4
 

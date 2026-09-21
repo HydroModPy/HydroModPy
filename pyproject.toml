@@ -188,6 +188,9 @@ hydromodpy = ["py.typed"]
 # The process descriptions ship inside the wheel: a shim reads them with
 # importlib.resources to learn what it can invoke, without importing anything.
 "hydromodpy.schema.processes" = ["*.json"]
+# The example catalog ships in the wheel so `hmp example list` answers offline
+# and can only promise what the installed version knows about.
+"hydromodpy.examples" = ["catalog.toml"]
 "hydromodpy.core.state.migrations" = ["*.sql"]
 "hydromodpy.data.registry.migrations" = ["*.sql"]
 "hydromodpy.results.catalog.migrations" = ["*.sql"]

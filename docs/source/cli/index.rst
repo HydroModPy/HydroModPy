@@ -17,7 +17,7 @@ intent rather than exhaustive flag tables.
 Command inventory
 -----------------
 
-Twelve families group their own sub-actions; six verbs sit directly under
+Thirteen families group their own sub-actions; six verbs sit directly under
 :command:`hmp`.
 
 .. list-table::
@@ -31,6 +31,8 @@ Twelve families group their own sub-actions; six verbs sit directly under
        ``clean``
    * - :doc:`hmp project <project>`
      - ``new``, ``list``, ``show``, ``delete``
+   * - :doc:`hmp example <example>`
+     - ``list``, ``show``, ``add``
    * - :doc:`hmp catalog <catalog>`
      - ``ls``, ``query``, ``show``, ``point``, ``gc``, ``reindex``,
        ``delete``, ``restore``, ``trash``, ``tag``, ``note``, ``rename``,
@@ -43,8 +45,8 @@ Twelve families group their own sub-actions; six verbs sit directly under
    * - ``hmp config``
      - ``template``, ``check``, ``schema``, ``wizard``
    * - :doc:`hmp dev <dev>`
-     - ``run-script``, ``completion``, ``schema``, ``lock``, ``rank``,
-       ``manage``
+     - ``run-script``, ``completion``, ``schema``, ``examples``, ``lock``,
+       ``rank``, ``manage``
    * - :doc:`hmp audit <audit>`
      - ``list``, ``verify``
    * - :doc:`hmp privacy <privacy>`
@@ -96,6 +98,7 @@ Families
 
    run
    project
+   example
    catalog
    workspace
    viz
