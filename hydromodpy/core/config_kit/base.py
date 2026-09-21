@@ -13,11 +13,13 @@ field on the same model (catches refactor drift).
 
 from __future__ import annotations
 
+import types as stdlib_types
+import typing
 import warnings
 from collections.abc import Mapping
 from enum import Enum
 from pathlib import Path
-from typing import Any, ClassVar, Literal, get_args, get_origin
+from typing import Annotated, Any, ClassVar, Literal, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, model_validator
 from pydantic_core import PydanticUndefined
@@ -25,6 +27,44 @@ from pydantic_core import PydanticUndefined
 from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.profile import ProfileName
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
+
+_NONE_TYPE = type(None)
+
+_BOOLEAN_FIELDS: dict[type[BaseModel], frozenset[str]] = {}
+
+
+def _annotation_leaves(annotation: Any) -> list[Any]:
+    """Return the leaf types of *annotation*, unwrapping ``Annotated`` and unions."""
+    origin = get_origin(annotation)
+    if origin is Annotated:
+        return _annotation_leaves(get_args(annotation)[0])
+    if origin is typing.Union or origin is stdlib_types.UnionType:
+        leaves: list[Any] = []
+        for arg in get_args(annotation):
+            leaves.extend(_annotation_leaves(arg))
+        return leaves
+    return [annotation]
+
+
+def _admits_only_bool(annotation: Any) -> bool:
+    """Return True when *annotation* accepts a boolean and nothing else but ``None``.
+
+    ``bool | str`` is deliberately excluded: a field that documents a string
+    meaning of its own still has to accept one.
+    """
+    leaves = _annotation_leaves(annotation)
+    return bool in leaves and all(leaf is bool or leaf is _NONE_TYPE for leaf in leaves)
+
+
+def _boolean_field_names(cls: type[BaseModel]) -> frozenset[str]:
+    """Return the names of the fields of *cls* that accept only booleans."""
+    cached = _BOOLEAN_FIELDS.get(cls)
+    if cached is None:
+        cached = frozenset(
+            name for name, info in cls.model_fields.items() if _admits_only_bool(info.annotation)
+        )
+        _BOOLEAN_FIELDS[cls] = cached
+    return cached
 
 
 def _json_schema_examples(field_info: Any) -> list[Any] | None:
@@ -130,6 +170,33 @@ class HydroModelBase(BaseModel):
             )
             kept.pop(key)
         return kept
+
+    @model_validator(mode="before")
+    @classmethod
+    def _refuse_quoted_booleans(cls, data: Any) -> Any:
+        """Refuse a string given for a field that takes only a boolean.
+
+        TOML has native booleans, so a quoted one is always a mistake. Pydantic's
+        lax coercion reads ``"yes"`` as True and refuses ``"maybe"``, which makes
+        one class of typo behave two different ways; both are refused here.
+
+        Runs after ``_accept_legacy_keys``, so an old spelling is already the key
+        it was renamed to and the refusal names the spelling to write.
+        """
+        if not isinstance(data, Mapping):
+            return data
+        boolean_fields = _boolean_field_names(cls)
+        if not boolean_fields:
+            return data
+        for key, value in data.items():
+            if not isinstance(value, str):
+                continue
+            if key in boolean_fields:
+                raise ValueError(
+                    f"{key} = {value!r} is quoted, so it is a string and not a boolean. "
+                    f"TOML writes booleans unquoted: write {key} = true or {key} = false."
+                )
+        return data
 
     @model_validator(mode="before")
     @classmethod
