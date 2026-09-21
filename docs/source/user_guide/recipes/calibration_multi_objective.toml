@@ -1,4 +1,4 @@
-# Reference calibration 2 of 3: several targets, weighted against each other.
+# Reference calibration 2 of 4: several targets, weighted against each other.
 #
 # A catchment rarely offers one observation. Here the model is scored at once on
 # the outlet hydrograph, on a piezometer, and on a lake level, each with its own

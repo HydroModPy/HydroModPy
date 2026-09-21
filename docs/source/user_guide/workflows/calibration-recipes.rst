@@ -1,9 +1,9 @@
-Three calibrations to start from
-================================
+Four calibrations to start from
+===============================
 
-Three complete configurations, shipped as files rather than as snippets, so
+Four complete configurations, shipped as files rather than as snippets, so
 that a copy is a copy and not a transcription. Each one loads: a unit test
-validates all three on every commit, which is what keeps them true after a key
+validates all four on every commit, which is what keeps them true after a key
 is renamed.
 
 Each is an overlay. It carries the search and inherits the catchment, the data
@@ -36,6 +36,9 @@ Pick by what the site actually offers.
    * - :ref:`A published method <recipe-protocol>`
      - The catchment is mapped but poorly gauged.
      - Almost nothing: the method is named, not retyped.
+   * - :ref:`The same method, by hand <recipe-staged-by-hand>`
+     - The two stages need to say more than the protocol does.
+     - Every stage, criterion and override, spelled out.
 
 .. _recipe-single-gauge:
 
@@ -126,6 +129,39 @@ The engines are not part of the method. ``steady_method`` and
 ``transient_method`` take any registered optimizer, so the same two criteria can
 be walked by a bisection, by Nelder-Mead, or by Optuna without changing what is
 being calibrated.
+
+.. _recipe-staged-by-hand:
+
+The same method, written out instead of named
+---------------------------------------------
+
+The recipe above is the short form. This one is the long form of the same
+method, generic and ready to copy next to any project: no ``protocol`` line,
+every stage, criterion and override spelled out instead.
+
+Two phases, chained by ``depends_on`` and ``freeze_on_success`` exactly as the
+protocol writes them. Stage one moves K alone, steady state, scored by
+``distance_gap`` on a ``support = "network"`` output, walked by a bisection to
+the root the criterion crosses. Stage two moves Sy alone, monthly transient, K
+frozen, and scores it on two blocks: ``nse_log`` on the gauge, declared as a
+``support = "point"`` output with ``observes``, next to ``distance_gap`` on the
+same network output. That second block is the one thing the named protocol
+does not offer; writing the stages out is what makes room for it.
+
+``warmup`` sits on the hydrograph block rather than on a ``scoring_window``. A
+window is refused there: it would apply to every block of the stage, and the
+network block scored alongside the hydrograph carries no dates to cut on.
+
+.. literalinclude:: ../recipes/calibration_staged_by_hand.toml
+   :language: toml
+
+Start here when a stage of the published method needs to say more than its
+name can, or to read in one place what ``protocol =
+"matching_hydrographic_network"`` expands into. The two files agree on every
+stage, criterion and override; only the second objective block differs.
+``examples/projects/04_streamflow_intermittence_in_transient/run_calibration_by_hand.toml``
+is the same shape run against a real catchment, with the trial numbers the
+weighting was chosen from.
 
 Checking before the solver starts
 ---------------------------------

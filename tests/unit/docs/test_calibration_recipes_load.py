@@ -1,9 +1,10 @@
 """A reference configuration a reader copies has to load.
 
-Three shapes are documented: one parameter against one gauge, several targets
-weighted against each other, and a published protocol named instead of retyped.
-They are shipped as real TOML rather than as fenced snippets so a rename of a
-key breaks them here rather than in the reader's terminal.
+Four shapes are documented: one parameter against one gauge, several targets
+weighted against each other, a published protocol named instead of retyped,
+and that same protocol's two stages written out by hand. They are shipped as
+real TOML rather than as fenced snippets so a rename of a key breaks them here
+rather than in the reader's terminal.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ _NAMES = (
     "calibration_single_gauge",
     "calibration_multi_objective",
     "calibration_matching_hydrographic_network",
+    "calibration_staged_by_hand",
 )
 
 
@@ -64,9 +66,7 @@ def _beside_a_project(name: str, tmp_path) -> Path:
 
 
 def _calibration(name: str, tmp_path) -> CalibrationConfig:
-    raw = expand_calibration_protocol(
-        load_toml_with_base_config(_beside_a_project(name, tmp_path))
-    )
+    raw = expand_calibration_protocol(load_toml_with_base_config(_beside_a_project(name, tmp_path)))
     return CalibrationConfig.model_validate(raw["calibration"])
 
 
@@ -90,7 +90,7 @@ def test_no_recipe_redeclares_the_catchment() -> None:
         assert set(raw.get("geographic", {})) <= {"enforce_streams"}, name
 
 
-def test_the_three_recipes_are_shipped() -> None:
+def test_the_four_recipes_are_shipped() -> None:
     assert sorted(path.stem for path in RECIPES.glob("*.toml")) == sorted(_NAMES)
 
 
@@ -125,3 +125,23 @@ def test_the_protocol_recipe_expands_into_the_published_two_stages(tmp_path) -> 
     ]
     assert cfg.objective_blocks[0].metric == "distance_gap"
     assert cfg.phases[0].overrides["simulation.time.step_value"] == 9497
+
+
+def test_the_staged_by_hand_recipe_writes_the_same_two_stages(tmp_path) -> None:
+    cfg = _calibration("calibration_staged_by_hand", tmp_path)
+
+    assert cfg.protocol is None
+    assert [phase.name for phase in cfg.phases or []] == [
+        "steady_conductivity",
+        "transient_storage",
+    ]
+    assert cfg.phases[0].objective_blocks == ["network_extent"]
+    assert cfg.phases[1].objective_blocks == ["hydrograph", "network_extent"]
+    assert cfg.phases[1].depends_on == "steady_conductivity"
+    assert cfg.phases[0].overrides["flow.flow_regime"] == "steady"
+    assert cfg.phases[1].overrides["flow.flow_regime"] == "transient"
+
+    blocks = {block.name: block for block in cfg.objective_blocks}
+    assert blocks["hydrograph"].metric == "nse_log"
+    assert blocks["hydrograph"].warmup == 12
+    assert blocks["network_extent"].metric == "distance_gap"
