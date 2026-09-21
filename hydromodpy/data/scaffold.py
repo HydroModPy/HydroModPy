@@ -412,10 +412,8 @@ on_error = "warn"  # log a figure that fails to render and keep going
 [export]
 # Writes a GeoTIFF next to the run's other outputs so the first result is
 # something you can open in QGIS, not just numbers in a log.
+# variables defaults to ["head"], which is exactly what the demo needs.
 geotiff = true
-
-[export.variables]
-head = true
 """
 
 RUN_TOML_TEMPLATE = """\

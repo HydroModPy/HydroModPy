@@ -17,21 +17,26 @@ name = "nancon_step5_export"
 
 # What the run writes out on its own, under `share/nancon_step5_export/`.
 #
-# A format toggle does not name a file. It writes one file per variable that
-# [export.variables] leaves active, and `head` and `derived` are both on by
-# default, so the two toggles below produce five files and not two:
+# A format toggle does not name a file. It writes one file per name in
+# `variables`, and this example names the fields the intermittence is read
+# from: the head that drives it and the three fields that show where the
+# network runs dry, so the two toggles below produce five files and not two:
 #
 #   head_t33.tif                  the simulated head
-#   watertable_elevation_t33.tif  the three derived fields
-#   watertable_depth_t33.tif
-#   seepage_mask_t33.tif
+#   watertable_elevation_t33.tif  water table elevation
+#   watertable_depth_t33.tif      depth to water table
+#   seepage_mask_t33.tif          where the water table crosses the surface
 #   timeseries.csv                every series of tables.parquet, all 36 steps
 #
-# Naming [export.variables] explicitly is how that set is narrowed:
-# `concentration` is off here because this run solves no transport, and
-# `derived = false` would leave the head alone.
+# The console does not list them: it prints how many were written and where,
+# `Exported 6 file(s) -> share/nancon_step5_export`, the six being the five
+# above plus the NetCDF declared further down. `hmp run -v step5_export.toml`
+# names them one by one, with their row count and their pixel size.
 #
-# `times` is an index into the 36 stress periods. 33 is October 2002, the
+# The default `variables` is just `["head"]`, one file: naming the other
+# three here is how the seepage story is put on disk instead of left implicit.
+#
+# `time` is an index into the 36 stress periods. 33 is October 2002, the
 # driest month of the record and the one where the intermittence is visible at
 # all; the default, the last step, is a December with a nearly full network.
 # A GeoTIFF holds one timestep, so that index is the whole story for the four
@@ -41,7 +46,8 @@ name = "nancon_step5_export"
 [export]
 geotiff = true
 csv_timeseries = true
-times = 33
+time = 33
+variables = ["head", "watertable_elevation", "watertable_depth", "seepage_mask"]
 
 # The other formats are toggles beside those two: `netcdf`, `vtu`, `shapefile`,
 # and `package` for a portable `.hmp` archive of the whole run. GeoPackage has

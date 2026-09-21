@@ -527,13 +527,9 @@ vtu = false
 geotiff = false
 shapefile = false
 package = false
-times = "last" # Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps.
+variables = ["head", "watertable_elevation", "watertable_depth", "seepage_mask"] # Field names to export. Ignored by csv_timeseries.
+time = "last" # Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps.
 artifacts = [] # Explicit export artifacts: full control over variable, format, timestep and destination, beyond the format toggles above.
-
-[export.variables] # Which variables to include in exports.
-head = true
-concentration = false
-derived = true
 
 [persistence]
 save_catalog = true

@@ -27,6 +27,18 @@ Runtime: about 40 s for the run itself (36 timesteps, COMPLEX solver), on top
 of the geographic step, which the burn makes the longer half of a first run
 and which is then reused.
 
+## Console output
+
+A run prints one spinner line per pipeline step, turned into a checkmark and
+a duration once the step is done, plus the warnings and the two or three lines
+saying what was written. That is the `normal` level, and `[workflow] verbosity`
+sets it per file: `quiet` keeps only warnings and errors, `verbose` adds every
+INFO line the run emits, `debug` adds the DEBUG ones with their module and line
+number. `hmp run -q | -v | --debug` overrides the file for one run, and
+`HMP_VERBOSITY` overrides both for a whole shell. `step1_minimal.toml` carries
+the same table as a comment, and nothing is lost by running quiet: the complete
+DEBUG trace always goes to `.hmp/logs/hydromodpy_debug.log`.
+
 ## Variants
 
 Three files here build directly on `project.toml` through `base_config`, each

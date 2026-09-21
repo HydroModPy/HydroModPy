@@ -95,11 +95,10 @@ This finishes in well under a minute on a cached solver install, and prints
 .. note::
 
    There is no dedicated command for this step yet, so the bridge below is
-   manual: five files to place in ``data/<variable>/``, by hand. A future
-   command (planned as something like ``hmp example add``) will replace
-   this section; until it ships, this is the working path, and it stays
-   correct once that command lands, since it fetches the same files into
-   the same folders.
+   manual: five files to place in ``data/<variable>/``, by hand. A single
+   command is planned to replace this section; until it ships, this is the
+   working path, and it stays correct once that command lands, since it
+   fetches the same files into the same folders.
 
 Download each file into the matching ``data/<variable>/`` folder of the
 workspace you just created. The DEM is 90 MiB; the other four are small.
@@ -188,9 +187,9 @@ step5_export.toml — run ``nancon_step5_export``, ``base_config = "step4_transi
 
       hmp run ~/hydromodpy/projects/04_nancon_tutorial/step5_export.toml
 
-   A format toggle such as ``geotiff = true`` writes one file per variable
-   that ``[export.variables]`` leaves active, not one file, so this run
-   produces six artifacts under ``share/nancon_step5_export/``:
+   A format toggle such as ``geotiff = true`` writes one file per name in
+   ``export.variables``, not one file, so naming four fields there makes
+   this run produce six artifacts under ``share/nancon_step5_export/``:
 
    .. code-block:: text
 
