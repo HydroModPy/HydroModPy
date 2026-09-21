@@ -76,6 +76,16 @@ Recommended entry points
       Follow one end-to-end MODFLOW 6 plus Gmsh case and map the main config
       sections to the displayed outputs.
 
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: nancon-tutorial
+      :link-type: doc
+
+      **Nançon tutorial**
+      ^^^
+      Go from an empty machine to a transient simulation with exports,
+      building the config in five layered files.
+
 Default path
 ------------
 
@@ -85,6 +95,8 @@ Default path
 3. Run :doc:`data-overview-walkthrough` if you want to understand basin setup
    before touching any solver.
 4. Continue with :doc:`simulation-walkthrough` for a complete end-to-end case.
+5. Follow :doc:`nancon-tutorial` for the full path from install to a
+   transient run with exports, built up file by file.
 
 Related sections
 ----------------
@@ -109,3 +121,4 @@ Related sections
    cli-quickstart
    data-overview-walkthrough
    simulation-walkthrough
+   nancon-tutorial

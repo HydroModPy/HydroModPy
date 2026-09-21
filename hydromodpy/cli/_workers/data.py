@@ -267,3 +267,150 @@ def export_simulation_package(
     with Catalog(workspace_root) as catalog:
         sim_id = catalog.resolve(sim_ref, project=project)
         return catalog.export_package(sim_id, output_path)
+
+
+def export_simulation_results(
+    catalog: Any,
+    sim_id: str,
+    label: str,
+    output_dir: Path,
+    *,
+    var: list[str] | None,
+    csv: bool,
+    netcdf: bool,
+    geotiff: bool,
+    vtu: bool,
+    resolution: float | None,
+    fair_formats: tuple[str, ...],
+) -> dict:
+    """Write the requested result-export artifacts for one open simulation.
+
+    Every default is the one :class:`ExportSpec`/:class:`ExportConfig` would
+    pick on its own: an omitted timestep resolves per-format (all steps for
+    netcdf, the last step for a raster/mesh format, never a CLI-invented
+    "first"), an omitted GeoTIFF resolution is auto-derived from the grid,
+    and an omitted ``var`` selection is ``["head"]``, the same one-field
+    default ``[export]`` ships (not "every field this run holds", which can
+    mix incompatible shapes into one NetCDF write).
+
+    A ``var`` name refuses before anything is written, through the same
+    :class:`~hydromodpy.core.exceptions.UnknownFieldError` the TOML/Python
+    path raises: unregistered outright, or registered but absent from this
+    particular run.
+    """
+    from hydromodpy.core.config_kit.export_spec import ExportSpec
+    from hydromodpy.core.exceptions import UnknownFieldError
+    from hydromodpy.results import field_registry
+
+    output_dir = Path(output_dir)
+    written: list[Path] = []
+    notes: list[str] = []
+
+    any_format = csv or netcdf or geotiff or vtu
+    if not any_format:
+        csv = True
+
+    if csv:
+        names = var or []
+        if names:
+            ts_vars = sorted(
+                str(r[0])
+                for r in catalog.connection.execute(
+                    "SELECT DISTINCT variable FROM timeseries WHERE sim_id = ?", [sim_id]
+                ).fetchall()
+            )
+            for name in names:
+                if name not in ts_vars:
+                    raise UnknownFieldError(name, ts_vars)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        if len(names) > 1:
+            for name in names:
+                dest = output_dir / f"timeseries_{name}.csv"
+                catalog.export(sim_id, ExportSpec(var=name, dest=dest))
+                written.append(dest)
+        else:
+            dest = output_dir / "timeseries.csv"
+            catalog.export(sim_id, ExportSpec(var=(names[0] if names else "*"), dest=dest))
+            written.append(dest)
+
+    field_vars: list[str] = []
+    if netcdf or geotiff or vtu:
+        run_fields = catalog[sim_id].array.list_fields()
+        names = var or ["head"]
+        for name in names:
+            if not field_registry.has(name):
+                raise UnknownFieldError(name, field_registry.all_names())
+            if name not in run_fields:
+                raise ValueError(
+                    f"Field {name!r} is registered but simulation {label!r} does not hold "
+                    f"it. Fields this run holds: {', '.join(sorted(run_fields))}. "
+                    "List them with 'hmp data export <project> --sim <name> --list'."
+                )
+        field_vars = names
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+    if netcdf:
+        dest = output_dir / "fields.nc"
+        try:
+            catalog.export(sim_id, ExportSpec(var=field_vars, dest=dest))
+            written.append(dest)
+        except Exception as exc:  # noqa: BLE001 - surfaced as a note, export keeps going
+            notes.append(f"NetCDF export failed: {exc}")
+
+    if geotiff:
+        for name in field_vars:
+            dest = output_dir / f"{name}.tif"
+            try:
+                catalog.export(sim_id, ExportSpec(var=name, dest=dest, resolution=resolution))
+                written.append(dest)
+            except Exception as exc:  # noqa: BLE001 - one variable's failure, not fatal
+                notes.append(f"GeoTIFF export failed for {name}: {exc}")
+
+    if vtu:
+        for name in field_vars:
+            dest = output_dir / f"{name}.vtu"
+            try:
+                catalog.export(sim_id, ExportSpec(var=name, dest=dest))
+                written.append(dest)
+            except Exception as exc:  # noqa: BLE001 - one variable's failure, not fatal
+                notes.append(f"VTU export failed for {name}: {exc}")
+
+    if fair_formats:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        written.extend(_emit_fair_formats(catalog, sim_id, output_dir, fair_formats, notes))
+
+    return {"written": written, "notes": notes}
+
+
+def _emit_fair_formats(
+    catalog: Any,
+    sim_id: str,
+    output_dir: Path,
+    formats: tuple[str, ...],
+    notes: list[str],
+) -> list[Path]:
+    """Render the FAIR sidecars selected via ``--format``; failures become notes."""
+    from hydromodpy.results.export import build_context, write_ro_crate, write_stac_item
+    from hydromodpy.results.export.prov import write_prov
+
+    context = build_context(catalog, sim_id)
+    out_paths: list[Path] = []
+    for fmt in formats:
+        try:
+            if fmt == "hmp":
+                archive = output_dir / f"{output_dir.name}.hmp"
+                path = catalog.export_package(sim_id, archive)
+                catalog.record_export(sim_id, kind="hmp", path=path)
+            elif fmt == "rocrate":
+                path = write_ro_crate(catalog, sim_id, output_dir, context=context)
+            elif fmt == "stac":
+                path = write_stac_item(catalog, sim_id, output_dir, context=context)
+            elif fmt == "prov":
+                path = write_prov(catalog, sim_id, output_dir, context=context)
+            else:
+                continue
+        except Exception as exc:  # noqa: BLE001 - one sidecar's failure, not fatal
+            notes.append(f"FAIR export ({fmt}) failed: {exc}")
+            continue
+        out_paths.append(path)
+    return out_paths

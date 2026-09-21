@@ -14,7 +14,10 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
-from hydromodpy.calibration.runners.cli_runner import run_calibration_core
+from hydromodpy.calibration.runners.cli_runner import (
+    refuse_an_objective_that_is_not_an_entry_point,
+    run_calibration_core,
+)
 from hydromodpy.calibration.runners.state import (
     CalibrationStoreFactory,
     space_from_config,
@@ -47,6 +50,7 @@ def run_calibration_programmatic(
     projects materialize a base TOML so both the trial pipeline and the
     promotion step still find a path.
     """
+    refuse_an_objective_that_is_not_an_entry_point(objective)
     space = space_from_config(cfg)
     paths = resolve_override_paths(cfg)
 

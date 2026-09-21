@@ -67,10 +67,11 @@ def test_data_export_sim_defaults_to_csv_and_prints_export_count(monkeypatch, tm
     assert "Exported 1 file(s)" in result.stderr
 
 
-def test_data_export_geotiff_requires_resolution_and_closes_catalog(
+def test_data_export_geotiff_auto_derives_resolution_and_closes_catalog(
     monkeypatch,
     tmp_path,
 ) -> None:
+    """No ``--resolution`` no longer hard-exits: ExportSpec auto-derives it."""
     project = tmp_path / "ProjectA"
     project.mkdir()
     catalog_path = catalog_path_for(project)
@@ -86,6 +87,13 @@ def test_data_export_geotiff_requires_resolution_and_closes_catalog(
         def fetchone(self) -> tuple[str]:
             return ("run-one",)
 
+    class FakeArray:
+        def list_fields(self) -> list[str]:
+            return ["head"]
+
+    class FakeRun:
+        array = FakeArray()
+
     class FakeCatalog:
         def __init__(self, root: Path) -> None:
             calls["catalog_root"] = root
@@ -95,8 +103,15 @@ def test_data_export_geotiff_requires_resolution_and_closes_catalog(
             calls["resolve"] = {"sim_ref": sim_ref, "project": project}
             return "sim-001"
 
-        def export(self, *args: object, **kwargs: object) -> None:
-            calls["export_called"] = True
+        def __getitem__(self, ref: str) -> FakeRun:
+            calls["run_ref"] = ref
+            return FakeRun()
+
+        def export(self, ref: str, spec) -> Path:
+            calls["export"] = {"ref": ref, "var": spec.var, "resolution": spec.resolution}
+            spec.dest.parent.mkdir(parents=True, exist_ok=True)
+            spec.dest.write_text("tif", encoding="utf-8")
+            return spec.dest
 
         def close(self) -> None:
             calls["closed"] = True
@@ -105,13 +120,13 @@ def test_data_export_geotiff_requires_resolution_and_closes_catalog(
 
     result = CliRunner().invoke(["data", "export", str(project), "--sim", "run-one", "--geotiff"])
 
-    assert result.exit_code == 14
-    assert calls == {
-        "catalog_root": project.resolve(),
-        "resolve": {"sim_ref": "run-one", "project": "ProjectA"},
-        "closed": True,
-    }
-    assert "--resolution is required with --geotiff" in result.stderr
+    out = share_dir_for(project.resolve()) / "run-one" / "head.tif"
+    assert result.exit_code == 0
+    assert calls["resolve"] == {"sim_ref": "run-one", "project": "ProjectA"}
+    assert calls["export"] == {"ref": "sim-001", "var": "head", "resolution": None}
+    assert calls["closed"] is True
+    assert out.is_file()
+    assert "Exported 1 file(s)" in result.stderr
 
 
 def test_data_export_list_names_the_fields_of_the_last_live_run(monkeypatch, tmp_path) -> None:

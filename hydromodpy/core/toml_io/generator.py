@@ -426,6 +426,35 @@ def _default_value(field_info: FieldInfo) -> Any:
     return field_info.default  # may be None (optional with no value)
 
 
+def _declared_default(field_info: FieldInfo) -> Any:
+    """Return the value a field holds on its own, running a ``default_factory``.
+
+    ``_default_value`` reports ``_UNDEFINED`` for a factory field, because
+    ``FieldInfo.default`` is unset there. A factory still gives the model a
+    value without the reader writing one, so a caller asking what the model
+    declares by itself needs that value, not the required sentinel.
+    Returns ``_UNDEFINED`` for a field that really is required, and for a
+    factory that reads sibling values and so has no standalone answer.
+    """
+    factory = field_info.default_factory
+    if factory is None:
+        return _default_value(field_info)
+    if getattr(field_info, "default_factory_takes_validated_data", False):
+        return _UNDEFINED
+    try:
+        return factory()
+    except Exception:  # pragma: no cover - a factory needing context is required
+        return _UNDEFINED
+
+
+def _declares_nothing(field_info: FieldInfo) -> bool:
+    """Return True when the model leaves this repeated table empty by itself."""
+    declared = _declared_default(field_info)
+    if declared is _UNDEFINED:
+        return False
+    return declared is None or (isinstance(declared, (list, tuple)) and not declared)
+
+
 def _toml_excluded(field_info: FieldInfo) -> bool:
     extra = field_info.json_schema_extra
     return bool(
@@ -1181,7 +1210,7 @@ def _section(
             # model does not declare by itself stays commented out: writing it
             # is what turns the feature on, so a template must not do it for
             # the reader.
-            optional = _default_value(field_info) is None and field_info.default_factory is None
+            optional = _declares_nothing(field_info)
             emit = (lambda text: f"# {text}") if optional else _line
             if optional:
                 lines.append(f"# Example entry, one [[{sub_section}]] block per entry.")

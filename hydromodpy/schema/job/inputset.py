@@ -26,6 +26,7 @@ from typing import Any, Literal
 
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.schema.job.digest import sha256_file, sha256_value
+from hydromodpy.schema.media_types import JSON_MEDIA_TYPE
 
 INPUTSET_SCHEMA = "hmp-inputset/v1"
 
@@ -217,7 +218,7 @@ def inline_resource(
         name=name,
         role=role,
         href=f"request.json#{pointer}",
-        media_type="application/json",
+        media_type=JSON_MEDIA_TYPE,
         sha256=sha256_value(value),
         licence=licence,
     )

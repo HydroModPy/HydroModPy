@@ -8,6 +8,7 @@ runs under, where a frozen value lands, and the chain of sessions.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -45,14 +46,14 @@ target = "flow.param.Sy.field.value"
 variable = "discharge"
 support = "boundary"
 boundary_id = "outlet"
-observed_values = [1.0, 2.0]
+observes = "Q_STATION"
 
 [calibration.outputs.h]
 variable = "head"
 support = "point"
 x = 100.0
 y = 0.0
-observed_values = [42.0, 41.5]
+observes = "H_STATION"
 
 # One cost in m3/s and one in metres: both are normalised, because a sum of
 # two units would let their magnitudes set the weighting.
@@ -639,3 +640,307 @@ def test_restarts_on_an_exhaustive_sweep_are_refused(tmp_path, runner) -> None:
 
     with pytest.raises(ValueError, match="same answer every time"):
         run_staged_calibration(path)
+
+
+# -- linearized uncertainty ---------------------------------------------------
+
+LINEARIZED = """
+[calibration.uncertainty]
+method = "linearized"
+perturbation = 0.01
+"""
+
+
+def _write_linearized(tmp_path: Path, phases: str = TWO_PHASES) -> Path:
+    path = tmp_path / "calibration.toml"
+    path.write_text(BASE + LINEARIZED + phases, encoding="utf-8")
+    return path
+
+
+class FakeWidth:
+    """Stands in for the model rebuild a linearized width would run.
+
+    The real ``attach_a_linearized_width`` perturbs each parameter and reruns
+    the model; what is under test here is that staged_runner calls it once per
+    phase, with that phase's own configuration, not whether the derivative
+    itself is right (covered where the real function is tested).
+    """
+
+    def __init__(self) -> None:
+        self.calls: list[SimpleNamespace] = []
+
+    def __call__(self, report, *, cfg, trial_ctx, space, perturbation):
+        self.calls.append(
+            SimpleNamespace(
+                report=report, cfg=cfg, trial_ctx=trial_ctx, space=space, perturbation=perturbation
+            )
+        )
+        widened = SimpleNamespace(name=next(iter(cfg.parameters)))
+        return replace(report, parameter_uncertainty=(widened,))
+
+
+@pytest.fixture
+def width(monkeypatch) -> FakeWidth:
+    fake = FakeWidth()
+    monkeypatch.setattr(staged_runner, "attach_a_linearized_width", fake)
+    return fake
+
+
+def test_linearized_uncertainty_attaches_a_width_to_each_phase(tmp_path, runner, width) -> None:
+    report = run_staged_calibration(_write_linearized(tmp_path))
+
+    assert len(width.calls) == 2
+    assert all(phase.report.parameter_uncertainty for phase in report.phases)
+
+
+def test_linearized_uncertainty_reads_the_phase_that_scored_it(tmp_path, runner, width) -> None:
+    # steady_k scores q_block/q, transient_sy scores h_block/h: the width has
+    # to be taken through the phase's own configuration, not the document's.
+    run_staged_calibration(_write_linearized(tmp_path))
+
+    steady, transient = width.calls
+    assert list(steady.cfg.outputs) == ["q"]
+    assert list(transient.cfg.outputs) == ["h"]
+    assert next(iter(steady.cfg.parameters)) == "K"
+    assert next(iter(transient.cfg.parameters)) == "Sy"
+
+
+def test_a_width_conditional_on_an_earlier_freeze_says_so(tmp_path, runner, width) -> None:
+    # transient_sy depends_on steady_k and steady_k freezes K by default: the
+    # second phase's width is conditional on a value it did not calibrate.
+    report = run_staged_calibration(_write_linearized(tmp_path))
+
+    steady, transient = report.phases
+    assert "parameter_uncertainty_note" not in steady.report.extra
+    assert "K" in transient.report.extra["parameter_uncertainty_note"]
+
+
+# A phase without an evaluator that prepares a model never reaches
+# ``_attach_linearized_width`` with ``trial_ctx=None``: ``run_staged_calibration``
+# already refuses that evaluator up front, with a more precise message, and
+# ``prepare_trials`` never returns ``None``. A second, less precise refusal
+# behind it would be dead code reachable only by calling the private helper
+# directly, which is what such a test would do -- covered instead below by
+# giving the same evaluator to the public entry point.
+def test_an_evaluator_that_prepares_no_model_is_refused_before_any_phase_solves(
+    tmp_path, monkeypatch
+) -> None:
+    # The refusal itself predates this phase. What is asserted here is that it
+    # still comes FIRST: an evaluator that prepares no model is turned away
+    # before any phase runs, so the linearized width this document asks for is
+    # never reached. Counting the calls is what makes the test fail if the
+    # width dispatch is ever moved ahead of the refusal.
+    calls: list[str] = []
+    monkeypatch.setattr(
+        staged_runner,
+        "attach_a_linearized_width",
+        lambda *args, **kwargs: calls.append("called"),
+    )
+    path = tmp_path / "calibration.toml"
+    path.write_text(
+        BASE.replace('method = "grid"', 'method = "grid"\nevaluator = "analytic_bowl"', 1)
+        + LINEARIZED
+        + TWO_PHASES,
+        encoding="utf-8",
+    )
+
+    with pytest.raises(CalibrationError, match="runs no HydroModPy model"):
+        run_staged_calibration(path)
+
+    assert calls == []
+
+
+def test_a_single_metric_phase_keeps_its_report_and_names_why_no_width_is_attached(
+    tmp_path, runner, monkeypatch
+) -> None:
+    # Single-metric route: no residual vector, structurally, so the width is
+    # skipped before ``attach_a_linearized_width`` is even called -- cheap
+    # enough to exercise the real ``_attach_linearized_width``, not a double.
+    #
+    # ``staged_runner.logger`` is patched directly rather than read through
+    # ``caplog``: its underlying "hydromodpy" logger has ``propagate`` turned
+    # off the moment anything in the process builds a ``LogManager``, which
+    # would silently blind a root-attached capture handler.
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        staged_runner.logger, "warning", lambda msg, *args: warnings.append(msg % args)
+    )
+    single_metric = """
+[[calibration.phases]]
+name = "steady_k"
+method = "bisection"
+max_iter = 12
+parameters = ["K"]
+variable = "discharge"
+objective = "nse"
+"""
+    path = tmp_path / "calibration.toml"
+    path.write_text(BASE + LINEARIZED + single_metric, encoding="utf-8")
+
+    report = run_staged_calibration(path)
+
+    (steady,) = report.phases
+    assert not steady.report.parameter_uncertainty
+    text = " ".join(warnings)
+    assert "steady_k" in text
+    assert "no linearized width is attached" in text
+
+
+def test_a_phase_scoring_only_a_network_output_keeps_its_report(
+    tmp_path, runner, monkeypatch
+) -> None:
+    # The regression this guard exists for, and the one that cost a whole
+    # staged run. ``CalibOutputNetwork`` carries no ``observes`` field at all
+    # -- the loader refuses one -- so a phase scored on it holds an output,
+    # holds no station, and can never hold one. A guard reading
+    # ``bool(phase_cfg.outputs)`` called the real width builder anyway, which
+    # raised on the empty residual vector and killed the run AFTER the search
+    # had been paid for. It is the shape of the only registered protocol:
+    # ``matching_hydrographic_network`` scores its steady stage exactly here.
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        staged_runner.logger, "warning", lambda msg, *args: warnings.append(msg % args)
+    )
+    network = """
+[calibration.outputs.net]
+support = "network"
+observed_network = "data.hydrography"
+
+[[calibration.objective_blocks]]
+name = "net_block"
+metric = "distance_gap"
+uses_outputs = ["net"]
+
+[[calibration.phases]]
+name = "steady_k"
+method = "bisection"
+max_iter = 12
+parameters = ["K"]
+objective_blocks = ["net_block"]
+"""
+    path = tmp_path / "calibration.toml"
+    path.write_text(BASE + LINEARIZED + network, encoding="utf-8")
+
+    report = run_staged_calibration(path)
+
+    (steady,) = report.phases
+    assert not steady.report.parameter_uncertainty
+    assert "can name a station" in steady.report.extra["parameter_uncertainty_absent_note"]
+    text = " ".join(warnings)
+    assert "steady_k" in text
+    assert "no linearized width is attached" in text
+
+
+def test_a_phase_reused_from_disk_gets_a_note_instead_of_a_recomputed_width(
+    tmp_path, runner, width, monkeypatch
+) -> None:
+    # A reused phase must not recompute a width -- that would rerun the model
+    # on a path written precisely to avoid it -- but the absence has to be said,
+    # not merely left silent.
+    #
+    # steady_k's stub freeze is NOT empty: an empty one would make the
+    # transient phase's "conditional on a freeze" note fire for free, whether
+    # or not the reuse branch is wired correctly, because ``frozen`` would
+    # stay empty either way.
+    disk_report = CalibrationReport(
+        session_id="disk-session",
+        method="bisection",
+        n_iterations=1,
+        best_objective=0.1,
+        best_sim_id=None,
+        duration_s=0.0,
+        save_runs="none",
+        promoted=0,
+        best_parameters={"K": K_CALIBRATED},
+        workspace=tmp_path,
+        extra={"reused_from_disk": True, "source_root_session_id": "root"},
+    )
+    path = tmp_path / "calibration.toml"
+    path.write_text(
+        BASE.replace('method = "grid"', 'method = "grid"\nreuse_completed_phases = true', 1)
+        + LINEARIZED
+        + TWO_PHASES,
+        encoding="utf-8",
+    )
+    cfg, _raw = staged_runner.load_toml_calibration(path)
+    declared = staged_runner.space_from_config(cfg)
+    steady_froze = (
+        staged_runner.FrozenParameter(
+            parameter=declared["K"], value=K_CALIBRATED, phase="steady_k"
+        ),
+    )
+    monkeypatch.setattr(
+        staged_runner,
+        "_reuse_from_disk",
+        lambda **kwargs: (disk_report, steady_froze) if kwargs["decl"].name == "steady_k" else None,
+    )
+
+    report = run_staged_calibration(path, resume_root_session_id="root")
+
+    steady, transient = report.phases
+    # Reused phases must not pay for a recomputed width: only transient_sy,
+    # which actually solved, may have called it.
+    assert len(width.calls) == 1
+    assert next(iter(width.calls[0].cfg.parameters)) == "Sy"
+    assert "reused from a previous run" in steady.report.extra["parameter_uncertainty_absent_note"]
+    assert transient.report.extra.get("parameter_uncertainty_absent_note") is None
+    # The freeze IS non-empty this time, so this now measures the real thing:
+    # transient_sy's width is conditional on the K reused from disk.
+    assert "K" in transient.report.extra["parameter_uncertainty_note"]
+
+
+def test_a_reused_single_metric_phase_gets_the_structural_note_not_the_reuse_one(
+    tmp_path, runner, width, monkeypatch
+) -> None:
+    # steady_k is single-metric here: its phase_cfg carries no outputs at all
+    # (_phase_config empties them), reused or not. The reuse note would blame
+    # the wrong cause; the note has to name the true, structural one instead.
+    disk_report = CalibrationReport(
+        session_id="disk-session",
+        method="bisection",
+        n_iterations=1,
+        best_objective=0.1,
+        best_sim_id=None,
+        duration_s=0.0,
+        save_runs="none",
+        promoted=0,
+        best_parameters={"K": K_CALIBRATED},
+        workspace=tmp_path,
+        extra={"reused_from_disk": True, "source_root_session_id": "root"},
+    )
+    monkeypatch.setattr(
+        staged_runner,
+        "_reuse_from_disk",
+        lambda **kwargs: (disk_report, ()) if kwargs["decl"].name == "steady_k" else None,
+    )
+    single_metric_first = """
+[[calibration.phases]]
+name = "steady_k"
+method = "bisection"
+max_iter = 12
+parameters = ["K"]
+variable = "discharge"
+objective = "nse"
+
+[[calibration.phases]]
+name = "transient_sy"
+method = "grid"
+max_iter = 30
+parameters = ["Sy"]
+objective_blocks = ["h_block"]
+depends_on = "steady_k"
+"""
+    path = tmp_path / "calibration.toml"
+    path.write_text(
+        BASE.replace('method = "grid"', 'method = "grid"\nreuse_completed_phases = true', 1)
+        + LINEARIZED
+        + single_metric_first,
+        encoding="utf-8",
+    )
+    report = run_staged_calibration(path, resume_root_session_id="root")
+
+    steady, _transient = report.phases
+    note = steady.report.extra["parameter_uncertainty_absent_note"]
+    assert "reused from a previous run" not in note
+    assert "can name a station" in note
+    assert "no residual vector" in note

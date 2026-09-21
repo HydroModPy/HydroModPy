@@ -6,8 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
-from hydromodpy.core.config_kit.export_spec import ExportSpec
+from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, exit_code_for
 from hydromodpy.core.state.paths import catalog_path_for, share_dir_for
 
 NAME: str = "export"
@@ -38,8 +37,8 @@ def register(subparsers) -> argparse.ArgumentParser:
         nargs="+",
         default=None,
         help=(
-            "Field variable name(s) to export (default: all exportable fields "
-            "present). List them with --list."
+            "Field variable name(s) to export (default: ['head'], same as "
+            "[export].variables). List them with --list."
         ),
     )
     parser.add_argument(
@@ -79,7 +78,11 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--output",
         default=None,
-        help="Output directory (default: share/<name>/ in the project)",
+        help=(
+            "Output directory files are written into (default: share/<name>/ in "
+            "the project). Always a directory, even given a name with an "
+            "extension: pass e.g. --output out/, not a destination file path."
+        ),
     )
     parser.set_defaults(_handler=run)
     return parser
@@ -254,76 +257,33 @@ def run(args: argparse.Namespace) -> None:
         label = (row[0] if row and row[0] else None) or short_id(sim_id)
 
         sim_dir = output_dir or (share_dir_for(project_dir) / label)
-        sim_dir.mkdir(parents=True, exist_ok=True)
 
-        any_format = args.csv or args.netcdf or args.geotiff or args.vtu
-        if not any_format:
-            args.csv = True
+        from hydromodpy.cli._workers.data import export_simulation_results
 
-        if args.geotiff and args.resolution is None:
-            print("--resolution is required with --geotiff", file=sys.stderr)
+        try:
+            result = export_simulation_results(
+                catalog,
+                sim_id,
+                label,
+                sim_dir,
+                var=args.var,
+                csv=args.csv,
+                netcdf=args.netcdf,
+                geotiff=args.geotiff,
+                vtu=args.vtu,
+                resolution=args.resolution,
+                fair_formats=fair_formats,
+            )
+        except Exception as exc:  # noqa: BLE001 - mapped to a typed exit code below
+            print(str(exc), file=sys.stderr)
             catalog.close()
-            sys.exit(EXIT_CONFIG)
+            sys.exit(exit_code_for(exc))
 
-        # Real, registered field names present in this run (whitelist via the
-        # field registry: skips Zarr groups like 'geographic', 'mesh', 'crs').
-        field_vars: list[str] = []
-        if args.netcdf or args.geotiff or args.vtu:
-            field_vars = _exportable_fields(catalog, sim_id, args.var)
-            if args.var:
-                for name in (v for v in args.var if v not in field_vars):
-                    print(f"  Variable '{name}' is not an exportable field", file=sys.stderr)
-
-        if args.csv:
-            out = sim_dir / "timeseries.csv"
-            catalog.export(sim_id, ExportSpec(var="*", dest=out))
-            exported.append(out)
-            print(f"  {out}", file=sys.stderr)
-
-        if args.netcdf:
-            out = sim_dir / "fields.nc"
-            try:
-                catalog.export(sim_id, ExportSpec(var=field_vars or ["head"], dest=out, time="all"))
-                exported.append(out)
-                print(f"  {out}", file=sys.stderr)
-            except Exception as exc:
-                print(f"  NetCDF export failed: {exc}", file=sys.stderr)
-
-        if args.geotiff:
-            failures: list[str] = []
-            for var in field_vars:
-                try:
-                    out = sim_dir / f"{var}_t0.tif"
-                    catalog.export(
-                        sim_id,
-                        ExportSpec(var=var, dest=out, time="first", resolution=args.resolution),
-                    )
-                    exported.append(out)
-                    print(f"  {out}", file=sys.stderr)
-                except Exception as exc:
-                    failures.append(f"{var}: {exc}")
-            if failures:
-                print("GeoTIFF export failed for some variables:", file=sys.stderr)
-                for failure in failures:
-                    print(f"  {failure}", file=sys.stderr)
-
-        if args.vtu:
-            vtu_failures: list[str] = []
-            for var in field_vars:
-                try:
-                    out = sim_dir / f"{var}_t0.vtu"
-                    catalog.export(sim_id, ExportSpec(var=var, dest=out, time="first"))
-                    exported.append(out)
-                    print(f"  {out}", file=sys.stderr)
-                except Exception as exc:
-                    vtu_failures.append(f"{var}: {exc}")
-            if vtu_failures:
-                print("VTU export failed for some variables:", file=sys.stderr)
-                for failure in vtu_failures:
-                    print(f"  {failure}", file=sys.stderr)
-
-        if fair_formats:
-            exported.extend(_emit_fair(catalog, sim_id, sim_dir, fair_formats))
+        for path in result["written"]:
+            print(f"  {path}", file=sys.stderr)
+        for note in result["notes"]:
+            print(f"  {note}", file=sys.stderr)
+        exported.extend(result["written"])
 
     catalog.close()
     if not any([args.raster, args.feature, args.sim, exported]):
@@ -355,43 +315,3 @@ def _exportable_fields(catalog, sim_id: str, selected: list[str] | None = None) 
     if selected:
         return [v for v in selected if v in fields]
     return fields
-
-
-def _emit_fair(
-    catalog,
-    sim_id: str,
-    sim_dir: Path,
-    formats: tuple[str, ...],
-) -> list[Path]:
-    """Render the FAIR sidecars selected via ``--format``."""
-    from hydromodpy.results.export import (
-        build_context,
-        write_ro_crate,
-        write_stac_item,
-    )
-    from hydromodpy.results.export.prov import write_prov
-
-    context = build_context(catalog, sim_id)
-    out_paths: list[Path] = []
-    for fmt in formats:
-        try:
-            if fmt == "hmp":
-                # Real portable archive (config, provenance, fields, timeseries),
-                # not just a metadata sidecar. Same output as `hmp catalog export`.
-                archive = sim_dir / f"{sim_dir.name}.hmp"
-                path = catalog.export_package(sim_id, archive)
-                catalog.record_export(sim_id, kind="hmp", path=path)
-            elif fmt == "rocrate":
-                path = write_ro_crate(catalog, sim_id, sim_dir, context=context)
-            elif fmt == "stac":
-                path = write_stac_item(catalog, sim_id, sim_dir, context=context)
-            elif fmt == "prov":
-                path = write_prov(catalog, sim_id, sim_dir, context=context)
-            else:
-                continue
-        except Exception as exc:  # noqa: BLE001 - surfaced to CLI
-            print(f"  FAIR export ({fmt}) failed: {exc}", file=sys.stderr)
-            continue
-        out_paths.append(path)
-        print(f"  {path}", file=sys.stderr)
-    return out_paths

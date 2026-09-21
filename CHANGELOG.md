@@ -33,6 +33,10 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+---
+
+## [v2.0.0a1] - 2026-09-21
+
 ### Removed
 - `[modflownwt.tgrid]` is gone from the schema, following `[modflow6.tgrid]`.
   No backend ever read it back: `apply_explicit_time_window_to_tgrids()`
@@ -49,6 +53,60 @@ Each release section includes the following standard categories:
   `ResolvedSimulationTimeGrid`, not reviving a parallel temporal model.
 
 ### Changed
+- `objective=` refuses a value that is not a `module.path:callable` entry
+  point, at the entry of every calibration route, instead of ignoring it. It
+  has always been an entry point specification on all three routes, so
+  `project.calibrate(objective="kge")` on a document declaring `nse` calibrated
+  on `nse` and said nothing. The refusal names the value it was handed and the
+  three places a metric is actually declared, including
+  `objective_blocks=[...]` for `Project.calibrate`, which passes no
+  `[calibration]` table. Checked at the entry, not where the value is used: a
+  staged run reusing every phase from disk never reached the use site, and a
+  refused call used to pay the whole geographic, mesh and data prefix first and
+  leave a catalog, a lock and a WAL in a workspace where no calibration ran.
+  One caller in the repository passes a metric name this way and now fails,
+  `examples/projects/new_to_sort/11_nancon_watershed/python/06_python_calibration.py`,
+  which asks for `objective="kge"` beside `variable="discharge"` and was
+  calibrating on the default all along. Python mode filters `objective` out of
+  the config payload, so the metric goes in `objective_blocks=[...]` there.
+  `run_trial_light` keeps its own `objective` argument and is not touched.
+- A staged calibration declaring `uncertainty.method = "linearized"` now gets a
+  width per phase, taken around that phase's own optimum. It got none at all:
+  the dispatch that builds one lives in the non-staged route, so the search was
+  paid for in solver hours and nothing came back. Of the three declared
+  methods two were already honoured per phase - `cost_profile` inside the core
+  the staged route calls, `multistart` reimplemented by the staged runner - and
+  `linearized` was orphaned by anatomy, not by meaning.
+- A width taken after an earlier phase froze parameters is conditional on that
+  freeze, and the Methods paragraph says so instead of reporting it as an
+  absolute. It also tells a width that was built and is conditional from one
+  that was never built: "Reported parameter uncertainty is conditional on the
+  following" covers the first, "No parameter uncertainty was built for" the
+  second. A run whose phases were all reused from disk used to claim a reported
+  uncertainty where there was none.
+- A phase none of whose outputs can name a station keeps its report instead of
+  losing it. `CalibOutputNetwork` carries no `observes` field, so the steady
+  stage of `matching_hydrographic_network` - the only registered protocol -
+  holds an output, holds no station and can never hold one; asking for a width
+  there ended the whole staged run after the steady search had been paid for.
+  An output that could have named a station and did not is still a document
+  mistake and still fails loudly.
+- `hmp calibrate --check` counts two refusals on a document declaring phases
+  that it did not count before, and exits non-zero where it exited 0. The
+  burn-in guard for `method = "linearized"` skipped every phased document,
+  since no width was built for one, and now applies phase by phase. And the
+  refusal for an output naming no station is raised once per search rather than
+  once per file, so a five-phase document says which phase cannot carry a
+  width. On a single-metric phase the message names the real mechanism, a phase
+  scored on `variable`/`objective` inherits none of the calibration's outputs,
+  instead of pointing at an `observes` the schema refuses on that phase.
+- `flow_persistence_map` takes a `cycle`, the option `flow_intermittence_map`
+  already had, and both maps now name the window they cover in their title
+  (`2000-01 to 2002-12`) instead of a step count. The two answer the same
+  question over different windows, which reads as a contradiction when only
+  one of them says which: on example 04, 787 cells carry flow during the wet
+  years and none in the classified one, pale blue on one map and grey on the
+  other.
 - Example 04 renders eight figures instead of twenty. What went were the
   duplicates, not the diagnostics: four comparison panels folding the same 36
   residuals, a duration curve over 36 monthly points, a boxplot of three
@@ -103,6 +161,22 @@ Each release section includes the following standard categories:
   no-width path already behaved.
 
 ### Fixed
+- An objective block scoring several outputs checks each output's length
+  against its own record, instead of checking the two concatenated totals. Two
+  outputs individually wrong - twenty simulated values against thirty observed,
+  then forty against thirty - sum to sixty on both sides and passed, while the
+  metric scored the second output's first ten values against the first one's
+  last ten. Measured: no block in `examples/projects/`, `tests/validation/` or
+  `tests/e2e/` scores more than one output, so no existing result moves. The
+  refusal names the output and both lengths, counted after the burn-in, which
+  is what the metric receives.
+- `flow_intermittence_map` and `flow_persistence_map` cut the record into
+  calendar years by reading the year off each timestep's stamp, which is the
+  END of its stress period. A monthly run of 2000 to 2002 therefore reported
+  four cycles: a 2000 of eleven steps, a 2002 running December to November and
+  a 2003 one step long, so the map labelled "2002" classified a year that was
+  a month out of phase. The year is now read at the middle of the step, which
+  falls inside it whichever bound the solver stamps.
 - `hydrograph_log_nse` wrote its note across its own legend: pinned to the
   upper left, its longest line reaches the upper right whatever the axes width.
   The note sits on the log floor, a band the limits leave empty by
@@ -188,6 +262,18 @@ Each release section includes the following standard categories:
   `hydromodpy.core`. Use `hydromodpy.config.HydroModPyConfig` and
   `hydromodpy.config.schema_export` instead.
 
+### Fixed
+- The PyHELP NetCDF export is now readable by the data layer it feeds. Its
+  recharge variable was named `rechg`, which no data family looks up; it is now
+  `recharge`. It also declared no CF grid mapping on its fields and no nodata
+  attribute that survives decoding, so the file was refused on load.
+- A custom gridded source handed the whole NetCDF downstream instead of the
+  variable it names, and the discretization then picked a variable out of it by
+  taking the first one. On any CF file that is the scalar grid-mapping
+  variable; on a multi-field export it could be any field. A source now carries
+  only the variable it declares, and the picker skips grid mappings and
+  dimensionless variables.
+
 ### Changed
 - Simulation identity keys renamed. `[simulation].run_id` and
   `[simulation].on_collision` are removed and now hard-fail under
@@ -234,6 +320,14 @@ Each release section includes the following standard categories:
   the solver. `persist_calibration_result` renamed to `promote_trial`.
 
 ### Added
+- Four figures join the registry, each one a view the legacy example suite drew
+  by hand and nothing in v2 could reproduce: `recession_power_law` (the
+  Brutsaert-Nieber log-log plane of `-dQ/dt` against `Q`, with the late-time
+  Boussinesq 1904 law overlaid), `residence_time_distribution` (the travel-time
+  density of tracked particles against the exponential law of a well-mixed
+  store), `mass_balance_error` (the solver's own closure error per timestep),
+  and `concentration_boxplot` (the distribution of a solute over the domain,
+  timestep by timestep).
 - MODFLOW 6 Lake (LAK) package support: model one or several lakes/reservoirs
   as advanced boundary conditions with stage, bathymetry abacus, and bed
   leakance, driven from the `[flow]` boundary configuration. LAK is a

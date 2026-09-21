@@ -5,10 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.simulation.planning.export_config import (
-    ExportConfig,
-    ExportVariablesConfig,
-)
+from hydromodpy.simulation.planning.export_config import ExportConfig
 
 
 class TestExportConfig:
@@ -17,7 +14,8 @@ class TestExportConfig:
         assert cfg.csv_timeseries is False
         assert cfg.netcdf is False
         assert cfg.package is False
-        assert cfg.times == "last"
+        assert cfg.time == "last"
+        assert cfg.variables == ["head"]
 
     def test_any_enabled_false(self):
         cfg = ExportConfig(netcdf=False, csv_timeseries=False)
@@ -31,19 +29,19 @@ class TestExportConfig:
         cfg = ExportConfig(package=True)
         assert cfg.package is True
 
-    def test_times_selectors(self):
-        assert ExportConfig(times="all").times == "all"
-        assert ExportConfig(times="first").times == "first"
-        assert ExportConfig(times=3).times == 3
-        assert ExportConfig(times=[0, 2, 4]).times == [0, 2, 4]
+    def test_time_selectors(self):
+        assert ExportConfig(time="all").time == "all"
+        assert ExportConfig(time="first").time == "first"
+        assert ExportConfig(time=3).time == 3
+        assert ExportConfig(time=[0, 2, 4]).time == [0, 2, 4]
 
-    def test_times_rejects_garbage(self):
+    def test_time_rejects_garbage(self):
         with pytest.raises(ValidationError):
-            ExportConfig(times="middle")
+            ExportConfig(time="middle")
 
-    def test_times_rejects_empty_list(self):
+    def test_time_rejects_empty_list(self):
         with pytest.raises(ValidationError):
-            ExportConfig(times=[])
+            ExportConfig(time=[])
 
     def test_output_dir(self):
         cfg = ExportConfig(output_dir="/tmp/exports")
@@ -53,22 +51,9 @@ class TestExportConfig:
         with pytest.raises(ValidationError):
             ExportConfig.model_validate({"unknown": True})
 
-
-class TestExportVariablesConfig:
-    def test_variables_active_names(self):
-        cfg = ExportVariablesConfig(head=True, concentration=True, derived=True)
-        names = cfg.active_names()
-        assert "head" in names
-        assert "concentration" in names
-        assert "watertable_depth" in names
-
-    def test_variables_nothing_active(self):
-        cfg = ExportVariablesConfig(
-            head=False,
-            concentration=False,
-            derived=False,
-        )
-        assert cfg.active_names() == []
+    def test_variables_is_a_flat_list(self):
+        cfg = ExportConfig(variables=["head", "release_flux"])
+        assert cfg.variables == ["head", "release_flux"]
 
 
 class TestTopLevelWiring:

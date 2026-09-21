@@ -9,9 +9,8 @@ from an installed distribution, how it is scored from the file.
 
 That separation is what F9d is for. Under the evaluator port alone, a foreign
 implementation returned a cost, which means it also chose what was compared and
-how it was weighed -- ``hydromodpy-evaluator-reservoir`` hard-codes two
-observations and the mean of their squared relative residuals, and changing
-either means editing the wheel. Here, changing a metric or a weight is an edit
+how it was weighed -- such an evaluator hard-codes the observations it compares
+and the metric applied to them, and changing either means editing the wheel. Here, changing a metric or a weight is an edit
 to the document and the model is not rebuilt.
 
 What it refuses, and why it refuses early

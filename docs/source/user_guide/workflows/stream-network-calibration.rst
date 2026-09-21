@@ -148,9 +148,13 @@ be walked by a bisection, by Nelder-Mead or by Optuna without changing what is
 calibrated. The run records the method and its citation, so a value that came
 out of it says what it rests on.
 
-A file cannot both name a protocol and declare its own phases or objective
-blocks. That is two answers to one question, and it is refused rather than
-silently resolved.
+A file cannot both name a protocol and declare phases or objective blocks of
+its own. That is two answers to one question, and it is refused rather than
+silently resolved, naming the section it found them in. Stages identical to
+the ones the protocol would write are the exception, and not a loophole: it is
+how a run re-read from its own sealed configuration replays. A child
+inheriting a parent that names a protocol drops the name with
+``protocol__delete = true`` under ``[calibration]``.
 
 Declaring the two stages by hand
 --------------------------------
@@ -235,6 +239,112 @@ The long form, for a variant the protocol does not cover.
 
 Declaring the ``[[calibration.phases]]`` table is what switches the runner to
 staged mode. Without it nothing changes for an existing configuration.
+
+The shipped version of that file is
+``examples/projects/04_streamflow_intermittence_in_transient/run_calibration_by_hand.toml``.
+It inherits the project next door, which names the protocol, so it starts by
+dropping the name:
+
+.. code-block:: toml
+
+   base_config = "project.toml"
+
+   [calibration]
+   protocol__delete = true
+
+Run ``hmp calibrate project.toml --list-phases`` in that directory and the two
+stages the name expands to are the two stages that file writes out. Nothing
+downstream can tell them apart: the runner records ``phase_name`` and
+``phase_index`` from the declarations whichever way they were written, and the
+four calibration figures read those records rather than the protocol. What the
+name still carries is the citation, the version pin and the list of deviations
+from the publication, which a hand-written assembly records nothing of.
+
+Scoring the second stage on two criteria
+----------------------------------------
+
+The reason to write the long form is the variant the name cannot express. The
+published method scores the storage stage on the hydrograph alone; this scores
+it on the hydrograph and on the extent of the simulated network, as two
+weighted blocks in one phase.
+
+.. code-block:: toml
+
+   [calibration.outputs.gauged_discharge]
+   support  = "point"
+   variable = "discharge"
+   observes = "NANCON"
+   x        = 389285.910
+   y        = 6816518.749
+
+   [[calibration.objective_blocks]]
+   name         = "network_extension"
+   metric       = "distance_gap"
+   uses_outputs = ["seepage_network"]
+   weight       = 0.01
+
+   [[calibration.objective_blocks]]
+   name         = "hydrograph"
+   metric       = "nse_log"
+   uses_outputs = ["gauged_discharge"]
+   weight       = 1.0
+   warmup       = 12
+
+   [[calibration.phases]]
+   name             = "transient_storage"
+   method           = "scipy_nelder_mead"
+   max_iter         = 30
+   tolerance        = 0.05
+   parameters       = ["Sy"]
+   objective_blocks = ["hydrograph", "network_extension"]
+   depends_on       = "steady_conductivity"
+
+   [calibration.phases.overrides]
+   "flow.flow_regime" = "transient"
+
+Four things in there are not free choices.
+
+``support = "point"`` with ``observes``, for the gauge
+   The single-metric route declares no output, so a stage that scores two
+   criteria has to name the gauge as one. That form reads what the
+   single-metric route reads, which is what keeps the two costs comparable:
+   the station's own cell where the loader placed one, with the runoff of
+   ``[data.runoff]`` added over the area that cell drains, and the
+   whole-catchment series where it placed none, with the basin's runoff added.
+   A discharge station is deliberately never placed by the coordinates written
+   beside it, so the second case is the ordinary one, and the run logs one line
+   naming the station when it takes it. The same target written
+   ``support = "boundary"`` on the drain
+   validates and scores the drain budget instead, which is baseflow without
+   runoff and not what a gauge records.
+
+``warmup`` rather than ``scoring_window``, for the spin-up
+   A window cuts a loaded record on its dates. A network output is scored on
+   the pair ``(D_so, D_os)``, which carries none, so a phase declaring a window
+   beside a network block is refused rather than scored over the whole run
+   under the name of a windowed one. A count of samples applies to the block
+   that has a record, and twelve monthly samples are the same span the window
+   would have named.
+
+The network block, in transient, scores one instant
+   A network output is read at the **last stress period** of the run, whatever
+   its ``time`` field says: ``"all"`` and a list of ISO dates both reach the
+   criterion as the whole stack, which is then taken at its last state. The
+   block therefore compares one month to the mapped network, the last of the
+   simulated record. Pick that month with the phase's ``end_datetime``, not
+   with ``time``. Scoring the seasonal extension itself rather than one instant
+   is the method of :cite:`abherve2024headwater`, and it needs an intermittence
+   record.
+
+``weight`` is the exchange rate, and nothing else sets it
+   The two costs are in different units: ``distance_gap`` is metres and
+   ``1 - nse_log`` is a pure number. ``normalize_cost`` is refused on both, for
+   opposite reasons, the first fitting no record to take a spread from and the
+   second being already dimensionless. The weights are normalized to sum to
+   one, so the trial cost above is ``0.0099 * |gap| + 0.990 * (1 - NSElog)``.
+   Set it against the magnitudes the first stage published rather than by
+   halves, and read ``network_extension.total`` and ``hydrograph.total``, which
+   every trial reports, to see what it bought.
 
 What each choice buys you
 -------------------------

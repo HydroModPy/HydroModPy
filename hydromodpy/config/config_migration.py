@@ -5,6 +5,10 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
 - ``on_collision`` -> ``if_exists``
 - ``run_id`` -> ``name`` (when ``name`` is not already set)
 - ``[simulation.results.export]`` -> top-level ``[export]``
+- ``[export.variables]`` boolean submodel (``head``, ``concentration``,
+  ``derived``, and the dead ``budget``/``pathlines`` toggles) -> flat
+  ``export.variables`` list of the names it turned on
+- ``export.times`` -> ``export.time`` (when ``time`` is not already set)
 - ``[modflow6.tgrid]`` and ``[modflownwt.tgrid]`` dropped: neither backend
   read them, at the root and under a comparison or testbed overlay
 - ``solver_scratch`` and ``persistence.save_lock`` dropped: both drove
@@ -87,26 +91,51 @@ def migrate_config_doc(doc: Any) -> list[str]:
 
 def _finish(doc: Any, changes: list[str]) -> list[str]:
     """Run the migrations that must see the promoted top-level tables."""
-    changes.extend(_drop_dead_export_toggles(doc))
+    changes.extend(_migrate_export_variables(doc))
+    changes.extend(_rename_export_times(doc))
     return changes
 
 
-def _drop_dead_export_toggles(doc: Any) -> list[str]:
-    """Remove the two export toggles that gated nothing.
+def _migrate_export_variables(doc: Any) -> list[str]:
+    """Rewrite the ``[export.variables]`` boolean submodel as a flat list.
 
-    ``head``, ``concentration`` and ``derived`` name variables the exporter can
-    actually write. ``budget`` and ``pathlines`` named none, so they were removed
-    from the schema; ``extra="forbid"`` then refuses a file that still sets them,
-    which is why they have to be dropped rather than merely ignored.
+    ``[export.variables]`` used to be a table of booleans: ``head`` and
+    ``derived`` (expanding to ``watertable_elevation``, ``watertable_depth``,
+    ``seepage_mask``) and ``concentration`` gated a real export; ``budget`` and
+    ``pathlines`` gated nothing and were already dead. The schema now carries
+    the active set directly as ``export.variables = [...]``, so the table is
+    expanded into the names it turned on; the dead toggles simply do not
+    survive the expansion.
     """
-    variables = (doc.get("export") or {}).get("variables")
-    if variables is None:
+    export = doc.get("export")
+    if export is None:
         return []
-    changes: list[str] = []
-    for dead in ("budget", "pathlines"):
-        if dead in variables:
-            del variables[dead]
-            changes.append(f"export.variables.{dead} dropped (gated no export)")
+    variables = export.get("variables")
+    if variables is None or not isinstance(variables, Mapping):
+        return []
+    names: list[str] = []
+    if variables.get("head", False):
+        names.append("head")
+    if variables.get("concentration", False):
+        names.append("concentration")
+    if variables.get("derived", False):
+        names.extend(["watertable_elevation", "watertable_depth", "seepage_mask"])
+    export["variables"] = names
+    return [f"export.variables (boolean table) -> list {names!r}"]
+
+
+def _rename_export_times(doc: Any) -> list[str]:
+    """Rename ``export.times`` to ``export.time``, matching ``[[export.artifacts]]``."""
+    export = doc.get("export")
+    if export is None or "times" not in export:
+        return []
+    value = export["times"]
+    if "time" not in export:
+        export["time"] = value
+        changes = [f"export.times -> export.time ({value!r})"]
+    else:
+        changes = ["export.times dropped (export.time already set)"]
+    del export["times"]
     return changes
 
 

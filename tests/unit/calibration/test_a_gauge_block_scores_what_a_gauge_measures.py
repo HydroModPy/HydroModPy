@@ -57,18 +57,18 @@ class _Adapter:
 
 @pytest.fixture
 def wired(monkeypatch):
-    def _wire(*, includes_runoff: bool, observes: str | None):
+    def _wire(*, includes_runoff: bool, observes: str | None, station_cell=CELL):
         adapter = _Adapter(includes_runoff=includes_runoff)
         monkeypatch.setattr(
             _solver_extract, "resolve_flow_adapter", lambda _ctx: (adapter, object())
         )
         monkeypatch.setattr(_solver_extract, "find_cell_at_point", lambda *_: CELL)
-        monkeypatch.setattr(_solver_extract, "cell_for_station", lambda *_a, **_k: CELL)
+        monkeypatch.setattr(_solver_extract, "cell_for_station", lambda *_a, **_k: station_cell)
         monkeypatch.setattr(_solver_extract, "resolve_time_index", lambda *_a, **_k: TIMES)
-        seen: dict[str, float] = {}
+        seen: dict[str, float | None] = {}
 
         def _add_runoff(series, _ctx, *, area_m2=None):
-            seen["area_m2"] = float(area_m2)
+            seen["area_m2"] = None if area_m2 is None else float(area_m2)
             return series + RUNOFF_ADDED
 
         monkeypatch.setattr(_solver_extract, "add_runoff_to_discharge", _add_runoff)
@@ -117,6 +117,22 @@ def test_the_share_of_the_catchment_the_gauge_cell_drains_is_published(wired) ->
     assert extracted.diagnostics["gauge.drained_fraction"] == pytest.approx(
         (AREA_M2 / 1e6) / CATCHMENT_KM2
     )
+
+
+def test_a_gauge_whose_cell_no_loader_placed_scores_the_catchment_series(wired) -> None:
+    # A discharge station is deliberately not located by its coordinate, so on a
+    # project where nothing resolved its cell there is one series to score it on,
+    # the whole catchment's, which is what the single-metric route falls back to
+    # and what an outlet gauge measures. Refusing instead left a weighted block
+    # unable to fit a gauge on any such project, which is every project whose
+    # loader writes no cell for a hydrometric station.
+    adapter, seen, extracted = wired(includes_runoff=False, observes="NANCON", station_cell=None)
+    assert ("discharge", "domain") in adapter.asked
+    assert ("upstream_area", "cell") not in adapter.asked
+    # The runoff is still owed, and the basin's own forcing needs no area.
+    assert seen["area_m2"] is None
+    assert extracted.series["gauge"].to_numpy() == pytest.approx(BASEFLOW + RUNOFF_ADDED)
+    assert "gauge.drained_fraction" not in extracted.diagnostics
 
 
 def test_an_output_fitted_to_no_record_is_left_alone(wired) -> None:

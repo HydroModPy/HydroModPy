@@ -194,6 +194,8 @@ hydromodpy = ["py.typed"]
 "hydromodpy.physics.hydrology.pyhelp" = ["*.FOR"]
 "hydromodpy.data.common.administrative" = ["*.gpkg"]
 "hydromodpy.cli.commands.dev.manage.static" = ["*.html"]
+# The curated CF v85 standard-name list is read at runtime by cf_validation.py.
+"hydromodpy.results.zarr_store.data" = ["*.txt"]
 
 [tool.coverage.run]
 source = [

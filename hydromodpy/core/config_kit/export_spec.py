@@ -92,13 +92,17 @@ class ExportSpec(HydroModelBase):
         default=None,
         description="Layer index for 3D fields.",
     )
-    resolution: Annotated[float | None, Profile.DEV] = Field(
+    resolution: Annotated[float | None, Profile.USER] = Field(
         default=None,
         description="GeoTIFF pixel size in CRS units. Auto-derived from the grid when omitted.",
     )
     crs: Annotated[str | None, Profile.DEV] = Field(
         default=None,
-        description="Output CRS (e.g. 'EPSG:2154'). Auto-filled from the simulation when omitted.",
+        description=(
+            "Internal only, and always None: the exporter reads the simulation's own "
+            "CRS when this stays unset, and a user-written value is refused because "
+            "tagging is not reprojecting. See _resolve_and_check."
+        ),
     )
     nodata: Annotated[float, Profile.DEV] = Field(
         default=-9999.0,
@@ -132,6 +136,29 @@ class ExportSpec(HydroModelBase):
             raise ValueError(
                 f"time={self.time!r} selects multiple timesteps, invalid for "
                 f"'{self.fmt.value}' (one timestep per file). Use an index, 'first', or 'last'."
+            )
+        if self.crs is not None:
+            # No internal construction site sets 'crs': the exporter builds the
+            # georeferencing transform from mesh/vertices in the simulation's native
+            # CRS and only tags the written file with 'crs'. A user-supplied value
+            # here does not reproject anything, it relabels a Lambert-93 grid as
+            # whatever CRS was asked for, silently writing a file whose bounds and
+            # tag disagree. Refusing any value seen here is safe for the auto-fill
+            # path too, since that path never sets this field on the spec: it reads
+            # 'crs' downstream (catalog.reads._export_crs_for) only when this stays None.
+            raise ValueError(
+                f"crs={self.crs!r} is not accepted: this exporter tags the output with "
+                "the requested CRS, it does not reproject the grid, so the file would be "
+                "corrupt (wrong CRS tag, native-CRS coordinates). Leave 'crs' unset to "
+                "keep the simulation's native CRS, and reproject the written file "
+                "afterwards (e.g. gdalwarp, rasterio.warp) if you need another one."
+            )
+        if isinstance(self.var, list) and len(self.var) > 1 and self.fmt in _SINGLE_TIMESTEP:
+            raise ValueError(
+                f"var={self.var!r} selects {len(self.var)} variables, invalid for "
+                f"'{self.fmt.value}' (one variable per file, only the first would be "
+                "written). Use a single variable name, or switch to 'netcdf' or 'csv' "
+                "to export several at once."
             )
         return self
 

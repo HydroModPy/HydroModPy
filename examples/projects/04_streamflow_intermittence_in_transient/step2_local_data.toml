@@ -1,0 +1,44 @@
+# Nancon, step 1 plus the mapped river network. The catchment, the layer, the
+# parameter, the recharge and the boundary are read from the parent and are not
+# repeated here: this file writes only what having surveyed data on disk
+# changes. Still steady.
+#
+#   hmp run examples/projects/04_streamflow_intermittence_in_transient/step2_local_data.toml
+#
+# Both files sit under examples/data/ and are named, not pathed: the project
+# store resolves them.
+
+base_config = "step1_minimal.toml"
+
+[simulation]
+name = "nancon_step2_local"
+
+[data]
+types = ["hydrography", "hydrometry"]
+
+[[data.hydrography.sources]]
+source = "custom"
+path = "nancon_stream_network.gpkg"
+
+# The gauge at the outlet, daily 1982-2022. A steady run reads none of it; it
+# is declared here so step 4 inherits an observed hydrograph to be compared
+# against, and so step 3 has a local provenance to answer.
+[[data.hydrometry.sources]]
+source = "custom"
+path = "hydrometry"
+station_ids = ["NANCON"]
+
+# A 75 m DEM drains where its own slopes send it, which is not always where the
+# surveyed river was mapped. Burning the network into the DEM makes the two
+# agree before any flow path is computed. 10 m and not the 30 m the schema
+# assumes: much deeper than the local relief and the burnt channel starts
+# capturing the neighbouring valleys.
+[geographic.enforce_streams]
+enabled = true
+depth_m = 10.0
+
+# The DEM-derived network the burn is measured against. 0.5 km2 is the drainage
+# area above which a talweg carries a channel on this catchment.
+[geographic.river_network]
+enabled = true
+threshold_area_km2 = 0.5

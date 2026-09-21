@@ -338,4 +338,278 @@ observes = "NANCON"
         assert "warmup_periods drops the first 6" in _messages(findings)
 
     def test_without_one_the_width_is_not_refused(self, tmp_path) -> None:
-        assert "warmup_periods drops" not in _messages(self._findings(tmp_path, 0))
+        # A purely negative assertion (the burn-in message is absent) would
+        # also pass if the whole check disappeared. Assert the document
+        # comes back clean instead, a presence: nothing at all is wrong here.
+        assert self._findings(tmp_path, 0) == []
+
+
+class TestALinearizedWidthOnAPhasedDocument:
+    """A phased document gets one width per phase (D234), checked phase by phase.
+
+    ``p1`` scores ``block1``, which inherits the calibration-wide burn-in and
+    is refused for it; ``p2`` scores ``block2``, which turns its own burn-in
+    off and is clean. A blanket, document-wide check would either refuse both
+    or neither; only a per-phase one tells them apart.
+    """
+
+    _PHASED = """
+[calibration]
+method = "grid"
+max_iter = 4
+warmup_periods = 6
+
+[calibration.uncertainty]
+method = "linearized"
+perturbation = 0.01
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+transform = "log"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+[calibration.parameters.Sy]
+bounds = [1e-3, 0.35]
+path = "flow.param.Sy.field.value"
+units = "-"
+
+[calibration.outputs.gauge1]
+variable = "discharge"
+support = "boundary"
+boundary_id = "outlet"
+observes = "NANCON1"
+
+[calibration.outputs.gauge2]
+variable = "head"
+support = "point"
+x = 100.0
+y = 0.0
+observes = "NANCON2"
+
+[[calibration.objective_blocks]]
+name = "block1"
+metric = "rmse"
+uses_outputs = ["gauge1"]
+normalize_cost = true
+
+[[calibration.objective_blocks]]
+name = "block2"
+metric = "rmse"
+uses_outputs = ["gauge2"]
+normalize_cost = true
+warmup = 0
+
+[[calibration.phases]]
+name = "p1"
+method = "grid"
+max_iter = 4
+parameters = ["K"]
+outputs = ["gauge1"]
+objective_blocks = ["block1"]
+
+[[calibration.phases]]
+name = "p2"
+method = "grid"
+max_iter = 4
+parameters = ["Sy"]
+outputs = ["gauge2"]
+objective_blocks = ["block2"]
+depends_on = "p1"
+"""
+
+    def test_the_burn_in_is_refused_on_the_phase_that_carries_it(self, tmp_path) -> None:
+        findings = _preflight(_write(tmp_path, self._PHASED))
+
+        # block1 declares no warmup of its own, so it inherits the
+        # calibration-wide warmup_periods and the message names the block,
+        # not the [calibration] key -- "block(s) block1 drops N ...".
+        named = [item for item in findings if "block1" in item.detail and "drops" in item.detail]
+        assert len(named) == 1
+        assert named[0].where == "[[calibration.phases]] 'p1'"
+
+    def test_a_phase_whose_own_block_turns_the_burn_in_off_is_not_named(self, tmp_path) -> None:
+        findings = _preflight(_write(tmp_path, self._PHASED))
+
+        assert "[[calibration.phases]] 'p2'" not in {item.where for item in findings}
+
+
+class TestALinearizedWidthOnAPhaseThatNamesNeitherOutputsNorBlocks:
+    """A phase naming nothing reads every declared output (``_phase_config``'s
+
+    own default), not only what some OTHER phase's block happens to read. A
+    resolved, non-empty block list is not the same fact as this phase having
+    named one, and only the latter narrows the outputs this phase scores.
+    """
+
+    _DOC = """
+[calibration]
+method = "grid"
+max_iter = 4
+
+[calibration.uncertainty]
+method = "linearized"
+perturbation = 0.01
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+transform = "log"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+[calibration.outputs.gauge]
+variable = "discharge"
+support = "boundary"
+boundary_id = "outlet"
+observes = "NANCON"
+
+[calibration.outputs.other]
+variable = "head"
+support = "point"
+x = 100.0
+y = 0.0
+
+[[calibration.objective_blocks]]
+name = "block_other"
+metric = "rmse"
+uses_outputs = ["other"]
+normalize_cost = true
+
+[[calibration.phases]]
+name = "p1"
+method = "grid"
+max_iter = 4
+parameters = ["K"]
+"""
+
+    def test_an_output_no_block_reads_still_counts_when_the_phase_names_nothing(
+        self, tmp_path
+    ) -> None:
+        findings = _preflight(_write(tmp_path, self._DOC))
+
+        assert findings == []
+
+
+class TestALinearizedWidthOnASingleMetricPhase:
+    """A single-metric phase builds no residual vector, ever: ``_phase_config``
+
+    empties its ``outputs`` unconditionally when it declares its own
+    ``variable``/``objective``, so the remedy pointed at for a document-level
+    failure -- declare ``observes`` on an output -- is not one here, whatever
+    the schema does or does not forbid on that phase's own selection.
+    """
+
+    _DOC = """
+[calibration]
+method = "grid"
+max_iter = 4
+
+[calibration.uncertainty]
+method = "linearized"
+perturbation = 0.01
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+transform = "log"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+[[calibration.phases]]
+name = "p1"
+method = "grid"
+max_iter = 4
+parameters = ["K"]
+variable = "discharge"
+objective = "nse"
+"""
+
+    def test_the_message_never_points_at_a_field_the_schema_forbids(self, tmp_path) -> None:
+        # Negative control: put back the literal old branch (`"and the schema
+        # forbids naming a station on the outputs of a single-metric phase, so
+        # that is not a remedy here"` instead of the `_phase_config` mechanism)
+        # and both assertions below go red.
+        findings = _preflight(_write(tmp_path, self._DOC))
+
+        detail = _messages(findings)
+        assert "cost_profile" in detail
+        assert "schema forbids" not in detail
+        assert "declare observes" not in detail.lower()
+
+
+class TestASingleMetricPhaseAlongsideAGloballyObservedOutput:
+    """The document DOES name a station -- on its global output -- while the
+
+    single-metric phase still gets no width. ``_phase_config`` empties a
+    single-metric phase's ``outputs`` unconditionally, so what the rest of the
+    file declares on ``gauge`` is irrelevant to ``p1``; the message must not
+    read as if the document had never named a station anywhere.
+
+    ``p2`` scores ``b1``, which reads ``gauge`` and its declared station: it
+    gets no finding, proving the document as a whole is not at fault.
+    """
+
+    _DOC = """
+[calibration]
+method = "grid"
+max_iter = 4
+
+[calibration.uncertainty]
+method = "linearized"
+perturbation = 0.01
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+transform = "log"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+[calibration.outputs.gauge]
+variable = "discharge"
+support = "boundary"
+boundary_id = "outlet"
+observes = "NANCON"
+
+[[calibration.objective_blocks]]
+name = "b1"
+metric = "rmse"
+uses_outputs = ["gauge"]
+normalize_cost = true
+
+[[calibration.phases]]
+name = "p1"
+method = "grid"
+max_iter = 4
+parameters = ["K"]
+variable = "discharge"
+objective = "nse"
+freeze_on_success = false
+
+[[calibration.phases]]
+name = "p2"
+method = "grid"
+max_iter = 4
+parameters = ["K"]
+objective_blocks = ["b1"]
+"""
+
+    def test_p1_is_refused_without_claiming_the_document_never_named_a_station(
+        self, tmp_path
+    ) -> None:
+        # Asserted on a presence, not an absence. An absence passes under the
+        # mutation that matters here -- dropping the single-metric branch and
+        # emitting the generic detail, which says "no output names a station"
+        # on a document that names one, and which contains neither the old
+        # false clause nor anything else these assertions would catch.
+        findings = _preflight(_write(tmp_path, self._DOC))
+
+        p1 = [item for item in findings if item.where == "[[calibration.phases]] 'p1'"]
+        assert len(p1) == 1
+        assert "inherits none of the calibration's outputs" in p1[0].detail
+        assert "_phase_config" in p1[0].detail
+        assert "schema forbids naming a station" not in p1[0].detail
+        assert "cost_profile" in p1[0].detail
+
+    def test_p2_is_not_named_because_its_block_reads_the_named_station(self, tmp_path) -> None:
+        findings = _preflight(_write(tmp_path, self._DOC))
+
+        assert "[[calibration.phases]] 'p2'" not in {item.where for item in findings}

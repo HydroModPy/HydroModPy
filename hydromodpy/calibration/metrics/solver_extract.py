@@ -151,6 +151,23 @@ def observable_request_for_output(
         station = getattr(output, "observes", None)
         if station is not None:
             cell = cell_for_station(ctx, str(station), variable=str(output.variable))
+            if cell is None and str(output.variable) == "discharge":
+                # The same fallback the single-metric route takes, and for the
+                # same reason: a discharge station is deliberately not placed by
+                # its coordinate, so a project whose loader resolved no cell for
+                # it has the whole-catchment series and nothing else. That series
+                # is what an outlet gauge measures. Refusing here instead would
+                # leave the weighted-block route unable to score a gauge on any
+                # project the single-metric route scores fine, which is the
+                # opposite of the comparability this lookup exists for.
+                logger.info(
+                    "Output %s scores station %s on the whole-catchment discharge: no cell "
+                    "was resolved for it, which is right for the outlet gauge and says so "
+                    "for the others.",
+                    name,
+                    station,
+                )
+                return ObservableRequest(id=name, name="discharge", support="domain", times=times)
             if cell is None:
                 raise NotImplementedError(
                     f"Output {name!r} is scored against station {station!r}, whose cell "
@@ -373,7 +390,9 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
     adapter, run_ctx = resolved
 
     requests: list[ObservableRequest] = []
-    gauge_comparable: dict[str, str] = {}
+    # The area request a gauge output owes its runoff scaling, or None when the
+    # output is the whole-catchment series, whose runoff is the basin's own.
+    gauge_comparable: dict[str, str | None] = {}
     for name, output in outputs.items():
         try:
             request = observable_request_for_output(name, output, ctx)
@@ -387,6 +406,11 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
             # alone. The runoff forcing is what makes the two comparable, scaled
             # by the area this cell drains, exactly as the single-metric route
             # does it. Without this the two routes score different quantities.
+            if request.support != "cell":
+                # The catchment series drains the whole basin, and the forcing
+                # is already areal over it: there is no upstream area to ask for.
+                gauge_comparable[name] = None
+                continue
             area_id = f"_area:{name}"
             gauge_comparable[name] = area_id
             requests.append(
@@ -427,15 +451,19 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
                     "which needs the runoff forcing added on a time axis, and the solver "
                     "returned the values without one."
                 )
-            area = float(
-                np.asarray(results[gauge_comparable[name]].values, dtype=float).reshape(-1)[0]
-            )
-            fraction = report_the_area_a_gauge_drains(
-                str(getattr(output, "observes", "?")), ctx, area_m2=area, where=name
-            )
-            if fraction is not None:
-                diagnostics[f"{name}.drained_fraction"] = fraction
-            dated = add_runoff_to_discharge(dated, ctx, area_m2=area)
+            area_id = gauge_comparable[name]
+            if area_id is None:
+                # The whole-catchment series: the runoff forcing is areal over
+                # that same basin, so it is added without a scaling area.
+                dated = add_runoff_to_discharge(dated, ctx)
+            else:
+                area = float(np.asarray(results[area_id].values, dtype=float).reshape(-1)[0])
+                fraction = report_the_area_a_gauge_drains(
+                    str(getattr(output, "observes", "?")), ctx, area_m2=area, where=name
+                )
+                if fraction is not None:
+                    diagnostics[f"{name}.drained_fraction"] = fraction
+                dated = add_runoff_to_discharge(dated, ctx, area_m2=area)
             values = dated.to_numpy()
             result = replace(result, values=values, times=dated.index, includes_runoff=True)
         result = select_observable_times(result, output.time)
@@ -488,7 +516,7 @@ def _is_a_gauge_comparable_discharge(output: Any, request: ObservableRequest) ->
     """
     return (
         request.name == "discharge"
-        and request.support == "cell"
+        and request.support in ("cell", "domain")
         and getattr(output, "observes", None) is not None
     )
 
