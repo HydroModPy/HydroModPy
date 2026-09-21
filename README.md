@@ -120,12 +120,12 @@ Full documentation lives at
 ## Contributing
 
 Bug reports, feature requests and pull requests are welcome. See
-[CONTRIBUTING.md](CONTRIBUTING.md) for the short version and the
+[CONTRIBUTING.md](https://github.com/HydroModPy/HydroModPy/blob/main/CONTRIBUTING.md) for the short version and the
 [contributor guide](https://docs.hydromodpy.fr/main/contribute.html)
 for the full reference. Released versions are listed in
-[CHANGELOG.md](CHANGELOG.md).
+[CHANGELOG.md](https://github.com/HydroModPy/HydroModPy/blob/main/CHANGELOG.md).
 
-Security issues: please follow [SECURITY.md](SECURITY.md) and use a private
+Security issues: please follow [SECURITY.md](https://github.com/HydroModPy/HydroModPy/blob/main/SECURITY.md) and use a private
 advisory rather than a public issue.
 
 ## How to cite
@@ -134,7 +134,7 @@ If HydroModPy supports your work, please cite the software and the companion
 paper. Full BibTeX, RIS and plain-text entries are on the
 [citation page](https://docs.hydromodpy.fr/main/how_to_cite.html);
 GitHub renders the "Cite this repository" button from
-[`CITATION.cff`](CITATION.cff).
+[`CITATION.cff`](https://github.com/HydroModPy/HydroModPy/blob/main/CITATION.cff).
 
 > Gauvain, A., Abhervé, R., Boivin, B., Roques, C., Le Mesnil, M., Coche, A.,
 > Babey, T., Marçais, J., Bouchez, C., Leray, S., Marti, E., Bresciani, E.,
@@ -151,7 +151,7 @@ HydroModPy is developed by Geosciences Rennes (Université de Rennes, CNRS)
 together with collaborators at CHYN Neuchâtel, INRAE, Pontificia Universidad
 Católica de Chile, Universidad de O'Higgins, WUR, Inria/IRISA and CNRS-LMD.
 The complete author list with affiliations is maintained in
-[`CITATION.cff`](CITATION.cff).
+[`CITATION.cff`](https://github.com/HydroModPy/HydroModPy/blob/main/CITATION.cff).
 
 For questions or collaboration: <alexandre.gauvain.ag@gmail.com> or
 <ronan.abherve@gmail.com>.
@@ -159,4 +159,4 @@ For questions or collaboration: <alexandre.gauvain.ag@gmail.com> or
 ## License
 
 HydroModPy is released under the [Eclipse Public License 2.0](https://opensource.org/licenses/EPL-2.0).
-See [LICENSE](LICENSE).
+See [LICENSE](https://github.com/HydroModPy/HydroModPy/blob/main/LICENSE).

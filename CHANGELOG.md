@@ -33,6 +33,10 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+---
+
+## [v2.0.0a1] - 2026-09-21
+
 ### Removed
 - `[modflownwt.tgrid]` is gone from the schema, following `[modflow6.tgrid]`.
   No backend ever read it back: `apply_explicit_time_window_to_tgrids()`
@@ -96,6 +100,13 @@ Each release section includes the following standard categories:
   width. On a single-metric phase the message names the real mechanism, a phase
   scored on `variable`/`objective` inherits none of the calibration's outputs,
   instead of pointing at an `observes` the schema refuses on that phase.
+- `flow_persistence_map` takes a `cycle`, the option `flow_intermittence_map`
+  already had, and both maps now name the window they cover in their title
+  (`2000-01 to 2002-12`) instead of a step count. The two answer the same
+  question over different windows, which reads as a contradiction when only
+  one of them says which: on example 04, 787 cells carry flow during the wet
+  years and none in the classified one, pale blue on one map and grey on the
+  other.
 - Example 04 renders eight figures instead of twenty. What went were the
   duplicates, not the diagnostics: four comparison panels folding the same 36
   residuals, a duration curve over 36 monthly points, a boxplot of three
@@ -159,6 +170,13 @@ Each release section includes the following standard categories:
   `tests/e2e/` scores more than one output, so no existing result moves. The
   refusal names the output and both lengths, counted after the burn-in, which
   is what the metric receives.
+- `flow_intermittence_map` and `flow_persistence_map` cut the record into
+  calendar years by reading the year off each timestep's stamp, which is the
+  END of its stress period. A monthly run of 2000 to 2002 therefore reported
+  four cycles: a 2000 of eleven steps, a 2002 running December to November and
+  a 2003 one step long, so the map labelled "2002" classified a year that was
+  a month out of phase. The year is now read at the middle of the step, which
+  falls inside it whichever bound the solver stamps.
 - `hydrograph_log_nse` wrote its note across its own legend: pinned to the
   upper left, its longest line reaches the upper right whatever the axes width.
   The note sits on the log floor, a band the limits leave empty by
@@ -244,6 +262,18 @@ Each release section includes the following standard categories:
   `hydromodpy.core`. Use `hydromodpy.config.HydroModPyConfig` and
   `hydromodpy.config.schema_export` instead.
 
+### Fixed
+- The PyHELP NetCDF export is now readable by the data layer it feeds. Its
+  recharge variable was named `rechg`, which no data family looks up; it is now
+  `recharge`. It also declared no CF grid mapping on its fields and no nodata
+  attribute that survives decoding, so the file was refused on load.
+- A custom gridded source handed the whole NetCDF downstream instead of the
+  variable it names, and the discretization then picked a variable out of it by
+  taking the first one. On any CF file that is the scalar grid-mapping
+  variable; on a multi-field export it could be any field. A source now carries
+  only the variable it declares, and the picker skips grid mappings and
+  dimensionless variables.
+
 ### Changed
 - Simulation identity keys renamed. `[simulation].run_id` and
   `[simulation].on_collision` are removed and now hard-fail under
@@ -290,6 +320,14 @@ Each release section includes the following standard categories:
   the solver. `persist_calibration_result` renamed to `promote_trial`.
 
 ### Added
+- Four figures join the registry, each one a view the legacy example suite drew
+  by hand and nothing in v2 could reproduce: `recession_power_law` (the
+  Brutsaert-Nieber log-log plane of `-dQ/dt` against `Q`, with the late-time
+  Boussinesq 1904 law overlaid), `residence_time_distribution` (the travel-time
+  density of tracked particles against the exponential law of a well-mixed
+  store), `mass_balance_error` (the solver's own closure error per timestep),
+  and `concentration_boxplot` (the distribution of a solute over the domain,
+  timestep by timestep).
 - MODFLOW 6 Lake (LAK) package support: model one or several lakes/reservoirs
   as advanced boundary conditions with stage, bathymetry abacus, and bed
   leakance, driven from the `[flow]` boundary configuration. LAK is a
