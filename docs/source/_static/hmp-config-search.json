@@ -8,8 +8,24 @@
     "section": "workflow",
     "anchor": "workflow-mode",
     "page": "workflow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L107",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L108",
     "description": "Workflow mode dispatched by `hmp run`."
+  },
+  {
+    "path": "workflow.verbosity",
+    "name": "verbosity",
+    "type": "Literal['quiet', 'normal', 'verbose', 'debug']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "workflow",
+    "anchor": "workflow-verbosity",
+    "page": "workflow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L140",
+    "description": "How much the run prints on the console. The project debug log, `.hmp/logs/hydromodpy_debug.log`, records every DEBUG line whatever this says. `hmp run -q/-v/--debug` and the HMP_VERBOSITY environment variable both win over this field.",
+    "examples": [
+      "\"normal\"",
+      "\"quiet\""
+    ]
   },
   {
     "path": "workflow.profile",
@@ -20,7 +36,7 @@
     "section": "workflow",
     "anchor": "workflow-profile",
     "page": "workflow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L139",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L165",
     "description": "Profile the run with pyinstrument (honored by the hmp CLI; the --profile flag wins over this field). true writes <config>.profile.html next to the config; a string sets the HTML report path."
   },
   {
@@ -1149,18 +1165,6 @@
     "description": "Flat substratum elevation applied over the full domain (canonical metres). Accepts inline units, e.g. '40 m'. This is an ABSOLUTE elevation, not a depth below topography: where the land surface drops under it, no aquifer is left. Use 'const"
   },
   {
-    "path": "data.project_crs",
-    "name": "project_crs",
-    "type": "str | None",
-    "profile": "user",
-    "stability": "stable",
-    "section": "data",
-    "anchor": "data-project-crs",
-    "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L102",
-    "description": "EPSG code or WKT string of the project coordinate reference system. When set, all loaded data is reprojected to this CRS. Example: 'EPSG:2154' (Lambert-93)."
-  },
-  {
     "path": "data.types",
     "name": "types",
     "type": "list[str]",
@@ -1169,7 +1173,7 @@
     "section": "data",
     "anchor": "data-types",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L110",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L109",
     "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydro"
   },
   {
@@ -1181,7 +1185,7 @@
     "section": "data",
     "anchor": "data-inference-mode",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L119",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L118",
     "description": "Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred type has no explicit data.<type> section (except geo"
   },
   {
@@ -1193,7 +1197,7 @@
     "section": "data",
     "anchor": "data-dem",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L129",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L128",
     "description": "DEM configuration used when 'dem' is listed in data.types."
   },
   {
@@ -1361,7 +1365,7 @@
     "section": "data",
     "anchor": "data-geology",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L133",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L132",
     "description": "Geology configuration used when 'geology' is listed in data.types."
   },
   {
@@ -1541,7 +1545,7 @@
     "section": "data",
     "anchor": "data-hydrography",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L137",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L136",
     "description": "Hydrography configuration (stream network vector data)."
   },
   {
@@ -1688,7 +1692,7 @@
     "section": "data",
     "anchor": "data-hydrometry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L141",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L140",
     "description": "Hydrometry configuration (discharge time-series)."
   },
   {
@@ -1958,7 +1962,7 @@
     "section": "data",
     "anchor": "data-intermittency",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L145",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L144",
     "description": "Intermittency configuration (ONDE stream flow-state observations)."
   },
   {
@@ -2216,7 +2220,7 @@
     "section": "data",
     "anchor": "data-lake-abacus",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L149",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L148",
     "description": "Lake abacus configuration (stage-volume-area lookup table)."
   },
   {
@@ -2288,7 +2292,7 @@
     "section": "data",
     "anchor": "data-lake-bathymetry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L153",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L152",
     "description": "Lake bathymetry configuration (lake-bed elevation raster)."
   },
   {
@@ -2360,7 +2364,7 @@
     "section": "data",
     "anchor": "data-lake-geometry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L157",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L156",
     "description": "Lake geometry configuration (lake/reservoir footprint vector)."
   },
   {
@@ -2432,7 +2436,7 @@
     "section": "data",
     "anchor": "data-lake-inflow",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L161",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L160",
     "description": "Lake inflow configuration (observed inflow volumetric time series)."
   },
   {
@@ -2654,7 +2658,7 @@
     "section": "data",
     "anchor": "data-lake-levels",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L165",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L164",
     "description": "Lake levels configuration (observed water-level time series)."
   },
   {
@@ -2876,7 +2880,7 @@
     "section": "data",
     "anchor": "data-lake-outflow",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L169",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L168",
     "description": "Lake outflow configuration (observed outflow volumetric time series)."
   },
   {
@@ -3098,7 +3102,7 @@
     "section": "data",
     "anchor": "data-lake-withdrawal",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L173",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L172",
     "description": "Lake withdrawal configuration (observed withdrawal volumetric time series)."
   },
   {
@@ -3320,7 +3324,7 @@
     "section": "data",
     "anchor": "data-oceanic",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L177",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L176",
     "description": "Oceanic configuration used when 'oceanic' is listed in data.types."
   },
   {
@@ -3578,7 +3582,7 @@
     "section": "data",
     "anchor": "data-piezometry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L181",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L180",
     "description": "Piezometry configuration (groundwater level time-series)."
   },
   {
@@ -3848,7 +3852,7 @@
     "section": "data",
     "anchor": "data-water-quality",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L185",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L184",
     "description": "Water quality configuration (physico-chemical parameters)."
   },
   {
@@ -4118,7 +4122,7 @@
     "section": "data",
     "anchor": "data-recharge",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L189",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L188",
     "description": "Recharge configuration (drainage / soil infiltration time series)."
   },
   {
@@ -4436,7 +4440,7 @@
     "section": "data",
     "anchor": "data-runoff",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L193",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L192",
     "description": "Runoff configuration (surface runoff time series)."
   },
   {
@@ -4658,7 +4662,7 @@
     "section": "data",
     "anchor": "data-precipitation",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L197",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L196",
     "description": "Precipitation configuration (liquid and solid precipitation)."
   },
   {
@@ -4892,7 +4896,7 @@
     "section": "data",
     "anchor": "data-etp",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L201",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L200",
     "description": "ETP configuration (potential evapotranspiration)."
   },
   {
@@ -5138,7 +5142,7 @@
     "section": "data",
     "anchor": "data-temperature",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L205",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L204",
     "description": "Temperature configuration (air temperature time series)."
   },
   {
@@ -5360,7 +5364,7 @@
     "section": "data",
     "anchor": "data-wind",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L209",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L208",
     "description": "Wind configuration (wind speed time series)."
   },
   {
@@ -5582,7 +5586,7 @@
     "section": "data",
     "anchor": "data-humidity",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L213",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L212",
     "description": "Humidity configuration (relative humidity time series)."
   },
   {
@@ -5804,7 +5808,7 @@
     "section": "data",
     "anchor": "data-radiation",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L217",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L216",
     "description": "Radiation configuration (atmospheric and visible radiation)."
   },
   {
@@ -6038,7 +6042,7 @@
     "section": "data",
     "anchor": "data-soil-moisture",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L221",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L220",
     "description": "Soil moisture configuration (soil moisture index)."
   },
   {
@@ -13289,7 +13293,7 @@
     "section": "export",
     "anchor": "export-netcdf",
     "page": "export.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L54",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L41",
     "description": "Export to NetCDF-4/UGRID."
   },
   {
@@ -13301,44 +13305,44 @@
     "section": "export",
     "anchor": "export-csv-timeseries",
     "page": "export.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L57",
-    "description": "Export time series to CSV at the end of the run. Off by default: the canonical time series lives in tables.parquet; CSV is an on-demand export."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L44",
+    "description": "Export time series to CSV at the end of the run. Off by default: the canonical time series lives in tables.parquet; CSV is an on-demand export. The only toggle that ignores 'variables'."
   },
   {
     "path": "export.vtu",
     "name": "vtu",
     "type": "bool",
-    "profile": "dev",
+    "profile": "user",
     "stability": "stable",
     "section": "export",
     "anchor": "export-vtu",
     "page": "export.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L64",
-    "description": "Export to VTU (ParaView)."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L52",
+    "description": "Export to VTU (ParaView). One timestep per file."
   },
   {
     "path": "export.geotiff",
     "name": "geotiff",
     "type": "bool",
-    "profile": "dev",
+    "profile": "user",
     "stability": "stable",
     "section": "export",
     "anchor": "export-geotiff",
     "page": "export.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L67",
-    "description": "Export to GeoTIFF."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L55",
+    "description": "Export to GeoTIFF. One timestep per file."
   },
   {
     "path": "export.shapefile",
     "name": "shapefile",
     "type": "bool",
-    "profile": "dev",
+    "profile": "user",
     "stability": "stable",
     "section": "export",
     "anchor": "export-shapefile",
     "page": "export.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L68",
-    "description": "Export to Shapefile."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L58",
+    "description": "Export to Shapefile. One timestep per file."
   },
   {
     "path": "export.package",
@@ -13349,103 +13353,67 @@
     "section": "export",
     "anchor": "export-package",
     "page": "export.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L71",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L61",
     "description": "Also write a portable '<run>.hmp' archive (config, provenance, fields, timeseries, RO-Crate) after the run finalizes. The one-line switch for 'this run must be shareable forever'."
   },
   {
     "path": "export.output_dir",
     "name": "output_dir",
     "type": "str | None",
-    "profile": "dev",
+    "profile": "user",
     "stability": "stable",
     "section": "export",
     "anchor": "export-output-dir",
     "page": "export.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L79",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L69",
     "description": "Output directory for exports. Defaults to project results folder."
   },
   {
     "path": "export.variables",
     "name": "variables",
-    "type": "ExportVariablesConfig",
+    "type": "list[str]",
     "profile": "user",
     "stability": "stable",
     "section": "export",
     "anchor": "export-variables",
     "page": "export.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L83",
-    "description": "Which variables to include in exports."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L73",
+    "description": "Field names to export, e.g. ['head', 'watertable_depth']. These are the run's own field names: 'hmp data export <project> --sim <name> --list' prints the ones a given run holds. A name the field registry does not know is refused before the "
   },
   {
-    "path": "export.variables.head",
-    "name": "head",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "export",
-    "anchor": "export-variables-head",
-    "page": "export.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L30",
-    "description": "Export head field."
-  },
-  {
-    "path": "export.variables.concentration",
-    "name": "concentration",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "export",
-    "anchor": "export-variables-concentration",
-    "page": "export.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L31",
-    "description": "Export concentration field."
-  },
-  {
-    "path": "export.variables.derived",
-    "name": "derived",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "export",
-    "anchor": "export-variables-derived",
-    "page": "export.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L34",
-    "description": "Export derived variables (watertable_depth, seepage_mask, etc.)."
-  },
-  {
-    "path": "export.times",
-    "name": "times",
+    "path": "export.time",
+    "name": "time",
     "type": "Union[int, list[int], Literal['first', 'last', 'all']]",
     "profile": "user",
     "stability": "stable",
     "section": "export",
-    "anchor": "export-times",
+    "anchor": "export-time",
     "page": "export.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L87",
-    "description": "Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps. A vtu, a geotiff and a shapefile hold ONE timestep per file, so a selector naming several c"
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L84",
+    "description": "Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps. A vtu, a geotiff and a shapefile hold ONE timestep per file, so a selector naming several i"
   },
   {
     "path": "export.resolution",
     "name": "resolution",
     "type": "float | None",
-    "profile": "dev",
+    "profile": "user",
     "stability": "stable",
     "section": "export",
     "anchor": "export-resolution",
     "page": "export.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L97",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L95",
     "description": "GeoTIFF pixel size in CRS units for toggle exports. Auto-derived from the grid when omitted."
   },
   {
     "path": "export.artifacts",
     "name": "artifacts",
     "type": "list[ExportSpec]",
-    "profile": "dev",
+    "profile": "user",
     "stability": "stable",
     "section": "export",
     "anchor": "export-artifacts",
     "page": "export.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L104",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L102",
     "description": "Explicit export artifacts: full control over variable, format, timestep and destination, beyond the format toggles above."
   },
   {
@@ -13512,7 +13480,7 @@
     "path": "export.artifacts.resolution",
     "name": "resolution",
     "type": "float | None",
-    "profile": "dev",
+    "profile": "user",
     "stability": "stable",
     "section": "export",
     "anchor": "export-artifacts-resolution",
@@ -13530,7 +13498,7 @@
     "anchor": "export-artifacts-crs",
     "page": "export.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L99",
-    "description": "Output CRS (e.g. 'EPSG:2154'). Auto-filled from the simulation when omitted."
+    "description": "Internal only, and always None: the exporter reads the simulation's own CRS when this stays unset, and a user-written value is refused because tagging is not reprojecting. See _resolve_and_check."
   },
   {
     "path": "export.artifacts.nodata",
@@ -13541,7 +13509,7 @@
     "section": "export",
     "anchor": "export-artifacts-nodata",
     "page": "export.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L103",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L107",
     "description": "Nodata fill value for raster formats."
   },
   {
@@ -19203,6 +19171,18 @@
     "description": "Optional seed used by stochastic candidate thinning."
   },
   {
+    "path": "site_selection.terrain_engine",
+    "name": "terrain_engine",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "site_selection",
+    "anchor": "site-selection-terrain-engine",
+    "page": "site_selection.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1160",
+    "description": "Flow-routing engine that conditions the DEM and delineates candidate catchments. Unset uses the engine this build defaults to. A string and not an enumeration, mirroring geographic.terrain_engine: the values that resolve depend on what is i"
+  },
+  {
     "path": "site_selection.strategy",
     "name": "strategy",
     "type": "StrategyConfig",
@@ -19211,7 +19191,7 @@
     "section": "site_selection",
     "anchor": "site-selection-strategy",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1160",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1169",
     "description": ""
   },
   {
@@ -19319,7 +19299,7 @@
     "section": "site_selection",
     "anchor": "site-selection-territory",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1161",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1170",
     "description": "Territory where candidate basins are searched."
   },
   {
@@ -19415,7 +19395,7 @@
     "section": "site_selection",
     "anchor": "site-selection-dem",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1165",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1174",
     "description": ""
   },
   {
@@ -19523,7 +19503,7 @@
     "section": "site_selection",
     "anchor": "site-selection-hydrology",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1166",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1175",
     "description": ""
   },
   {
@@ -19595,7 +19575,7 @@
     "section": "site_selection",
     "anchor": "site-selection-dem-area-light",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1167",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1176",
     "description": "Compact settings for DEM-only automatic small-basin selection."
   },
   {
@@ -19667,7 +19647,7 @@
     "section": "site_selection",
     "anchor": "site-selection-input",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1171",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1180",
     "description": ""
   },
   {
@@ -19763,7 +19743,7 @@
     "section": "site_selection",
     "anchor": "site-selection-outlets",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1174",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1183",
     "description": ""
   },
   {
@@ -19955,7 +19935,7 @@
     "section": "site_selection",
     "anchor": "site-selection-spatial-selection",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1175",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1184",
     "description": ""
   },
   {
@@ -20075,7 +20055,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1178",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1187",
     "description": ""
   },
   {
@@ -20867,7 +20847,7 @@
     "section": "site_selection",
     "anchor": "site-selection-output",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1179",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1188",
     "description": ""
   },
   {
@@ -20987,7 +20967,7 @@
     "section": "site_selection",
     "anchor": "site-selection-map-context",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1180",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1189",
     "description": ""
   },
   {

@@ -24,6 +24,10 @@ Sub-models are linked back to their per-section page.
       [workflow]
       # Workflow mode dispatched by `hmp run`.
       # mode = ""  # REQUIRED
+      # How much the run prints on the console. The project debug log, `.hmp/logs/hydromodpy_debug.log`, records every DEBUG line whatever this says. `hmp run -q/-v/--debug` and the HMP_VERBOSITY environment variable both win over this field.
+      # example: verbosity = "normal"
+      # example: verbosity = "quiet"
+      verbosity = "normal"
       # Profile the run with pyinstrument (honored by the hmp CLI; the --profile flag wins over this field). true writes <config>.profile.html next to the config; a string sets the HTML report path.
       profile = false
 
@@ -113,8 +117,6 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [data]
-      # EPSG code or WKT string of the project coordinate reference system. When set, all loaded data is reprojected to this CRS. Example: 'EPSG:2154' (Lambert-93).
-      # project_crs = ...  # default = None
       # Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
       # types = ...  # uses factory default
       # Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred type has no explicit data.<type> section (except geology, which can use its default typed config).
@@ -395,22 +397,22 @@ Sub-models are linked back to their per-section page.
       [export]
       # Export to NetCDF-4/UGRID.
       netcdf = false
-      # Export time series to CSV at the end of the run. Off by default: the canonical time series lives in tables.parquet; CSV is an on-demand export.
+      # Export time series to CSV at the end of the run. Off by default: the canonical time series lives in tables.parquet; CSV is an on-demand export. The only toggle that ignores 'variables'.
       csv_timeseries = false
-      # Export to VTU (ParaView).
+      # Export to VTU (ParaView). One timestep per file.
       vtu = false
-      # Export to GeoTIFF.
+      # Export to GeoTIFF. One timestep per file.
       geotiff = false
-      # Export to Shapefile.
+      # Export to Shapefile. One timestep per file.
       shapefile = false
       # Also write a portable '<run>.hmp' archive (config, provenance, fields, timeseries, RO-Crate) after the run finalizes. The one-line switch for 'this run must be shareable forever'.
       package = false
       # Output directory for exports. Defaults to project results folder.
       # output_dir = ...  # default = None
-      # Which variables to include in exports.
-      # variables = ...  # uses factory default
-      # Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps. A vtu, a geotiff and a shapefile hold ONE timestep per file, so a selector naming several collapses to the last for them and the run says so; only the NetCDF export carries the whole selection.
-      times = "last"
+      # Field names to export, e.g. ['head', 'watertable_depth']. These are the run's own field names: 'hmp data export <project> --sim <name> --list' prints the ones a given run holds. A name the field registry does not know is refused before the solve, not by this schema. One file is written per name for vtu, geotiff and shapefile; the NetCDF export holds them all. Ignored by csv_timeseries.
+      variables = ["head"]
+      # Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps. A vtu, a geotiff and a shapefile hold ONE timestep per file, so a selector naming several is refused while any of them is on; only the NetCDF export carries the whole selection. Same spelling as [[export.artifacts]] time.
+      time = "last"
       # GeoTIFF pixel size in CRS units for toggle exports. Auto-derived from the grid when omitted.
       # resolution = ...  # default = None
       # Explicit export artifacts: full control over variable, format, timestep and destination, beyond the format toggles above.
@@ -695,6 +697,8 @@ Sub-models are linked back to their per-section page.
       # output_root = ""  # REQUIRED
       # Optional seed used by stochastic candidate thinning.
       # random_seed = ...  # default = None
+      # Flow-routing engine that conditions the DEM and delineates candidate catchments. Unset uses the engine this build defaults to. A string and not an enumeration, mirroring geographic.terrain_engine: the values that resolve depend on what is installed beside HydroModPy.
+      # terrain_engine = ...  # default = None
       # no description
       # strategy = ...  # uses factory default
       # Territory where candidate basins are searched.

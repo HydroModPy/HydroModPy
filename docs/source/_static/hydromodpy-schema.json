@@ -3939,20 +3939,6 @@
       "additionalProperties": false,
       "description": "Top-level ``[data]`` configuration for manager families.\n\nThe `types` list declares user-requested data families. The effective\nactive set can also include planner-inferred families deduced from other\nsections (domain, flow) depending on `inference_mode`.\n\nFor each active type, the matching nested section can be validated dynamically:\n- `geology` already uses its dedicated Pydantic model (`GeologyConfig`),\n- `oceanic` uses `OceanicConfig`,\n- the other data families are kept as validated mappings for now.\n\nUse this model for validation only. Runtime activation order is represented\nby ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.",
       "properties": {
-        "project_crs": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "EPSG code or WKT string of the project coordinate reference system. When set, all loaded data is reprojected to this CRS. Example: 'EPSG:2154' (Lambert-93).",
-          "title": "Project Crs",
-          "x-hmp-profile": "user"
-        },
         "types": {
           "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.",
           "items": {
@@ -5196,7 +5182,7 @@
         },
         "csv_timeseries": {
           "default": false,
-          "description": "Export time series to CSV at the end of the run. Off by default: the canonical time series lives in tables.parquet; CSV is an on-demand export.",
+          "description": "Export time series to CSV at the end of the run. Off by default: the canonical time series lives in tables.parquet; CSV is an on-demand export. The only toggle that ignores 'variables'.",
           "examples": [
             false
           ],
@@ -5206,33 +5192,33 @@
         },
         "vtu": {
           "default": false,
-          "description": "Export to VTU (ParaView).",
+          "description": "Export to VTU (ParaView). One timestep per file.",
           "examples": [
             false
           ],
           "title": "Vtu",
           "type": "boolean",
-          "x-hmp-profile": "dev"
+          "x-hmp-profile": "user"
         },
         "geotiff": {
           "default": false,
-          "description": "Export to GeoTIFF.",
+          "description": "Export to GeoTIFF. One timestep per file.",
           "examples": [
             false
           ],
           "title": "Geotiff",
           "type": "boolean",
-          "x-hmp-profile": "dev"
+          "x-hmp-profile": "user"
         },
         "shapefile": {
           "default": false,
-          "description": "Export to Shapefile.",
+          "description": "Export to Shapefile. One timestep per file.",
           "examples": [
             false
           ],
           "title": "Shapefile",
           "type": "boolean",
-          "x-hmp-profile": "dev"
+          "x-hmp-profile": "user"
         },
         "package": {
           "default": false,
@@ -5256,14 +5242,26 @@
           "default": null,
           "description": "Output directory for exports. Defaults to project results folder.",
           "title": "Output Dir",
-          "x-hmp-profile": "dev"
-        },
-        "variables": {
-          "$ref": "#/$defs/ExportVariablesConfig",
-          "description": "Which variables to include in exports.",
           "x-hmp-profile": "user"
         },
-        "times": {
+        "variables": {
+          "default": [
+            "head"
+          ],
+          "description": "Field names to export, e.g. ['head', 'watertable_depth']. These are the run's own field names: 'hmp data export <project> --sim <name> --list' prints the ones a given run holds. A name the field registry does not know is refused before the solve, not by this schema. One file is written per name for vtu, geotiff and shapefile; the NetCDF export holds them all. Ignored by csv_timeseries.",
+          "examples": [
+            [
+              "head"
+            ]
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Variables",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "time": {
           "anyOf": [
             {
               "type": "integer"
@@ -5284,11 +5282,11 @@
             }
           ],
           "default": "last",
-          "description": "Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps. A vtu, a geotiff and a shapefile hold ONE timestep per file, so a selector naming several collapses to the last for them and the run says so; only the NetCDF export carries the whole selection.",
+          "description": "Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps. A vtu, a geotiff and a shapefile hold ONE timestep per file, so a selector naming several is refused while any of them is on; only the NetCDF export carries the whole selection. Same spelling as [[export.artifacts]] time.",
           "examples": [
             "last"
           ],
-          "title": "Times",
+          "title": "Time",
           "x-hmp-profile": "user"
         },
         "resolution": {
@@ -5303,7 +5301,7 @@
           "default": null,
           "description": "GeoTIFF pixel size in CRS units for toggle exports. Auto-derived from the grid when omitted.",
           "title": "Resolution",
-          "x-hmp-profile": "dev"
+          "x-hmp-profile": "user"
         },
         "artifacts": {
           "description": "Explicit export artifacts: full control over variable, format, timestep and destination, beyond the format toggles above.",
@@ -5312,7 +5310,7 @@
           },
           "title": "Artifacts",
           "type": "array",
-          "x-hmp-profile": "dev"
+          "x-hmp-profile": "user"
         }
       },
       "title": "ExportConfig",
@@ -5429,7 +5427,7 @@
           "default": null,
           "description": "GeoTIFF pixel size in CRS units. Auto-derived from the grid when omitted.",
           "title": "Resolution",
-          "x-hmp-profile": "dev"
+          "x-hmp-profile": "user"
         },
         "crs": {
           "anyOf": [
@@ -5441,7 +5439,7 @@
             }
           ],
           "default": null,
-          "description": "Output CRS (e.g. 'EPSG:2154'). Auto-filled from the simulation when omitted.",
+          "description": "Internal only, and always None: the exporter reads the simulation's own CRS when this stays unset, and a user-written value is refused because tagging is not reprojecting. See _resolve_and_check.",
           "title": "Crs",
           "x-hmp-profile": "dev"
         },
@@ -5461,44 +5459,6 @@
         "dest"
       ],
       "title": "ExportSpec",
-      "type": "object"
-    },
-    "ExportVariablesConfig": {
-      "additionalProperties": false,
-      "description": "Which variables to include in automated exports.",
-      "properties": {
-        "head": {
-          "default": true,
-          "description": "Export head field.",
-          "examples": [
-            true
-          ],
-          "title": "Head",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "concentration": {
-          "default": false,
-          "description": "Export concentration field.",
-          "examples": [
-            false
-          ],
-          "title": "Concentration",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "derived": {
-          "default": true,
-          "description": "Export derived variables (watertable_depth, seepage_mask, etc.).",
-          "examples": [
-            true
-          ],
-          "title": "Derived",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "ExportVariablesConfig",
       "type": "object"
     },
     "FieldHeterogeneousSection": {
@@ -19997,6 +19957,20 @@
           "title": "Random Seed",
           "x-hmp-profile": "user"
         },
+        "terrain_engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Flow-routing engine that conditions the DEM and delineates candidate catchments. Unset uses the engine this build defaults to. A string and not an enumeration, mirroring geographic.terrain_engine: the values that resolve depend on what is installed beside HydroModPy.",
+          "title": "Terrain Engine",
+          "x-hmp-profile": "user"
+        },
         "strategy": {
           "$ref": "#/$defs/StrategyConfig",
           "x-hmp-profile": "user"
@@ -23374,6 +23348,29 @@
             "simulation": "Runs one forward simulation and persists solver outputs, catalog rows, and result stores.",
             "site_selection": "Selects or rejects candidate catchments and produces an auditable HTML review report.",
             "testbed": "Expands a case matrix, delegates each case to a runner, and collects evidence artifacts."
+          },
+          "x-hmp-profile": "user"
+        },
+        "verbosity": {
+          "default": "normal",
+          "description": "How much the run prints on the console. The project debug log, `.hmp/logs/hydromodpy_debug.log`, records every DEBUG line whatever this says. `hmp run -q/-v/--debug` and the HMP_VERBOSITY environment variable both win over this field.",
+          "enum": [
+            "quiet",
+            "normal",
+            "verbose",
+            "debug"
+          ],
+          "examples": [
+            "normal",
+            "quiet"
+          ],
+          "title": "Verbosity",
+          "type": "string",
+          "value_docs": {
+            "debug": "Every DEBUG line, with module and line number. The progress display steps aside so the lines scroll plainly.",
+            "normal": "Banner, one spinner line per pipeline step with its duration, warnings, and the milestones: what was rendered, what was exported, how the run ended.",
+            "quiet": "Warnings and errors only. No banner, no progress display.",
+            "verbose": "Every INFO line the run emits, on top of `normal`."
           },
           "x-hmp-profile": "user"
         },
