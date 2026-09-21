@@ -82,6 +82,20 @@ INDEX_FILENAME = "index.duckdb"
 """Machine-wide global index file living under ``state_dir()``."""
 
 
+def display_path(path: Path | str) -> str:
+    """Return *path* as the shortest spelling a reader can still follow.
+
+    Console lines carry absolute paths that are mostly the same prefix
+    repeated. Relative to the current directory when the path sits under
+    it, absolute otherwise.
+    """
+    resolved = Path(path)
+    try:
+        return str(resolved.resolve().relative_to(Path.cwd().resolve()))
+    except ValueError:
+        return str(resolved)
+
+
 def internal_dir(project_root: Path) -> Path:
     """Return ``<project>/.hmp``, the disposable internals directory."""
     return Path(project_root) / INTERNAL_DIRNAME
@@ -368,6 +382,7 @@ __all__: Iterable[str] = (
     "cache_dir",
     "catalog_path_for",
     "decode_workspace_path",
+    "display_path",
     "encode_workspace_path",
     "from_workspace_relative",
     "internal_dir",

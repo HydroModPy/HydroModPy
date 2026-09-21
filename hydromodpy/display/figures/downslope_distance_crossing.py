@@ -53,6 +53,28 @@ class DownslopeDistanceCrossingFigure(BaseFigure):
         default_figsize=(7.6, 5.0),
     )
 
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Refuse a session that measured no distance, before drawing.
+
+        The two curves are the network criterion's own pair, and only a stage
+        scored on it publishes them. The storage stage of the same method
+        records a cost and nothing else, so asking it for the pair raised
+        mid-render, and ``on_error = "raise"`` turned a stage that had
+        converged into a failed run. The resolver's own message is the reason,
+        so an ambiguity between two outputs reads as an ambiguity rather than
+        as an absence.
+        """
+        reason = super().unavailable_reason(sim)
+        if reason is not None:
+            return reason
+        table = trial_table(sim)
+        for diagnostic in ("D_so", "D_os"):
+            try:
+                table.diagnostic_column(diagnostic)
+            except ValueError as exc:
+                return str(exc)
+        return None
+
     def render(
         self,
         sim: Run,

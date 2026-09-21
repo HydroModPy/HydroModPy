@@ -194,6 +194,7 @@ def observable_request_for_output(
             support="cell",
             cell=cell,
             times=times,
+            diagonal_neighbors=output.diagonal_neighbors,
         )
     if support == "boundary":
         return ObservableRequest(
@@ -228,6 +229,7 @@ def observable_request_for_output(
             support="cell",
             cell=(int(output.layer), int(output.row), int(output.col)),
             times=times,
+            diagonal_neighbors=output.diagonal_neighbors,
         )
     raise ValueError(f"Unknown calibration output support {support!r} on output {name!r}")
 

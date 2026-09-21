@@ -13,12 +13,13 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from hydromodpy.cli._conventions import profile_parser
+from hydromodpy.cli._conventions import profile_parser, verbosity_parser
 from hydromodpy.cli.helpers import (
     EXIT_CALIBRATION,
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
+    apply_verbosity,
     profile_arg_from_toml,
     profile_run,
     resolve_profile_output,
@@ -30,7 +31,7 @@ HELP: str = "Run a calibration workflow from a TOML config"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[profile_parser()])
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[profile_parser(), verbosity_parser()])
     parser.add_argument("config", type=Path, help="Path to a calibration TOML file")
     parser.add_argument(
         "--phase",
@@ -241,14 +242,17 @@ def run(args: argparse.Namespace) -> None:
         print(f"Expected a .toml file, got: {target.suffix}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+    try:
+        raw_toml = load_toml_with_base_config(target)
+    except Exception:
+        raw_toml = {}
+    apply_verbosity(args, raw_toml)
+
     profile_arg = getattr(args, "profile", None)
     if profile_arg is None:
-        from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-
-        try:
-            profile_arg = profile_arg_from_toml(load_toml_with_base_config(target))
-        except Exception:
-            profile_arg = None
+        profile_arg = profile_arg_from_toml(raw_toml) if raw_toml else None
     if getattr(args, "check", False):
         _check_only(target)
         return

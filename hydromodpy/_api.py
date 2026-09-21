@@ -31,6 +31,8 @@ if TYPE_CHECKING:
     import xarray as xr
 
     from hydromodpy.core.state.global_index import GlobalIndex
+    from hydromodpy.examples.install import InstallReport
+    from hydromodpy.examples.manifest import ExampleEntry
     from hydromodpy.project.spinup import SpinupResult
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.run import Run
@@ -862,3 +864,95 @@ def doctor() -> dict:
     for exe in ("mf2005", "mfnwt", "mf6", "mp6", "mp7", "mt3dusgs"):
         info["solvers"][exe] = shutil.which(exe)
     return info
+
+
+def example_list() -> tuple[ExampleEntry, ...]:
+    """List the examples this build ships.
+
+    Read from ``hydromodpy/examples/catalog.toml`` inside the wheel, so it
+    answers offline and cannot promise what the installed version does not
+    know about.
+
+    Returns
+    -------
+    tuple of ExampleEntry
+        One entry per catalogued example, in catalog order.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> [entry.id for entry in hmp.example_list()]  # doctest: +SKIP
+    ['04']
+    """
+    from hydromodpy.examples.manifest import load_catalog
+
+    return load_catalog()
+
+
+def example_show(example_id: str) -> ExampleEntry:
+    """Return one catalogued example, file by file.
+
+    Parameters
+    ----------
+    example_id:
+        Example id as listed by :func:`example_list`.
+
+    Raises
+    ------
+    FileNotFoundError
+        When no entry carries that id. The message names the ids that exist.
+    """
+    from hydromodpy.examples.manifest import find_entry, load_catalog
+
+    return find_entry(example_id, load_catalog())
+
+
+def example_add(
+    example_id: str,
+    *,
+    workspace: Any = None,
+    ref: str | None = None,
+    force: bool = False,
+) -> InstallReport:
+    """Install one shipped example into a workspace.
+
+    Fetches whatever is missing from the content-addressed cache, verifies
+    every file against the sha256 the manifest declares, and writes the
+    authored configs under ``projects/<directory>/`` and the data under
+    ``data/<variable>/``.
+
+    Parameters
+    ----------
+    example_id:
+        Example id as listed by :func:`example_list`.
+    workspace:
+        Workspace root. Defaults to ``~/hydromodpy``.
+    ref:
+        Git ref to fetch from. Defaults to ``v`` plus the installed version.
+        Ignored when ``HMP_EXAMPLES_SOURCE`` names another source.
+    force:
+        Overwrite destination files whose content differs from the manifest.
+        Without it such a file is kept, so a local edit survives a re-install.
+
+    Returns
+    -------
+    InstallReport
+        What was written, what was already there, and what was downloaded.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> hmp.example_add("04").project_dir  # doctest: +SKIP
+    PosixPath('/home/user/hydromodpy/projects/04_streamflow_intermittence_in_transient')
+    """
+    from hydromodpy.data.scaffold import DEFAULT_ROOT
+    from hydromodpy.examples.blobs import resolve_source
+    from hydromodpy.examples.install import install_example
+
+    root = Path(workspace).expanduser().resolve() if workspace else DEFAULT_ROOT
+    return install_example(
+        example_show(example_id),
+        workspace=root,
+        source=resolve_source(ref),
+        force=force,
+    )

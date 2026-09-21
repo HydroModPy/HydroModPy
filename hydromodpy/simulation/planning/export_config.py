@@ -25,11 +25,11 @@ TimesSelector = int | list[int] | Literal["first", "last", "all"]
 
 # Toggles writing one timestep per file: a multi-step selector has no meaning
 # for them, and a selector naming several is refused rather than collapsed.
-_SINGLE_TIMESTEP_TOGGLES = ("vtu", "geotiff", "shapefile")
+_SINGLE_TIMESTEP_TOGGLES = ("vtu", "geotiff", "shapefile", "geopackage")
 
 # Toggles that read ``variables``. ``csv_timeseries`` is absent on purpose: it
 # exports the whole timeseries table and never looks at the variable list.
-_VARIABLE_DRIVEN_TOGGLES = ("netcdf", "vtu", "geotiff", "shapefile")
+_VARIABLE_DRIVEN_TOGGLES = ("netcdf", "vtu", "geotiff", "shapefile", "geopackage")
 
 # Toggles that write a raster, the only consumers of ``resolution``.
 _RASTER_TOGGLES = ("geotiff",)
@@ -57,6 +57,9 @@ class ExportConfig(HydroModelBase):
     )
     shapefile: Annotated[bool, Profile.USER] = Field(
         default=False, description="Export to Shapefile. One timestep per file."
+    )
+    geopackage: Annotated[bool, Profile.USER] = Field(
+        default=False, description="Export to GeoPackage. One timestep per file."
     )
     package: Annotated[bool, Profile.USER] = Field(
         default=False,
@@ -109,7 +112,16 @@ class ExportConfig(HydroModelBase):
 
     def any_enabled(self) -> bool:
         """Return True if at least one export format toggle is enabled."""
-        return any([self.netcdf, self.csv_timeseries, self.vtu, self.geotiff, self.shapefile])
+        return any(
+            [
+                self.netcdf,
+                self.csv_timeseries,
+                self.vtu,
+                self.geotiff,
+                self.shapefile,
+                self.geopackage,
+            ]
+        )
 
     def _enabled(self, names: tuple[str, ...]) -> list[str]:
         """Return the enabled toggles among *names*, in declaration order."""

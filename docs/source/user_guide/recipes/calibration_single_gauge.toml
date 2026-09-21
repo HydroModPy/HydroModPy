@@ -1,4 +1,4 @@
-# Reference calibration 1 of 3: one parameter, one gauge, one metric.
+# Reference calibration 1 of 4: one parameter, one gauge, one metric.
 #
 # The shape almost every calibration starts from. One hydraulic property is
 # searched over a bounded range, the run is scored against one observed

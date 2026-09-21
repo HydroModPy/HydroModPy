@@ -233,6 +233,15 @@ class CalibOutputPoint(ScoresAnObservedRecord, HydroModelBase):
         description="Hard-coded observed values, positional and dateless. Name a "
         "station in 'observes' to score a record the project loaded instead.",
     )
+    diagonal_neighbors: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="Route this cell's discharge, and the area it drains, over shared "
+        "nodes rather than shared edges, which recovers a talweg that runs diagonally "
+        "across a square grid. Only reaches 'variable' = 'discharge'; a head or a lake "
+        "state read at this point ignores it. The same knob as the network output's own "
+        "'diagonal_neighbors', declared here too because a point output belongs to no "
+        "network block.",
+    )
 
     @model_validator(mode="after")
     def _check_point_selectors(self) -> CalibOutputPoint:
@@ -318,6 +327,14 @@ class CalibOutputCell(ScoresAnObservedRecord, HydroModelBase):
         default=None,
         description="Hard-coded observed values, positional and dateless. Name a "
         "station in 'observes' to score a record the project loaded instead.",
+    )
+    diagonal_neighbors: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="Route this cell's discharge, and the area it drains, over shared "
+        "nodes rather than shared edges, which recovers a talweg that runs diagonally "
+        "across a square grid. Only reaches 'variable' = 'discharge'; a head read at this "
+        "cell ignores it. The same knob as the network output's own 'diagonal_neighbors', "
+        "declared here too because a cell output belongs to no network block.",
     )
 
     @model_validator(mode="after")

@@ -25,6 +25,11 @@ class TestExportConfig:
         cfg = ExportConfig(netcdf=True)
         assert cfg.any_enabled() is True
 
+    def test_geopackage_toggle(self):
+        cfg = ExportConfig(geopackage=True)
+        assert cfg.geopackage is True
+        assert cfg.any_enabled() is True
+
     def test_package_toggle(self):
         cfg = ExportConfig(package=True)
         assert cfg.package is True

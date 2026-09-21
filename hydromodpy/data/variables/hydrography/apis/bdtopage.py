@@ -8,6 +8,7 @@ import geopandas as gpd
 
 from hydromodpy.core.io.http_client import get_default_client
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.progress import MILESTONE
 from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
 logger = get_logger(__name__)
@@ -81,5 +82,7 @@ def fetch(
             break
         start += page_size
 
-    logger.info("[WFS] BD Topage: fetched %d features total", len(features))
+    # A milestone: a run that went to a public service for its network says so
+    # at the default verbosity, because it is part of where the result comes from.
+    logger.info("[WFS] BD Topage: fetched %d features total", len(features), extra=MILESTONE)
     return gpd.GeoDataFrame.from_features(features, crs="EPSG:4326")

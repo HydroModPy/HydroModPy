@@ -29,7 +29,8 @@ class HydrometrySourceConfig(
     """
 
     source: Annotated[Literal["custom", "hubeau"], Profile.USER] = Field(
-        ..., description="Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API."
+        default="hubeau",
+        description="Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.",
     )
 
     # --- Custom source fields ---
@@ -41,7 +42,7 @@ class HydrometrySourceConfig(
 
     # --- API source fields ---
     product: Annotated[str | None, Profile.USER] = Field(
-        default=None,
+        default="QmnJ",
         description="Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HmnJ').",
     )
     require_observations: Annotated[bool, Profile.DEV] = Field(

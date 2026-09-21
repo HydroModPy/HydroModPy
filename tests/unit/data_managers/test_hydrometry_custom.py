@@ -151,3 +151,18 @@ class TestHydrometryCustomErrors:
     def test_custom_requires_path(self):
         with pytest.raises(ValueError, match="path"):
             HydrometrySourceConfig(source="custom")
+
+
+class TestHydrometrySourceConfigDeclaredDefaults:
+    """The generator writes declared defaults; they have to form a valid entry."""
+
+    def test_default_source_is_hubeau(self):
+        assert HydrometrySourceConfig.model_fields["source"].default == "hubeau"
+
+    def test_default_product_is_qmnj(self):
+        assert HydrometrySourceConfig.model_fields["product"].default == "QmnJ"
+
+    def test_declared_defaults_alone_validate(self):
+        cfg = HydrometrySourceConfig()
+        assert cfg.source == "hubeau"
+        assert cfg.product == "QmnJ"

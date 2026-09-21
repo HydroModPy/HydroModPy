@@ -1,16 +1,15 @@
-# Nancon, the shortest file that runs to completion. Steady state on the local
-# DEM, one hydraulic conductivity everywhere, one recharge rate, and the
-# boundary that lets water leave through the ground surface.
+# Nancon, the shortest file that runs. Steady state on the local DEM, one
+# hydraulic conductivity, one recharge rate, seepage at the ground surface.
+# 27004 cells, six seconds. Only keys that are required or that differ from
+# the schema default are written.
 #
 #   hmp run examples/projects/04_streamflow_intermittence_in_transient/step1_minimal.toml
-#
-# Nothing below is here for reassurance. A key is written only when it is
-# required or when its value differs from what the schema already assumes; a
-# key restating its own default was removed, however sensible it looked.
-# 27004 cells, six seconds.
 
 [workflow]
 mode = "simulation"
+# verbosity = "quiet" | "normal" (default) | "verbose" | "debug"
+# Console only: .hmp/logs/hydromodpy_debug.log keeps every DEBUG line whatever
+# the level. `hmp run -q | -v | --debug` and HMP_VERBOSITY win over the key.
 
 [workspace]
 project_root = "."
@@ -18,25 +17,21 @@ project_root = "."
 [simulation]
 name = "nancon_step1_minimal"
 
-# What is solved and with which backend. `id` and `solvers` carry no default,
-# and `type` selects the process variant the [flow] section is read against.
+# `type` selects the process variant the [flow] section is read against.
 [[simulation.process]]
 id = "flow_main"
 type = "flow"
 solvers = ["modflow6"]
 
 [geographic]
-# The outlet below is written in Lambert-93, and so is every metric extent the
-# later steps download on. Left out, the run still solves and then cannot place
-# the delineated watershed on the mesh, so the catchment series fall back to
-# the whole active domain.
+# Without it the delineated watershed cannot be placed on the mesh and the
+# catchment series fall back to the whole active domain.
 crs_project = "EPSG:2154"
 
-# The catchment is not a file on disk: it is cut out of a regional DEM by
-# walking upslope from one point. `snap_dist` is how far that point may be
-# moved onto the DEM flow network, 150 m here of which 130 m is used.
-# `buff_area` widens the delineated area so the cells of interest are not the
-# boundary cells.
+# The catchment is cut out of a regional DEM by walking upslope from one point.
+# `snap_dist` is how far that point may move onto the DEM flow network, 130 m
+# of the 150 m allowed here. `buff_area` widens the area so the cells of
+# interest are not the boundary cells.
 [geographic.catchment]
 catch_def = "from_outlet_coord"
 dem_init_path = "DEM_armorican_massif.tif"
@@ -45,23 +40,20 @@ y_outlet = 6816518.749
 snap_dist = "150 m"
 buff_area = "10%"
 
-# One layer of weathered and fractured bedrock hung under the topography. 30 m
-# is the Armorican regolith-and-fissured order of magnitude, not the 50 m the
-# schema assumes.
+# Armorican regolith and fissured bedrock, against the 50 m default.
 [domain.depth_model]
 kind = "constant_thickness"
 thickness = "30.0 m"
 
 [flow]
-# Steady, because the default is transient and transient needs a time window,
-# storage parameters and a forcing series at once. Step 4 brings all three.
+# The default is transient, which needs a time window, storage parameters and a
+# forcing series. Step 4 brings all three.
 flow_regime = "steady"
-param_list = ["K"]
+param_list = ["K", "Sy"]
 active_sinks_sources = ["recharge"]
-# The seepage boundary: any cell may drain at the ground surface, so the water
-# table cannot rise above the topography and the excess leaves as baseflow.
-# This list is the whole declaration; a [flow.bc.drainage] table adds nothing
-# to it, and the heads are bit-identical with and without one.
+# Any cell may drain at the ground surface, so the water table cannot rise
+# above the topography and the excess leaves as baseflow. This list is the
+# whole declaration; a [flow.bc.drainage] table adds nothing to it.
 active_bc = ["drainage"]
 
 [flow.param.K.field]
@@ -69,8 +61,16 @@ kind = "homogeneous"
 unit = "m/s"
 value = 5e-5
 
-# 0.78 mm/day is the 2000-2002 mean of the observed Nancon recharge, which is
-# the only rate a steady state can be asked a question about. Step 4 replaces
-# it with the 36 monthly values themselves.
+# How much water a metre of water-table rise stores and gives back. A steady
+# solve carries no storage and never reads it, so declaring it here changes
+# nothing about this run: it is written once, where the weathered-granite order
+# of magnitude can be explained, and every transient step below inherits it.
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+
+# mm/d, the 2000-2002 mean of the observed recharge. Step 4 replaces it with
+# the 36 monthly values.
 [flow.sinks_sources.recharge]
 values = 0.78

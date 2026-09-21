@@ -348,3 +348,156 @@ class TestNetCDFForQgis:
             assert "recharge_layer1" not in ds
         finally:
             ds.close()
+
+
+@pytest.fixture
+def catalog_on_lambert93(tmp_path):
+    """A catalog whose mesh really sits in Lambert-93, with two contrasted fields.
+
+    Reprojection only says something on coordinates that are valid in the source
+    CRS, so this mesh covers a 1 km square of the Nancon catchment: a continuous
+    field (head, in m) and a categorical one (seepage_mask, 0/1).
+    """
+    with simulation_catalog(tmp_path / "workspace") as c:
+        sid = str(uuid4())
+        reg = c.register_simulation(
+            sid,
+            project="test",
+            solver="modflow6",
+            n_cells=4,
+            n_layers=1,
+            n_timesteps=1,
+            crs="EPSG:2154",
+        )
+        if reg.zarr is not None:
+            reg.zarr.close()
+
+        x0, y0, step = 385000.0, 6814000.0, 500.0
+        verts = np.array(
+            [[x0 + i * step, y0 + j * step] for j in range(3) for i in range(3)],
+            dtype="float64",
+        )
+        conn = np.array(
+            [[0, 1, 4, 3], [1, 2, 5, 4], [3, 4, 7, 6], [4, 5, 8, 7]],
+            dtype="int32",
+        )
+        c.write_mesh(sid, verts, conn, np.array([50.0, 0.0]))
+        c.write_time(sid, np.array([0], dtype="int64"))
+        c.write_crs(sid, crs_wkt="EPSG:2154", epsg_code=2154)
+        c.write_field(sid, "head", 0, np.array([[12.5, 14.25, 16.75, 19.0]]), n_timesteps=1)
+        c.write_field(
+            sid,
+            "seepage_mask",
+            0,
+            np.array([0.0, 1.0, 1.0, 0.0]),
+            n_timesteps=1,
+            subgroup="derived",
+        )
+        yield c, sid, tmp_path, (x0, y0, x0 + 2 * step, y0 + 2 * step)
+
+
+def _lonlat_envelope(bounds: tuple[float, float, float, float]) -> tuple[float, ...]:
+    """Lon/lat envelope of a Lambert-93 rectangle, corner by corner.
+
+    Meridian convergence rotates the rectangle: the westernmost point is a
+    different corner from the southernmost one, so the envelope is not
+    the transform of (xmin, ymin) and (xmax, ymax).
+    """
+    from pyproj import Transformer
+
+    xmin, ymin, xmax, ymax = bounds
+    to_wgs84 = Transformer.from_crs("EPSG:2154", "EPSG:4326", always_xy=True)
+    lons, lats = to_wgs84.transform([xmin, xmin, xmax, xmax], [ymin, ymax, ymin, ymax])
+    return min(lons), min(lats), max(lons), max(lats)
+
+
+class TestExportReprojection:
+    """'crs' reprojects the export; it used to only relabel it."""
+
+    def test_a_raster_without_a_crs_keeps_the_native_grid(self, catalog_on_lambert93):
+        import rasterio
+
+        catalog, sid, tmp_path, bounds = catalog_on_lambert93
+        out = tmp_path / "native.tif"
+        catalog.export(sid, ExportSpec(var="head", dest=out, time=0, resolution=100.0))
+
+        with rasterio.open(str(out)) as src:
+            assert src.crs.to_epsg() == 2154
+            assert tuple(src.bounds) == pytest.approx(bounds)
+
+    def test_a_raster_asked_for_another_crs_is_warped_not_relabelled(self, catalog_on_lambert93):
+        import rasterio
+
+        catalog, sid, tmp_path, bounds = catalog_on_lambert93
+        out = tmp_path / "wgs84.tif"
+        catalog.export(
+            sid, ExportSpec(var="head", dest=out, time=0, resolution=100.0, crs="EPSG:4326")
+        )
+
+        lon_min, lat_min, lon_max, lat_max = _lonlat_envelope(bounds)
+        with rasterio.open(str(out)) as src:
+            assert src.crs.to_epsg() == 4326
+            # A relabelled file would still carry metre bounds near 385000.
+            assert src.bounds.left == pytest.approx(lon_min, abs=1e-3)
+            assert src.bounds.right == pytest.approx(lon_max, abs=1e-3)
+            assert src.bounds.bottom == pytest.approx(lat_min, abs=1e-3)
+            assert src.bounds.top == pytest.approx(lat_max, abs=1e-3)
+            assert src.res[0] < 1.0  # degrees, not metres
+            valid = src.read(1)[src.read(1) != -9999.0]
+            # Bilinear interpolates, it does not extrapolate: the warped field
+            # stays inside the range of the four cell values.
+            assert valid.min() == pytest.approx(12.5, abs=1e-9)
+            assert valid.max() == pytest.approx(19.0, abs=1e-9)
+
+    def test_a_categorical_raster_is_warped_without_inventing_classes(self, catalog_on_lambert93):
+        import rasterio
+
+        catalog, sid, tmp_path, _bounds = catalog_on_lambert93
+        out = tmp_path / "mask_wgs84.tif"
+        catalog.export(
+            sid, ExportSpec(var="seepage_mask", dest=out, time=0, resolution=100.0, crs="EPSG:4326")
+        )
+
+        with rasterio.open(str(out)) as src:
+            assert src.crs.to_epsg() == 4326
+            data = src.read(1)
+            assert set(np.unique(data[data != -9999.0])) <= {0.0, 1.0}
+
+    def test_a_vector_asked_for_another_crs_is_reprojected(self, catalog_on_lambert93):
+        import geopandas as gpd
+
+        catalog, sid, tmp_path, bounds = catalog_on_lambert93
+        out = tmp_path / "cells_wgs84.gpkg"
+        catalog.export(sid, ExportSpec(var="head", dest=out, time=0, crs="EPSG:4326"))
+
+        gdf = gpd.read_file(str(out))
+        lon_min, lat_min, lon_max, lat_max = _lonlat_envelope(bounds)
+        assert gdf.crs.to_epsg() == 4326
+        assert len(gdf) == 4
+        assert gdf.total_bounds == pytest.approx([lon_min, lat_min, lon_max, lat_max], abs=1e-9)
+
+    def test_a_vector_without_a_crs_keeps_the_native_geometries(self, catalog_on_lambert93):
+        import geopandas as gpd
+
+        catalog, sid, tmp_path, bounds = catalog_on_lambert93
+        out = tmp_path / "cells_native.gpkg"
+        catalog.export(sid, ExportSpec(var="head", dest=out, time=0))
+
+        gdf = gpd.read_file(str(out))
+        assert gdf.crs.to_epsg() == 2154
+        assert gdf.total_bounds == pytest.approx(bounds)
+
+    def test_the_resampling_rule_splits_masks_from_continuous_fields(self):
+        from rasterio.enums import Resampling
+
+        from hydromodpy.results import field_registry
+        from hydromodpy.results.exporters.geotiff import _resampling_for
+
+        mask = field_registry.get("seepage_mask")
+        head = field_registry.get("head")
+        assert _resampling_for(mask, np.array([0.0, 1.0, 1.0])) is Resampling.nearest
+        assert _resampling_for(head, np.array([12.5, 14.25])) is Resampling.bilinear
+        # Dimensionless but fractional: a storage coefficient is not a class code.
+        porosity = field_registry.get("porosity")
+        assert _resampling_for(porosity, np.array([0.1, 0.25])) is Resampling.bilinear
+        assert _resampling_for(head, np.array([np.nan, np.nan])) is Resampling.nearest

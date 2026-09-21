@@ -24,6 +24,10 @@ class TestNoToggleThatChangesNothing:
         with pytest.raises(ValidationError, match="writes nothing"):
             ExportConfig(geotiff=True, variables=[])
 
+    def test_geopackage_with_no_variables_is_refused(self):
+        with pytest.raises(ValidationError, match="writes nothing"):
+            ExportConfig(geopackage=True, variables=[])
+
     def test_csv_timeseries_does_not_need_variables(self):
         cfg = ExportConfig(csv_timeseries=True, variables=[])
 
@@ -33,6 +37,11 @@ class TestNoToggleThatChangesNothing:
         cfg = ExportConfig(geotiff=True)
 
         assert cfg.variables == ["head"]
+
+    def test_resolution_with_geopackage_alone_is_refused(self):
+        """GeoPackage is a vector format: it does not size a raster."""
+        with pytest.raises(ValidationError, match="sizes nothing"):
+            ExportConfig(geopackage=True, resolution=10.0)
 
 
 class TestFormatAndDestinationAgree:
@@ -64,6 +73,10 @@ class TestTheCollapseIsRefusedRatherThanSilent:
     def test_a_multi_step_selector_with_a_raster_toggle_is_refused(self):
         with pytest.raises(ValidationError, match="one timestep per file"):
             ExportConfig(time="all", geotiff=True)
+
+    def test_a_multi_step_selector_with_geopackage_is_refused(self):
+        with pytest.raises(ValidationError, match="one timestep per file"):
+            ExportConfig(time="all", geopackage=True)
 
     def test_a_single_step_selector_is_accepted(self):
         cfg = ExportConfig(time="last", geotiff=True)

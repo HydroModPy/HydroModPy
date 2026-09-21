@@ -15,6 +15,7 @@ from hydromodpy.cli.commands import (
     data,
     dev,
     doctor,
+    example,
     install_binaries,
     privacy,
     process,
@@ -31,6 +32,7 @@ from hydromodpy.cli.commands import (
 ALL_COMMANDS = (
     workspace,
     project,
+    example,
     catalog,
     data,
     viz,

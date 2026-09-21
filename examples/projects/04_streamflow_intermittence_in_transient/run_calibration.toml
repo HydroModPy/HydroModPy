@@ -1,20 +1,14 @@
-# Nancon, the same model, calibrated. Everything comes from project.toml,
-# the whole `[calibration]` block included: the method lives there, not here.
-# Two declarations make the difference.
+# Nancon, the same model, calibrated. The `[calibration]` block lives in
+# project.toml; this file only makes `hmp run` dispatch it and gives the
+# calibrated result a name of its own, so it sits beside the assumed-values run
+# in the catalog instead of replacing it.
 #
 #   hmp run       .../run_calibration.toml          both stages, in order
 #   hmp calibrate .../run_calibration.toml          the same two stages
 #   hmp calibrate .../run_calibration.toml --check  every problem at once, no solve
-#
-# `hmp calibrate project.toml` already runs this calibration: that verb reads
-# the `[calibration]` block whatever mode the file declares. What this variant
-# adds is that a plain `hmp run` dispatches it too, and a name of its own, so
-# the calibrated result and the assumed-values result sit side by side in the
-# catalog instead of one replacing the other.
 
 base_config = "project.toml"
 
-# The dispatch `hmp run` reads, and the only functional line in this file.
 # One of: simulation, calibration, overview, comparison, testbed,
 # site_selection.
 [workflow]
@@ -24,15 +18,12 @@ mode = "calibration"
 name = "nancon_intermittence_mf6_calibrated"
 description = "Nancon catchment, K from the mapped network then Sy from the gauge."
 
-# Nothing else is written, and that is the point: the bounds, the protocol,
-# the scoring window, the uncertainty tolerance and the figures are the
-# parent's. A variant narrows one of them with one line, since the tables
-# merge key by key:
+# The bounds, the protocol, the scoring window, the uncertainty tolerance and
+# the figures stay the parent's. Tables merge key by key, so a variant narrows
+# one of them with one line:
 #
 #   [calibration.protocol]
-#   steady_max_iter = 8       # a first pass to watch the machinery move,
-#                             # not a value to publish
+#   steady_max_iter = 8
 #
 #   [calibration.parameters.K]
-#   bounds = [1e-6, 1e-4]     # the decade a first pass bracketed; every other
-#                             # key of [calibration.parameters.K] is kept
+#   bounds = [1e-6, 1e-4]     # every other key of the table is kept

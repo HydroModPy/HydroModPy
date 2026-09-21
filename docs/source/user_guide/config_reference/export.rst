@@ -107,6 +107,22 @@ Fields
       Export to Shapefile. One timestep per file.
 
 
+.. index:: ! geopackage
+
+.. container:: hmp-field hmp-field-level-user
+   :name: export-geopackage
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="export.geopackage">
+        <code class="hmp-field-name">geopackage</code>
+      </div>
+
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L61>`__
+
+      Export to GeoPackage. One timestep per file.
+
+
 .. index:: ! package
 
 .. container:: hmp-field hmp-field-level-user
@@ -118,7 +134,7 @@ Fields
         <code class="hmp-field-name">package</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L61>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L64>`__
 
       Also write a portable '<run>.hmp' archive (config, provenance, fields, timeseries, RO-Crate) after the run finalizes. The one-line switch for 'this run must be shareable forever'.
 
@@ -134,7 +150,7 @@ Fields
         <code class="hmp-field-name">output_dir</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L69>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L72>`__
 
       Output directory for exports. Defaults to project results folder.
 
@@ -150,7 +166,7 @@ Fields
         <code class="hmp-field-name">variables</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-secondary:`default = ['head']` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L73>`__
+   :bdg-primary:`list[str]` :bdg-secondary:`default = ['head']` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L76>`__
 
       Field names to export, e.g. ['head', 'watertable_depth']. These are the run's own field names: 'hmp data export <project> --sim <name> --list' prints the ones a given run holds. A name the field registry does not know is refused before the solve, not by this schema. One file is written per name for vtu, geotiff and shapefile; the NetCDF export holds them all. Ignored by csv_timeseries.
 
@@ -166,7 +182,7 @@ Fields
         <code class="hmp-field-name">time</code>
       </div>
 
-   :bdg-primary:`Union[int, list[int], str]` :bdg-secondary:`default = "last"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L84>`__
+   :bdg-primary:`Union[int, list[int], str]` :bdg-secondary:`default = "last"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L87>`__
 
       Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps. A vtu, a geotiff and a shapefile hold ONE timestep per file, so a selector naming several is refused while any of them is on; only the NetCDF export carries the whole selection. Same spelling as [[export.artifacts]] time.
 
@@ -186,7 +202,7 @@ Fields
         <code class="hmp-field-name">resolution</code>
       </div>
 
-   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L95>`__
+   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L98>`__
 
       GeoTIFF pixel size in CRS units for toggle exports. Auto-derived from the grid when omitted.
 
@@ -204,7 +220,7 @@ Fields
         <code class="hmp-field-toml">[[export.artifacts]]</code>
       </div>
 
-   :bdg-primary:`list[ExportSpec]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L102>`__
+   :bdg-primary:`list[ExportSpec]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L105>`__
 
       Explicit export artifacts: full control over variable, format, timestep and destination, beyond the format toggles above.
 
@@ -323,7 +339,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L99>`__
 
-            Internal only, and always None: the exporter reads the simulation's own CRS when this stays unset, and a user-written value is refused because tagging is not reprojecting. See _resolve_and_check.
+            Output CRS (e.g. 'EPSG:4326'). The raster and vector exporters reproject from the simulation's native CRS. Omitted keeps that native CRS.
 
 
       .. index:: ! nodata
@@ -337,7 +353,7 @@ Fields
               <code class="hmp-field-name">nodata</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = -9999.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L107>`__
+         :bdg-primary:`float` :bdg-secondary:`default = -9999.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L106>`__
 
             Nodata fill value for raster formats.
 
@@ -363,6 +379,7 @@ Starter TOML snippet
       # vtu = false
       # geotiff = false
       # shapefile = false
+      # geopackage = false
       # package = false
       # output_dir = ...  # default = None
       # variables = ["head"]

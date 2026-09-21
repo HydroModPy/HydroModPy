@@ -305,11 +305,15 @@ def discharge_target(observed: Sequence[ObservedSeries], declared_station_id: st
         return observed[0]
     raise ValueError(
         f"{len(observed)} discharge stations are loaded ({sorted(by_id)}) but a trial can only "
-        "read one simulated discharge series, the whole-catchment outlet: comparing each gauge "
-        "at its own position needs a per-cell discharge observable that no solver adapter "
-        "serves yet. Score the gauge that sits at the outlet by naming it in "
-        "calibration.observed_station_id (or on the phase), or load only that one with "
-        "station_ids on the hydrometry source. The others stay reported, unscored."
+        "read one simulated discharge series here, the whole-catchment outlet: this "
+        "single-metric route holds one variable and one objective, nothing to keep a cost per "
+        "gauge. Comparing each gauge at its own position needs the weighted-block route "
+        "instead, one per-cell discharge observable per station: declare "
+        '[calibration.outputs.<name>] variable = "discharge", support = "cell", its own '
+        'row/col/layer, and observes = "<station>", one block per output. Score the gauge '
+        "that sits at the outlet here by naming it in calibration.observed_station_id (or on "
+        "the phase), or load only that one with station_ids on the hydrometry source. The "
+        "others stay reported, unscored."
     )
 
 

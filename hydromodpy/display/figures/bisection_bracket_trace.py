@@ -63,6 +63,26 @@ class BisectionBracketTraceFigure(BaseFigure):
         default_figsize=(8.0, 4.8),
     )
 
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Refuse a session that published no signed residual, before drawing.
+
+        A staged calibration promotes a run per stage, and only the root
+        search publishes the residual this figure traces. The storage stage of
+        the same method records a cost and no network diagnostic, so asking it
+        for one raised mid-render, and ``on_error = "raise"`` turned a stage
+        that had converged into a failed run. The resolver's own message is
+        the reason, so an ambiguity between two outputs reads as an ambiguity
+        rather than as an absence.
+        """
+        reason = super().unavailable_reason(sim)
+        if reason is not None:
+            return reason
+        try:
+            trial_table(sim).diagnostic_column("J_signed")
+        except ValueError as exc:
+            return str(exc)
+        return None
+
     def render(
         self,
         sim: Run,

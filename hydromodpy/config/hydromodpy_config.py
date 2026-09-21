@@ -37,6 +37,7 @@ from hydromodpy.analysis.config import AnalysisConfig
 from hydromodpy.analysis.testbed.config import TestbedConfig
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.protocols import expand_calibration_protocol
+from hydromodpy.config.config_migration import migrate_config_doc_on_load
 from hydromodpy.config.toml_section_loader import (
     _deep_merge,
     _load_data_section,
@@ -99,6 +100,7 @@ WorkflowMode = Literal[
     "site_selection",
 ]
 ValidationContext = Literal["toml", "api"]
+Verbosity = Literal["quiet", "normal", "verbose", "debug"]
 
 
 class WorkflowConfig(HydroModelBase):
@@ -135,6 +137,31 @@ class WorkflowConfig(HydroModelBase):
                 ),
             }
         },
+    )
+    verbosity: Annotated[Verbosity, Profile.USER] = Field(
+        default="normal",
+        description=(
+            "How much the run prints on the console. The project debug log, "
+            "`.hmp/logs/hydromodpy_debug.log`, records every DEBUG line "
+            "whatever this says. `hmp run -q/-v/--debug` and the "
+            "HMP_VERBOSITY environment variable both win over this field."
+        ),
+        json_schema_extra={
+            "value_docs": {
+                "quiet": "Warnings and errors only. No banner, no progress display.",
+                "normal": (
+                    "Banner, one spinner line per pipeline step with its duration, "
+                    "warnings, and the milestones: what was rendered, what was "
+                    "exported, how the run ended."
+                ),
+                "verbose": "Every INFO line the run emits, on top of `normal`.",
+                "debug": (
+                    "Every DEBUG line, with module and line number. The progress "
+                    "display steps aside so the lines scroll plainly."
+                ),
+            }
+        },
+        examples=["normal", "quiet"],
     )
     profile: Annotated[bool | str, Profile.EXPERT] = Field(
         default=False,
@@ -659,6 +686,10 @@ class HydroModPyConfig(HydroModelBase):
         """
         toml_path = Path(toml_path).expanduser().resolve()
         raw = load_toml_with_base_config(toml_path)
+        # A config written against an earlier schema still loads: the migration
+        # runs on the parsed payload, in memory. Reading never rewrites the file;
+        # only `hmp doctor` does, and the log line says so.
+        migrate_config_doc_on_load(raw, source=toml_path)
 
         if validate_profile is not None:
             threshold = resolve_profile(validate_profile)

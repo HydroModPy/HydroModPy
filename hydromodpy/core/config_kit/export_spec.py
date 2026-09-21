@@ -99,9 +99,8 @@ class ExportSpec(HydroModelBase):
     crs: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description=(
-            "Internal only, and always None: the exporter reads the simulation's own "
-            "CRS when this stays unset, and a user-written value is refused because "
-            "tagging is not reprojecting. See _resolve_and_check."
+            "Output CRS (e.g. 'EPSG:4326'). The raster and vector exporters reproject "
+            "from the simulation's native CRS. Omitted keeps that native CRS."
         ),
     )
     nodata: Annotated[float, Profile.DEV] = Field(
@@ -137,22 +136,11 @@ class ExportSpec(HydroModelBase):
                 f"time={self.time!r} selects multiple timesteps, invalid for "
                 f"'{self.fmt.value}' (one timestep per file). Use an index, 'first', or 'last'."
             )
-        if self.crs is not None:
-            # No internal construction site sets 'crs': the exporter builds the
-            # georeferencing transform from mesh/vertices in the simulation's native
-            # CRS and only tags the written file with 'crs'. A user-supplied value
-            # here does not reproject anything, it relabels a Lambert-93 grid as
-            # whatever CRS was asked for, silently writing a file whose bounds and
-            # tag disagree. Refusing any value seen here is safe for the auto-fill
-            # path too, since that path never sets this field on the spec: it reads
-            # 'crs' downstream (catalog.reads._export_crs_for) only when this stays None.
-            raise ValueError(
-                f"crs={self.crs!r} is not accepted: this exporter tags the output with "
-                "the requested CRS, it does not reproject the grid, so the file would be "
-                "corrupt (wrong CRS tag, native-CRS coordinates). Leave 'crs' unset to "
-                "keep the simulation's native CRS, and reproject the written file "
-                "afterwards (e.g. gdalwarp, rasterio.warp) if you need another one."
-            )
+        # 'crs' needs no validation here: it is a destination, and the exporters
+        # reproject into it from the mesh CRS read out of the run store. The
+        # native CRS reaches them even when this stays None, because
+        # results/catalog/reads.py resolves
+        # `spec.crs if spec.crs is not None else self._export_crs_for(sid)`.
         if isinstance(self.var, list) and len(self.var) > 1 and self.fmt in _SINGLE_TIMESTEP:
             raise ValueError(
                 f"var={self.var!r} selects {len(self.var)} variables, invalid for "

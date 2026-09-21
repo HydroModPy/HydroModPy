@@ -125,6 +125,13 @@ Subpackages
       Public ``Project`` facade and dispatch adapters above the
       workflow layer.
 
+   .. grid-item-card:: examples
+      :link: examples
+      :link-type: doc
+
+      The catalogue of shipped examples, the content-addressed blob
+      cache, and the generator that writes the manifest.
+
    .. grid-item-card:: validity_frame
       :link: validity_frame
       :link-type: doc
@@ -164,6 +171,7 @@ Subpackages
    reporting
    workflow
    project
+   examples
    validity_frame
    schema
    cli
