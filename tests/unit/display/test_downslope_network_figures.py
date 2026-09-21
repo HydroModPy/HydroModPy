@@ -869,3 +869,78 @@ class TestTheLegendDoesNotSearchOnADenseMap:
         legend = place_legend(ax, loc="lower left")
         assert legend is not None
         assert legend._loc == 3  # matplotlib's code for "lower left"
+
+
+# --------------------------------------------------------------------------- #
+# what a stage that measured no distance gets asked for
+# --------------------------------------------------------------------------- #
+
+
+def _storage_stage_run() -> SimpleNamespace:
+    """The second stage of a staged calibration: a cost per trial, nothing else.
+
+    It promotes a run of its own, so the figures listed for the whole file are
+    asked to draw it, and the network diagnostics the first stage published are
+    absent from its session.
+    """
+    rows = [
+        {
+            "iteration": index,
+            "parameters": {"Sy": {"value": value}},
+            "objective_value": 0.2 + 0.01 * index,
+            "status": "completed",
+        }
+        for index, value in enumerate((0.05, 0.08))
+    ]
+    return SimpleNamespace(
+        sim_id="sim-storage",
+        name="storage-stage",
+        solver="modflow6",
+        has_table=lambda _name: True,
+        has_field=lambda _name: True,
+        calibration_iterations=pd.DataFrame(rows),
+    )
+
+
+def _available_run(diagnostics: list[dict[str, float]]) -> SimpleNamespace:
+    run = _session_run([1e-4, 1e-3], diagnostics)
+    run.solver = "modflow6"
+    run.has_table = lambda _name: True
+    run.has_field = lambda _name: True
+    return run
+
+
+@pytest.mark.parametrize(
+    ("figure", "diagnostic"),
+    [
+        (BisectionBracketTraceFigure(), "J_signed"),
+        (DownslopeDistanceCrossingFigure(), "D_so"),
+    ],
+)
+def test_a_stage_without_the_diagnostic_reports_itself_unavailable(figure, diagnostic) -> None:
+    # Raising here instead cost a converged stage its promoted run: the display
+    # step could only read a render failure, and on_error = "raise" propagated it.
+    reason = figure.unavailable_reason(_storage_stage_run())
+
+    assert reason is not None
+    assert diagnostic in reason
+
+
+@pytest.mark.parametrize(
+    ("figure", "diagnostics"),
+    [
+        (
+            BisectionBracketTraceFigure(),
+            [
+                {"D_so": 100.0, "D_os": 300.0, "J_signed": -200.0},
+                {"D_so": 300.0, "D_os": 100.0, "J_signed": 200.0},
+            ],
+        ),
+        (
+            DownslopeDistanceCrossingFigure(),
+            [{"D_so": 100.0, "D_os": 300.0}, {"D_so": 300.0, "D_os": 100.0}],
+        ),
+    ],
+)
+def test_the_stage_that_published_them_stays_available(figure, diagnostics) -> None:
+    assert figure.unavailable_reason(_available_run(diagnostics)) is None
