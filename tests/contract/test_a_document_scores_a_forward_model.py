@@ -2,9 +2,9 @@
 
 F9c proved that a model installed beside HydroModPy can be calibrated from a
 TOML. It also showed what the evaluator port leaves in the implementation's
-hands: ``hydromodpy-evaluator-reservoir`` returns a cost, so it is the wheel
-that decides which quantity is compared and how the comparison is weighed.
-Changing either means editing the wheel.
+hands: an evaluator returns a cost, so it is the wheel that decides which
+quantity is compared and how the comparison is weighed. Changing either means
+editing the wheel.
 
 This file holds the other half. A forward model answers with observables, the
 ``[calibration.outputs]`` and ``[[calibration.objective_blocks]]`` of the

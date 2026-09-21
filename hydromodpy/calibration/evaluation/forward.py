@@ -6,9 +6,9 @@ Why this port exists beside the evaluator one
 was real in F9a: parameters in, a cost out. Everything between the two -- which
 quantity is compared to which record, under which criterion, with which weight
 -- belonged to the implementation, so a foreign evaluator brought its own
-scoring and a document could not change a criterion without patching it. The
-in-tree wheel of F9c is the proof: ``hydromodpy-evaluator-reservoir`` hard-codes
-its two observations and the mean of their squared relative residuals.
+scoring and a document could not change a criterion without patching it. An
+evaluator of that shape hard-codes the observations it compares and the metric
+it applies to them, and no document reaches either.
 
 This port cuts one step earlier. A forward model answers with the observables it
 was asked for, and the criteria of F6 -- the ``[calibration.outputs]`` and
