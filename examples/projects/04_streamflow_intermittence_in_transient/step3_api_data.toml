@@ -27,14 +27,19 @@ source = "bdtopage"
 date_start = "2000-01-01"
 date_end = "2002-12-31"
 
-# Hub'Eau. `QmM` is the monthly mean discharge, `QmnJ` the daily one, and the
-# model this feeds runs on months. The stations are discovered inside the
-# watershed rather than named, so a renumbering of the gauge does not break the
-# file.
+# Hub'Eau. `QmnJ` is the daily mean discharge, and a series finer than the run
+# is averaged over each stress period, so the same line serves a monthly and a
+# daily step. `QmM`, the monthly product, would only serve the monthly one.
+#
+# The station is named rather than discovered inside the watershed. Discovery
+# works here and finds this one, but what it finds depends on the delineated
+# catchment, so a snap that moves changes the record the run is scored on.
+# J001401001 is "Le Nançon à Lécousse - Pont aux Anes"; the other station of
+# the same site, J001401002, holds nothing over 2000-2002.
 [[data.hydrometry.sources]]
 source = "hubeau"
-product = "QmM"
-extent = "watershed"
+product = "QmnJ"
+station_ids = ["J001401001"]
 
 # Nothing else, for the reason step 2 gives. The heads come out identical to
 # step 2's to the bit: same model, two provenances.
