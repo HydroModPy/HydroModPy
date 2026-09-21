@@ -37,6 +37,7 @@ from hydromodpy.analysis.config import AnalysisConfig
 from hydromodpy.analysis.testbed.config import TestbedConfig
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.protocols import expand_calibration_protocol
+from hydromodpy.config.config_migration import migrate_config_doc_on_load
 from hydromodpy.config.toml_section_loader import (
     _deep_merge,
     _load_data_section,
@@ -685,6 +686,10 @@ class HydroModPyConfig(HydroModelBase):
         """
         toml_path = Path(toml_path).expanduser().resolve()
         raw = load_toml_with_base_config(toml_path)
+        # A config written against an earlier schema still loads: the migration
+        # runs on the parsed payload, in memory. Reading never rewrites the file;
+        # only `hmp doctor` does, and the log line says so.
+        migrate_config_doc_on_load(raw, source=toml_path)
 
         if validate_profile is not None:
             threshold = resolve_profile(validate_profile)

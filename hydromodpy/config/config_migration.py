@@ -15,8 +15,16 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
   nothing. The solver scratch directory is ``<project>/.hmp/scratch`` and
   the lockfile is written on every run.
 
-This is a migration tool, not a backward-compat shim: it changes a file on disk
-once. The runtime itself never accepts the old keys (``extra="forbid"``).
+This is a migration tool, not a backward-compat shim: the runtime model itself
+never accepts the old keys (``extra="forbid"``). ``migrate_config_doc`` is the
+one pure document-to-document transform; two callers wrap it. ``fix_config_file``
+(reached through ``hmp doctor --fix-config``) rewrites a file on disk once, so a
+project TOML catches up for good. ``migrate_config_doc_on_load`` runs the same
+transform in memory on a payload already parsed by a caller, without touching
+the file it came from, and logs what it changed - meant to be called from
+``HydroModPyConfig.from_toml`` on the raw payload, before validation, so a
+config written for an earlier schema still loads without the doctor having
+run on it first. As of this module, that call site is not yet wired in.
 """
 
 from __future__ import annotations
@@ -26,6 +34,10 @@ from pathlib import Path
 from typing import Any
 
 import tomlkit
+
+from hydromodpy.core.logging import get_logger
+
+_logger = get_logger(__name__)
 
 _SOLVER_SECTIONS = ("modflow6", "modflownwt")
 
@@ -54,10 +66,9 @@ def migrate_config_doc(doc: Any) -> list[str]:
     """Apply the legacy ``[simulation]`` key migrations to a parsed doc in place.
 
     Works on a plain ``dict`` (``tomllib``) or a ``tomlkit`` document, so
-    ``fix_config_file`` can rewrite a file while a caller holding a parsed
-    payload migrates it in memory. The runtime loader does **not** call this:
-    ``extra="forbid"`` rejects a legacy key until ``hmp doctor --fix-config``
-    has run. Returns the list of human-readable changes applied.
+    ``fix_config_file`` can rewrite a file while ``migrate_config_doc_on_load``
+    migrates an in-memory payload for the read path. Returns the list of
+    human-readable changes applied.
     """
     changes: list[str] = _drop_dead_result_options(doc)
     changes.extend(_flatten_boundary_conditions(doc))
@@ -87,6 +98,30 @@ def migrate_config_doc(doc: Any) -> list[str]:
 
     changes.extend(_promote_export(doc, simulation))
     return _finish(doc, changes)
+
+
+def migrate_config_doc_on_load(doc: Any, *, source: str | Path | None = None) -> list[str]:
+    """Apply every migration to *doc* in memory, for a config being read, not fixed.
+
+    Meant for ``HydroModPyConfig.from_toml``: called on the freshly parsed
+    payload, before Pydantic validation, so a config written for an earlier
+    schema still loads. Never touches the file *doc* came from - only
+    ``fix_config_file`` writes to disk. Logs one line naming what changed and
+    that ``hmp doctor`` persists it; says nothing when the document was
+    already current.
+    """
+    changes = migrate_config_doc(doc)
+    if changes:
+        where = f"{source}" if source is not None else "config"
+        _logger.info(
+            "%s: migrated %d legacy key(s) on load, not persisted to disk "
+            "(run `hmp doctor --fix-config %s` to persist): %s",
+            where,
+            len(changes),
+            source if source is not None else "<path>",
+            "; ".join(changes),
+        )
+    return changes
 
 
 def _finish(doc: Any, changes: list[str]) -> list[str]:
@@ -283,4 +318,4 @@ def _promote_export(doc: Any, simulation: Any) -> list[str]:
     return ["simulation.results.export -> [export]"]
 
 
-__all__ = ["fix_config_file", "migrate_config_doc"]
+__all__ = ["fix_config_file", "migrate_config_doc", "migrate_config_doc_on_load"]

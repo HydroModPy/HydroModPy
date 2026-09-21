@@ -7,7 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.config.config_migration import fix_config_file
+from hydromodpy.config.config_migration import (
+    fix_config_file,
+    migrate_config_doc,
+    migrate_config_doc_on_load,
+)
 
 
 def _write(tmp_path: Path, body: str) -> Path:
@@ -285,3 +289,122 @@ def test_migrates_a_config_carrying_a_byte_order_mark(tmp_path: Path) -> None:
 
     assert any("modflownwt.tgrid dropped" in c for c in changes)
     assert tomllib.loads(path.read_text()) == {}
+
+
+def test_expands_the_export_variables_boolean_table(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        "[export]\n[export.variables]\nhead = true\nconcentration = false\nderived = true\n"
+        "budget = true\npathlines = true\n",
+    )
+    changes = fix_config_file(path)
+    assert any("export.variables (boolean table) -> list" in c for c in changes)
+
+    parsed = tomllib.loads(path.read_text())["export"]
+    assert parsed["variables"] == [
+        "head",
+        "watertable_elevation",
+        "watertable_depth",
+        "seepage_mask",
+    ]
+    assert fix_config_file(path) == []
+
+
+def test_export_variables_all_off_becomes_an_empty_list(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        "[export]\n[export.variables]\nhead = false\nconcentration = false\n",
+    )
+    changes = fix_config_file(path)
+    assert any("-> list []" in c for c in changes)
+    assert tomllib.loads(path.read_text())["export"]["variables"] == []
+
+
+def test_export_variables_left_alone_when_already_a_list(tmp_path: Path) -> None:
+    path = _write(tmp_path, '[export]\nvariables = ["head"]\n')
+    assert fix_config_file(path) == []
+    assert tomllib.loads(path.read_text())["export"]["variables"] == ["head"]
+
+
+def test_renames_export_times_to_time(tmp_path: Path) -> None:
+    path = _write(tmp_path, '[export]\ntimes = "last"\n')
+    changes = fix_config_file(path)
+    assert any("export.times -> export.time" in c for c in changes)
+
+    parsed = tomllib.loads(path.read_text())["export"]
+    assert parsed["time"] == "last"
+    assert "times" not in parsed
+    assert fix_config_file(path) == []
+
+
+def test_export_times_dropped_when_time_already_set(tmp_path: Path) -> None:
+    path = _write(tmp_path, '[export]\ntime = "all"\ntimes = "last"\n')
+    changes = fix_config_file(path)
+    assert any("export.time already set" in c for c in changes)
+    parsed = tomllib.loads(path.read_text())["export"]
+    assert parsed["time"] == "all"
+    assert "times" not in parsed
+
+
+def test_migrate_config_doc_on_load_leaves_a_current_doc_untouched(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    doc = tomllib.loads('[simulation]\nname = "cheze"\nif_exists = "version"\n')
+    with caplog.at_level("INFO"):
+        changes = migrate_config_doc_on_load(doc, source="cheze.toml")
+    assert changes == []
+    assert caplog.records == []
+
+
+def test_migrate_config_doc_on_load_migrates_in_memory_and_logs_once(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    doc = tomllib.loads('[export]\ntimes = "last"\n[export.variables]\nhead = true\n')
+    with caplog.at_level("INFO"):
+        changes = migrate_config_doc_on_load(doc, source="run/config.toml")
+
+    assert changes == [
+        "export.variables (boolean table) -> list ['head']",
+        "export.times -> export.time ('last')",
+    ]
+    assert doc["export"]["variables"] == ["head"]
+    assert doc["export"]["time"] == "last"
+    assert "times" not in doc["export"]
+
+    assert len(caplog.records) == 1
+    message = caplog.records[0].message
+    assert "run/config.toml" in message
+    assert "2 legacy key" in message
+    assert "hmp doctor" in message
+
+
+def test_frozen_export_config_from_example_04_migrates_and_loads(tmp_path: Path) -> None:
+    """Regression test for the frozen run config this migration exists for.
+
+    ``runs/<name>/config.toml`` for the old ``[export.variables]`` boolean
+    submodel and ``export.times`` key no longer loads without this migration
+    (two Pydantic errors). ``migrate_config_doc`` must fix both in one pass,
+    on the plain dict shape ``tomllib``/``load_toml_with_base_config`` hands
+    back, without ever writing to disk.
+    """
+    source = Path(
+        "examples/projects/04_streamflow_intermittence_in_transient/"
+        "runs/nancon_intermittence_mf6/config.toml"
+    )
+    original_bytes = source.read_bytes()
+    doc = tomllib.loads(original_bytes.decode("utf-8"))
+
+    changes = migrate_config_doc(doc)
+
+    assert doc["export"]["variables"] == [
+        "head",
+        "watertable_elevation",
+        "watertable_depth",
+        "seepage_mask",
+    ]
+    assert doc["export"]["time"] == "last"
+    assert "times" not in doc["export"]
+    assert any("export.variables" in c for c in changes)
+    assert any("export.times -> export.time" in c for c in changes)
+    # migrate_config_doc mutates the in-memory payload only, never the file
+    assert source.read_bytes() == original_bytes
