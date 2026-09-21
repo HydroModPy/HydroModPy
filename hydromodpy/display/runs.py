@@ -13,9 +13,10 @@ the batch summary always names every requested figure that produced nothing.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.progress import MILESTONE
@@ -114,6 +115,37 @@ def _figure_options(display_cfg: DisplayConfig, figure_name: str) -> dict:
         options["cmap"] = display_cfg.cmap
     options.update(dict(display_cfg.overrides.get(figure_name, {})))
     return options
+
+
+def _timestep_out_of_range(sim: Run, options: Mapping[str, Any]) -> str | None:
+    """Return why a declared timestep cannot be drawn on this run, or None.
+
+    A ``timestep`` override belongs to the model the file usually runs. The
+    steady stage of a stream-network calibration collapses that record to one
+    period, and the index that named October there names nothing here. Read
+    from the store it raises inside zarr, several frames under the figure,
+    which this layer can only report as a render failure, and
+    ``on_error = "raise"`` then turns a converged phase into a failed run. The
+    figure is not failing: it is inapplicable to a run of this length, which
+    is a verdict this layer already knows how to carry.
+
+    Only an integer index is judged. A figure reading its own vocabulary
+    there, a date or a label, is left to say for itself what it makes of it.
+    """
+    raw = options.get("timestep")
+    if raw is None:
+        return None
+    try:
+        index = int(raw)
+    except (TypeError, ValueError):
+        return None
+    total = sim.n_timesteps
+    if total is None:
+        return None
+    total = int(total)
+    if total > 0 and -total <= index < total:
+        return None
+    return f"declared timestep {index}, and this run holds {total} timestep(s)"
 
 
 def _log_skipped_figure(name: str, fig: BaseFigure, sim: Run, reason: str) -> None:
@@ -216,7 +248,8 @@ def render_figures_for_run(
         apply_theme(display_cfg.preset)
         for name in wanted:
             fig = _get_figure(name)
-            reason = fig.unavailable_reason(sim)
+            options = _figure_options(display_cfg, name)
+            reason = fig.unavailable_reason(sim) or _timestep_out_of_range(sim, options)
             if reason is not None:
                 _log_skipped_figure(name, fig, sim, reason)
                 skipped.append(SkippedFigure(name=name, reason=reason))
@@ -227,7 +260,7 @@ def render_figures_for_run(
                     sim,
                     dpi=display_cfg.dpi,
                     save_path=save_path,
-                    **_figure_options(display_cfg, name),
+                    **options,
                 )
             except Exception as exc:
                 # One line per figure that fails, at WARNING so it is visible.
