@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -17,6 +18,11 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 from hydromodpy.results.derive.virtual_fields import derive_field_slice
 from hydromodpy.results.zarr_store import SimulationZarr
+
+if TYPE_CHECKING:
+    from rasterio.enums import Resampling
+
+    from hydromodpy.results.field_registry import FieldDescriptor
 
 logger = get_logger(__name__)
 
@@ -57,7 +63,8 @@ def export_geotiff(
     resolution : float
         Pixel size in CRS units.
     crs : str
-        Coordinate reference system.
+        Coordinate reference system of the output. When it differs from the
+        CRS the mesh is stored in, the raster is reprojected into it.
     nodata : float
         NoData value in the output raster.
 
@@ -82,9 +89,11 @@ def export_geotiff(
     """
     import rasterio
     import rasterio.shutil
+    from rasterio.crs import CRS
     from rasterio.features import rasterize
     from rasterio.io import MemoryFile
     from rasterio.transform import from_bounds
+    from rasterio.warp import calculate_default_transform, reproject
     from shapely.geometry import Polygon
 
     output_path = Path(output_path)
@@ -102,6 +111,7 @@ def export_geotiff(
         mesh = grp["mesh"]
         vertices = mesh["vertices"][:]
         connectivity = mesh["face_node_connectivity"][:]
+        native_crs = _native_crs(grp)
 
         # Rebuilt on the fly when the field was never persisted.
         arr = _resolve_zarr_path(grp, descriptor.zarr_path)
@@ -151,6 +161,33 @@ def export_geotiff(
         dtype="float64",
     )
 
+    if native_crs is None:
+        # No grid mapping in the store: the caller's CRS is the only statement
+        # about where these coordinates are, so tag with it and warp nothing.
+        logger.warning(
+            "No CRS recorded in the run store: tagging %s as %s without reprojecting.",
+            output_path.name,
+            crs,
+        )
+    elif CRS.from_user_input(crs) != CRS.from_user_input(native_crs):
+        dst_transform, dst_width, dst_height = calculate_default_transform(
+            native_crs, crs, width, height, left=xmin, bottom=ymin, right=xmax, top=ymax
+        )
+        destination = np.full((dst_height, dst_width), nodata, dtype="float64")
+        reproject(
+            source=raster,
+            destination=destination,
+            src_transform=transform,
+            src_crs=native_crs,
+            src_nodata=nodata,
+            dst_transform=dst_transform,
+            dst_crs=crs,
+            dst_nodata=nodata,
+            resampling=_resampling_for(descriptor, data),
+        )
+        raster, transform = destination, dst_transform
+        width, height = dst_width, dst_height
+
     # Write a plain tiled GTiff in memory, then let the GDAL COG driver
     # (>=3.1) produce the final file in one CreateCopy pass. The COG driver
     # lays out tiles, overviews and IFDs in the spec-required order; building
@@ -186,6 +223,41 @@ def export_geotiff(
 
     logger.info("Exported COG GeoTIFF: %s (%dx%d)", output_path, width, height)
     return output_path
+
+
+def _native_crs(grp) -> str | None:
+    """CRS the mesh vertices are expressed in, from the store's CF grid mapping."""
+    node = grp.get("crs")
+    if node is None:
+        return None
+    attrs = dict(node.attrs)
+    epsg = attrs.get("epsg_code")
+    if epsg is not None:
+        return f"EPSG:{int(epsg)}"
+    wkt = attrs.get("crs_wkt")
+    return str(wkt) if wkt else None
+
+
+def _resampling_for(descriptor: FieldDescriptor, values: np.ndarray) -> Resampling:
+    """Pick the warp resampling rule for one field.
+
+    The registry carries no categorical flag, so the values decide: a
+    dimensionless field made of whole numbers is a mask or a class code
+    (``seepage_mask`` is 0/1) and interpolating it would invent classes the
+    model never produced, so it takes nearest. Anything else is continuous
+    (head in m, a fractional dimensionless field such as porosity) and takes
+    bilinear. Unreadable values fall back to nearest, the conservative rule:
+    it can only ever repeat a value that is already in the source raster.
+    """
+    from rasterio.enums import Resampling
+
+    finite = values[np.isfinite(values)]
+    if finite.size == 0:
+        return Resampling.nearest
+    integral = bool(np.all(finite == np.rint(finite)))
+    if descriptor.units == "1" and integral:
+        return Resampling.nearest
+    return Resampling.bilinear
 
 
 def _resolve_zarr_path(grp, zarr_path: str):

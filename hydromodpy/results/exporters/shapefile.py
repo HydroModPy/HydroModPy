@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
+from hydromodpy.results.derive.virtual_fields import derive_field_slice
 from hydromodpy.results.zarr_store import SimulationZarr
 
 if TYPE_CHECKING:
@@ -27,7 +28,8 @@ def build_cell_geodataframe(
     """Build a ``GeoDataFrame`` of mesh-cell polygons with one field's values.
 
     Shared by the Shapefile and GeoPackage exporters. Requires ``geopandas`` and
-    ``shapely`` and an explicit ``crs``.
+    ``shapely`` and an explicit ``crs``, the CRS of the returned frame: the
+    geometries are reprojected into it when the store holds another one.
     """
     import geopandas as gpd
     from shapely.geometry import Polygon
@@ -42,14 +44,21 @@ def build_cell_geodataframe(
         mesh = grp["mesh"]
         vertices = mesh["vertices"][:]
         connectivity = mesh["face_node_connectivity"][:]
+        native_crs = _native_crs(grp)
 
+        # Rebuilt on the fly when the field was never persisted, like the raster
+        # exporter does: a vector export of seepage_mask must not fail on a run
+        # where the same call succeeds as a GeoTIFF.
         arr = _resolve_zarr_path(grp, descriptor.zarr_path)
-        if arr is None:
-            raise KeyError(
-                f"Variable '{variable}' (zarr_path={descriptor.zarr_path!r}) "
-                f"not found for sim={sim_id}"
-            )
-        data = arr[timestep]
+        if arr is not None:
+            data = arr[timestep]
+        else:
+            data = derive_field_slice(sz, str(sim_id), variable, timestep)
+            if data is None:
+                raise KeyError(
+                    f"Variable '{variable}' (zarr_path={descriptor.zarr_path!r}) "
+                    f"not found for sim={sim_id}"
+                )
     finally:
         sz.close()
     if data.ndim == 2:
@@ -69,11 +78,20 @@ def build_cell_geodataframe(
             values.append(float(data[i]))
             cell_ids.append(i)
 
-    return gpd.GeoDataFrame(
+    # The polygons are built from mesh/vertices, so the frame is born in the
+    # store's own CRS. Stating that first is what turns to_crs into a real
+    # reprojection instead of a rename (on a frame with no CRS it raises).
+    # With no grid mapping in the store the caller's value is the only
+    # statement about these coordinates: tag with it and reproject nothing.
+    gdf = gpd.GeoDataFrame(
         {"cell_id": cell_ids, variable: values},
         geometry=geometries,
-        crs=crs,
+        crs=native_crs if native_crs is not None else crs,
     )
+    if native_crs is None:
+        logger.warning("No CRS recorded in the run store: tagging as %s without reprojecting.", crs)
+        return gdf
+    return gdf.to_crs(crs)
 
 
 def export_shapefile(
@@ -105,7 +123,8 @@ def export_shapefile(
     layer : int, optional
         Layer index for 3D fields. Defaults to the first layer.
     crs : str
-        Coordinate reference system for the output.
+        Coordinate reference system of the output. Cells are reprojected into
+        it when the mesh is stored in another one.
 
     Returns
     -------
@@ -131,6 +150,19 @@ def export_shapefile(
     gdf.to_file(str(output_path))
     logger.info("Exported Shapefile: %s (%d cells)", output_path, len(gdf))
     return output_path
+
+
+def _native_crs(grp) -> str | None:
+    """CRS the mesh vertices are expressed in, from the store's CF grid mapping."""
+    node = grp.get("crs")
+    if node is None:
+        return None
+    attrs = dict(node.attrs)
+    epsg = attrs.get("epsg_code")
+    if epsg is not None:
+        return f"EPSG:{int(epsg)}"
+    wkt = attrs.get("crs_wkt")
+    return str(wkt) if wkt else None
 
 
 def _resolve_zarr_path(grp, zarr_path: str):
