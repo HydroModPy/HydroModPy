@@ -915,6 +915,16 @@
           "description": "Hard-coded observed values, positional and dateless. Name a station in 'observes' to score a record the project loaded instead.",
           "title": "Observed Values",
           "x-hmp-profile": "user"
+        },
+        "diagonal_neighbors": {
+          "default": false,
+          "description": "Route this cell's discharge, and the area it drains, over shared nodes rather than shared edges, which recovers a talweg that runs diagonally across a square grid. Only reaches 'variable' = 'discharge'; a head read at this cell ignores it. The same knob as the network output's own 'diagonal_neighbors', declared here too because a cell output belongs to no network block.",
+          "examples": [
+            false
+          ],
+          "title": "Diagonal Neighbors",
+          "type": "boolean",
+          "x-hmp-profile": "user"
         }
       },
       "required": [
@@ -1438,6 +1448,16 @@
           "default": null,
           "description": "Hard-coded observed values, positional and dateless. Name a station in 'observes' to score a record the project loaded instead.",
           "title": "Observed Values",
+          "x-hmp-profile": "user"
+        },
+        "diagonal_neighbors": {
+          "default": false,
+          "description": "Route this cell's discharge, and the area it drains, over shared nodes rather than shared edges, which recovers a talweg that runs diagonally across a square grid. Only reaches 'variable' = 'discharge'; a head or a lake state read at this point ignores it. The same knob as the network output's own 'diagonal_neighbors', declared here too because a point output belongs to no network block.",
+          "examples": [
+            false
+          ],
+          "title": "Diagonal Neighbors",
+          "type": "boolean",
           "x-hmp-profile": "user"
         }
       },
@@ -5220,6 +5240,16 @@
           "type": "boolean",
           "x-hmp-profile": "user"
         },
+        "geopackage": {
+          "default": false,
+          "description": "Export to GeoPackage. One timestep per file.",
+          "examples": [
+            false
+          ],
+          "title": "Geopackage",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
         "package": {
           "default": false,
           "description": "Also write a portable '<run>.hmp' archive (config, provenance, fields, timeseries, RO-Crate) after the run finalizes. The one-line switch for 'this run must be shareable forever'.",
@@ -5439,7 +5469,7 @@
             }
           ],
           "default": null,
-          "description": "Internal only, and always None: the exporter reads the simulation's own CRS when this stays unset, and a user-written value is refused because tagging is not reprojecting. See _resolve_and_check.",
+          "description": "Output CRS (e.g. 'EPSG:4326'). The raster and vector exporters reproject from the simulation's native CRS. Omitted keeps that native CRS.",
           "title": "Crs",
           "x-hmp-profile": "dev"
         },
@@ -11191,6 +11221,7 @@
           "x-hmp-profile": "dev"
         },
         "source": {
+          "default": "hubeau",
           "description": "Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.",
           "enum": [
             "custom",
@@ -11227,8 +11258,11 @@
               "type": "null"
             }
           ],
-          "default": null,
+          "default": "QmnJ",
           "description": "Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HmnJ').",
+          "examples": [
+            "QmnJ"
+          ],
           "title": "Product",
           "x-hmp-profile": "user"
         },
@@ -11258,9 +11292,6 @@
           "x-hmp-profile": "user"
         }
       },
-      "required": [
-        "source"
-      ],
       "title": "HydrometrySourceConfig",
       "type": "object"
     },

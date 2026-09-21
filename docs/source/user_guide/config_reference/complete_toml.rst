@@ -405,6 +405,8 @@ Sub-models are linked back to their per-section page.
       geotiff = false
       # Export to Shapefile. One timestep per file.
       shapefile = false
+      # Export to GeoPackage. One timestep per file.
+      geopackage = false
       # Also write a portable '<run>.hmp' archive (config, provenance, fields, timeseries, RO-Crate) after the run finalizes. The one-line switch for 'this run must be shareable forever'.
       package = false
       # Output directory for exports. Defaults to project results folder.

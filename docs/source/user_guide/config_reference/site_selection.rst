@@ -75,6 +75,22 @@ Fields
       Optional seed used by stochastic candidate thinning.
 
 
+.. index:: ! terrain_engine
+
+.. container:: hmp-field hmp-field-level-user
+   :name: site-selection-terrain-engine
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="site_selection.terrain_engine">
+        <code class="hmp-field-name">terrain_engine</code>
+      </div>
+
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1160>`__
+
+      Flow-routing engine that conditions the DEM and delineates candidate catchments. Unset uses the engine this build defaults to. A string and not an enumeration, mirroring geographic.terrain_engine: the values that resolve depend on what is installed beside HydroModPy.
+
+
 .. index:: ! strategy
 
 .. container:: hmp-field hmp-field-level-user
@@ -88,7 +104,7 @@ Fields
         <code class="hmp-field-toml">[site_selection.strategy]</code>
       </div>
 
-   :bdg-primary:`StrategyConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1160>`__
+   :bdg-primary:`StrategyConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1169>`__
 
    .. dropdown:: Fields of ``StrategyConfig``
       :icon: list-unordered
@@ -299,7 +315,7 @@ Fields
         <code class="hmp-field-toml">[site_selection.territory]</code>
       </div>
 
-   :bdg-primary:`TerritoryConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1161>`__
+   :bdg-primary:`TerritoryConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1170>`__
 
       Territory where candidate basins are searched.
 
@@ -448,7 +464,7 @@ Fields
         <code class="hmp-field-toml">[site_selection.dem]</code>
       </div>
 
-   :bdg-primary:`DemConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1165>`__
+   :bdg-primary:`DemConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1174>`__
 
    .. dropdown:: Fields of ``DemConfig``
       :icon: list-unordered
@@ -612,7 +628,7 @@ Fields
         <code class="hmp-field-toml">[site_selection.hydrology]</code>
       </div>
 
-   :bdg-primary:`HydrologyConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1166>`__
+   :bdg-primary:`HydrologyConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1175>`__
 
    .. dropdown:: Fields of ``HydrologyConfig``
       :icon: list-unordered
@@ -726,7 +742,7 @@ Fields
         <code class="hmp-field-toml">[site_selection.dem_area_light]</code>
       </div>
 
-   :bdg-primary:`DemAreaLightConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1167>`__
+   :bdg-primary:`DemAreaLightConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1176>`__
 
       Compact settings for DEM-only automatic small-basin selection.
 
@@ -831,7 +847,7 @@ Fields
         <code class="hmp-field-toml">[site_selection.input]</code>
       </div>
 
-   :bdg-primary:`SiteSelectionInputConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1171>`__
+   :bdg-primary:`SiteSelectionInputConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1180>`__
 
    .. dropdown:: Fields of ``SiteSelectionInputConfig``
       :icon: list-unordered
@@ -981,7 +997,7 @@ Fields
         <code class="hmp-field-toml">[site_selection.outlets]</code>
       </div>
 
-   :bdg-primary:`OutletsConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1174>`__
+   :bdg-primary:`OutletsConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1183>`__
 
    .. dropdown:: Fields of ``OutletsConfig``
       :icon: list-unordered
@@ -1262,7 +1278,7 @@ Fields
         <code class="hmp-field-toml">[site_selection.spatial_selection]</code>
       </div>
 
-   :bdg-primary:`SpatialSelectionConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1175>`__
+   :bdg-primary:`SpatialSelectionConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1184>`__
 
    .. dropdown:: Fields of ``SpatialSelectionConfig``
       :icon: list-unordered
@@ -1460,7 +1476,7 @@ Fields
         <code class="hmp-field-toml">[site_selection.criteria]</code>
       </div>
 
-   :bdg-primary:`CriteriaConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1178>`__
+   :bdg-primary:`CriteriaConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1187>`__
 
    .. dropdown:: Fields of ``CriteriaConfig``
       :icon: list-unordered
@@ -2648,7 +2664,7 @@ Fields
         <code class="hmp-field-toml">[site_selection.output]</code>
       </div>
 
-   :bdg-primary:`OutputConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1179>`__
+   :bdg-primary:`OutputConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1188>`__
 
    .. dropdown:: Fields of ``OutputConfig``
       :icon: list-unordered
@@ -2799,7 +2815,7 @@ Fields
         <code class="hmp-field-toml">[site_selection.map_context]</code>
       </div>
 
-   :bdg-primary:`MapContextConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1180>`__
+   :bdg-primary:`MapContextConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1189>`__
 
    .. dropdown:: Fields of ``MapContextConfig``
       :icon: list-unordered
@@ -2921,6 +2937,7 @@ Starter TOML snippet
       # selection_id = ""  # REQUIRED
       # output_root = ""  # REQUIRED
       # random_seed = ...  # default = None
+      # terrain_engine = ...  # default = None
 
       [site_selection.strategy]
       # principle = "criteria_crossing"
