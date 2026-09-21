@@ -1,26 +1,16 @@
-# Nancon, step 4 with its results written out. Nothing about the model changes:
-# this file is the export and the figures, and it is four levels deep,
-# step 5 over step 4 over step 2 over step 1, which is what a nested config
-# looks like once the nesting has stopped being the point.
+# Nancon, step 4 with its results written out. The model does not change: this
+# file is the export and the figures. Four levels deep, step 5 over step 4 over
+# step 2 over step 1; `hmp config check` on it resolves the chain.
 #
 #   hmp run examples/projects/04_streamflow_intermittence_in_transient/step5_export.toml
-#
-# A key comes from the nearest ancestor that writes it and a table merges key
-# by key, so the whole chain has to be read before a value is known. That is
-# the price of not repeating it, and it is paid here rather than explained:
-# `hmp config check` on this file resolves all four.
 
 base_config = "step4_transient.toml"
 
 [simulation]
 name = "nancon_step5_export"
 
-# What the run writes out on its own, under `share/nancon_step5_export/`.
-#
-# A format toggle does not name a file. It writes one file per name in
-# `variables`, and this example names the fields the intermittence is read
-# from: the head that drives it and the three fields that show where the
-# network runs dry, so the two toggles below produce five files and not two:
+# Written under share/nancon_step5_export/. A format toggle writes one file per
+# name in `variables`, so the two toggles below produce five files:
 #
 #   head_t33.tif                  the simulated head
 #   watertable_elevation_t33.tif  water table elevation
@@ -28,49 +18,34 @@ name = "nancon_step5_export"
 #   seepage_mask_t33.tif          where the water table crosses the surface
 #   timeseries.csv                every series of tables.parquet, all 36 steps
 #
-# The console does not list them: it prints how many were written and where,
-# `Exported 6 file(s) -> share/nancon_step5_export`, the six being the five
-# above plus the NetCDF declared further down. `hmp run -v step5_export.toml`
-# names them one by one, with their row count and their pixel size.
+# The console prints one line, `Exported 6 file(s) -> share/nancon_step5_export`,
+# the sixth being the NetCDF below; `hmp run -v` names them one by one. The
+# default `variables` is ["head"].
 #
-# The default `variables` is just `["head"]`, one file: naming the other
-# three here is how the seepage story is put on disk instead of left implicit.
-#
-# `time` is an index into the 36 stress periods. 33 is October 2002, the
-# driest month of the record and the one where the intermittence is visible at
-# all; the default, the last step, is a December with a nearly full network.
-# A GeoTIFF holds one timestep, so that index is the whole story for the four
-# rasters. The time-series CSV ignores it and always covers every step.
-# No `resolution`: the pixel size comes from the mesh, and naming one would
-# only resample a result that has no finer content.
+# `time` indexes the 36 stress periods. 33 is October 2002, the driest month of
+# the record; the default, the last step, is a December with a nearly full
+# network. A GeoTIFF holds one timestep, the CSV ignores the selector and
+# covers every step. No `resolution`: the pixel size comes from the mesh.
 [export]
 geotiff = true
 csv_timeseries = true
 time = 33
 variables = ["head", "watertable_elevation", "watertable_depth", "seepage_mask"]
 
-# The other formats are toggles beside those two: `netcdf`, `geopackage`,
-# `vtu`, `shapefile`, and `package` for a portable `.hmp` archive of the whole
-# run. A toggle follows the convention above and writes one file per name in
-# `variables`; the form below is how a single file gets named instead.
-#
-# [[export.artifacts]] names one file instead of following a convention: a
-# variable or a list of them, a destination whose extension picks the format
-# (.tif .nc .csv .shp .gpkg .vtu .hmp), and its own timestep selector. A
-# relative destination lands beside the five files above.
-#
-# It is also the only way to write several timesteps at once. NetCDF is the one
-# format that holds a chronicle, so `time = "all"` is legal here and would be
-# refused on a .tif, which holds one step per file.
+# The other toggles are `netcdf`, `geopackage`, `vtu`, `shapefile`, and
+# `package` for a portable `.hmp` archive. [[export.artifacts]] names one file
+# instead: a variable or a list of them, a destination whose extension picks
+# the format (.tif .nc .csv .shp .gpkg .vtu .hmp), and its own selector. It is
+# the only way to write several timesteps, and only NetCDF holds a chronicle,
+# so `time = "all"` is legal here and refused on a .tif.
 [[export.artifacts]]
 var = ["head", "watertable_depth"]
 dest = "fields_2000_2002.nc"
 time = "all"
 
-# Four figures, in reading order: where the catchment is, what enters and
-# leaves it, what the gauge saw against what was simulated, and where the
-# ground was releasing water in that driest month. project.toml carries the
-# full set of twelve; this is the short list a first run is read on.
+# Where the catchment is, what enters and leaves it, the gauge against the
+# simulation, and where the ground released water in the driest month.
+# project.toml carries the full set of twelve.
 [display]
 figures = [
     "watershed_id_card",
@@ -79,8 +54,7 @@ figures = [
     "seepage_map",
 ]
 
-# The same instant as the export above, for the same reason. A `timestep` is an
-# index into the stress periods, so it has to be restated whenever the step
-# changes.
+# A `timestep` is an index into the stress periods, so it has to be restated
+# whenever the step changes.
 [display.overrides.seepage_map]
 timestep = 33

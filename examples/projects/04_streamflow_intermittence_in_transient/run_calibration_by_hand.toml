@@ -1,34 +1,19 @@
-# Nancon, the same two stages as project.toml, written out instead of named.
+# Nancon, the two stages of project.toml written out instead of named:
+#
+#   1. K alone, steady over the record, moved until the simulated seepage
+#      network matches the mapped one. No discharge record enters it.
+#   2. Sy alone, monthly transient, K frozen at what stage one found, scored on
+#      the gauged hydrograph and, here only, on the network.
+#
+# `depends_on` and `freeze_on_success` are what "then" means, and both stages
+# run in one call. The long form can deviate, which this file does once; it
+# loses the citation a protocol run records. Abherve et al. (2023),
+# 10.5194/hess-27-3221-2023.
 #
 #   hmp calibrate .../run_calibration_by_hand.toml --list-phases   the assembly, no solve
 #   hmp calibrate .../run_calibration_by_hand.toml --check         every problem at once, no solve
 #   hmp calibrate .../run_calibration_by_hand.toml                 both stages, in order
 #   hmp run       .../run_calibration_by_hand.toml                 the same, dispatched by mode
-#
-# `project.toml` declares `protocol = "matching_hydrographic_network"` and the
-# protocol writes the stages below for you. This file deletes that name and
-# writes them by hand. The method is the same, in the same order:
-#
-#   1. K alone, steady state over the whole record, moved until the simulated
-#      seepage network matches the mapped one. No discharge record enters it.
-#   2. Sy alone, monthly transient, K frozen at what stage one found, scored on
-#      the gauged hydrograph.
-#
-# `depends_on` and `freeze_on_success` are what "then" means: stage two starts
-# at the K stage one converged to, and may not move it. Nothing hands a value
-# from one invocation to the next, so the two stages run in one call.
-#
-# Two reasons to write the long form. The first is that the sequence is then
-# readable in the file: someone who has not read Abherve et al. (2023) still
-# sees a search on K in steady state followed by a search on Sy in transient.
-# The second is that it can deviate, and this one deviates once: stage two is
-# scored on the hydrograph AND on the extent of the simulated network, which
-# the published method does not do and the protocol will therefore not write.
-# The two lines that undo the deviation are at the bottom of the file.
-#
-# What the long form loses is the citation. A run the protocol produced records
-# which published method wrote its stages, its version and its deviations; this
-# one records only what it declares.
 
 base_config = "project.toml"
 
@@ -41,36 +26,19 @@ description = "Nancon, K from the mapped network then Sy from the gauge and the 
 
 
 [calibration]
-# A file may not both name a protocol and declare its own stages: they are two
-# answers to one question, and the second is refused rather than merged. The
-# name is inherited from project.toml, so it has to be dropped here. `__delete`
-# removes an inherited key; everything else of [calibration] is kept, including
-# the bounds, the network output, the uncertainty tolerance and the seed.
+# A file may not both name a protocol and declare its own stages. `__delete`
+# drops the inherited name; the bounds, the network output, the uncertainty
+# tolerance and the seed are kept.
 protocol__delete = true
 
 
-# --- What stage two is scored against ---------------------------------------
-#
-# The network output `seepage_network` already exists in project.toml. The gauge
-# does not: the protocol's stage two takes the single-metric route, which names
-# a variable and a station and declares no output at all. A stage scored on two
-# criteria cannot use that route, so the gauge becomes an output like any other
-# and both criteria become objective blocks.
-#
-# `support = "point"` with `observes` is the form that scores what a gauge
-# measures, and it reads exactly what the single-metric route reads, which is
-# what makes the two costs comparable. Where the loader placed the station on
-# the mesh, that is the station's own cell and the runoff of [data.runoff] is
-# added over the area that cell drains. Where it placed none, and a discharge
-# station is never placed by the coordinates written beside it, it is the
-# whole-catchment series with the basin's runoff added, which is the quantity
-# an outlet gauge measures. This project is the second case, and the run logs
-# it in one line naming the station. A `support = "boundary"` output on the
-# drain would validate too and would score the drain budget alone, which is
-# baseflow without runoff and not what the gauge recorded.
-#
-# x and y are never read once `observes` is set. They are written as the
-# coordinates of the Nancon gauge so the file still says where the station is.
+# The gauge as an output. The protocol scores stage two through the
+# single-metric route, which names a variable and a station and declares no
+# output; two criteria cannot use that route. `support = "point"` with
+# `observes` reads what that route reads, which keeps the two costs
+# comparable: the station's cell with the runoff over the area it drains, or
+# the whole-catchment series when no cell was matched, which is this project.
+# x and y are never read once `observes` is set.
 [calibration.outputs.gauged_discharge]
 support = "point"
 variable = "discharge"
@@ -78,100 +46,65 @@ observes = "NANCON"
 x = 389285.910
 y = 6816518.749
 
-# Stage one, and half of stage two. The signed difference of Eq. 1, whose zero
-# is the balance between the two descents. Its cost is |D_so - D_os| in metres.
-#
-# There is a second estimator, and the pair travels with the engine below.
-# `distance_mean` is the mean of the two distances rather than their
-# difference, which is what the reference implementation of this method
-# minimised with a simplex. Its interior minimum sits nowhere in particular,
-# so a root search must not be pointed at it: swapping the metric means
-# swapping `method` on the steady stage too, or neither. `--check` refuses the
-# mismatched pair before any solve; a plain run does not, it reports a best
-# trial the bracket never converged to.
+# Stage one, and half of stage two. The signed difference of Eq. 1, cost
+# |D_so - D_os| in metres. The other estimator, `distance_mean`, has an
+# interior minimum instead of a zero crossing, so swapping it means swapping
+# `method` on the steady stage too; `--check` refuses the mismatched pair.
 [[calibration.objective_blocks]]
 name = "network_extension"
 metric = "distance_gap"
 uses_outputs = ["seepage_network"]
-# Read this weight beside the one below: it is an exchange rate between metres
-# and an efficiency, and nothing in the machinery can set it. `normalize_cost`
-# is refused on both blocks, for opposite reasons: this criterion fits no
-# record and has no spread to divide by, and an NSE is already a pure number.
-# The weights are normalized to sum to one, so the trial cost is
-# 0.0099 * |gap in m| + 0.990 * (1 - NSElog). Measured over the sixteen trials
-# of stage two on this catchment, the December gap ran from 15.2 to 24.2 m and
-# 1 - NSElog from 0.190 to 0.272, so the two terms weighed 0.151 to 0.240
-# against 0.188 to 0.269: they drive the search together, which is the intent.
-# Ten times less makes the network a guard rail that only bites on a storage
-# far from the hydrograph's; ten times more makes it the only thing Sy answers
-# to. Both terms are reported per trial, as `network_extension.total` and
-# `hydrograph.total`, so the trade is auditable rather than assumed.
-#
-# The gap is a step function of the storage, four distinct values over those
-# sixteen trials, because a network retracts by whole cells. It sets the region
-# Sy is searched in; the hydrograph does the fine work inside it.
+# An exchange rate between metres and an efficiency, which nothing in the
+# machinery can set. Normalized to sum to one, so the trial cost is
+# 0.0099 * |gap in m| + 0.990 * (1 - NSElog); over the sixteen trials of stage
+# two the two terms weighed about the same, which is the intent. Both are
+# reported per trial, as `network_extension.total` and `hydrograph.total`.
 weight = 0.01
 
 # The other half of stage two. NSE on the logarithms, which weights the
-# recessions where storage shows. Not to be confused with transform = "log",
-# which takes the logarithm of an already computed cost.
+# recessions where storage shows. Not `transform = "log"`, which takes the
+# logarithm of an already computed cost.
 [[calibration.objective_blocks]]
 name = "hydrograph"
 metric = "nse_log"
 uses_outputs = ["gauged_discharge"]
 weight = 1.0
-# The first 12 monthly samples, which is the year 2000, dropped from this block
-# alone. The protocol says the same thing as a scoring_window in dates, and a
-# window cannot be used here: it cuts a record on its dates, and the network
-# block of the same stage is scored on a pair of distances that carries none,
-# so declaring one is refused. A count of samples means the same span at this
-# output frequency and applies to the block that has a record.
+# The year 2000, dropped from this block alone. A scoring_window would say the
+# same in dates and is refused here: it cuts a record on its dates, and the
+# network block of the same stage is scored on distances that carry none.
 warmup = 12
 
 
-# --- Stage one: K against the mapped network, in steady state ---------------
-#
-# Steady is a property of the model rather than of the search, so the phase
-# declares it. The whole record becomes one period of 1096 days, which is
-# 2000-01-01 to 2002-12-31 inclusive, 2000 being a leap year. The recharge over
-# that period averages to the mean of the record, which is the state the
-# criterion is defined at.
-#
-# A steady solve carries no storage, so this stage is blind to Sy. That is not
-# a limitation to work around: it is what makes the conductivity identifiable
-# here without any discharge record.
-
+# Stage one: K against the mapped network, in steady state. The record becomes
+# one period of 1096 days, 2000 being a leap year, and the recharge over it
+# averages to the mean the criterion is defined at. A steady solve carries no
+# storage, which is what makes K identifiable without a discharge record.
 [[calibration.phases]]
 name = "steady_conductivity"
 description = "Match the simulated seepage network to the mapped one by moving K, steady state over the record."
-# A root search, not a minimiser. The criterion crosses zero once over the four
-# decades of the bracket, and the crossing is not where the residual is small:
-# it is a step function that jumps over zero. Bisection refuses a parameter
-# that is not searched in log space and refuses more than one parameter.
+# A root search, not a minimiser: the criterion is a step function that jumps
+# over zero once in the four decades of the bracket. Bisection refuses a
+# parameter that is not searched in log space, and refuses more than one.
 method = "bisection"
 max_iter = 18
 # One per cent on K itself, the paper's precision. On a log-transformed
-# parameter a relative precision is a ratio, which is how a conductivity is
-# known in the first place.
+# parameter that is a ratio, which is how a conductivity is known.
 tolerance = 0.01
 parameters = ["K"]
 objective_blocks = ["network_extension"]
-# What "then freeze the best K" means. Stage two inherits this value and the
-# validity indicator that qualifies it.
+# Stage two inherits this K and may not move it.
 freeze_on_success = true
 
-# A coarse logarithmic sweep before the bisection. It checks the monotonicity
-# the method assumes instead of supposing it, and it sees every crossing rather
-# than the first. Set it to 0 for the pure bisection of the paper.
+# A coarse log sweep before the bisection, to check the monotonicity the method
+# assumes and see every crossing rather than the first. 0 gives the pure
+# bisection of the paper.
 [calibration.phases.optimizer_kwargs]
 sweep_points = 7
 
-# A phase override is a dotted path into the whole configuration, not only into
-# the model. The last two lines are what makes the promoted run of this stage
-# draw its two maps: project.toml points them at step 33, October 2002 of the
-# monthly run, and this stage solves ONE period, where step 33 does not exist.
-# Without them the run still completes and those two figures skip themselves,
-# naming the length they were asked to index into.
+# An override is a dotted path into the whole configuration, not only into the
+# model. The last two lines are what makes this stage draw its two maps:
+# project.toml points them at step 33 of the monthly run, and this stage solves
+# one period.
 [calibration.phases.overrides]
 "flow.flow_regime" = "steady"
 "simulation.time.start_datetime" = "2000-01-01"
@@ -182,48 +115,32 @@ sweep_points = 7
 "display.overrides.cross_section.timestep" = 0
 
 
-# --- Stage two: Sy against the hydrograph and the network, transient --------
+# Stage two: Sy against the hydrograph and the network, transient. The time
+# grid is the parent's; only the regime is restated.
 #
-# K is frozen, so the only thing left to move is what the steady stage could
-# not see. The time grid is the parent's, monthly over the three years: only
-# the regime is restated, because the steady stage above changed it.
+# The deviation: the published method scores this stage on the hydrograph
+# alone. A network output in a transient run is read at the last stress period
+# whatever its `time` says, so the block compares the December 2002 network
+# with the mapped one. December is a month of refilling, which a small Sy
+# refills at once and a large one still holds retracted, so the term is
+# sensitive to the storage without averaging the 36 months. Scoring the
+# seasonal extension properly needs an intermittence record, Abherve et al.
+# (2024), doi:10.1002/hyp.15167, and the ONDE series here starts in 2012.
 #
-# THE DEVIATION. The published method scores this stage on the hydrograph
-# alone. Here the network block rides along, and what it scores is worth
-# stating plainly: a network output in a transient run is read AT THE LAST
-# STRESS PERIOD, whatever its `time` field says, so this block compares the
-# simulated network of December 2002 with the mapped one. December is a month
-# of refilling, which a small Sy refills at once and a large one still holds
-# retracted, so the term is sensitive to the storage; it is not an average over
-# the 36 months, and writing a list of dates in `time` would not make it one.
+# The stage warns that the mean recharge moved between two builds of the
+# criterion. The warning guards the ratio K/R while K is calibrated, which is
+# stage one; here K is frozen.
 #
-# What would score the seasonal extension properly is an intermittence record,
-# which is the method of Abherve et al. (2024), doi:10.1002/hyp.15167. The ONDE
-# observers who hold one on this catchment start in 2012, ten years after the
-# window simulated here.
-#
-# This stage also makes the criterion warn that the mean recharge moved between
-# two of its builds, from the steady mean of stage one to the monthly forcing
-# here. The warning guards the ratio K/R where K is being calibrated, which is
-# stage one; here K is frozen and the network is a constraint on the storage,
-# so the move is the regime change and not a fault.
-#
-# What it produced on this catchment: K = 9.763e-05 m/s at a gap of 2.7 m in
-# stage one, then Sy = 0.083 at a December gap of 15.2 m and NSElog = 0.810,
-# in 15 steady solves and 16 monthly runs. The same two stages with the
-# network block dropped, which is what the protocol runs, reach the same K to
-# the trial and a storage of 0.055 at NSElog 0.841: the second criterion moves
-# the storage by half again and costs 0.031 of efficiency, and what it buys is
-# the December network, 15.2 m of gap against 24.2 m at the low end of the
-# range the search walked.
-
+# It produced K = 9.763e-05 m/s at a 2.7 m gap, then Sy = 0.083 at a December
+# gap of 15.2 m and NSElog = 0.810. Without the network block, which is what
+# the protocol runs, the same K and Sy = 0.055 at NSElog 0.841.
 [[calibration.phases]]
 name = "transient_storage"
 description = "Read Sy from the gauged hydrograph and the December network, K frozen, monthly transient."
 method = "scipy_nelder_mead"
 max_iter = 30
-# Five per cent on Sy. A storage coefficient is not known to one per cent, and
-# each evaluation here is the full 36-month run rather than one steady solve.
+# Five per cent on Sy, which is not known to one per cent, and each evaluation
+# here is a full 36-month run.
 tolerance = 0.05
 parameters = ["Sy"]
 objective_blocks = ["hydrograph", "network_extension"]
@@ -233,12 +150,9 @@ depends_on = "steady_conductivity"
 "flow.flow_regime" = "transient"
 
 
-# --- Back to the published method -------------------------------------------
-#
-# Delete the `network_extension` block from the stage-two selection above and
-# the file scores exactly what the protocol writes. The shortest form is to
-# replace the `objective_blocks` line of `transient_storage` with the
-# single-metric route, which declares no output and inherits none:
+# Back to the published method: replace the `objective_blocks` line of
+# `transient_storage` with the single-metric route, which declares no output
+# and needs no station named, one gauge being loaded.
 #
 #   variable  = "discharge"
 #   objective = "nse_log"
@@ -247,11 +161,6 @@ depends_on = "steady_conductivity"
 #   start = "2001-01-01"
 #   end   = "2002-12-31"
 #
-# with no station named, since one gauge is loaded and naming it is only
-# required when several are. A window is legal again there: the stage scores
-# one record and no dateless block is left in it.
-#
-# and then `[calibration.outputs.gauged_discharge]`, the `hydrograph` block and
-# its `warmup` have nobody left to read them. `hmp calibrate project.toml
-# --list-phases` prints the assembly that results, which is the one the
-# protocol writes from its four lines.
+# A window is legal there: the stage scores one record and no dateless block is
+# left in it. [calibration.outputs.gauged_discharge], the `hydrograph` block
+# and its `warmup` then have nobody left to read them.

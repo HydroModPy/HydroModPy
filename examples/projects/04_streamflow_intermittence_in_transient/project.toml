@@ -7,9 +7,8 @@
 
 [workflow]
 mode = "simulation"
-# `verbosity` decides what reaches the console: "quiet", "normal" (here, by
-# default), "verbose" or "debug". `hmp run -q | -v | --debug` overrides it for
-# one run. step1_minimal.toml says what each level prints.
+# verbosity = "quiet" | "normal" (default) | "verbose" | "debug", overridden by
+# `hmp run -q | -v | --debug`. step1_minimal.toml says what each level prints.
 
 [workspace]
 project_root = "."
@@ -130,8 +129,8 @@ bounds = [5e-3, 0.35]
 [calibration.outputs.seepage_network]
 support = "network"
 stream_geometry_path = "nancon_stream_network.gpkg"
-# A descent over shared edges cannot follow a talweg that runs diagonally to the
-# grid, which on this topography most of them do.
+# A descent over shared edges cannot follow a talweg that runs diagonally to
+# the grid, which on this topography most of them do.
 diagonal_neighbors = true
 
 [calibration.protocol]
@@ -141,8 +140,8 @@ steady_tolerance = 0.01
 transient_max_iter = 30
 transient_tolerance = 0.05
 
-# The coarse log sweep before the bisection: it checks the monotonicity the
-# method assumes instead of supposing it.
+# A coarse log sweep before the bisection, to check the monotonicity the method
+# assumes.
 [calibration.protocol.steady_engine_options]
 sweep_points = 7
 
@@ -151,8 +150,8 @@ sweep_points = 7
 start = "2001-01-01"
 end = "2002-12-31"
 
-# The stage-one cost is a distance in metres solved at zero, so a fraction of it
-# is zero. 75 m is one cell of this mesh. Read the interval on K, not on Sy.
+# The stage-one cost is a distance in metres solved at zero, so a fraction of
+# it is zero. 75 m is one cell of this mesh. Read the interval on K, not on Sy.
 [calibration.uncertainty]
 mode = "absolute"
 tolerance = 75.0
@@ -162,15 +161,12 @@ tolerance = 75.0
 [display]
 on_error = "raise"
 
-# Eight figures, read in this order: the catchment, what enters and leaves it,
-# what the gauge saw, then the four that answer the question the example asks,
-# which reaches dry up and when. Nothing here is drawn twice: a figure that
-# restates another one on a different axis was dropped rather than kept as a
-# second opinion. `hmp viz show <name>` renders any of the others on demand.
+# The catchment, what enters and leaves it, the gauge, then the four that
+# answer which reaches dry up and when. `hmp viz show <name>` renders any other
+# figure on demand.
 #
-# One hydrograph, not three: hydrograph_log_nse draws the same simulated and
-# observed series as hydrograph_sim_obs, on the axis an intermittent catchment
-# is read on, and marks the window the second calibration stage scores.
+# hydrograph_log_nse draws the same series as hydrograph_sim_obs on the axis an
+# intermittent catchment is read on, and marks the window stage two scores.
 #
 # The four after the blank line only apply to a run the calibration promoted,
 # and skip themselves, with a reason, on a plain `hmp run`.
@@ -190,29 +186,25 @@ figures = [
     "matching_hydrographic_network_card",
 ]
 
-# Every figure that draws one instant draws the SAME instant: step 34 of 36,
-# October 2002, the driest month of the record, and the month that makes the
-# point. The default, the last timestep, is a December: the network is nearly
-# full there and the maps show an intermittence no reader can see.
+# Every figure that draws one instant draws the same one: step 34 of 36,
+# October 2002, the driest month of the record. The default, the last timestep,
+# is a December where the network is nearly full.
 [display.overrides.seepage_map]
 timestep = 33
 
-# South to north through the outlet: the west-east default crosses the valley
-# once, at the southern edge of the catchment. This one cuts the tributaries
-# across, so the water table shows one dome per interfluve and touches the
-# ground at each seepage face.
+# South to north through the outlet, so the section cuts the tributaries
+# across. The west-east default crosses the valley once, at the southern edge.
 [display.overrides.cross_section]
 timestep = 33
 orientation = "sn"
 
-# The two cells maps do not cover the same window, and that is the point:
-# persistence answers over the three years, intermittence classifies inside
-# one. Both now name their window in the title, so the 787 cells that flowed
-# in 2000-2001 and never in 2002 read as a dry year and not as a contradiction.
+# Persistence answers over the three years, intermittence classifies inside one
+# cycle. Both name their window in the title, so the 787 cells that flowed in
+# 2000-2001 and never in 2002 read as a dry year.
 [display.overrides.flow_intermittence_map]
 cycle = "2002"
 
-# The window [calibration.protocol.scoring_window] scores, so the figure shades
-# the samples the NSElog reads instead of announcing it was not told.
+# The window [calibration.protocol.scoring_window] scores, shaded on the figure
+# so the samples the NSElog reads are visible.
 [display.overrides.hydrograph_log_nse]
 scoring_window = ["2001-01-01", "2002-12-31"]

@@ -1,16 +1,8 @@
-# Nancon, the same model at a daily step. Everything comes from project.toml;
-# this file writes only what a daily step actually changes: the step, the
-# forcing that carries it, the name it is stored under, and the figures that
-# name a step number.
+# Nancon, the same model at a daily step. Only what the step changes is written
+# here: the step, the forcing that carries it, the name, and the figures that
+# index one. Everything else comes from project.toml.
 #
 #   hmp run examples/projects/04_streamflow_intermittence_in_transient/run_daily.toml
-#
-# That is what `base_config` is for. Catchment, burn, mesh, layer, boundary
-# conditions, parameters, calibration and the eight figures are read from the
-# parent and are not repeated here, so a correction to the parent reaches this
-# variant too. Tables merge key by key: a table restated below keeps the
-# parent's other keys, a list replaces the parent's list unless the key
-# carries `__append`.
 
 base_config = "project.toml"
 
@@ -18,18 +10,15 @@ base_config = "project.toml"
 name = "nancon_intermittence_mf6_daily"
 description = "Nancon catchment, daily transient 2000-2002, seasonal seepage intermittence."
 
-# The one line that makes the run daily. Same three years: 1096 stress periods
-# instead of 36, so count about thirty times the monthly run, in solver time
-# and in stored fields alike, since every timestep writes its own per-cell
-# budget. The calibration window the parent declares still discards 2000.
+# 1096 stress periods instead of 36: count about thirty times the monthly run,
+# in solver time and in stored fields, since every timestep writes its own
+# per-cell budget. The calibration window the parent declares still drops 2000.
 [simulation.time]
 step_value = "1 day"
 
-# A finer step over the same forcing would be a finer view of nothing: the
-# monthly series carries one rate per month, so a daily run reading it sees no
-# storm, only a staircase. The daily areal means over the same catchment are
-# declared as a station of their own, `NANCON_REA`, 1990-2020, and swapping
-# them in is one key per source: `source` and `path` stay what the parent said.
+# The monthly series carries one rate per month, so a daily run reading it sees
+# a staircase and no storm. `NANCON_REA` is the daily areal mean over the same
+# catchment, 1990-2020. `source` and `path` stay what the parent said.
 [[data.recharge.sources]]
 station_ids = ["NANCON_REA"]
 
@@ -37,22 +26,16 @@ station_ids = ["NANCON_REA"]
 station_ids = ["NANCON_REA"]
 
 # 36 monthly points were too few to read a duration curve or a recession off,
-# which is why the parent leaves both out. 1096 daily points are not, so this
-# file adds them to the parent's eight instead of restating the list.
-# `__append` is the merge directive for that: a plain `figures = [...]` would
-# replace them.
+# 1096 daily ones are not. `__append` adds to the parent's eight figures; a
+# plain `figures = [...]` would replace them.
 [display]
 figures__append = ["duration_curve", "recession"]
 
-# A `timestep` is an index into the stress periods, so the same instant carries
-# a different number once the step changes: 15 October 2002 is step 1019 of
-# 1096 here and was step 34 of 36 in the parent. Anything indexed by step has
-# to follow the step, and this is the one thing a step change does not do by
-# itself.
+# 15 October 2002 is step 1019 of 1096 here and was step 34 of 36 in the
+# parent. Anything indexed by step has to follow the step.
 [display.overrides.seepage_map]
 timestep = 1018
 
-# `orientation = "sn"` is not restated: the parent's key survives the merge,
-# only `timestep` is replaced.
+# `orientation = "sn"` survives the merge; only `timestep` is replaced.
 [display.overrides.cross_section]
 timestep = 1018
