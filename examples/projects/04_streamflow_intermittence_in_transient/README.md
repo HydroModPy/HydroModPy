@@ -218,13 +218,27 @@ nothing normalises them: `weight` is the exchange rate and the file states the
 arithmetic it chose. Both terms are reported per trial, so what the weight
 bought is readable rather than assumed.
 
-What it produced here, in 15 steady solves and 16 monthly runs: `K` =
-9.763e-05 m/s at a signed gap of 2.7 m, then `Sy` = 0.083 at a December gap of
-15.2 m and an NSElog of 0.810. Over those sixteen trials the network term
-weighed 0.15 to 0.24 and the hydrograph term 0.19 to 0.27, so neither rode
-along: they moved the search together. The gap itself took four distinct
-values, a network retracting by whole cells, which is what sets the region and
-leaves the hydrograph the fine work inside it.
+Run side by side against `project.toml`, same code and same machine, the two
+files agree exactly where they should and differ where the deviation is:
+
+| | protocol | written out |
+|---|---|---|
+| stage one | `K` = 9.763e-05 m/s, signed gap 2.7 m, 15 trials | identical, to the trial |
+| stage two | `Sy` = 0.055, NSElog 0.841, 8 trials | `Sy` = 0.083, NSElog 0.810, 16 trials |
+| December network gap | not scored | 15.2 m |
+
+Scoring the network as well as the gauge therefore moves the storage by half
+again and costs 0.031 of NSElog. What it buys is the December network: over
+the sixteen trials the gap ran from 24.2 m at `Sy` = 0.042 to 15.2 m at 0.083,
+so the storage the hydrograph alone chose sits several metres worse on the
+criterion stage one was solved with. Which of the two answers is the better
+one is a judgement about the site, not about the machinery, and that is the
+whole point of being able to write the stage out.
+
+Over those sixteen trials the network term weighed 0.15 to 0.24 and the
+hydrograph term 0.19 to 0.27, so neither rode along. The gap itself took four
+distinct values, a network retracting by whole cells, which is what sets the
+region and leaves the hydrograph the fine work inside it.
 
 Three premises are written into the config rather than assumed, and each one
 silently returns a number when it is wrong: `[geographic.enforce_streams]`
@@ -237,6 +251,19 @@ criterion reads. See
 `docs/source/user_guide/workflows/stream-network-calibration.rst` for the
 diagnostics each trial publishes, and publish the ratio `K/R` rather than the
 conductivity, dividing by the `R_mean_m_s` every trial reports.
+
+**The validity indicator does not clear its bound on this catchment, and the
+run says so at every trial.** `roptim` is the agreement between the two
+networks measured in reference lengths, valid at 2 and under; here it falls
+from 6.4 at the dry end of the sweep to 2.1 at the root, and sits near 2.5 in
+the transient stage. The agreement is therefore coarser than the mesh, which
+qualifies the calibrated value rather than refuting it: a `K` read off this
+example is a demonstration, not a number to cite. Two figures of the same
+family say where it comes from, `alpha_obs_closure_catchment` at 0.83 against
+0.90, and 55 per cent of the mapped stream cells sitting outside the
+delineated catchment, in a buffer where nothing requires a cell to descend
+into the network. Clipping the linework to the catchment is what would move
+them.
 
 ## Figures
 
@@ -264,7 +291,14 @@ hmp viz show @last duration_curve --workspace examples/projects/04_streamflow_in
 Four more are declared and apply only to a run the calibration promoted:
 `downslope_distance_crossing`, `bisection_bracket_trace`,
 `parameter_cost_profile` and `matching_hydrographic_network_card`. On a plain
-`hmp run` they skip themselves and say why.
+`hmp run` they skip themselves and say why. A calibration promotes one run per
+stage and each stage draws what it measured: the steady stage renders 8 of the
+12, the two instant maps skipping a timestep a single-period run does not hold
+and the two multi-year maps skipping a record they need more than one step of;
+the transient stage renders 10, and the two that read the network criterion
+skip themselves on a stage that published no distance. That last pair does
+render on both stages of `run_calibration_by_hand.toml`, whose storage stage
+scores the network too.
 
 Every figure that draws one instant draws the same instant, step 34 of 36,
 which is October 2002. The default, the last timestep, is a December with a

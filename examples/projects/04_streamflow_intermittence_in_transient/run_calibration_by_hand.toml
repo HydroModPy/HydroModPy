@@ -168,10 +168,10 @@ sweep_points = 7
 
 # A phase override is a dotted path into the whole configuration, not only into
 # the model. The last two lines are what makes the promoted run of this stage
-# drawable: project.toml points its two instant figures at step 33, October
-# 2002 of the monthly run, and this stage solves ONE period, where step 33 does
-# not exist. Without them the promoted run raises inside the display step and
-# the stage is recorded as failed, having converged.
+# draw its two maps: project.toml points them at step 33, October 2002 of the
+# monthly run, and this stage solves ONE period, where step 33 does not exist.
+# Without them the run still completes and those two figures skip themselves,
+# naming the length they were asked to index into.
 [calibration.phases.overrides]
 "flow.flow_regime" = "steady"
 "simulation.time.start_datetime" = "2000-01-01"
@@ -210,7 +210,12 @@ sweep_points = 7
 #
 # What it produced on this catchment: K = 9.763e-05 m/s at a gap of 2.7 m in
 # stage one, then Sy = 0.083 at a December gap of 15.2 m and NSElog = 0.810,
-# in 15 steady solves and 16 monthly runs.
+# in 15 steady solves and 16 monthly runs. The same two stages with the
+# network block dropped, which is what the protocol runs, reach the same K to
+# the trial and a storage of 0.055 at NSElog 0.841: the second criterion moves
+# the storage by half again and costs 0.031 of efficiency, and what it buys is
+# the December network, 15.2 m of gap against 24.2 m at the low end of the
+# range the search walked.
 
 [[calibration.phases]]
 name = "transient_storage"
