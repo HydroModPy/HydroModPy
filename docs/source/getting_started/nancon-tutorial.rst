@@ -181,17 +181,32 @@ step4_transient.toml — run ``nancon_step4_transient``, ``base_config = "step2_
    step 1, not fitted ones.
 
 step5_export.toml — run ``nancon_step5_export``, ``base_config = "step4_transient.toml"``
-   Adds a declarative ``[export]`` (GeoTIFF output) and a ``[display]``
-   figure list, four ``base_config`` levels deep. Run this last:
+   Adds a declarative ``[export]`` and a ``[display]`` figure list, four
+   ``base_config`` levels deep. Run this last:
 
    .. code-block:: bash
 
       hmp run ~/hydromodpy/projects/04_nancon_tutorial/step5_export.toml
 
-   The run writes the GeoTIFF layers to its export directory and the four
-   ``[display]`` figures to its ``figures/`` directory on its own; use
-   ``hmp viz show`` (section 7) to render any other registered figure for
-   this run on demand.
+   A format toggle such as ``geotiff = true`` writes one file per variable
+   that ``[export.variables]`` leaves active, not one file, so this run
+   produces six artifacts under ``share/nancon_step5_export/``:
+
+   .. code-block:: text
+
+      head_t33.tif                  the simulated head, October 2002
+      watertable_elevation_t33.tif  the three derived fields, same instant
+      watertable_depth_t33.tif
+      seepage_mask_t33.tif
+      timeseries.csv                every series, all 36 steps
+      fields_2000_2002.nc           the explicit [[export.artifacts]] entry
+
+   ``netcdf``, ``vtu``, ``shapefile`` and ``package`` are toggles beside
+   ``geotiff``; ``[[export.artifacts]]`` names one file instead, its format
+   taken from the destination extension, and is the only form that writes
+   several timesteps into one file. The four ``[display]`` figures land in
+   the run's ``figures/`` directory; use ``hmp viz show`` (section 7) to
+   render any other registered figure for this run on demand.
 
 Try a variation without writing a file
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

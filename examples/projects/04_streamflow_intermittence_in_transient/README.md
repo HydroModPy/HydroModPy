@@ -76,7 +76,7 @@ lacked, from the shortest config that runs to the full declarative pipeline.
 | `step2_local_data.toml` | `nancon_step2_local` | `step1_minimal.toml` | the mapped stream network and the burn, from local files |
 | `step3_api_data.toml` | `nancon_step3_api` | `step1_minimal.toml` | the same model as step2, with hydrography from the BD TOPAGE API and hydrometry from Hub'Eau instead of local files |
 | `step4_transient.toml` | `nancon_step4_transient` | `step2_local_data.toml` | monthly transient 2000-2002 with storage and the observed recharge and runoff forcing, still with no calibration |
-| `step5_export.toml` | `nancon_step5_export` | `step4_transient.toml` | a declarative `[export]` writing GeoTIFF and a `[display]` figure list |
+| `step5_export.toml` | `nancon_step5_export` | `step4_transient.toml` | a declarative `[export]` writing four GeoTIFF rasters, a time-series CSV and a NetCDF, plus a `[display]` figure list |
 
 ```bash
 hmp run examples/projects/04_streamflow_intermittence_in_transient/step1_minimal.toml
