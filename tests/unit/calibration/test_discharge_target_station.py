@@ -29,8 +29,8 @@ def test_several_stations_without_a_declaration_refuse_to_average():
         discharge_target(_observed("NANCON", "UPSTREAM"), None)
 
 
-def test_the_refusal_names_the_missing_capability():
-    """A gauge should be scored at its own position; nothing serves that yet."""
+def test_the_refusal_names_the_route_that_handles_several_gauges():
+    """This route reads one series; the weighted-block route scores each gauge instead."""
     with pytest.raises(ValueError, match="per-cell discharge observable"):
         discharge_target(_observed("NANCON", "UPSTREAM"), None)
 
