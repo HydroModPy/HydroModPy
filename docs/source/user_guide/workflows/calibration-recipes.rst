@@ -108,7 +108,11 @@ the file is what belongs to the site.
 A file cannot both name a protocol and declare its own ``[[calibration.phases]]``
 or ``[[calibration.objective_blocks]]``: that is two answers to one question,
 and it is refused rather than silently resolved. Drop the protocol to write the
-stages by hand, or drop the stages to let the protocol write them.
+stages by hand, or drop the stages to let the protocol write them. The long
+form, and the deviation it buys that a name cannot express, are in
+:doc:`stream-network-calibration`;
+``examples/projects/04_streamflow_intermittence_in_transient/run_calibration_by_hand.toml``
+ships it against the same catchment as the protocol next door.
 
 Every option under ``[calibration.protocol]`` has a default that reproduces the
 published method, so the shortest form of this recipe is one line:

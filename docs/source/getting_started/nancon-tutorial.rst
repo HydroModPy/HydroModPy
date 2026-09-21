@@ -243,8 +243,12 @@ creating a new file that outlives the experiment.
 This page deliberately stops before calibration: the same Nançon project in
 ``examples/projects/04_streamflow_intermittence_in_transient/`` also carries
 ``run_calibration.toml``, which fits ``K`` and ``Sy`` instead of assuming
-them. See :doc:`../user_guide/workflows/calibration` when step 4's assumed
-parameters are not good enough.
+them, and ``run_calibration_by_hand.toml``, which runs the same two stages
+with the method written out instead of named. See
+:doc:`../user_guide/workflows/calibration` when step 4's assumed parameters
+are not good enough, and
+:doc:`../user_guide/workflows/stream-network-calibration` for the two-stage
+method those two files run.
 
 - :doc:`../user_guide/concepts/workspace-layout` for the resolution rules
   behind ``data/<variable>/`` and ``--workspace``.

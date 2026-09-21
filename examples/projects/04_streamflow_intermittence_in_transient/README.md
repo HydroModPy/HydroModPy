@@ -29,21 +29,23 @@ and which is then reused.
 
 ## Variants
 
-Two files here build directly on `project.toml` through `base_config`, each
-changing one thing and inheriting the rest. Neither repeats the catchment,
-the burn, the layer, the boundary conditions or the parameters, so a
-correction to `project.toml` reaches both. Tables merge key by key, lists
-replace unless the key carries `__append`, and `<key>__delete = true` drops
-an inherited key.
+Three files here build directly on `project.toml` through `base_config`, each
+changing one thing and inheriting the rest. None of them repeats the
+catchment, the burn, the layer, the boundary conditions or the parameters, so
+a correction to `project.toml` reaches all three. Tables merge key by key,
+lists replace unless the key carries `__append`, and `<key>__delete = true`
+drops an inherited key.
 
 | File | What it changes | Run it with |
 |---|---|---|
 | `run_daily.toml` | daily step instead of monthly, and the daily forcing that makes the step mean something | `hmp run .../run_daily.toml` |
 | `run_calibration.toml` | the workflow `hmp run` dispatches: calibration instead of simulation | `hmp run .../run_calibration.toml` |
+| `run_calibration_by_hand.toml` | the same two stages, declared rather than named, and stage two scored on the network as well as the gauge | `hmp calibrate .../run_calibration_by_hand.toml` |
 
 ```bash
 hmp run examples/projects/04_streamflow_intermittence_in_transient/run_daily.toml
 hmp run examples/projects/04_streamflow_intermittence_in_transient/run_calibration.toml
+hmp run examples/projects/04_streamflow_intermittence_in_transient/run_calibration_by_hand.toml
 ```
 
 `run_daily.toml` is four changes, and three of them follow from the first.
@@ -62,6 +64,10 @@ block of `project.toml`, which `hmp calibrate project.toml` already runs. What
 the variant adds is that a plain `hmp run` dispatches it, and that the
 calibrated result and the assumed-values result sit side by side in the
 catalog instead of one replacing the other.
+
+`run_calibration_by_hand.toml` runs the same two stages with the protocol name
+deleted and the stages written out, which is the subject of its own section
+below.
 
 ## Staircase
 
@@ -151,6 +157,62 @@ hmp calibrate .../project.toml --check         # every problem at once, no solve
 hmp calibrate .../project.toml --list-phases   # the assembly the protocol wrote
 hmp calibrate .../project.toml                 # both stages, in order
 ```
+
+### Named, or written out
+
+The protocol name is a shorthand for an ordinary two-stage calibration, and
+`--list-phases` prints what it expands to. Nothing in the engine knows the
+name afterwards: the stages, the criteria and the freezing are the same
+`[[calibration.phases]]` any file may declare, and the four calibration
+figures read the phase records rather than the protocol.
+
+`run_calibration_by_hand.toml` is that expansion typed out. Same order, same
+criteria, same budgets, with `protocol__delete = true` to drop the inherited
+name, which a file may not carry beside stages of its own:
+
+| | `project.toml` | `run_calibration_by_hand.toml` |
+|---|---|---|
+| stage one | `steady_conductivity`, bisection on K | the same, written out |
+| stage two | `transient_storage`, `nse_log` on the gauge | the same, plus the network extent |
+| what carries K over | `depends_on` + `freeze_on_success`, written for you | the same pair, written out |
+| what the run records | the method, its version, its deviations from the paper | what the file declares, and no citation |
+
+Read the long form when the method has to deviate, which is the one thing the
+name cannot do. Here stage two is scored on the hydrograph **and** on the
+agreement with the mapped network, as two weighted objective blocks. The
+published method scores it on the hydrograph alone, so the protocol will not
+write that, and three things had to be said explicitly to get it:
+
+- **the gauge becomes an output.** The single-metric route, `variable` plus
+  `objective`, declares none and cannot be combined with a block. The gauge is
+  then `support = "point"` with `observes = "NANCON"`, which reads what the
+  single-metric route reads, the station's cell where the loader placed one
+  and the whole-catchment series where it did not, and adds the runoff to the
+  simulated baseflow either way. The same target as `support = "boundary"` on
+  the drain would score the drain budget, which is baseflow without runoff.
+- **the spin-up year is dropped in samples, not in dates.** A `scoring_window`
+  cuts a record on its dates and the network block of the same stage is scored
+  on two distances that carry none, so declaring one there is refused.
+  `warmup = 12` on the hydrograph block is the same twelve months.
+- **a network output in a transient run is read at the last stress period**,
+  whatever its `time` says. The second block therefore compares the December
+  2002 network to the mapped one, which is sensitive to `Sy` and is not an
+  average over the record. Scoring the seasonal extension itself is Abherve et
+  al. (2024), doi:10.1002/hyp.15167, and needs an intermittence record this
+  window predates.
+
+The two costs are in different units, metres against an efficiency, and
+nothing normalises them: `weight` is the exchange rate and the file states the
+arithmetic it chose. Both terms are reported per trial, so what the weight
+bought is readable rather than assumed.
+
+What it produced here, in 15 steady solves and 16 monthly runs: `K` =
+9.763e-05 m/s at a signed gap of 2.7 m, then `Sy` = 0.083 at a December gap of
+15.2 m and an NSElog of 0.810. Over those sixteen trials the network term
+weighed 0.15 to 0.24 and the hydrograph term 0.19 to 0.27, so neither rode
+along: they moved the search together. The gap itself took four distinct
+values, a network retracting by whole cells, which is what sets the region and
+leaves the hydrograph the fine work inside it.
 
 Three premises are written into the config rather than assumed, and each one
 silently returns a number when it is wrong: `[geographic.enforce_streams]`
