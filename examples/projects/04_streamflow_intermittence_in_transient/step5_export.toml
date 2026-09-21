@@ -1,0 +1,44 @@
+# Nancon, step 4 with its results written out. Nothing about the model changes:
+# this file is the export and the figures, and it is four levels deep,
+# step 5 over step 4 over step 2 over step 1, which is what a nested config
+# looks like once the nesting has stopped being the point.
+#
+#   hmp run examples/projects/04_streamflow_intermittence_in_transient/step5_export.toml
+#
+# A key comes from the nearest ancestor that writes it and a table merges key
+# by key, so the whole chain has to be read before a value is known. That is
+# the price of not repeating it, and it is paid here rather than explained:
+# `hmp config check` on this file resolves all four.
+
+base_config = "step4_transient.toml"
+
+[simulation]
+name = "nancon_step5_export"
+
+# The head and the derived fields as GeoTIFF, one file per field. No
+# `resolution`: the pixel size is taken from the mesh, and naming one here
+# would only resample a result that has no finer content. `times` is an index
+# into the 36 stress periods and 33 is October 2002, the driest month of the
+# record and the one where the intermittence is visible at all; the default,
+# the last step, is a December with a nearly full network.
+[export]
+geotiff = true
+times = 33
+
+# Four figures, in reading order: where the catchment is, what enters and
+# leaves it, what the gauge saw against what was simulated, and where the
+# ground was releasing water in that driest month. project.toml carries the
+# full set of twelve; this is the short list a first run is read on.
+[display]
+figures = [
+    "watershed_id_card",
+    "flux_timeseries",
+    "hydrograph_sim_obs",
+    "seepage_map",
+]
+
+# The same instant as the export above, for the same reason. A `timestep` is an
+# index into the stress periods, so it has to be restated whenever the step
+# changes.
+[display.overrides.seepage_map]
+timestep = 33

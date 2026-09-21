@@ -1,0 +1,70 @@
+# Nancon, the complete simulation: three years at a monthly step, with storage
+# and the observed forcing. This is the run the example is about, and it is not
+# calibrated. K, Sy and Ss are assumed here; run_calibration.toml is where they
+# are fitted.
+#
+#   hmp run examples/projects/04_streamflow_intermittence_in_transient/step4_transient.toml
+#
+# About 44 s on 27004 cells.
+
+base_config = "step2_local_data.toml"
+
+[simulation]
+name = "nancon_step4_transient"
+
+# The step is not written down: one month is what the schema already assumes,
+# and 2000-2002 is the window the observed series cover. The first period is
+# solved steady, which is where the transient run takes its initial heads from
+# and why no [flow.ic] is needed.
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+
+# The per-cell seepage. Without it the run stores heads and budgets, and the
+# question this example asks, which reaches dry up and when, has no field to be
+# read off.
+[simulation.results.derived]
+release_flux = true
+
+[flow]
+# Restated although transient is also the schema default: step 1 declared
+# steady, and an inherited value is not undone by a default.
+flow_regime = "transient"
+param_list = ["K", "Sy", "Ss"]
+
+# Sy is what a seasonal signal is read on: how much water a metre of
+# water-table rise stores and gives back. 0.05 is the weathered-granite order
+# of magnitude.
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+
+# Ss only matters where the aquifer is confined, which on 30 m of free-surface
+# regolith is nowhere. It is declared because MODFLOW 6 asks for a value.
+[flow.param.Ss.field]
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+# Two variables beside the network and the gauge step 2 declares. `__append`
+# rather than a rewritten list, which is available because the parent already
+# declares the key; a plain `types = [...]` would replace it.
+[data]
+types__append = ["recharge", "runoff"]
+
+# The 36 monthly rates supersede the single mean step 1 assumed: a series
+# loaded from a data source replaces [flow.sinks_sources.recharge] entirely,
+# value and unit alike.
+[[data.recharge.sources]]
+source = "custom"
+path = "recharge"
+station_ids = ["NANCON"]
+
+# Surface runoff, which is not a flow package: it is the share of the gauged
+# discharge the groundwater model does not produce. Without it the simulated
+# baseflow is compared against a total it cannot reach.
+[[data.runoff.sources]]
+source = "custom"
+path = "runoff"
+station_ids = ["NANCON"]

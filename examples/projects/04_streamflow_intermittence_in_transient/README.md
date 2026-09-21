@@ -27,6 +27,79 @@ Runtime: about 40 s for the run itself (36 timesteps, COMPLEX solver), on top
 of the geographic step, which the burn makes the longer half of a first run
 and which is then reused.
 
+## Variants
+
+Two files here build directly on `project.toml` through `base_config`, each
+changing one thing and inheriting the rest. Neither repeats the catchment,
+the burn, the layer, the boundary conditions or the parameters, so a
+correction to `project.toml` reaches both. Tables merge key by key, lists
+replace unless the key carries `__append`, and `<key>__delete = true` drops
+an inherited key.
+
+| File | What it changes | Run it with |
+|---|---|---|
+| `run_daily.toml` | daily step instead of monthly, and the daily forcing that makes the step mean something | `hmp run .../run_daily.toml` |
+| `run_calibration.toml` | the workflow `hmp run` dispatches: calibration instead of simulation | `hmp run .../run_calibration.toml` |
+
+```bash
+hmp run examples/projects/04_streamflow_intermittence_in_transient/run_daily.toml
+hmp run examples/projects/04_streamflow_intermittence_in_transient/run_calibration.toml
+```
+
+`run_daily.toml` is four changes, and three of them follow from the first.
+`step_value = "1 day"` gives 1096 stress periods instead of 36. The monthly
+recharge and runoff are replaced by the daily areal means of the same
+catchment, declared as the station `NANCON_REA`: a daily step reading a
+monthly mean sees no storm, only a staircase. `duration_curve` and `recession`
+are appended to the eight figures, because the 36 monthly points that made
+both unreadable are now 1096. And the two `timestep` overrides move from 33 to
+1018, since a step index names a different instant once the step changes:
+15 October 2002 is step 1019 of 1096 here and was step 34 of 36 there.
+
+`run_calibration.toml` is two declarations, `[workflow] mode = "calibration"`
+and a name of its own. The method itself is not there: it is the `[calibration]`
+block of `project.toml`, which `hmp calibrate project.toml` already runs. What
+the variant adds is that a plain `hmp run` dispatches it, and that the
+calibrated result and the assumed-values result sit side by side in the
+catalog instead of one replacing the other.
+
+## Staircase
+
+`run_daily.toml` and `run_calibration.toml` each swap one axis of the model
+above. The five `step*.toml` files are a different shape: a reading order,
+not five alternatives, each one adding exactly what the file before it
+lacked, from the shortest config that runs to the full declarative pipeline.
+
+| File | Run | `base_config` | What it changes |
+|---|---|---|---|
+| `step1_minimal.toml` | `nancon_step1_minimal` | none | the shortest file that runs to completion: steady state, local DEM, homogeneous K, drainage boundary |
+| `step2_local_data.toml` | `nancon_step2_local` | `step1_minimal.toml` | the mapped stream network and the burn, from local files |
+| `step3_api_data.toml` | `nancon_step3_api` | `step1_minimal.toml` | the same model as step2, with hydrography from the BD TOPAGE API and hydrometry from Hub'Eau instead of local files |
+| `step4_transient.toml` | `nancon_step4_transient` | `step2_local_data.toml` | monthly transient 2000-2002 with storage and the observed recharge and runoff forcing, still with no calibration |
+| `step5_export.toml` | `nancon_step5_export` | `step4_transient.toml` | a declarative `[export]` writing GeoTIFF and a `[display]` figure list |
+
+```bash
+hmp run examples/projects/04_streamflow_intermittence_in_transient/step1_minimal.toml
+hmp run examples/projects/04_streamflow_intermittence_in_transient/step2_local_data.toml
+hmp run examples/projects/04_streamflow_intermittence_in_transient/step3_api_data.toml
+hmp run examples/projects/04_streamflow_intermittence_in_transient/step4_transient.toml
+hmp run examples/projects/04_streamflow_intermittence_in_transient/step5_export.toml
+```
+
+step3 is not a child of step2: both declare `base_config = "step1_minimal.toml"`,
+so both build the same model from the same root. What differs between them is
+where the hydrography and hydrometry come from, the BD TOPAGE API and Hub'Eau
+instead of a local file, which is a provenance question and not a modeling
+one. Read step2 and step3 side by side, not one after the other.
+
+step5 is the fourth file in the chain that starts at step1: step1, step2,
+step4, step5, each holding only what changes from the one before it. Four
+levels is the point, not an accident of where the export happened to land:
+a correction to `step1_minimal.toml` reaches every step below it, the same
+guarantee `project.toml` gives `run_daily.toml` and `run_calibration.toml`
+above, and `[export]` gets to be one more level instead of one more file to
+repeat the other four in.
+
 ## Data
 
 | File | Family | Role |
@@ -34,6 +107,8 @@ and which is then reused.
 | `dem/DEM_armorican_massif.tif` | dem | regional 75 m DEM (covers the Nancon) |
 | `recharge/recharge_custom_NANCON_*.csv` | recharge | observed monthly recharge (mm/d) |
 | `runoff/runoff_custom_NANCON_*.csv` | runoff | monthly runoff, added to baseflow |
+| `recharge/recharge_custom_NANCON_REA_*.csv` | recharge | daily areal mean, 1990-2020, read by `run_daily.toml` |
+| `runoff/runoff_custom_NANCON_REA_*.csv` | runoff | the same, daily |
 
 ## Intermittence
 
@@ -182,10 +257,12 @@ python examples/projects/04_streamflow_intermittence_in_transient/run_manual.py
 | 0.05 | a normal weathered mantle |
 | 0.3 | a store so loose it barely drains |
 
-The tightest of the three is why `mf6_ats = true` is in the config. At
-Sy = 0.001 the water table moves tens of metres inside a monthly stress
-period and Newton cannot close it in one step; adaptive time stepping splits
-only the months that fail, and leaves the other two specific yields untouched.
+The tightest of the three converges without `mf6_ats`: the key defaults to
+`false` and nothing in this example turns it on. At Sy = 0.001 the water
+table still moves tens of metres inside a monthly stress period, and what
+closes it is the default MODFLOW 6 Newton-Raphson formulation with
+under-relaxation (`mf6_newton` and `mf6_newton_under_relaxation`, both on by
+default), not adaptive time stepping.
 
 The gauge itself is now declared too: `[data.hydrometry]` loads the daily
 discharge at the Nancon station, which `hydrograph_log_nse` compares the

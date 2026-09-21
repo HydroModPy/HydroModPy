@@ -1,0 +1,76 @@
+# Nancon, the shortest file that runs to completion. Steady state on the local
+# DEM, one hydraulic conductivity everywhere, one recharge rate, and the
+# boundary that lets water leave through the ground surface.
+#
+#   hmp run examples/projects/04_streamflow_intermittence_in_transient/step1_minimal.toml
+#
+# Nothing below is here for reassurance. A key is written only when it is
+# required or when its value differs from what the schema already assumes; a
+# key restating its own default was removed, however sensible it looked.
+# 27004 cells, six seconds.
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+[simulation]
+name = "nancon_step1_minimal"
+
+# What is solved and with which backend. `id` and `solvers` carry no default,
+# and `type` selects the process variant the [flow] section is read against.
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+[geographic]
+# The outlet below is written in Lambert-93, and so is every metric extent the
+# later steps download on. Left out, the run still solves and then cannot place
+# the delineated watershed on the mesh, so the catchment series fall back to
+# the whole active domain.
+crs_project = "EPSG:2154"
+
+# The catchment is not a file on disk: it is cut out of a regional DEM by
+# walking upslope from one point. `snap_dist` is how far that point may be
+# moved onto the DEM flow network, 150 m here of which 130 m is used.
+# `buff_area` widens the delineated area so the cells of interest are not the
+# boundary cells.
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "DEM_armorican_massif.tif"
+x_outlet = 389285.910
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10%"
+
+# One layer of weathered and fractured bedrock hung under the topography. 30 m
+# is the Armorican regolith-and-fissured order of magnitude, not the 50 m the
+# schema assumes.
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "30.0 m"
+
+[flow]
+# Steady, because the default is transient and transient needs a time window,
+# storage parameters and a forcing series at once. Step 4 brings all three.
+flow_regime = "steady"
+param_list = ["K"]
+active_sinks_sources = ["recharge"]
+# The seepage boundary: any cell may drain at the ground surface, so the water
+# table cannot rise above the topography and the excess leaves as baseflow.
+# This list is the whole declaration; a [flow.bc.drainage] table adds nothing
+# to it, and the heads are bit-identical with and without one.
+active_bc = ["drainage"]
+
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 5e-5
+
+# 0.78 mm/day is the 2000-2002 mean of the observed Nancon recharge, which is
+# the only rate a steady state can be asked a question about. Step 4 replaces
+# it with the 36 monthly values themselves.
+[flow.sinks_sources.recharge]
+values = 0.78
