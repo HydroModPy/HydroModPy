@@ -27,12 +27,8 @@ release_flux = true
 flow_regime = "transient"
 param_list = ["K", "Sy", "Ss"]
 
-# How much water a metre of water-table rise stores and gives back.
-# Weathered-granite order of magnitude.
-[flow.param.Sy.field]
-kind = "homogeneous"
-unit = "-"
-value = 0.05
+# Sy is not restated: step 1 declares it at 0.05 and the value is inherited.
+# Only Ss is new here.
 
 # Only matters where the aquifer is confined, which on 30 m of free-surface
 # regolith is nowhere. Declared because MODFLOW 6 asks for a value.

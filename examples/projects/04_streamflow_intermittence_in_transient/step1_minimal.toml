@@ -49,7 +49,7 @@ thickness = "30.0 m"
 # The default is transient, which needs a time window, storage parameters and a
 # forcing series. Step 4 brings all three.
 flow_regime = "steady"
-param_list = ["K"]
+param_list = ["K", "Sy"]
 active_sinks_sources = ["recharge"]
 # Any cell may drain at the ground surface, so the water table cannot rise
 # above the topography and the excess leaves as baseflow. This list is the
@@ -60,6 +60,15 @@ active_bc = ["drainage"]
 kind = "homogeneous"
 unit = "m/s"
 value = 5e-5
+
+# How much water a metre of water-table rise stores and gives back. A steady
+# solve carries no storage and never reads it, so declaring it here changes
+# nothing about this run: it is written once, where the weathered-granite order
+# of magnitude can be explained, and every transient step below inherits it.
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.05
 
 # mm/d, the 2000-2002 mean of the observed recharge. Step 4 replaces it with
 # the 36 monthly values.
