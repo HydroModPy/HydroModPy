@@ -434,7 +434,7 @@ figures = [
     "hydrographic_network_comparison",
 
     # -- Diagnostic de la calibration elle-meme --
-    "abherve_two_stage_card",
+    "matching_hydrographic_network_card",
     "bisection_bracket_trace",
     "downslope_distance_crossing",
     "parameter_cost_profile",
