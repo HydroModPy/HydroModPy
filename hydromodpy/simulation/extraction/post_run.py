@@ -15,7 +15,8 @@ from typing import Any
 
 from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import share_dir_for
+from hydromodpy.core.progress import MILESTONE
+from hydromodpy.core.state.paths import display_path, share_dir_for
 from hydromodpy.simulation.planning.export_config import ExportConfig
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.simulation.planning.results_config import ResultsConfig
@@ -430,15 +431,15 @@ def _accepts_kwarg(callable_obj: Any, name: str) -> bool:
     )
 
 
-def _single_timestep(times: Any) -> int | str:
-    """Collapse a times selector to one timestep for single-timestep formats."""
-    if isinstance(times, int):
-        return times
-    if isinstance(times, list):
-        return times[-1] if times else "last"
-    if times == "all":
+def _single_timestep(selector: Any) -> int | str:
+    """Collapse a time selector to one timestep for single-timestep formats."""
+    if isinstance(selector, int):
+        return selector
+    if isinstance(selector, list):
+        return selector[-1] if selector else "last"
+    if selector == "all":
         return "last"
-    return times
+    return selector
 
 
 def _time_token(selector: int | str) -> str:
@@ -470,28 +471,15 @@ def _auto_export(
     # configured times selector collapsed to one step; NetCDF honors the full
     # selector (it is multi-step capable).
     if export.any_enabled():
-        var_names = export.variables.active_names()
-        raster_time = _single_timestep(export.times)
+        var_names = list(export.variables)
+        raster_time = _single_timestep(export.time)
         token = _time_token(raster_time)
-        if raster_time != export.times and (export.vtu or export.geotiff or export.shapefile):
-            # One file holds one timestep in these formats, so the selector has
-            # to collapse. Saying so is the point: export.times = "all" reads as
-            # a whole chronicle and writes a single date.
-            logger.warning(
-                "export.times=%r selects several timesteps, but vtu, geotiff and shapefile "
-                "hold one per file: those are written at %r instead. Only the NetCDF export "
-                "carries the whole selection.",
-                export.times,
-                raster_time,
-            )
         if export.csv_timeseries:
             specs.append(ExportSpec(var="*", dest=output_dir / "timeseries.csv"))
         if var_names:
             if export.netcdf:
                 specs.append(
-                    ExportSpec(
-                        var=list(var_names), dest=output_dir / "fields.nc", time=export.times
-                    )
+                    ExportSpec(var=var_names, dest=output_dir / "fields.nc", time=export.time)
                 )
             for var in var_names:
                 if export.vtu:
@@ -528,13 +516,25 @@ def _auto_export(
     output_dir.mkdir(parents=True, exist_ok=True)
     _write_run_card(output_dir, sim_id, label)
     failures: list[str] = []
+    written = 0
     for spec in specs:
         try:
             out_path = store.export(sim_id, spec)
             kind = spec.fmt.value if spec.fmt is not None else Path(out_path).suffix.lstrip(".")
             store.record_export(sim_id, kind=kind, path=out_path)
+            written += 1
         except Exception as exc:
             failures.append(f"{Path(spec.dest).name}: {exc}")
+
+    if written:
+        # The exporters name every file they write, one INFO line each. This
+        # is the one line the default verbosity keeps: how many, and where.
+        logger.info(
+            "Exported %d file(s) -> %s",
+            written,
+            display_path(output_dir),
+            extra=MILESTONE,
+        )
 
     if failures:
         raise RuntimeError(f"Auto-export failed for sim {sim_id}: " + "; ".join(failures))

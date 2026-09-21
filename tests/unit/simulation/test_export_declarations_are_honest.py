@@ -1,8 +1,9 @@
 """An export setting has to do what its name says, or say that it cannot.
 
-Three defects lived here, each silent: two toggles that changed nothing, a
-declared format that let its bytes land under another extension, and a timestep
-selector that collapsed without a word.
+Three defects lived here, each silent: a toggle that wrote nothing, a
+declared format that let its bytes land under another extension, and a
+timestep selector that collapsed without a word. The first and third are now
+refused at config-validation time instead of failing quietly at export time.
 """
 
 from __future__ import annotations
@@ -10,31 +11,28 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from hydromodpy.core.config_kit.export_spec import ExportSpec
-from hydromodpy.simulation.planning.export_config import ExportVariablesConfig
+from hydromodpy.simulation.planning.export_config import ExportConfig
 
 
 class TestNoToggleThatChangesNothing:
-    """A field that gates nothing is a promise the run cannot keep."""
+    """A toggle enabled with nothing to write is a promise the run cannot keep."""
 
-    def test_the_variables_config_declares_only_what_it_can_export(self):
-        declared = set(ExportVariablesConfig.model_fields)
+    def test_a_toggle_with_no_variables_is_refused(self):
+        with pytest.raises(ValidationError, match="writes nothing"):
+            ExportConfig(geotiff=True, variables=[])
 
-        assert declared == {"head", "concentration", "derived"}
+    def test_csv_timeseries_does_not_need_variables(self):
+        cfg = ExportConfig(csv_timeseries=True, variables=[])
 
-    @pytest.mark.parametrize("dead", ["budget", "pathlines"])
-    def test_a_removed_toggle_is_refused_rather_than_ignored(self, dead: str):
-        """extra='forbid' turns the old silent no-op into a named error."""
-        with pytest.raises(ValueError, match=dead):
-            ExportVariablesConfig(**{dead: True})
+        assert cfg.csv_timeseries is True
 
-    def test_every_declared_variable_reaches_the_export(self):
-        names = ExportVariablesConfig(head=True, concentration=True, derived=True).active_names()
+    def test_the_default_variable_list_reaches_the_export(self):
+        cfg = ExportConfig(geotiff=True)
 
-        assert "head" in names
-        assert "concentration" in names
-        assert {"watertable_elevation", "watertable_depth", "seepage_mask"} <= set(names)
+        assert cfg.variables == ["head"]
 
 
 class TestFormatAndDestinationAgree:
@@ -60,51 +58,19 @@ class TestFormatAndDestinationAgree:
             ExportSpec(var="head", dest=Path("/tmp/h.tif"), time="all")
 
 
-class TestTheCollapseIsAnnounced:
-    """export.times = 'all' reads as a chronicle and writes one date."""
+class TestTheCollapseIsRefusedRatherThanSilent:
+    """``export.time = 'all'`` reads as a chronicle and used to write one date."""
 
-    def test_the_run_says_which_timestep_a_raster_got(self, caplog):
-        from hydromodpy.simulation.extraction import post_run
+    def test_a_multi_step_selector_with_a_raster_toggle_is_refused(self):
+        with pytest.raises(ValidationError, match="one timestep per file"):
+            ExportConfig(time="all", geotiff=True)
 
-        recorded: list[ExportSpec] = []
+    def test_a_single_step_selector_is_accepted(self):
+        cfg = ExportConfig(time="last", geotiff=True)
 
-        class _Store:
-            project_path = Path("/tmp/hmp-export-test")
+        assert cfg.time == "last"
 
-            def export(self, _sim_id, spec):
-                recorded.append(spec)
+    def test_netcdf_alone_accepts_a_multi_step_selector(self):
+        cfg = ExportConfig(time="all", netcdf=True)
 
-            def record_export(self, *_args, **_kwargs):
-                return None
-
-        config = _export_config(times="all", geotiff=True, netcdf=True)
-        with caplog.at_level("WARNING"):
-            post_run._auto_export("sim", _Store(), config)
-
-        assert "hold one per file" in caplog.text
-        by_format = {spec.fmt.value: spec.time for spec in recorded}
-        assert by_format.get("geotiff") == "last"
-        assert by_format.get("netcdf") == "all"
-
-    def test_a_single_step_selector_says_nothing(self, caplog):
-        from hydromodpy.simulation.extraction import post_run
-
-        class _Store:
-            project_path = Path("/tmp/hmp-export-test")
-
-            def export(self, _sim_id, _spec):
-                return None
-
-            def record_export(self, *_args, **_kwargs):
-                return None
-
-        with caplog.at_level("WARNING"):
-            post_run._auto_export("sim", _Store(), _export_config(times="last", geotiff=True))
-
-        assert "hold one per file" not in caplog.text
-
-
-def _export_config(*, times, geotiff=False, netcdf=False):
-    from hydromodpy.simulation.planning.export_config import ExportConfig
-
-    return ExportConfig(times=times, geotiff=geotiff, netcdf=netcdf)
+        assert cfg.time == "all"
