@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, ClassVar, cast
 
 from hydromodpy.core.exceptions import ConfigError, ExportError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.progress import MILESTONE
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIRNAME
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
@@ -149,12 +150,13 @@ def _log_run_epilogue(
         )
         metric = f" nse={nse[0]:.2f}" if nse and nse[0] is not None else ""
         duration = f" {wall_seconds:.0f}s" if wall_seconds else ""
-        logger.info("Run %s: %s [%s]%s%s", status, name, sid[:8], duration, metric)
+        logger.info("Run %s: %s [%s]%s%s", status, name, sid[:8], duration, metric, extra=MILESTONE)
         logger.info(
             "next: hmp catalog show %s | hmp catalog diff %s <other> | hmp catalog export %s",
             name,
             name,
             name,
+            extra=MILESTONE,
         )
     except Exception:  # noqa: BLE001 - the epilogue must never disrupt a run
         return

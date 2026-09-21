@@ -12,6 +12,24 @@
 [workflow]
 mode = "simulation"
 
+# How much the run prints is `verbosity`, left at its default here because
+# `normal` is what a first read wants:
+#
+#   quiet    warnings and errors, nothing else
+#   normal   the banner, one spinner line per pipeline step with the seconds
+#            it took, the warnings, and what the run wrote at the end
+#   verbose  every INFO line on top of that: which file was read, how many
+#            cells were burned, each exported file named one by one
+#   debug    every DEBUG line with its module and line number, and no live
+#            display, so the lines scroll and can be piped into a file
+#
+# `hmp run -q | -v | --debug <file>` sets it for one run, HMP_VERBOSITY=<level>
+# for a whole shell, and both win over the key. Nothing is ever lost by running
+# quiet: the complete DEBUG trace is written to .hmp/logs/hydromodpy_debug.log
+# whatever the console shows.
+#
+#   verbosity = "verbose"
+
 [workspace]
 project_root = "."
 

@@ -20,17 +20,21 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from hydromodpy.cli._conventions import profile_parser
+from hydromodpy.cli._conventions import profile_parser, verbosity_parser
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
+    apply_verbosity,
     auto_scan_workspace,
     profile_arg_from_toml,
     profile_run,
     resolve_profile_output,
 )
-from hydromodpy.core.state.paths import resolve_project_root
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import display_path, resolve_project_root
+
+logger = get_logger(__name__)
 
 NAME: str = "run"
 HELP: str = "Run a workflow from a TOML config"
@@ -47,7 +51,7 @@ def _step_choices() -> list[str]:
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[profile_parser()])
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[profile_parser(), verbosity_parser()])
     config_arg = parser.add_argument(
         "config",
         nargs="?",
@@ -256,9 +260,6 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
 
     profile_output = resolve_profile_output(getattr(args, "profile", None), config_path)
 
-    print_hydromodpy()
-    auto_scan_workspace(config_path)
-
     effective_path: Path | None = None
     try:
         effective_path, raw_toml = _materialize_effective_toml(config_path, args=args)
@@ -272,6 +273,14 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         print(f"Invalid TOML: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
     run_path = effective_path or config_path
+
+    # Before the first line is printed: the banner, the workspace scan and
+    # every step below obey the level this resolves.
+    verbosity = apply_verbosity(args, raw_toml)
+
+    if verbosity != "quiet":
+        print_hydromodpy()
+    auto_scan_workspace(config_path)
 
     if profile_output is None:
         profile_output = resolve_profile_output(profile_arg_from_toml(raw_toml), config_path)
@@ -401,6 +410,13 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     if not no_lock:
         _post_run_lockfile_write(run_path, raw_toml)
 
+    # A simulation has already said its name, its id and its duration through
+    # the run epilogue. Repeating it, plus the full uuid, is what made the end
+    # of a run three screens of the same fact; the recap stays for the other
+    # workflows, which have no epilogue of their own, and for --verbose.
+    if workflow == "simulation" and verbosity in ("quiet", "normal"):
+        return
+
     print(f"Workflow '{workflow}' complete: {config_path.name}", file=sys.stderr)
     if summary is None:
         return
@@ -528,9 +544,9 @@ def _post_run_lockfile_write(config_path: Path, raw_toml: dict[str, Any]) -> Non
                 parquet_schema_version=str(PARQUET_SCHEMA_VERSION),
             )
     except Exception as exc:  # pragma: no cover - defensive logging only
-        print(f"  WARNING: hydromodpy.lock write failed: {exc}", file=sys.stderr)
+        logger.warning("hydromodpy.lock write failed: %s", exc)
         return
-    print(f"  Lockfile written: {dest}", file=sys.stderr)
+    logger.info("Lockfile written: %s", display_path(dest))
 
 
 def _resolve_project_root(

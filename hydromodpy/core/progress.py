@@ -4,7 +4,8 @@ Single canonical progress system for HydroModPy. Renders phase
 checkmarks, spinner statuses, and progress bars on stderr through one
 shared rich display. Detailed messages keep flowing to the DEBUG file
 log. Falls back to plain log lines when the console is not interactive
-(pipes, CI), when the console mode is not "verbose", or when
+(pipes, CI), when the verbosity leaves no room for it ("quiet" prints
+nothing, "debug" scrolls plain lines instead), or when
 ``HMP_NO_PROGRESS`` is set.
 
 Vocabulary:
@@ -45,6 +46,17 @@ from rich.progress import (
 from rich.table import Table
 
 logger = logging.getLogger("hydromodpy.core.progress")
+
+MILESTONE_KEY = "hmp_milestone"
+"""Record attribute marking a log line the default verbosity keeps."""
+
+MILESTONE: dict[str, bool] = {MILESTONE_KEY: True}
+"""``extra=`` payload for a milestone. Lives here, not in ``core.logging``,
+because ``core.logging`` imports this module and the reverse would cycle."""
+
+# Verbosity levels that still draw the live display. "quiet" has nothing to
+# show and "debug" wants scrolling lines it can copy out of a pipe.
+_RENDERING_MODES = ("normal", "verbose")
 
 # Pin the stream object: redirect_stderr() zones (e.g. Whitebox stdio
 # silencing) must not freeze the live display or swallow log lines.
@@ -129,7 +141,7 @@ class _ProgressManager:
         self._lock = threading.RLock()
         self._progress: _AdaptiveProgress | None = None
         self._active = 0
-        self._console_mode = "verbose"
+        self._console_mode = "normal"
 
     def set_console_mode(self, mode: str) -> None:
         self._console_mode = mode
@@ -139,7 +151,7 @@ class _ProgressManager:
             return False
         if os.environ.get("HMP_NO_PROGRESS"):
             return False
-        if self._console_mode != "verbose":
+        if self._console_mode not in _RENDERING_MODES:
             return False
         # Only the main process may drive the shared terminal display.
         if multiprocessing.parent_process() is not None:
@@ -220,7 +232,10 @@ def phase(description: str) -> Generator[TaskHandle, None, None]:
     if rendering or _is_suppressed():
         logger.debug("phase start: %s", description)
     else:
-        logger.info("%s", description)
+        # A milestone: without the live display these lines are the only
+        # trace that the run is advancing, so the default verbosity keeps
+        # them even though it drops ordinary INFO.
+        logger.info("%s", description, extra=MILESTONE)
     handle = _manager.acquire(description, None, "status")
     t0 = time.perf_counter()
     try:
@@ -314,6 +329,8 @@ def make_console_handler() -> logging.Handler:
 
 
 __all__ = [
+    "MILESTONE",
+    "MILESTONE_KEY",
     "ConsoleLogHandler",
     "TaskHandle",
     "console",

@@ -26,7 +26,7 @@ from hydromodpy._bootstrap import bootstrap  # noqa: F401  -- import registers t
 from hydromodpy._lazy import LAZY_IMPORTS as _LAZY_IMPORTS
 from hydromodpy._lazy import MODULE_EXPORTS as _MODULE_EXPORTS
 from hydromodpy.core.io.proj_bootstrap import bootstrap_proj
-from hydromodpy.core.logging import LogManager
+from hydromodpy.core.logging import DEFAULT_VERBOSITY, LogManager, verbosity_from_env
 from hydromodpy.core.version import __version__
 
 # ``bootstrap()`` is deferred to first real use (config validation, a verb,
@@ -39,7 +39,9 @@ __email__ = (
     "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com, jean-raynald.de-dreuzy@univ-rennes.fr"
 )
 
-_log_manager = LogManager(mode="verbose", log_dir=None, overwrite=False)
+_log_manager = LogManager(
+    mode=verbosity_from_env() or DEFAULT_VERBOSITY, log_dir=None, overwrite=False
+)
 # Public access to log manager for users
 log_manager = _log_manager
 

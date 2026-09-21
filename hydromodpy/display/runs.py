@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.progress import MILESTONE
+from hydromodpy.core.state.paths import display_path
 from hydromodpy.display import get as _get_figure
 from hydromodpy.display.renderer import matplotlib_backend
 from hydromodpy.display.theme import apply_theme
@@ -66,7 +68,7 @@ class FigureRenderReport:
         """One line: the rendered count, then every figure not produced."""
         line = f"Rendered {len(self.rendered)}/{len(self.requested)} figure(s)"
         if destination is not None:
-            line = f"{line} -> {destination}"
+            line = f"{line} -> {display_path(destination)}"
         if self.skipped:
             detail = ", ".join(f"{item.name} ({item.reason})" for item in self.skipped)
             line = f"{line}; {len(self.skipped)} skipped: {detail}"
@@ -86,8 +88,10 @@ def log_render_summary(
     """
     if not report.requested:
         return
-    level = logger.warning if report.skipped else logger.info
-    level("%s", report.summary(destination=destination))
+    if report.skipped:
+        logger.warning("%s", report.summary(destination=destination))
+    else:
+        logger.info("%s", report.summary(destination=destination), extra=MILESTONE)
 
 
 def _backend_is_interactive(display_cfg: DisplayConfig) -> bool:

@@ -7,6 +7,9 @@
 
 [workflow]
 mode = "simulation"
+# `verbosity` decides what reaches the console: "quiet", "normal" (here, by
+# default), "verbose" or "debug". `hmp run -q | -v | --debug` overrides it for
+# one run. step1_minimal.toml says what each level prints.
 
 [workspace]
 project_root = "."

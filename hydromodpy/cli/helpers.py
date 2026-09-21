@@ -12,6 +12,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.logging import get_logger
+
 # ---------------------------------------------------------------------------
 # Standardised exit codes for the hmp CLI. The shared grammar that emits them
 # lives in ``hydromodpy/cli/_conventions.py``. Typed codes 10..19 map onto
@@ -167,8 +169,39 @@ def resolve_workspace(workspace_arg: str | None) -> Path:
 # ---------------------------------------------------------------------------
 
 
+def apply_verbosity(args: Any, raw_toml: Mapping[str, Any]) -> str:
+    """Set the console verbosity of this command and return the level applied.
+
+    Precedence, first source that names one wins: the CLI flag, then
+    ``HMP_VERBOSITY``, then ``[workflow] verbosity`` in the config, then the
+    default. Called before anything prints, so the banner obeys it too.
+    """
+    from hydromodpy.core.logging import (
+        DEFAULT_VERBOSITY,
+        set_verbosity,
+        verbosity_from_env,
+    )
+
+    declared = None
+    workflow_section = raw_toml.get("workflow") if isinstance(raw_toml, Mapping) else None
+    if isinstance(workflow_section, Mapping):
+        declared = workflow_section.get("verbosity")
+
+    level = getattr(args, "verbosity", None) or verbosity_from_env() or declared
+    try:
+        return set_verbosity(level or DEFAULT_VERBOSITY)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+
+
 def auto_scan_workspace(config_path: Path) -> None:
-    """Best-effort scan of drag-and-drop custom folders before a run."""
+    """Best-effort scan of drag-and-drop custom folders before a run.
+
+    ``scan_custom`` already logs what it changed. Only what went wrong is
+    reported here, as a warning, so it survives a quiet run.
+    """
+    logger = get_logger(__name__)
     try:
         project_dir = config_path.parent.resolve()
         ws = find_data_workspace(project_dir)
@@ -177,17 +210,10 @@ def auto_scan_workspace(config_path: Path) -> None:
         from hydromodpy.data.auto_scan import scan_custom
 
         report = scan_custom(ws)
-        if report.n_changed or report.errors:
-            print(
-                f"[auto_scan] {len(report.added)} added, "
-                f"{len(report.updated)} updated, "
-                f"{len(report.errors)} error(s) in {ws}",
-                file=sys.stderr,
-            )
-            for path, msg in report.errors[:5]:
-                print(f"[auto_scan]   ! {path}: {msg}", file=sys.stderr)
+        for path, msg in report.errors[:5]:
+            logger.warning("auto_scan could not read %s: %s", path, msg)
     except Exception as exc:  # pragma: no cover - defensive
-        print(f"[auto_scan] skipped ({type(exc).__name__}: {exc})", file=sys.stderr)
+        logger.warning("auto_scan skipped (%s: %s)", type(exc).__name__, exc)
 
 
 # ---------------------------------------------------------------------------
@@ -336,6 +362,7 @@ __all__ = (
     "find_workspace_root",
     "find_data_workspace",
     "resolve_workspace",
+    "apply_verbosity",
     "auto_scan_workspace",
     "profile_arg_from_toml",
     "resolve_profile_output",

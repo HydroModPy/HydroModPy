@@ -8,6 +8,7 @@ usable through ``subparsers.add_parser(..., parents=[...])``:
 - :func:`confirm_parser` -- ``-y/--yes`` confirmation flag
 - :func:`format_parser` -- ``--format {table,json,csv}`` for read commands
 - :func:`profile_parser` -- ``--profile [HTML_PATH]`` pyinstrument flag
+- :func:`verbosity_parser` -- ``-q/-v/--debug/--verbosity`` console verbosity
 - :func:`add_sim_ref` -- canonical ``sim_ref`` positional
 
 :func:`add_action_subparsers` attaches a *required* action group: a bare
@@ -21,6 +22,8 @@ from __future__ import annotations
 
 import argparse
 import sys
+
+from hydromodpy.core.logging import VERBOSITY_LEVELS
 
 FORMAT_CHOICES: tuple[str, ...] = ("table", "json", "csv")
 
@@ -62,6 +65,47 @@ def format_parser(*, default: str = "table") -> argparse.ArgumentParser:
         choices=FORMAT_CHOICES,
         default=default,
         help=f"Output format (default: {default})",
+    )
+    return parser
+
+
+def verbosity_parser() -> argparse.ArgumentParser:
+    """Parent parser exposing the shared console verbosity selector.
+
+    ``-q``, ``-v`` and ``--debug`` are shorthands for ``--verbosity``; they
+    are mutually exclusive. Nothing given leaves the choice to the config
+    (``[workflow] verbosity``) and to ``HMP_VERBOSITY``.
+    """
+    parser = argparse.ArgumentParser(add_help=False)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--verbosity",
+        choices=VERBOSITY_LEVELS,
+        default=None,
+        help="Console verbosity (default: normal, or [workflow] verbosity)",
+    )
+    group.add_argument(
+        "-q",
+        "--quiet",
+        dest="verbosity",
+        action="store_const",
+        const="quiet",
+        help="Warnings and errors only",
+    )
+    group.add_argument(
+        "-v",
+        "--verbose",
+        dest="verbosity",
+        action="store_const",
+        const="verbose",
+        help="Every INFO line the run emits",
+    )
+    group.add_argument(
+        "--debug",
+        dest="verbosity",
+        action="store_const",
+        const="debug",
+        help="Every DEBUG line, with module and line number",
     )
     return parser
 

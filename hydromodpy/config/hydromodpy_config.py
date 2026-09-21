@@ -99,6 +99,7 @@ WorkflowMode = Literal[
     "site_selection",
 ]
 ValidationContext = Literal["toml", "api"]
+Verbosity = Literal["quiet", "normal", "verbose", "debug"]
 
 
 class WorkflowConfig(HydroModelBase):
@@ -135,6 +136,31 @@ class WorkflowConfig(HydroModelBase):
                 ),
             }
         },
+    )
+    verbosity: Annotated[Verbosity, Profile.USER] = Field(
+        default="normal",
+        description=(
+            "How much the run prints on the console. The project debug log, "
+            "`.hmp/logs/hydromodpy_debug.log`, records every DEBUG line "
+            "whatever this says. `hmp run -q/-v/--debug` and the "
+            "HMP_VERBOSITY environment variable both win over this field."
+        ),
+        json_schema_extra={
+            "value_docs": {
+                "quiet": "Warnings and errors only. No banner, no progress display.",
+                "normal": (
+                    "Banner, one spinner line per pipeline step with its duration, "
+                    "warnings, and the milestones: what was rendered, what was "
+                    "exported, how the run ended."
+                ),
+                "verbose": "Every INFO line the run emits, on top of `normal`.",
+                "debug": (
+                    "Every DEBUG line, with module and line number. The progress "
+                    "display steps aside so the lines scroll plainly."
+                ),
+            }
+        },
+        examples=["normal", "quiet"],
     )
     profile: Annotated[bool | str, Profile.EXPERT] = Field(
         default=False,
