@@ -62,6 +62,17 @@ class _RunAtRenderTime:
         return bool(rows)
 
 
+def _unlinked(reasons: dict[str, str | None]) -> list[str]:
+    """Return the figures that could not see the session table, and only those.
+
+    The rows this session stubs carry a cost and a parameter and no criterion
+    diagnostic, so the two figures that read the network distances report
+    themselves inapplicable whatever the link says. That verdict is theirs to
+    make; what these tests watch is the one reason the link decides.
+    """
+    return [name for name, reason in reasons.items() if reason and MISSING_TABLE_REASON in reason]
+
+
 def _figure_reasons(catalog: Catalog, sim_id: str) -> dict[str, str | None]:
     """Return why each session figure could not draw that run, or None."""
     sim = _RunAtRenderTime(catalog, sim_id)
@@ -173,7 +184,7 @@ def test_promoted_run_is_linked_before_it_renders(session, monkeypatch) -> None:
     assert (count, failures) == (2, [])
     assert len(seen) == 2
     for sim_id, reasons in seen.items():
-        assert reasons == dict.fromkeys(SESSION_FIGURES), (
+        assert _unlinked(reasons) == [], (
             f"run {sim_id} was not linked to its session when it rendered"
         )
 
@@ -188,7 +199,7 @@ def test_link_survives_the_promotion(session, monkeypatch) -> None:
         [uuid.UUID(session_id)],
     ).fetchone()
     assert linked[0] == 2
-    assert set(_figure_reasons(catalog, next(iter(seen))).values()) == {None}
+    assert _unlinked(_figure_reasons(catalog, next(iter(seen)))) == []
 
 
 def test_a_failed_promotion_leaves_no_link(session, monkeypatch) -> None:
