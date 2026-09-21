@@ -16,6 +16,7 @@ import requests
 
 from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.progress import MILESTONE
 from hydromodpy.data.common.api_client import get_json
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
@@ -160,7 +161,9 @@ def fetch(
             date_end.strftime("%Y-%m-%d"),
             ", ".join(empty[:10]) + (" ..." if len(empty) > 10 else ""),
         )
-    logger.debug(f"Hub'Eau: {len(records)} station records loaded")
+    # Same reason as the BD Topage fetch: what a run downloaded from Hub'Eau is
+    # part of where its numbers come from, so it survives the default verbosity.
+    logger.info("Hub'Eau: %d station records loaded", len(records), extra=MILESTONE)
     return records
 
 
