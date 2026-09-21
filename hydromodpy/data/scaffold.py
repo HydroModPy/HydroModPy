@@ -362,6 +362,9 @@ PROJECT_TOML_TEMPLATE = """\
 
 [geographic]
 source_mode = "synthetic"
+# Synthetic mode has no DEM to read a CRS from, so it is spelled out here.
+# Without it, spatial exports (GeoTIFF) have no coordinate system to write.
+crs_project = "EPSG:2154"
 
 [geographic.synthetic]
 case_id = "{project_name}_synthetic"
@@ -397,6 +400,22 @@ value = "1.0e-4 m/s"
 [flow.param.Sy.field]
 kind = "homogeneous"
 value = "0.12 -"
+
+[display]
+# Figures rendered at the end of every run in this project. This shortlist
+# only needs the mesh and the steady-state head field, so it renders on the
+# synthetic demo with no observation data. "hmp viz list" shows every
+# registered figure and what result each one needs.
+figures = ["mesh_map", "piezometric_map", "watertable_depth_map", "water_budget"]
+on_error = "warn"  # log a figure that fails to render and keep going
+
+[export]
+# Writes a GeoTIFF next to the run's other outputs so the first result is
+# something you can open in QGIS, not just numbers in a log.
+geotiff = true
+
+[export.variables]
+head = true
 """
 
 RUN_TOML_TEMPLATE = """\

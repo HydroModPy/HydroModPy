@@ -5,6 +5,26 @@ import warnings
 from hydromodpy.core import progress as core_progress
 
 
+def _is_rasterio_matmul_noise(category, message, filename):
+    """True for rasterio's own matmul-vs-mul PendingDeprecationWarning.
+
+    ``rasterio.transform.from_origin`` still combines two ``Affine``
+    objects with ``*``, which the ``affine`` package flags as pending
+    deprecation. The user did not write that call and cannot fix it.
+    Filtered here, inside ``showwarning``, rather than with
+    ``warnings.filterwarnings``: flopy's ``plot`` submodules install
+    ``warnings.simplefilter("always", PendingDeprecationWarning)`` at
+    import time, which always lands in front of a filter registered
+    earlier and defeats it. ``showwarning`` is the one place every
+    warning HydroModPy emits still passes through.
+    """
+    return (
+        category is PendingDeprecationWarning
+        and filename.endswith(os.path.join("rasterio", "transform.py"))
+        and "matmul" in str(message)
+    )
+
+
 class LogManager:
     """
     Manage logging for HydroModPy.
@@ -255,6 +275,8 @@ class LogManager:
 
         def showwarning(message, category, filename, lineno, file=None, line=None):
             del file, line
+            if _is_rasterio_matmul_noise(category, message, filename):
+                return
             warnings_logger.warning("%s: %s (%s:%s)", category.__name__, message, filename, lineno)
 
         warnings.showwarning = showwarning
