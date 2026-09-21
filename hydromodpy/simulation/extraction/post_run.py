@@ -503,6 +503,12 @@ def _auto_export(
                             var=var, dest=output_dir / f"{var}_{token}.shp", time=raster_time
                         )
                     )
+                if export.geopackage:
+                    specs.append(
+                        ExportSpec(
+                            var=var, dest=output_dir / f"{var}_{token}.gpkg", time=raster_time
+                        )
+                    )
 
     # Explicit artifact specs (the full contract). Relative dests resolve under
     # the run export directory; absolute dests are kept verbatim.

@@ -49,9 +49,10 @@ csv_timeseries = true
 time = 33
 variables = ["head", "watertable_elevation", "watertable_depth", "seepage_mask"]
 
-# The other formats are toggles beside those two: `netcdf`, `vtu`, `shapefile`,
-# and `package` for a portable `.hmp` archive of the whole run. GeoPackage has
-# no toggle and is reachable only through the form below.
+# The other formats are toggles beside those two: `netcdf`, `geopackage`,
+# `vtu`, `shapefile`, and `package` for a portable `.hmp` archive of the whole
+# run. A toggle follows the convention above and writes one file per name in
+# `variables`; the form below is how a single file gets named instead.
 #
 # [[export.artifacts]] names one file instead of following a convention: a
 # variable or a list of them, a destination whose extension picks the format

@@ -226,3 +226,49 @@ class TestPostRunResults:
             results_config=config,
             store=catalog,
         )
+
+
+class _RecordingStore:
+    """Fake store that records the ExportSpecs ``_auto_export`` builds, without exporting."""
+
+    def __init__(self, project_path: Path):
+        self.project_path = project_path
+        self.specs: list = []
+
+    def export(self, sim_id, spec):
+        self.specs.append(spec)
+        return spec.dest
+
+    def record_export(self, sim_id, *, kind, path):
+        pass
+
+
+class TestAutoExportGeopackageWiring:
+    """``export.geopackage`` must build one .gpkg spec per variable, one timestep, like shapefile."""
+
+    def test_one_gpkg_spec_per_variable(self, tmp_path):
+        from hydromodpy.simulation.planning.export_config import ExportConfig
+
+        store = _RecordingStore(tmp_path)
+        export = ExportConfig(geopackage=True, variables=["head", "seepage_mask"], time="last")
+
+        post_run_module._auto_export(
+            "sim-1",
+            store,
+            export,
+            export_label="run1",
+        )
+
+        dests = [Path(spec.dest).name for spec in store.specs]
+        assert dests == ["head_last.gpkg", "seepage_mask_last.gpkg"]
+        assert all(spec.time == "last" for spec in store.specs)
+
+    def test_geopackage_off_writes_nothing(self, tmp_path):
+        from hydromodpy.simulation.planning.export_config import ExportConfig
+
+        store = _RecordingStore(tmp_path)
+        export = ExportConfig(shapefile=True, variables=["head"], time="last")
+
+        post_run_module._auto_export("sim-1", store, export, export_label="run1")
+
+        assert all(not str(spec.dest).endswith(".gpkg") for spec in store.specs)
