@@ -8,7 +8,7 @@
     "section": "workflow",
     "anchor": "workflow-mode",
     "page": "workflow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L108",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L109",
     "description": "Workflow mode dispatched by `hmp run`."
   },
   {
@@ -20,7 +20,7 @@
     "section": "workflow",
     "anchor": "workflow-verbosity",
     "page": "workflow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L140",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L141",
     "description": "How much the run prints on the console. The project debug log, `.hmp/logs/hydromodpy_debug.log`, records every DEBUG line whatever this says. `hmp run -q/-v/--debug` and the HMP_VERBOSITY environment variable both win over this field.",
     "examples": [
       "\"normal\"",
@@ -36,7 +36,7 @@
     "section": "workflow",
     "anchor": "workflow-profile",
     "page": "workflow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L165",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L166",
     "description": "Profile the run with pyinstrument (honored by the hmp CLI; the --profile flag wins over this field). true writes <config>.profile.html next to the config; a string sets the HTML report path."
   },
   {

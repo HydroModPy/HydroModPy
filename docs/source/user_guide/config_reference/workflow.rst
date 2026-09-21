@@ -9,7 +9,7 @@ TOML section: ``[workflow]``
 
 Pydantic model: ``WorkflowConfig`` defined in ``hydromodpy.config.hydromodpy_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L105>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L106>`__
 
 Workflow selector configuration.
 
@@ -36,7 +36,7 @@ Fields
         <code class="hmp-field-name">mode</code>
       </div>
 
-   :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L108>`__
+   :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L109>`__
 
       Workflow mode dispatched by `hmp run`.
 
@@ -72,7 +72,7 @@ Fields
         <code class="hmp-field-name">verbosity</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "normal"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L140>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "normal"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L141>`__
 
       How much the run prints on the console. The project debug log, `.hmp/logs/hydromodpy_debug.log`, records every DEBUG line whatever this says. `hmp run -q/-v/--debug` and the HMP_VERBOSITY environment variable both win over this field.
 
@@ -108,7 +108,7 @@ Fields
         <code class="hmp-field-name">profile</code>
       </div>
 
-   :bdg-primary:`bool | str` :bdg-secondary:`default = False` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L165>`__
+   :bdg-primary:`bool | str` :bdg-secondary:`default = False` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L166>`__
 
       Profile the run with pyinstrument (honored by the hmp CLI; the --profile flag wins over this field). true writes <config>.profile.html next to the config; a string sets the HTML report path.
 
