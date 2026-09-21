@@ -91,7 +91,7 @@ lacked, from the shortest config that runs to the full declarative pipeline.
 | File | Run | `base_config` | What it changes |
 |---|---|---|---|
 | `step1_minimal.toml` | `nancon_step1_minimal` | none | the shortest file that runs to completion: steady state, local DEM, homogeneous K, drainage boundary |
-| `step2_local_data.toml` | `nancon_step2_local` | `step1_minimal.toml` | the mapped stream network and the burn, from local files |
+| `step2_local_data.toml` | `nancon_step2_local` | `step1_minimal.toml` | the local data sources the later steps read: the mapped network and the gauge. The head it solves is step 1's, to the bit |
 | `step3_api_data.toml` | `nancon_step3_api` | `step1_minimal.toml` | the same model as step2, with hydrography from the BD TOPAGE API and hydrometry from Hub'Eau instead of local files |
 | `step4_transient.toml` | `nancon_step4_transient` | `step2_local_data.toml` | monthly transient 2000-2002 with storage and the observed recharge and runoff forcing, still with no calibration |
 | `step5_export.toml` | `nancon_step5_export` | `step4_transient.toml` | a declarative `[export]` writing four GeoTIFF rasters, a time-series CSV and a NetCDF, plus a `[display]` figure list |
@@ -103,6 +103,16 @@ hmp run examples/projects/04_streamflow_intermittence_in_transient/step3_api_dat
 hmp run examples/projects/04_streamflow_intermittence_in_transient/step4_transient.toml
 hmp run examples/projects/04_streamflow_intermittence_in_transient/step5_export.toml
 ```
+
+A simulation driven by the drainage boundary does not need the network burnt
+into the DEM. `[geographic.enforce_streams]` and `[geographic.river_network]`
+reshape the routing surface the flow paths are traced on, and no boundary
+condition reads it: measured over 36 steps and 27004 cells, enabling both moves
+the head by 0 m and the release flux by 0, and moves only `watershed_fill`, by
+up to 13.4 m. They stay in `project.toml`, where the calibration protocol
+measures the extent of the simulated network along those flow paths and would
+otherwise score a disagreement between two datasets. So step2 and step3 declare
+data sources and nothing else, and their heads are step1's.
 
 step3 is not a child of step2: both declare `base_config = "step1_minimal.toml"`,
 so both build the same model from the same root. What differs between them is

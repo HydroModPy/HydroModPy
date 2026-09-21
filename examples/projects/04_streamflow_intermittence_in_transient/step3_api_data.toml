@@ -1,14 +1,10 @@
-# Nancon, the same model as step 2 with the data fetched instead of read off
-# disk. Same parent, same catchment, same parameter, same burn: only the
-# provenance of the network and of the gauge changes. Read it beside step 2,
-# not after it.
+# Nancon, the model of step 2 with the network and the gauge fetched instead of
+# read off disk. Only the provenance changes, so read it beside step 2 rather
+# than after it. Needs network access; both services are French national ones
+# and neither asks for a key. The DEM stays the local file of step 1: the IGN
+# Geoplateforme elevation endpoint answers 403 from here.
 #
 #   hmp run examples/projects/04_streamflow_intermittence_in_transient/step3_api_data.toml
-#
-# This step needs network access. Both services are French national ones and
-# neither asks for a key. The DEM is not among them: it stays the local file
-# step 1 declares, because the IGN Geoplateforme elevation endpoint answers 403
-# from here, and an API form of it would be a line that does not run.
 
 base_config = "step1_minimal.toml"
 
@@ -18,36 +14,27 @@ name = "nancon_step3_api"
 [data]
 types = ["hydrography", "hydrometry"]
 
-# BD TOPAGE, the Sandre reference network, over the delineated catchment: 99
-# features on this one. No path and no layer name, because the download box is
-# derived from the watershed, which is why [geographic] crs_project is set in
-# step 1 rather than left to the DEM to imply.
+# BD TOPAGE, the Sandre reference network, 99 features over this catchment. No
+# path and no layer name: the download box comes from the delineated watershed,
+# which is why step 1 sets [geographic] crs_project.
 [[data.hydrography.sources]]
 source = "bdtopage"
 
-# A local CSV carries its own period and is read over whatever it covers; an
-# API has to be told one before it will answer, and this run is steady and
-# declares no [simulation.time]. The window written here is the one step 4
-# simulates.
+# A local CSV is read over whatever period it covers; an API has to be told
+# one, and this steady run declares no [simulation.time]. The window is the one
+# step 4 simulates.
 [data.hydrometry]
 date_start = "2000-01-01"
 date_end = "2002-12-31"
 
-# Hub'Eau. `QmM` is the monthly mean discharge and not the daily `QmnJ`,
-# because the model this feeds runs on months. No station code is written down:
-# the stations are discovered inside the watershed, so the file survives a
-# renumbering of the Nancon gauge that a hard-coded code would not.
+# Hub'Eau. `QmM` is the monthly mean discharge, `QmnJ` the daily one, and the
+# model this feeds runs on months. The stations are discovered inside the
+# watershed rather than named, so a renumbering of the gauge does not break the
+# file.
 [[data.hydrometry.sources]]
 source = "hubeau"
 product = "QmM"
 extent = "watershed"
 
-# Identical to step 2, and restated because the parent here is step 1: these
-# two tables are what a mapped network is for, whichever side it arrived from.
-[geographic.enforce_streams]
-enabled = true
-depth_m = 10.0
-
-[geographic.river_network]
-enabled = true
-threshold_area_km2 = 0.5
+# Nothing else, for the reason step 2 gives. The heads come out identical to
+# step 2's to the bit: same model, two provenances.

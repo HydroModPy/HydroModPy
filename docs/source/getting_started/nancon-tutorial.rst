@@ -207,9 +207,13 @@ step1_minimal.toml — run ``nancon_step1_minimal``, no ``base_config``
       hmp run ~/hydromodpy/projects/04_streamflow_intermittence_in_transient/step1_minimal.toml
 
 step2_local_data.toml — run ``nancon_step2_local``, ``base_config = "step1_minimal.toml"``
-   Adds the mapped stream network and the burn, from the local files you
-   just downloaded. Still steady. Compare the drainage pattern against
-   step 1 to see what the mapped network changes.
+   Declares the local data sources the later steps read: the mapped stream
+   network and the gauge. Still steady, and the head it solves is step 1's to
+   the bit, which is the point worth noticing. A simulation driven by the
+   drainage boundary reads ``mesh/topography``; burning the mapped network into
+   the DEM reshapes the routing surface instead, which only the calibration
+   criterion looks at. So this step buys you data on disk, not a different
+   result.
 
 step3_api_data.toml — run ``nancon_step3_api``, ``base_config = "step1_minimal.toml"``
    The same model as step 2, but the hydrography comes from the BD TOPAGE
