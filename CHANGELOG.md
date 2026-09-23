@@ -33,6 +33,13 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Removed
+- `examples/projects/19_cheze_reservoir`, the lake test project of the Chèze
+  reservoir, the three projects of `examples/projects/new_to_sort`, the Chèze
+  diagnostic scripts of `tools/diagnostics/` and `tools/view_mesh_grid_3d.py`
+  leave the repository with the lake data only they read. None was cited by a
+  test, the documentation or the example manifest.
+
 ### Added
 - The stream-network calibration guide gives the protocol and the hand-written
   two-stage calibration of example 04 measured side by side, with the `roptim`

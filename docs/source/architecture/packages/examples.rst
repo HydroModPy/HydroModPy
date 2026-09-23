@@ -57,11 +57,11 @@ Sub-modules
 The whitelist has one entry
 ---------------------------
 
-``examples/projects/`` holds 35 directories, including ``new_to_sort``,
-three competing Nançon variants, and two authored TOMLs carrying absolute
-Windows paths. One of them, ``04_streamflow_intermittence_in_transient``, is
-maintained and verified end to end. Announcing a catalogue of 35 of which
-one works is worse than announcing one, so the whitelist is explicit and a
+``examples/projects/`` holds some thirty directories, most of them
+development or gallery projects. One of them,
+``04_streamflow_intermittence_in_transient``, is maintained and verified end
+to end. Announcing a catalogue of thirty of which one works is worse than
+announcing one, so the whitelist is explicit and a
 project earns a line in it once it runs from a freshly scaffolded
 workspace.
 

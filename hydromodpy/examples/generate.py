@@ -47,11 +47,10 @@ class ExampleSpec:
 
 # The whitelist is explicit, and it has ONE entry on purpose.
 #
-# examples/projects/ holds 35 directories. Among them: new_to_sort, three
-# competing Nancon variants, and two authored TOMLs carrying absolute Windows
-# paths. Only 04_streamflow_intermittence_in_transient is maintained and
-# verified end to end. Announcing a catalogue of 35 of which one works is worse
-# than announcing one, so `hmp example list` announces one. A project earns a
+# examples/projects/ holds some thirty directories, most of them development
+# or gallery projects. Only 04_streamflow_intermittence_in_transient is
+# maintained and verified end to end. Announcing a catalogue of thirty of which
+# one works is worse than announcing one, so `hmp example list` announces one. A project earns a
 # line here once it runs from a freshly scaffolded workspace, not before.
 WHITELIST: tuple[ExampleSpec, ...] = (
     ExampleSpec(
