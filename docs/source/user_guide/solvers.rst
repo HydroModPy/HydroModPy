@@ -135,15 +135,20 @@ dispersion, or decay.
      - Earlier ``flow/modflow_nwt`` run.
      - Uses MT3DMS-style species, dispersivity, diffusion, and decay
        parameters.
-   * - ``modflow6gwt``
+   * - ``modflow6``
      - Concentration transport.
      - Earlier ``flow/modflow6`` run.
      - MODFLOW 6 GWT route aligned with a MODFLOW 6 GWF flow model.
-   * - ``modflow6prt``
+   * - ``modflow6_prt``
      - Particle tracking.
      - Earlier ``flow/modflow6`` run.
      - MODFLOW 6 PRT route aligned with a MODFLOW 6 GWF flow model. It writes
        PRT track output, which HydroModPy ingests as ``pathlines/`` arrays.
+
+The ``Solver`` column is the name ``solvers`` takes. The parameter tables of
+the two MODFLOW 6 routes keep other names: ``[transport.modflow6gwt]`` and
+``[transport.modflow6prt]``. A ``solvers`` entry written with a table name is
+refused as an unsupported pair.
 
 The planner does not reorder processes. Declare the upstream ``flow``
 process before the downstream ``transport`` process so dependency
@@ -177,7 +182,7 @@ resolution can bind the transport adapter to the correct flow model.
          [[simulation.process]]
          id = "transport_main"
          type = "transport"
-         solvers = ["modflow6gwt"]
+         solvers = ["modflow6"]
 
    .. tab-item:: MODFLOW 6 + PRT
 

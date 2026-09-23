@@ -4,7 +4,7 @@ Visual guard for MODFLOW 6 transport work on the real Nancon triangular DISV
 mesh (EPSG:2154), ahead of any refactor to the transport code. Two backends
 are exercised side by side: a deterministic synthetic-velocity plume renderer
 for fast visual inspection, and a real MODFLOW 6 steady GWF flow model coupled
-to the `transport/modflow6prt` PRT backend for actual particle tracking.
+to the `transport/modflow6_prt` PRT backend for actual particle tracking.
 
 ## Run
 
@@ -20,11 +20,19 @@ hmp install-binaries --mf6-prt
 hmp run examples/projects/14_transport_nancon_gwt_visual_guard/run_nancon_steady_mf6_prt_pathlines.toml
 ```
 
-Runtime unmeasured here: both commands need a Nancon mesh bundle produced by
-running `examples/projects/09_comparison_workflow` first
-(`outputs/nancon_transient_seasonal_hydrography/workspace_mf6/mesh/mesh_catchment_bundle`),
-and the PRT run additionally needs an `mf6` executable recent enough to
-support PRT. Neither was available on this machine to time.
+Both commands need a Nancon mesh bundle from
+`examples/projects/09_comparison_workflow`
+(`outputs/nancon_transient_seasonal_hydrography/workspace_mf6/mesh/mesh_catchment_bundle`).
+The meshing step of the MF6 arm builds it without the transient solve:
+
+```bash
+cd examples/projects/09_comparison_workflow
+hmp run base_nancon_transient_seasonal_with_hydrography.toml --until BuildMeshStep \
+  --set workspace.project_root=outputs/nancon_transient_seasonal_hydrography/workspace_mf6
+```
+
+Measured on 2026-09-24: about 1 min 40 s for the bundle, then 12 s for the
+PRT run with the bundled `mf6` 6.6.3 (2727 DISV cells, 300 particles).
 
 Outputs land under `examples/projects/14_transport_nancon_gwt_visual_guard/outputs/`:
 one HTML report per case, its figures, and `signatures.json` / `signatures.csv`
