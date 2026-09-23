@@ -32,9 +32,18 @@ Mesh- or raster-backed scalar maps of one persisted field.
    * - ``flow_direction_map``
      - Flow direction
      - (no fixed input)
+   * - ``flow_intermittence_map``
+     - Flow intermittence
+     - fields ``accumulation_flux``
+   * - ``flow_persistence_map``
+     - Flow persistence
+     - fields ``accumulation_flux``
    * - ``mesh_map``
      - Solver mesh
      - fields ``topography``
+   * - ``parameter_map``
+     - Parameter map
+     - fields ``hydraulic_conductivity``
    * - ``piezometric_map``
      - Water-table elevation
      - fields ``watertable_elevation``
@@ -69,6 +78,9 @@ Vertical or transverse cuts through a persisted field.
    * - ``cross_section``
      - Cross-section
      - fields ``watertable_elevation``, ``topography``
+   * - ``parameter_section``
+     - Parameter section
+     - fields ``hydraulic_conductivity``, ``layer_thickness``, ``topography``
 
 Time series
 ~~~~~~~~~~~
@@ -91,6 +103,9 @@ Chronicles read from the catalog ``timeseries`` table.
    * - ``calibration_trace``
      - Calibration parameter trace
      - tables ``calibration_iterations``
+   * - ``concentration_boxplot``
+     - Concentration distribution over time
+     - fields ``concentration``
    * - ``downslope_distance_crossing``
      - Downslope distance crossing
      - tables ``calibration_iterations``
@@ -106,6 +121,9 @@ Chronicles read from the catalog ``timeseries`` table.
    * - ``recession``
      - Recession analysis
      - tables ``timeseries``
+   * - ``recession_power_law``
+     - Recession rate against discharge
+     - tables ``budgets``
    * - ``seasonal_boxplot``
      - Seasonal box-plot
      - tables ``timeseries``
@@ -131,6 +149,9 @@ Integrated budget or mass-balance summaries.
    * - ``flux_timeseries``
      - Water-balance components
      - tables ``budgets``
+   * - ``mass_balance_error``
+     - Mass-balance closure error
+     - tables ``mass_balance``
    * - ``water_budget``
      - Water budget
      - tables ``budgets``
@@ -149,6 +170,9 @@ Pathline or particle-track outputs.
      - Required inputs
    * - ``particle_tracks``
      - Particle pathlines
+     - fields ``particles``
+   * - ``residence_time_distribution``
+     - Residence-time distribution
      - fields ``particles``
 
 Comparisons and overlays

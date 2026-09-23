@@ -63,14 +63,16 @@ Spatial (9): ``concentration_map``, ``downslope_distance_map``,
 
 Section (1): ``cross_section``.
 
-Time series (11): ``bisection_bracket_trace``,
+Time series (13): ``bisection_bracket_trace``,
 ``calibration_convergence``, ``calibration_trace``,
+``concentration_boxplot``,
 ``downslope_distance_crossing``, ``duration_curve``,
 ``hydrograph``, ``parameter_cost_profile``, ``recession``,
-``seasonal_boxplot``, ``sfr_longitudinal_profile``,
-``sfr_reach_timeseries``.
+``recession_power_law``, ``seasonal_boxplot``,
+``sfr_longitudinal_profile``, ``sfr_reach_timeseries``.
 
-Balance (2): ``flux_timeseries``, ``water_budget``.
+Balance (3): ``flux_timeseries``, ``mass_balance_error``,
+``water_budget``.
 
 Comparison (27): ``matching_hydrographic_network_card``,
 ``calibration_landscape``,
@@ -93,7 +95,8 @@ Comparison (27): ``matching_hydrographic_network_card``,
 Table (3): ``piper_diagram``, ``schoeller_diagram``,
 ``stiff_diagram``.
 
-Particles (1): ``particle_tracks``.
+Particles (2): ``particle_tracks``,
+``residence_time_distribution``.
 
 Figure contract
 ---------------
