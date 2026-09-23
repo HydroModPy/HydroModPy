@@ -288,9 +288,10 @@ class DataManagersRuntimeLoader:
         try:
             geology_cfg = GeologyConfig.model_validate(raw_section)
 
+            geographic = result.setup.geographic
             for src in geology_cfg.sources:
-                if not src.mask_path and result.setup.geographic is not None:
-                    src.mask_path = Path(result.setup.geographic.watershed_shp)
+                if not src.mask_path and geographic is not None:
+                    src.mask_path = self._geology_request_mask(geographic)
 
             load_result = self._require_store().load_geology(
                 geology_cfg,
@@ -313,6 +314,22 @@ class DataManagersRuntimeLoader:
                 )
         except Exception as exc:
             self._handle_data_loading_error(result, "geology", exc)
+
+    @staticmethod
+    def _geology_request_mask(geographic) -> Path:
+        """Return the file whose extent the geology request must cover.
+
+        Geology feeds a heterogeneous parameter on every active cell, and the
+        active domain is the buffered box by default (``domain_extent='box'``).
+        The watershed polygon is smaller by the buffer, so a request clipped to
+        it leaves a frame of cells that no zone covers, where K comes out 0.
+        The buffered-box DEM contains every domain extent, so it is asked for.
+        The watershed polygon stays the fallback when that DEM is absent.
+        """
+        box_dem = getattr(geographic, "watershed_box_buff_dem", None)
+        if box_dem and Path(str(box_dem)).exists():
+            return Path(str(box_dem))
+        return Path(geographic.watershed_shp)
 
     @staticmethod
     def _build_geology_field_from_record(

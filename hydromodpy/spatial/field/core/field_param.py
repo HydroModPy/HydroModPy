@@ -494,7 +494,13 @@ class FieldParam:
 
         if missing:
             missing_txt = ", ".join(sorted(set(missing)))
-            raise ValueError(f"Missing values for discretized field keys: {missing_txt}")
+            raise ValueError(
+                f"Field parameter '{self.identifier}' has no value for zone key(s) "
+                f"{missing_txt} of spatial support "
+                f"'{getattr(field_discretization, 'field_id', self.field_spatial_id)}'. "
+                "Add these keys to the parameter's value table "
+                "('values' or the file named by 'values_csv_file')."
+            )
 
         if weighted is None:
             raise ValueError("Discretization did not produce any weighted contribution")
@@ -536,7 +542,11 @@ class FieldParam:
 
         if missing:
             missing_txt = ", ".join(sorted(set(missing)))
-            raise ValueError(f"Missing heterogeneous values for zone ids: {missing_txt}")
+            raise ValueError(
+                f"Field parameter '{self.identifier}' has no value for zone key(s) "
+                f"{missing_txt}. Add these keys to the parameter's value table "
+                "('values' or the file named by 'values_csv_file')."
+            )
         return out
 
     def as_dict(self):
