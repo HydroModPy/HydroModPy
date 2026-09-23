@@ -247,13 +247,17 @@ def extract_common_modflow_observables(
     head_requests = [r for r in requests if r.name == "head" and r.support == "cell"]
     discharge_requests = [r for r in requests if r.name == "discharge" and r.support == "domain"]
     discharge_cell_requests = [r for r in requests if r.name == "discharge" and r.support == "cell"]
-    area_requests = [r for r in requests if r.name == "upstream_area" and r.support == "cell"]
+    area_requests = [
+        r for r in requests if r.name == "upstream_area" and r.support in ("cell", "cells")
+    ]
     release_requests = [r for r in requests if r.name == "release_flux" and r.support == "cells"]
     thickness_requests = [
         r for r in requests if r.name == "saturated_thickness" and r.support == "cells"
     ]
+    xy_requests = [r for r in requests if r.name == "cell_xy" and r.support in ("cell", "cells")]
     handled = {id(r) for r in head_requests + discharge_requests + discharge_cell_requests}
     handled |= {id(r) for r in release_requests + thickness_requests + area_requests}
+    handled |= {id(r) for r in xy_requests}
     unserved = [r for r in requests if id(r) not in handled]
 
     if discharge_requests:
@@ -307,8 +311,30 @@ def extract_common_modflow_observables(
         )
         areas = upstream_area_m2(model, graph, catchment_mask=catchment_cell_mask(model))
         for request in area_requests:
+            if request.support == "cells":
+                # The whole static field, one row: what a gauge snap searches for
+                # the most accumulated cell near a coordinate.
+                served[request.id] = ObservableResult(
+                    request_id=request.id,
+                    values=np.asarray(areas, dtype=float).reshape(1, -1),
+                    units="m2",
+                )
+                continue
             served[request.id] = scalar_observable(
                 request, float(areas[flat_cell_index(model, request.cell)]), units="m2"
+            )
+
+    if xy_requests:
+        # The planar cell centres, in the model CRS. A gauge snap searches them,
+        # and reads them here so the calibration layer never touches the mesh.
+        centroids = np.asarray(model.solver_mesh.cell_centroids(), dtype=float)[:, :2]
+        for request in xy_requests:
+            if request.support == "cells":
+                values = centroids
+            else:
+                values = centroids[flat_cell_index(model, request.cell)]
+            served[request.id] = ObservableResult(
+                request_id=request.id, values=np.array(values, dtype=float), units="m"
             )
 
     if release_requests or discharge_cell_requests:

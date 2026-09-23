@@ -318,6 +318,37 @@ Four things in there are not free choices.
    validates and scores the drain budget instead, which is baseflow without
    runoff and not what a gauge records.
 
+   ``snap_radius`` is the opt-in exception, on a ``support = "point"`` or
+   ``support = "cell"`` discharge output. A gauge coordinate rarely sits on
+   the talweg the model routes on: on the Nancon it resolves to a cell
+   draining 0.107 km2 of the 64.6 km2 catchment. With a radius, the output
+   is moved onto the cell that drains the most within that distance before
+   it is scored, and a station named in ``observes`` is then placed by the
+   coordinate of its record and snapped from there.
+
+   .. code-block:: toml
+
+      [calibration.outputs.gauged_discharge]
+      support     = "point"
+      variable    = "discharge"
+      observes    = "NANCON"
+      x           = 389285.910
+      y           = 6816518.749
+      snap_radius = "150 m"
+
+   The drained area searched is the one the solver accumulates on the mesh,
+   on the graph the discharge is routed on, ``diagonal_neighbors`` included.
+   The delineation's own outlet snap works on the DEM raster instead, and its
+   snapped outlet resolves to a mesh cell draining 0.022 km2, so that surface
+   is not reused. The radius is a maximum displacement from the gauge, not the
+   window width ``geographic.snap_dist`` is. Each trial logs the distance
+   moved and the area drained before and after. A radius that reaches no cell
+   but the one the gauge already sits in is refused, with the distance to the
+   nearest other cell, and two outputs snapped onto one cell are named in a
+   warning, since they would score one series against two records. Without
+   ``snap_radius`` nothing moves, which keeps every existing project where it
+   was.
+
 ``warmup`` rather than ``scoring_window``, for the spin-up
    A window cuts a loaded record on its dates. A network output is scored on
    the pair ``(D_so, D_os)``, which carries none, so a phase declaring a window

@@ -193,6 +193,22 @@ class ScoresAnObservedRecord:
         return self
 
 
+def _check_snap_radius(radius: Any, variable: str, *, support: str) -> None:
+    """Refuse a snap radius that could not mean what it says."""
+    if radius is None:
+        return
+    to = getattr(radius, "to", None)
+    metres = float(radius.to("m").magnitude) if callable(to) else float(radius)
+    if not metres > 0.0:
+        raise ValueError(f"support={support!r}: snap_radius must be > 0 m, got {metres:g} m.")
+    if str(variable) != "discharge":
+        raise ValueError(
+            f"support={support!r}: snap_radius moves a gauge onto the most accumulated "
+            f"cell, and variable={variable!r} is not a discharge. A head or a lake state "
+            "is read where it was measured, never on the talweg nearby."
+        )
+
+
 class CalibOutputPoint(ScoresAnObservedRecord, HydroModelBase):
     """Observable extracted at a planar ``(x, y)`` point.
 
@@ -242,11 +258,24 @@ class CalibOutputPoint(ScoresAnObservedRecord, HydroModelBase):
         "'diagonal_neighbors', declared here too because a point output belongs to no "
         "network block.",
     )
+    snap_radius: Annotated[Length | None, Profile.USER] = Field(
+        default=None,
+        description="Opt-in. Move this gauge onto the cell that drains the most within "
+        "this radius, before it is scored. Accepts a bare number (metres) or a pint "
+        "string like '150 m'; it is a maximum displacement, measured from the gauge "
+        "coordinate to the cell centres. The drained area is the one the solver routes "
+        "on the mesh, with this output's 'diagonal_neighbors'. Only for 'variable' = "
+        "'discharge'. With 'observes', a discharge station is then located by the "
+        "coordinate of its record, which it otherwise is not, and snapped from there. "
+        "Off by default: a gauge otherwise stays in the cell it resolves to, which may "
+        "drain a small share of the catchment, and the run logs that share.",
+    )
 
     @model_validator(mode="after")
     def _check_point_selectors(self) -> CalibOutputPoint:
         if (self.x is None or self.y is None) and self.geometry is None:
             raise ValueError("support='point' requires both 'x' and 'y', or 'geometry'.")
+        _check_snap_radius(self.snap_radius, self.variable, support="point")
         return self
 
 
@@ -336,11 +365,23 @@ class CalibOutputCell(ScoresAnObservedRecord, HydroModelBase):
         "cell ignores it. The same knob as the network output's own 'diagonal_neighbors', "
         "declared here too because a cell output belongs to no network block.",
     )
+    snap_radius: Annotated[Length | None, Profile.USER] = Field(
+        default=None,
+        description="Opt-in. Move this gauge onto the cell that drains the most within "
+        "this radius, before it is scored. Accepts a bare number (metres) or a pint "
+        "string like '150 m'; it is a maximum displacement, measured from the gauge "
+        "cell centre to the cell centres. The drained area is the one the solver routes "
+        "on the mesh, with this output's 'diagonal_neighbors'. Only for 'variable' = "
+        "'discharge'. Off by default: a gauge otherwise stays in the cell it "
+        "resolves to, which may drain a small share of the catchment, and the run logs "
+        "that share.",
+    )
 
     @model_validator(mode="after")
     def _check_cell_selectors(self) -> CalibOutputCell:
         if self.cell_id is None and (self.row is None or self.col is None):
             raise ValueError("support='cell' requires 'cell_id' or both 'row' and 'col'.")
+        _check_snap_radius(self.snap_radius, self.variable, support="cell")
         return self
 
 
