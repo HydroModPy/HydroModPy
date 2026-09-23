@@ -34,6 +34,9 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- The stream-network calibration guide gives the protocol and the hand-written
+  two-stage calibration of example 04 measured side by side, with the `roptim`
+  warning that qualifies the calibrated `K` on this catchment.
 - `snap_radius` on a discharge output of `support = "point"` or `"cell"` moves
   the gauge onto the most accumulated cell within that radius, on the drained
   area the solver routes, and logs the distance and the area before and after.
@@ -82,8 +85,9 @@ Each release section includes the following standard categories:
 - The hourly pandas frequency uses `h`, not the deprecated `H`.
 - The `station_ids` description says it selects Hub'Eau stations as well as
   custom ones.
-- The example manifest no longer lists the README and `run_manual.py` example 04
-  lost, which made `hmp example add 04` fail.
+- The example manifest follows example 04 again: its short README, no
+  `run_manual.py`, and the current step 4. It still listed the removed files,
+  which made `hmp example add 04` fail.
 
 ---
 
