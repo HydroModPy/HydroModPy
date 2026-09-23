@@ -282,6 +282,7 @@ def export_simulation_results(
     vtu: bool,
     resolution: float | None,
     fair_formats: tuple[str, ...],
+    output_is_explicit: bool = False,
 ) -> dict:
     """Write the requested result-export artifacts for one open simulation.
 
@@ -297,6 +298,10 @@ def export_simulation_results(
     :class:`~hydromodpy.core.exceptions.UnknownFieldError` the TOML/Python
     path raises: unregistered outright, or registered but absent from this
     particular run.
+
+    ``output_is_explicit`` says whether the caller named ``--output``: it
+    decides where the ``rocrate``/``stac``/``prov`` formats of *fair_formats*
+    land, see :func:`_emit_fair_formats`.
     """
     from hydromodpy.core.config_kit.export_spec import ExportSpec
     from hydromodpy.core.exceptions import UnknownFieldError
@@ -376,8 +381,14 @@ def export_simulation_results(
                 notes.append(f"VTU export failed for {name}: {exc}")
 
     if fair_formats:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        written.extend(_emit_fair_formats(catalog, sim_id, output_dir, fair_formats, notes))
+        # 'hmp' always lands in output_dir; the generated views only do when
+        # --output was named explicitly, so an unneeded share/<name>/ is not
+        # created when every requested format routes to the run directory.
+        if "hmp" in fair_formats or output_is_explicit:
+            output_dir.mkdir(parents=True, exist_ok=True)
+        written.extend(
+            _emit_fair_formats(catalog, sim_id, output_dir, fair_formats, notes, output_is_explicit)
+        )
 
     return {"written": written, "notes": notes}
 
@@ -388,12 +399,27 @@ def _emit_fair_formats(
     output_dir: Path,
     formats: tuple[str, ...],
     notes: list[str],
+    output_is_explicit: bool,
 ) -> list[Path]:
-    """Render the FAIR sidecars selected via ``--format``; failures become notes."""
-    from hydromodpy.results.export import build_context, write_ro_crate, write_stac_item
+    """Render the FAIR sidecars selected via ``--format``; failures become notes.
+
+    ``rocrate``, ``stac`` and ``prov`` are generated views of the sealed run
+    (:func:`~hydromodpy.results.export.directory.write_views`): by default
+    they land beside the seal, inside the run directory, not under
+    ``share/``. ``--output`` is a promise the verb already makes for every
+    other format, so naming it explicitly is kept for these three too: the
+    view is then built from the catalog, as before ``write_views`` existed,
+    and written into that directory instead of the run.
+    """
+    from hydromodpy.results.export import (
+        build_context,
+        write_ro_crate,
+        write_stac_item,
+        write_views,
+    )
     from hydromodpy.results.export.prov import write_prov
 
-    context = build_context(catalog, sim_id)
+    context = None
     out_paths: list[Path] = []
     for fmt in formats:
         try:
@@ -401,11 +427,16 @@ def _emit_fair_formats(
                 archive = output_dir / f"{output_dir.name}.hmp"
                 path = catalog.export_package(sim_id, archive)
                 catalog.record_export(sim_id, kind="hmp", path=path)
+            elif fmt in ("rocrate", "stac", "prov") and not output_is_explicit:
+                (path,) = write_views(catalog.run_dir_for(sim_id), formats=(fmt,))
             elif fmt == "rocrate":
+                context = context or build_context(catalog, sim_id)
                 path = write_ro_crate(catalog, sim_id, output_dir, context=context)
             elif fmt == "stac":
+                context = context or build_context(catalog, sim_id)
                 path = write_stac_item(catalog, sim_id, output_dir, context=context)
             elif fmt == "prov":
+                context = context or build_context(catalog, sim_id)
                 path = write_prov(catalog, sim_id, output_dir, context=context)
             else:
                 continue

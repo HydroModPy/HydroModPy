@@ -28,6 +28,8 @@ from hydromodpy.results.export.context import (
     build_context,
     to_json,
 )
+from hydromodpy.results.export.directory import context_from_directory, write_view
+from hydromodpy.schema.generated_views import STAC_ITEM_VIEW_FILENAME
 from hydromodpy.schema.media_types import GEOJSON_MEDIA_TYPE, JSON_MEDIA_TYPE
 
 _LICENSE_URL_TO_SPDX = {
@@ -84,7 +86,12 @@ def _to_utc_iso(value: str) -> str:
     return parsed.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _midpoint(start: str | None, end: str | None) -> str:
+def _midpoint(start: str | None, end: str | None, fallback: str | None = None) -> str:
+    """Return the STAC ``datetime`` of a period, or *fallback* when it has none.
+
+    Without a fallback an item with no period is dated now, which makes two
+    renderings of the same item differ.
+    """
     if start and end:
         try:
             s = datetime.fromisoformat(start.replace("Z", "+00:00"))
@@ -101,6 +108,8 @@ def _midpoint(start: str | None, end: str | None) -> str:
         return _to_utc_iso(start)
     if end:
         return _to_utc_iso(end)
+    if fallback:
+        return _to_utc_iso(fallback)
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
@@ -125,15 +134,27 @@ def _asset_dict(asset: AssetEntry) -> dict[str, Any]:
     return payload
 
 
-def build_stac_item(context: FairExportContext) -> dict[str, Any]:
-    """Return one STAC ``Item`` for the simulation referenced in *context*."""
+def build_stac_item(
+    context: FairExportContext,
+    *,
+    self_href: str | None = None,
+    collection_href: str | None = "../collection.json",
+) -> dict[str, Any]:
+    """Return one STAC ``Item`` for the simulation referenced in *context*.
+
+    *self_href* defaults to ``<sim_id>.json``, the name the catalog export
+    gives the item. With *collection_href* set to ``None`` the item names no
+    collection: a view written inside a run or job directory has no
+    ``collection.json`` beside it, and STAC requires the link when the field is
+    set.
+    """
     sim_row = context.sim_row
     bbox = context.bbox
     geometry = _bbox_to_polygon(bbox) if bbox is not None else None
 
     period_start = context.period_start
     period_end = context.period_end
-    item_datetime = _midpoint(period_start, period_end)
+    item_datetime = _midpoint(period_start, period_end, context.generated_at)
 
     def _pick(key: str) -> Any:
         val = sim_row.get(key)
@@ -181,15 +202,15 @@ def build_stac_item(context: FairExportContext) -> dict[str, Any]:
     links: list[dict[str, Any]] = [
         {
             "rel": "self",
-            "href": f"{context.sim_id}.json",
+            "href": self_href or f"{context.sim_id}.json",
             "type": GEOJSON_MEDIA_TYPE,
         }
     ]
-    if sim_row.get("project"):
+    if collection_href is not None and sim_row.get("project"):
         links.append(
             {
                 "rel": "collection",
-                "href": "../collection.json",
+                "href": collection_href,
                 "type": JSON_MEDIA_TYPE,
                 "title": str(sim_row["project"]),
             }
@@ -207,6 +228,8 @@ def build_stac_item(context: FairExportContext) -> dict[str, Any]:
         "assets": assets,
         "links": links,
     }
+    if collection_href is None:
+        del item["collection"]
     if item["bbox"] is None:
         del item["bbox"]
     if item["geometry"] is None:
@@ -231,6 +254,23 @@ def write_stac_item(
     if out.is_dir() or out.suffix == "":
         out = out / f"{ctx.sim_id}.json"
     return to_json(item, out)
+
+
+def write_stac_item_view(
+    directory: Path | str,
+    *,
+    context: FairExportContext | None = None,
+) -> Path:
+    """Render the STAC Item of a sealed run or job directory, inside it.
+
+    Reads the directory and nothing else: no catalog, no workspace. The item
+    is written as ``stac-item.json`` beside the seal, and its asset hrefs are
+    relative to that directory.
+    """
+    root = Path(directory)
+    ctx = context or context_from_directory(root)
+    item = build_stac_item(ctx, self_href=STAC_ITEM_VIEW_FILENAME, collection_href=None)
+    return write_view(root / STAC_ITEM_VIEW_FILENAME, item)
 
 
 def validate_item(payload: dict[str, Any]) -> tuple[bool, list[str]]:
@@ -412,4 +452,5 @@ __all__ = [
     "write_stac_catalog",
     "write_stac_collection",
     "write_stac_item",
+    "write_stac_item_view",
 ]

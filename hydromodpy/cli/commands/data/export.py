@@ -73,7 +73,10 @@ def register(subparsers) -> argparse.ArgumentParser:
         help=(
             "Also emit, alongside the per-variable exports: 'hmp' a portable "
             ".hmp archive (same as `hmp catalog export`), or a 'stac'/'rocrate'/"
-            "'prov' metadata sidecar. Repeatable to render several."
+            "'prov' metadata sidecar. Repeatable to render several. The "
+            "'stac'/'rocrate'/'prov' sidecars are generated views of the run "
+            "itself: with no --output they land inside the run directory, "
+            "beside the seal, not under share/."
         ),
     )
     parser.add_argument(
@@ -82,7 +85,9 @@ def register(subparsers) -> argparse.ArgumentParser:
         help=(
             "Output directory files are written into (default: share/<name>/ in "
             "the project). Always a directory, even given a name with an "
-            "extension: pass e.g. --output out/, not a destination file path."
+            "extension: pass e.g. --output out/, not a destination file path. "
+            "Naming it explicitly also redirects the 'stac'/'rocrate'/'prov' "
+            "--format sidecars here instead of their default, the run directory."
         ),
     )
     parser.set_defaults(_handler=run)
@@ -275,6 +280,7 @@ def run(args: argparse.Namespace) -> None:
                 vtu=args.vtu,
                 resolution=args.resolution,
                 fair_formats=fair_formats,
+                output_is_explicit=output_dir is not None,
             )
         except Exception as exc:  # noqa: BLE001 - mapped to a typed exit code below
             print(str(exc), file=sys.stderr)

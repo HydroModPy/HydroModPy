@@ -36,6 +36,8 @@ What one run writes
    │       ├── manifest.json         seal, written last
    │       ├── provenance.json       versions, git commit, solver binary
    │       ├── annotations.json      tags and notes, written after the seal
+   │       ├── ro-crate-metadata.json, stac-item.json, prov.jsonld
+   │       │                         generated views, on request, after the seal
    │       └── trash.json            present only while the run sits in the trash
    ├── sessions/
    │   └── 20260726-104019-optuna-5ecea3e0/
@@ -327,6 +329,12 @@ same fields, since ``[simulation.results]`` decides what each one persists.
 ``share/<name>/``), one file per variable and per timestep. ``--geotiff``
 requires ``--resolution`` here, unlike the Python call which derives the
 pixel size from the grid.
+
+``--format stac``/``rocrate``/``prov`` are the exception: each one is a
+generated view of the run itself, rendered from the seal alone, so with no
+``--output`` it is written inside the run directory, beside
+``manifest.json``, not under ``share/``. Naming ``--output`` explicitly still
+redirects it there, like every other format.
 
 Opening a NetCDF export in QGIS
 -------------------------------

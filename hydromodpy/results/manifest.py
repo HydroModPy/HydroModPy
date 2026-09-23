@@ -105,6 +105,7 @@ from hydromodpy.results.storage.contract import (
 )
 from hydromodpy.results.storage.parquet_io import write_table_atomic
 from hydromodpy.results.storage.parquet_schemas import PARAMETERS_SCHEMA
+from hydromodpy.schema.generated_views import GENERATED_VIEWS
 
 if TYPE_CHECKING:
     from hydromodpy.results.catalog.facade import Catalog
@@ -433,6 +434,8 @@ def list_artifacts(run_dir: Path) -> list[dict[str, Any]]:
     before it is written. ``annotations.json`` and ``trash.json`` are left out
     entirely: both change after the seal, so any size recorded for them would
     be wrong by the next ``hmp catalog tag`` or ``hmp catalog trash``. The
+    generated views are left out for the same reason: they are rendered from
+    the seal, after it, and rendered again on request. The
     runtime scratch of :data:`RUN_SCRATCH_ENTRIES` is left out too, and for a
     different reason: it is not a result. Everything else found in the
     directory is inventoried, named or not, so a stray file stays visible.
@@ -443,6 +446,8 @@ def list_artifacts(run_dir: Path) -> list[dict[str, Any]]:
     for path in sorted(run_dir.iterdir()):
         name = path.name
         if name in (RUN_MANIFEST_FILENAME, RUN_ANNOTATIONS_FILENAME, RUN_TRASH_FILENAME):
+            continue
+        if name in GENERATED_VIEWS:
             continue
         if name in RUN_SCRATCH_ENTRIES:
             continue

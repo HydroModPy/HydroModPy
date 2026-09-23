@@ -23,12 +23,14 @@ from hydromodpy.results.export.context import (
     build_context,
     to_json,
 )
+from hydromodpy.results.export.directory import context_from_directory, write_view
 from hydromodpy.results.export.prov import HYDROMODPY_NAMESPACE, build_prov_document
+from hydromodpy.schema.generated_views import RO_CRATE_VIEW_FILENAME
 from hydromodpy.schema.media_types import OCTET_STREAM_MEDIA_TYPE
 
 RO_CRATE_CONFORMS = "https://w3id.org/ro/crate/1.1"
 RO_CRATE_CONTEXT = "https://w3id.org/ro/crate/1.1/context"
-RO_CRATE_METADATA_FILENAME = "ro-crate-metadata.json"
+RO_CRATE_METADATA_FILENAME = RO_CRATE_VIEW_FILENAME
 
 
 def _person_id(name: str) -> str:
@@ -249,6 +251,22 @@ def write_ro_crate_to_staging(context: FairExportContext, staging: Path) -> Path
     return to_json(crate, staging / RO_CRATE_METADATA_FILENAME)
 
 
+def write_ro_crate_view(
+    directory: Path | str,
+    *,
+    context: FairExportContext | None = None,
+) -> Path:
+    """Render the RO-Crate of a sealed run or job directory, inside it.
+
+    The directory becomes the crate root ``./``, which is what RO-Crate means
+    by a crate: every ``hasPart`` path resolves against the directory that
+    holds ``ro-crate-metadata.json``. No catalog and no workspace are read.
+    """
+    root = Path(directory)
+    ctx = context or context_from_directory(root)
+    return write_view(root / RO_CRATE_METADATA_FILENAME, build_ro_crate(ctx))
+
+
 def loads(payload: str) -> dict[str, Any]:
     """Parse a serialised RO-Crate string back to a dict (test helper)."""
     return json.loads(payload)
@@ -262,4 +280,5 @@ __all__ = [
     "loads",
     "write_ro_crate",
     "write_ro_crate_to_staging",
+    "write_ro_crate_view",
 ]
