@@ -440,7 +440,7 @@ class WritesMixinParquet:
             geoparquet_path=geoparquet_path,
         )
         rel_path = _encode_workspace_path(self._workspace, target)
-        metadata = kv_metadata_for_sim(self._backend, sid)
+        metadata = kv_metadata_for_sim(self._backend, sid, workspace=self._workspace)
         metadata["hmp.schema"] = "geographic_feature"
         metadata["feature_name"] = feature_name
         if crs_str:
@@ -560,7 +560,7 @@ class WritesMixinParquet:
             merged = _merge_with_existing(target, new_table, pk_cols)
         else:
             merged = new_table
-        kv = kv_metadata_for_sim(self._backend, sim_id)
+        kv = kv_metadata_for_sim(self._backend, sim_id, workspace=self._workspace)
         self._drop_parquet_view_before_write(target.stem)
         write_table_atomic(merged, target, kv_metadata=kv, pk_cols=tuple(pk_cols))
         self._refresh_parquet_view(target.stem)

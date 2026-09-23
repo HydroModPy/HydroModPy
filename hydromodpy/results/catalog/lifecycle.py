@@ -22,11 +22,15 @@ from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.io.parquet import merge_file_metadata
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import RUNS_DIRNAME
+from hydromodpy.core.state.paths import PROJECTS_DIRNAME, RUNS_DIRNAME, WORKSPACE_TOML_FILENAME
 from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import PER_SIM_TABLE_NAMES
 from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
-from hydromodpy.results.catalog.writes_helpers import kv_metadata_for_sim, wgs84_bounds
+from hydromodpy.results.catalog.writes_helpers import (
+    kv_metadata_for_sim,
+    run_licence,
+    wgs84_bounds,
+)
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.trash_marker import TrashMarker, write_trash_marker
 from hydromodpy.results.zarr_store import SimulationZarr
@@ -37,8 +41,11 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-# ACDD identity a deposit needs and that nothing in this repository declares.
+# ACDD identity a deposit needs. Only ``workspace.toml`` may declare it.
 _DECLARED_IDENTITY_KEYS = ("creator_name", "creator_institution")
+
+# Workspaces already told, in this process, what their runs are sealed without.
+_WARNED_WORKSPACES: set[str] = set()
 
 # Every CRS WKT2 (and WKT1) string opens with one of these keywords.
 _WKT_PREFIXES = ("PROJCRS", "GEOGCRS", "PROJCS", "GEOGCS", "COMPOUNDCRS", "BOUNDCRS")
@@ -141,23 +148,85 @@ class CalibrationSessionNamespace:
         )
 
 
-def _warn_about_undeclared_identity(sid: str, attrs: dict) -> None:
-    """Name, once per seal, the identity fields nobody declared.
+def _workspace_toml_path(root: Path | None) -> Path | None:
+    """Return the ``workspace.toml`` that governs ``root``, or None.
 
-    The store used to fill ``creator_name`` with the Unix account of whoever ran
-    the process. It now leaves it out, which is honest and silent: this says out
-    loud what a reader of the deposit will find missing.
+    A catalog opens at a project root, and the file sits at the workspace
+    root above it, so the search walks up from ``root``. It stops at the first
+    workspace root, so a file further up never speaks for this one.
+    """
+    if root is None:
+        return None
+    start = Path(root).expanduser().resolve()
+    for directory in (start, *start.parents):
+        candidate = directory / WORKSPACE_TOML_FILENAME
+        if candidate.is_file():
+            return candidate
+        if (directory / PROJECTS_DIRNAME).is_dir():
+            return None
+    return None
+
+
+def _declared_identity(root: Path | None) -> dict[str, str]:
+    """Return the creator identity ``workspace.toml`` declares, and nothing else.
+
+    The Unix account of whoever ran the process is not an identity anybody
+    declared, so it is never used. An unreadable file declares nothing.
+    """
+    toml_path = _workspace_toml_path(root)
+    if toml_path is None:
+        return {}
+    from hydromodpy.core.workspace.workspace_toml import load_workspace_toml
+
+    try:
+        metadata = load_workspace_toml(toml_path.parent).workspace
+    except Exception as exc:  # noqa: BLE001 - a bad file must not block a seal
+        logger.debug("Could not read %s: %s", toml_path, exc)
+        return {}
+    return {
+        key: str(getattr(metadata, key)).strip()
+        for key in _DECLARED_IDENTITY_KEYS
+        if str(getattr(metadata, key, "") or "").strip()
+    }
+
+
+def _warn_about_undeclared_identity(sid: str, attrs: dict, root: Path | None = None) -> None:
+    """Say what a sealed run lacks: once per workspace, then at verbose level.
+
+    A calibration seals dozens of runs of one workspace, and the same warning
+    for each of them buries the lines that matter. The first run of a
+    workspace warns and names the keys to set. Every later one logs at INFO,
+    which the console shows from ``--verbose`` on.
     """
     missing = [key for key in _DECLARED_IDENTITY_KEYS if not attrs.get(key)]
     if attrs.get("license") == UNDETERMINED_LICENSE:
         missing.append("a determined license")
-    if missing:
-        logger.warning(
-            "Run %s is sealed without %s. A reader of this deposit cannot tell "
-            "who produced it or under which terms it may be reused.",
-            sid[:8],
-            ", ".join(missing),
+    if not missing:
+        return
+    toml_path = _workspace_toml_path(root)
+    key = str(toml_path or (Path(root).expanduser().resolve() if root is not None else ""))
+    if key in _WARNED_WORKSPACES:
+        logger.info("Run %s is sealed without %s.", sid[:8], ", ".join(missing))
+        return
+    _WARNED_WORKSPACES.add(key)
+    advice: list[str] = []
+    identity = [name for name in _DECLARED_IDENTITY_KEYS if name in missing]
+    if identity:
+        where = str(toml_path) if toml_path is not None else WORKSPACE_TOML_FILENAME
+        advice.append(f"Set {' and '.join(identity)} under [workspace] in {where}.")
+    if "a determined license" in missing:
+        advice.append(
+            "The license is derived from the run inputs: declare it in the 'license' "
+            "key of the sidecar (<file>.json) of each input whose source states none."
         )
+    logger.warning(
+        "Run %s is sealed without %s, so a reader cannot tell who produced it or "
+        "under which terms it may be reused. %s Later runs of this workspace "
+        "report it at --verbose.",
+        sid[:8],
+        ", ".join(missing),
+        " ".join(advice),
+    )
 
 
 def _declared_bounds_in_degrees(sim_row: dict | None) -> dict[str, float] | None:
@@ -332,11 +401,15 @@ class LifecycleMixin:
                         runs_env = self._fetch_runs_environment_row(sid)
                         sz.harmonize_axis_references()
                         written = sz.write_acdd_root_attrs(
-                            sim_row=sim_row,
+                            sim_row={
+                                **(sim_row or {}),
+                                "license": run_licence(self._backend, sid, self._workspace),
+                            },
                             runs_env=runs_env,
+                            project_table=_declared_identity(self._workspace),
                             geographic_bounds=_declared_bounds_in_degrees(sim_row),
                         )
-                        _warn_about_undeclared_identity(sid, written)
+                        _warn_about_undeclared_identity(sid, written, self._workspace)
                         sz.consolidate_metadata()
                     finally:
                         sz.close()
@@ -498,7 +571,10 @@ class LifecycleMixin:
             # the run's own identity row carried no identity (red-fair D3).
             merge_file_metadata(
                 tables_dir / "simulation.parquet",
-                {**kv_metadata_for_sim(self._backend, sid), "hmp.schema": "simulation"},
+                {
+                    **kv_metadata_for_sim(self._backend, sid, workspace=self._workspace),
+                    "hmp.schema": "simulation",
+                },
             )
         except Exception as exc:
             # Surface this: the run is complete but a rebuilt index will not be

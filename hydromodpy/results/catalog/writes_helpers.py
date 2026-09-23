@@ -18,8 +18,11 @@ import pandas as pd
 import pyarrow as pa
 
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
+
+logger = get_logger(__name__)
 
 
 def _sha256_streaming(path: Path, chunk_size: int = 65536) -> str:
@@ -151,14 +154,98 @@ def _epsg_from_crs(crs: str | None) -> int | None:
         return None
 
 
-def kv_metadata_for_sim(backend: Any, sim_id: str) -> dict[str, str]:
+def _tracked_path(workspace: Path | None, encoded: str) -> Path | None:
+    """Return the on-disk path of a tracked entry, or None when it cannot be read."""
+    from hydromodpy.core.state.paths import decode_workspace_path
+
+    if workspace is None and not Path(encoded).is_absolute() and "://" not in encoded:
+        return None
+    return decode_workspace_path(workspace if workspace is not None else Path("/"), encoded)
+
+
+def _sidecar_digests(directory: Path) -> set[str]:
+    """Return the sha256 each sidecar under *directory* records for its file."""
+    from hydromodpy.schema.sources import SIDECAR_SUFFIX
+
+    found: set[str] = set()
+    for item in directory.rglob(f"*{SIDECAR_SUFFIX}"):
+        try:
+            payload = json.loads(item.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        digest = payload.get("sha256") if isinstance(payload, dict) else None
+        if isinstance(digest, str) and digest:
+            found.add(digest)
+    return found
+
+
+def run_licence(backend: Any, sim_id: str, workspace: Path | None = None) -> str:
+    """Return the licence a run may state, derived from the inputs it read.
+
+    The members are the source of every loaded record (``provenance``) and
+    the sidecar of every tracked input file (``tracked_files``). A ``custom``
+    record is a user file. It counts through the tracked file that holds its
+    bytes, matched on sha256: the digest of a tracked file, or the digest a
+    sidecar records inside a tracked directory. A ``custom`` record no tracked
+    file holds is undetermined on its own. No member, or one undetermined
+    member, gives ``LicenseRef-undetermined``. Without ``workspace`` a
+    workspace-relative path cannot be read, so its file counts as undetermined.
+    """
+    from hydromodpy.schema.job.inputset import UNDETERMINED
+    from hydromodpy.schema.sources import derived_licence, input_licence, licence_for_source
+
+    try:
+        records = [
+            (str(row[0] or ""), str(row[1]) if row[1] else None)
+            for row in backend.fetch_all(
+                "SELECT DISTINCT source_ref, source_sha256 FROM provenance WHERE sim_id = ?",
+                [sim_id],
+            )
+        ]
+        tracked = [
+            (str(row[0]), str(row[1] or ""))
+            for row in backend.fetch_all(
+                "SELECT DISTINCT canonical_path, sha256 FROM tracked_files WHERE sim_id = ?",
+                [sim_id],
+            )
+        ]
+    except Exception as exc:  # noqa: BLE001 - an index without these rows states no licence
+        logger.debug("run_licence could not read provenance/tracked_files for %s: %s", sim_id, exc)
+        return UNDETERMINED_LICENSE
+    members = [licence_for_source(slug) for slug, _ in records if slug != "custom"]
+    held: set[str] = set()
+    directories: list[Path] = []
+    for encoded, digest in tracked:
+        path = _tracked_path(workspace, encoded)
+        if path is None:
+            members.append(UNDETERMINED)
+            continue
+        members.append(input_licence(path))
+        if path.is_dir():
+            directories.append(path)
+        elif digest:
+            held.add(digest)
+    custom = [digest for slug, digest in records if slug == "custom"]
+    if any(digest is None or digest not in held for digest in custom):
+        for directory in directories:
+            held |= _sidecar_digests(directory)
+    for digest in custom:
+        if digest is None or digest not in held:
+            members.append(UNDETERMINED)
+    return derived_licence(members)
+
+
+def kv_metadata_for_sim(
+    backend: Any, sim_id: str, *, workspace: Path | None = None
+) -> dict[str, str]:
     """Return Parquet KV metadata keys for ``sim_id``.
 
     Reads the simulation row plus a few catalog joins to enrich the file
     footer with ACDD-style geospatial/temporal coverage attributes. The
     returned ``written_at`` is *deterministic*: it is the simulation's
     ``ended_at`` (or ``created_at`` fallback), never ``datetime.now``, so a
-    reproducible re-run lands on a byte-identical file.
+    reproducible re-run lands on a byte-identical file. ``license`` is
+    derived from the run's inputs by :func:`run_licence`.
     """
     row = backend.fetch_one(
         """SELECT s.project, s.name, sv.code, s.config_hash,
@@ -207,7 +294,7 @@ def kv_metadata_for_sim(backend: Any, sim_id: str) -> dict[str, str]:
         "hydromodpy_version": _HMP_VERSION,
         "hmp.schema_version": PARQUET_SCHEMA_VERSION,
         "Conventions": "CF-1.11",
-        "license": UNDETERMINED_LICENSE,
+        "license": run_licence(backend, sim_id, workspace),
         "scientific_objective": "" if objective is None else str(objective),
         "doi": "" if doi is None else str(doi),
         "written_at": "" if written_at_source is None else _isoformat_instant(written_at_source),
@@ -463,6 +550,7 @@ def _merge_with_existing(target: Path, new_table: pa.Table, pk_cols: Sequence[st
 
 __all__ = [
     "kv_metadata_for_sim",
+    "run_licence",
     "wgs84_bounds",
     "_isoformat_instant",
     "_coerce_timestamp",

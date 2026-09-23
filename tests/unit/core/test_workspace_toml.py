@@ -232,6 +232,24 @@ bbox_wgs84 = [1.0, 2.0]
         load_workspace_toml(ws)
 
 
+def test_template_leaves_license_commented_out():
+    rendered = render_workspace_toml(
+        project_name="ws",
+        creator_name="Bastien",
+        creator_email="b@example.com",
+        created_at="2026-05-12T00:00:00+00:00",
+    )
+    assert "# license" in rendered
+    parsed = tomllib.loads(rendered)
+    assert "license" not in parsed["workspace"]
+
+
+def test_workspace_without_a_declared_license_still_loads(tmp_path: Path):
+    ws = _scaffold_workspace(tmp_path)
+    parsed = load_workspace_toml(ws)
+    assert parsed.workspace.license == ""
+
+
 def test_workspace_toml_model_frozen():
     """The validated model is immutable (frozen=True)."""
     parsed = WorkspaceToml.model_validate(

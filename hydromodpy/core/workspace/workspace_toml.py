@@ -28,8 +28,10 @@ DEFAULT_WORKSPACE_TOML_TEMPLATE: str = """\
 name = "{project_name}"
 description = ""
 contact = "{creator_email}"
+creator_name = "{creator_name}"
+creator_institution = ""
 created_at = "{created_at}"
-license = "etalab-2.0"
+# license = ""  # SPDX id you publish your own outputs under; nobody chose one yet
 hydromodpy_version_min = "2.0.0"
 
 [workspace.geographic_scope]
@@ -77,8 +79,21 @@ class WorkspaceMetadata(BaseModel):
     name: str = Field(..., min_length=1, description="Workspace name")
     description: str = ""
     contact: str = Field(..., description="Workspace contact email")
+    creator_name: str = Field(
+        "", description="Who produced the runs, stamped as ACDD creator_name at seal"
+    )
+    creator_institution: str = Field(
+        "", description="Institution of the creator, stamped as ACDD creator_institution"
+    )
     created_at: str = Field(..., description="ISO-8601 UTC creation timestamp")
-    license: str = Field("etalab-2.0", description="SPDX-style license slug")
+    license: str = Field(
+        "",
+        description=(
+            "SPDX-style license slug the user chooses to publish their own "
+            "outputs under. Empty means undeclared; a run's own license is "
+            "derived from its inputs, never from this field."
+        ),
+    )
     hydromodpy_version_min: str = Field(
         "2.0.0", description="Minimum compatible HydroModPy version"
     )
@@ -103,6 +118,11 @@ class WorkspaceToml(BaseModel):
     conventions: ConventionsMetadata = ConventionsMetadata()
 
 
+def _toml_escape(value: str) -> str:
+    """Escape *value* for a TOML basic string, so a quote cannot break the file."""
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
 def render_workspace_toml(
     *,
     project_name: str,
@@ -112,11 +132,13 @@ def render_workspace_toml(
 ) -> str:
     """Return the rendered ``workspace.toml`` content as a string."""
     timestamp = created_at if created_at is not None else datetime.now(UTC).isoformat()
-    creator_name_quoted = f'"{creator_name}"' if creator_name else ""
+    escaped_name = _toml_escape(creator_name)
+    creator_name_quoted = f'"{escaped_name}"' if creator_name else ""
     return DEFAULT_WORKSPACE_TOML_TEMPLATE.format(
         project_name=project_name,
         creator_email=creator_email,
         created_at=timestamp,
+        creator_name=escaped_name,
         creator_name_quoted=creator_name_quoted,
     )
 

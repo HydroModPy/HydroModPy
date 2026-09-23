@@ -223,7 +223,7 @@ def write_parameters_table(catalog: Catalog, sim_id: str | UUID) -> Path | None:
     return write_table_atomic(
         table,
         target,
-        kv_metadata=kv_metadata_for_sim(catalog.backend, sid),
+        kv_metadata=kv_metadata_for_sim(catalog.backend, sid, workspace=catalog.workspace_path),
         pk_cols=("sim_id", "param_name", "zone_id"),
     )
 
