@@ -58,14 +58,40 @@ parameters = {
     },
 }
 
+# `objective=` in Python mode names a `module.path:callable` entry point, not
+# a metric: `Project.calibrate` never puts it in the config payload, so
+# `objective="kge"` here was silently ignored and the search scored the
+# default (NSE on head) all along. The metric goes in `objective_blocks=`
+# instead, which needs a matching declared output to read: NANCON is the
+# Nancon gauge this project's `[data.hydrometry]` extent already loads (same
+# coordinates as `examples/projects/04_streamflow_intermittence_in_transient`,
+# same watershed).
+outputs = {
+    "discharge": {
+        "support": "point",
+        "variable": "discharge",
+        "observes": "NANCON",
+        "x": 389285.910,
+        "y": 6816518.749,
+    },
+}
+
+objective_blocks = [
+    {
+        "name": "discharge_kge",
+        "metric": "kge",
+        "uses_outputs": ["discharge"],
+    },
+]
+
 report = project.calibrate(
     method="optuna",
     max_iter=3,
     seed=42,
     save_runs="best_n",
     save_best_n=1,
-    objective="kge",
-    variable="discharge",
+    outputs=outputs,
+    objective_blocks=objective_blocks,
     parameters=parameters,
 )
 print(f"[python] calibration finished, report type = {type(report).__name__}")
