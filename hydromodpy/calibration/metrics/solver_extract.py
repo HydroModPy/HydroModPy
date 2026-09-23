@@ -18,6 +18,7 @@ from hydromodpy.calibration.metrics.downslope_network import (
     DISTANCE_METHOD,
     seepage_distance_cost,
 )
+from hydromodpy.calibration.metrics.gauge_snap import GaugeSnapError, snap_to_most_accumulated
 from hydromodpy.calibration.metrics.observable_scoring import (
     dated_series,
     select_observable_times,
@@ -34,7 +35,7 @@ from hydromodpy.core.contracts.observables import (
     ObservableResult,
     TimeSelector,
 )
-from hydromodpy.core.exceptions import ObjectiveError
+from hydromodpy.core.exceptions import ObjectiveError, ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_network import build_simulated_network
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
@@ -147,10 +148,29 @@ def observable_request_for_output(
     """
     times = _request_times(output.time)
     support = output.support
+    snap_m = _snap_radius_m(output)
     if support == "point":
         station = getattr(output, "observes", None)
+        snap_xy: tuple[float, float] | None = None
         if station is not None:
             cell = cell_for_station(ctx, str(station), variable=str(output.variable))
+            if snap_m is not None:
+                # The snap is what makes a discharge station's coordinate usable,
+                # so the gate that keeps it out by default opens here, and only
+                # here. The record's own position comes first, for the same
+                # reason a named station is never located by the x/y written
+                # beside it.
+                snap_xy = station_xy(ctx, str(station), variable=str(output.variable))
+                if snap_xy is None:
+                    snap_xy = point_xy_from_output(output)
+                if cell is None and snap_xy is not None:
+                    cell = find_cell_at_point(ctx, snap_xy[0], snap_xy[1])
+                if cell is None:
+                    raise NotImplementedError(
+                        f"Output {name!r} asks to snap station {station!r} with "
+                        f"snap_radius = {snap_m:g} m, and no cell could be resolved to "
+                        "snap from: neither the loader nor the solver placed it."
+                    )
             if cell is None and str(output.variable) == "discharge":
                 # The same fallback the single-metric route takes, and for the
                 # same reason: a discharge station is deliberately not placed by
@@ -180,9 +200,19 @@ def observable_request_for_output(
             if xy is None:
                 raise ValueError(f"Point calibration output {name!r} requires x/y or geometry")
             cell = find_cell_at_point(ctx, xy[0], xy[1])
+            snap_xy = xy
         if cell is None:
             raise NotImplementedError(
                 f"Could not map point calibration output {name!r} to a solver cell"
+            )
+        if snap_m is not None:
+            cell = snap_gauge_cell(
+                ctx,
+                name,
+                cell,
+                xy=snap_xy,
+                radius_m=snap_m,
+                diagonal_neighbors=output.diagonal_neighbors,
             )
         # The declared variable is honoured. Coercing it to a head meant a block
         # asking for the discharge at a gauge was silently scored on a head, and a
@@ -223,15 +253,129 @@ def observable_request_for_output(
                 f"Cell calibration output {name!r} needs row and col: a flat cell_id "
                 "selector is not exposed by any solver."
             )
+        cell = (int(output.layer), int(output.row), int(output.col))
+        if snap_m is not None:
+            cell = snap_gauge_cell(
+                ctx,
+                name,
+                cell,
+                xy=None,
+                radius_m=snap_m,
+                diagonal_neighbors=output.diagonal_neighbors,
+            )
         return ObservableRequest(
             id=name,
             name=str(output.variable),
             support="cell",
-            cell=(int(output.layer), int(output.row), int(output.col)),
+            cell=cell,
             times=times,
             diagonal_neighbors=output.diagonal_neighbors,
         )
     raise ValueError(f"Unknown calibration output support {support!r} on output {name!r}")
+
+
+def _snap_radius_m(output: Any) -> float | None:
+    """Return the opt-in gauge snap radius in metres, or None when it is off."""
+    return _coerce_length_to_m(getattr(output, "snap_radius", None))
+
+
+def snap_gauge_cell(
+    ctx: Any,
+    name: str,
+    cell: tuple[int, int, int],
+    *,
+    xy: tuple[float, float] | None,
+    radius_m: float,
+    diagonal_neighbors: bool = False,
+) -> tuple[int, int, int]:
+    """Move a gauge's cell onto the most accumulated cell within ``radius_m``.
+
+    The drained area is asked of the solver, over the whole mesh, on the graph
+    its discharge is routed on: snapping on any other surface would land the
+    gauge on a talweg the model does not route. ``xy`` is the gauge coordinate
+    the radius is measured from; ``None`` measures it from the cell centre,
+    which is all a ``support = "cell"`` output declares.
+    """
+    resolved = resolve_flow_adapter(ctx)
+    if resolved is None:
+        raise NotImplementedError(
+            f"Output {name!r} asks for a gauge snap and no flow solver adapter is available."
+        )
+    adapter, run_ctx = resolved
+    area_id = f"_snap:{name}"
+    xy_id = f"_snap_xy:{name}"
+    here_id = f"_snap_here:{name}"
+    try:
+        results = adapter.extract_observables(
+            run_ctx,
+            None,
+            [
+                ObservableRequest(
+                    id=area_id,
+                    name="upstream_area",
+                    support="cells",
+                    diagonal_neighbors=bool(diagonal_neighbors),
+                ),
+                ObservableRequest(id=xy_id, name="cell_xy", support="cells"),
+                ObservableRequest(id=here_id, name="cell_xy", support="cell", cell=cell),
+            ],
+        )
+        accumulation = np.asarray(results[area_id].values, dtype=float).reshape(-1)
+        centroids = np.asarray(results[xy_id].values, dtype=float).reshape(-1, 2)
+        here = np.asarray(results[here_id].values, dtype=float).reshape(2)
+    except (KeyError, ObservableNotAvailableError) as exc:
+        raise NotImplementedError(
+            f"Output {name!r} asks for a gauge snap, and the solver of run {run_ctx.run.id!r} "
+            "serves no drained area or cell centres to search."
+        ) from exc
+    start = int(np.argmin(np.hypot(centroids[:, 0] - here[0], centroids[:, 1] - here[1])))
+    x, y = xy if xy is not None else (float(here[0]), float(here[1]))
+    try:
+        snap = snap_to_most_accumulated(
+            centroids, accumulation, x=x, y=y, radius_m=radius_m, start_index=start
+        )
+    except GaugeSnapError as exc:
+        raise GaugeSnapError(f"Output {name!r}: {exc}") from exc
+
+    if not snap.moved:
+        logger.info(
+            "Output %s: the gauge already sits on the most accumulated cell within %g m, "
+            "%s, draining %.3f km2. Not moved.",
+            name,
+            radius_m,
+            cell,
+            snap.area_before_m2 / 1e6,
+        )
+        return cell
+    target = centroids[snap.index_after]
+    located = adapter.locate_cell(run_ctx, float(target[0]), float(target[1]))
+    snapped = (int(cell[0]), int(located[1]), int(located[2])) if located else None
+    check = None
+    if snapped is not None:
+        check_id = f"_snap_check:{name}"
+        check = adapter.extract_observables(
+            run_ctx,
+            None,
+            [ObservableRequest(id=check_id, name="cell_xy", support="cell", cell=snapped)],
+        )[check_id].values
+    if check is None or not np.allclose(np.asarray(check, dtype=float).reshape(2), target):
+        raise NotImplementedError(
+            f"Output {name!r}: the solver did not locate the snapped cell {snap.index_after} "
+            f"at its own centre (got {located}), so the snap cannot be addressed."
+        )
+    logger.info(
+        "Output %s: gauge snapped %.1f m (of %g m allowed) onto the most accumulated cell, "
+        "from %s draining %.3f km2 to %s draining %.3f km2. The output is scored at the "
+        "snapped cell.",
+        name,
+        snap.distance_m,
+        radius_m,
+        cell,
+        snap.area_before_m2 / 1e6,
+        snapped,
+        snap.area_after_m2 / 1e6,
+    )
+    return snapped
 
 
 def require_release_flux_unit(units: str, *, name: str) -> None:
@@ -395,6 +539,7 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
     # The area request a gauge output owes its runoff scaling, or None when the
     # output is the whole-catchment series, whose runoff is the basin's own.
     gauge_comparable: dict[str, str | None] = {}
+    snapped_onto: dict[tuple[int, int, int], list[str]] = {}
     for name, output in outputs.items():
         try:
             request = observable_request_for_output(name, output, ctx)
@@ -403,6 +548,8 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
                 f"Output {name!r} extraction failed: {type(exc).__name__}: {exc}"
             ) from exc
         requests.append(request)
+        if request.cell is not None and _snap_radius_m(output) is not None:
+            snapped_onto.setdefault(tuple(request.cell), []).append(name)
         if _is_a_gauge_comparable_discharge(output, request):
             # A gauge measures the whole streamflow; a drain budget is baseflow
             # alone. The runoff forcing is what makes the two comparable, scaled
@@ -423,6 +570,18 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
                     cell=request.cell,
                     diagonal_neighbors=request.diagonal_neighbors,
                 )
+            )
+
+    for cell, names in snapped_onto.items():
+        if len(names) > 1:
+            # Two gauges on one reach within each other's radius: both would be
+            # scored on the same simulated series, which no weighting can undo.
+            logger.warning(
+                "Outputs %s were all snapped onto cell %s, so they score one simulated "
+                "discharge against %d records. Shrink the snap_radius of the upstream one.",
+                ", ".join(sorted(names)),
+                cell,
+                len(names),
             )
 
     # The time grid is passed so a dated output comes back dated. An output
@@ -566,6 +725,20 @@ def cell_for_station(ctx: Any, station_id: str, *, variable: str) -> tuple[int, 
     return _cell_of_one_station(ctx, records, str(station_id), variable=variable)
 
 
+def station_xy(ctx: Any, station_id: str, *, variable: str) -> tuple[float, float] | None:
+    """Return the coordinate a station's loaded record carries, or None.
+
+    Only the opt-in gauge snap reads it for a discharge station: without a snap
+    that coordinate lands off the routed talweg, which is why it is not used.
+    """
+    loaded = getattr(ctx, "loaded_data", None)
+    records = getattr(loaded, OBSERVED_FAMILIES.get(variable, variable), None)
+    for rec in getattr(records, "points", None) or []:
+        if str(rec.station_id) == str(station_id):
+            return _xy_from_record(rec)
+    return None
+
+
 def _cell_of_one_station(
     ctx: Any, records: Any, station_id: str, *, variable: str = "head"
 ) -> tuple[int, int, int] | None:
@@ -696,4 +869,6 @@ __all__ = [
     "require_release_flux_unit",
     "resolve_flow_adapter",
     "resolve_station_cells",
+    "snap_gauge_cell",
+    "station_xy",
 ]

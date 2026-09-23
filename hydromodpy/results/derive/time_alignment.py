@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
-from hydromodpy.core.time.period_aggregation import period_mean_on_index
+from hydromodpy.core.time.period_aggregation import observed_on_periods
+from hydromodpy.core.time.time_method import (
+    DEFAULT_TIME_METHOD,
+    OBSERVABLE_TIME_METHODS,
+    TimeMethod,
+    bare_observable_name,
+    time_method_from_cell_methods,
+)
+from hydromodpy.results.field_registry import FIELD_REGISTRY
 
 
 def solver_time_index(catalog: Any, sim_id: Any, n_timesteps: int) -> pd.DatetimeIndex | None:
@@ -67,92 +75,142 @@ def normalize_period_bounds(period: tuple | str) -> tuple[Any, Any, bool]:
     return lo.to_pydatetime(), hi.to_pydatetime(), True
 
 
-def median_step(index: pd.DatetimeIndex) -> pd.Timedelta | None:
-    """Return the median spacing of a datetime index."""
-    if len(index) < 2:
+def time_method_for(variable: str | None) -> TimeMethod:
+    """Return how a series named ``variable`` relates to its end stamps.
+
+    The field registry is read first: its CF ``cell_methods`` says ``time:
+    point`` for a state (head, water table, concentration) and ``time: mean``
+    for a flux. A name the registry does not hold is looked up in
+    :data:`hydromodpy.core.time.time_method.OBSERVABLE_TIME_METHODS`, which
+    names the calibration variables and the observed families: ``discharge``
+    is ``"mean"``, ``lake_level`` and ``stage`` are ``"point"``. Any other name
+    is ``"mean"``, the rule a discharge is scored on. The ``_obs`` suffix of an
+    ingested observation is ignored.
+    """
+    name = bare_observable_name(variable)
+    descriptor = FIELD_REGISTRY.get(name)
+    if descriptor is not None:
+        return time_method_from_cell_methods(descriptor.cell_methods)
+    return OBSERVABLE_TIME_METHODS.get(name, DEFAULT_TIME_METHOD)
+
+
+def first_period_start(stamps: Any, boundaries: Sequence[Any] | None) -> pd.Timestamp | None:
+    """Return the start of the period that ends at the first of ``stamps``.
+
+    ``boundaries`` are the run's time-grid bounds, or the catalog
+    ``period_start`` alone. The answer is the last bound strictly before the
+    first stamp, so a series cut to its last period still gets that period's
+    own start. ``None`` when no bound precedes the first stamp.
+    """
+    if boundaries is None or len(boundaries) == 0 or stamps is None or len(stamps) == 0:
         return None
-    deltas = index.to_series().diff().dropna()
-    if deltas.empty:
+    first = _naive_utc(pd.DatetimeIndex(stamps).min())
+    bounds = sorted(_naive_utc(bound) for bound in boundaries if not pd.isna(bound))
+    before = [bound for bound in bounds if bound < first]
+    return before[-1] if before else None
+
+
+def run_period_start(run: Any, stamps: Any) -> pd.Timestamp | None:
+    """Return the start of a stored run's first period, from its catalog row.
+
+    ``None`` when the run has no catalog row, no ``period_start``, or one that
+    does not precede the first of ``stamps``.
+    """
+    loader = getattr(run, "_load_row", None)
+    if not callable(loader):
         return None
-    return pd.Timedelta(deltas.median())
+    try:
+        start = loader().get("period_start")
+    except Exception:
+        # A figure drawn from a run without a catalog row falls back on the
+        # period inferred from the stamps; nothing is lost but the first edge.
+        return None
+    if start is None or pd.isna(start):
+        return None
+    return first_period_start(stamps, [start])
+
+
+def _naive_utc(value: Any) -> pd.Timestamp:
+    """Return one timestamp, tz-naive in UTC."""
+    ts = pd.Timestamp(value)
+    return ts.tz_convert("UTC").tz_localize(None) if ts.tz is not None else ts
 
 
 def observed_on_simulation_index(
     observed: pd.Series,
     simulation_index: pd.DatetimeIndex,
     *,
-    tolerance: pd.Timedelta | None = None,
+    method: str = DEFAULT_TIME_METHOD,
+    start: Any = None,
+    tolerance: pd.Timedelta | pd.DateOffset | None = None,
 ) -> pd.Series:
-    """Average or nearest-match observations on the simulation index.
+    """Put an observation chronicle on the stress periods of a run.
 
-    The choice is made on MEDIAN spacings, not on which index is coarser where
-    it matters. When the median spacing of the simulation index exceeds the
-    median spacing of the observations, every stress period takes the MEAN of
-    the samples it covers, by the single rule written in
-    :func:`hydromodpy.core.time.period_aggregation.period_mean_on_index`: a
-    period reaches halfway to each of its neighbours, so a non-uniform index
-    (months of 28 to 31 days) reads its own edges rather than a constant half
-    of the median spacing.
+    A simulation stamp is the END of its period and an observation is stamped
+    at the START of what it averages. ``method`` says what the simulated value
+    is, and :func:`time_method_for` gives it for a variable name:
 
-    Otherwise each stamp takes the nearest sample within ``tolerance``
-    (default: the median spacing), which is what a chronicle coarser than the
-    run needs, since a per-period mean would leave most periods empty. A
-    non-uniform index whose median is small takes that branch for EVERY period,
-    the long ones included: a long spin-up followed by short transient steps is
-    read at the nearest sample throughout. A caller aligning a FORCING rather
-    than an observation chronicle should call ``period_mean_on_index`` itself,
-    the way :func:`hydromodpy.calibration.metrics.series.add_runoff_to_discharge`
-    does.
+    - ``"mean"``, a quantity averaged over the period (a discharge, a drain
+      flux, a runoff forcing). Every period ``[s, e)`` takes the mean of the
+      observations stamped in it; a period holding none takes the last
+      observation before ``s`` when that observation's interval covers the
+      period (a monthly mean on a daily run). ``tolerance`` is the interval of
+      one observation, by default the step of the chronicle. ``start`` is the
+      start of the first period; without it the first period is inferred from
+      the spacing of the stamps, and a single stamp takes the mean of the whole
+      chronicle.
+    - ``"point"``, a state at the stamp instant (a head, a lake stage). A
+      finer chronicle is averaged on a window centred on the stamp, a coarser
+      or same-frequency one gives its nearest sample within ``tolerance``.
+
+    The rules are written once, in
+    :func:`hydromodpy.core.time.period_aggregation.observed_on_periods`. The
+    default ``"mean"`` is the method of a name nothing declares; every
+    internal caller passes the method of the variable it aligns.
+
+    A caller aligning a FORCING rather than an observation chronicle should
+    call ``period_mean_on_index`` itself, the way
+    :func:`hydromodpy.calibration.metrics.series.add_runoff_to_discharge` does:
+    a forcing that misses a period is a gap, not the previous value.
     """
     obs = normalize_datetime_series(observed).dropna()
     sim_index = pd.DatetimeIndex(simulation_index)
     if sim_index.tz is not None:
         sim_index = sim_index.tz_convert("UTC").tz_localize(None)
     sim_index = sim_index.sort_values()
-    if obs.empty or len(sim_index) == 0:
-        return pd.Series(np.nan, index=sim_index, name=observed.name, dtype=float)
-
-    sim_step = median_step(sim_index)
-    obs_step = median_step(obs.index)
-    if sim_step is not None and obs_step is not None and sim_step > obs_step:
-        return period_mean_on_index(obs, sim_index).rename(observed.name)
-
-    tol = tolerance
-    if tol is None:
-        tol = sim_step if sim_step is not None else obs_step
-    if tol is None:
-        tol = pd.Timedelta(0)
-    obs_frame = obs.rename("obs").reset_index()
-    obs_frame.columns = ["datetime", "obs"]
-    sim_frame = pd.DataFrame({"datetime": sim_index})
-    aligned = pd.merge_asof(
-        sim_frame.sort_values("datetime"),
-        obs_frame.sort_values("datetime"),
-        on="datetime",
-        direction="nearest",
-        tolerance=tol,
-    )
-    return pd.Series(aligned["obs"].to_numpy(dtype=float), index=sim_index, name=observed.name)
+    aligned = observed_on_periods(obs, sim_index, method=method, start=start, tolerance=tolerance)
+    return aligned.rename(observed.name)
 
 
 def align_observed_simulated(
     observed: pd.Series,
     simulated: pd.Series,
     *,
+    method: str = DEFAULT_TIME_METHOD,
     dropna: bool = True,
+    start: Any = None,
 ) -> pd.DataFrame:
-    """Return observed and simulated values aligned on simulation timestamps."""
+    """Return observed and simulated values aligned on simulation timestamps.
+
+    ``method`` and ``start`` are passed on to
+    :func:`observed_on_simulation_index`.
+    """
     sim = normalize_datetime_series(simulated).dropna()
     if sim.empty:
         return pd.DataFrame(columns=["obs", "sim"])
-    obs_aligned = observed_on_simulation_index(observed, pd.DatetimeIndex(sim.index))
+    sim.index = pd.DatetimeIndex(sim.index).as_unit("ns")
+    obs_aligned = observed_on_simulation_index(
+        observed, pd.DatetimeIndex(sim.index), method=method, start=start
+    )
     paired = pd.DataFrame({"obs": obs_aligned, "sim": sim.reindex(obs_aligned.index)})
     return paired.dropna() if dropna else paired
 
 
 __all__ = [
     "align_observed_simulated",
-    "median_step",
+    "first_period_start",
     "normalize_datetime_series",
     "observed_on_simulation_index",
+    "run_period_start",
+    "time_method_for",
 ]

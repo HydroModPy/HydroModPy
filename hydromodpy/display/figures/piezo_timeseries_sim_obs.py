@@ -21,6 +21,7 @@ from hydromodpy.display.map_axes import style_date_axis
 from hydromodpy.results.derive.time_alignment import (
     normalize_datetime_series,
     observed_on_simulation_index,
+    time_method_for,
 )
 
 if TYPE_CHECKING:
@@ -73,7 +74,10 @@ class PiezoTimeseriesSimObs(BaseFigure):
 
         obs_df = sim.observed(obs_variable, station=obs_station)
         obs_ts = normalize_datetime_series(obs_df.set_index("datetime")["value"].rename("obs"))
-        obs_aligned = observed_on_simulation_index(obs_ts, sim_ts.index).dropna()
+        # A head is the state at the stamp, so the record is read around it.
+        obs_aligned = observed_on_simulation_index(
+            obs_ts, sim_ts.index, method=time_method_for(variable)
+        ).dropna()
         if obs_aligned.empty:
             raise ValueError(
                 f"No observed {obs_variable!r} values at station {obs_station!r} overlap "

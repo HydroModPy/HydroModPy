@@ -169,11 +169,14 @@ class TestCatchmentResolveTimeIndex:
             _resolve_time_index,
         )
 
-        store = _Store(_SzWithTime(None), row=("2019-01-01", "2019-01-05", "DAYS"))
+        # The window end is exclusive and each period is stamped at its end,
+        # as the solvers write it. The fallback used to put the first stamp on
+        # the window start.
+        store = _Store(_SzWithTime(None), row=("2019-01-01", "2019-01-06", "day"))
         idx = _resolve_time_index(store, "sim", 5)
         assert len(idx) == 5
-        assert idx[0] == pd.Timestamp("2019-01-01")
-        assert idx[-1] == pd.Timestamp("2019-01-05")
+        assert idx[0] == pd.Timestamp("2019-01-02")
+        assert idx[-1] == pd.Timestamp("2019-01-06")
 
     def test_raises_when_no_axis_and_no_period(self):
         from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
@@ -183,3 +186,69 @@ class TestCatchmentResolveTimeIndex:
         store = _Store(_SzWithTime(None), row=(None, None, None))
         with pytest.raises(RuntimeError, match="period_start/period_end"):
             _resolve_time_index(store, "sim", 5)
+
+
+# ---------------------------------------------------------------------------
+# Derived catchment views (results.derive.views) share the same fallback
+# ---------------------------------------------------------------------------
+
+
+class _RunWithoutAxis:
+    """Run double with no solver /time axis, only catalog period bounds."""
+
+    def __init__(self, row):
+        self._catalog = object()
+        self._sim_id = "sim"
+        self._row = row
+
+    def _load_row(self):
+        return self._row
+
+
+class TestDerivedViewTimeIndex:
+    def test_monthly_fallback_stamps_each_month_end(self):
+        from hydromodpy.results.derive.views import _time_index
+
+        # Nancon window: 36 monthly periods over [2000-01-01, 2003-01-01).
+        # Each stamp is the end of its month, at midnight. The old
+        # date_range(start, end, periods=n) put n points on n-1 intervals and
+        # drifted by hours from the second stamp on.
+        run = _RunWithoutAxis(
+            {"period_start": "2000-01-01", "period_end": "2003-01-01", "time_unit": "month"}
+        )
+        idx = _time_index(run, 36)
+        expected = pd.date_range("2000-02-01", "2003-01-01", freq="MS")
+        assert list(idx) == list(expected)
+
+    def test_daily_fallback_stamps_each_day_end(self):
+        from hydromodpy.results.derive.views import _time_index
+
+        run = _RunWithoutAxis(
+            {"period_start": "2019-01-01", "period_end": "2019-01-06", "time_unit": "day"}
+        )
+        idx = _time_index(run, 5)
+        assert list(idx) == list(pd.date_range("2019-01-02", "2019-01-06", freq="D"))
+
+    def test_catchment_mean_uses_the_fallback(self, monkeypatch):
+        from hydromodpy.results.derive import views
+
+        stack = np.arange(12, dtype=float).reshape(3, 4)
+        monkeypatch.setattr(views, "_catchment_mask", lambda sim: None)
+        monkeypatch.setattr(views, "_stack_field", lambda sim, variable: stack)
+        run = _RunWithoutAxis(
+            {"period_start": "2000-01-01", "period_end": "2000-04-01", "time_unit": "month"}
+        )
+        series = views.catchment_mean(run, "watertable_depth")
+        assert list(series.index) == [
+            pd.Timestamp("2000-02-01"),
+            pd.Timestamp("2000-03-01"),
+            pd.Timestamp("2000-04-01"),
+        ]
+        assert series.tolist() == [1.5, 5.5, 9.5]
+
+    def test_raises_without_axis_and_bounds(self):
+        from hydromodpy.results.derive.views import _time_index
+
+        run = _RunWithoutAxis({"period_start": None, "period_end": None})
+        with pytest.raises(RuntimeError, match="no /time axis"):
+            _time_index(run, 3)

@@ -18,10 +18,11 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import workspace_parser
+from hydromodpy.cli._conventions import verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
+    apply_verbosity,
 )
 from hydromodpy.core import progress
 from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
@@ -38,7 +39,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     render_p = sub.add_parser(
         "render",
         help="Render an HTML report for a calibration session",
-        parents=[workspace_parser()],
+        parents=[workspace_parser(), verbosity_parser()],
         epilog="Example:\n  hmp report render ab12cd34 --open",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -63,7 +64,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     compare_p = sub.add_parser(
         "compare",
         help="Compare two simulations side-by-side",
-        parents=[workspace_parser()],
+        parents=[workspace_parser(), verbosity_parser()],
         epilog="Example:\n  hmp report compare ab12cd34 ef56gh78",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -78,6 +79,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     catchment_p = sub.add_parser(
         "catchment",
         help="Build a catchment HTML report from one TOML configuration",
+        parents=[verbosity_parser()],
     )
     add_catchment_report_arguments(catchment_p, report_config_option=False)
 
@@ -86,6 +88,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     action = getattr(args, "report_action", None)
     if action == "render":
         _cmd_render(args)

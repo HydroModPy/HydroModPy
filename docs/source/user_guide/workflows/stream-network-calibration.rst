@@ -318,6 +318,37 @@ Four things in there are not free choices.
    validates and scores the drain budget instead, which is baseflow without
    runoff and not what a gauge records.
 
+   ``snap_radius`` is the opt-in exception, on a ``support = "point"`` or
+   ``support = "cell"`` discharge output. A gauge coordinate rarely sits on
+   the talweg the model routes on: on the Nancon it resolves to a cell
+   draining 0.107 km2 of the 64.6 km2 catchment. With a radius, the output
+   is moved onto the cell that drains the most within that distance before
+   it is scored, and a station named in ``observes`` is then placed by the
+   coordinate of its record and snapped from there.
+
+   .. code-block:: toml
+
+      [calibration.outputs.gauged_discharge]
+      support     = "point"
+      variable    = "discharge"
+      observes    = "NANCON"
+      x           = 389285.910
+      y           = 6816518.749
+      snap_radius = "150 m"
+
+   The drained area searched is the one the solver accumulates on the mesh,
+   on the graph the discharge is routed on, ``diagonal_neighbors`` included.
+   The delineation's own outlet snap works on the DEM raster instead, and its
+   snapped outlet resolves to a mesh cell draining 0.022 km2, so that surface
+   is not reused. The radius is a maximum displacement from the gauge, not the
+   window width ``geographic.snap_dist`` is. Each trial logs the distance
+   moved and the area drained before and after. A radius that reaches no cell
+   but the one the gauge already sits in is refused, with the distance to the
+   nearest other cell, and two outputs snapped onto one cell are named in a
+   warning, since they would score one series against two records. Without
+   ``snap_radius`` nothing moves, which keeps every existing project where it
+   was.
+
 ``warmup`` rather than ``scoring_window``, for the spin-up
    A window cuts a loaded record on its dates. A network output is scored on
    the pair ``(D_so, D_os)``, which carries none, so a phase declaring a window
@@ -345,6 +376,54 @@ The network block, in transient, scores one instant
    Set it against the magnitudes the first stage published rather than by
    halves, and read ``network_extension.total`` and ``hydrograph.total``, which
    every trial reports, to see what it bought.
+
+Measured on the Nancon
+----------------------
+
+The two files of example 04 were run side by side on 2026-09-23, same code and
+same machine, after the stress-period alignment fix: a monthly stamp closes its
+month, so the gauge is compared with the month the stamp ends (commit
+``e6c5e50f5``). A score taken before that fix is not comparable with these.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 39 39
+
+   * -
+     - ``project.toml``, the protocol
+     - ``run_calibration_by_hand.toml``
+   * - stage one
+     - ``K`` = 9.763e-05 m/s, signed gap 2.7 m, 15 trials
+     - identical, to the trial
+   * - stage two
+     - ``Sy`` = 0.047, NSElog 0.921, 6 trials
+     - ``Sy`` = 0.063, NSElog 0.898, 14 trials
+   * - December network gap
+     - not scored
+     - 17.3 m
+
+Scoring the network as well as the gauge moves the storage by about a third,
+from 0.047 to 0.063, and costs 0.023 of NSElog. Over the fourteen trials the
+gap took four values, from 24.2 m at ``Sy`` = 0.042 to 15.2 m at 0.098: the
+simulated network retracts by whole cells, which sets the region, and the
+hydrograph does the fine work inside it. Neither term rode along: the network
+term weighed 0.15 to 0.24 of the trial cost and the hydrograph term 0.09 to
+0.14. Which of the two storages suits the site is a judgement about the site,
+not about the machinery, and that is the point of being able to write the
+stage out.
+
+The validity indicator does not clear its bound on this catchment, and every
+trial says so. ``roptim`` is the agreement between the two networks in
+reference lengths, valid at 2 and under. Here it runs from 1.9 to 6.4 over the
+stage one sweep, 2.44 at the retained ``K``, and 2.50 to 2.56 in the transient
+stage. The agreement is therefore coarser than the mesh. This qualifies the
+calibrated value rather than refuting it: a ``K`` read off this example is a
+demonstration, not a number to cite, and the ratio ``K/R`` is what to publish.
+Two diagnostics of the same trials say where it comes from.
+``alpha_obs_closure_catchment`` is 0.83 against 0.90, and 55 per cent of the
+mapped stream cells lie outside the delineated catchment, in a buffer where
+nothing requires a cell to descend into the network. Clipping the mapped
+network to the catchment is what would move them.
 
 What each choice buys you
 -------------------------

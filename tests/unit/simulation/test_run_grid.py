@@ -244,18 +244,21 @@ class TestFields:
 
 class TestTimeIndex:
     def test_time_index_basic(self, catalog):
+        # The catalog keeps the window [first boundary, last boundary), the
+        # last one exclusive, and the solvers stamp each period at its end.
+        # This fallback used to spread 36 stamps evenly from the window start,
+        # which matched neither the solver axis nor the calendar.
         sid = _register_sim(
             catalog,
             n_timesteps=36,
             period_start="2000-01-01",
-            period_end="2002-12-31",
+            period_end="2003-01-01",
         )
         run = Run(sid, catalog)
         idx = run.time_index
         assert isinstance(idx, pd.DatetimeIndex)
         assert len(idx) == 36
-        assert idx[0] == pd.Timestamp("2000-01-01")
-        assert idx[-1] == pd.Timestamp("2002-12-31")
+        assert idx.equals(pd.date_range("2000-02-01", "2003-01-01", freq="MS").as_unit("ns"))
 
     def test_time_index_is_cached(self, catalog):
         sid = _register_sim(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Annotated, Any, Literal, TypeAlias
 
@@ -19,6 +20,7 @@ from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 
 _VALID_STEP_UNITS = {"hour", "day", "month", "year"}
+_BARE_NUMBER_PATTERN = re.compile(r"^\s*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\s*$")
 _STEP_UNIT_ALIASES = {
     "m": "month",
     "mo": "month",
@@ -29,6 +31,29 @@ _STEP_UNIT_ALIASES = {
     "days": "day",
     "years": "year",
 }
+
+
+def _has_inline_unit(raw_step_value: object) -> bool:
+    """Return True when *raw_step_value* is a string carrying its own unit token."""
+    if not isinstance(raw_step_value, str):
+        return False
+    return _BARE_NUMBER_PATTERN.match(raw_step_value) is None
+
+
+def _reject_bad_step_value_type_or_sign(raw_step_value: object) -> None:
+    """Raise the positive-integer diagnosis before any unit check runs.
+
+    A boolean or a negative/zero bare number is wrong regardless of whether a
+    unit is attached, and that is the more useful thing to tell the caller
+    than "has no unit".
+    """
+    if isinstance(raw_step_value, bool):
+        raise ValueError("simulation.time.step_value must be a positive integer.")
+    if isinstance(raw_step_value, int | float) and raw_step_value <= 0:
+        raise ValueError("simulation.time.step_value must be a positive integer.")
+    if isinstance(raw_step_value, str) and _BARE_NUMBER_PATTERN.match(raw_step_value):
+        if float(raw_step_value.strip()) <= 0:
+            raise ValueError("simulation.time.step_value must be a positive integer.")
 
 
 def _coerce_step_unit(token: str) -> TimePeriodUnit:
@@ -133,9 +158,17 @@ class SimulationTimeConfig(HydroModelBase):
 
     @model_validator(mode="after")
     def _validate_window_order(self):
+        _reject_bad_step_value_type_or_sign(self.step_value)
+
         explicit_unit_raw: str | None = None
         if self.step_unit is not None and str(self.step_unit).strip() != "":
             explicit_unit_raw = str(self.step_unit).strip()
+
+        if explicit_unit_raw is None and not _has_inline_unit(self.step_value):
+            raise ValueError(
+                "simulation.time.step_value has no unit. Write an inline unit "
+                "(for example '1 month' or '30 day') or set simulation.time.step_unit."
+            )
 
         scalar, resolved_unit = parse_scalar_and_unit(
             self.step_value,

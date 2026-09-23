@@ -57,6 +57,7 @@ from hydromodpy.results.storage.contract import (
     RUN_MANIFEST_FILENAME,
     RUN_PROVENANCE_FILENAME,
 )
+from hydromodpy.schema.generated_views import RO_CRATE_VIEW_FILENAME
 
 if TYPE_CHECKING:
     import duckdb
@@ -77,7 +78,6 @@ RUN_SEAL_FILENAMES: tuple[str, ...] = (
     RUN_PROVENANCE_FILENAME,
     RUN_CONFIG_FILENAME,
 )
-RO_CRATE_METADATA_NAME = "ro-crate-metadata.json"
 HMP_FORMAT_VERSION = "1.4"
 HMP_MAGIC = "hydromodpy/hmp"
 SHAPEFILE_SIDECAR_EXTS = (".shp", ".shx", ".dbf", ".prj", ".cpg", ".sbn", ".sbx")
@@ -537,7 +537,7 @@ def _write_ro_crate(catalog: Any, sim_id: str, staging: Path) -> Path | None:
     try:
         from hydromodpy.results.export import write_ro_crate
 
-        return write_ro_crate(catalog, sim_id, staging / RO_CRATE_METADATA_NAME)
+        return write_ro_crate(catalog, sim_id, staging / RO_CRATE_VIEW_FILENAME)
     except Exception as exc:  # noqa: BLE001 - keep export resilient
         logger.warning("Failed to write RO-Crate inside .hmp staging: %s", exc)
         return None

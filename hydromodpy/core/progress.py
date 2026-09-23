@@ -45,6 +45,8 @@ from rich.progress import (
 )
 from rich.table import Table
 
+from hydromodpy.core import progress_ndjson
+
 logger = logging.getLogger("hydromodpy.core.progress")
 
 MILESTONE_KEY = "hmp_milestone"
@@ -101,15 +103,47 @@ class _AdaptiveProgress(Progress):
 
 
 class TaskHandle:
-    """Handle on a live progress task. Inert when rendering is off."""
+    """Handle on a live progress task. Inert when rendering is off.
 
-    def __init__(self, progress: Progress | None, task_id: TaskID | None) -> None:
+    Rendering and the NDJSON sink (:mod:`hydromodpy.core.progress_ndjson`)
+    are two independent observers of the same calls: rendering is skipped
+    when ``progress`` is ``None``, and the NDJSON event is emitted unless
+    the task was acquired under :func:`suppressed` (``progress_ndjson.emit``
+    itself also no-ops without a configured sink), so a capability run with
+    no terminal still gets a full event stream, and a suppressed inner run
+    (a calibration trial, a sweep child) does not flood it.
+    """
+
+    def __init__(
+        self,
+        progress: Progress | None,
+        task_id: TaskID | None,
+        *,
+        ndjson_id: int,
+        description: str,
+        total: float | None = None,
+        suppressed: bool = False,
+    ) -> None:
         self._progress = progress
         self._task_id = task_id
+        self._ndjson_id = ndjson_id
+        self._description = description
+        self._total = total
+        self._completed: float | None = 0.0 if total is not None else None
+        self._suppressed = suppressed
 
     def advance(self, step: float = 1.0) -> None:
         if self._progress is not None and self._task_id is not None:
             self._progress.advance(self._task_id, step)
+        self._completed = (self._completed or 0.0) + step
+        progress_ndjson.emit(
+            self._ndjson_id,
+            self._description,
+            completed=self._completed,
+            total=self._total,
+            state="progress",
+            suppressed=self._suppressed,
+        )
 
     def update(
         self,
@@ -118,20 +152,30 @@ class TaskHandle:
         total: float | None = None,
         description: str | None = None,
     ) -> None:
-        if self._progress is None or self._task_id is None:
-            return
-        kwargs: dict = {}
         if completed is not None:
-            kwargs["completed"] = completed
+            self._completed = completed
         if total is not None:
-            kwargs["total"] = total
+            self._total = total
         if description is not None:
-            kwargs["description"] = description
-        if kwargs:
-            self._progress.update(self._task_id, **kwargs)
-
-
-_NULL_HANDLE = TaskHandle(None, None)
+            self._description = description
+        if self._progress is not None and self._task_id is not None:
+            kwargs: dict = {}
+            if completed is not None:
+                kwargs["completed"] = completed
+            if total is not None:
+                kwargs["total"] = total
+            if description is not None:
+                kwargs["description"] = description
+            if kwargs:
+                self._progress.update(self._task_id, **kwargs)
+        progress_ndjson.emit(
+            self._ndjson_id,
+            self._description,
+            completed=self._completed,
+            total=self._total,
+            state="progress",
+            suppressed=self._suppressed,
+        )
 
 
 class _ProgressManager:
@@ -159,9 +203,32 @@ class _ProgressManager:
         return console.is_terminal or console.is_jupyter
 
     def acquire(self, description: str, total: float | None, kind: str) -> TaskHandle:
+        # Assigned and emitted unconditionally (modulo suppression): the
+        # NDJSON sink is fed whether or not rendering is enabled, which is
+        # the one case (no terminal) that matters to it. Suppression is
+        # read once, here, and carried on the handle for its whole life --
+        # exactly like render_enabled() below, so an outer task started
+        # before a suppressed() block keeps emitting through it.
+        ndjson_id = progress_ndjson.new_task_id()
+        task_suppressed = _is_suppressed()
+        progress_ndjson.emit(
+            ndjson_id,
+            description,
+            completed=0.0 if total is not None else None,
+            total=total,
+            state="started",
+            suppressed=task_suppressed,
+        )
         with self._lock:
             if not self.render_enabled():
-                return _NULL_HANDLE
+                return TaskHandle(
+                    None,
+                    None,
+                    ndjson_id=ndjson_id,
+                    description=description,
+                    total=total,
+                    suppressed=task_suppressed,
+                )
             if self._progress is None:
                 self._progress = _AdaptiveProgress(
                     console=console,
@@ -171,20 +238,33 @@ class _ProgressManager:
                 self._progress.start()
             self._active += 1
             task_id = self._progress.add_task(description, total=total, hmp_kind=kind)
-            return TaskHandle(self._progress, task_id)
+            return TaskHandle(
+                self._progress,
+                task_id,
+                ndjson_id=ndjson_id,
+                description=description,
+                total=total,
+                suppressed=task_suppressed,
+            )
 
-    def release(self, handle: TaskHandle) -> None:
-        if handle._progress is None:
-            return
-        with self._lock:
-            if self._progress is None:
-                return
-            self._progress.remove_task(handle._task_id)
-            self._active -= 1
-            if self._active <= 0:
-                self._progress.stop()
-                self._progress = None
-                self._active = 0
+    def release(self, handle: TaskHandle, *, state: str = "completed") -> None:
+        if handle._progress is not None:
+            with self._lock:
+                if self._progress is not None:
+                    self._progress.remove_task(handle._task_id)
+                    self._active -= 1
+                    if self._active <= 0:
+                        self._progress.stop()
+                        self._progress = None
+                        self._active = 0
+        progress_ndjson.emit(
+            handle._ndjson_id,
+            handle._description,
+            completed=handle._completed,
+            total=handle._total,
+            state=state,
+            suppressed=handle._suppressed,
+        )
 
 
 _manager = _ProgressManager()
@@ -241,7 +321,7 @@ def phase(description: str) -> Generator[TaskHandle, None, None]:
     try:
         yield handle
     except BaseException:
-        _manager.release(handle)
+        _manager.release(handle, state="failed")
         if rendering:
             console.print(
                 f"[red]✗[/red] {description} [dim]({_fmt_duration(time.perf_counter() - t0)})[/dim]"
@@ -264,8 +344,12 @@ def status(description: str) -> Generator[TaskHandle, None, None]:
     t0 = time.perf_counter()
     try:
         yield handle
-    finally:
+    except BaseException:
+        _manager.release(handle, state="failed")
+        raise
+    else:
         _manager.release(handle)
+    finally:
         logger.debug("done: %s (%.1fs)", description, time.perf_counter() - t0)
 
 
@@ -287,8 +371,12 @@ def task(
     t0 = time.perf_counter()
     try:
         yield handle
-    finally:
+    except BaseException:
+        _manager.release(handle, state="failed")
+        raise
+    else:
         _manager.release(handle)
+    finally:
         logger.debug("done: %s (%.1fs)", description, time.perf_counter() - t0)
 
 

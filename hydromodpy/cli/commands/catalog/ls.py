@@ -10,8 +10,8 @@ import os
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import format_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_workspace_root
+from hydromodpy.cli._conventions import format_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, find_workspace_root
 
 NAME: str = "ls"
 HELP: str = "List simulations recorded in a workspace catalog"
@@ -21,7 +21,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser(), format_parser()],
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
         epilog="Example:\n  hmp catalog ls --solver mf6 --format json",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -68,6 +68,7 @@ def _resolve_workspace(workspace_arg: str | None) -> Path:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import list_simulations
     from hydromodpy.results.catalog import iter_project_catalog_roots, short_id
 

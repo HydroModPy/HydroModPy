@@ -5,7 +5,8 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND
+from hydromodpy.cli._conventions import verbosity_parser
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity
 from hydromodpy.core.state.paths import (
     CATALOG_FILENAME,
     INTERNAL_DIRNAME,
@@ -17,7 +18,7 @@ HELP: str = "Show a project summary (TOMLs, catalog stats)"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
     parser.add_argument("project", help="Project name (directory under projects/)")
     parser.add_argument("--workspace", default=None, help="Workspace root")
     parser.set_defaults(_handler=run)
@@ -25,6 +26,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.project import show_project
 
     try:

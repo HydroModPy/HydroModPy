@@ -27,6 +27,8 @@ from hydromodpy.results.export.context import (
     build_context,
     to_json,
 )
+from hydromodpy.results.export.directory import context_from_directory, write_view
+from hydromodpy.schema.generated_views import PROV_VIEW_FILENAME
 
 HYDROMODPY_NAMESPACE = "https://docs.hydromodpy.fr/schema#"
 
@@ -245,8 +247,22 @@ def write_prov(
     payload = serialise_prov(ctx)
     out = Path(output_path)
     if out.is_dir() or out.suffix == "":
-        out = out / "prov.jsonld"
+        out = out / PROV_VIEW_FILENAME
     return to_json(payload, out)
+
+
+def write_prov_view(
+    directory: Path | str,
+    *,
+    context: FairExportContext | None = None,
+) -> Path:
+    """Render the PROV-O lineage of a sealed run or job directory, inside it.
+
+    Written as ``prov.jsonld`` beside the seal, from the directory alone.
+    """
+    root = Path(directory)
+    ctx = context or context_from_directory(root)
+    return write_view(root / PROV_VIEW_FILENAME, serialise_prov(ctx))
 
 
 __all__ = [
@@ -254,4 +270,5 @@ __all__ = [
     "build_prov_document",
     "serialise_prov",
     "write_prov",
+    "write_prov_view",
 ]

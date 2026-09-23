@@ -37,6 +37,8 @@ from hydromodpy.display.map_axes import style_date_axis
 from hydromodpy.results.derive.time_alignment import (
     normalize_datetime_series,
     observed_on_simulation_index,
+    run_period_start,
+    time_method_for,
 )
 
 if TYPE_CHECKING:
@@ -279,9 +281,11 @@ def _observed_series(
     except Exception:
         return []
     aligned: list[tuple[str, pd.Series]] = []
+    method = time_method_for(variable)
+    start = run_period_start(sim, index)
     for station_id, group in frame.groupby("station_id"):
         series = normalize_datetime_series(group.set_index("datetime")["value"])
-        on_index = observed_on_simulation_index(series, index)
+        on_index = observed_on_simulation_index(series, index, method=method, start=start)
         if not bool(np.any(np.isfinite(on_index.to_numpy(dtype="float64")))):
             continue
         aligned.append((str(station_id), on_index))

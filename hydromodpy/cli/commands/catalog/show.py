@@ -10,8 +10,13 @@ import json
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import add_sim_ref, format_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for
+from hydromodpy.cli._conventions import (
+    add_sim_ref,
+    format_parser,
+    verbosity_parser,
+    workspace_parser,
+)
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, exit_code_for
 from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
 
 NAME: str = "show"
@@ -22,7 +27,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser(), format_parser()],
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
         epilog="Example:\n  hmp catalog show ab12cd34 --detail",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -37,6 +42,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import show_simulation
     from hydromodpy.results.catalog import (
         AmbiguousReferenceError,

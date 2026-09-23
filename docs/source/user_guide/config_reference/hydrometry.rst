@@ -111,7 +111,7 @@ Fields
 
          :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20>`__
 
-            Explicit station identifiers to load (custom source).
+            Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
       .. container:: hmp-field hmp-field-level-dev

@@ -35,6 +35,8 @@ from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.exceptions import UncertaintyNotAvailableError
 
 _INDEX = pd.date_range("2020-01-01", periods=4, freq="D")
+# The record is stamped at the day each simulated stamp closes, one day before.
+_RECORD_INDEX = pd.date_range("2019-12-31", periods=4, freq="D")
 
 
 def _outputs():
@@ -57,7 +59,7 @@ def _block(**extra):
 
 
 def _ctx():
-    frame = pd.DataFrame({"datetime": _INDEX, "value": [1.0, 2.0, 3.0, 4.0]})
+    frame = pd.DataFrame({"datetime": _RECORD_INDEX, "value": [1.0, 2.0, 3.0, 4.0]})
     record = SimpleNamespace(station_id="NANCON", variable="discharge", data=frame)
     return SimpleNamespace(
         setup=SimpleNamespace(time_grid=None),
@@ -129,7 +131,10 @@ class TestTheCaptureAndTheCostReadTheSamePairing:
             outputs, ctx=_ctx(), objective_blocks=[_block()]
         )
 
-        capture_fn(None)
+        # The selection left one stamp, 2020-01-04. The run's time grid says its
+        # period is the day 2020-01-03, which the record measured at 4.0.
+        grid = SimpleNamespace(boundaries=tuple(pd.date_range("2019-12-31", periods=5, freq="D")))
+        capture_fn(SimpleNamespace(setup=SimpleNamespace(time_grid=grid)))
 
         former = pair_outputs_with_observations(
             observed=observed_series_for_outputs(outputs, _ctx()),

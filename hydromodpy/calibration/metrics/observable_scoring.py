@@ -36,12 +36,15 @@ import pandas as pd
 from hydromodpy.calibration.metrics.observed_pairing import (
     PairedOutputs,
     observing_outputs,
+    output_time_methods,
     pair_outputs_with_observations,
 )
 from hydromodpy.calibration.metrics.scalar import score as score_series
 from hydromodpy.calibration.optim.objective import build_objective_from_config
 from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.time.period_aggregation import period_edges
+from hydromodpy.results.derive.time_alignment import first_period_start, time_method_for
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibOutputDecl, OutputTime
@@ -183,11 +186,19 @@ class ObservableScorer:
             scoring_window
         )
         self._min_samples: int = min_samples
+        # A discharge is averaged over each period, a head or a lake stage is
+        # read at the stamp: fixed by the declared variable, once.
+        self._time_methods: dict[str, str] = output_time_methods(outputs)
         self._composite: Objective | None = (
             None if self._observed else build_objective_from_config(self._cfg)
         )
 
-    def pair(self, observables: Mapping[str, ObservableResult]) -> PairedOutputs:
+    def pair(
+        self,
+        observables: Mapping[str, ObservableResult],
+        *,
+        boundaries: Sequence[Any] | None = None,
+    ) -> PairedOutputs:
         """Return the vectors a cost is computed from, without computing it.
 
         A linearized covariance needs the simulated value AT EACH OBSERVATION,
@@ -199,6 +210,9 @@ class ObservableScorer:
         Only the outputs that name a station are aligned. A network pair, or a
         vector typed into the document, carries no date and no record to take
         a residual against.
+
+        ``boundaries`` are the run's time-grid bounds, from which each series
+        takes the start of its first period, as in :meth:`score`.
         """
         if not self._observed:
             raise ValueError(
@@ -207,6 +221,7 @@ class ObservableScorer:
                 "calibration is fitted to."
             )
         dated: dict[str, pd.Series] = {}
+        starts: dict[str, Any] = {}
         for name in self._observed:
             result = observables.get(name)
             if result is None:
@@ -214,15 +229,18 @@ class ObservableScorer:
             series = dated_series(select_observable_times(result, self._outputs[name].time))
             if series is not None:
                 dated[name] = series
-        return self._align(dated)
+                starts[name] = selected_period_start(result, series, boundaries)
+        return self._align(dated, starts)
 
-    def _align(self, series: Mapping[str, pd.Series]) -> PairedOutputs:
+    def _align(self, series: Mapping[str, pd.Series], starts: Mapping[str, Any]) -> PairedOutputs:
         """The one place a record meets an answer, for the cost and the residuals."""
         return pair_outputs_with_observations(
             observed=self._observed,
             simulated={name: series[name] for name in self._observed if name in series},
             scoring_window=self._scoring_window,
             min_samples=self._min_samples,
+            time_methods=self._time_methods,
+            period_starts=starts,
         )
 
     def score(
@@ -231,10 +249,17 @@ class ObservableScorer:
         *,
         network_values: Mapping[str, Sequence[float]] | None = None,
         diagnostics: Mapping[str, float] | None = None,
+        boundaries: Sequence[Any] | None = None,
     ) -> tuple[float, dict[str, float]]:
-        """Return the cost and components from one model's outputs."""
+        """Return the cost and components from one model's outputs.
+
+        ``boundaries`` are the run's time-grid bounds. A dated output takes
+        the start of its first period from them, which a single steady stamp
+        cannot tell on its own (:func:`selected_period_start`).
+        """
         simulated: dict[str, Sequence[float]] = {}
         series: dict[str, pd.Series] = {}
+        starts: dict[str, Any] = {}
         for name, output in self._outputs.items():
             if output.support == "network":
                 if network_values is None or name not in network_values:
@@ -246,16 +271,17 @@ class ObservableScorer:
                 raise NotImplementedError(
                     f"Model returned no calibration values for output {name!r}"
                 )
-            result = select_observable_times(result, output.time)
-            simulated[name] = slice_time(result.values, "all", output.reducer)
-            dated = dated_series(result)
+            selected = select_observable_times(result, output.time)
+            simulated[name] = slice_time(selected.values, "all", output.reducer)
+            dated = dated_series(selected)
             if dated is not None:
                 series[name] = dated
+                starts[name] = selected_period_start(result, dated, boundaries)
 
         objective = self._composite
         paired_counts: dict[str, int] = {}
         if self._observed:
-            paired = self._align(series)
+            paired = self._align(series, starts)
             simulated.update(paired.simulated)
             paired_counts = dict(paired.n_paired)
             objective = build_objective_from_config(self._cfg, observed_by_output=paired.observed)
@@ -272,6 +298,35 @@ class ObservableScorer:
             {f"{name}.n_paired": float(count) for name, count in paired_counts.items()}
         )
         return float(value.total), components
+
+
+def selected_period_start(
+    result: ObservableResult,
+    selected: pd.Series,
+    boundaries: Sequence[Any] | None,
+) -> pd.Timestamp | None:
+    """Return the start of the first period a time-selected output stands for.
+
+    The run's time-grid bounds answer when the caller has them. Otherwise the
+    output's own stamps, before ``time`` selected among them, do: an output
+    kept at ``time = "last"`` closes the period that starts at the stamp
+    before it, not the whole run. ``None`` when neither can tell, for a single
+    stamp with no grid.
+    """
+    bounds: Sequence[Any] | None = boundaries
+    if bounds is None or len(bounds) == 0:
+        times = getattr(result, "times", None)
+        if times is None or pd.DatetimeIndex(times).nunique() < 2:
+            return None
+        bounds = tuple(period_edges(times))
+    return first_period_start(selected.index, bounds)
+
+
+def _first_period_start(series: pd.Series, boundaries: Sequence[Any] | None) -> Any:
+    """Return the start of the first period of a dated series, or ``None``."""
+    if not isinstance(series.index, pd.DatetimeIndex):
+        return None
+    return first_period_start(series.index, boundaries)
 
 
 def discharge_target(observed: Sequence[ObservedSeries], declared_station_id: str | None):
@@ -357,6 +412,9 @@ class StationScorer:
             )
         self._variable = str(variable)
         self._objective = str(objective)
+        # A head or a lake level is the state at the stamp, a discharge the
+        # mean over the period the stamp closes.
+        self._time_method = time_method_for(self._variable)
         self._observed: list[ObservedSeries] = list(observed)
         self._warmup_periods = int(warmup_periods)
         self._scoring_window = scoring_window
@@ -379,8 +437,13 @@ class StationScorer:
         simulated: Mapping[str, ObservableResult],
         *,
         source: str = "the model",
+        boundaries: Sequence[Any] | None = None,
     ) -> tuple[float, dict[str, float]]:
-        """Return the cost the search follows and the cost of every station."""
+        """Return the cost the search follows and the cost of every station.
+
+        ``boundaries`` are the run's time-grid bounds, from which each series
+        takes the start of its first period.
+        """
         components: dict[str, float] = {}
         finite: list[float] = []
         for record in self._observed:
@@ -405,6 +468,8 @@ class StationScorer:
                 self._objective,
                 warmup_periods=self._warmup_periods,
                 scoring_window=self._scoring_window,
+                time_method=self._time_method,
+                period_start=_first_period_start(series, boundaries),
             )
             components[f"cost:{self._objective}@{record.station_id}"] = cost
             if np.isfinite(cost):

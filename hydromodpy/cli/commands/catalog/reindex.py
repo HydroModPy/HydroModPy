@@ -7,8 +7,8 @@ import json
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import format_parser, workspace_parser
-from hydromodpy.cli.helpers import exit_code_for
+from hydromodpy.cli._conventions import format_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.helpers import apply_verbosity, exit_code_for
 from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "reindex"
@@ -19,7 +19,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser(), format_parser()],
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
         description=(
             "Read every sealed run under runs/ and every calibration session under "
             "sessions/, and rebuild .hmp/index.duckdb from them. The current index "
@@ -39,6 +39,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import reindex_project
 
     project_root = resolve_project_root(

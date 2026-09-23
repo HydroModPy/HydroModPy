@@ -113,9 +113,9 @@ class TestNegativeDischargeClipping:
         assert np.isfinite(value.total)
 
     def test_score_clips_before_the_log(self, caplog) -> None:
-        index = pd.date_range("2020-01-01", periods=4, freq="D")
-        observed = pd.Series([1.0, 2.0, 3.0, 4.0], index=index)
-        simulated = pd.Series([-1.0, 2.0, 3.0, 4.0], index=index)
+        # Each simulated stamp closes the day observed one day before it.
+        observed = pd.Series([1.0, 2.0, 3.0, 4.0], index=pd.date_range("2020-01-01", periods=4))
+        simulated = pd.Series([-1.0, 2.0, 3.0, 4.0], index=pd.date_range("2020-01-02", periods=4))
         cost = score(observed, simulated, "nse_log")
         assert np.isfinite(cost)
         assert "clipped to zero" in caplog.text

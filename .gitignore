@@ -176,6 +176,19 @@ examples/data/etp/etp_sim2_*.nc
 examples/data/precipitation/precipitation_*_sim2_*.nc
 examples/data/recharge/recharge_sim2_*.nc
 examples/data/runoff/runoff_sim2_*.nc
+# API caches of the example data, named <provider prefix>_<key>. The loaders
+# rebuild them on demand, so they never enter the index. A new provider adds
+# its prefix here.
+examples/data/geology/geology_brgm_*.gpkg
+examples/data/hydrography/*bdtopage_*.gpkg
+examples/data/**/*_hubeau_*.csv
+examples/data/**/*_sim2_*.nc
+examples/data/**/*.aux.xml
+# DuckDB lock files and empty tool folders.
+*.duckdb.lock
+/memory.duckdb*
+/.benchmarks/
+/.tmp-doc-gallery/
 examples/projects/**/data/cache.duckdb*
 tests/regression/fixtures/**/cache.duckdb*
 

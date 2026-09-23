@@ -28,6 +28,7 @@ from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
 
 if TYPE_CHECKING:
+    from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.simulation.planning.results_config import ResultsConfig
 
 logger = get_logger(__name__)
@@ -58,7 +59,7 @@ class DeriveStep:
         run_id: str,
     ) -> PipelineState:
         """Restore derived names by listing the Zarr ``/derived`` group."""
-        ctx = prior_state.get("ctx")
+        ctx: WorkflowContext | None = prior_state.get("ctx")
         if ctx is None:
             raise ConfigError("DeriveStep.rebuild_state requires 'ctx' in state.data")
         derived_names: list[str] = []
@@ -86,7 +87,7 @@ class DeriveStep:
         )
 
     def run(self, state: PipelineState) -> PipelineState:
-        ctx = state.get("ctx")
+        ctx: WorkflowContext | None = state.get("ctx")
         if ctx is None:
             raise ConfigError("DeriveStep requires 'ctx' in state.data")
 

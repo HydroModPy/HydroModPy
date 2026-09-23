@@ -6,8 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import add_sim_ref, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for
+from hydromodpy.cli._conventions import add_sim_ref, verbosity_parser, workspace_parser
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, exit_code_for
 from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "rename"
@@ -18,7 +18,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser()],
+        parents=[workspace_parser(), verbosity_parser()],
         epilog=(
             "The run directory is named after the run, so a rename moves\n"
             "runs/<old>/ to runs/<new>/ before updating the index. The new\n"
@@ -36,6 +36,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import rename_simulation
 
     workspace_root = resolve_project_root(

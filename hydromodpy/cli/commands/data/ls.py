@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import argparse
 
+from hydromodpy.cli._conventions import verbosity_parser
+from hydromodpy.cli.helpers import apply_verbosity
+
 NAME: str = "ls"
 HELP: str = "List artefacts indexed in the workspace cache"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
     parser.add_argument("--workspace", default=None)
     parser.add_argument("--variable", default=None, help="Filter by variable")
     parser.add_argument("--provider", default=None, help="Filter by provider")
@@ -18,6 +21,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.data import list_data_cache
 
     df = list_data_cache(args.workspace, variable=args.variable, provider=args.provider)

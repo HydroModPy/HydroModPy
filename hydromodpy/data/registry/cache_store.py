@@ -415,6 +415,10 @@ def emit_input_sidecar(
 
     Inputs that live inside the installed package tree (bundled example /
     ``cases/`` data) are skipped: their sidecars are committed and read-only.
+
+    The licence comes from the source registry. A licence the user declared
+    in the existing sidecar of the same bytes is kept, so a rewrite never
+    erases it.
     """
     if _is_inside_package(path):
         return
@@ -428,12 +432,33 @@ def emit_input_sidecar(
             source=str(source),
             fetched_at=resolve_fetched_at(str(source)),
             sha256=str(sha256),
+            license=_sidecar_licence(path, source=str(source), sha256=str(sha256)),
             crs=str(crs) if crs else None,
             bbox=bbox_payload,
         )
         write_sidecar(path, sidecar)
     except Exception as exc:  # pragma: no cover - non-fatal
         logger.debug("Sidecar write failed for %s: %s", path, exc)
+
+
+def _sidecar_licence(path: Path, *, source: str, sha256: str) -> str:
+    """Return the licence to write in the sidecar of ``path``.
+
+    A determined licence already in the sidecar of the same bytes is kept.
+    Otherwise the source registry answers, and an unknown source is
+    ``LicenseRef-undetermined``, never a default.
+    """
+    from hydromodpy.data.sidecars import load_sidecar, sidecar_path_for
+    from hydromodpy.schema.sources import is_determined, licence_for_source
+
+    if sidecar_path_for(path).is_file():
+        try:
+            existing = load_sidecar(path)
+        except Exception:  # noqa: BLE001 - an unreadable sidecar is rewritten
+            existing = None
+        if existing is not None and existing.sha256 == sha256 and is_determined(existing.license):
+            return str(existing.license)
+    return licence_for_source(source).spdx
 
 
 def try_unlink(fp: str) -> None:

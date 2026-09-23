@@ -24,6 +24,7 @@ from pydantic import ValidationError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import WORKSPACE_TOML_FILENAME
 from hydromodpy.core.workspace.workspace_toml import load_workspace_toml
+from hydromodpy.results.catalog.writes_helpers import run_licence
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
 from hydromodpy.schema.media_types import (
     PARQUET_MEDIA_TYPE,
@@ -33,7 +34,13 @@ from hydromodpy.schema.media_types import (
 
 logger = get_logger(__name__)
 
-_DEFAULT_LICENSE = "https://creativecommons.org/licenses/by/4.0/"
+_LICENCE_URLS: dict[str, str] = {
+    "cc-by-4.0": "https://creativecommons.org/licenses/by/4.0/",
+    "cc-by-sa-4.0": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "cc0-1.0": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "etalab-2.0": "https://spdx.org/licenses/etalab-2.0",
+}
+"""SPDX ids the exporters already know by URL. Any other id is kept as it is."""
 
 
 def _sha256_file(path: Path) -> str:
@@ -89,23 +96,9 @@ def _coalesce(row: dict[str, Any], key: str) -> Any:
     return val
 
 
-def _resolve_license(workspace_meta: dict[str, Any] | None) -> str:
-    """Map workspace TOML license slug to a SPDX/CC URL."""
-    if not workspace_meta:
-        return _DEFAULT_LICENSE
-    slug = str(workspace_meta.get("license", "")).strip().lower()
-    if not slug:
-        return _DEFAULT_LICENSE
-    mapping = {
-        "cc-by-4.0": "https://creativecommons.org/licenses/by/4.0/",
-        "cc-by-sa-4.0": "https://creativecommons.org/licenses/by-sa/4.0/",
-        "cc0-1.0": "https://creativecommons.org/publicdomain/zero/1.0/",
-        "mit": "https://spdx.org/licenses/MIT",
-        "apache-2.0": "https://spdx.org/licenses/Apache-2.0",
-        "etalab-2.0": "https://spdx.org/licenses/etalab-2.0",
-        "proprietary": "https://spdx.org/licenses/LicenseRef-proprietary",
-    }
-    return mapping.get(slug, slug)
+def _licence_reference(spdx: str) -> str:
+    """Return the URL exporters use for a known SPDX id, else the id as it is."""
+    return _LICENCE_URLS.get(spdx.strip().lower(), spdx)
 
 
 def _read_workspace_toml(workspace_path: Path) -> dict[str, Any]:
@@ -360,7 +353,7 @@ def build_context(catalog: Any, sim_id: str) -> FairExportContext:
     )
     workspace_path = Path(catalog.workspace_path)
     workspace_meta = _read_workspace_toml(workspace_path)
-    license_url = _resolve_license(workspace_meta)
+    license_url = _licence_reference(run_licence(catalog.backend, sid, workspace_path))
 
     members = (
         workspace_meta.get("team", {}).get("members")

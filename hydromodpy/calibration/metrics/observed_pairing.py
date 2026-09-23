@@ -23,7 +23,8 @@ import pandas as pd
 
 from hydromodpy.calibration.config import CalibOutputDecl
 from hydromodpy.calibration.metrics.series import load_observed
-from hydromodpy.results.derive.time_alignment import align_observed_simulated
+from hydromodpy.core.time.time_method import DEFAULT_TIME_METHOD
+from hydromodpy.results.derive.time_alignment import align_observed_simulated, time_method_for
 
 OBSERVED_FAMILY_BY_VARIABLE: Mapping[str, str] = {
     "discharge": "discharge",
@@ -97,14 +98,35 @@ def observed_series_for_outputs(
     return series_by_output
 
 
+def output_time_methods(outputs: Mapping[str, CalibOutputDecl]) -> dict[str, str]:
+    """Return, per output name, the time method of the variable it extracts.
+
+    A discharge is averaged over each period, a head or a lake stage is read
+    at the stamp instant: :func:`time_method_for` says which.
+    """
+    return {
+        str(name): time_method_for(str(getattr(decl, "variable", "") or ""))
+        for name, decl in outputs.items()
+    }
+
+
 def pair_outputs_with_observations(
     *,
     observed: Mapping[str, pd.Series],
     simulated: Mapping[str, pd.Series],
     scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
     min_samples: int = 1,
+    time_methods: Mapping[str, str] | None = None,
+    period_starts: Mapping[str, Any] | None = None,
 ) -> PairedOutputs:
     """Align each observed record on its simulated series and return both.
+
+    ``time_methods`` gives, per output name, how its simulated value relates to
+    its end stamps (:func:`output_time_methods`). An output it does not name is
+    ``"mean"``. ``period_starts`` gives, per output name, the start of the
+    first period its series stands for, so a single steady stamp is scored on
+    its own window ``[start, stamp)``. The scorer takes it from the run's time
+    grid; an output it does not name infers it from the spacing of its stamps.
 
     ``scoring_window`` bounds the dates kept. It is applicable here and nowhere
     else in the block route: these series carry timestamps, which is exactly
@@ -128,7 +150,12 @@ def pair_outputs_with_observations(
                 "carry timestamps to align on, and it carries none. The run's time grid "
                 "did not reach the extraction."
             )
-        frame = align_observed_simulated(record, series)
+        frame = align_observed_simulated(
+            record,
+            series,
+            method=(time_methods or {}).get(name, DEFAULT_TIME_METHOD),
+            start=(period_starts or {}).get(name),
+        )
         if scoring_window is not None:
             start, end = scoring_window
             if start is not None:
@@ -168,5 +195,6 @@ __all__ = [
     "PairedOutputs",
     "observed_series_for_outputs",
     "observing_outputs",
+    "output_time_methods",
     "pair_outputs_with_observations",
 ]

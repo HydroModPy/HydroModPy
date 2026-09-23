@@ -11,6 +11,7 @@ per calibration session::
         provenance.json                  environment, versions, git
         manifest.json                    seal, written last
         annotations.json                 tags and notes, mutable after the seal
+        ro-crate-metadata.json ...       generated views, on request, after the seal
         trash.json                       present while the run sits in the trash
         figures/                         figures of this run
     <project>/sessions/<name>/           one calibration session
@@ -40,6 +41,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from hydromodpy.core.state.paths import CATALOG_FILENAME, INTERNAL_DIRNAME, RUNS_DIRNAME
+from hydromodpy.schema.generated_views import GENERATED_VIEWS
 
 StorageScope = Literal["project", "run"]
 
@@ -73,17 +75,24 @@ RUN_FIGURES_DIRNAME = "figures"
 REQUIRED_RUN_ENTRIES: frozenset[str] = frozenset({FIELDS_STORE_NAME, TABLES_DIRNAME})
 """What a solved run always leaves behind."""
 
-ALLOWED_RUN_ENTRIES: frozenset[str] = REQUIRED_RUN_ENTRIES | frozenset(
-    {
-        RUN_CONFIG_FILENAME,
-        RUN_PROVENANCE_FILENAME,
-        RUN_MANIFEST_FILENAME,
-        RUN_ANNOTATIONS_FILENAME,
-        RUN_TRASH_FILENAME,
-        RUN_FIGURES_DIRNAME,
-    }
+ALLOWED_RUN_ENTRIES: frozenset[str] = (
+    REQUIRED_RUN_ENTRIES
+    | frozenset(
+        {
+            RUN_CONFIG_FILENAME,
+            RUN_PROVENANCE_FILENAME,
+            RUN_MANIFEST_FILENAME,
+            RUN_ANNOTATIONS_FILENAME,
+            RUN_TRASH_FILENAME,
+            RUN_FIGURES_DIRNAME,
+        }
+    )
+    | GENERATED_VIEWS
 )
 """Every name a run directory may carry as an artefact.
+
+The generated views are written on request after the seal and, like
+``annotations.json``, the seal does not inventory them.
 
 Anything else found in a run directory is either the runtime scratch named by
 :data:`RUN_SCRATCH_ENTRIES` or something the run did not declare.

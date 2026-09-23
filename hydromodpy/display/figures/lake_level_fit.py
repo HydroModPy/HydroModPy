@@ -18,6 +18,7 @@ from hydromodpy.display.legend_placement import place_legend
 from hydromodpy.results.derive.time_alignment import (
     align_observed_simulated,
     normalize_datetime_series,
+    time_method_for,
 )
 
 __all__ = ["lake_level_fit_metrics", "plot_lake_level_fit"]
@@ -26,10 +27,12 @@ __all__ = ["lake_level_fit_metrics", "plot_lake_level_fit"]
 def lake_level_fit_metrics(observed: pd.Series, simulated: pd.Series) -> dict[str, float]:
     """Return NSE/RMSE/MAE/bias/R2 of ``simulated`` vs ``observed``.
 
-    Both series are aligned on the simulation timestamps before scoring.
-    Returns an empty mapping when there is no overlapping finite sample.
+    Both series are aligned on the simulation timestamps before scoring. A
+    lake level is the state at the stamp, so the record is read at each stamp,
+    not averaged over the period it closes. Returns an empty mapping when there
+    is no overlapping finite sample.
     """
-    paired = align_observed_simulated(observed, simulated)
+    paired = align_observed_simulated(observed, simulated, method=time_method_for("lake_level"))
     if paired.empty:
         return {}
     sim = paired["sim"].to_numpy()
@@ -75,7 +78,7 @@ def plot_lake_level_fit(
 
     obs_window = obs.loc[sim.index.min() : sim.index.max()] if not obs.empty else obs
     metrics = lake_level_fit_metrics(obs, sim)
-    paired = align_observed_simulated(obs, sim)
+    paired = align_observed_simulated(obs, sim, method=time_method_for("lake_level"))
 
     fig, (ax_ts, ax_sc) = plt.subplots(
         1, 2, figsize=(11, 4), dpi=150, gridspec_kw={"width_ratios": [3, 1]}

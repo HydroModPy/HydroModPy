@@ -11,8 +11,8 @@ from pathlib import Path
 
 import duckdb
 
-from hydromodpy.cli._conventions import format_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND
+from hydromodpy.cli._conventions import format_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND, apply_verbosity
 from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "query"
@@ -23,7 +23,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser(), format_parser()],
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
         epilog='Example:\n  hmp catalog query "SELECT name, solver FROM simulations" --format json',
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -39,6 +39,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import query_catalog
 
     workspace_root = resolve_project_root(

@@ -6,8 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import add_sim_ref, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_USAGE, exit_code_for
+from hydromodpy.cli._conventions import add_sim_ref, verbosity_parser, workspace_parser
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_USAGE, apply_verbosity, exit_code_for
 from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "tag"
@@ -18,7 +18,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser()],
+        parents=[workspace_parser(), verbosity_parser()],
         epilog="Example:\n  hmp catalog tag ab12cd34 pinned paper --rm draft",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -41,6 +41,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import tag_simulation
 
     add = tuple(t.lstrip("+") for t in args.add_tags)

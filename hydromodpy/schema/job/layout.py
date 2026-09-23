@@ -13,6 +13,8 @@ the one unambiguous signal a caller outside this process can read.
 
 from __future__ import annotations
 
+from hydromodpy.schema.generated_views import GENERATED_VIEWS
+
 REQUEST_FILENAME = "request.json"
 """The input document, written by the caller before the process starts."""
 
@@ -67,12 +69,15 @@ ALLOWED_JOB_ENTRIES: frozenset[str] = (
     frozenset({REQUEST_FILENAME, JOB_MANIFEST_FILENAME, OUTPUTS_DIRNAME})
     | frozenset(SEALED_DOCUMENTS)
     | NON_ARTIFACT_ENTRIES
+    | GENERATED_VIEWS
 )
 """Every name a job directory may carry at its top level.
 
 Asserted as a subset, never as an equality: a job that failed before writing
 its outputs is still a legal job directory, and a generated view added later
-extends this set without invalidating a single directory already on disk.
+extends this set without invalidating a single directory already on disk. The
+views of :mod:`hydromodpy.schema.generated_views` are written on request after
+the seal, so the seal does not inventory them.
 """
 
 

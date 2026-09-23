@@ -45,7 +45,7 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,calibration,delineation]"
+          pip install -e ".[test,calibration]"
 
       - name: Drop coverage .pth shim
         run: |
@@ -113,7 +113,7 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,calibration,delineation]"
+          pip install -e ".[test,calibration]"
 
       - name: Drop coverage .pth shim
         run: |
@@ -174,7 +174,7 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,calibration,delineation]"
+          pip install -e ".[test,calibration]"
 
       - name: Drop coverage .pth shim
         run: |

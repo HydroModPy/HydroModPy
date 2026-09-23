@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -106,8 +107,9 @@ def test_dates_window_then_warmup_are_identical_for_both_producers(
     }
     blocks = [CalibObjectiveBlockDecl(name="flow", metric="rmse", uses_outputs=["q"])]
     results = {"q": ObservableResult("q", np.array([101.0, 102.0, 6.0, 7.0]), "m3/s", times)}
+    # Each simulated stamp closes the day observed one day before it.
     observed = {
-        "q": pd.Series([1.0, 2.0, 3.0, 4.0, 999.0], index=pd.date_range("2001-01-01", periods=5))
+        "q": pd.Series([1.0, 2.0, 3.0, 4.0, 999.0], index=pd.date_range("2000-12-31", periods=5))
     }
     options = dict(warmup_periods=1, scoring_window=(times[1], times[-1]), min_samples=3)
     _wire_pipeline(monkeypatch, results, observed)
@@ -186,7 +188,8 @@ def test_time_selection_matches_a_solver_that_honors_requests(
     }
     blocks = [CalibObjectiveBlockDecl(name="flow", metric="rmse", uses_outputs=["q"])]
     results = {"q": ObservableResult("q", np.asarray(values), "m3/s", times)}
-    observed = {"q": pd.Series([1.0, 2.0, 3.0], index=times)}
+    # The record is stamped at the day each simulated stamp closes.
+    observed = {"q": pd.Series([1.0, 2.0, 3.0], index=pd.date_range("2000-12-31", periods=3))}
     _wire_pipeline(monkeypatch, results, observed)
     pipeline = composite.build_metric_extractor(
         None,
@@ -196,9 +199,16 @@ def test_time_selection_matches_a_solver_that_honors_requests(
         objective_blocks=blocks,
     )
     foreign = ObservableScorer(outputs, blocks, observed_records=observed)
+    # A solver that honours the request hands back the one selected stamp, so
+    # the start of its period can only come from the run's time grid.
+    trial_ctx = SimpleNamespace(
+        setup=SimpleNamespace(
+            time_grid=SimpleNamespace(boundaries=(times[0] - pd.Timedelta("1D"), *times))
+        )
+    )
 
     total, components = foreign.score(results)
 
     assert total == pytest.approx(0.0)
     assert components["q.n_paired"] == count
-    assert pipeline(object()) == (total, components)
+    assert pipeline(trial_ctx) == (total, components)

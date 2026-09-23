@@ -6,8 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import add_sim_ref, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_USAGE, exit_code_for
+from hydromodpy.cli._conventions import add_sim_ref, verbosity_parser, workspace_parser
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_USAGE, apply_verbosity, exit_code_for
 from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "rerun"
@@ -18,7 +18,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser()],
+        parents=[workspace_parser(), verbosity_parser()],
         epilog="Example:\n  hmp catalog rerun cheze_baseline --set flow.hydraulic_conductivity=2e-4",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -60,6 +60,7 @@ def _parse_overrides(items: list[str]) -> dict:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import rerun_simulation
 
     overrides = _parse_overrides(args.overrides)

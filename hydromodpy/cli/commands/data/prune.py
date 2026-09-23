@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import argparse
 
+from hydromodpy.cli._conventions import verbosity_parser
+from hydromodpy.cli.helpers import apply_verbosity
+
 NAME: str = "prune"
 HELP: str = "Drop cache entries older than N days"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
     parser.add_argument("--workspace", default=None)
     parser.add_argument(
         "--older-than", type=int, default=30, help="Age threshold in days (default: 30)"
@@ -20,6 +23,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.data import prune_data_cache
 
     n = prune_data_cache(

@@ -14,6 +14,7 @@ declarations named here by ``python -m tools.processes``.
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,6 +23,7 @@ from typing import Any
 
 from hydromodpy.core.exceptions import JobUsageError
 from hydromodpy.core.interrupts import terminate_as_interrupt
+from hydromodpy.core.progress_ndjson import ENV_VAR as PROGRESS_NDJSON_ENV_VAR
 from hydromodpy.schema.capability import CapabilityDecl
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.outcome import DISMISSED_STATUS, JobOutcome
@@ -151,6 +153,12 @@ def run_capability(capability_id: str, job_dir: str | Path) -> tuple[int, str]:
 
     SIGTERM unwinds through :func:`terminate_as_interrupt`, so a cancelled job
     writes its dismissed outcome and exits 130 with nothing sealed.
+
+    Progress events from ``core.progress`` reach ``job.progress_path`` for the
+    duration of the run: ``core`` cannot name a job directory itself (it
+    imports no sibling layer), so this is the one place that both resolves
+    one, through :class:`JobDirectory`, and can point the NDJSON sink at it,
+    through the environment variable it reads.
     """
     from hydromodpy.cli.helpers import EXIT_SIGINT, exit_code_for
 
@@ -161,13 +169,31 @@ def run_capability(capability_id: str, job_dir: str | Path) -> tuple[int, str]:
     with terminate_as_interrupt():
         entry = capability(capability_id)
         job = JobDirectory.open(job_dir)
+        previous_progress_file = os.environ.get(PROGRESS_NDJSON_ENV_VAR)
+        os.environ[PROGRESS_NDJSON_ENV_VAR] = str(job.progress_path)
         try:
             outcome = entry.run(job, exit_code_for=exit_code_for)
         except KeyboardInterrupt:
             return EXIT_SIGINT, _dismissed_text(job)
+        finally:
+            _restore_env(PROGRESS_NDJSON_ENV_VAR, previous_progress_file)
     if outcome.reused:
         return outcome.exit_code, reused_outcome_text(job)
     return outcome.exit_code, _outcome_text(job)
+
+
+def _restore_env(name: str, previous: str | None) -> None:
+    """Put an environment variable back the way :func:`run_capability` found it.
+
+    A chain runs several jobs in one process (:func:`run_capability_chain`),
+    each with its own job directory, so the variable must not leak from one
+    job's run into the next call's setup, or into code that runs after the
+    last one.
+    """
+    if previous is None:
+        os.environ.pop(name, None)
+    else:
+        os.environ[name] = previous
 
 
 def _outcome_text(job: JobDirectory) -> str:

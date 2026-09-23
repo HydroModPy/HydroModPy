@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import argparse
 
+from hydromodpy.cli._conventions import verbosity_parser
+from hydromodpy.cli.helpers import apply_verbosity
+
 NAME: str = "remove"
 HELP: str = "Remove cache entries for a variable/provider/station"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
     parser.add_argument("--workspace", default=None)
     parser.add_argument("--variable", default=None)
     parser.add_argument("--provider", default=None)
@@ -20,6 +23,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.data import remove_data_entries
 
     n = remove_data_entries(

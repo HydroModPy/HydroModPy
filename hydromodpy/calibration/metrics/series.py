@@ -95,7 +95,34 @@ def resolve_time_index(ctx: Any, n_timesteps: int = 0) -> pd.DatetimeIndex | Non
         return None
 
 
+def time_grid_boundaries(ctx: Any) -> tuple[Any, ...] | None:
+    """Return the run's time-grid bounds, or ``None`` when it carries none.
+
+    The first bound is the run window start, which a single steady stamp
+    cannot tell on its own; the scorers take each series' period start from
+    these bounds.
+    """
+    time_grid = getattr(getattr(ctx, "setup", None), "time_grid", None)
+    boundaries = getattr(time_grid, "boundaries", None)
+    if boundaries is None or len(boundaries) == 0:
+        return None
+    return tuple(boundaries)
+
+
 _RUNOFF_WARNING_EMITTED: set[int] = set()
+
+
+def _window_start(ctx: Any, index: pd.DatetimeIndex) -> pd.Timestamp | None:
+    """Return the first time-grid boundary when it precedes the first stamp."""
+    time_grid = getattr(getattr(ctx, "setup", None), "time_grid", None)
+    boundaries = getattr(time_grid, "boundaries", None)
+    if not boundaries or len(index) == 0:
+        return None
+    start = pd.Timestamp(boundaries[0])
+    first_stamp = pd.Timestamp(index.min())
+    if (start.tz is None) != (first_stamp.tz is None):
+        start = start.tz_localize(first_stamp.tz) if start.tz is None else start.tz_localize(None)
+    return start if start < first_stamp else None
 
 
 def add_runoff_to_discharge(
@@ -172,14 +199,16 @@ def add_runoff_to_discharge(
     elif runoff_index.tz is not None and target_index.tz is not None:
         runoff_mm_per_d = runoff_mm_per_d.tz_convert(target_index.tz)
     # The canonical rule, called directly and not through the observation
-    # helper: a runoff FORCING is not an observation chronicle. The helper picks
-    # between a per-period mean and a nearest sample on the MEDIAN spacing of
-    # the two indices, which sends a single steady period, or one long period
-    # followed by short ones, to the nearest sample: the phase-one steady stage
-    # would then be scored on the runoff of one day. The derived catchment
-    # discharge already averages, and what a run is scored on has to be what it
-    # reports.
-    aligned = period_mean_on_index(runoff_mm_per_d, pd.DatetimeIndex(target_index))
+    # helper: a runoff FORCING is not an observation chronicle, and a period it
+    # misses is a gap, not the previous value. The derived catchment discharge
+    # averages by the same rule, and what a run is scored on has to be what it
+    # reports. The window start bounds the first period, which a single steady
+    # stamp cannot tell on its own.
+    aligned = period_mean_on_index(
+        runoff_mm_per_d,
+        pd.DatetimeIndex(target_index),
+        start=_window_start(ctx, pd.DatetimeIndex(target_index)),
+    )
     runoff_m3_per_s = aligned * 1e-3 * catch_area_m2 / 86400.0
     return simulated.add(runoff_m3_per_s, fill_value=0.0)
 
@@ -188,5 +217,6 @@ __all__ = [
     "ObservedSeries",
     "load_observed",
     "resolve_time_index",
+    "time_grid_boundaries",
     "add_runoff_to_discharge",
 ]

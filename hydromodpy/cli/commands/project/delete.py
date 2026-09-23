@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli._conventions import confirm_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_SIGINT
+from hydromodpy.cli._conventions import confirm_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_SIGINT, apply_verbosity
 
 NAME: str = "delete"
 HELP: str = "Delete a project and its catalog data"
@@ -16,7 +16,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser(), confirm_parser()],
+        parents=[workspace_parser(), confirm_parser(), verbosity_parser()],
         epilog="Example:\n  hmp project delete demo -y",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -26,6 +26,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.project import delete_project
 
     if not args.yes:

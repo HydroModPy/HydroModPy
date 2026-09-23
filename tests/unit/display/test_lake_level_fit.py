@@ -19,10 +19,21 @@ def _series(values: list[float], start: str = "2019-01-01") -> pd.Series:
     return pd.Series(values, index=idx, dtype="float64")
 
 
+def _simulated(obs: pd.Series, offset: float = 0.0) -> pd.Series:
+    """The run that matches ``obs`` up to ``offset``.
+
+    A lake level is the state AT its stamp, not the mean of the period the
+    stamp closes, so the run is stamped at the very instants the record was
+    read. Shifting it by a day, as a discharge is, would score each stage
+    against the reading of the day before.
+    """
+    return pd.Series(obs.to_numpy() + offset, index=obs.index, dtype="float64")
+
+
 class TestMetrics:
     def test_perfect_fit(self):
         obs = _series([10.0, 11.0, 12.0, 13.0])
-        m = lake_level_fit_metrics(obs, obs.copy())
+        m = lake_level_fit_metrics(obs, _simulated(obs))
         assert m["nse"] == pytest.approx(1.0)
         assert m["rmse"] == pytest.approx(0.0)
         assert m["bias"] == pytest.approx(0.0)
@@ -30,7 +41,7 @@ class TestMetrics:
 
     def test_offset_fit(self):
         obs = _series([10.0, 11.0, 12.0, 13.0])
-        sim = obs + 0.5
+        sim = _simulated(obs, 0.5)
         m = lake_level_fit_metrics(obs, sim)
         assert m["rmse"] == pytest.approx(0.5)
         assert m["bias"] == pytest.approx(0.5)
@@ -44,7 +55,7 @@ class TestMetrics:
 class TestFigure:
     def test_writes_png_and_returns_metrics(self, tmp_path: Path):
         obs = _series(list(np.linspace(80.0, 90.0, 30)))
-        sim = obs + 0.3
+        sim = _simulated(obs, 0.3)
         out = tmp_path / "fit.png"
         metrics = plot_lake_level_fit(obs, sim, out_path=out, lake_id="lac0")
         assert out.exists() and out.stat().st_size > 0

@@ -6,15 +6,15 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import add_sim_ref
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND
+from hydromodpy.cli._conventions import add_sim_ref, verbosity_parser
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity
 
 NAME: str = "show"
 HELP: str = "Render one figure for a simulation"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
     add_sim_ref(parser)
     parser.add_argument(
         "figure", help="Figure name from 'hmp viz list' (e.g. watertable_depth_map)"
@@ -31,6 +31,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.viz import render_figure
     from hydromodpy.results.catalog import (
         AmbiguousReferenceError,

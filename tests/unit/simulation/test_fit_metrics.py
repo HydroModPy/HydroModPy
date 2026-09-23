@@ -1,4 +1,10 @@
-"""A run carries its own score against the observations ingested beside it."""
+"""A run carries its own score against the observations ingested beside it.
+
+A simulated stamp closes its stress period and an observation is stamped at
+the start of what it measures, so a daily record pairs with the simulated
+stamp one day after it. These tests used to give both series the same stamps,
+which paired each period with the day that opens the next one.
+"""
 
 from __future__ import annotations
 
@@ -43,10 +49,15 @@ def _frame(sim_times, sim_values, obs_times, obs_values) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _closing(days: pd.DatetimeIndex) -> pd.DatetimeIndex:
+    """The simulated stamps that close the days of ``days``."""
+    return days.shift(1, freq="D")
+
+
 def test_a_perfect_run_scores_one_everywhere() -> None:
     days = pd.date_range("2001-01-01", periods=40, freq="D", tz="UTC")
     values = np.linspace(1.0, 4.0, 40)
-    store = _FakeStore(_frame(days, values, days, values))
+    store = _FakeStore(_frame(_closing(days), values, days, values))
 
     assert write_fit_metrics("sim", store) > 0
 
@@ -61,7 +72,9 @@ def test_a_perfect_run_scores_one_everywhere() -> None:
 
 def test_the_panel_is_written_under_the_observed_station(store_days=40) -> None:
     days = pd.date_range("2001-01-01", periods=store_days, freq="D", tz="UTC")
-    store = _FakeStore(_frame(days, np.arange(store_days) + 1.0, days, np.arange(store_days) + 2.0))
+    store = _FakeStore(
+        _frame(_closing(days), np.arange(store_days) + 1.0, days, np.arange(store_days) + 2.0)
+    )
 
     write_fit_metrics("sim", store)
 
@@ -74,7 +87,7 @@ def test_a_gauge_stamped_at_another_hour_still_pairs() -> None:
     # A daily run stamped at midnight and a gauge stamped at noon share no exact
     # timestamp. An empty overlap would read as "no observation" when the two
     # cover the same years.
-    sim_days = pd.date_range("2001-01-01 00:00", periods=30, freq="D", tz="UTC")
+    sim_days = pd.date_range("2001-01-02 00:00", periods=30, freq="D", tz="UTC")
     obs_days = pd.date_range("2001-01-01 12:00", periods=30, freq="D", tz="UTC")
     values = np.linspace(1.0, 3.0, 30)
     store = _FakeStore(_frame(sim_days, values, obs_days, values))
@@ -96,7 +109,7 @@ def test_series_that_never_overlap_are_not_scored(caplog) -> None:
 
     assert store.metrics == []
     # Silence would read as "this run has no observation", which is not the case.
-    assert "share 0 timestamp" in " ".join(r.getMessage() for r in caplog.records)
+    assert "share 0 period" in " ".join(r.getMessage() for r in caplog.records)
 
 
 def test_a_steady_run_is_not_scored_and_does_not_cry_wolf(caplog) -> None:
@@ -125,3 +138,41 @@ def test_a_run_without_observations_writes_nothing() -> None:
 
     assert write_fit_metrics("sim", store) == 0
     assert store.metrics == []
+
+
+def test_a_monthly_run_is_scored_on_the_monthly_means_of_a_daily_gauge() -> None:
+    # Each month of the gauge is constant, the run reproduces it exactly. The
+    # old join on equal stamps compared each month with the first day of the
+    # next one, a month late.
+    days = pd.date_range("2001-01-01", "2001-12-31", freq="D", tz="UTC")
+    gauge = days.month.to_numpy(dtype=float)
+    month_ends = pd.date_range("2001-02-01", periods=12, freq="MS", tz="UTC")
+    store = _FakeStore(_frame(month_ends, np.arange(1.0, 13.0), days, gauge))
+
+    write_fit_metrics("sim", store)
+
+    by_name = {m["name"]: m["value"] for m in store.metrics}
+    assert by_name["nse"] == pytest.approx(1.0)
+    assert {m["n_samples"] for m in store.metrics} == {12}
+
+
+def test_a_lake_level_is_scored_on_the_reading_at_its_stamp() -> None:
+    # A lake level is the state AT its stamp, so a daily run pairs each stage
+    # with the reading taken at that instant, not the day its stamp closes.
+    days = pd.date_range("2001-01-01", periods=30, freq="D", tz="UTC")
+    stages = np.linspace(80.0, 90.0, 30)
+    rows = [
+        {"station_id": "lake:lac0", "variable": "lake_level", "time": t, "value": v}
+        for t, v in zip(days, stages, strict=True)
+    ]
+    rows += [
+        {"station_id": "lac0", "variable": "lake_level_obs", "time": t, "value": v}
+        for t, v in zip(days, stages, strict=True)
+    ]
+    store = _FakeStore(pd.DataFrame(rows))
+
+    write_fit_metrics("sim", store)
+
+    by_name = {m["name"]: m["value"] for m in store.metrics}
+    assert by_name["rmse"] == pytest.approx(0.0)
+    assert {m["n_samples"] for m in store.metrics} == {30}

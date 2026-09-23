@@ -34,9 +34,9 @@ from hydromodpy.results.exporters.hmp_package import (
     HMP_FORMAT_VERSION,
     HMP_MAGIC,
     MANIFEST_NAME,
-    RO_CRATE_METADATA_NAME,
     ZARR_ARCHIVE_NAME,
 )
+from hydromodpy.schema.generated_views import RO_CRATE_VIEW_FILENAME
 
 # `hmp export-package` is not a registered CLI verb in this codebase: the
 # export is driven via the ``catalog.export_package`` API (also used by the
@@ -104,7 +104,7 @@ def test_export_package_layout_and_manifest_sha256(tmp_path: Path) -> None:
     with _open_archive(archive_path) as tar:
         names = tar.getnames()
         assert f"{sim_id}/{MANIFEST_NAME}" in names
-        assert f"{sim_id}/{RO_CRATE_METADATA_NAME}" in names
+        assert f"{sim_id}/{RO_CRATE_VIEW_FILENAME}" in names
         assert any(name.endswith("catalog_snapshot.duckdb") for name in names)
         assert any(name.endswith(ZARR_ARCHIVE_NAME) for name in names)
 
