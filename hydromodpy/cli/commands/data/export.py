@@ -6,7 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, exit_code_for
+from hydromodpy.cli._conventions import verbosity_parser
+from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, apply_verbosity, exit_code_for
 from hydromodpy.core.state.paths import catalog_path_for, share_dir_for
 
 NAME: str = "export"
@@ -14,7 +15,7 @@ HELP: str = "Export geographic data or simulation results from the project store
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
     parser.add_argument("project", type=str, help="Path to the project directory")
     parser.add_argument(
         "--list",
@@ -89,6 +90,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.results.catalog import (
         AmbiguousReferenceError,
         Catalog,

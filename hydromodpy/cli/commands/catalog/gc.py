@@ -14,8 +14,8 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli._conventions import format_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_OK
+from hydromodpy.cli._conventions import format_parser, verbosity_parser
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_OK, apply_verbosity
 
 NAME: str = "gc"
 HELP: str = (
@@ -53,7 +53,7 @@ def _positive_days(value: str) -> int:
 def register(subparsers) -> argparse.ArgumentParser:
     from hydromodpy.cli._workers.catalog import DEFAULT_KEEP_VERSIONS, PROTECTED_TAG
 
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[format_parser()])
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[format_parser(), verbosity_parser()])
     parser.add_argument(
         "-w",
         "--workspace",
@@ -107,6 +107,7 @@ def _describe(policy: dict) -> str:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import RetentionPolicy, gc
 
     # Safe by default: planner unless --apply (mirrors `audit prune`,

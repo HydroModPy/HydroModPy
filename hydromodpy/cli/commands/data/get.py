@@ -5,7 +5,8 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli.helpers import EXIT_CONFIG
+from hydromodpy.cli._conventions import verbosity_parser
+from hydromodpy.cli.helpers import EXIT_CONFIG, apply_verbosity
 from hydromodpy.core import progress
 
 NAME: str = "get"
@@ -26,7 +27,7 @@ def _parse_bbox(value: str) -> tuple[float, float, float, float]:
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
     parser.add_argument("variable", help="Variable name (e.g. dem, piezometry, hydrometry)")
     parser.add_argument(
         "--bbox",
@@ -47,6 +48,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.data import fetch_data_variable
 
     try:

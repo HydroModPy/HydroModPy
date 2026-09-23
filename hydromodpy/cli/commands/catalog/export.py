@@ -6,8 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for
+from hydromodpy.cli._conventions import verbosity_parser, workspace_parser
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, exit_code_for
 from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "export"
@@ -18,7 +18,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser()],
+        parents=[workspace_parser(), verbosity_parser()],
         epilog=(
             "Examples:\n"
             "  hmp catalog export cheze_baseline.v3 -o paper.hmp\n"
@@ -46,6 +46,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import export_package_run, export_package_runs
 
     workspace_root = resolve_project_root(

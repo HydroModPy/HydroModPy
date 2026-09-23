@@ -6,8 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import format_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND
+from hydromodpy.cli._conventions import format_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity
 from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "watch"
@@ -20,7 +20,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser(), format_parser()],
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
         epilog="Example:\n  hmp catalog watch --stale-minutes 5",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -45,6 +45,7 @@ def _age(age_s: float | None) -> str:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import watch_running
 
     workspace_root = resolve_project_root(

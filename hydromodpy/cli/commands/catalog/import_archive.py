@@ -6,8 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for
+from hydromodpy.cli._conventions import verbosity_parser, workspace_parser
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, exit_code_for
 
 NAME: str = "import"
 HELP: str = "Import a .hmp archive into the workspace (checksums verified first)"
@@ -17,7 +17,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser()],
+        parents=[workspace_parser(), verbosity_parser()],
         epilog="Example:\n  hmp catalog import paper.hmp",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -32,6 +32,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import import_package_run
 
     workspace_root = Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()

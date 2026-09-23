@@ -10,14 +10,15 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
+from hydromodpy.cli._conventions import verbosity_parser
+from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, apply_verbosity
 
 NAME: str = "add"
 HELP: str = "Power-user command to ingest a single file with explicit metadata"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
     parser.add_argument("file", help="Path to the source file to ingest")
     parser.add_argument("--type", dest="variable", default=None, help="Variable name")
     parser.add_argument("--provider", default="custom", help="Provider label")
@@ -38,6 +39,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.data import add_data_entry
 
     if not args.variable:

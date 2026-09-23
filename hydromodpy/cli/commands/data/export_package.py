@@ -6,7 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND, EXIT_OK
+from hydromodpy.cli._conventions import verbosity_parser
+from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND, EXIT_OK, apply_verbosity
 from hydromodpy.core.state.paths import catalog_path_for
 
 NAME: str = "export-package"
@@ -14,7 +15,7 @@ HELP: str = "Export a simulation as a portable .hmp archive (tar.zst with RO-Cra
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
     parser.add_argument(
         "sim_ref",
         help="Simulation reference: full UUID, UUID prefix (>=4 chars), or name",
@@ -42,6 +43,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.results.catalog import (
         AmbiguousReferenceError,
         Catalog,

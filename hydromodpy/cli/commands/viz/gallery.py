@@ -5,7 +5,8 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
+from hydromodpy.cli._conventions import verbosity_parser
+from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, apply_verbosity
 from hydromodpy.core import progress
 
 NAME: str = "gallery"
@@ -13,7 +14,7 @@ HELP: str = "Render the [display] figure gallery for one or several runs"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
     parser.add_argument("config", help="Path to a project TOML file")
     parser.add_argument("--run", dest="run_name", default=None, metavar="NAME")
     parser.add_argument("--sim", dest="sim_ref", default=None, metavar="UUID")
@@ -26,6 +27,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.viz import render_gallery
 
     only = [s.strip() for s in args.only.split(",") if s.strip()] if args.only else None

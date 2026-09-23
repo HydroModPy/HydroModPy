@@ -5,14 +5,15 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND
+from hydromodpy.cli._conventions import verbosity_parser
+from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND, apply_verbosity
 
 NAME: str = "import"
 HELP: str = "Import a .hmp archive and dematerialise its bundled inputs"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
     parser.add_argument("package", help="Path to the .hmp archive")
     parser.add_argument("-w", "--workspace", default=None, help="Target project catalog root")
     parser.add_argument(
@@ -25,6 +26,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.data import import_package
     from hydromodpy.results.importers import InputCollisionError
 

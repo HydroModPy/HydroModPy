@@ -6,11 +6,17 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import add_sim_ref, confirm_parser, workspace_parser
+from hydromodpy.cli._conventions import (
+    add_sim_ref,
+    confirm_parser,
+    verbosity_parser,
+    workspace_parser,
+)
 from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
     EXIT_USAGE,
+    apply_verbosity,
 )
 from hydromodpy.core.state.paths import resolve_project_root
 
@@ -22,7 +28,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser(), confirm_parser()],
+        parents=[workspace_parser(), confirm_parser(), verbosity_parser()],
         epilog="Examples:\n  hmp catalog delete ab12cd34 -y\n  hmp catalog delete ab12cd34 --now -y",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -42,6 +48,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import delete_simulation, trash_simulation
     from hydromodpy.cli.helpers import exit_code_for
 

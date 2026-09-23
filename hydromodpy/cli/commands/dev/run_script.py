@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND
+from hydromodpy.core.logging import current_verbosity
 
 NAME: str = "run-script"
 HELP: str = "Run a Python prototype script outside the stable hmp run contract"
@@ -32,7 +33,8 @@ def run(args: argparse.Namespace) -> None:
     if not script_path.is_file():
         print(f"File not found: {script_path}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
-    print_hydromodpy()
+    if current_verbosity() != "quiet":
+        print_hydromodpy()
     cmd = [sys.executable, str(script_path), *list(args.script_args)]
     result = subprocess.run(cmd, cwd=str(script_path.parent))
     sys.exit(result.returncode)

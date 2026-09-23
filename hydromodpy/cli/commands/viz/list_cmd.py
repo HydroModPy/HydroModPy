@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import argparse
 
+from hydromodpy.cli._conventions import verbosity_parser
+from hydromodpy.cli.helpers import apply_verbosity
+
 NAME: str = "list"
 HELP: str = "List the figure names accepted by [display].figures"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
     parser.add_argument(
         "--kind",
         default=None,
@@ -21,6 +24,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    apply_verbosity(args, {})
     from hydromodpy.display import list_figures
 
     specs = [spec for spec in list_figures() if args.kind in (None, spec.kind)]
