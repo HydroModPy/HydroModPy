@@ -1147,6 +1147,36 @@
             "title": "Diagonal Neighbors",
             "type": "boolean",
             "x-hmp-profile": "user"
+          },
+          "snap_radius": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "properties": {
+                  "magnitude": {
+                    "title": "Magnitude",
+                    "type": "string"
+                  },
+                  "units": {
+                    "title": "Units",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "magnitude"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Opt-in. Move this gauge onto the cell that drains the most within this radius, before it is scored. Accepts a bare number (metres) or a pint string like '150 m'; it is a maximum displacement, measured from the gauge cell centre to the cell centres. The drained area is the one the solver routes on the mesh, with this output's 'diagonal_neighbors'. Only for 'variable' = 'discharge'. Off by default: a gauge otherwise stays in the cell it resolves to, which may drain a small share of the catchment, and the run logs that share.",
+            "title": "Snap Radius",
+            "x-hmp-profile": "user"
           }
         },
         "required": [
@@ -1680,6 +1710,36 @@
             ],
             "title": "Diagonal Neighbors",
             "type": "boolean",
+            "x-hmp-profile": "user"
+          },
+          "snap_radius": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "properties": {
+                  "magnitude": {
+                    "title": "Magnitude",
+                    "type": "string"
+                  },
+                  "units": {
+                    "title": "Units",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "magnitude"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Opt-in. Move this gauge onto the cell that drains the most within this radius, before it is scored. Accepts a bare number (metres) or a pint string like '150 m'; it is a maximum displacement, measured from the gauge coordinate to the cell centres. The drained area is the one the solver routes on the mesh, with this output's 'diagonal_neighbors'. Only for 'variable' = 'discharge'. With 'observes', a discharge station is then located by the coordinate of its record, which it otherwise is not, and snapped from there. Off by default: a gauge otherwise stays in the cell it resolves to, which may drain a small share of the catchment, and the run logs that share.",
+            "title": "Snap Radius",
             "x-hmp-profile": "user"
           }
         },
@@ -5170,7 +5230,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -10841,7 +10901,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -11311,7 +11371,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -11927,7 +11987,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -12377,7 +12437,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -12612,7 +12672,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -12847,7 +12907,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -13203,7 +13263,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -16157,7 +16217,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -17156,7 +17216,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -17570,7 +17630,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -17912,7 +17972,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -18174,7 +18234,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -19692,7 +19752,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -20466,7 +20526,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -21576,7 +21636,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -23112,7 +23172,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -23409,7 +23469,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },

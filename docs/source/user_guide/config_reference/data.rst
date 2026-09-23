@@ -1002,7 +1002,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -1348,7 +1348,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/intermittency/config.py#L20>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -1976,7 +1976,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -2256,7 +2256,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -2536,7 +2536,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -2816,7 +2816,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -3110,7 +3110,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L20>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -3436,7 +3436,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L20>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -3786,7 +3786,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L20>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -4118,7 +4118,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/recharge/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -4530,7 +4530,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/runoff/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -4814,7 +4814,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -5118,7 +5118,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -5432,7 +5432,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/temperature/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -5716,7 +5716,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/wind/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -6000,7 +6000,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/humidity/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -6284,7 +6284,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -6586,7 +6586,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.
 
 
             .. container:: hmp-field hmp-field-level-dev
