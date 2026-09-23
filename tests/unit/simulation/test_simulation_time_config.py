@@ -90,7 +90,7 @@ def test_simulation_time_window_explicit_requires_bounds() -> None:
             {
                 "name": "explicit-without-bounds",
                 "time": {
-                    "step_value": 1,
+                    "step_value": "1 day",
                 },
                 "process": [],
             }
@@ -138,6 +138,37 @@ def test_simulation_time_window_rejects_conflicting_inline_and_explicit_units() 
                     "end_datetime": "2020-01-02 00:00:00",
                     "step_value": "30 day",
                     "step_unit": "hour",
+                },
+                "process": [],
+            }
+        )
+
+
+def test_simulation_time_window_reports_sign_before_missing_unit() -> None:
+    """A negative step_value with no unit gets the sign diagnosis, not 'has no unit'."""
+    with pytest.raises(ValueError, match="must be a positive integer"):
+        _ = SimulationConfig.model_validate(
+            {
+                "name": "negative-step-no-unit",
+                "time": {
+                    "start_datetime": "2020-01-01 00:00:00",
+                    "end_datetime": "2020-01-02 00:00:00",
+                    "step_value": -5,
+                },
+                "process": [],
+            }
+        )
+
+
+def test_simulation_time_window_rejects_bare_step_value_without_unit() -> None:
+    with pytest.raises(ValueError, match="simulation.time.step_value has no unit"):
+        _ = SimulationConfig.model_validate(
+            {
+                "name": "bare-step-value",
+                "time": {
+                    "start_datetime": "2020-01-01 00:00:00",
+                    "end_datetime": "2020-01-02 00:00:00",
+                    "step_value": 1,
                 },
                 "process": [],
             }

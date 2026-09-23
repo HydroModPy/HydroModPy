@@ -14,7 +14,9 @@ Anything needing a live comparison run or solver is skipped on purpose.
 
 from __future__ import annotations
 
+import logging
 import math
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -29,6 +31,7 @@ from hydromodpy.analysis.comparison.exports.budget import (
     _mf_budget_component_value_m3_s,
     _residual_total_series_m3_s,
     _saturated_thickness_from_head_history,
+    _step_end_elapsed_seconds_from_config,
     _storage_change_series_m3_s,
 )
 from hydromodpy.core.units.time import SECONDS_PER_DAY
@@ -378,6 +381,20 @@ def test_elapsed_seconds_axis_fallback_is_index_range() -> None:
     periods = np.array([1.0], dtype=float)  # neither n nor n-1 for n=4
     elapsed = _elapsed_seconds_axis(periods, n_snapshots=4)
     assert elapsed.tolist() == pytest.approx([0.0, 1.0, 2.0, 3.0])
+
+
+def test_step_end_elapsed_seconds_from_config_logs_the_refusal(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An unreadable config falls back to a step-index axis, and says why."""
+    caplog.set_level(logging.DEBUG, logger="hydromodpy")
+    missing = Path("/nonexistent/does-not-exist.toml")
+
+    result = _step_end_elapsed_seconds_from_config(missing, n_steps=3)
+
+    assert result.tolist() == pytest.approx([0.0, 1.0, 2.0])
+    messages = [r.getMessage() for r in caplog.records if r.levelno == logging.DEBUG]
+    assert any(str(missing) in m and "No such file" in m for m in messages)
 
 
 def test_saturated_thickness_clips_between_zero_and_aquifer() -> None:

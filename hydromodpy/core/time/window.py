@@ -19,6 +19,7 @@ validation errors intended to be user-facing.
 
 from __future__ import annotations
 
+import re
 import warnings
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -193,14 +194,48 @@ def _normalize_step_unit(raw_step_unit: Any) -> TimePeriodUnit:
     return step_unit  # type: ignore[return-value]
 
 
+_BARE_NUMBER_PATTERN = re.compile(r"^\s*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\s*$")
+
+
+def _has_inline_unit(raw_step_value: Any) -> bool:
+    """Return True when *raw_step_value* is a string carrying its own unit token."""
+    if not isinstance(raw_step_value, str):
+        return False
+    return _BARE_NUMBER_PATTERN.match(raw_step_value) is None
+
+
+def _reject_bad_step_value_type_or_sign(raw_step_value: Any) -> None:
+    """Raise the positive-integer diagnosis before any unit check runs.
+
+    A boolean or a negative/zero bare number is wrong regardless of whether a
+    unit is attached, and that is the more useful thing to tell the caller
+    than "has no unit".
+    """
+    if isinstance(raw_step_value, bool):
+        raise ValueError("simulation.time.step_value must be a positive integer.")
+    if isinstance(raw_step_value, int | float) and raw_step_value <= 0:
+        raise ValueError("simulation.time.step_value must be a positive integer.")
+    if isinstance(raw_step_value, str) and _BARE_NUMBER_PATTERN.match(raw_step_value):
+        if float(raw_step_value.strip()) <= 0:
+            raise ValueError("simulation.time.step_value must be a positive integer.")
+
+
 def _parse_step_spec(
     *,
     raw_step_value: Any,
     raw_step_unit: Any,
 ) -> tuple[int, TimePeriodUnit]:
+    _reject_bad_step_value_type_or_sign(raw_step_value)
+
     explicit_unit_raw: str | None = None
     if raw_step_unit is not None and str(raw_step_unit).strip() != "":
         explicit_unit_raw = str(raw_step_unit).strip()
+
+    if explicit_unit_raw is None and not _has_inline_unit(raw_step_value):
+        raise ValueError(
+            "simulation.time.step_value has no unit. Write an inline unit "
+            "(for example '1 month' or '30 day') or set simulation.time.step_unit."
+        )
 
     default_unit = explicit_unit_raw or "day"
     scalar, resolved_unit = parse_scalar_and_unit(
@@ -439,7 +474,7 @@ def simulation_time_pandas_frequency(
         raise ValueError("anchor must be 'start' or 'end'.")
     step = int(window.step_value)
     if window.step_unit == "hour":
-        return f"{step}H"
+        return f"{step}h"
     if window.step_unit == "day":
         return f"{step}D"
     if window.step_unit == "month":

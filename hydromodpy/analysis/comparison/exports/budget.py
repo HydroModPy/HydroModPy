@@ -193,7 +193,13 @@ def _step_end_elapsed_seconds_from_config(
 
         payload = load_toml_with_base_config(config_path)
         grid = resolve_simulation_time_grid(_namespace_from_mapping(payload))
-    except Exception:
+    except Exception as exc:
+        logger.debug(
+            "Could not resolve the simulation time grid from %s, falling back to a "
+            "plain step-index axis: %s",
+            config_path,
+            exc,
+        )
         return np.arange(n_steps, dtype=float)
     if grid is None:
         return np.arange(n_steps, dtype=float)
