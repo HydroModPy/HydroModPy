@@ -65,6 +65,7 @@ dependencies = [
     "scikit-learn>=1.8.0,<2",
     "scipy>=1.17.1,<2",
     "shapely>=2,<3",
+    "whitebox-workflows==1.3.5",
     "xarray>=2026.4.0,<2027",
     "xugrid>=0.15.2,<1",
     "pydantic>=2.13.3,<3",
@@ -84,7 +85,6 @@ dependencies = [
 
 [project.optional-dependencies]
 calibration = ["cma>=4.4.4,<5", "cmaes>=0.12.0,<1"]
-delineation = ["whitebox-workflows>=1.3.5"]
 mesh = ["gmsh>=4.15.2,<5"]
 duckdb = ["duckdb"]
 metrics = ["psutil", "pynvml"]

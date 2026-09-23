@@ -99,7 +99,7 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,calibration,delineation]"
+          pip install -e ".[test,calibration]"
 
       # The tier's one run is the synthetic Dupuit aquifer of example 00, solved
       # with MODFLOW-NWT. Nothing here needs MODFLOW 6.
@@ -135,7 +135,7 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,performance,calibration,delineation]"
+          pip install -e ".[test,performance,calibration]"
 
       - name: Install external validity_frame package
         run: pip install -e validity_frame
@@ -188,7 +188,7 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,calibration,delineation]"
+          pip install -e ".[test,calibration]"
 
       - name: Install external validity_frame package
         run: pip install -e validity_frame
@@ -278,7 +278,7 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,calibration,delineation]"
+          pip install -e ".[test,calibration]"
 
       - name: Install solver binaries for integration tests
         run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
@@ -309,7 +309,7 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,calibration,delineation]"
+          pip install -e ".[test,calibration]"
 
       - name: Install solver binaries for regression tests
         run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet
