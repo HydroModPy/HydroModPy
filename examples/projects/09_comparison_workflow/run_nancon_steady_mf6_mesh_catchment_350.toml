@@ -9,7 +9,6 @@ root = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_c
 
 [simulation]
 name = "nancon_steady_mf6_irregular_network_methods__mf6_mesh_catchment_350"
-run_id = "nancon_steady_mf6_irregular_network_methods__mf6_mesh_catchment_350"
 description = "MODFLOW 6 Nancon steady candidate on a generated irregular mesh-catchment grid, target size 350 m."
 if_exists = "replace"
 
@@ -30,9 +29,6 @@ mf_verbose = false
 
 [modflow6.process_specific]
 vka = 1.0
-
-[modflow6.tgrid]
-firstpersteady = true
 
 [modflow6.sgrid.vertical]
 nlay = 1

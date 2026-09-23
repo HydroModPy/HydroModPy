@@ -64,7 +64,6 @@ kind = "constant_thickness"
 thickness = "80.0 m"
 
 [data]
-project_crs = "EPSG:2154"
 types = ["geology", "recharge"]
 inference_mode = "warn"
 
@@ -112,8 +111,6 @@ runtime_tol_state_update_inf = 1.0e-8
 id = "K"
 kind = "heterogeneous"
 unit = "m/s"
-
-[flow.param.K.field_heterogeneous]
 values_source = "inline"
 values = { west_low_k = "1e-5 m/s", central_high_k = "8e-5 m/s", east_medium_k = "3e-5 m/s" }
 field_spatial_id = "field_geology"
@@ -122,16 +119,12 @@ field_spatial_id = "field_geology"
 id = "Ss"
 kind = "homogeneous"
 unit = "m-1"
-
-[flow.param.Ss.field_homogeneous]
 value = "1e-5 m-1"
 
 [flow.param.Sy.field]
 id = "Sy"
 kind = "heterogeneous"
 unit = "-"
-
-[flow.param.Sy.field_heterogeneous]
 values_source = "inline"
 values = { west_low_k = "0.04 -", central_high_k = "0.08 -", east_medium_k = "0.06 -" }
 field_spatial_id = "field_geology"
@@ -245,9 +238,6 @@ mf_verbose = false
 
 [modflow6.process_specific]
 vka = 1.0
-
-[modflow6.tgrid]
-firstpersteady = false
 
 [modflow6.sgrid.vertical]
 genmtd_lay = "decay"

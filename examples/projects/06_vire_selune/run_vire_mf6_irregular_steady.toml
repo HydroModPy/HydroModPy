@@ -10,7 +10,6 @@ root = "../../"
 
 [simulation]
 name = "vire_mf6_irregular_steady_demo"
-run_id = "vire_mf6_irregular_steady"
 
 [simulation.time]
 start_datetime = "2020-01-01 00:00:00"
@@ -129,9 +128,6 @@ mf6_inner_dvclose = 0.0001
 mf6_outer_maximum = 1000
 mf6_inner_maximum = 1000
 mf6_enable_rewet = false
-
-[modflow6.tgrid]
-firstpersteady = true
 
 [modflow6.sgrid.vertical]
 genmtd_lay = "decay"
