@@ -287,6 +287,9 @@ ignore = [
 # core/progress is imported by core/logging (console handler); importing
 # get_logger back would be circular.
 "hydromodpy/core/progress.py" = ["TID251"]
+# core/progress_ndjson is imported by core/progress, itself imported by
+# core/logging; same circularity as core/progress.py above.
+"hydromodpy/core/progress_ndjson.py" = ["TID251"]
 # Tests can use idiomatic pytest patterns: bare pytest.raises(Exception),
 # zip without strict=, kept assignments for readability, etc.
 "tests/**/*.py" = ["E402", "F401", "B011", "B017", "B905", "F841"]
