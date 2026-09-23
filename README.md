@@ -35,6 +35,13 @@ pip install --pre hydromodpy
 The current `main` documentation targets the v2 alpha line. Use
 `pip install hydromodpy` only when you want the latest stable release.
 
+`2.0.0a1` misses `whitebox-workflows` in its dependencies, and
+`build_geographic` fails without it. On that release, add it by hand:
+
+```bash
+pip install whitebox-workflows==1.3.5
+```
+
 Optional extras: `[ide]`, `[test]`, `[viewer3d]`, `[docs]`. Solver binaries
 (MODFLOW 6, MODFLOW-NWT, MODPATH, MT3D-USGS) are downloaded on demand into
 `~/.cache/hydromodpy/bin/` on first solver run, or eagerly with

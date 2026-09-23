@@ -39,8 +39,15 @@ What this tutorial teaches
 
    pip install --pre hydromodpy
 
-``--pre`` is required while HydroModPy is a pre-1.0 release series; see
+``--pre`` is required while HydroModPy 2 is in alpha; see
 :doc:`../install` for optional extras and system dependencies.
+
+``2.0.0a1`` misses ``whitebox-workflows`` in its dependencies, and the
+``build_geographic`` step fails without it. On that release, add it by hand:
+
+.. code-block:: bash
+
+   pip install whitebox-workflows==1.3.5
 
 2. Fetch the MODFLOW solvers
 ------------------------------
