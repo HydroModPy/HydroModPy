@@ -20,6 +20,7 @@ from hydromodpy.core.exceptions import ConfigError, ResumeError
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
+    from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.project.facade import Project
     from hydromodpy.results.run import Run
 
@@ -29,7 +30,7 @@ DEFAULT_RUN_NAME_TEMPLATE = "run_{counter:04d}"
 
 
 @contextmanager
-def _pin_parent_sim_id(ctx: Any, parent_sim_id: str | None) -> Iterator[None]:
+def _pin_parent_sim_id(ctx: WorkflowContext, parent_sim_id: str | None) -> Iterator[None]:
     """Temporarily set ``ctx.parent_sim_id`` for the duration of the block.
 
     Restores the previous value on exit, including when an exception
