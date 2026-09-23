@@ -106,9 +106,6 @@ mf6_outer_maximum = 1000
 mf6_inner_maximum = 1000
 mf6_enable_rewet = false
 
-[modflow6.tgrid]
-firstpersteady = true
-
 [modflow6.sgrid.vertical]
 genmtd_lay = "decay"
 nlay = 1

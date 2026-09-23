@@ -51,6 +51,24 @@ def simulation_run_exists(inputs: CatchmentReportInputs) -> bool:
         return False
 
 
+def newest_completed_run_name(inputs: CatchmentReportInputs) -> str | None:
+    """Return the name of the newest completed run of the report's name stem.
+
+    A registered name belongs to its run for good, a failed one included, so a
+    rerun of the report's simulation lands under ``<stem>.vN``. ``None`` when
+    the catalog holds no completed run of that stem.
+    """
+    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.registration import split_stem_version
+
+    if not catalog_file(inputs).is_file():
+        return None
+    stem, _ = split_stem_version(inputs.simulation_name)
+    with Catalog(inputs.simulation_workspace_dir, read_only=True) as catalog:
+        runs = catalog.find(name_stem=stem, status="completed")
+        return runs[0].name if len(runs) else None
+
+
 def simulation_parquet_dir(run: Run) -> Path | None:
     """Return the run's Parquet directory when it exists on disk."""
     parquet_dir = run._catalog.tables_dir_for(run.sim_id)
@@ -72,6 +90,7 @@ def read_simulated_discharge(run: Run) -> pd.DataFrame:
 __all__ = [
     "DISCHARGE_VARIABLE",
     "catalog_file",
+    "newest_completed_run_name",
     "open_simulation_run",
     "read_simulated_discharge",
     "simulation_parquet_dir",

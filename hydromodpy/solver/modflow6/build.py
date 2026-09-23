@@ -15,6 +15,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units import to_modflow6_time_units
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.base.protocols import DomainLike
+from hydromodpy.solver.field_property_mapping import require_positive_conductivity
 from hydromodpy.solver.modflow6.builders import (
     apply_lake_idomain_mask,
     assemble_constant_head_stress_period_data,
@@ -734,6 +735,11 @@ def run_pre_processing(  # noqa: PLR0915
         solver_mesh=solver_mesh,
     )
     model.hk = solver_mesh.flatten_from_grid(flow_params["hk"])
+    require_positive_conductivity(
+        model.hk,
+        active_mask=~np.asarray(solver_mesh.inactive_mask, dtype=bool),
+        flow=model.flow,
+    )
     model.sy = solver_mesh.flatten_from_grid(flow_params["sy"])
     model.ss = solver_mesh.flatten_from_grid(flow_params["ss"])
     kv_field = solver_mesh.flatten_from_grid(flow_params["kv"]) if "kv" in flow_params else None

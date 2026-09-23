@@ -10,9 +10,41 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
+from pandas.tseries.frequencies import to_offset
+from pandas.tseries.offsets import MonthEnd, QuarterEnd, YearEnd
 
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
+
+# Calendar offsets whose pandas date_range stamps land on the period end.
+_PERIOD_END_OFFSETS = (MonthEnd, QuarterEnd, YearEnd)
+
+
+def _synthetic_index(
+    freq: str,
+    *,
+    start: object,
+    end: object | None = None,
+    periods: int | None = None,
+) -> pd.DatetimeIndex:
+    """Return the sample stamps of a synthetic series.
+
+    A forcing sample is stamped at the START of the period it averages, the
+    convention the stress-period alignment reads. ``pd.date_range`` with an
+    end-anchored alias ('ME', 'QE', 'YE') stamps the period end instead: one
+    'YE' value for 2020 would land on 2020-12-31 and leave January to
+    November with no value. Those aliases are stamped at their period start.
+    """
+    offset = to_offset(freq)
+    if isinstance(offset, _PERIOD_END_OFFSETS):
+        if end is not None:
+            spans = pd.period_range(start=start, end=end, freq=offset)
+        else:
+            spans = pd.period_range(start=start, periods=periods, freq=offset)
+        return pd.DatetimeIndex(spans.start_time)
+    if end is not None:
+        return pd.date_range(start=start, end=end, freq=freq)
+    return pd.date_range(start=start, periods=periods, freq=freq)
 
 
 def generate(
@@ -27,17 +59,13 @@ def generate(
     values = [float(v) for v in config.values]
 
     # Determine time index
+    freq = config.freq or "D"
     if project_period is not None:
-        freq = config.freq or "D"
-        index = pd.date_range(start=project_period[0], end=project_period[1], freq=freq)
-    elif config.start_date:
-        freq = config.freq or "D"
-        periods = config.periods or len(values)
-        index = pd.date_range(start=config.start_date, periods=periods, freq=freq)
+        index = _synthetic_index(freq, start=project_period[0], end=project_period[1])
     else:
-        freq = config.freq or "D"
         periods = config.periods or len(values)
-        index = pd.date_range(start="2000-01-01", periods=periods, freq=freq)
+        start = config.start_date or "2000-01-01"
+        index = _synthetic_index(freq, start=start, periods=periods)
 
     # Broadcast values to match index length
     if len(values) == 1:

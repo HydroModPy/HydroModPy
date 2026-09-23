@@ -101,7 +101,6 @@ thickness = 30.0
 [data]
 # Toutes les donnees chargees sont reprojetees en Lambert-93 pour
 # correspondre au CRS du projet.
-project_crs = "EPSG:2154"
 
 # Familles de donnees necessaires aux simulations du Nancon :
 #   dem          : topographie
@@ -200,13 +199,9 @@ date_start = "2000-01-01"
 date_end = "2002-12-31"
 
 [[data.etp.sources]]
-source = "custom"
-# Nom de fichier nu resolu sous `<workspace>/data/etp/`.
-path = "etp_sim2_5347fa22_20000101_20251231.nc"
-# Le NetCDF fourni expose des coordonnees x/y Lambert-93 mais pas
-# d'attributs CRS/nodata.
-crs = "EPSG:2154"
-nodata = -9999.0
+# SIM2 ETP over the catchment, fetched once then read from the data cache.
+source = "sim2"
+extent = "watershed"
 
 
 # ----------------------------------------------------------------------
@@ -319,7 +314,6 @@ show = false
 # Sauvegarde sur disque sous <project_root>/<output_dir>/<run_name>/.
 save = true
 output_dir = "figures"
-cmap = "viridis"
 
 # Figures rendues automatiquement. Commenter une ligne pour ne pas la
 # rendre. Tout desactiver avec `hmp run --no-display` ou

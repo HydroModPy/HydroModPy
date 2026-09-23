@@ -1,0 +1,69 @@
+# HydroModPy - example 10, stage two: find K from the observed stream network
+#
+# Same catchment, same PyHELP recharge as project.toml, which this file
+# inherits. Only the conductivity changes, and it is searched rather than
+# written: the criterion is the signed gap between the network the water table
+# sustains and the mapped one, driven to zero by bisection. No discharge
+# observation enters it, which is the point on an ungauged Alpine headwater.
+#
+#   hmp calibrate examples/projects/10_coupling_with_land_surface_model_pyhelp/run_calibration_k.toml
+#
+# This is the v2 form of the legacy dichotomy loop: the same objective, run by
+# the calibration engine instead of by a hand-written while loop.
+
+base_config = "project.toml"
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "urse_network_k"
+description = "Urse catchment, K from the hydrographic-network criterion, PyHELP recharge."
+
+
+[calibration]
+seed = 42
+save_runs = "best_n"
+save_best_n = 1
+rerun_best_with_outputs = true
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-4]
+
+[calibration.outputs.seepage_network]
+support = "network"
+stream_geometry_path = "urse_stream_network.gpkg"
+weighting = "area"
+tau_specific_ratio = 1.0e-4
+roptim_max = 2.0
+time = "last"
+observed_position_accuracy = "50 m"
+
+[[calibration.objective_blocks]]
+name = "abherve_gap"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+
+[[calibration.phases]]
+name = "steady_k"
+method = "bisection"
+max_iter = 20
+parameters = ["K"]
+objective_blocks = ["abherve_gap"]
+
+[calibration.phases.optimizer_kwargs]
+rel_tol = 0.01
+sweep_points = 7
+
+
+[display]
+on_error = "raise"
+figures = [
+    "seepage_map",
+    "simulated_active_network_reference_overlay",
+    "downslope_distance_map",
+    "seepage_network_confusion_map",
+    "matching_hydrographic_network_card",
+    "parameter_cost_profile",
+    "calibration_convergence",
+]

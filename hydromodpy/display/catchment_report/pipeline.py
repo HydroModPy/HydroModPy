@@ -141,6 +141,9 @@ def _run_pipeline_steps(
         _run_overview(inputs, options)
     if options.run_simulation:
         _run_simulation(inputs, options)
+    # A rerun, or a run after a failed one that kept the name, registers as
+    # `<name>.vN`: the report describes the newest completed run of the name.
+    inputs = _newest_report_run(inputs)
     if options.build_context_artifacts:
         context_summary = _build_context_artifacts(inputs)
     if options.build_report_html:
@@ -169,7 +172,14 @@ def _run_simulation(inputs: CatchmentReportInputs, options: _PipelineOptions) ->
         no_lock=options.no_lock,
         stream_logs=options.stream_run_logs,
     )
-    _validate_simulation_outputs(inputs)
+    _validate_simulation_outputs(_newest_report_run(inputs))
+
+
+def _newest_report_run(inputs: CatchmentReportInputs) -> CatchmentReportInputs:
+    from hydromodpy.display.catchment_report.simulation_source import newest_completed_run_name
+
+    name = newest_completed_run_name(inputs)
+    return inputs if name is None else inputs.with_simulation_name(name)
 
 
 def _build_context_artifacts(inputs: CatchmentReportInputs) -> Path:

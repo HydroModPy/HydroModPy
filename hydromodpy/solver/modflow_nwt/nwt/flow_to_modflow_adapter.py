@@ -34,6 +34,7 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     is_boundary_condition_active,
 )
 from hydromodpy.solver.base.protocols import DomainLike
+from hydromodpy.solver.field_property_mapping import require_positive_conductivity
 from hydromodpy.solver.modflow_common.property_mapping import (
     resolve_flow_property_arrays,
     resolve_required_flow_properties,
@@ -276,6 +277,11 @@ class FlowToModflowAdapter:
             runtime_property_overrides=self.flow_runtime_overrides,
         )
         hk = properties["hk"]
+        require_positive_conductivity(
+            hk,
+            active_mask=np.asarray(ibound, dtype=float) != 0.0,
+            flow=self.flow,
+        )
 
         drn_spd = self._build_drainage_spd(
             drain_array=drain_array,

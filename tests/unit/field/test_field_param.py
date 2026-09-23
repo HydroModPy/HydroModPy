@@ -500,6 +500,41 @@ def test_field_to_mesh_then_param_to_value_mesh():
     assert float(np.max(value_arr)) <= 10.0 + 1e-12
 
 
+def test_a_value_table_that_misses_a_zone_is_refused(tmp_path: Path):
+    """A zone of the support without a row in the table names itself."""
+    (tmp_path / "k_table.csv").write_text(
+        "zone_key,K_value\ngranite,1e-5\n",
+        encoding="utf-8",
+    )
+    toml_path = tmp_path / "k.toml"
+    toml_path.write_text(
+        textwrap.dedent("""
+            [field]
+            id = "K"
+            kind = "heterogeneous"
+            values_source = "csv"
+            values_csv_file = "k_table.csv"
+            csv_key_column = "zone_key"
+            csv_value_column = "K_value"
+            field_spatial_id = "field_square"
+            """),
+        encoding="utf-8",
+    )
+    param = field_param_from_toml(toml_path)
+    mesh = FieldMeshSquare.from_unit_square(target_n_cells=20, mesh_kind="triangular_structured")
+    field = FieldSquare(
+        line="diag_main",
+        zone1_side="positive",
+        identifier="field_square",
+        zone1_name="granite",
+        zone2_name="micaschists",
+    )
+    with pytest.raises(ValueError, match=r"'K'.*micaschists.*'field_square'.*values_csv_file"):
+        param.to_mesh_field(field.on_mesh(mesh))
+    with pytest.raises(ValueError, match=r"'K'.*micaschists"):
+        param.to_array(zone_ids=np.array(["granite", "micaschists"], dtype=object))
+
+
 def test_field_base_class_is_abstract():
     with pytest.raises(TypeError):
         _ = Field(identifier="abstract_only")

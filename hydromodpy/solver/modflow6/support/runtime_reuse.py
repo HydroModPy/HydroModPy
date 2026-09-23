@@ -6,6 +6,7 @@ from collections.abc import Mapping, Sequence
 
 import numpy as np
 
+from hydromodpy.solver.field_property_mapping import require_positive_conductivity
 from hydromodpy.solver.modflow6.builders import build_drain_stress_period_data
 from hydromodpy.solver.modflow6.support.property_mapping import (
     fill_missing_flow_properties_from_mesh_support,
@@ -93,6 +94,11 @@ def refresh_reused_runtime_property_packages(
         solver_mesh=model.solver_mesh,
     )
     model.hk = model.solver_mesh.flatten_from_grid(flow_params["hk"])
+    require_positive_conductivity(
+        model.hk,
+        active_mask=~np.asarray(model.solver_mesh.inactive_mask, dtype=bool),
+        flow=model.flow,
+    )
     model.sy = model.solver_mesh.flatten_from_grid(flow_params["sy"])
     model.ss = model.solver_mesh.flatten_from_grid(flow_params["ss"])
 

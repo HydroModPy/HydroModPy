@@ -1,0 +1,139 @@
+# HydroModPy - example 06: particle tracking and residence times
+#
+# Lasset catchment (eastern Pyrenees, EPSG:2154) delineated from its outlet on
+# a regional 75 m DEM. Steady MODFLOW 6 over ten layers thickening with depth
+# above a flat substratum at 1000 m, conductivity decaying with depth, then
+# forward particle tracking with MODFLOW 6 PRT.
+#
+# Particles released over the domain end where the water table outcrops, so
+# their pathlines say which recharge feeds the seepage areas and their travel
+# times give the residence-time distribution of the aquifer.
+#
+#   hmp run examples/projects/06_particle_tracking_and_residence_times/project.toml
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+
+[simulation]
+name = "lasset_tracking_mf6"
+description = "Lasset catchment, steady MODFLOW 6 with PRT tracking, pathlines and residence times."
+if_exists = "replace"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+[[simulation.process]]
+id = "particles"
+type = "transport"
+solvers = ["modflow6_prt"]
+
+
+[geographic]
+crs_project = "EPSG:2154"
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "regional_dem_lasset.tif"
+x_outlet = 601020.0
+y_outlet = 6193860.0
+snap_dist = "200 m"
+buff_area = "50%"
+
+
+# An absolute substratum elevation, not a thickness: the aquifer is thin under
+# the crests and thick under the valleys, which is what makes the deep paths
+# long and the shallow ones short.
+[domain.depth_model]
+kind = "flat_substratum"
+substratum_elevation = "1000.0 m"
+
+
+[data]
+types = ["dem", "recharge"]
+
+[[data.dem.sources]]
+source = "custom"
+path = "regional_dem_lasset.tif"
+
+# Monthly recharge climatology, mm/day. The steady run uses its mean,
+# 1.17 mm/day.
+[[data.recharge.sources]]
+source = "synthetic"
+values = [0.333, 0.667, 1.000, 1.333, 1.667, 2.000, 2.000, 1.667, 1.333, 1.000, 0.667, 0.333]
+start_date = "2000-01-01"
+freq = "MS"
+periods = 12
+
+
+[flow]
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 1e-6
+
+# exp(-depth / 50 m), floored four decades below the surface value.
+[flow.param.K.field_vertical_profile]
+mode = "exponential"
+characteristic_depth = "50.0 m"
+min_factor = 1e-4
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.01
+
+[flow.bc.drainage]
+kind = "cauchy"
+
+
+# MODFLOW 6 PRT tracks forward only. The legacy run released 50 particles in
+# five boreholes and tracked them backward to their recharge areas; released
+# over the domain and tracked forward, the same pathlines are drawn from the
+# other end, and every one of them carries a travel time.
+[transport.modflow6prt.parameters]
+release_zone = "domain_nonriver"
+porosity = 0.01
+max_particles = 500
+release_times_days = [0.0]
+track_time_step_days = 365.0
+stop_time_days = 3650000.0
+
+
+[modflow6.runtime]
+mf6_ims_complexity = "MODERATE"
+
+# Ten layers thickening with depth.
+[modflow6.sgrid.vertical]
+genmtd_lay = "decay"
+nlay = 10
+lay_decay = 1.5
+
+
+[display]
+on_error = "raise"
+figures = [
+    "watershed_id_card",
+    "mesh_map",
+    "piezometric_map",
+    "watertable_depth_map",
+    "seepage_map",
+    "accumulation_map",
+    "particle_tracks",
+    "residence_time_distribution",
+    "cross_section",
+    "water_budget",
+]
+
+[display.overrides.watertable_depth_map]
+overlays = ["watershed", "seepage", "particles", "outlet"]

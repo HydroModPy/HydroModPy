@@ -8,15 +8,17 @@ description = "Synthetic homogeneous-control 2D recharge-response case for MF6 v
 
 [flow.param.K.field]
 kind = "homogeneous"
-
-[flow.param.K.field_homogeneous]
 value = "3e-5 m/s"
+values_source__delete = true
+values__delete = true
+field_spatial_id__delete = true
 
 [flow.param.Sy.field]
 kind = "homogeneous"
-
-[flow.param.Sy.field_homogeneous]
 value = "0.06 -"
+values_source__delete = true
+values__delete = true
+field_spatial_id__delete = true
 
 [mesh_catchment.hydraulic_properties.conductivity]
 values_source = "inline"

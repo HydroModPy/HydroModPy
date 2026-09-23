@@ -10,10 +10,19 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 catch_def = "from_outlet_coord"
+# Same outlet as boussinesq/natural_geology_k site_01, reuses its DEM tile.
+dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 x_outlet = 131189.1
 y_outlet = 6833784.4
 snap_dist = "150 m"
 buff_area = "10%"
+
+[geographic.river_network]
+# Same site as boussinesq/natural_geology_k site_01 (same outlet, same DEM
+# tile); reuses its threshold so both meshes cut streams at the same scale.
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 0.2
 
 [simulation]
 name = "site_selection_manifest_mesh_base"

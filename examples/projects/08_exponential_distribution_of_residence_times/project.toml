@@ -1,0 +1,118 @@
+# HydroModPy - example 08: exponential distribution of residence times
+#
+# Synthetic 1D aquifer, 1000 m long and 10 m thick over a flat substratum, fed
+# by a uniform recharge and drained by a fully penetrating stream on its west
+# edge. Steady MODFLOW 6, then forward particle tracking with MODFLOW 6 PRT.
+#
+# The travel-time density of the particles is put next to the exponential law
+# a single well-mixed store produces, p(t) = exp(-t/tau)/tau with
+# tau = porosity * saturated thickness / recharge, a few years here.
+#
+#   hmp run examples/projects/08_exponential_distribution_of_residence_times/project.toml
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+
+[simulation]
+name = "hillslope_rtd_mf6"
+description = "Synthetic 1D aquifer, steady MODFLOW 6 with PRT tracking, residence times against the exponential law."
+if_exists = "replace"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+[[simulation.process]]
+id = "particles"
+type = "transport"
+solvers = ["modflow6_prt"]
+
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "hillslope_rtd"
+
+[geographic.synthetic.grid]
+length_x = "1000.0 m"
+length_y = "20.0 m"
+nx = 200
+ny = 4
+
+[geographic.synthetic.topography]
+kind = "flat"
+base_elevation = 10.0
+
+
+[domain.depth_model]
+kind = "flat_substratum"
+substratum_elevation = "0.0 m"
+
+
+[data]
+types = ["recharge"]
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [1.0]
+runoff_ratio = 0.0
+
+
+[flow]
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+active_sinks_sources = ["recharge"]
+active_bc = ["west_side"]
+
+# 15 m/day, the K/R = 15000 ratio of the legacy example.
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 1.736111e-4
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.1
+
+[flow.bc.west_side]
+kind = "dirichlet"
+value = "5.0 m"
+
+
+# One particle per active cell, released at the start and tracked to the
+# stream. The spread of their arrival times is the distribution the example
+# exists for, so the tracking has to outlive the slowest of them.
+[transport.modflow6prt.parameters]
+release_zone = "domain"
+porosity = 0.1
+max_particles = 3000
+release_times_days = [0.0]
+track_time_step_days = 100.0
+stop_time_days = 200000.0
+
+
+# Two layers, not the ten of the legacy MODFLOW-NWT run: MODFLOW 6 refuses a
+# fixed head below a cell bottom, so the stream head at mid-thickness caps the
+# layer count at two. The spread of travel times comes from the distance to the
+# stream, which is what the exponential law is derived from.
+[modflow6.sgrid.vertical]
+nlay = 2
+
+
+[display]
+on_error = "raise"
+figures = [
+    "mesh_map",
+    "piezometric_map",
+    "cross_section",
+    "particle_tracks",
+    "residence_time_distribution",
+    "water_budget",
+]

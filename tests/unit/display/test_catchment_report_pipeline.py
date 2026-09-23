@@ -477,3 +477,46 @@ def test_pipeline_main_rejects_legacy_skip_aliases(
         pipeline_module.main(["--report-config", str(config_path), legacy_flag])
 
     assert f"unrecognized arguments: {legacy_flag}" in capsys.readouterr().err
+
+
+def test_rerun_after_a_failed_run_reads_the_newest_completed_version(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    # A failed run keeps its name, so the rerun registers as `test_run.v2`.
+    # The report must describe that run, not look for the failed one's figures.
+    import uuid
+
+    from hydromodpy.results.catalog import Catalog
+
+    config_path = tmp_path / "catchment_report.toml"
+    _write_report_config(config_path)
+    _write_transient_config(tmp_path)
+    workspace = tmp_path / "sim_workspace"
+    workspace.mkdir(parents=True)
+    with Catalog(workspace) as catalog:
+        catalog.register_simulation(
+            str(uuid.uuid4()), project="test", solver="modflow6", name="test_run"
+        )
+    _write_catalog_run(workspace, "test_run")
+    figures = _make_run_figures_dir(workspace, "test_run.v2")
+
+    monkeypatch.setattr(
+        "hydromodpy.display.catchment_report.pipeline.subprocess.run",
+        lambda command, **kwargs: _CompletedRun(),
+    )
+
+    run_catchment_report_pipeline(
+        config_path,
+        run_simulation=True,
+        build_context_artifacts=False,
+        build_report_html=False,
+    )
+
+    from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
+    from hydromodpy.display.catchment_report.simulation_source import newest_completed_run_name
+
+    inputs = CatchmentReportInputs.from_toml(config_path)
+    name = newest_completed_run_name(inputs)
+    assert name == "test_run.v2"
+    assert inputs.with_simulation_name(name).simulation_figures == figures
