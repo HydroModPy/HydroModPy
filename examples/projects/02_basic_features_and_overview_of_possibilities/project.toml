@@ -1,16 +1,10 @@
-# ======================================================================
 # HydroModPy - example 02: basic features and overview of possibilities
-# ----------------------------------------------------------------------
-# A compact, self-contained conceptual case: a small teaching DEM
-# delineated from its outlet, solved steady with MODFLOW 6, exercising the
-# full set of standard figures without any external download. run_manual.py
-# then sweeps the recharge (dry / normal / wet) to show the domain respond,
-# the "recharge cases" of the overview.
 #
-# Launch:
+# A small conceptual DEM delineated from its outlet and solved steady with
+# MODFLOW 6. Entirely offline, it exercises the standard figure set in under a
+# second. run_manual.py sweeps the recharge to show the domain respond.
+#
 #   hmp run examples/projects/02_basic_features_and_overview_of_possibilities/project.toml
-# ======================================================================
-
 
 [workflow]
 mode = "simulation"
@@ -29,17 +23,18 @@ id = "flow_main"
 type = "flow"
 solvers = ["modflow6"]
 
+[[simulation.process]]
+id = "particles"
+type = "transport"
+solvers = ["modflow6_prt"]
 
-# ---------------------------------------------------------------------- geographic
+
 [geographic]
-source_mode = "standard"
 crs_project = "EPSG:2154"
-dem_correc_type = "breach"
-domain_extent = "box"
 
+# Delineating from the lowest cell masks the DEM nodata border, which the
+# direct catch_def = "dem" mode does not.
 [geographic.catchment]
-# Delineate the conceptual catchment from its lowest cell. Delineation masks
-# the DEM's nodata border, which the direct catch_def="dem" mode does not.
 catch_def = "from_outlet_coord"
 dem_init_path = "conceptual_dem.tif"
 x_outlet = 142687.4
@@ -48,83 +43,75 @@ snap_dist = "150 m"
 buff_area = "10%"
 
 
-# ---------------------------------------------------------------------- domain
-[domain]
-
+# An absolute base well under sea level, so the aquifer is thick under the highs
+# and thin under the lows, the way the legacy example mirrored the topography.
 [domain.depth_model]
-kind = "constant_thickness"
-thickness = "30.0 m"
+kind = "flat_substratum"
+substratum_elevation = "-78.0 m"
 
 
-# ---------------------------------------------------------------------- data
 [data]
-project_crs = "EPSG:2154"
 types = ["dem", "recharge"]
-inference_mode = "warn"
 
 [[data.dem.sources]]
 source = "custom"
 path = "conceptual_dem.tif"
 
-# Steady recharge, mm/day. run_manual.py sweeps this to show dry/normal/wet
-# scenarios, the "recharge cases" of the overview.
+# mm/day. run_manual.py sweeps this for the dry / normal / wet cases.
 [[data.recharge.sources]]
 source = "synthetic"
 values = [1.5]
 runoff_ratio = 0.0
 
 
-# ---------------------------------------------------------------------- flow
 [flow]
 flow_regime = "steady"
 param_list = ["K", "Sy"]
 active_sinks_sources = ["recharge"]
 active_bc = ["drainage"]
 
-[flow.ic]
-type = "top"
-description = "Water table initialised at the topographic surface."
-
 [flow.param.K.field]
-id = "K"
 kind = "homogeneous"
 unit = "m/s"
 value = 1e-5
 
+# Two conductivity bands, not a decay: the weathered first 30 m conduct, the
+# bedrock under them is a hundred times tighter.
+[flow.param.K.field_vertical_profile]
+mode = "tabulated"
+interpolation = "step"
+depths = [0.0, 30.0]
+factors = [1.0, 0.01]
+
 [flow.param.Sy.field]
-id = "Sy"
 kind = "homogeneous"
 unit = "-"
-value = 0.05
+value = 0.1
 
 [flow.bc.drainage]
 kind = "cauchy"
-application_domain = "top"
-description = "Cauchy drainage on the aquifer top face."
-value = 0.0
-
-[flow.sinks_sources.recharge]
-first_clim = "mean"
 
 
-# ---------------------------------------------------------------------- solver
+[transport.modflow6prt.parameters]
+release_zone = "domain"
+porosity = 0.1
+max_particles = 250
+release_times_days = [0.0]
+track_time_step_days = 365.0
+stop_time_days = 3650000.0
+
+
 [modflow6.runtime]
 mf6_ims_complexity = "MODERATE"
 
-[modflow6.sgrid.planar]
-mode = "keep_native"
-
+# Ten layers thickening with depth.
 [modflow6.sgrid.vertical]
-genmtd_lay = "constant"
-nlay = 1
+genmtd_lay = "decay"
+nlay = 10
+lay_decay = 1.2
 
 
-# ---------------------------------------------------------------------- display
 [display]
-enabled = true
-show = false
-save = true
-output_dir = "figures"
 on_error = "raise"
 figures = [
     "mesh_map",
@@ -132,6 +119,11 @@ figures = [
     "piezometric_map",
     "watertable_depth_map",
     "seepage_map",
+    "accumulation_map",
+    "particle_tracks",
+    "residence_time_distribution",
     "cross_section",
+    "parameter_section",
     "water_budget",
+    "mass_balance_error",
 ]

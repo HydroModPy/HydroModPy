@@ -1,0 +1,179 @@
+# HydroModPy - example 09: transport model for an agricultural catchment
+#
+# Kervidy-Naizin catchment (Brittany, EPSG:2154), a long-observed agricultural
+# headwater. Monthly transient MODFLOW 6 over a drought year, coupled to a
+# MODFLOW 6 GWT model that carries nitrate: the aquifer starts at 100 mg/L and
+# the recharge brings 50 mg/L in, with a two-year first-order decay.
+#
+# The theme is what the aquifer does to a solute the land surface applies: how
+# long the old water keeps feeding the stream, and where the concentration
+# stays high when the recharge stops for eight months.
+#
+#   hmp run examples/projects/09_transport_model_for_an_agricultural_catchment/project.toml
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+
+[simulation]
+name = "naizin_nitrate_mf6"
+description = "Naizin catchment, monthly transient 2003, MODFLOW 6 flow and GWT nitrate transport."
+if_exists = "replace"
+
+[simulation.time]
+start_datetime = "2003-01-01"
+end_datetime = "2003-12-31"
+step_value = "1 month"
+substeps_per_period = 5
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+[[simulation.process]]
+id = "transport_main"
+type = "transport"
+solvers = ["modflow6"]
+
+
+[geographic]
+crs_project = "EPSG:2154"
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "DEM_naizin_25m.tif"
+x_outlet = 265545.208
+y_outlet = 6783317.640
+snap_dist = "50 m"
+buff_area = "20%"
+
+[geographic.river_network]
+enabled = true
+threshold_area_km2 = 0.2
+
+
+[domain.depth_model]
+kind = "flat_substratum"
+substratum_elevation = "0.0 m"
+
+
+[data]
+types = ["dem", "hydrography", "recharge"]
+
+[[data.dem.sources]]
+source = "custom"
+path = "DEM_naizin_25m.tif"
+
+# BD Topage 2024, with the perennial / intermittent attribute the catchment is
+# studied for.
+[[data.hydrography.sources]]
+source = "custom"
+path = "naizin_stream_network.gpkg"
+
+# A drought year: recharge only from November to February, mm/day. A tenth of
+# it is routed to runoff rather than to the aquifer.
+[[data.recharge.sources]]
+source = "synthetic"
+values = [2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0]
+freq = "MS"
+runoff_ratio = 0.1
+
+
+[flow]
+flow_regime = "transient"
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+first_period_steady = true
+
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 5e-5
+
+[flow.param.K.field_vertical_profile]
+mode = "exponential"
+characteristic_depth = "15.0 m"
+min_factor = 2e-4
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.02
+
+[flow.param.Sy.field_vertical_profile]
+mode = "exponential"
+characteristic_depth = "30.0 m"
+min_factor = 0.05
+
+# The legacy 1e-10 sits under the schema floor: storage is carried by Sy here.
+[flow.param.Ss.field]
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-9
+
+[flow.bc.drainage]
+kind = "cauchy"
+
+
+# Concentrations in kg/m3: 0.1 is 100 mg/L in the aquifer at the start, 0.05 is
+# 50 mg/L in the recharge. MODFLOW 6 GWT runs on the SI seconds clock, so the
+# first-order decay rate is a per-second one: 1.585e-8 /s is a two-year
+# mean life. disp_transh and disp_transv are ratios of disp_long, so the
+# transverse dispersivities are 0.5 m and 0.05 m.
+[transport.modflow6gwt.parameters]
+spc_name = "NO3"
+sconc_init = 0.1
+sconc_input = 0.05
+porosity = 0.02
+disp_long = 5.0
+disp_transh = 0.1
+disp_transv = 0.01
+diffu_coeff = 1e-10
+react_order = 1
+rate_decay = 1.5854e-8
+
+
+[modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+
+# Five layers thickening with depth: the transport model solves on the flow
+# mesh, and ten layers over a monthly year of nitrate is an example nobody
+# waits for.
+[modflow6.sgrid.vertical]
+genmtd_lay = "decay"
+nlay = 5
+lay_decay = 1.2
+
+
+[display]
+on_error = "raise"
+figures = [
+    "watershed_id_card",
+    "mesh_map",
+    "piezometric_map",
+    "watertable_depth_map",
+    "seepage_map",
+    "concentration_map",
+    "concentration_boxplot",
+    "hydrographic_network_reference",
+    "simulated_active_network",
+    "hydrograph",
+    "flux_timeseries",
+    "water_budget",
+    "mass_balance_error",
+]
+
+# The end of the drought, when the concentration pattern is most contrasted.
+[display.overrides.concentration_map]
+timestep = 9
+
+# mg/L rather than kg/m3, and the 50 mg/L the recharge brings in as reference.
+[display.overrides.concentration_boxplot]
+scale = 1000.0
+units = "mg/L"
+reference = 50.0

@@ -5,3 +5,4 @@ PIEZO_CONST,-1.681,48.124,EPSG:4326,Piezometre Constante,m,true
 PIEZO_GAPS,-1.676,48.131,EPSG:4326,Piezometre avec lacunes,m,false
 PIEZO_CM,-1.688,48.125,EPSG:4326,Piezometre en centimetres,cm,false
 RENNES_P01,-1.752,48.198,EPSG:4326,Piezometre Rennes hors emprise,m,false
+GOUVILLE_F4,-1.60512258,49.08559137,EPSG:4326,Gouville BSS 01423X0044/F4,m,false

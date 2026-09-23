@@ -1,19 +1,15 @@
-# ======================================================================
-# HydroModPy - example 05: piezometry in a coastal aquifer
-# ----------------------------------------------------------------------
-# Gouville coastal strip (Normandy, EPSG:2154). The model domain is a
-# polygon (model_area) over a 25 m coastal DEM. Steady groundwater flow
-# solved with MODFLOW 6, with a SEA boundary: every cell below mean sea
-# level is held at the sea level (a constant-head ocean boundary), so the
-# water table slopes from the inland recharge mound down to the shore.
+# HydroModPy - example 05: piezometry in a heterogeneous coastal aquifer
 #
-# This is the coastal-piezometry case: the interplay of recharge inland
-# and a fixed sea level at the coast sets the water-table shape.
+# Gouville coastal strip (Normandy), daily transient over 2016 with MODFLOW 6.
+# Two things drive the water table: a recharge that varies day to day, and a sea
+# level that goes up and down twice a day. The aquifer is not uniform either: a
+# western strip and an eastern one carry their own conductivity and their own
+# specific yield, which is what the title calls heterogeneous.
 #
-# Launch:
+# The simulated head is put next to the chronicle of the BSS piezometer that
+# stands in the western strip.
+#
 #   hmp run examples/projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/project.toml
-# ======================================================================
-
 
 [workflow]
 mode = "simulation"
@@ -24,8 +20,13 @@ project_root = "."
 
 [simulation]
 name = "gouville_coastal_mf6"
-description = "Gouville coastal aquifer, steady MODFLOW 6, sea-level ocean boundary."
+description = "Gouville coastal aquifer, daily transient 2016, MODFLOW 6, two parameter zones and a tidal sea level."
 if_exists = "replace"
+
+[simulation.time]
+start_datetime = "2016-01-01"
+end_datetime = "2016-12-31"
+step_value = "1 day"
 
 [[simulation.process]]
 id = "flow_main"
@@ -33,114 +34,133 @@ type = "flow"
 solvers = ["modflow6"]
 
 
-# ---------------------------------------------------------------------- geographic
 [geographic]
-source_mode = "standard"
 crs_project = "EPSG:2154"
-dem_correc_type = "breach"
-domain_extent = "box"
 
+# The domain is a polygon, the coastal model area, not an outlet catchment.
 [geographic.catchment]
-# The domain is a polygon (the coastal model area), not an outlet catchment.
 catch_def = "from_polyg_shp"
 dem_init_path = "DEM_gouville_25m.tif"
 polyg_shp_path = "gouville_model_area.shp"
-buff_area = "2%"
+buff_area = "10 m"
 
 
-# ---------------------------------------------------------------------- domain
 [domain]
+# The zonation is carried by the geology support, which is the generic way a
+# polygon layer becomes a per-cell zone id: nothing here is about lithology.
+[domain.supports.param_zones]
+kind = "geology"
 
+# An absolute base at 20 m below sea level, not a thickness under the ground.
 [domain.depth_model]
-# 20 m aquifer below the topography.
-kind = "constant_thickness"
-thickness = "20.0 m"
+kind = "flat_substratum"
+substratum_elevation = "-20.0 m"
 
 
-# ---------------------------------------------------------------------- data
 [data]
-project_crs = "EPSG:2154"
-types = ["dem", "recharge"]
-inference_mode = "warn"
+types = ["dem", "geology", "piezometry", "recharge"]
 
 [[data.dem.sources]]
 source = "custom"
 path = "DEM_gouville_25m.tif"
 
-# Steady mean recharge over the coastal strip, mm/day.
+[data.geology]
+id = "param_zones"
+
+[[data.geology.sources]]
+source = "custom"
+path = "../../data/masks/gouville_param_zones.gpkg"
+code_field = "zone"
+
+# The BSS piezometer 01423X0044/F4, daily water-table elevation in m NGF.
+[[data.piezometry.sources]]
+source = "custom"
+path = "piezometry"
+station_ids = ["GOUVILLE_F4"]
+
+# Daily recharge of the 2016 reanalysis, mm/day.
 [[data.recharge.sources]]
-source = "synthetic"
-values = [1.0]
-runoff_ratio = 0.0
+source = "custom"
+path = "recharge"
+station_ids = ["GOUVILLE"]
 
 
-# ---------------------------------------------------------------------- flow
 [flow]
-flow_regime = "steady"
-param_list = ["K", "Sy"]
+flow_regime = "transient"
+param_list = ["K", "Sy", "Ss"]
 active_sinks_sources = ["recharge"]
-# Two boundaries: the sea (ocean, constant head at MSL on cells below sea
-# level) and hillslope drainage where the water table reaches the surface.
 active_bc = ["ocean", "drainage"]
+first_period_steady = true
 
-[flow.ic]
-type = "top"
-description = "Water table initialised at the topographic surface."
-
+# zone_1 is the western strip, along the shore; zone_2 the eastern one inland.
 [flow.param.K.field]
-id = "K"
-kind = "homogeneous"
-unit = "m/s"
-value = 5e-5
+kind = "heterogeneous"
+unit = "m/day"
+field_spatial_id = "param_zones"
+values = { zone_1 = 18.5, zone_2 = 95.0 }
 
 [flow.param.Sy.field]
-id = "Sy"
-kind = "homogeneous"
+kind = "heterogeneous"
 unit = "-"
-value = 0.1
+field_spatial_id = "param_zones"
+values = { zone_1 = 0.08, zone_2 = 0.45 }
 
-# Sea boundary: hold every cell whose land surface is at or below 0 m NGF
-# (French height datum, mean sea level) at the sea level.
+[flow.param.Ss.field]
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+# The sea level follows the tide day by day. Every cell at or below its highest
+# value is held at it, so the shoreline cells swing with the series.
 [flow.bc.ocean]
 kind = "dirichlet"
-application_domain = "top"
-description = "Constant-head sea boundary at mean sea level."
-value = "0.0 m"
+
+[flow.bc.ocean.forcing]
+mode = "csv"
+path_file = "../../data/oceanic/oceanic_custom_GOUVILLE_20160101_20161231_D.csv"
+date_column = "datetime"
+value_column = "value"
+units = "m"
 
 [flow.bc.drainage]
 kind = "cauchy"
-application_domain = "top"
-description = "Cauchy drainage on the aquifer top face."
-value = 0.0
-
-[flow.sinks_sources.recharge]
-first_clim = "mean"
 
 
-# ---------------------------------------------------------------------- solver
+# The cell the piezometer stands in, sampled at every timestep so the simulated
+# head can be read back as a series and compared to the measured one.
+[observation]
+variables = ["head"]
+
+[[observation.points]]
+id = "GOUVILLE_F4"
+x = 363780.7
+y = 6897112.7
+layer = 0
+
+
 [modflow6.runtime]
 mf6_ims_complexity = "MODERATE"
 
-[modflow6.sgrid.planar]
-mode = "keep_native"
 
-[modflow6.sgrid.vertical]
-genmtd_lay = "constant"
-nlay = 1
-
-
-# ---------------------------------------------------------------------- display
 [display]
-enabled = true
-show = false
-save = true
-output_dir = "figures"
 on_error = "raise"
 figures = [
     "mesh_map",
+    "parameter_map",
+    "recharge_map",
     "piezometric_map",
     "watertable_depth_map",
     "seepage_map",
+    "piezo_timeseries_sim_obs",
     "cross_section",
+    "flux_timeseries",
     "water_budget",
+    "mass_balance_error",
 ]
+
+# The simulated series is written under the observation point, the measured one
+# under the station of the piezometry family, and the two name the quantity
+# differently: the figure is told both.
+[display.overrides.piezo_timeseries_sim_obs]
+station = "obs:GOUVILLE_F4"
+observed_variable = "groundwater_level"

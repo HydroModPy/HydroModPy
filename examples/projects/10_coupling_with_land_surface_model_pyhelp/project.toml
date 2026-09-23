@@ -1,0 +1,120 @@
+# HydroModPy - example 10: coupling with a land surface model (PyHELP)
+#
+# Urse catchment (Switzerland, EPSG:2056, CH1903+/LV95), 6 km2 of Alpine
+# grassland. The recharge is not a number written here: it is the daily
+# percolation PyHELP computes from three years of precipitation, air
+# temperature and solar radiation, cell by cell, exported as a grid.
+#
+#   python examples/projects/10_coupling_with_land_surface_model_pyhelp/build_pyhelp_recharge.py
+#   hmp run examples/projects/10_coupling_with_land_surface_model_pyhelp/project.toml
+#
+# The K below is the one the legacy dichotomy converged on. run_calibration_k.toml
+# searches it again from the observed stream network.
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+
+[simulation]
+name = "urse_pyhelp_mf6"
+description = "Urse catchment, steady MODFLOW 6 forced by a PyHELP recharge grid."
+if_exists = "replace"
+
+# One steady period spanning the three years PyHELP covers: a gridded forcing
+# is selected on the run window, so a steady run still has to say which window
+# it averages.
+[simulation.time]
+start_datetime = "2021-01-01"
+end_datetime = "2023-12-31"
+step_value = "3 year"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+
+[geographic]
+crs_project = "EPSG:2056"
+
+[geographic.catchment]
+catch_def = "from_polyg_shp"
+dem_init_path = "DEM_urse_25m.tif"
+polyg_shp_path = "urse_watershed.gpkg"
+buff_area = "20%"
+
+[geographic.river_network]
+enabled = true
+threshold_area_km2 = 0.2
+
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "50.0 m"
+
+
+[data]
+types = ["dem", "hydrography", "recharge"]
+
+[[data.dem.sources]]
+source = "custom"
+path = "DEM_urse_25m.tif"
+
+# The observed network, what the calibration compares the seepage against.
+[[data.hydrography.sources]]
+source = "custom"
+path = "urse_stream_network.gpkg"
+
+# The PyHELP output: a daily recharge grid at 250 m over the run window. The
+# steady solve uses its mean, around 800 mm/year.
+[[data.recharge.sources]]
+source = "custom"
+path = "recharge_pyhelp_urse.nc"
+source_unit = "mm/day"
+
+
+[flow]
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+
+# 3.11e-6 m/s, the optimum of the legacy network calibration.
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 3.11338e-6
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.01
+
+# No explicit value: the drain conductance stays proportional to K, which is
+# what makes the seepage extent depend on K/R alone.
+[flow.bc.drainage]
+kind = "cauchy"
+
+
+[modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+
+
+[display]
+on_error = "raise"
+figures = [
+    "watershed_id_card",
+    "mesh_map",
+    "recharge_map",
+    "piezometric_map",
+    "watertable_depth_map",
+    "seepage_map",
+    "hydrographic_network_reference",
+    "simulated_active_network",
+    "simulated_active_network_reference_overlay",
+    "cross_section",
+    "water_budget",
+]

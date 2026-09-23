@@ -1,7 +1,7 @@
 # 00 - Quick test of wide HydroModPy capabilities
 
 Port to the v1 architecture of
-`examples/old/00_quick_test_of_wide_hydromodpy_capabilities/example_00.py`,
+`examples/00_quick_test_of_wide_hydromodpy_capabilities/example_00.py` at tag `v1.0.0`,
 solved with **MODFLOW 6** instead of MODFLOW-NWT.
 
 Aber catchment (Brittany, EPSG:2154), extracted from a regional 75 m DEM by
@@ -69,7 +69,10 @@ All come from the HydroModPy registry, none is hardcoded in a `.py`.
 | `piezometric_map` | watertable elevation | `visual2D(['watertable'])` |
 | `watertable_depth_map` | watertable depth + seepage + tracks + wells | the script's composite map |
 | `seepage_map` | seepage zones | - |
+| `flow_persistence_map` | share of the year each cell carried flow | `persistency_index` |
+| `flow_intermittence_map` | perennial, intermittent and dry cells | `intermittency_monthly` |
 | `particle_tracks` | tracks colored by travel time | `pathlines` |
+| `residence_time_distribution` | travel-time histogram against the exponential law | `residence_times` |
 | `cross_section` | topography / watertable / aquifer base cross section | the script's fixed cross section |
 | `flux_timeseries` | water budget per timestep, mm/period | the recharge / drain / well plot |
 | `water_budget` | cumulative budget per component | - |
@@ -111,3 +114,22 @@ mode = "keep_native"
 [modflownwt.sgrid.vertical]
 nlay = 1
 ```
+
+
+## Two corrections to the first port
+
+The pumping rates were a tenth of the legacy ones. They are back to
+-200 and -100 m3/day on the first well, -500 m3/day on three months of the
+second, which is what makes the two cones of depression visible on the
+water-table map and on the section that runs through both wells.
+
+Both of those figures are now pinned to the first period, January, the month
+the two wells pump hardest in. The legacy figures were captioned `time 1/12`
+for that reason; without the pin they showed December, when nothing pumps.
+
+The legacy `persistency_index` and `intermittency_monthly` rasters are the
+two maps added above. Both read `accumulation_flux` rather than a field of
+their own: the persistence share is the fraction of timesteps a cell carried
+flow, the intermittence classes split that into carried it always and carried
+it sometimes, over one calendar year rather than over a fixed block of twelve
+steps.

@@ -1,0 +1,117 @@
+# HydroModPy - example 11: run from scratch, without plots
+#
+# Canut catchment delineated on the fly from the regional DEM, steady MODFLOW 6
+# on a three-layer 50 m aquifer, with particle tracking. Nothing is drawn: the
+# run exists for the artefacts it leaves behind, which is what a batch or a
+# headless machine needs.
+#
+# Read the results back with the catalog rather than with a figure:
+#
+#   hmp run examples/projects/11_run_from_scratch_without_plots/project.toml
+#   hmp catalog show canut_headless_mf6
+#
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+
+[simulation]
+name = "canut_headless_mf6"
+description = "Canut catchment, steady MODFLOW 6, three-layer 50 m aquifer, no figure rendered."
+if_exists = "replace"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+[[simulation.process]]
+id = "particles"
+type = "transport"
+solvers = ["modflow6_prt"]
+
+# Nothing is drawn, so nothing asks for a derived field: a headless run has to
+# name what it wants persisted.
+[simulation.results.derived]
+watertable_elevation = true
+watertable_depth = true
+seepage_areas = true
+outflow_drain = true
+accumulation_flux = true
+
+
+[geographic]
+crs_project = "EPSG:2154"
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "DEM_armorican_massif.tif"
+x_outlet = 327816.965
+y_outlet = 6777886.670
+snap_dist = "150 m"
+buff_area = "10%"
+
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "50.0 m"
+
+
+[data]
+types = ["dem", "recharge"]
+
+[[data.dem.sources]]
+source = "custom"
+path = "DEM_armorican_massif.tif"
+
+# 350 mm/year.
+[[data.recharge.sources]]
+source = "synthetic"
+values = [0.9589]
+runoff_ratio = 0.0
+
+
+[flow]
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 1e-5
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.01
+
+[flow.bc.drainage]
+kind = "cauchy"
+
+
+[transport.modflow6prt.parameters]
+release_zone = "domain_nonriver"
+porosity = 0.01
+max_particles = 300
+release_times_days = [0.0]
+track_time_step_days = 30.0
+stop_time_days = 36500.0
+
+
+[modflow6.sgrid.vertical]
+nlay = 3
+
+
+[display]
+enabled = false
+
+# The artefacts the run is for: one NetCDF of the gridded fields and the
+# catchment series as CSV, next to the Zarr and Parquet the catalog keeps.
+[export]
+netcdf = true
+csv_timeseries = true
+time = "all"

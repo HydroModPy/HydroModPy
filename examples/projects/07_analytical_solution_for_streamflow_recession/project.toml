@@ -1,0 +1,143 @@
+# HydroModPy - example 07: analytical solution for streamflow recession
+#
+# Synthetic 1D hillslope, 1000 m long and one 20 m cell wide, flat at 100 m
+# over a flat substratum, drained by a fixed head on its west edge. A 30-day
+# recharge pulse fills the aquifer, then 960 days of recession empty it.
+#
+# The falling limb is compared to the late-time solution of the non-linear
+# Boussinesq (1904) equation, -dQ/dt = a Q^(3/2), on the log-log plane of
+# Brutsaert and Nieber.
+#
+#   hmp run examples/projects/07_analytical_solution_for_streamflow_recession/project.toml
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+
+[simulation]
+name = "hillslope_recession_mf6"
+description = "Synthetic 1D hillslope, transient MODFLOW 6, recession against the Boussinesq 1904 late-time solution."
+if_exists = "replace"
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-09-16"
+step_value = "30 day"
+# Daily solver steps inside each stress period: the first weeks of recession
+# are steep and a 30-day step would cut the top of the log-log cloud.
+substeps_per_period = 30
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "hillslope_1d"
+
+[geographic.synthetic.grid]
+length_x = "1000.0 m"
+length_y = "20.0 m"
+nx = 50
+ny = 1
+
+[geographic.synthetic.topography]
+kind = "flat"
+base_elevation = 100.0
+
+
+[domain.depth_model]
+kind = "flat_substratum"
+substratum_elevation = "0.0 m"
+
+
+[data]
+types = ["recharge"]
+
+# 33 mm/day over the first stress period, nothing afterwards: the pulse builds
+# the mound the recession then drains.
+[[data.recharge.sources]]
+source = "synthetic"
+freq = "30D"
+runoff_ratio = 0.0
+values = [
+    33.0,
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    0.0, 0.0,
+]
+
+
+[flow]
+flow_regime = "transient"
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge"]
+# The west edge is the stream. No drain on top: the aquifer never reaches the
+# surface here, and the whole outflow has to cross that one boundary for the
+# recession to be the aquifer's own.
+active_bc = ["west_side"]
+first_period_steady = false
+
+[flow.ic]
+type = "custom"
+value = "1.0 m"
+
+# 0.33 m/day, the K/R = 10 ratio of the legacy example.
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 3.819444e-6
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.01
+
+[flow.param.Ss.field]
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+[flow.bc.west_side]
+kind = "dirichlet"
+value = "0.0 m"
+
+
+# One depth-integrated layer, the aquifer the Boussinesq solution describes.
+# MODFLOW 6 also refuses a fixed head below a cell bottom, so a stream head at
+# the substratum has nowhere else to sit.
+[modflow6.sgrid.vertical]
+nlay = 1
+
+
+[display]
+on_error = "raise"
+figures = [
+    "mesh_map",
+    "piezometric_map",
+    "cross_section",
+    "water_budget",
+    "mass_balance_error",
+    "recession_power_law",
+]
+
+# The fixed head is not a stream in the catchment sense, so no discharge series
+# is aggregated: the recession is read in the budget itself. The analytical
+# coefficient comes from K = 0.33 m/day, Sy, the 20 m stream reach and the
+# 20000 m2 of the single flank it drains.
+[display.overrides.recession_power_law]
+component = "constant_head"
+k = 0.33
+porosity = 0.01
+stream_length = 20.0
+area = 20000.0
+sides = 1
+skip = 3
