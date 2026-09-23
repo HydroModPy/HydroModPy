@@ -33,6 +33,58 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Added
+- `snap_radius` on a discharge output of `support = "point"` or `"cell"` moves
+  the gauge onto the most accumulated cell within that radius, on the drained
+  area the solver routes, and logs the distance and the area before and after.
+  Off by default: a project that does not write it keeps the cell it had.
+- A sealed run or job directory renders its RO-Crate, STAC Item and PROV-O
+  views without the catalog, through `hydromodpy.results.export.write_views`,
+  with relative hrefs and a WGS84 bbox.
+- Progress events reach an NDJSON file named by `HMP_PROGRESS_FILE`, beside
+  the terminal renderer, in the fields of the boundary contract (`ts`, `stage`,
+  `step`, `of`, `percent`, `message`). A suppressed calibration trial writes
+  none, and an unwritable path never stops the run it observes.
+- `hydromodpy/schema/sources.py` states the licence of each data source as an
+  SPDX id where the provider's terms name one (`etalab-2.0` for BRGM and IGN,
+  `ODbL-1.0` for OSM) and leaves the others undetermined, with the reason.
+- `-q`, `-v` and `--debug` on `hmp viz`, `report`, `spinup`, `data`, `catalog`
+  and `project`, which read only the default and `HMP_VERBOSITY` before.
+
+### Changed
+- `hmp data export --format rocrate|stac|prov` writes the views inside the run
+  directory, beside the seal, instead of under `share/`. An explicit
+  `--output` still takes them there.
+- A sidecar carries the licence of its source, and the licence of a run's Zarr
+  and Parquet outputs is the roll-up of its inputs instead of a placeholder. A
+  user file counts only through the tracked file that holds its bytes. No
+  export writes `CC-BY-4.0` by default any more, and the workspace template no
+  longer pre-fills a licence its author did not choose.
+- "Run is sealed without creator_name, creator_institution, a determined
+  license" is said once per workspace and process at the normal verbosity,
+  naming the `workspace.toml` keys to fill; repeats go to `--verbose`.
+- `[simulation.time] step_value` without a unit and without `step_unit` is
+  refused instead of read as one day, since the documented default is
+  `"1 month"`.
+
+### Fixed
+- A stress-period stamp is the END of its period. Observations and forcings
+  were averaged over a window centred on it, so a monthly run compared January
+  with mid-December to mid-January: 0.167 m3/s off on average through the daily
+  product, a full month late through `QmM`, on a Nancon mean of 0.97 m3/s. A
+  flux (the `time: mean` fields and the discharge) is now compared with the
+  mean of `[previous stamp, stamp)`; a state (`time: point`: head, water table,
+  concentration, lake stage) with its value at the stamp, as before; and a
+  steady stage with its own window taken from the run time grid. Per-run fit
+  metrics, calibration scores, figures and the catalog fallback time index
+  follow the same rule. On the stored example 04 run the discharge NSE moves
+  from 0.531 to 0.665 and the stage-two `nse_log` from 0.595 to 0.731.
+- The hourly pandas frequency uses `h`, not the deprecated `H`.
+- The `station_ids` description says it selects Hub'Eau stations as well as
+  custom ones.
+- The example manifest no longer lists the README and `run_manual.py` example 04
+  lost, which made `hmp example add 04` fail.
+
 ---
 
 ## [v2.0.0a1] - 2026-09-21
