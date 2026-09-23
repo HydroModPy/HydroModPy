@@ -32,7 +32,11 @@ solvers = ["modflow_nwt"]
 version = "mfnwt"
 listunit = 2
 verbose = false
-headtol = 1e-6
+# 1e-4 m, the NWT default. At 1e-6 m the solver cycles on two drain cells
+# whose head sits on the drain elevation (row 70 col 11, row 49 col 72):
+# each cycle jumps by ~1e-3 m, so 500 outer iterations never close
+# stress period 5, while the budget already closes at 0.01 %.
+headtol = 1e-4
 fluxtol = 1e-4
 maxiterout = 500
 thickfact = 1e-5

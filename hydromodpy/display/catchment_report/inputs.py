@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from hydromodpy.core.state.paths import runs_dir_for, share_dir_for
@@ -44,6 +44,18 @@ class CatchmentReportInputs:
     pipeline_no_lock: bool = True
     pipeline_stream_run_logs: bool = False
     pipeline_strict_figure_postflight: bool = False
+
+    def with_simulation_name(self, name: str) -> CatchmentReportInputs:
+        """Point the report at another run of the same workspace."""
+        return replace(
+            self,
+            simulation_name=name,
+            simulation_figures=(
+                runs_dir_for(self.simulation_workspace_dir)
+                / run_dirname(name)
+                / RUN_FIGURES_DIRNAME
+            ),
+        )
 
     @classmethod
     def from_toml(cls, path: Path) -> CatchmentReportInputs:
