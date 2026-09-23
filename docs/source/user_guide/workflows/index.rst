@@ -174,7 +174,7 @@ The mode is the entry interface used to drive the chosen workflow.
    * - 3
      - Multiple runs sharing one base TOML
      - ``Project("project.toml")`` plus a Python loop
-     - ``examples/projects/02_nancon_watershed/run_sweep_sy.toml``
+     - ``examples/projects/02_nancon_watershed/run_cellular.py``
    * - 4
      - Python API with a validated config
      - ``HydroModPyConfig.from_toml(...)``
@@ -182,7 +182,7 @@ The mode is the entry interface used to drive the chosen workflow.
    * - 5
      - Step-by-step debug run
      - ``project.build_geographic/load_data/build_mesh/simulate``
-     - ``examples/projects/02_nancon_watershed/run_transient_prototype.py``
+     - ``examples/projects/02_nancon_watershed/run_cellular.py``
    * - 6
      - Notebook with phase reload
      - ``Project(cfg)``

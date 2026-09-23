@@ -42,24 +42,17 @@ pulls ETP live from the SIM2 API instead, so it does not need that file.
 ## Other entries
 
 - `run_calibration_k.toml` - Optuna calibration of K against observed
-  discharge (KGE), Sy/Ss frozen. Documents the calibration TOML shape, but
-  every trial currently crashes: `ObservableNotAvailableError: No DRAIN
-  component in CBC`. The MODFLOW-NWT package builder never sets `ipakcb` on
-  the RCH/DRN packages
-  (`hydromodpy/solver/modflow_nwt/nwt/_pre_processing.py`), so no backend
-  ever writes their cell-by-cell budget, independent of
-  `[simulation.results.budget] spatial_fields`. `water_budget`, `hydrograph`
-  and `recharge_map` are dropped from `project.toml`'s figure list for the
-  same reason.
+  discharge (KGE), Sy/Ss frozen, `max_iter = 3`. `hmp calibrate
+  run_calibration_k.toml` completes its three trials (KGE 0.13, 0.20, 0.18,
+  measured 2026-09-24) and promotes the best one to `runs/optuna_iter_0001`.
+  The earlier `No DRAIN component in CBC` crash came from reading the
+  single-precision NWT budget as double, fixed in b8da0ca4f; the RCH and DRN
+  budgets were always written, since `ModflowOc.reset_budgetunit` routes
+  every package to the `.cbc` unit. `water_budget`, `hydrograph` and
+  `recharge_map` stay off `project.toml`'s figure list: dropped under that
+  wrong diagnosis, not re-checked since.
 - `run_overview_all_apis.toml` - standalone `overview` workflow, every data
   family loaded from a live API except the DEM (local file, IGN's WCS
   currently answers 403). Needs internet; the first run downloads and caches
   under `examples/data/`. Runtime unmeasured here (documented as several
   minutes).
-- `run_sweep_sy.toml` - design draft for a `[sweep]` workflow. `hmp config
-  check` rejects it (`Unknown top-level TOML section(s): sweep`): the
-  `sweep` dispatcher does not exist yet. Kept as a specification, not a
-  runnable command.
-- `run_transient_prototype.py.draft` - pre-catalog Sy sweep script, not
-  ported to the current `hmp.Project` API. Use `run_cellular.py` as the
-  template for a Python-driven loop instead.
