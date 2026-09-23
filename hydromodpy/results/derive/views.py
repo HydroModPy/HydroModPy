@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core import progress
+from hydromodpy.core.time.period_aggregation import period_end_stamps
 from hydromodpy.results.derive.time_alignment import solver_time_index
 
 if TYPE_CHECKING:
@@ -78,9 +79,11 @@ __all__ = [
 def _time_index(sim: Run, n: int) -> pd.DatetimeIndex:
     """Return a ``pd.DatetimeIndex`` aligned with the simulation timesteps.
 
+    Each stamp is the END of its stress period, as the solvers write it.
     Prefers the solver's persisted CF ``/time`` axis (the exact stress-period
     clock shared by every field array) so derived series never drift relative to
-    the native solver series. Falls back to the catalog period bounds.
+    the native solver series. Falls back to the catalog period bounds and time
+    unit, the same rebuild as ``Run.time_index``.
     """
     idx = solver_time_index(sim._catalog, sim._sim_id, n)
     if idx is not None:
@@ -95,7 +98,12 @@ def _time_index(sim: Run, n: int) -> pd.DatetimeIndex:
             f"Simulation '{sim._sim_id}' has no /time axis and no period bounds "
             "in the catalog - cannot build a time index."
         )
-    return pd.date_range(start=start, end=end, periods=n)
+    # The bounds keep the wall clock they were written with, as in
+    # Run.time_index. The window end is exclusive and closes the last period.
+    start, end = pd.Timestamp(start), pd.Timestamp(end)
+    start = start.tz_localize(None) if start.tz is not None else start
+    end = end.tz_localize(None) if end.tz is not None else end
+    return period_end_stamps(start, end, int(n), step_unit=row.get("time_unit"))
 
 
 def _catchment_mask(sim: Run) -> np.ndarray | None:

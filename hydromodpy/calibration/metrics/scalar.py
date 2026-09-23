@@ -18,6 +18,7 @@ from hydromodpy.calibration.optim.objective import (
     clip_negatives_for_log_metric,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.time.time_method import DEFAULT_TIME_METHOD
 from hydromodpy.results.derive.time_alignment import align_observed_simulated
 
 logger = get_logger(__name__)
@@ -60,6 +61,8 @@ def score(
     warmup_periods: int = 0,
     scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
     metric_kwargs: dict[str, object] | None = None,
+    time_method: str = DEFAULT_TIME_METHOD,
+    period_start: pd.Timestamp | None = None,
 ) -> float:
     """Align both series at the simulation frequency, compute the scalar metric.
 
@@ -79,6 +82,12 @@ def score(
 
     ``metric_kwargs`` reaches the metric function, which is how ``nse_log``
     receives an explicit ``eps`` instead of its adaptive default.
+
+    ``time_method`` is how the simulated variable relates to its end stamps,
+    ``"mean"`` for a flux and ``"point"`` for a state (see
+    :func:`hydromodpy.results.derive.time_alignment.time_method_for`).
+    ``period_start`` is the start of the first simulated period, which a
+    single steady stamp cannot tell on its own.
     """
     metric = METRICS.get(objective.lower())
     if metric is None:
@@ -86,7 +95,7 @@ def score(
             f"Unknown calibration objective {objective!r}. "
             f"Choices: {sorted(METRICS)} or a user callable via 'module.path:fn'."
         )
-    paired = align_observed_simulated(observed, simulated)
+    paired = align_observed_simulated(observed, simulated, method=time_method, start=period_start)
     if paired.empty:
         raise ValueError("No overlapping finite observation/simulation samples for calibration")
     if scoring_window is not None:

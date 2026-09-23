@@ -142,9 +142,12 @@ def test_the_two_costs_stay_separate_in_the_components(wired) -> None:
     # The downstream gauge's record matches its simulated series exactly; the
     # headwater one is off by a fixed 0.1: two different costs, so a bug that
     # merges the two blocks or swaps their inputs cannot pass both assertions.
+    # The records are monthly means stamped at their month start, inside the
+    # month each simulated stamp closes.
+    months = pd.date_range("2015-01-01", periods=3, freq="MS")
     observed_records = {
-        "gauge_down": pd.Series(BASEFLOW_DOWN + AREA_DOWN_M2 / 1e6, index=TIMES),
-        "gauge_up": pd.Series(BASEFLOW_UP + AREA_UP_M2 / 1e6 + 0.1, index=TIMES),
+        "gauge_down": pd.Series(BASEFLOW_DOWN + AREA_DOWN_M2 / 1e6, index=months),
+        "gauge_up": pd.Series(BASEFLOW_UP + AREA_UP_M2 / 1e6 + 0.1, index=months),
     }
     scorer = ObservableScorer(outputs, blocks, observed_records=observed_records)
     _total, components = scorer.score(extracted.observables, diagnostics=extracted.diagnostics)

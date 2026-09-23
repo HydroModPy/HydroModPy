@@ -12,6 +12,7 @@ from functools import cached_property
 
 import pandas as pd
 
+from hydromodpy.core.time.period_aggregation import period_end_stamps
 from hydromodpy.results.derive.downsample import (
     DEFAULT_TARGET_POINTS,
     lttb_downsample,
@@ -302,9 +303,11 @@ class RunTimeseriesMixin:
     def time_index(self) -> pd.DatetimeIndex:
         """Datetime index aligned with the simulation's stress periods.
 
-        Length matches ``run.n_timesteps``. Uses ``period_start`` and
-        ``period_end`` stored in the catalog; raises if either is
-        missing or the simulation has no timesteps.
+        Length matches ``run.n_timesteps``. Each stamp is the END of its
+        period, as the solvers write it. The solver's CF ``/time`` axis is read
+        first; without it the stamps are rebuilt from ``period_start``,
+        ``period_end`` and ``time_unit`` stored in the catalog. Raises if the
+        bounds are missing or the simulation has no timesteps.
         """
         row = self._load_row()
         n = row.get("n_timesteps")
@@ -325,10 +328,12 @@ class RunTimeseriesMixin:
                 f"Simulation '{self._sim_id}' missing period_start/period_end "
                 "in catalog - cannot build a time index."
             )
-        idx = pd.date_range(start=start, end=end, periods=n)
-        if idx.tz is not None:
-            idx = idx.tz_localize(None)
-        return idx
+        # The bounds keep the wall clock they were written with: the catalog
+        # receives naive strings, read in the DuckDB session zone.
+        start, end = pd.Timestamp(start), pd.Timestamp(end)
+        start = start.tz_localize(None) if start.tz is not None else start
+        end = end.tz_localize(None) if end.tz is not None else end
+        return period_end_stamps(start, end, int(n), step_unit=row.get("time_unit"))
 
     @cached_property
     def params(self) -> dict[str, float]:

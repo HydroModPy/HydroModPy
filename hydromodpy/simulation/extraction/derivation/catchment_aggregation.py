@@ -10,7 +10,7 @@ import pandas as pd
 from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.time.period_aggregation import period_mean_on_index
+from hydromodpy.core.time.period_aggregation import period_end_stamps, period_mean_on_index
 
 logger = get_logger(__name__)
 
@@ -130,7 +130,11 @@ def aggregate_catchment_timeseries(
             logger.debug("Catchment discharge for sim %s uses routed SFR/LAK outflow", sim_id)
         elif "discharge" in series_by_var:
             series_by_var["discharge"] = _add_runoff_to_discharge_series(
-                series_by_var["discharge"], sim_id, store, grp
+                series_by_var["discharge"],
+                sim_id,
+                store,
+                grp,
+                start=_read_period_start(store, sim_id, ts_index),
             )
 
         # One batched write, not one write_timeseries per variable: the latter
@@ -167,6 +171,39 @@ def aggregate_catchment_timeseries(
 
 
 _ROUTED_RUNOFF_WARNING_EMITTED: set[str] = set()
+
+
+def _catalog_window(store: Any, sim_id: str) -> tuple[Any, Any, Any] | None:
+    """Return ``(period_start, period_end, time_unit)`` from the catalog row.
+
+    The bounds come back on the wall clock they were written with. The catalog
+    receives them as naive strings, which DuckDB reads in its session time
+    zone, so the zone is dropped rather than converted.
+    """
+    row = store.connection.execute(
+        "SELECT period_start, period_end, time_unit FROM simulations WHERE sim_id = ?",
+        [str(sim_id)],
+    ).fetchone()
+    if row is None or row[0] is None or row[1] is None:
+        return None
+    return _wall_clock(row[0]), _wall_clock(row[1]), row[2]
+
+
+def _wall_clock(value: Any) -> pd.Timestamp:
+    ts = pd.Timestamp(value)
+    return ts.tz_localize(None) if ts.tz is not None else ts
+
+
+def _read_period_start(store: Any, sim_id: str, index: pd.DatetimeIndex) -> pd.Timestamp | None:
+    """Return the run window start when it precedes the first stamp, else None."""
+    window = _catalog_window(store, sim_id)
+    if window is None or len(index) == 0:
+        return None
+    first_stamp = pd.Timestamp(index.min())
+    if first_stamp.tz is not None:
+        first_stamp = first_stamp.tz_convert("UTC").tz_localize(None)
+    start = window[0]
+    return start if start < first_stamp else None
 
 
 def _warn_routed_without_runoff(store: Any, sim_id: str, grp: Any) -> None:
@@ -239,6 +276,8 @@ def _add_runoff_to_discharge_series(
     sim_id: str,
     store: Any,
     grp: Any,
+    *,
+    start: pd.Timestamp | None = None,
 ) -> pd.Series:
     """Add the surface-runoff forcing (m³/s) to a baseflow series.
 
@@ -247,7 +286,8 @@ def _add_runoff_to_discharge_series(
     in mm/day, resampled to the simulation index, then converted to m³/s
     using the catchment area read from ``geographic_metadata``. When no
     runoff forcing is found, a one-shot warning is emitted and the
-    baseflow is returned unchanged.
+    baseflow is returned unchanged. ``start`` is the start of the first
+    stress period, the run window start, when it is known.
     """
     runoff_grp = None
     forcing = grp.get("forcing")
@@ -298,8 +338,9 @@ def _add_runoff_to_discharge_series(
     # reported discharge came out 67 per cent above what its own water balance
     # allowed. ``period_mean_on_index`` is the one place that rule is written,
     # and the calibration metric calls it directly, so what a run is scored on
-    # is what it reports.
-    aligned = period_mean_on_index(runoff_mm_per_d, target_index)
+    # is what it reports. The window start bounds the first period, which a
+    # single steady stamp cannot tell on its own.
+    aligned = period_mean_on_index(runoff_mm_per_d, target_index, start=start)
     runoff_m3_per_s = aligned * 1e-3 * catch_area_m2 / 86400.0
     return discharge.add(runoff_m3_per_s, fill_value=0.0)
 
@@ -510,19 +551,16 @@ def _resolve_time_index(store: Any, sim_id: str, n_timesteps: int) -> pd.Datetim
     series (head, stage, budgets) instead of re-deriving a
     ``date_range(..., periods=n)`` that drifts (n-1 intervals over the window).
     Falls back to the catalog ``period_start/period_end`` only when the axis is
-    unavailable.
+    unavailable, and then stamps each period at its end, as the solvers do.
     """
     times = _read_solver_time_axis(store, sim_id)
     if times is not None and len(times) == n_timesteps:
         return pd.DatetimeIndex(times)
 
-    conn = store.connection
-    row = conn.execute(
-        "SELECT period_start, period_end, time_unit FROM simulations WHERE sim_id = ?",
-        [str(sim_id)],
-    ).fetchone()
-    if row is not None and row[0] is not None and row[1] is not None:
-        return pd.date_range(start=row[0], end=row[1], periods=n_timesteps)
+    window = _catalog_window(store, sim_id)
+    if window is not None:
+        start, end, unit = window
+        return period_end_stamps(start, end, n_timesteps, step_unit=unit)
     raise RuntimeError(
         f"Simulation {sim_id} is missing period_start/period_end; "
         "cannot write catchment timeseries with synthetic timestamps."

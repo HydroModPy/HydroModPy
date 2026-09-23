@@ -364,7 +364,9 @@ class TestSingleMetricLakeLevelPath:
         class _AlignedAdapter:
             def extract_observables(self, ctx, store, requests, *, time_index=None):
                 del ctx, store, time_index
-                # Observed is [10, 11, 12]; offset by 0.5 -> rmse == 0.5.
+                # Observed is [10, 11, 12]; offset by 0.5 -> rmse == 0.5. A lake
+                # stage is the state AT its stamp, so it pairs with the reading
+                # taken at that instant, not with the day its stamp closes.
                 return {
                     request.id: ObservableResult(
                         request_id=request.id,

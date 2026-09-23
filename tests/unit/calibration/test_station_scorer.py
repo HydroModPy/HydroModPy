@@ -21,13 +21,20 @@ from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.core.contracts.observables import ObservableResult
 
 _INDEX = pd.date_range("2020-01-01", periods=3, freq="D")
+# A discharge is the mean of the period its stamp closes, so a gauge day is
+# stamped one day before the simulated stamp that closes it.
+_DAY_BEFORE_INDEX = pd.date_range("2019-12-31", periods=3, freq="D")
 
 
 def _observed(station_id: str, values, variable: str = "head") -> ObservedSeries:
+    # A head or a lake level is the state AT the stamp, so its record is read
+    # at the stamp instants themselves. Shifting it by a day, as a discharge
+    # is, would pair each state with the reading of the day before.
+    index = _DAY_BEFORE_INDEX if variable == "discharge" else _INDEX
     return ObservedSeries(
         station_id=station_id,
         variable=variable,
-        series=pd.Series(np.asarray(values, dtype=float), index=_INDEX[: len(values)]),
+        series=pd.Series(np.asarray(values, dtype=float), index=index[: len(values)]),
     )
 
 

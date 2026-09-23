@@ -190,8 +190,11 @@ class TestAddRunoffToDischarge:
 
         idx = pd.date_range("2020-01-01", periods=3, freq="D")
         discharge = pd.Series([10.0, 20.0, 30.0], index=idx, name="discharge")
-        # 1 mm/day everywhere -> exactly 1.0 m3/s added per step.
-        grp = _make_grp_with_runoff(values=[1.0, 1.0, 1.0], timestamps=idx.values)
+        # 1 mm/day everywhere -> exactly 1.0 m3/s added per step. A run stamps
+        # each day at its end, a daily forcing at its start, so the forcing
+        # sits one day before each stamp.
+        runoff_idx = pd.date_range("2019-12-31", periods=3, freq="D")
+        grp = _make_grp_with_runoff(values=[1.0, 1.0, 1.0], timestamps=runoff_idx.values)
 
         out = _add_runoff_to_discharge_series(discharge, str(uuid4()), store=None, grp=grp)
 
@@ -205,7 +208,9 @@ class TestAddRunoffToDischarge:
 
         idx = pd.date_range("2021-06-01", periods=2, freq="D")
         discharge = pd.Series([0.0, 0.0], index=idx, name="discharge")
-        grp = _make_grp_with_runoff(values=[1.0, 3.0], timestamps=idx.values)
+        # Each daily forcing is stamped at the start of the day a stamp closes.
+        runoff_idx = pd.date_range("2021-05-31", periods=2, freq="D")
+        grp = _make_grp_with_runoff(values=[1.0, 3.0], timestamps=runoff_idx.values)
 
         out = _add_runoff_to_discharge_series(discharge, str(uuid4()), store=None, grp=grp)
 
@@ -223,15 +228,15 @@ class TestAddRunoffToDischarge:
 
         pd.testing.assert_series_equal(out, discharge)
 
-    def test_nearest_alignment_when_runoff_index_offset(self, monkeypatch):
-        # Runoff timestamps differ slightly; reindex(method="nearest") maps them.
+    def test_alignment_when_runoff_index_offset(self, monkeypatch):
+        # Runoff stamped a few hours into each day still falls in the period
+        # that day is: [stamp - 1 day, stamp).
         area_m2 = 86_400_000.0
         _patch_area(monkeypatch, area_m2)
 
         target = pd.date_range("2020-01-01", periods=3, freq="D")
         discharge = pd.Series([0.0, 0.0, 0.0], index=target, name="discharge")
-        # Runoff stamped a few hours off the daily grid but nearest to each day.
-        runoff_idx = target + pd.Timedelta(hours=2)
+        runoff_idx = pd.date_range("2019-12-31 02:00", periods=3, freq="D")
         grp = _make_grp_with_runoff(values=[1.0, 2.0, 4.0], timestamps=runoff_idx.values)
 
         out = _add_runoff_to_discharge_series(discharge, str(uuid4()), store=None, grp=grp)

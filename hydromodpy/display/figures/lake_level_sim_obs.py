@@ -20,6 +20,7 @@ from hydromodpy.display.map_axes import style_date_axis
 from hydromodpy.results.derive.time_alignment import (
     normalize_datetime_series,
     observed_on_simulation_index,
+    time_method_for,
 )
 
 if TYPE_CHECKING:
@@ -98,10 +99,16 @@ def _metrics_box(ax: Axes, sim_values: np.ndarray, obs_values: np.ndarray, unit:
     )
 
 
-def _plot_pair(ax: Axes, sim_ts, obs_ts, *, sim_label: str, obs_label: str):
-    """Draw the simulated and observed series and return the aligned arrays."""
+def _plot_pair(ax: Axes, sim_ts, obs_ts, *, variable: str, sim_label: str, obs_label: str):
+    """Draw the simulated and observed series and return the aligned arrays.
+
+    A lake stage and a lake volume are states at the stamp, so the record is
+    read at each stamp rather than averaged over the period it closes.
+    """
     ax.plot(sim_ts.index, sim_ts.values, label=sim_label, color="#b3352c", lw=1.3)
-    aligned = observed_on_simulation_index(obs_ts, sim_ts.index).dropna()
+    aligned = observed_on_simulation_index(
+        obs_ts, sim_ts.index, method=time_method_for(variable)
+    ).dropna()
     if aligned.empty:
         return None, None
     ax.plot(
@@ -141,7 +148,9 @@ class LakeStageSimObs(BaseFigure):
                 f"no gauged lake level ingested for {lake!r}; declare [data.lake_levels] "
                 "so the observation reaches the run store"
             )
-        sim_v, obs_v = _plot_pair(ax, sim_ts, obs_ts, sim_label="sim", obs_label="obs")
+        sim_v, obs_v = _plot_pair(
+            ax, sim_ts, obs_ts, variable="stage", sim_label="sim", obs_label="obs"
+        )
         if sim_v is None:
             raise ValueError(f"gauged lake level for {lake!r} does not overlap the simulation")
         _metrics_box(ax, sim_v, obs_v, "m")
@@ -193,6 +202,7 @@ class LakeVolumeSimObs(BaseFigure):
             ax,
             sim_ts / scale,
             obs_volume / scale,
+            variable="volume",
             sim_label="sim (MF6)",
             obs_label="obs (stage through the reference abacus)",
         )

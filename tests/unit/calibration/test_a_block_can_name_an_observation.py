@@ -167,10 +167,16 @@ class TestLoadingTheRecords:
 
 class TestPairing:
     def test_the_record_is_aligned_on_the_simulated_timestamps(self) -> None:
+        # A simulated stamp closes its period and a daily record is stamped at
+        # the day it measures, so each record day pairs with the next stamp.
         times = pd.DatetimeIndex(["2000-01-01", "2000-01-02"])
         paired = pair_outputs_with_observations(
             observed={"outlet": pd.Series([1.0, 2.0], index=times)},
-            simulated={"outlet": pd.Series([1.1, 2.2], index=times)},
+            simulated={
+                "outlet": pd.Series(
+                    [1.1, 2.2], index=pd.DatetimeIndex(["2000-01-02", "2000-01-03"])
+                )
+            },
         )
 
         assert paired.observed["outlet"] == [1.0, 2.0]
@@ -193,14 +199,22 @@ class TestPairing:
             },
         )
 
-        # 2000-01-05 sits two steps past the end of the record and carries no pair.
-        assert paired.n_paired["outlet"] == 4
-        assert paired.simulated["outlet"][-1] == 4.4
+        # 2000-01-01 closes a day before the record, 2000-01-05 closes a day
+        # after it: neither carries a pair. The three stamps in between close
+        # the three record days.
+        assert paired.n_paired["outlet"] == 3
+        assert paired.simulated["outlet"] == [2.2, 3.3, 4.4]
 
     def test_a_window_keeps_only_the_dates_inside_it(self) -> None:
+        # The record is stamped one day before the stamps that close its days.
         times = pd.DatetimeIndex(["2000-01-01", "2000-01-02", "2000-01-03"])
         paired = pair_outputs_with_observations(
-            observed={"outlet": pd.Series([1.0, 2.0, 3.0], index=times)},
+            observed={
+                "outlet": pd.Series(
+                    [0.0, 2.0, 3.0],
+                    index=pd.DatetimeIndex(["1999-12-31", "2000-01-01", "2000-01-02"]),
+                )
+            },
             simulated={"outlet": pd.Series([1.1, 2.2, 3.3], index=times)},
             scoring_window=(pd.Timestamp("2000-01-02"), pd.Timestamp("2000-01-03")),
         )
@@ -255,24 +269,34 @@ class TestTheExtractor:
         ]
 
     @staticmethod
-    def _extracted(monkeypatch, *, sim_outlet: list[float], sim_piezo: list[float]) -> None:
+    def _extracted(
+        monkeypatch,
+        *,
+        sim_outlet: list[float],
+        sim_piezo: list[float],
+        piezo_times: list[str] | None = None,
+    ) -> None:
         from hydromodpy.calibration.metrics import composite
         from hydromodpy.calibration.metrics.solver_extract import ExtractedOutputs
         from hydromodpy.core.contracts.observables import ObservableResult
 
-        times = pd.DatetimeIndex(["2000-01-01", "2000-01-02"])
+        # A discharge is the mean of the period its stamp closes, so the outlet
+        # stamps close the two days _ctx() records. A head is the state AT its
+        # stamp, so by default the piezometer is stamped at the record instants.
+        times = pd.DatetimeIndex(["2000-01-02", "2000-01-03"])
+        head_times = pd.DatetimeIndex(piezo_times or ["2000-01-01", "2000-01-02"])
         monkeypatch.setattr(
             composite,
             "extract_outputs",
             lambda ctx, outputs: ExtractedOutputs(
                 observables={
                     "outlet": ObservableResult("outlet", np.asarray(sim_outlet), "m3/s", times),
-                    "piezo": ObservableResult("piezo", np.asarray(sim_piezo), "m", times),
+                    "piezo": ObservableResult("piezo", np.asarray(sim_piezo), "m", head_times),
                 },
                 values={"outlet": sim_outlet, "piezo": sim_piezo},
                 series={
                     "outlet": pd.Series(sim_outlet, index=times),
-                    "piezo": pd.Series(sim_piezo, index=times),
+                    "piezo": pd.Series(sim_piezo, index=head_times),
                 },
                 diagnostics={},
             ),
@@ -310,14 +334,21 @@ class TestTheExtractor:
     def test_a_window_now_applies_because_the_series_carry_dates(self, monkeypatch) -> None:
         from hydromodpy.calibration.metrics.composite import build_metric_extractor
 
-        self._extracted(monkeypatch, sim_outlet=[9.0, 2.0], sim_piezo=[40.0, 41.0])
+        # The piezometer runs a day later here, so the window keeps one of its
+        # stamps: 2000-01-03 reads the nearest record instant, 2000-01-02.
+        self._extracted(
+            monkeypatch,
+            sim_outlet=[9.0, 2.0],
+            sim_piezo=[40.0, 41.0],
+            piezo_times=["2000-01-02", "2000-01-03"],
+        )
         metric_fn = build_metric_extractor(
             None,
             None,
             _ctx(),
             outputs=self._outputs(),
             objective_blocks=self._blocks(),
-            scoring_window=(pd.Timestamp("2000-01-02"), None),
+            scoring_window=(pd.Timestamp("2000-01-03"), None),
         )
 
         total, components = metric_fn(None)
@@ -344,5 +375,5 @@ class TestTheExtractor:
                 _ctx(),
                 outputs=outputs,
                 objective_blocks=blocks,
-                scoring_window=(pd.Timestamp("2000-01-02"), None),
+                scoring_window=(pd.Timestamp("2000-01-03"), None),
             )

@@ -25,10 +25,12 @@ from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
 # 1 mm/day over 86.4 km² is exactly 1 m³/s: 1e-3 * 8.64e7 / 86400.
 _CATCH_AREA_KM2 = 86.4
 
-# Three unevenly spaced stress periods. Halfway to each neighbour, they span
-# 2000-01-06..01-15, 01-16..02-04 and 02-05..03-05, and the forcing below is
-# constant on each of those spans, so the period means are 2, 5 and 9 mm/day
-# by construction.
+# Three unevenly spaced stress periods, each stamped at its END as the solvers
+# write it. The first period reaches back one spacing, 10 days, so the periods
+# are [01-01, 01-11), [01-11, 01-21) and [01-21, 02-20). The forcing below is
+# constant on each of them, so the period means are 2, 5 and 9 mm/day by
+# construction. These spans used to reach halfway to each neighbour; they moved
+# when the stamps were read as period ends instead of period centres.
 _SIM_INDEX = pd.DatetimeIndex(["2000-01-11", "2000-01-21", "2000-02-20"])
 _EXPECTED_M3_PER_S = [2.0, 5.0, 9.0]
 
@@ -37,9 +39,9 @@ def _daily_runoff_mm() -> pd.Series:
     parts = [
         pd.Series(value, index=pd.date_range(start, end, freq="D", inclusive="left"))
         for start, end, value in (
-            ("2000-01-06", "2000-01-16", 2.0),
-            ("2000-01-16", "2000-02-05", 5.0),
-            ("2000-02-05", "2000-03-06", 9.0),
+            ("2000-01-01", "2000-01-11", 2.0),
+            ("2000-01-11", "2000-01-21", 5.0),
+            ("2000-01-21", "2000-03-06", 9.0),
         )
     ]
     return pd.concat(parts)
@@ -160,11 +162,12 @@ def test_what_a_run_is_scored_on_is_what_it_reports() -> None:
 def test_a_single_steady_period_is_the_mean_of_its_whole_forcing_window() -> None:
     """The index phase one of the Abherve method runs on.
 
-    One steady stress period covering the run, and a daily forcing over it. The
-    period mean of the window above is (10*2 + 20*5 + 30*9) / 60 = 6.5 mm/day.
-    A rule that picks the sample nearest the stamp answers 5.0 here, which is
-    the failure the whole single-source fix is about, and the one an index with
-    an even spacing cannot expose.
+    One steady stress period covering the run, and a daily forcing over it. A
+    single stamp carries no spacing, so without the window start the whole
+    forcing window is the period: (10*2 + 10*5 + 45*9) / 65 mm/day. A rule
+    that picks the sample nearest the stamp answers 9.0 here, which is the
+    failure the whole single-source fix is about, and the one an index with an
+    even spacing cannot expose.
     """
     runoff = _daily_runoff_mm()
     steady = pd.DatetimeIndex(["2000-01-21"])
@@ -175,7 +178,7 @@ def test_a_single_steady_period_is_the_mean_of_its_whole_forcing_window() -> Non
     reported = _add_runoff_to_discharge_series(baseflow, "sim-0", store=store, grp=grp)
 
     expected = float(runoff.mean())
-    assert expected == pytest.approx(6.5)
+    assert expected == pytest.approx(475.0 / 65.0)
     assert scored.tolist() == pytest.approx([expected])
     assert scored.tolist() == pytest.approx(reported.tolist())
 
@@ -203,3 +206,28 @@ def test_a_steady_period_followed_by_short_ones_is_averaged_on_both_paths() -> N
     assert 2.0 < scored.iloc[0] < 5.0
     # The short periods sit inside the 9 mm/day block.
     assert scored.iloc[-1] == pytest.approx(9.0)
+
+
+def test_a_single_steady_period_with_its_start_averages_its_own_window() -> None:
+    """With the run window start, the steady period is [start, stamp) only.
+
+    The window [2000-01-11, 2000-01-21) holds the 5 mm/day block alone. Both
+    paths receive the start: the calibration one from the time grid, the
+    derived one from the catalog.
+    """
+    runoff = _daily_runoff_mm()
+    steady = pd.DatetimeIndex(["2000-01-21"])
+    baseflow = pd.Series(0.0, index=steady, name="discharge")
+    store, grp = _derived_paths_inputs(runoff)
+    ctx = _calibration_context(runoff)
+    ctx.setup.time_grid = SimpleNamespace(
+        boundaries=(pd.Timestamp("2000-01-11"), pd.Timestamp("2000-01-21"))
+    )
+
+    scored = add_runoff_to_discharge(baseflow, ctx)
+    reported = _add_runoff_to_discharge_series(
+        baseflow, "sim-0", store=store, grp=grp, start=pd.Timestamp("2000-01-11")
+    )
+
+    assert scored.tolist() == pytest.approx([5.0])
+    assert reported.tolist() == pytest.approx([5.0])

@@ -73,10 +73,12 @@ class _Run:
     def observed(self, variable: str, station: str | None = None, period=None) -> pd.DataFrame:
         if self._observed is None:
             raise ValueError(f"No observations for variable={variable}")
+        # The record is stamped at the day each simulated stamp closes, one
+        # day before that stamp.
         return pd.DataFrame(
             {
                 "station_id": ["J7000610"] * len(self.index),
-                "datetime": self.index,
+                "datetime": self.index.shift(-1, freq="D"),
                 "value": self._observed,
             }
         )

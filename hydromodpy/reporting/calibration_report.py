@@ -23,11 +23,13 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import reports_dir_for
+from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.display.figure_registry import get as _get_figure
 from hydromodpy.display.figure_registry import names as _figure_names
 from hydromodpy.results.derive.time_alignment import (
     normalize_datetime_series,
     observed_on_simulation_index,
+    time_method_for,
 )
 
 if TYPE_CHECKING:
@@ -295,9 +297,16 @@ def _render_best_obs_vs_sim(
     obs = normalize_datetime_series(
         pd.Series(obs_df["value"].values, index=pd.DatetimeIndex(obs_df["datetime"]))
     )
-    obs_daily = obs.loc[sim.index.min() : sim.index.max()]
+    # A stamp is the end of its period, so the first period starts one step
+    # before the first stamp and the last one ends at the last stamp.
+    sim_stamps = pd.DatetimeIndex(sim.index)
+    first_edge = period_edges(sim_stamps)[0] if sim_stamps.nunique() > 1 else obs.index.min()
+    obs_daily = obs[(obs.index >= first_edge) & (obs.index < sim_stamps.max())]
 
-    obs_binned = observed_on_simulation_index(obs_daily, pd.DatetimeIndex(sim.index))
+    # A discharge stands for its whole period, so the record is averaged over it.
+    obs_binned = observed_on_simulation_index(
+        obs_daily, pd.DatetimeIndex(sim.index), method=time_method_for("discharge")
+    )
 
     out_path = figures_dir / "best_obs_vs_sim.png"
     fig, (ax_ts, ax_sc) = plt.subplots(

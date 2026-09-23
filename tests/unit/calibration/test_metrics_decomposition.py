@@ -19,9 +19,10 @@ def test_scalar_module_exposes_score() -> None:
         [1.0, 2.0, 3.0],
         index=pd.DatetimeIndex(["2020-01-01", "2020-01-02", "2020-01-03"]),
     )
+    # A simulated stamp closes the day observed one day before it.
     sim = pd.Series(
         [1.5, 2.5, 3.5],
-        index=pd.DatetimeIndex(["2020-01-01", "2020-01-02", "2020-01-03"]),
+        index=pd.DatetimeIndex(["2020-01-02", "2020-01-03", "2020-01-04"]),
     )
     assert scalar.score(obs, sim, "rmse") == pytest.approx(0.5)
 

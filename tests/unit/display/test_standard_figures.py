@@ -224,7 +224,10 @@ def test_sim_obs_figures_align_only_overlapping_samples(mpl, tmp_path) -> None:
     fig, ax = mpl.subplots()
     HydrographSimObs().render(run, ax)
     assert [line.get_label() for line in ax.lines] == ["sim", "obs (obs-a)"]
-    assert ax.lines[1].get_ydata().tolist() == pytest.approx([1.5, 1.0, 1.0, 2.0, 2.0])
+    # The record covers 01-01, 01-02 and 01-04. Each is drawn at the stamp that
+    # closes its day; the days the record skips stay gaps instead of taking the
+    # nearest sample, as they used to.
+    assert ax.lines[1].get_ydata().tolist() == pytest.approx([1.5, 1.0, 2.0])
     mpl.close(fig)
 
     fig, ax = mpl.subplots()
@@ -297,12 +300,16 @@ def test_hydrograph_sim_obs_marks_single_sample_series(mpl) -> None:
             return pd.Series([1.8], index=pd.to_datetime(["2000-06-15"]), name="discharge")
 
         def observed(self, variable: str, station: str | None = None) -> pd.DataFrame:
+            # A lone discharge stamp with no known start, as this run has no
+            # catalog row, takes the mean of the whole record. That record has
+            # to reach the stamp, and one sample alone has no interval, so it
+            # holds two.
             return pd.DataFrame(
                 {
-                    "datetime": pd.to_datetime(["2000-06-15"]),
-                    "station_id": ["NANCON"],
-                    "variable": [variable],
-                    "value": [1.5],
+                    "datetime": pd.to_datetime(["2000-06-13", "2000-06-14"]),
+                    "station_id": ["NANCON", "NANCON"],
+                    "variable": [variable, variable],
+                    "value": [1.4, 1.5],
                 }
             )
 

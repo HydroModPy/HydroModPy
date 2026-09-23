@@ -11,6 +11,8 @@ from hydromodpy.display.map_axes import style_date_axis
 from hydromodpy.results.derive.time_alignment import (
     normalize_datetime_series,
     observed_on_simulation_index,
+    run_period_start,
+    time_method_for,
 )
 
 if TYPE_CHECKING:
@@ -61,12 +63,16 @@ class HydrographSimObs(BaseFigure):
         # real gauges keyed by their own id. Fetch every observed gauge and
         # let the per-station loop align each onto the simulation index.
         obs_df = sim.observed(variable)
+        method = time_method_for(variable)
+        start = run_period_start(sim, sim_ts.index)
         has_aligned = False
         for station_id, group in obs_df.groupby("station_id"):
             obs_ts = normalize_datetime_series(
                 group.set_index("datetime")["value"].rename(f"obs ({station_id})")
             )
-            obs_aligned = observed_on_simulation_index(obs_ts, sim_ts.index).dropna()
+            obs_aligned = observed_on_simulation_index(
+                obs_ts, sim_ts.index, method=method, start=start
+            ).dropna()
             if obs_aligned.empty:
                 continue
             has_aligned = True

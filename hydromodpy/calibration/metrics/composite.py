@@ -40,6 +40,7 @@ from hydromodpy.calibration.metrics.series import (
     add_runoff_to_discharge,
     load_observed,
     resolve_time_index,
+    time_grid_boundaries,
 )
 from hydromodpy.calibration.metrics.solver_extract import (
     extract_outputs,
@@ -365,7 +366,11 @@ def build_metric_extractor(
                 observed,
                 time_index=resolve_time_index(trial_ctx, n_timesteps=0),
             )
-            return scorer.score(produced, source=f"Solver {run_ctx.run.solver!r}")
+            return scorer.score(
+                produced,
+                source=f"Solver {run_ctx.run.solver!r}",
+                boundaries=time_grid_boundaries(trial_ctx),
+            )
         except Exception:
             logger.exception("Metric extractor failed")
             raise
@@ -418,6 +423,7 @@ def _build_composite_metric_extractor(
                 if output.support == "network"
             },
             diagnostics=extracted.diagnostics,
+            boundaries=time_grid_boundaries(trial_ctx),
         )
 
     return metric_fn
@@ -523,7 +529,10 @@ def build_paired_vector_capture(
 
     def metric_fn(trial_ctx: Any, *, objective: Any = None, variable: Any = None):
         del objective, variable
-        paired = scorer.pair(extract_outputs(trial_ctx, outputs).observables)
+        paired = scorer.pair(
+            extract_outputs(trial_ctx, outputs).observables,
+            boundaries=time_grid_boundaries(trial_ctx),
+        )
         order = sorted(paired.simulated)
         captured["simulated"] = np.concatenate(
             [np.asarray(paired.simulated[name], dtype=float).ravel() for name in order]

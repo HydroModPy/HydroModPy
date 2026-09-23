@@ -153,10 +153,14 @@ class TestMinSamplesReachesThePairing:
             pair_outputs_with_observations,
         )
 
-        times = pd.date_range("2000-01-01", periods=3, freq="D")
+        # Each simulated stamp closes the day observed one day before it.
         paired = pair_outputs_with_observations(
-            observed={"q": pd.Series([1.0, 2.0, 3.0], index=times)},
-            simulated={"q": pd.Series([1.1, 2.1, 3.1], index=times)},
+            observed={
+                "q": pd.Series([1.0, 2.0, 3.0], index=pd.date_range("1999-12-31", periods=3))
+            },
+            simulated={
+                "q": pd.Series([1.1, 2.1, 3.1], index=pd.date_range("2000-01-01", periods=3))
+            },
             min_samples=3,
         )
 

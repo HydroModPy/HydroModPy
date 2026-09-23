@@ -316,8 +316,15 @@ class TestCalibrationWiring:
     def test_score_helper_returns_the_flipped_cost(self) -> None:
         simulated, observed = _daily_reservoir(0.2)
         index = pd.date_range("2001-01-01", periods=TWO_SEASONS, freq="D")
+        # A reservoir stage is the state AT its stamp, so the stage simulated
+        # at an instant pairs with the reading taken at that same instant, as
+        # the lake_level route scores it. A period mean would pair it with the
+        # reading of the day before.
         cost = score(
-            pd.Series(observed, index=index), pd.Series(simulated, index=index), "reservoir"
+            pd.Series(observed, index=index),
+            pd.Series(simulated, index=index),
+            "reservoir",
+            time_method="point",
         )
         assert cost == pytest.approx(0.25)
 
