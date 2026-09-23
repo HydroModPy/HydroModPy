@@ -37,10 +37,10 @@ kind = "homogeneous"
 unit = "m-1"
 value = 1e-5
 
-# `__append` keeps the two families step 2 declares; a plain `types = [...]`
-# would replace them.
+# The two families step 2 declares, plus the two this step forces with. A list
+# replaces the parent's, so the four are written out.
 [data]
-types__append = ["recharge", "runoff"]
+types = ["hydrography", "hydrometry", "recharge", "runoff"]
 
 # The 36 monthly rates supersede the single mean of step 1: a series loaded
 # from a data source replaces [flow.sinks_sources.recharge] entirely, value and
