@@ -34,6 +34,9 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Removed
+- `examples/projects/02_nancon_watershed/run_sweep_sy.toml`, a design draft for
+  a `sweep` workflow that does not exist, and `run_transient_prototype.py.draft`
+  leave the example.
 - `examples/projects/19_cheze_reservoir`, the lake test project of the Chèze
   reservoir, the three projects of `examples/projects/new_to_sort`, the Chèze
   diagnostic scripts of `tools/diagnostics/` and `tools/view_mesh_grid_3d.py`
@@ -41,6 +44,10 @@ Each release section includes the following standard categories:
   test, the documentation or the example manifest.
 
 ### Added
+- The twelve v1 examples run in the current format, examples 06 to 11 included
+  (particle tracking, analytical recession, exponential residence times,
+  agricultural transport, PyHelp coupling, a run without plots), with the data
+  they read. Example 00 pumps its v1 rates again.
 - The stream-network calibration guide gives the protocol and the hand-written
   two-stage calibration of example 04 measured side by side, with the `roptim`
   warning that qualifies the calibrated `K` on this catchment.
@@ -78,6 +85,24 @@ Each release section includes the following standard categories:
   `"1 month"`.
 
 ### Fixed
+- Geology is requested over the buffered domain box, not the catchment
+  outline. A domain larger than the geology left a frame of cells at K = 0, and
+  MODFLOW 6 refused the whole NPF. A zero or non-finite conductivity on an
+  active cell is now refused before MODFLOW 6 and MODFLOW-NWT, naming the
+  support that did not cover it.
+- A synthetic recharge sample on a month, quarter or year end alias (`ME`,
+  `QE`, `YE`) is stamped at the start of its period, so a steady run on a
+  monthly grid finds the value of its first period.
+- A catchment report reads the newest completed run of its name, not the name
+  of a run that failed before it. The Vire MODFLOW-NWT run closes at the
+  default 1e-4 m head tolerance: at 1e-6 m two drain cells cycled forever.
+- The MODFLOW 6 PRT example names the `transport/modflow6_prt` pair, renamed on
+  2026-05-20, and the bundled `mf6`. A test holds every example config to the
+  registered solver pairs.
+- Example configs that named data files nobody ships fetch them instead: the
+  Canut intermittency from ONDE, the Bretagne candidates DEM from BD ALTI, the
+  workshop ETP from SIM2. The site 18 base mesh declares its DEM and its
+  river-network threshold.
 - A stress-period stamp is the END of its period. Observations and forcings
   were averaged over a window centred on it, so a monthly run compared January
   with mid-December to mid-January: 0.167 m3/s off on average through the daily
