@@ -58,10 +58,9 @@ Shared inputs under `examples/data/`, resolved by bare filename from
 | `runoff/*_EX04_*` | runoff | surface runoff added to simulated discharge |
 | ONDE stations, provider `hubeau` | intermittency | live fetch, `overview.toml` only |
 
-`project.toml` also declares an `etp` source
-(`etp_sim2_5347fa22_20000101_20251231.nc`) for the EVT package, but that file
-is not present under `examples/data/etp/` in this checkout: every run logs a
-warning and continues with ETP skipped.
+`project.toml` also reads an `etp` series for the EVT package, from SIM2 over
+the catchment: the first run fetches it, the next ones read it from the data
+cache.
 
 ## What it shows
 

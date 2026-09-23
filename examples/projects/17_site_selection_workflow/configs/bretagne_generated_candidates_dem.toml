@@ -18,10 +18,13 @@ mode = "admin_regions"
 country = "FR"
 regions = ["Bretagne"]
 
+# The BD ALTI 25 m tile over the region, fetched once then read from the data
+# cache. It used to name the cached file by path, which no checkout ships.
 [site_selection.dem]
-source = "custom"
-path = "../../../data/dem/dem_bdalti_25m_2f609f91.tif"
+source = "data"
 resolution_m = 25.0
+cache_policy = "use_cache_else_download"
+request_extent = "territory"
 map_background_extent = "delineation"
 
 [site_selection.hydrology]

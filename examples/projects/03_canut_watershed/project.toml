@@ -245,9 +245,11 @@ source = "brgm_1m"
 [[data.hydrography.sources]]
 source = "bdtopage"
 
+# ONDE observations over the catchment, fetched once then read from the cache.
+# No custom intermittency file was ever shipped for the Canut.
 [[data.intermittency.sources]]
-source = "custom"
-path = "../../data/intermittency"
+source = "hubeau"
+extent = "watershed"
 
 [[data.recharge.sources]]
 source = "synthetic"
