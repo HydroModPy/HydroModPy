@@ -221,38 +221,10 @@ ZARR_SCHEMA_VERSION_DEFAULT = "2"
 PARQUET_SCHEMA_VERSION_DEFAULT = "v2"
 
 
-def _catalog_base_dir(catalog: DataCatalogDuckDB) -> Path | None:
-    db_path = getattr(catalog, "_db_path", None)
-    if db_path is None:
-        return None
-    return Path(db_path).parent
-
-
-def _resolve_artifact_path(
-    file_path: str | Path,
-    base_dir: Path | None,
-    *,
-    variable: str | None = None,
-) -> Path:
-    path = Path(file_path)
-    if path.is_absolute():
-        return path
-    candidates: list[Path] = []
-    if base_dir is not None:
-        if variable:
-            candidates.append(base_dir / variable / path)
-        candidates.extend((base_dir / path, base_dir.parent / path))
-    candidates.append(path)
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate
-    return candidates[0]
-
-
 def _entry_to_locked(
-    row: dict[str, Any], *, base_dir: Path | None, fetched_at: str
+    row: dict[str, Any], *, catalog: DataCatalogDuckDB, fetched_at: str
 ) -> LockedArtifact | None:
-    path = _resolve_artifact_path(row["file_path"], base_dir, variable=row.get("variable"))
+    path = catalog.resolve_path(row["file_path"], variable=row.get("variable"))
     if not path.is_file():
         return None
     size: int | None = None
@@ -338,11 +310,10 @@ def _inputs_section(
         "SELECT variable, source, station_id, file_path, file_mtime, sha256 "
         "FROM entries ORDER BY variable, source, station_id, file_path"
     ).to_dict(orient="records")
-    base_dir = _catalog_base_dir(catalog)
     locked: list[LockedArtifact] = []
     inputs: dict[str, dict[str, Any]] = {}
     for row in rows:
-        la = _entry_to_locked(row, base_dir=base_dir, fetched_at=fetched_at)
+        la = _entry_to_locked(row, catalog=catalog, fetched_at=fetched_at)
         if la is None:
             continue
         locked.append(la)
@@ -544,7 +515,6 @@ def verify_frozen(
         (la.variable, la.source, la.station_id, la.file_path): la for la in read_lockfile(lockfile)
     }
     mismatches: list[LockMismatch] = []
-    base_dir = _catalog_base_dir(catalog)
     rows = catalog.backend.fetch_all("SELECT variable, source, station_id, file_path FROM entries")
     seen = set()
     for variable, source, station_id, file_path in rows:
@@ -564,7 +534,7 @@ def verify_frozen(
                 )
             )
             continue
-        p = _resolve_artifact_path(file_path, base_dir, variable=variable)
+        p = catalog.resolve_path(file_path, variable=variable)
         if not p.is_file():
             mismatches.append(
                 LockMismatch(
@@ -619,7 +589,6 @@ def verify_inputs_strict(
     expected = read_lockfile_inputs(lockfile)
     if not expected:
         return verify_frozen(catalog, lockfile)
-    base_dir = _catalog_base_dir(catalog)
     rows = catalog.backend.fetch_all("SELECT variable, source, station_id, file_path FROM entries")
     mismatches: list[LockMismatch] = []
     for variable, source, station_id, file_path in rows:
@@ -627,7 +596,7 @@ def verify_inputs_strict(
         meta = expected.get(key)
         if meta is None:
             continue
-        p = _resolve_artifact_path(file_path, base_dir, variable=variable)
+        p = catalog.resolve_path(file_path, variable=variable)
         if not p.is_file():
             mismatches.append(
                 LockMismatch(
@@ -707,11 +676,10 @@ def archive_lockfile(
     try:
         with tarfile.open(fileobj=stream, mode=mode) as tar:
             tar.add(lockfile_dest, arcname=LOCKFILE_NAME)
-            base_dir = _catalog_base_dir(catalog)
             for fp, variable in catalog.backend.fetch_all(
                 "SELECT file_path, variable FROM entries"
             ):
-                p = _resolve_artifact_path(fp, base_dir, variable=variable)
+                p = catalog.resolve_path(fp, variable=variable)
                 if p.is_file():
                     tar.add(p, arcname=f"artefacts/{sha256_of(p)}/{p.name}")
     finally:

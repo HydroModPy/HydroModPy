@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 import duckdb
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import encode_workspace_path
+from hydromodpy.core.state.paths import decode_workspace_path, encode_workspace_path
 from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
 from hydromodpy.data.sidecars import (
     Sidecar,
@@ -89,6 +89,15 @@ def resolve_entry_path(
     *,
     variable: str | None = None,
 ) -> Path:
+    """Return the file a stored ``file_path`` names.
+
+    ``cache://`` and ``state://`` decode against their anchor. A relative path
+    is looked up under ``data/<variable>/``, ``data/`` and the workspace root,
+    the forms the catalog has stored over time, and only then under the cwd.
+    """
+    workspace = workspace_root(catalog)
+    if workspace is not None and str(file_path).startswith(("cache://", "state://")):
+        return decode_workspace_path(workspace, str(file_path))
     path = Path(file_path)
     if path.is_absolute():
         return path
@@ -274,10 +283,12 @@ def register(
     ds = dt_to_str(date_start)
     de = dt_to_str(date_end)
     bx = bbox or (None, None, None, None)
-    # P3 workspace-relative encoding: anchor portable file_path on the
-    # workspace root (or cache://, state://). Falls back to ``str(path)``
-    # for in-memory catalogs (workspace unknown).
-    encoded_path = encode_path_for_storage(catalog, file_path)
+    # The stored form is encoded from the resolved file, so a relative
+    # file_path never depends on the cwd. A sentinel is stored as written.
+    if str(file_path) in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
+        encoded_path = str(file_path)
+    else:
+        encoded_path = encode_path_for_storage(catalog, resolved_path)
 
     # P9 provenance sidecar: write a JSON sidecar next to every catalog
     # input so downstream tools have the upstream metadata even without

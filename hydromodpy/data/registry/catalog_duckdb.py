@@ -46,7 +46,7 @@ class DataCatalogDuckDB:
         if db_path is None:
             self._conn = duckdb.connect(":memory:")
         else:
-            db_path = Path(str(db_path))
+            db_path = Path(str(db_path)).expanduser().resolve()
             db_path.parent.mkdir(parents=True, exist_ok=True)
             self._db_path = db_path
             self._conn = connect_with_retry(str(db_path), block_size=HMP_DUCKDB_BLOCK_SIZE)
@@ -84,7 +84,8 @@ class DataCatalogDuckDB:
     def _encode_path_for_storage(self, file_path: Path | str) -> str:
         return cache_store.encode_path_for_storage(self, file_path)
 
-    def _resolve_entry_path(self, file_path: Path | str, *, variable: str | None = None) -> Path:
+    def resolve_path(self, file_path: Path | str, *, variable: str | None = None) -> Path:
+        """Return the file a stored ``file_path`` names, whatever the cwd."""
         return cache_store.resolve_entry_path(self, file_path, variable=variable)
 
     @staticmethod

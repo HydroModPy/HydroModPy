@@ -131,7 +131,7 @@ class BaseFieldManager(BaseManagerCommon):
             if entry is None:
                 return None
 
-            nc_path = self._resolve_nc_path(entry.file_path)
+            nc_path = self.catalog.resolve_path(entry.file_path, variable=self.VARIABLE_NAME)
             if not nc_path.exists():
                 self.catalog.invalidate(variable=var_name, source=source)
                 return None
@@ -270,20 +270,6 @@ class BaseFieldManager(BaseManagerCommon):
                 source_unit=rec.source_unit,
                 is_custom=True,
             )
-
-    def _resolve_nc_path(self, file_path: str) -> Path:
-        """Resolve a catalog file_path to absolute."""
-        return self._resolve_data_path(file_path, self.data_dir)
-
-    @staticmethod
-    def _resolve_data_path(file_path: str, data_dir: Path | None) -> Path:
-        """Resolve a catalog file_path to absolute (shared utility)."""
-        p = Path(file_path)
-        if p.is_absolute():
-            return p
-        if data_dir is not None:
-            return data_dir / p
-        return p
 
     @staticmethod
     def _extract_field_source_unit(ds, variable: str) -> str | None:

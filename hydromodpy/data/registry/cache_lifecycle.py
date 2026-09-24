@@ -338,11 +338,11 @@ def check_and_fix(catalog: DataCatalogDuckDB) -> dict[str, int]:
     """
     backend = catalog.backend
     summary = {"dropped": 0, "refreshed": 0}
-    rows = backend.fetch_all("SELECT id, file_path, file_mtime FROM entries")
-    for eid, fp, mtime in rows:
+    rows = backend.fetch_all("SELECT id, file_path, variable, file_mtime FROM entries")
+    for eid, fp, variable, mtime in rows:
         if fp in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
             continue
-        p = Path(fp)
+        p = resolve_entry_path(catalog, fp, variable=variable)
         if not p.exists():
             backend.execute("DELETE FROM entries WHERE id = ?", [eid])
             summary["dropped"] += 1
@@ -363,13 +363,13 @@ def check_and_fix(catalog: DataCatalogDuckDB) -> dict[str, int]:
 def cleanup(catalog: DataCatalogDuckDB) -> int:
     """Remove entries whose files no longer exist on disk."""
     backend = catalog.backend
-    rows = backend.fetch_all("SELECT id, file_path FROM entries")
+    rows = backend.fetch_all("SELECT id, file_path, variable FROM entries")
     ids_to_delete = []
-    for eid, fp in rows:
+    for eid, fp, variable in rows:
         if fp in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
             continue
         try:
-            if not Path(fp).exists():
+            if not resolve_entry_path(catalog, fp, variable=variable).exists():
                 ids_to_delete.append(eid)
         except OSError:
             ids_to_delete.append(eid)

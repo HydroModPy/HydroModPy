@@ -205,8 +205,7 @@ class BaseVariableManager(BaseManagerCommon):
             if r.location:
                 self._upsert_api_loc(r.location, source)
 
-            # Register in catalog (store filename only for portability)
-            self._register_one(r, Path(filename))
+            self._register_one(r, filepath)
 
     def _cleanup_old_api_file(self, source: str, station_id: str) -> None:
         """Delete old API CSV if a previous download exists for this station."""
@@ -222,19 +221,8 @@ class BaseVariableManager(BaseManagerCommon):
         unlink_with_sidecar(self._resolve_catalog_path(entry.file_path))
 
     def _resolve_catalog_path(self, file_path: str) -> Path:
-        """Resolve a catalog file_path to an absolute path.
-
-        If file_path is a sentinel (SENTINEL_CUSTOM / SENTINEL_EMPTY) or already absolute,
-        return as-is. Otherwise, resolve relative to data_dir.
-        """
-        if file_path in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
-            return Path(file_path)
-        p = Path(file_path)
-        if p.is_absolute():
-            return p
-        if self.data_dir is not None:
-            return self.data_dir / p
-        return p
+        """Resolve a catalog file_path the way the catalog stored it."""
+        return self.catalog.resolve_path(file_path, variable=self.VARIABLE_NAME)
 
     def _register_empty_api_stations(
         self,
@@ -316,9 +304,6 @@ class BaseVariableManager(BaseManagerCommon):
         if r.location:
             bbox = (r.location.x, r.location.y, r.location.x, r.location.y)
             crs = r.location.crs
-        # Compute mtime from the actual file on disk (resolve relative path)
-        actual_path = self._resolve_catalog_path(str(file_path))
-        mtime = actual_path.stat().st_mtime if actual_path.exists() else None
         self.catalog.register(
             variable=self.VARIABLE_NAME,
             source=r.source,
@@ -332,7 +317,6 @@ class BaseVariableManager(BaseManagerCommon):
             bbox=bbox,
             crs=crs,
             is_custom=(r.source == "custom"),
-            file_mtime=mtime,
         )
 
     # ------------------------------------------------------------------
