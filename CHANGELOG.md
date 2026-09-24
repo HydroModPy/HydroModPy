@@ -153,6 +153,13 @@ Each release section includes the following standard categories:
   clip. Copies made before are not moved.
 
 ### Fixed
+- A data mask is read by one loader, `hydromodpy/data/common/source_extent.py`.
+  A grid manager (SIM2, SHOM) now refuses a mask that declares no CRS, as the
+  DEM and geology managers already did, instead of reading its bounds in an
+  unknown frame. The station managers keep the WGS84 polygon they filtered
+  with, features reprojected before their union, and still read a mask
+  without a CRS as WGS84. `load_mask_geometry` and `load_mask_geometry_wgs84`
+  leave `hydromodpy.data.common.geo_helpers`.
 - A DuckDB database in memory, such as the index `DataStore()` opens without a
   data root, is migrated without a file lock: it no longer leaves
   `memory.duckdb.lock` in the working directory.

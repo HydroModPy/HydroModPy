@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import math
 from collections.abc import Sequence
-from pathlib import Path
 
 from hydromodpy.data.contracts.location import StationLocation
 
@@ -62,106 +61,6 @@ def nearest_location(
     return min(locations, key=lambda loc: math.hypot(loc.x - x, loc.y - y))
 
 
-def load_mask_geometry(path: Path):
-    """Load a spatial mask from vector (SHP/GPKG/GeoJSON) or raster (TIF).
-
-    Returns a shapely geometry (union of all features for vector,
-    convex hull of valid cells for raster).
-    """
-    path = Path(path)
-    if not path.exists():
-        raise FileNotFoundError(f"Mask file not found: {path}")
-
-    suffix = path.suffix.lower()
-    if suffix in (".shp", ".gpkg", ".geojson"):
-        return _load_mask_from_vector(path)
-    elif suffix in (".tif", ".tiff"):
-        return _load_mask_from_raster(path)
-    else:
-        raise ValueError(f"Unsupported mask format: {suffix}. Use SHP, GPKG, GeoJSON, or TIF.")
-
-
-def _load_mask_from_vector(path: Path):
-    """Load mask geometry from vector file (union of all features)."""
-    try:
-        import geopandas as gpd
-    except ImportError as exc:
-        raise ImportError("geopandas required for vector mask. pip install geopandas") from exc
-    gdf = gpd.read_file(path)
-    if gdf.empty:
-        raise ValueError(f"Empty vector file: {path}")
-    if hasattr(gdf.geometry, "union_all"):
-        return gdf.geometry.union_all()
-    return gdf.geometry.unary_union
-
-
-def _load_mask_from_raster(path: Path):
-    """Load mask geometry from raster (convex hull of valid cells)."""
-    try:
-        import rasterio
-        from rasterio.features import shapes
-        from shapely.geometry import shape
-        from shapely.ops import unary_union
-    except ImportError as exc:
-        raise ImportError(
-            "rasterio and shapely required for raster mask. pip install rasterio shapely"
-        ) from exc
-
-    with rasterio.open(path) as src:
-        data = src.read(1)
-        mask = data != src.nodata if src.nodata is not None else data != 0
-        geoms = [
-            shape(geom)
-            for geom, val in shapes(mask.astype("uint8"), transform=src.transform)
-            if val == 1
-        ]
-        if not geoms:
-            raise ValueError(f"No valid cells in raster mask: {path}")
-        return unary_union(geoms).convex_hull
-
-
-def load_mask_geometry_wgs84(path: Path):
-    """Load a spatial mask and reproject to WGS84 (EPSG:4326).
-
-    Returns a shapely geometry in WGS84 coordinates.  Useful for API
-    calls (Hub'Eau, OSM, ...) that expect lon/lat bounding boxes.
-    """
-    path = Path(path)
-    if not path.exists():
-        raise FileNotFoundError(f"Mask file not found: {path}")
-
-    suffix = path.suffix.lower()
-    if suffix in (".shp", ".gpkg", ".geojson"):
-        try:
-            import geopandas as gpd
-        except ImportError as exc:
-            raise ImportError("geopandas required for vector mask.") from exc
-        gdf = gpd.read_file(path)
-        if gdf.empty:
-            raise ValueError(f"Empty vector file: {path}")
-        if gdf.crs is not None and not gdf.crs.equals("EPSG:4326"):
-            gdf = gdf.to_crs("EPSG:4326")
-        if hasattr(gdf.geometry, "union_all"):
-            return gdf.geometry.union_all()
-        return gdf.geometry.unary_union
-    elif suffix in (".tif", ".tiff"):
-        # Raster masks: extract geometry then reproject via pyproj
-        geom = _load_mask_from_raster(path)
-        try:
-            import rasterio
-            from pyproj import Transformer
-            from shapely.ops import transform
-        except ImportError as exc:
-            raise ImportError("rasterio, pyproj and shapely required for raster mask.") from exc
-        with rasterio.open(path) as src:
-            if src.crs is not None and str(src.crs) != "EPSG:4326":
-                transformer = Transformer.from_crs(src.crs, "EPSG:4326", always_xy=True)
-                geom = transform(transformer.transform, geom)
-        return geom
-    else:
-        raise ValueError(f"Unsupported mask format: {suffix}.")
-
-
 def geometry_to_bbox(geometry) -> tuple[float, float, float, float]:
     """Extract (xmin, ymin, xmax, ymax) from a shapely geometry."""
     return geometry.bounds
@@ -177,7 +76,8 @@ def filter_locations_by_geometry(
 
     Reprojects each location to ``geometry_crs`` before testing, so that
     stations declared in a projected CRS (e.g. Lambert-93 / EPSG:2154) can
-    be matched against a mask loaded via :func:`load_mask_geometry_wgs84`.
+    be matched against a mask loaded via
+    :func:`~hydromodpy.data.common.source_extent.mask_geometry_wgs84`.
     """
     try:
         from shapely.geometry import Point

@@ -17,8 +17,8 @@ from hydromodpy.data.common.geo_helpers import (
     expand_bbox,
     filter_locations_by_geometry,
     geometry_to_bbox,
-    load_mask_geometry,
 )
+from hydromodpy.data.common.source_extent import mask_geometry
 from hydromodpy.data.contracts.completeness import compute_completeness
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
@@ -53,13 +53,13 @@ def _make_record(station_id, x, y, n=10, variable="discharge"):
 class TestMaskSpatialSelection:
     def test_load_mask_vector_not_found(self):
         with pytest.raises(FileNotFoundError):
-            load_mask_geometry(Path("/nonexistent.shp"))
+            mask_geometry(Path("/nonexistent.shp"))
 
     def test_load_mask_unsupported_format(self, tmp_path):
         p = tmp_path / "mask.xyz"
         p.write_text("dummy")
         with pytest.raises(ValueError, match="Unsupported mask format"):
-            load_mask_geometry(p)
+            mask_geometry(p)
 
     def test_filter_locations_by_geometry(self):
         """Test filtering with a shapely box geometry."""
@@ -99,7 +99,7 @@ class TestMaskSpatialSelection:
         mask_path = tmp_path / "mask.geojson"
         gdf.to_file(mask_path, driver="GeoJSON")
 
-        loaded_geom = load_mask_geometry(mask_path)
+        loaded_geom, _ = mask_geometry(mask_path)
         bbox = geometry_to_bbox(loaded_geom)
         assert bbox[0] == pytest.approx(-2.0)
         assert bbox[3] == pytest.approx(49.0)

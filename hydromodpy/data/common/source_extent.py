@@ -89,11 +89,9 @@ def mask_geometry(path: str | Path) -> tuple[Any, str]:
     """Return a mask's polygon **and the CRS it is in**.
 
     Vector (``.shp``, ``.gpkg``, ``.geojson``) and raster (``.tif``,
-    ``.tiff``), the two families
-    :func:`~hydromodpy.data.common.geo_helpers.load_mask_geometry` already
-    accepted, and the same geometry each of them gave. A raster still goes
-    through the valid-cell hull, because a catchment mask is a rectangle that
-    is mostly nodata and its footprint is not its catchment.
+    ``.tiff``). A raster goes through the valid-cell hull, because a
+    catchment mask is a rectangle that is mostly nodata and its footprint is
+    not its catchment.
 
     A mask that declares no CRS is **refused**, and that is a rupture worth
     naming. ``numpy_engine.py:536`` writes the delineated watershed without one
@@ -105,17 +103,12 @@ def mask_geometry(path: str | Path) -> tuple[Any, str]:
     worth more than a second path that works only while nobody asks what the
     numbers mean, so the refusal names the file and what to do about it.
     """
-    path = Path(path)
-    if not path.exists():
-        raise FileNotFoundError(f"Mask file not found: {path}")
-
-    suffix = path.suffix.lower()
-    if suffix in (".shp", ".gpkg", ".geojson"):
-        geometry, crs = _vector_geometry(path)
-    elif suffix in (".tif", ".tiff"):
-        geometry, crs = _raster_geometry(path)
+    path = _mask_file(path)
+    if _is_vector(path):
+        frame = _read_vector(path)
+        geometry, crs = _union(frame), frame.crs
     else:
-        raise ValueError(f"Unsupported mask format: {suffix}. Use SHP, GPKG, GeoJSON, or TIF.")
+        geometry, crs = _raster_hull(path)
 
     if crs is None:
         raise DataRequestError(
@@ -193,39 +186,86 @@ def resolve_source_extent(source_cfg, *, project_extent: tuple | None) -> Extent
     return None
 
 
-def _vector_geometry(path: Path):
-    """The union of the features, read once so the shape and the CRS agree."""
-    try:
-        import geopandas as gpd
-    except ImportError as exc:  # pragma: no cover - geopandas is a hard dependency here
-        raise ImportError("geopandas required for vector mask. pip install geopandas") from exc
-    gdf = gpd.read_file(path)
-    if gdf.empty:
+def mask_geometry_wgs84(path: str | Path) -> Any:
+    """Return a mask's polygon in WGS84, for the providers that ask in lon/lat.
+
+    The features are reprojected before their union, and a raster hull vertex
+    by vertex; a mask that declares no CRS is taken as already in WGS84. This
+    is the output the station managers have always filtered with, kept as is:
+    building it as ``mask_geometry`` then one reprojection would move the
+    polygon's edges, and with them which stations fall inside.
+    """
+    path = _mask_file(path)
+    if _is_vector(path):
+        frame = _read_vector(path)
+        if frame.crs is not None and not frame.crs.equals(WGS84):
+            frame = frame.to_crs(WGS84)
+        return _union(frame)
+    geometry, crs = _raster_hull(path)
+    if crs is not None and str(crs) != WGS84:
+        from pyproj import Transformer
+        from shapely.ops import transform
+
+        transformer = Transformer.from_crs(crs, WGS84, always_xy=True)
+        geometry = transform(transformer.transform, geometry)
+    return geometry
+
+
+WGS84 = "EPSG:4326"
+VECTOR_MASK_SUFFIXES = frozenset({".shp", ".gpkg", ".geojson"})
+RASTER_MASK_SUFFIXES = frozenset({".tif", ".tiff"})
+
+
+def _mask_file(path: str | Path) -> Path:
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Mask file not found: {path}")
+    suffix = path.suffix.lower()
+    if suffix not in VECTOR_MASK_SUFFIXES | RASTER_MASK_SUFFIXES:
+        raise ValueError(f"Unsupported mask format: {suffix}. Use SHP, GPKG, GeoJSON, or TIF.")
+    return path
+
+
+def _is_vector(path: Path) -> bool:
+    return path.suffix.lower() in VECTOR_MASK_SUFFIXES
+
+
+def _read_vector(path: Path):
+    import geopandas as gpd
+
+    frame = gpd.read_file(path)
+    if frame.empty:
         raise ValueError(f"Empty vector file: {path}")
-    union = (
-        gdf.geometry.union_all() if hasattr(gdf.geometry, "union_all") else gdf.geometry.unary_union
-    )
-    return union, gdf.crs
+    return frame
 
 
-def _raster_geometry(path: Path):
-    """The valid cells' hull, not the raster's footprint.
+def _union(frame) -> Any:
+    return frame.geometry.union_all()
+
+
+def _raster_hull(path: Path) -> tuple[Any, Any]:
+    """The convex hull of the valid cells, not the raster's footprint, and its CRS.
 
     A catchment mask is ``1`` on the catchment and nodata everywhere else in a
-    rectangle sized to the accumulation grid
-    (``spatial/terrain/port.py:316``), so its footprint and its catchment are
-    not the same box at all -- measured on a 10x10 mask whose valid region is
-    the central 4x4, ``(0, 0, 100, 100)`` against ``(30, 30, 70, 70)``. The
-    polygonising path this delegates to is the one ``geo_helpers`` already
-    used, kept for exactly that reason; what this adds is the CRS beside it.
+    rectangle sized to the accumulation grid (``spatial/terrain/port.py``), so
+    its footprint and its catchment are not the same box at all: on a 10x10
+    mask whose valid region is the central 4x4, ``(0, 0, 100, 100)`` against
+    ``(30, 30, 70, 70)``.
     """
-    try:
-        import rasterio
-    except ImportError as exc:  # pragma: no cover - rasterio is a hard dependency here
-        raise ImportError("rasterio required for raster mask. pip install rasterio") from exc
-    from hydromodpy.data.common.geo_helpers import _load_mask_from_raster
+    import rasterio
+    from rasterio.features import shapes
+    from shapely.geometry import shape
+    from shapely.ops import unary_union
 
-    geometry = _load_mask_from_raster(path)
     with rasterio.open(path) as src:
+        data = src.read(1)
+        valid = data != src.nodata if src.nodata is not None else data != 0
+        geoms = [
+            shape(geom)
+            for geom, value in shapes(valid.astype("uint8"), transform=src.transform)
+            if value == 1
+        ]
         crs = src.crs
-    return geometry, crs
+    if not geoms:
+        raise ValueError(f"No valid cells in raster mask: {path}")
+    return unary_union(geoms).convex_hull, crs

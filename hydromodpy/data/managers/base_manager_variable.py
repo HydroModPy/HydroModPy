@@ -154,9 +154,9 @@ class BaseVariableManager(BaseManagerCommon):
 
     def _load_mask_geometry(self, mask_path: Path):
         """Station APIs expect WGS84, so reproject to lon/lat."""
-        from hydromodpy.data.common.geo_helpers import load_mask_geometry_wgs84
+        from hydromodpy.data.common.source_extent import mask_geometry_wgs84
 
-        return load_mask_geometry_wgs84(mask_path)
+        return mask_geometry_wgs84(mask_path)
 
     def _apply_mask(
         self,

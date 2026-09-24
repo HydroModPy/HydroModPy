@@ -334,3 +334,60 @@ def test_a_mask_already_in_the_target_crs_is_not_round_tripped(tmp_path):
     gpd.GeoDataFrame(geometry=[shape], crs="EPSG:4326").to_file(path)
 
     assert mask_extent_in(path, "EPSG:4326").bbox == pytest.approx((-1.8, 48.0, -1.5, 48.3))
+
+
+# --------------------------------------------------------------------------- #
+# The WGS84 polygon the station managers filter with keeps its old output
+# --------------------------------------------------------------------------- #
+
+
+def _two_squares_2154(path):
+    """Two features, so that union-then-reproject and reproject-then-union differ."""
+    left = box(350000.0, 6790000.0, 351000.0, 6791000.0)
+    right = box(350900.0, 6790500.0, 352000.0, 6791500.0)
+    gpd.GeoDataFrame(geometry=[left, right], crs="EPSG:2154").to_file(path)
+    return path
+
+
+@pytest.mark.fast
+def test_the_wgs84_mask_reprojects_the_features_before_their_union(tmp_path):
+    """Pinned: the station filter kept this polygon, vertex for vertex."""
+    from hydromodpy.data.common.source_extent import mask_geometry_wgs84
+
+    path = _two_squares_2154(tmp_path / "mask.gpkg")
+    expected = gpd.read_file(path).to_crs("EPSG:4326").geometry.union_all()
+
+    assert mask_geometry_wgs84(path).equals_exact(expected, tolerance=0.0)
+
+
+@pytest.mark.fast
+def test_the_wgs84_mask_of_a_raster_is_its_hull_reprojected_vertex_by_vertex(tmp_path):
+    from pyproj import Transformer
+    from shapely.ops import transform
+
+    from hydromodpy.data.common.source_extent import mask_geometry, mask_geometry_wgs84
+
+    values = np.zeros((10, 10), dtype="uint8")
+    values[2:8, 3:6] = 1
+    path = _write_raster_mask(tmp_path / "catchment.tif", RENNES_2154, "EPSG:2154", values)
+    hull, crs = mask_geometry(path)
+    transformer = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
+
+    assert mask_geometry_wgs84(path).equals_exact(
+        transform(transformer.transform, hull), tolerance=0.0
+    )
+
+
+@pytest.mark.fast
+def test_a_wgs84_mask_without_a_crs_is_read_as_wgs84(tmp_path):
+    """The station path never refused a CRS-less mask; the native path does."""
+    from hydromodpy.data.common.source_extent import mask_geometry, mask_geometry_wgs84
+
+    path = tmp_path / "mask.shp"
+    gpd.GeoDataFrame(geometry=[box(*RENNES_4326)]).to_file(path)
+    path.with_suffix(".prj").unlink(missing_ok=True)
+    assert gpd.read_file(path).crs is None
+
+    assert mask_geometry_wgs84(path).bounds == pytest.approx(RENNES_4326)
+    with pytest.raises(DataRequestError, match="declares no CRS"):
+        mask_geometry(path)
