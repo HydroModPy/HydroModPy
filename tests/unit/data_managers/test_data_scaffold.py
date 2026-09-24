@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.data.common.io_helpers import is_scaffold_example
-from hydromodpy.data.scaffold import VARIABLES, scaffold
+from hydromodpy.data.workspace.scaffold import VARIABLES, scaffold
 
 
 @pytest.fixture(scope="module")

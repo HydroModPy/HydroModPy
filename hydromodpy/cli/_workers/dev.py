@@ -115,7 +115,7 @@ def _lock_workspace_root(workspace: Any) -> Path:
     ``sys.exit`` on a missing root. A worker the Python API calls too must
     raise instead, and leave the exit code to ``cli/commands/``.
     """
-    from hydromodpy.data.scaffold import DEFAULT_ROOT
+    from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
 
     root = Path(workspace).expanduser().resolve() if workspace else DEFAULT_ROOT
     if not root.is_dir():

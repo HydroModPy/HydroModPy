@@ -10,7 +10,7 @@ Each ``data/<variable>/`` folder is a flat drop zone. The provider is encoded
 in the file NAME, never in the directory: ``<variable>_custom_*`` for files the
 user provides, ``<variable>_<api>_*`` for files HydroModPy downloads from an
 API. Both live side by side. The runtime data loaders read these folders
-directly (``hydromodpy.data.loading.store.DataStore``); ``hydromodpy.data.auto_scan``
+directly (``hydromodpy.data.loading.store.DataStore``); ``hydromodpy.data.workspace.custom_scan``
 indexes the custom files in ``data/cache.duckdb`` at the start of every
 ``hmp run``.
 """
@@ -528,7 +528,7 @@ def scaffold(root_dir: str | Path | None = None, *, with_examples: bool = True) 
             readme.write_text(_render_readme(spec), encoding="utf-8")
 
         if with_examples:
-            from hydromodpy.data.scaffold_examples import write_variable_examples
+            from hydromodpy.data.workspace.example_files import write_variable_examples
 
             write_variable_examples(
                 var_dir,

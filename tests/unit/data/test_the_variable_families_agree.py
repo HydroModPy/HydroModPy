@@ -15,7 +15,7 @@ from hydromodpy.core.state.data import LoadedDataContext
 from hydromodpy.data import DataManagersConfig
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
 from hydromodpy.data.loading.config_schema import SUPPORTED_DATA_MANAGER_TYPES
-from hydromodpy.data.scaffold import VARIABLES
+from hydromodpy.data.workspace.scaffold import VARIABLES
 
 # The two fields of [data] that configure the planner, not a variable.
 _PLANNER_FIELDS = {"types", "inference_mode"}
@@ -39,7 +39,7 @@ def _families() -> dict[str, set[str]]:
             field.name for field in dataclasses.fields(LoadedDataContext)
         }
         - _LOAD_STATE_FIELDS,
-        "VARIABLES (data/scaffold.py)": {spec.name for spec in VARIABLES},
+        "VARIABLES (data/workspace/scaffold.py)": {spec.name for spec in VARIABLES},
         "<V>Config names (hydromodpy/_lazy.py)": {
             _variable_of_config_name(name)
             for name, target in LAZY_IMPORTS.items()

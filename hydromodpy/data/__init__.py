@@ -1,7 +1,9 @@
 """Public API for HydroModPy data loading and planning.
 
 This package-level facade stays lazy so doc builds and lightweight imports do
-not instantiate the full data-manager dependency graph.
+not instantiate the full data-manager dependency graph. A name resolved here is
+cached in this module: a test that replaces one patches ``hydromodpy.data.<Name>``,
+not the module that defines it.
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ __all__ = (
     "DataLoadPlan",
     "DataPlanner",
     "DataManagersRuntimeLoader",
+    "DataStore",
 )
 
 _LAZY_IMPORTS = {
@@ -23,6 +26,7 @@ _LAZY_IMPORTS = {
     "DataLoadPlan": "hydromodpy.data.loading.plan:DataLoadPlan",
     "DataPlanner": "hydromodpy.data.loading.planner:DataPlanner",
     "DataManagersRuntimeLoader": "hydromodpy.data.loading.loader:DataManagersRuntimeLoader",
+    "DataStore": "hydromodpy.data.loading.store:DataStore",
 }
 
 

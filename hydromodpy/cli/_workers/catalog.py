@@ -745,7 +745,7 @@ def _gc_resolve_workspace(workspace: Any) -> Path:
 
     from hydromodpy.cli.helpers import find_workspace_root
     from hydromodpy.core.state.paths import catalog_path_for
-    from hydromodpy.data.scaffold import DEFAULT_ROOT
+    from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
 
     if workspace is not None:
         root = Path(workspace).expanduser().resolve()

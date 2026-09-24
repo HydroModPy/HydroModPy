@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.data.auto_scan import check_custom, scan_custom
-from hydromodpy.data.scaffold import scaffold
+from hydromodpy.data.workspace.custom_scan import check_custom, scan_custom
+from hydromodpy.data.workspace.scaffold import scaffold
 
 
 def _drop(path: Path, text: str) -> Path:

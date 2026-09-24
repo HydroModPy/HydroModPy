@@ -1,0 +1,53 @@
+# Import rules inside hydromodpy/data. Source: hydromodpy/data/structure.md,
+# sections 2 and 8. Checked by test_data_layout.py.
+
+# Each subpackage of hydromodpy/data lists the subpackages of hydromodpy/data it
+# may import. A subpackage may always import itself. "<init>" is the package
+# facade, hydromodpy/data/__init__.py. What lies outside hydromodpy/data (the
+# "spatial" and "schema" of the structure.md table) is the business of
+# layer_matrix.yaml.
+allowed:
+  "<init>":   [loading]
+  contracts:  []
+  schemas:    []
+  source:     [contracts]
+  common:     [contracts, schemas, source]
+  ingest:     [contracts, schemas, common]
+  provenance: []
+  registry:   [provenance]
+  managers:   [contracts, common, ingest, provenance, registry]
+  variables:  [contracts, schemas, source, common, ingest, provenance, registry, managers]
+  loading:    [contracts, schemas, source, common, ingest, provenance, registry, managers, variables]
+  workspace:  [schemas, common, ingest, provenance, registry]
+  # The data-fetch process; step M12 of the migration replaces it with request/.
+  fetch:      [contracts, schemas, source, common, ingest, provenance, registry, managers, variables, loading]
+  cases:      [contracts, schemas, source, common, ingest, provenance, registry, managers, variables, loading, workspace, fetch]
+
+# Rule 6: the source registry names the built-in source classes by a dotted
+# path written as text, imported on first lookup, so that a third-party plugin
+# joins the same table. Only these files may name a module that way.
+text_paths:
+  - hydromodpy/data/source/registry.py
+  - hydromodpy/data/source/__init__.py
+
+# Rule 2: what another layer of hydromodpy may import from hydromodpy/data.
+# A pattern ending in ".*" names a package and every module under it; a "*"
+# anywhere else stands for exactly one name. Everything else is private to
+# hydromodpy/data: managers, common, schemas, and the inside of loading and of
+# the variables (structure.md, section 8).
+public:
+  - hydromodpy.data
+  - hydromodpy.data.contracts.*
+  - hydromodpy.data.source.*
+  - hydromodpy.data.registry.*
+  - hydromodpy.data.provenance.*
+  - hydromodpy.data.ingest.*
+  - hydromodpy.data.workspace.*
+  # Until step M12 replaces the data-fetch process with request/.
+  - hydromodpy.data.fetch.*
+  - hydromodpy.data.variables.*.config
+  - hydromodpy.data.variables.*.manager
+  - hydromodpy.data.variables.dem.resolver
+  - hydromodpy.data.variables.hydrography.resolver
+  - hydromodpy.data.variables.hydrography.apis.bdtopage
+  - hydromodpy.data.variables.geology.io

@@ -286,7 +286,7 @@ def tmp_workspace(tmp_path: Path) -> Path:
     only creates folders (without the geospatial example files), keeping it
     cheap and free of DuckDB I/O until a test explicitly needs it.
     """
-    from hydromodpy.data.scaffold import scaffold
+    from hydromodpy.data.workspace.scaffold import scaffold
 
     root = scaffold(tmp_path / "workspace", with_examples=False)
     return root

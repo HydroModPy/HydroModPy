@@ -18,13 +18,13 @@ from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, get_manager_class
 from hydromodpy.data.loading.config_schema import SUPPORTED_DATA_MANAGER_TYPES
 from hydromodpy.data.managers.base_manager_variable import BaseVariableManager
-from hydromodpy.data.scaffold import VARIABLES
 from hydromodpy.data.variables.lake_inflow.config import LakeInflowConfig
 from hydromodpy.data.variables.lake_inflow.manager import LakeInflowManager
 from hydromodpy.data.variables.lake_outflow.config import LakeOutflowConfig
 from hydromodpy.data.variables.lake_outflow.manager import LakeOutflowManager
 from hydromodpy.data.variables.lake_withdrawal.config import LakeWithdrawalConfig
 from hydromodpy.data.variables.lake_withdrawal.manager import LakeWithdrawalManager
+from hydromodpy.data.workspace.scaffold import VARIABLES
 
 PROJECT_PERIOD = (datetime(2020, 1, 1), datetime(2020, 3, 31))
 

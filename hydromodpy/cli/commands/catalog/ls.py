@@ -52,7 +52,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 def _resolve_workspace(workspace_arg: str | None) -> Path:
     """Resolve what to list: an explicit root, the enclosing project, or the workspace."""
     from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
-    from hydromodpy.data.scaffold import DEFAULT_ROOT
+    from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
 
     if workspace_arg:
         return Path(workspace_arg).expanduser().resolve()

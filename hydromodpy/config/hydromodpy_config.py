@@ -73,7 +73,7 @@ from hydromodpy.core.toml_io.error_locator import (
 )
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.data.loading.config_schema import DataManagersConfig
+from hydromodpy.data import DataManagersConfig
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.overview.config import OverviewConfig

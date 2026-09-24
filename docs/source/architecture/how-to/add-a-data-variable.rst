@@ -172,9 +172,8 @@ Tests to add
   contract.
 - **Integration** under ``tests/integration/data_managers/`` for one
   ``Project.load_data`` cycle using a stub source.
-- **Replay** under ``hydromodpy/data/examples/`` (or a dedicated
-  fixtures folder) for any HTTP-backed source so smoke tests can run
-  offline.
+- **Replay** of a recorded provider answer in a fixtures folder under
+  ``tests/`` for any HTTP-backed source, so smoke tests run offline.
 
 Run ``hmp data ls`` after a manual cache write to confirm the
 catalog row appears.

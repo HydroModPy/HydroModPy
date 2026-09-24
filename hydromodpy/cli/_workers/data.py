@@ -39,7 +39,7 @@ def fetch_data_variable(
     """
     del bbox, workspace, source  # accepted for the eventual provider fetch
 
-    from hydromodpy.data.scaffold import VARIABLES
+    from hydromodpy.data.workspace.scaffold import VARIABLES
 
     spec = next((s for s in VARIABLES if s.name == variable), None)
     if spec is None:
@@ -60,8 +60,8 @@ def check_data_cache(
 ) -> dict:
     """Validate custom files in ``data/<variable>/``. Returns issues + optional fix summary."""
     from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
-    from hydromodpy.data.auto_scan import check_custom
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    from hydromodpy.data.workspace.custom_scan import check_custom
 
     workspace_root = _resolve_ws(str(workspace) if workspace else None)
     issues = check_custom(workspace_root, variable=variable)
@@ -110,7 +110,7 @@ def add_data_entry(
         sha256_of,
     )
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-    from hydromodpy.data.scaffold import VARIABLES
+    from hydromodpy.data.workspace.scaffold import VARIABLES
 
     workspace_root = _resolve_ws(str(workspace) if workspace else None)
     src = Path(file).expanduser().resolve()

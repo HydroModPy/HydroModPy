@@ -40,7 +40,7 @@ def run(args: argparse.Namespace) -> None:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
-    from hydromodpy.data.scaffold import EXAMPLE_PROJECT_NAME, VARIABLES
+    from hydromodpy.data.workspace.scaffold import EXAMPLE_PROJECT_NAME, VARIABLES
 
     target = result["path"]
     print(f"Workspace: {target}")

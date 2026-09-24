@@ -29,8 +29,8 @@ from hydromodpy.data.ingest import (
 )
 from hydromodpy.data.ingest.tables import Station, iter_chronicle_files
 from hydromodpy.data.provenance.sidecars import SIDECAR_SUFFIX, data_path_for_sidecar
-from hydromodpy.data.scaffold import VARIABLES, VariableSpec
 from hydromodpy.data.schemas import StationCollectionSchema, validate_warn_only
+from hydromodpy.data.workspace.scaffold import VARIABLES, VariableSpec
 
 _WGS84_CRS_TOKENS = frozenset({"EPSG:4326", "epsg:4326", "WGS84", "WGS 84"})
 

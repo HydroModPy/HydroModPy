@@ -10,9 +10,9 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from hydromodpy.data.auto_scan import check_custom, scan_custom
 from hydromodpy.data.provenance.sidecars import Sidecar, sidecar_path_for, write_sidecar
-from hydromodpy.data.scaffold import scaffold
+from hydromodpy.data.workspace.custom_scan import check_custom, scan_custom
+from hydromodpy.data.workspace.scaffold import scaffold
 
 
 def _geology_dir(tmp_path: Path) -> tuple[Path, Path]:

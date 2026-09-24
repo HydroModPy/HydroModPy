@@ -364,7 +364,7 @@ def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dic
         from hydromodpy.core.state.paths import PROJECTS_DIRNAME, catalog_path_for
         from hydromodpy.core.workspace.config import WorkspaceConfig
         from hydromodpy.core.workspace.exceptions import WorkspaceError
-        from hydromodpy.data.scaffold import DEFAULT_ROOT
+        from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
     except Exception as exc:  # pragma: no cover
         return [
             {
@@ -547,7 +547,7 @@ def _iter_project_catalogs(workspace: Path) -> list[Path]:
 
 def _resolve_doctor_workspace(workspace_arg: str | None) -> Path | None:
     try:
-        from hydromodpy.data.scaffold import DEFAULT_ROOT
+        from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
     except Exception:
         return None
     if workspace_arg is not None:

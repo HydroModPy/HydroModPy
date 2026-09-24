@@ -28,7 +28,7 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.analysis.testbed.regional_lab_config import RegionalLabConfig
     from hydromodpy.calibration.config import CalibrationConfig
     from hydromodpy.config import hydromodpy_config as cfg_module
-    from hydromodpy.data.loading.config_schema import DataManagersConfig
+    from hydromodpy.data import DataManagersConfig
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.display.overview.config import OverviewConfig
     from hydromodpy.physics.flow.flow_config import FlowConfig

@@ -152,7 +152,7 @@ def find_data_workspace(start: Path) -> Path | None:
 
 def resolve_workspace(workspace_arg: str | None) -> Path:
     """Resolve the workspace root from an optional CLI argument."""
-    from hydromodpy.data.scaffold import DEFAULT_ROOT
+    from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
 
     root = Path(workspace_arg).expanduser().resolve() if workspace_arg else DEFAULT_ROOT
     if not root.is_dir():
@@ -207,7 +207,7 @@ def auto_scan_workspace(config_path: Path) -> None:
         ws = find_data_workspace(project_dir)
         if ws is None:
             return
-        from hydromodpy.data.auto_scan import scan_custom
+        from hydromodpy.data.workspace.custom_scan import scan_custom
 
         report = scan_custom(ws)
         for path, msg in report.errors[:5]:

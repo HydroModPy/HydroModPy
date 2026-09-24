@@ -89,7 +89,7 @@ def test_add_data_entry_timeseries_converts_and_registers_metadata(monkeypatch, 
         dest.write_bytes(b"parquet")
 
     monkeypatch.setattr("hydromodpy.cli.helpers.resolve_workspace", fake_resolve_workspace)
-    monkeypatch.setattr("hydromodpy.data.scaffold.VARIABLES", (spec,))
+    monkeypatch.setattr("hydromodpy.data.workspace.scaffold.VARIABLES", (spec,))
     monkeypatch.setattr(
         "hydromodpy.data.ingest.convert_timeseries_csv_to_parquet",
         fake_convert_timeseries_csv_to_parquet,
