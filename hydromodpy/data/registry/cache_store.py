@@ -20,8 +20,16 @@ from typing import TYPE_CHECKING
 import duckdb
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import encode_workspace_path
+from hydromodpy.core.state.paths import decode_workspace_path, encode_workspace_path
 from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
+from hydromodpy.data.sidecars import (
+    Sidecar,
+    load_sidecar,
+    resolve_fetched_at,
+    sidecar_path_for,
+    unlink_with_sidecar,
+    write_sidecar,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.data.data_freeze import LockedArtifact
@@ -81,6 +89,15 @@ def resolve_entry_path(
     *,
     variable: str | None = None,
 ) -> Path:
+    """Return the file a stored ``file_path`` names.
+
+    ``cache://`` and ``state://`` decode against their anchor. A relative path
+    is looked up under ``data/<variable>/``, ``data/`` and the workspace root,
+    the forms the catalog has stored over time, and only then under the cwd.
+    """
+    workspace = workspace_root(catalog)
+    if workspace is not None and str(file_path).startswith(("cache://", "state://")):
+        return decode_workspace_path(workspace, str(file_path))
     path = Path(file_path)
     if path.is_absolute():
         return path
@@ -266,10 +283,12 @@ def register(
     ds = dt_to_str(date_start)
     de = dt_to_str(date_end)
     bx = bbox or (None, None, None, None)
-    # P3 workspace-relative encoding: anchor portable file_path on the
-    # workspace root (or cache://, state://). Falls back to ``str(path)``
-    # for in-memory catalogs (workspace unknown).
-    encoded_path = encode_path_for_storage(catalog, file_path)
+    # The stored form is encoded from the resolved file, so a relative
+    # file_path never depends on the cwd. A sentinel is stored as written.
+    if str(file_path) in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
+        encoded_path = str(file_path)
+    else:
+        encoded_path = encode_path_for_storage(catalog, resolved_path)
 
     # P9 provenance sidecar: write a JSON sidecar next to every catalog
     # input so downstream tools have the upstream metadata even without
@@ -423,8 +442,6 @@ def emit_input_sidecar(
     if _is_inside_package(path):
         return
     try:
-        from hydromodpy.data.sidecars import Sidecar, resolve_fetched_at, write_sidecar
-
         bbox_payload: tuple[float, float, float, float] | None = None
         if all(value is not None for value in bbox):
             bbox_payload = tuple(float(v) for v in bbox)  # type: ignore[assignment]
@@ -448,7 +465,6 @@ def _sidecar_licence(path: Path, *, source: str, sha256: str) -> str:
     Otherwise the source registry answers, and an unknown source is
     ``LicenseRef-undetermined``, never a default.
     """
-    from hydromodpy.data.sidecars import load_sidecar, sidecar_path_for
     from hydromodpy.schema.sources import is_determined, licence_for_source
 
     if sidecar_path_for(path).is_file():
@@ -462,11 +478,10 @@ def _sidecar_licence(path: Path, *, source: str, sha256: str) -> str:
 
 
 def try_unlink(fp: str) -> None:
+    """Delete a cached file together with its sidecar, so no sidecar outlives its file."""
     if fp in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
         return
     try:
-        p = Path(fp)
-        if p.exists():
-            p.unlink()
+        unlink_with_sidecar(Path(fp))
     except OSError as exc:
         logger.warning("Failed to delete file %s: %s", fp, exc)

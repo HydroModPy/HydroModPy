@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
+from hydromodpy.schema.job.extent import SpatialExtent
 from hydromodpy.schema.job.inputset import (
     InputResource,
     Licence,
@@ -66,7 +67,7 @@ def test_the_same_resources_digest_to_the_same_id() -> None:
         ("licence", Licence(spdx="CC-BY-4.0", confidence="assumed")),
         ("role", "elevation"),
         ("media_type", "application/octet-stream"),
-        ("spatial", {"crs": "EPSG:2154"}),
+        ("spatial", SpatialExtent(bbox=(0.0, 0.0, 1000.0, 1000.0), crs="EPSG:2154")),
         ("source", {"slug": "ign_rgealti"}),
         ("copied_to", "inputs/dem.tif"),
     ],
@@ -74,6 +75,18 @@ def test_the_same_resources_digest_to_the_same_id() -> None:
 def test_rewriting_any_member_changes_the_id(member: str, value: object) -> None:
     """The defect this answers: a digest of three fields left the rest free."""
     assert build_inputset([_dem()]).id != build_inputset([_dem(**{member: value})]).id
+
+
+def test_the_extent_is_rendered_as_its_native_box_and_its_crs() -> None:
+    extent = SpatialExtent(bbox=(341220.0, 6778100.0, 348900.0, 6783400.0), crs="EPSG:2154")
+
+    document = _dem(spatial=extent).to_document()
+
+    assert document["spatial"] == {
+        "crs": "EPSG:2154",
+        "bbox": [341220.0, 6778100.0, 348900.0, 6783400.0],
+    }
+    assert _dem().to_document()["spatial"] is None
 
 
 def test_a_licence_nobody_declared_is_said_to_be_undetermined() -> None:

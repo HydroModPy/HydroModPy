@@ -39,6 +39,7 @@ from hydromodpy.schema.job.chain import (
 from hydromodpy.schema.job.digest import sha256_file, sha256_value
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import read_document, render_document, write_document
+from hydromodpy.schema.job.extent import SpatialExtent
 from hydromodpy.schema.job.inputset import (
     UNDETERMINED,
     InputResource,
@@ -117,6 +118,7 @@ __all__ = [
     "ProcessRef",
     "SEALED_DOCUMENTS",
     "SealVerification",
+    "SpatialExtent",
     "StepLink",
     "UNDETERMINED",
     "UNIDENTIFIED_JOB",

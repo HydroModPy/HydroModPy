@@ -277,7 +277,7 @@ class HydrographyManager:
         )
         if entry is None:
             return None
-        cached_path = Path(entry.file_path)
+        cached_path = self._catalog.resolve_path(entry.file_path, variable=self.VARIABLE_NAME)
         if not cached_path.exists():
             return None
         logger.debug("Cache hit for hydrography/%s: %s", source, cached_path)

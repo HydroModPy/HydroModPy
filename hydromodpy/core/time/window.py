@@ -220,11 +220,22 @@ def _reject_bad_step_value_type_or_sign(raw_step_value: Any) -> None:
             raise ValueError("simulation.time.step_value must be a positive integer.")
 
 
-def _parse_step_spec(
-    *,
-    raw_step_value: Any,
-    raw_step_unit: Any,
-) -> tuple[int, TimePeriodUnit]:
+def reject_invalid_step_value_spec(raw_step_value: Any, raw_step_unit: Any) -> str | None:
+    """Run the ordered step_value/step_unit guards shared by every caller.
+
+    Order matters: a boolean step_value, then a non-positive one, are
+    diagnosed before the missing-unit check, since that is the more useful
+    message to a caller who wrote neither a unit nor a positive number.
+
+    Returns the stripped explicit unit token, or ``None`` when the caller
+    gave no ``step_unit`` and relies on an inline unit instead.
+
+    Raises
+    ------
+    ValueError
+        When step_value is a boolean, non-positive, or has neither an inline
+        unit nor an explicit step_unit.
+    """
     _reject_bad_step_value_type_or_sign(raw_step_value)
 
     explicit_unit_raw: str | None = None
@@ -236,6 +247,15 @@ def _parse_step_spec(
             "simulation.time.step_value has no unit. Write an inline unit "
             "(for example '1 month' or '30 day') or set simulation.time.step_unit."
         )
+    return explicit_unit_raw
+
+
+def _parse_step_spec(
+    *,
+    raw_step_value: Any,
+    raw_step_unit: Any,
+) -> tuple[int, TimePeriodUnit]:
+    explicit_unit_raw = reject_invalid_step_value_spec(raw_step_value, raw_step_unit)
 
     default_unit = explicit_unit_raw or "day"
     scalar, resolved_unit = parse_scalar_and_unit(

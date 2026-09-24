@@ -12,13 +12,14 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.derived import derived_path
 
 
 def load_custom_dem(
     source_cfg: Any,
     *,
     bbox: tuple[float, float, float, float] | None = None,
-    data_dir: Path | None = None,
+    derived_dir: Path | None = None,
 ) -> list[FieldRecord]:
     """Load custom DEM data from a user-provided path.
 
@@ -26,7 +27,9 @@ def load_custom_dem(
     ----------
     source_cfg : source config with ``path`` attribute
     bbox : optional bounding box for cropping
-    data_dir : cache directory for processed outputs
+    derived_dir : directory for the GeoTIFF converted from an ASC file.
+        It is never the user's data folder: a derived copy named like a
+        user file would be taken for one.
 
     Returns
     -------
@@ -44,7 +47,7 @@ def load_custom_dem(
     if ext in (".tif", ".tiff"):
         return _load_raster(path, bbox=bbox)
     elif ext == ".asc":
-        return _load_asc(path, bbox=bbox, data_dir=data_dir)
+        return _load_asc(path, derived_dir=derived_dir)
     elif ext == ".nc":
         return _load_netcdf(path, bbox=bbox)
     else:
@@ -92,12 +95,7 @@ def _load_raster(
     ]
 
 
-def _load_asc(
-    path: Path,
-    *,
-    bbox: tuple | None = None,
-    data_dir: Path | None = None,
-) -> list[FieldRecord]:
+def _load_asc(path: Path, *, derived_dir: Path | None = None) -> list[FieldRecord]:
     """Load an Esri ASCII Grid DEM and convert to GeoTIFF."""
     import rasterio
 
@@ -107,8 +105,8 @@ def _load_asc(
         actual_bbox = (bounds.left, bounds.bottom, bounds.right, bounds.top)
 
         # Convert to GeoTIFF for faster future reads.
-        if data_dir is not None:
-            output_path = data_dir / f"dem_custom_{path.stem}.tif"
+        if derived_dir is not None:
+            output_path = derived_path(derived_dir, path, kind="geotiff", suffix=".tif")
             output_path.parent.mkdir(parents=True, exist_ok=True)
             profile = src.profile.copy()
             profile.update(driver="GTiff", compress="deflate")

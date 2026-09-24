@@ -30,6 +30,7 @@ from hydromodpy.data.adapters.csv_to_parquet import Station, iter_chronicle_file
 from hydromodpy.data.common.io_helpers import is_scaffold_example, parse_chronicle_filename
 from hydromodpy.data.scaffold import VARIABLES, VariableSpec
 from hydromodpy.data.schemas import StationCollectionSchema, validate_warn_only
+from hydromodpy.data.sidecars import SIDECAR_SUFFIX, data_path_for_sidecar
 
 _WGS84_CRS_TOKENS = frozenset({"EPSG:4326", "epsg:4326", "WGS84", "WGS 84"})
 
@@ -58,6 +59,7 @@ class ScanReport:
     updated: list[Artifact] = field(default_factory=list)
     skipped: list[Path] = field(default_factory=list)
     errors: list[tuple[Path, str]] = field(default_factory=list)
+    orphan_sidecars: list[Path] = field(default_factory=list)
 
     @property
     def n_changed(self) -> int:
@@ -69,9 +71,12 @@ class ScanReport:
             f"Updated : {len(self.updated):3d}",
             f"Skipped : {len(self.skipped):3d}",
             f"Errors  : {len(self.errors):3d}",
+            f"Orphans : {len(self.orphan_sidecars):3d}",
         ]
         for path, msg in self.errors:
             lines.append(f"  ! {path}: {msg}")
+        for sidecar in self.orphan_sidecars:
+            lines.append(f"  ! {sidecar}: {_orphan_message(sidecar)}")
         return "\n".join(lines)
 
 
@@ -219,7 +224,16 @@ def _scan_timeseries_variable(
             report.updated.append(artifact)
 
 
+def _in_custom_namespace(path: Path, prefix: str) -> bool:
+    return path.name.startswith(f"{prefix}_custom") and not path.name.startswith("_")
+
+
 def _iter_files(custom_dir: Path, prefix: str, suffixes: frozenset[str]) -> list[Path]:
+    """Return the custom data files of one variable folder.
+
+    A provenance sidecar (``foo.gpkg.json``) is never a data file, even when
+    ``foo.gpkg`` is missing.
+    """
     if not custom_dir.is_dir():
         return []
     out = []
@@ -228,16 +242,36 @@ def _iter_files(custom_dir: Path, prefix: str, suffixes: frozenset[str]) -> list
             continue
         if p.suffix.lower() not in suffixes:
             continue
-        if not p.name.startswith(f"{prefix}_custom") or p.name.startswith("_"):
+        if not _in_custom_namespace(p, prefix):
             continue
         if is_scaffold_example(p):
             continue
-        # Provenance sidecar (sidecars.py: foo.parquet -> foo.parquet.json),
-        # not a data file.
-        if p.suffix.lower() == ".json" and p.with_suffix("").is_file():
+        if data_path_for_sidecar(p) is not None:
             continue
         out.append(p)
     return out
+
+
+def _iter_orphan_sidecars(custom_dir: Path, prefix: str) -> list[Path]:
+    """Return the custom sidecars of one variable folder whose data file is missing."""
+    if not custom_dir.is_dir():
+        return []
+    out = []
+    for p in sorted(custom_dir.iterdir()):
+        if not p.is_file() or not _in_custom_namespace(p, prefix):
+            continue
+        data_path = data_path_for_sidecar(p)
+        if data_path is not None and not data_path.exists():
+            out.append(p)
+    return out
+
+
+def _orphan_message(sidecar: Path) -> str:
+    data_name = sidecar.name.removesuffix(SIDECAR_SUFFIX)
+    return (
+        f"orphan sidecar, its data file {data_name} is missing. "
+        "Restore the data file or remove the sidecar."
+    )
 
 
 _RASTER_SUFFIXES = frozenset({".asc", ".tif", ".tiff"})
@@ -448,6 +482,9 @@ def scan_custom(
 
     try:
         for spec in VARIABLES:
+            for sidecar in _iter_orphan_sidecars(_custom_dir(workspace, spec), spec.file_prefix):
+                report.orphan_sidecars.append(sidecar)
+                logger.warning("auto_scan skipped %s: %s", sidecar, _orphan_message(sidecar))
             scanner = _SCANNERS.get(spec.kind)
             if scanner is None:
                 continue
@@ -493,6 +530,9 @@ def check_custom(
         custom_dir = _custom_dir(workspace, spec)
         if not custom_dir.is_dir():
             continue
+
+        for sidecar in _iter_orphan_sidecars(custom_dir, spec.file_prefix):
+            issues.append((sidecar, _orphan_message(sidecar)))
 
         if spec.kind == "timeseries":
             loc = custom_dir / f"{spec.file_prefix}_custom_LOC.csv"

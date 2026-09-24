@@ -56,14 +56,16 @@ def newest_completed_run_name(inputs: CatchmentReportInputs) -> str | None:
 
     A registered name belongs to its run for good, a failed one included, so a
     rerun of the report's simulation lands under ``<stem>.vN``. ``None`` when
-    the catalog holds no completed run of that stem.
+    the catalog holds no completed run of that stem, or when the configured
+    name already names a version (``<stem>.vN``): a pinned run is read as
+    written.
     """
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.registration import split_stem_version
 
-    if not catalog_file(inputs).is_file():
+    stem, version = split_stem_version(inputs.simulation_name)
+    if version is not None or not catalog_file(inputs).is_file():
         return None
-    stem, _ = split_stem_version(inputs.simulation_name)
     with Catalog(inputs.simulation_workspace_dir, read_only=True) as catalog:
         runs = catalog.find(name_stem=stem, status="completed")
         return runs[0].name if len(runs) else None

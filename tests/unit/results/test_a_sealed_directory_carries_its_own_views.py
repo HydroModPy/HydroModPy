@@ -37,7 +37,8 @@ from hydromodpy.schema.generated_views import (
 )
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.directory import JobDirectory
-from hydromodpy.schema.job.documents import write_document
+from hydromodpy.schema.job.documents import read_document, write_document
+from hydromodpy.schema.job.extent import SpatialExtent
 from hydromodpy.schema.job.inputset import Licence, build_inputset, file_resource
 from hydromodpy.schema.job.layout import ALLOWED_JOB_ENTRIES
 from hydromodpy.schema.job.outcome import JobOutcome, OutputRecord
@@ -133,11 +134,16 @@ def _run_directory(
     return run_dir
 
 
-def _job_directory(root: Path, *, spatial: dict[str, Any] | None = None) -> JobDirectory:
+def _job_directory(
+    root: Path,
+    *,
+    spatial: SpatialExtent | None = None,
+    geometry: SpatialExtent | None = None,
+) -> JobDirectory:
     """A sealed job directory, written through the job package itself.
 
-    *spatial* is the extent recorded on the DEM resource, in the shape the
-    fetch worker writes: a native ``bbox`` and the ``crs`` it is in.
+    *spatial* is the extent recorded on the DEM resource, *geometry* the one
+    the seal records. Both are a native ``bbox`` and the ``crs`` it is in.
     """
     job = JobDirectory.create(root / "job_4711")
     job.ensure_workspace()
@@ -190,8 +196,22 @@ def _job_directory(root: Path, *, spatial: dict[str, Any] | None = None) -> JobD
         finished_at="2026-09-16T08:14:41.882Z",
         outputs=outputs,
     ).write(job)
-    seal_job(job, job_id=JOB_ID, inputset=inputset, outputs=outputs)
+    seal_job(job, job_id=JOB_ID, inputset=inputset, outputs=outputs, geometry=geometry)
     return job
+
+
+def _rewrite_dem_spatial(job: JobDirectory, spatial: Any) -> None:
+    """Put another extent document on the DEM resource of a sealed job.
+
+    The view does not verify the seal, so this reaches the reader as a
+    producer that wrote this shape would have left it.
+    """
+    inputset = dict(read_document(job.inputset_path))
+    inputset["resources"] = [
+        {**resource, "spatial": spatial} if resource["name"] == "dem" else resource
+        for resource in inputset["resources"]
+    ]
+    write_document(job.inputset_path, inputset)
 
 
 def _read(path: Path) -> dict[str, Any]:
@@ -321,7 +341,7 @@ class TestAJobDirectory:
 
     def test_the_extent_a_worker_measured_is_reprojected_to_wgs84(self, tmp_path: Path) -> None:
         # data/fetch/worker.py records the mask extent in its own CRS.
-        spatial = {"crs": "EPSG:2154", "bbox": NANCON_BBOX_L93}
+        spatial = SpatialExtent(bbox=NANCON_BBOX_L93, crs="EPSG:2154")
         job = _job_directory(tmp_path, spatial=spatial)
         write_views(job.root)
         item = _read(job.root / STAC_ITEM_VIEW_FILENAME)
@@ -335,17 +355,64 @@ class TestAJobDirectory:
         assert len(boxes) == 1
         assert boxes[0].split() == [str(v) for v in (ymin, xmin, ymax, xmax)]
 
-    def test_an_extent_already_in_wgs84_is_kept_as_written(self, tmp_path: Path) -> None:
+    def test_an_extent_measured_in_wgs84_is_kept_as_measured(self, tmp_path: Path) -> None:
         box = [-1.2620, 48.3530, -1.0940, 48.4750]
-        job = _job_directory(tmp_path, spatial={"crs": "EPSG:2154", "bbox_wgs84": box})
+        job = _job_directory(tmp_path, spatial=SpatialExtent(bbox=box, crs="EPSG:4326"))
         item = _read(write_stac_item_view(job.root))
-        assert item["bbox"] == box
+        assert item["bbox"] == pytest.approx(box)
+        assert item["properties"]["proj:epsg"] == 4326
 
-    def test_an_extent_with_no_crs_gives_no_box(self, tmp_path: Path) -> None:
-        job = _job_directory(tmp_path, spatial={"bbox": NANCON_BBOX_L93})
+    def test_a_job_that_records_no_extent_gives_no_box(self, tmp_path: Path) -> None:
+        job = _job_directory(tmp_path)
         item = _read(write_stac_item_view(job.root))
         assert "bbox" not in item
         assert item["geometry"] is None
+
+    def test_the_extent_the_seal_records_is_the_one_the_view_publishes(
+        self, tmp_path: Path
+    ) -> None:
+        box = [-1.2620, 48.3530, -1.0940, 48.4750]
+        job = _job_directory(
+            tmp_path,
+            spatial=SpatialExtent(bbox=NANCON_BBOX_L93, crs="EPSG:2154"),
+            geometry=SpatialExtent(bbox=box, crs="EPSG:4326"),
+        )
+        assert _read(job.manifest_path)["geometry"] == {"crs": "EPSG:4326", "bbox": box}
+        item = _read(write_stac_item_view(job.root))
+        assert item["bbox"] == pytest.approx(box)
+        assert item["properties"]["proj:epsg"] == 4326
+
+    @pytest.mark.parametrize(
+        "spatial",
+        [
+            {"crs": "EPSG:2154", "bbox_wgs84": [-1.2620, 48.3530, -1.0940, 48.4750]},
+            {"bbox": NANCON_BBOX_L93},
+            {"crs": "EPSG:2154"},
+            {"crs": "EPSG:2154", "bbox": NANCON_BBOX_L93, "bbox_wgs84": [-1.3, 48.3, -1.1, 48.5]},
+            {"crs": "lambert93", "bbox": NANCON_BBOX_L93},
+        ],
+        ids=["wgs84-spelling", "no-crs", "no-bbox", "second-box", "unparsed-crs"],
+    )
+    def test_an_extent_in_another_shape_is_refused_not_skipped(
+        self, tmp_path: Path, spatial: dict[str, Any]
+    ) -> None:
+        job = _job_directory(tmp_path)
+        _rewrite_dem_spatial(job, spatial)
+        with pytest.raises(ExportError, match="resource 'dem' is not a spatial extent"):
+            write_views(job.root)
+        assert not (job.root / STAC_ITEM_VIEW_FILENAME).exists()
+
+    def test_a_seal_geometry_in_the_wkt2_spelling_is_refused(self, tmp_path: Path) -> None:
+        job = _job_directory(tmp_path)
+        manifest = dict(read_document(job.manifest_path))
+        manifest["geometry"] = {
+            "crs": "EPSG:2154",
+            "crs_wkt2": "PROJCRS[...]",
+            "bbox_wgs84": [-1.2620, 48.3530, -1.0940, 48.4750],
+        }
+        write_document(job.manifest_path, manifest)
+        with pytest.raises(ExportError, match="geometry is not a spatial extent"):
+            context_from_directory(job.root)
 
     def test_the_licence_is_the_rollup_of_the_input_set(self, tmp_path: Path) -> None:
         job = _job_directory(tmp_path)

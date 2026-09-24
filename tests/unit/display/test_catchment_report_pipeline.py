@@ -520,3 +520,23 @@ def test_rerun_after_a_failed_run_reads_the_newest_completed_version(
     name = newest_completed_run_name(inputs)
     assert name == "test_run.v2"
     assert inputs.with_simulation_name(name).simulation_figures == figures
+
+
+def test_a_name_pinned_to_a_version_is_read_as_written(tmp_path) -> None:
+    # Only a bare name follows the newest completed run: `test_run.v2` written
+    # in the report config means that run, even when `test_run.v3` is newer.
+    from dataclasses import replace
+
+    from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
+    from hydromodpy.display.catchment_report.simulation_source import newest_completed_run_name
+
+    config_path = tmp_path / "catchment_report.toml"
+    _write_report_config(config_path)
+    _write_transient_config(tmp_path)
+    workspace = tmp_path / "sim_workspace"
+    for _ in range(3):
+        _write_catalog_run(workspace, "test_run")
+
+    inputs = CatchmentReportInputs.from_toml(config_path)
+    assert newest_completed_run_name(inputs) == "test_run.v3"
+    assert newest_completed_run_name(replace(inputs, simulation_name="test_run.v2")) is None

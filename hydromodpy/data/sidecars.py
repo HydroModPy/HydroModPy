@@ -20,6 +20,13 @@ from pydantic import BaseModel, ConfigDict
 
 SIDECAR_SUFFIX = ".json"
 
+#: Extensions of the data files a sidecar can describe. A file named
+#: ``<name><one of these>.json`` is a sidecar, never a data file, whether or
+#: not its data file exists.
+SIDECAR_DATA_SUFFIXES = frozenset(
+    {".asc", ".csv", ".geojson", ".gpkg", ".json", ".nc", ".parquet", ".shp", ".tif", ".tiff"}
+)
+
 #: Env var that, when set to ``"1"``, forces ``fetched_at`` to ``None`` for every
 #: remote source. Use it in CI and fixtures to keep sidecar payloads
 #: byte-identical across runs. Local ``custom`` sources are already
@@ -69,6 +76,35 @@ def sidecar_path_for(file_path: Path) -> Path:
     return target.with_name(target.name + SIDECAR_SUFFIX)
 
 
+def data_path_for_sidecar(path: Path) -> Path | None:
+    """Return the data file a sidecar describes, or None if ``path`` is no sidecar.
+
+    ``foo.tif.json`` is the sidecar of ``foo.tif``. ``foo.json`` is a data
+    file (GeoJSON), because ``foo`` carries no data extension. The answer
+    depends on the name alone, so an orphan sidecar is still a sidecar.
+    """
+    target = Path(path)
+    if target.suffix.lower() != SIDECAR_SUFFIX:
+        return None
+    data_path = target.with_name(target.name[: -len(SIDECAR_SUFFIX)])
+    if data_path.suffix.lower() not in SIDECAR_DATA_SUFFIXES:
+        return None
+    return data_path
+
+
+def unlink_with_sidecar(file_path: Path) -> None:
+    """Delete ``file_path`` and its sidecar together.
+
+    The sidecar goes first: if the data file then refuses to go, what is left
+    is a data file without a sidecar, which the next write describes again,
+    never a sidecar without its file. A missing file or sidecar is not an
+    error. Any other ``OSError`` propagates to the caller.
+    """
+    target = Path(file_path)
+    sidecar_path_for(target).unlink(missing_ok=True)
+    target.unlink(missing_ok=True)
+
+
 def write_sidecar(file_path: Path, sidecar: Sidecar) -> Path:
     """Write a JSON sidecar next to ``file_path``. Returns the sidecar path."""
     target = sidecar_path_for(file_path)
@@ -98,11 +134,14 @@ def compute_sha256(path: Path, chunk_size: int = 1 << 20) -> str:
 
 __all__ = [
     "DETERMINISTIC_FETCHED_AT_ENV",
+    "SIDECAR_DATA_SUFFIXES",
     "SIDECAR_SUFFIX",
     "Sidecar",
     "compute_sha256",
+    "data_path_for_sidecar",
     "load_sidecar",
     "resolve_fetched_at",
     "sidecar_path_for",
+    "unlink_with_sidecar",
     "write_sidecar",
 ]

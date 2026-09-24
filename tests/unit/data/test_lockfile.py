@@ -127,7 +127,7 @@ def test_lockfile_includes_inputs_sha256(tmp_path: Path) -> None:
     inputs = read_lockfile_inputs(dest)
     assert len(inputs) == 1
     key, payload = next(iter(inputs.items()))
-    assert key == src.name
+    assert key == src.relative_to(workspace).as_posix()
     assert payload["sha256"] == sha256_of(src)
     assert payload["bytes"] == src.stat().st_size
 
@@ -150,7 +150,7 @@ def test_verify_lockfile_warns_on_changed_input(tmp_path: Path) -> None:
     mismatches = verify_frozen(catalog, dest)
     assert len(mismatches) == 1
     assert mismatches[0].kind == "sha256"
-    assert mismatches[0].path == src.name
+    assert mismatches[0].path == src.relative_to(workspace).as_posix()
 
 
 def test_verify_strict_fails_on_changed_input(tmp_path: Path) -> None:
@@ -162,7 +162,7 @@ def test_verify_strict_fails_on_changed_input(tmp_path: Path) -> None:
     assert len(mismatches) == 1
     m = mismatches[0]
     assert m.kind == "sha256"
-    assert m.path == src.name
+    assert m.path == src.relative_to(workspace).as_posix()
     assert m.expected != m.observed
 
 
@@ -361,7 +361,7 @@ def test_lockfile_resolves_workspace_data_variable_relative_paths(tmp_path: Path
 
     entries = read_lockfile(dest)
     assert len(entries) == 1
-    assert entries[0].file_path == src.name
+    assert entries[0].file_path == src.relative_to(workspace).as_posix()
     assert entries[0].sha256 == sha256_of(src)
     assert verify_frozen(cat, dest) == []
 
@@ -382,7 +382,10 @@ def test_verify_frozen_keeps_distinct_gridded_artifacts(tmp_path: Path) -> None:
     write_lockfile(cat, dest)
 
     entries = read_lockfile(dest)
-    assert {entry.file_path for entry in entries} == {first.name, second.name}
+    assert {entry.file_path for entry in entries} == {
+        first.relative_to(workspace).as_posix(),
+        second.relative_to(workspace).as_posix(),
+    }
     assert verify_frozen(cat, dest) == []
 
 

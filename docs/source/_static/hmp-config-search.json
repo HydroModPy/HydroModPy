@@ -11044,7 +11044,7 @@
     "section": "simulation",
     "anchor": "simulation-name",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L364",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L330",
     "description": "Human-readable simulation name and the run's identity. When empty, derived from the TOML filename at load time (run_steady_nwt.toml -> steady_nwt); a programmatic run without a name gets a deterministic memorable slug.",
     "examples": [
       "\"cheze_baseline\""
@@ -11059,7 +11059,7 @@
     "section": "simulation",
     "anchor": "simulation-tags",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L417",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L383",
     "description": "Free-text tags attached at registration; editable later via 'hmp catalog tag'."
   },
   {
@@ -11071,7 +11071,7 @@
     "section": "simulation",
     "anchor": "simulation-if-exists",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L421",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L387",
     "description": "Behavior when registering a simulation whose ``name`` already exists in this project. ``version`` (default) mints the next ``stem.vN`` and keeps every run addressable; ``replace`` trashes the predecessor (restorable) and takes the name; ``f"
   },
   {
@@ -11083,7 +11083,7 @@
     "section": "simulation",
     "anchor": "simulation-description",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L409",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L375",
     "description": "Short free-text description of the simulation intent."
   },
   {
@@ -11095,7 +11095,7 @@
     "section": "simulation",
     "anchor": "simulation-scientific-objective",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L437",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L403",
     "description": "Scientific objective used for catalog and ML stratification."
   },
   {
@@ -11107,7 +11107,7 @@
     "section": "simulation",
     "anchor": "simulation-contact-email",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L441",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L407",
     "description": "Contact email for the simulation metadata."
   },
   {
@@ -11119,7 +11119,7 @@
     "section": "simulation",
     "anchor": "simulation-doi",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L445",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L411",
     "description": "DOI or reference identifier for the simulation metadata."
   },
   {
@@ -11131,7 +11131,7 @@
     "section": "simulation",
     "anchor": "simulation-study-area-name",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L449",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L415",
     "description": "Human-readable study area name."
   },
   {
@@ -11143,7 +11143,7 @@
     "section": "simulation",
     "anchor": "simulation-outlet-x",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L453",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L419",
     "description": "Outlet X coordinate in the project CRS units."
   },
   {
@@ -11155,7 +11155,7 @@
     "section": "simulation",
     "anchor": "simulation-outlet-y",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L457",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L423",
     "description": "Outlet Y coordinate in the project CRS units."
   },
   {
@@ -11167,7 +11167,7 @@
     "section": "simulation",
     "anchor": "simulation-time",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L361",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L327",
     "description": "Optional canonical simulation window used to align solver temporal settings and validate forcing coverage. Required for launcher flow processes and for runtime features that explicitly consume simulation-window dates."
   },
   {
@@ -11179,7 +11179,7 @@
     "section": "simulation",
     "anchor": "simulation-time-start-datetime",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L81",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L57",
     "description": "Simulation window lower datetime bound used by launcher-level time alignment and forcing checks.",
     "examples": [
       "\"2019-01-01\""
@@ -11194,7 +11194,7 @@
     "section": "simulation",
     "anchor": "simulation-time-end-datetime",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L89",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L65",
     "description": "Simulation window upper datetime bound, interpreted as inclusive. Must be greater than or equal to start_datetime.",
     "examples": [
       "\"2025-12-31\""
@@ -11209,7 +11209,7 @@
     "section": "simulation",
     "anchor": "simulation-time-step-value",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L97",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L73",
     "description": "Forcing/stress-period time-step scalar or inline token '<value> <unit>' (for example '30 day'). This controls the temporal aggregation step for forcing series (for example recharge/runoff) and the resulting stress periods.",
     "examples": [
       "\"1 month\"",
@@ -11225,7 +11225,7 @@
     "section": "simulation",
     "anchor": "simulation-time-step-unit",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L107",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L83",
     "description": "Optional forcing/stress-period base time unit used with step_value when step_value is provided without an inline unit."
   },
   {
@@ -11237,7 +11237,7 @@
     "section": "simulation",
     "anchor": "simulation-time-substeps-per-period",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L132",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L108",
     "description": "Number of solver time steps within each stress period, the one knob that buys transient accuracy. The default of 1 integrates a whole period in a single backward-Euler step, which is not a neutral choice: on a seasonally recharged hillslope"
   },
   {
@@ -11249,7 +11249,7 @@
     "section": "simulation",
     "anchor": "simulation-time-coverage-policy",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L150",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L126",
     "description": "Behavior when recharge does not fully cover the declared simulation window bounds [start_datetime, end_datetime]: 'error' raises, 'warn' emits a warning, 'ignore' skips checks."
   },
   {
@@ -11261,7 +11261,7 @@
     "section": "simulation",
     "anchor": "simulation-process",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L384",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L350",
     "description": "Ordered list of requested processes loaded from [[simulation.process]]. At most one process per type is supported."
   },
   {
@@ -11273,7 +11273,7 @@
     "section": "simulation",
     "anchor": "simulation-process-id",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L231",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L197",
     "description": "User-facing identifier for the process. This id is required and must be unique within the simulation.",
     "examples": [
       "\"flow_main\""
@@ -11288,7 +11288,7 @@
     "section": "simulation",
     "anchor": "simulation-process",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L234",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L200",
     "description": "Discriminator selecting the 'flow' process family."
   },
   {
@@ -11300,7 +11300,7 @@
     "section": "simulation",
     "anchor": "simulation-process-solvers",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L238",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L204",
     "description": "Ordered list of active flow solver names. At least one solver is required for flow processes."
   },
   {
@@ -11312,7 +11312,7 @@
     "section": "simulation",
     "anchor": "simulation-process-backend",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L310",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L276",
     "description": "Backend used by the mesh process. Currently only 'catchment' is supported (delegates to the [mesh_catchment] runtime)."
   },
   {
@@ -11324,7 +11324,7 @@
     "section": "simulation",
     "anchor": "simulation-results",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L477",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L443",
     "description": "Results storage and export configuration loaded from [simulation.results]. Controls Catalog, derived variables, and automated exports."
   },
   {
@@ -11576,7 +11576,7 @@
     "section": "simulation",
     "anchor": "simulation-rng-seed",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L485",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L451",
     "description": "Master RNG seed for the simulation. When set, every stochastic consumer (mesh point sampling, synthetic forcing, ...) derives its own deterministic sub-seed via ``hydromodpy.core.rng.RngManager``. Persisted in ``runs_environment.rng_seed`` "
   },
   {

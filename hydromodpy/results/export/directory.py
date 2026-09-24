@@ -39,6 +39,7 @@ from hydromodpy.results.export.context import AssetEntry, FairExportContext, Inp
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME, RUN_PROVENANCE_FILENAME
 from hydromodpy.schema.generated_views import VIEW_FILENAMES
 from hydromodpy.schema.job.digest import sha256_file
+from hydromodpy.schema.job.extent import SpatialExtent
 from hydromodpy.schema.job.inputset import UNDETERMINED
 from hydromodpy.schema.job.layout import (
     INPUTSET_FILENAME,
@@ -75,7 +76,6 @@ _LICENCE_URLS: dict[str, str] = {
 """SPDX ids the exporters already know by URL. Any other id is kept as it is."""
 
 _WGS84_EPSG = 4326
-_EPSG_PREFIX = "EPSG:"
 
 
 def context_from_directory(directory: Path | str) -> FairExportContext:
@@ -268,10 +268,26 @@ def _job_context(root: Path, manifest: Mapping[str, Any]) -> FairExportContext:
     backend = _mapping(provenance.get("backend"))
     resources = _records(inputset.get("resources"))
 
-    geometry = _mapping(manifest.get("geometry"))
-    bbox = _extent_wgs84_bbox(geometry) or _union_bbox(
-        _extent_wgs84_bbox(_mapping(resource.get("spatial"))) for resource in resources
+    sealed_geometry = manifest.get("geometry")
+    geometry = (
+        None
+        if sealed_geometry is None
+        else _job_extent(sealed_geometry, where=f"{RUN_MANIFEST_FILENAME} geometry")
     )
+    extents = [
+        _job_extent(
+            resource["spatial"],
+            where=f"{INPUTSET_FILENAME} resource {resource.get('name')!r}",
+        )
+        for resource in resources
+        if resource.get("spatial") is not None
+    ]
+    if geometry is not None:
+        bbox = _extent_wgs84_bbox(geometry)
+        crs_epsg = _crs_epsg(geometry.crs)
+    else:
+        bbox = _union_bbox([_extent_wgs84_bbox(extent) for extent in extents])
+        crs_epsg = _shared_epsg(extents)
     job_id = str(manifest.get("job_id") or outcome.get("job_id") or root.name)
     process_label = " ".join(
         str(part) for part in (process.get("id"), process.get("version")) if part
@@ -279,8 +295,7 @@ def _job_context(root: Path, manifest: Mapping[str, Any]) -> FairExportContext:
     sim_row: dict[str, Any] = {
         "name": process_label or job_id,
         "description": f"HydroModPy job {job_id}",
-        "crs_epsg": _epsg(geometry.get("crs")) or _shared_epsg(resources),
-        "crs_wkt": geometry.get("crs_wkt2"),
+        "crs_epsg": crs_epsg,
         "started_at": outcome.get("started_at"),
         "ended_at": outcome.get("finished_at"),
         **_bbox_columns(bbox),
@@ -346,26 +361,44 @@ def _job_input(resource: Mapping[str, Any]) -> InputEntry:
     )
 
 
-def _extent_wgs84_bbox(extent: Mapping[str, Any]) -> tuple[float, float, float, float] | None:
-    """Return the WGS84 box of a job extent, in either of its two spellings.
+def _job_extent(document: Any, *, where: str) -> SpatialExtent:
+    """Read the extent a job document records.
 
-    Boundary-spec §4 writes ``bbox_wgs84``. The fetch worker writes the box
-    it measured, ``bbox``, in the CRS it names under ``crs``. That box is
-    reprojected, as the run profile does.
+    One shape is read, the one :class:`SpatialExtent` writes. Anything else is
+    refused, because a view that skipped it would publish a job with no place.
     """
-    return _bbox_or_none(extent.get("bbox_wgs84")) or _wgs84_bbox(
-        extent.get("bbox"), _epsg(extent.get("crs"))
-    )
+    try:
+        return SpatialExtent.from_document(document)
+    except ValueError as exc:
+        raise ExportError(f"{where} is not a spatial extent: {exc}") from exc
 
 
-def _shared_epsg(resources: Sequence[Mapping[str, Any]]) -> int | None:
+def _extent_wgs84_bbox(extent: SpatialExtent) -> tuple[float, float, float, float]:
+    """Reproject the native box of a job extent to WGS84 longitude and latitude."""
+    from pyproj import Transformer
+    from pyproj.exceptions import ProjError
+
+    try:
+        transformer = Transformer.from_crs(extent.crs, _WGS84_EPSG, always_xy=True)
+        xmin, ymin, xmax, ymax = transformer.transform_bounds(*extent.bbox)
+    except ProjError as exc:
+        raise ExportError(
+            f"the extent {list(extent.bbox)} in {extent.crs!r} cannot be reprojected "
+            f"to WGS84: {exc}"
+        ) from exc
+    return (float(xmin), float(ymin), float(xmax), float(ymax))
+
+
+def _crs_epsg(crs: str) -> int | None:
+    """Return the EPSG code of a CRS, or ``None`` when it has none."""
+    from pyproj import CRS
+
+    return CRS.from_user_input(crs).to_epsg()
+
+
+def _shared_epsg(extents: Sequence[SpatialExtent]) -> int | None:
     """Return the EPSG code every spatial input agrees on, or ``None``."""
-    codes = {
-        _epsg(_mapping(resource.get("spatial")).get("crs"))
-        for resource in resources
-        if resource.get("spatial")
-    }
-    codes.discard(None)
+    codes = {_crs_epsg(extent.crs) for extent in extents}
     return codes.pop() if len(codes) == 1 else None
 
 
@@ -438,23 +471,12 @@ def _bbox_or_none(value: Any) -> tuple[float, float, float, float] | None:
 
 
 def _union_bbox(
-    boxes: Iterable[tuple[float, float, float, float] | None],
+    boxes: Sequence[tuple[float, float, float, float]],
 ) -> tuple[float, float, float, float] | None:
-    present = [box for box in boxes if box is not None]
-    if not present:
+    if not boxes:
         return None
-    xmins, ymins, xmaxs, ymaxs = zip(*present, strict=True)
+    xmins, ymins, xmaxs, ymaxs = zip(*boxes, strict=True)
     return (min(xmins), min(ymins), max(xmaxs), max(ymaxs))
-
-
-def _epsg(value: Any) -> int | None:
-    """Read ``EPSG:2154`` or ``2154`` as an EPSG code."""
-    if value is None:
-        return None
-    text = str(value).strip()
-    if text.upper().startswith(_EPSG_PREFIX):
-        text = text[len(_EPSG_PREFIX) :]
-    return _int_or_none(text)
 
 
 def _is_wkt(value: Any) -> bool:
