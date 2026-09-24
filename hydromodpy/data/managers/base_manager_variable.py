@@ -18,7 +18,11 @@ from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.managers.base_manager_common import BaseManagerCommon, SourceContext
-from hydromodpy.data.provenance.sidecars import unlink_with_sidecar
+from hydromodpy.data.provenance.sidecars import (
+    load_sidecar,
+    sidecar_path_for,
+    unlink_with_sidecar,
+)
 from hydromodpy.data.registry.constants import (
     SENTINEL_CUSTOM,
     SENTINEL_EMPTY,
@@ -34,6 +38,22 @@ _VAR_FILE_PREFIX = {
     "piezometry": "piezometry",
     "water_quality": "waterquality",
 }
+
+
+def _chronicle_sidecar(path: Path) -> dict[str, str | None]:
+    """The chronicle fields of the sidecar next to ``path``; empty when there is none."""
+    if not sidecar_path_for(path).is_file():
+        return {}
+    try:
+        sidecar = load_sidecar(path)
+    except (OSError, ValueError) as exc:
+        logger.debug("Unreadable sidecar next to %s: %s", path, exc)
+        return {}
+    return {
+        "unit": sidecar.unit,
+        "source_unit": sidecar.source_unit,
+        "frequency": sidecar.frequency,
+    }
 
 
 class BaseVariableManager(BaseManagerCommon):
@@ -489,18 +509,20 @@ class BaseVariableManager(BaseManagerCommon):
 
         # Reconstruct location from LOC file if available
         location = self._load_cached_location(source, station_id)
+        # The sidecar speaks for the file; the index row fills what it lacks.
+        sidecar = _chronicle_sidecar(filepath)
 
         return PointRecord(
             station_id=station_id,
-            variable=entry.variable or self.VARIABLE_NAME,
+            variable=self.VARIABLE_NAME,
             source=source,
-            unit=entry.unit or "",
-            frequency=entry.frequency or "D",
+            unit=sidecar.get("unit") or entry.unit or "",
+            frequency=sidecar.get("frequency") or entry.frequency or "D",
             data=df,
             date_start=df["datetime"].min().to_pydatetime(),
             date_end=df["datetime"].max().to_pydatetime(),
             location=location,
-            source_unit=entry.source_unit,
+            source_unit=sidecar.get("source_unit") or entry.source_unit,
         )
 
     def _load_cached_location(

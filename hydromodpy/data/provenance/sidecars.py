@@ -33,6 +33,10 @@ SIDECAR_DATA_SUFFIXES = frozenset(
 #: deterministic and ignore the toggle.
 DETERMINISTIC_FETCHED_AT_ENV = "HMP_DETERMINISTIC_FETCHED_AT"
 
+#: Fields a downloaded station chronicle adds to its sidecar. Written only when
+#: set, so the sidecar of any other file keeps the bytes it always had.
+CHRONICLE_FIELDS = ("variable", "unit", "source_unit", "frequency", "date_start", "date_end")
+
 
 class Sidecar(BaseModel):
     """Provenance metadata stored next to a ``data/<var>/raw/`` input file.
@@ -52,6 +56,14 @@ class Sidecar(BaseModel):
     crs: str | None = None
     bbox: tuple[float, float, float, float] | None = None
     notes: str | None = None
+    # A downloaded station chronicle also carries what reading it back needs,
+    # so the file says it without the cache index.
+    variable: str | None = None
+    unit: str | None = None
+    source_unit: str | None = None
+    frequency: str | None = None
+    date_start: str | None = None
+    date_end: str | None = None
 
 
 def resolve_fetched_at(source: str, *, now: datetime | None = None) -> datetime | None:
@@ -110,6 +122,9 @@ def write_sidecar(file_path: Path, sidecar: Sidecar) -> Path:
     target = sidecar_path_for(file_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = sidecar.model_dump(mode="json")
+    for key in CHRONICLE_FIELDS:
+        if payload[key] is None:
+            del payload[key]
     text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
     target.write_text(text, encoding="utf-8")
     return target
@@ -133,6 +148,7 @@ def compute_sha256(path: Path, chunk_size: int = 1 << 20) -> str:
 
 
 __all__ = [
+    "CHRONICLE_FIELDS",
     "DETERMINISTIC_FETCHED_AT_ENV",
     "SIDECAR_DATA_SUFFIXES",
     "SIDECAR_SUFFIX",
