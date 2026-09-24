@@ -21,6 +21,7 @@ from hydromodpy.data.registry.constants import (
     SENTINEL_CUSTOM,
     SENTINEL_EMPTY,
 )
+from hydromodpy.data.sidecars import unlink_with_sidecar
 
 logger = get_logger(__name__)
 
@@ -216,11 +217,9 @@ class BaseVariableManager(BaseManagerCommon):
             source=source,
             station_id=station_id,
         )
-        if entry is None:
+        if entry is None or entry.file_path in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
             return
-        old_path = self._resolve_catalog_path(entry.file_path)
-        if old_path.exists():
-            old_path.unlink()
+        unlink_with_sidecar(self._resolve_catalog_path(entry.file_path))
 
     def _resolve_catalog_path(self, file_path: str) -> Path:
         """Resolve a catalog file_path to an absolute path.

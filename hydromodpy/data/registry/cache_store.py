@@ -22,6 +22,14 @@ import duckdb
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path
 from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
+from hydromodpy.data.sidecars import (
+    Sidecar,
+    load_sidecar,
+    resolve_fetched_at,
+    sidecar_path_for,
+    unlink_with_sidecar,
+    write_sidecar,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.data.data_freeze import LockedArtifact
@@ -423,8 +431,6 @@ def emit_input_sidecar(
     if _is_inside_package(path):
         return
     try:
-        from hydromodpy.data.sidecars import Sidecar, resolve_fetched_at, write_sidecar
-
         bbox_payload: tuple[float, float, float, float] | None = None
         if all(value is not None for value in bbox):
             bbox_payload = tuple(float(v) for v in bbox)  # type: ignore[assignment]
@@ -448,7 +454,6 @@ def _sidecar_licence(path: Path, *, source: str, sha256: str) -> str:
     Otherwise the source registry answers, and an unknown source is
     ``LicenseRef-undetermined``, never a default.
     """
-    from hydromodpy.data.sidecars import load_sidecar, sidecar_path_for
     from hydromodpy.schema.sources import is_determined, licence_for_source
 
     if sidecar_path_for(path).is_file():
@@ -462,11 +467,10 @@ def _sidecar_licence(path: Path, *, source: str, sha256: str) -> str:
 
 
 def try_unlink(fp: str) -> None:
+    """Delete a cached file together with its sidecar, so no sidecar outlives its file."""
     if fp in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
         return
     try:
-        p = Path(fp)
-        if p.exists():
-            p.unlink()
+        unlink_with_sidecar(Path(fp))
     except OSError as exc:
         logger.warning("Failed to delete file %s: %s", fp, exc)
