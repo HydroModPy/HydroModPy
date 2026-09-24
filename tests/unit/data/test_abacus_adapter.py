@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.exceptions import DataContractViolation
-from hydromodpy.data.adapters import convert_abacus_to_parquet
+from hydromodpy.data.ingest import convert_abacus_to_parquet
 
 
 def test_csv_without_lake_id_round_trips_with_injected_id(tmp_path) -> None:

@@ -223,7 +223,7 @@ def load_custom_multiformat(
             expand_constants=expand_constants,
         )
     elif path.suffix == ".nc":
-        from hydromodpy.data.common.custom_grid_loader import load_custom_nc
+        from hydromodpy.data.ingest.custom_grids import load_custom_nc
 
         return load_custom_nc(
             path,
@@ -235,7 +235,7 @@ def load_custom_multiformat(
             project_period=project_period,
         )
     elif path.suffix in (".tif", ".tiff"):
-        from hydromodpy.data.common.custom_grid_loader import load_custom_tif
+        from hydromodpy.data.ingest.custom_grids import load_custom_tif
 
         return load_custom_tif(
             path,

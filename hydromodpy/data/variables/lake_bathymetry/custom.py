@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.adapters import convert_asc_to_geotiff
 from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.ingest import convert_asc_to_geotiff
 from hydromodpy.data.provenance.derived import derived_path
 
 logger = get_logger(__name__)

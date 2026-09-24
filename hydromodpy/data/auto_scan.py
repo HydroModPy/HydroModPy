@@ -18,7 +18,8 @@ from pathlib import Path
 
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.adapters import (
+from hydromodpy.data.common.io_helpers import is_scaffold_example, parse_chronicle_filename
+from hydromodpy.data.ingest import (
     TimeSeriesValidationError,
     convert_abacus_to_parquet,
     convert_asc_to_geotiff,
@@ -26,8 +27,7 @@ from hydromodpy.data.adapters import (
     convert_vector_to_geoparquet,
     read_locations_csv,
 )
-from hydromodpy.data.adapters.csv_to_parquet import Station, iter_chronicle_files
-from hydromodpy.data.common.io_helpers import is_scaffold_example, parse_chronicle_filename
+from hydromodpy.data.ingest.tables import Station, iter_chronicle_files
 from hydromodpy.data.provenance.sidecars import SIDECAR_SUFFIX, data_path_for_sidecar
 from hydromodpy.data.scaffold import VARIABLES, VariableSpec
 from hydromodpy.data.schemas import StationCollectionSchema, validate_warn_only

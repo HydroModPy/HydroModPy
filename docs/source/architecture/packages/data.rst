@@ -34,8 +34,8 @@ Sub-modules
   detection.
 - ``data/contracts/`` -- record types: ``PointRecord``,
   ``FieldRecord``, ``LoadResult``, ``StationLocation``.
-- ``data/adapters/`` -- bridges to other layers (geology, station
-  sets).
+- ``data/ingest/`` -- user files into the storage formats
+  (``hmp data add``) and folders of custom files into records.
 - ``data/common/`` -- shared helpers (timezone, units, geometry).
 - ``data/schemas/`` -- Pydantic models reused across variables.
 - ``data/variables/`` -- one folder per variable.

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from hydromodpy.data.common.custom_point_loader import load_custom_points
+from hydromodpy.data.ingest.custom_points import load_custom_points
 
 
 def load_custom(

@@ -98,7 +98,7 @@ def add_data_entry(
     therefore no lockfile of its own.
     """
     from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
-    from hydromodpy.data.adapters import (
+    from hydromodpy.data.ingest import (
         convert_asc_to_geotiff,
         convert_timeseries_csv_to_parquet,
         convert_vector_to_geoparquet,
