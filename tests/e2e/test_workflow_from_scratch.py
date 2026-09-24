@@ -3,9 +3,10 @@
 Walks the chain a new user would follow:
 1. ``hmp workspace init`` to scaffold a workspace.
 2. Inspect ``workspace.toml`` and the scaffolded layout.
-3. Get a DEM into the workspace: the unimplemented ``hmp data get`` stays
-   gated, then ``hmp data check`` + ``hmp data add`` ingest a local file
-   dropped in ``data/dem/`` under the naming convention.
+3. Get a DEM into the workspace: ``hmp data get`` refuses a box without
+   its CRS, ``hmp data check`` + ``hmp data add`` ingest a local file
+   dropped in ``data/dem/`` under the naming convention, and a request
+   document serves that DEM cut to a smaller box.
 4. Seed a minimal simulation via the public Python API so the catalog
    carries a real Zarr field. This stands in for a full solver run on the
    ``simulation_regression`` fixture, which is exercised by the regression
@@ -20,6 +21,7 @@ what an end user actually triggers.
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import sys
@@ -30,6 +32,7 @@ from uuid import uuid4
 import numpy as np
 import pandas as pd
 import pytest
+import rasterio
 
 from hydromodpy.core.state.paths import CATALOG_FILENAME, catalog_path_for
 
@@ -130,21 +133,19 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     for variable in ("dem", "piezometry", "hydrometry"):
         assert (workspace / "data" / variable).is_dir(), f"data/{variable} missing"
 
-    # ----- Step 4a: the upstream fetch is gated, and says what to do instead --
-    # HydroModPy has no provider download; ``hmp data get`` must fail loudly
-    # rather than write a placeholder that looks like checksummed real data.
-    fetch = _run_hmp(
+    # ----- Step 4a: a request with a box but no CRS is refused ---------------
+    refused_out = tmp_path / "refused"
+    refused = _run_hmp(
         "data",
         "get",
         "dem",
         "--bbox=-1.17,48.4,-1.0,48.5",
-        "--workspace",
-        str(workspace),
+        "--out",
+        str(refused_out),
     )
-    assert fetch.returncode != 0, "`hmp data get` must stay gated while unimplemented"
-    assert "hmp data add" in fetch.stderr, (
-        f"the gate must point at the supported path.\nstderr:\n{fetch.stderr}"
-    )
+    assert refused.returncode == 14, f"stderr:\n{refused.stderr}"
+    assert "crs" in refused.stderr
+    assert not refused_out.exists(), "a refused request writes nothing"
 
     # ----- Step 4b: the supported path - drop zone + hmp data add -----------
     dem_dir = workspace / "data" / "dem"
@@ -160,6 +161,26 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     assert added.returncode == 0, f"`hmp data add` failed.\nstderr:\n{added.stderr}"
     blob = workspace / "data" / "blobs" / "dem" / "custom" / dem_file.name
     assert blob.is_file(), "hmp data add must pivot the raster into data/blobs/"
+
+    # ----- Step 4c: a request document serves the DEM cut to its box ---------
+    request = tmp_path / "request.json"
+    request.write_text(
+        json.dumps(
+            {
+                "data": {"dem": {"sources": [{"source": "custom", "path": str(dem_file)}]}},
+                "extent": {"bbox": [300000, 6700000, 301250, 6701250], "crs": "EPSG:2154"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    served_out = tmp_path / "served"
+    served = _run_hmp("data", "get", str(request), "--out", str(served_out))
+    assert served.returncode == 0, f"`hmp data get` failed.\nstderr:\n{served.stderr}"
+    report = json.loads((served_out / "request.json").read_text(encoding="utf-8"))
+    (entry,) = report["files"]
+    assert entry["kind"] == "raster"
+    with rasterio.open(served_out / entry["path"]) as cut:
+        assert (cut.width, cut.height) == (50, 50)
 
     listed = _run_hmp("data", "ls", "--workspace", str(workspace))
     assert listed.returncode == 0, f"`hmp data ls` failed.\nstderr:\n{listed.stderr}"

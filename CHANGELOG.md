@@ -67,6 +67,19 @@ Each release section includes the following standard categories:
   `ODbL-1.0` for OSM) and leaves the others undetermined, with the reason.
 - `-q`, `-v` and `--debug` on `hmp viz`, `report`, `spinup`, `data`, `catalog`
   and `project`, which read only the default and `HMP_VERBOSITY` before.
+- `hmp data get` serves data without a project. `hmp data get request.json
+  --out DIR` reads a request document (`[data]` sections, one extent among a
+  box with its CRS, a mask or station codes, an optional period, plugin
+  sources under `installed`); `hmp data get <variable> --bbox ... --crs ...
+  --out DIR` builds the same request for one variable. `DIR` receives one
+  file per variable and source, cut to the extent and the period whatever the
+  cache held, and `request.json`, which lists each file with its sha256, CRS,
+  box and period, the empty answers and the failed variables. The engine is
+  `hydromodpy.data.run_request` and the document model
+  `hydromodpy.data.DataRequest`. A period end without a time keeps its whole
+  day. A failed source exits with code 16 once the others are written, and
+  leaves no file behind; a request the model refuses exits with code 14, and
+  a mask that is not a file with code 10, both before anything is written.
 
 ### Changed
 - `hmp data export --format rocrate|stac|prov` writes the views inside the run

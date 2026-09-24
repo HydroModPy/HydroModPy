@@ -7,7 +7,7 @@
 # "spatial" and "schema" of the structure.md table) is the business of
 # layer_matrix.yaml.
 allowed:
-  "<init>":   [loading]
+  "<init>":   [loading, request]
   contracts:  []
   schemas:    []
   source:     [contracts]
@@ -19,9 +19,10 @@ allowed:
   variables:  [contracts, schemas, source, common, ingest, provenance, registry, managers]
   loading:    [contracts, schemas, source, common, ingest, provenance, registry, managers, variables]
   workspace:  [schemas, common, ingest, provenance, registry]
+  request:    [contracts, schemas, source, common, ingest, provenance, registry, managers, variables, loading, workspace]
   # The data-fetch process; step M12 of the migration replaces it with request/.
   fetch:      [contracts, schemas, source, common, ingest, provenance, registry, managers, variables, loading]
-  cases:      [contracts, schemas, source, common, ingest, provenance, registry, managers, variables, loading, workspace, fetch]
+  cases:      [contracts, schemas, source, common, ingest, provenance, registry, managers, variables, loading, workspace, request, fetch]
 
 # Rule 6: the source registry names the built-in source classes by a dotted
 # path written as text, imported on first lookup, so that a third-party plugin
@@ -43,6 +44,7 @@ public:
   - hydromodpy.data.provenance.*
   - hydromodpy.data.ingest.*
   - hydromodpy.data.workspace.*
+  - hydromodpy.data.request.*
   # Until step M12 replaces the data-fetch process with request/.
   - hydromodpy.data.fetch.*
   - hydromodpy.data.variables.*.config

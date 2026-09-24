@@ -17,7 +17,9 @@ __all__ = (
     "DataLoadPlan",
     "DataPlanner",
     "DataManagersRuntimeLoader",
+    "DataRequest",
     "DataStore",
+    "run_request",
 )
 
 _LAZY_IMPORTS = {
@@ -26,7 +28,9 @@ _LAZY_IMPORTS = {
     "DataLoadPlan": "hydromodpy.data.loading.plan:DataLoadPlan",
     "DataPlanner": "hydromodpy.data.loading.planner:DataPlanner",
     "DataManagersRuntimeLoader": "hydromodpy.data.loading.loader:DataManagersRuntimeLoader",
+    "DataRequest": "hydromodpy.data.request.model:DataRequest",
     "DataStore": "hydromodpy.data.loading.store:DataStore",
+    "run_request": "hydromodpy.data.request.engine:run_request",
 }
 
 

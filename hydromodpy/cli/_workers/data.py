@@ -24,32 +24,48 @@ def list_data_cache(
         return catalog.list_entries(variable=variable, source=provider)
 
 
-def fetch_data_variable(
-    variable: str,
+def request_data(
+    target: str,
     *,
+    out: Any,
     bbox: tuple[float, float, float, float] | None = None,
+    crs: str | None = None,
+    mask: Any = None,
+    stations: list[str] | None = None,
+    start: str | None = None,
+    end: str | None = None,
+    source: str | None = None,
     workspace: Any = None,
-    source: str = "upstream",
 ) -> dict:
-    """Fetch an upstream variable into the cache and write a sidecar.
+    """Serve a data request into ``out`` and return its report.
 
-    Not implemented: no upstream provider fetch exists yet. The verb is gated
-    with a clear error so it never silently writes a placeholder file that
-    looks like real, checksummed data.
+    ``target`` is a request document (a ``.json`` file) or a variable name, in
+    which case the request is built from the options. The cache is the
+    workspace's when ``workspace`` is given, otherwise one in memory.
     """
-    del bbox, workspace, source  # accepted for the eventual provider fetch
+    from hydromodpy.data import DataRequest, DataStore, run_request
 
-    from hydromodpy.data.workspace.scaffold import VARIABLES
+    document = Path(target).expanduser()
+    if document.suffix.lower() == ".json" and document.is_file():
+        request = DataRequest.model_validate_json(document.read_text(encoding="utf-8"))
+    else:
+        request = DataRequest.for_variable(
+            target,
+            source=source,
+            bbox=bbox,
+            crs=crs,
+            mask=mask,
+            station_ids=stations,
+            start=start,
+            end=end,
+        )
+    store = None
+    if workspace is not None:
+        from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
 
-    spec = next((s for s in VARIABLES if s.name == variable), None)
-    if spec is None:
-        raise ValueError(f"Unknown variable {variable!r}")
-
-    raise NotImplementedError(
-        f"'hmp data get {variable}' is not implemented yet: HydroModPy has no "
-        f"upstream provider fetch. Place the file in data/{spec.name}/ using the "
-        f"naming convention, or ingest an existing file with 'hmp data add'."
-    )
+        store = DataStore(workspace_root=_resolve_ws(str(workspace)))
+    report = run_request(request, Path(out).expanduser(), store=store)
+    return report.to_document()
 
 
 def check_data_cache(
