@@ -437,8 +437,8 @@ Variables actuellement implémentées (répertoire
 ``hydromodpy/data/variables/``) : ``dem``, ``etp``, ``geology``, ``humidity``,
 ``hydrography``, ``hydrometry``, ``intermittency``, ``oceanic``, ``piezometry``,
 ``precipitation``, ``radiation``, ``recharge``, ``runoff``, ``soil_moisture``,
-``temperature``, ``water_quality``, ``wind``, plus un
-``timeseries_variable_config.py`` partagé.
+``temperature``, ``water_quality``, ``wind`` ; la config commune des
+chroniques est ``hydromodpy/data/managers/timeseries_config.py``.
 
 3.3. Sources
 ^^^^^^^^^^^^

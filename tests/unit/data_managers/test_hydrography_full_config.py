@@ -430,9 +430,7 @@ class TestDocumentedContracts:
     def test_package_exports(self):
         import hydromodpy.data.variables.hydrography as pkg
 
-        assert hasattr(pkg, "HydrographyConfig")
-        assert hasattr(pkg, "HydrographySourceConfig")
-        assert hasattr(pkg, "HydrographyManager")
+        assert set(pkg.__all__) == {"HydrographyConfig", "HydrographySourceConfig"}
 
 
 # =====================================================================

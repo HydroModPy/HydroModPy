@@ -23,7 +23,7 @@ Two manager flavours
   ``BaseFieldManager`` and emit ``FieldRecord`` objects.
 
 Both contracts live under ``hydromodpy/data/`` (``base_manager_variable.py``,
-``base_manager_field.py``, ``_base_manager_common.py``).
+``base_manager_field.py``, ``base_manager_common.py``).
 
 Files to create
 ---------------

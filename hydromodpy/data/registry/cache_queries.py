@@ -8,6 +8,7 @@ cache miss is delegated to :mod:`cache_store`.
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -15,6 +16,7 @@ import pandas as pd
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.registry.cache_store import (
     dt_to_str,
+    encode_path_for_storage,
     reject_frozen_cache_miss,
     reject_frozen_entry_mismatch,
 )
@@ -105,6 +107,26 @@ def find_cached(
     entry = CatalogEntry(**dict(zip(cols, row, strict=False)))
     reject_frozen_entry_mismatch(catalog, entry)
     return entry
+
+
+def custom_file_mtime(
+    catalog: DataCatalogDuckDB,
+    *,
+    variable: str,
+    file_path: Path | str,
+) -> float | None:
+    """Return the ``file_mtime`` indexed for one custom file, or None.
+
+    The path is matched in its stored form and as given, so a row written
+    before paths were stored workspace-relative still matches.
+    """
+    encoded = encode_path_for_storage(catalog, file_path)
+    row = catalog.backend.fetch_one(
+        "SELECT file_mtime FROM entries "
+        "WHERE variable = ? AND source = 'custom' AND file_path IN (?, ?)",
+        [variable, encoded, str(file_path)],
+    )
+    return None if row is None else row[0]
 
 
 def list_entries(

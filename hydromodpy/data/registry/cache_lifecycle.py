@@ -64,7 +64,7 @@ def _still_named(catalog: DataCatalogDuckDB, file_path: str, leaving_ids: Sequen
 
 def _is_managed_copy(catalog: DataCatalogDuckDB, path: Path) -> bool:
     """Tell whether ``path`` lies under the ``blobs/`` folder of the catalog's data dir."""
-    db_path = getattr(catalog, "_db_path", None)
+    db_path = catalog.backend.path
     if db_path is None:
         return False
     blobs = (Path(db_path).parent / "blobs").resolve()

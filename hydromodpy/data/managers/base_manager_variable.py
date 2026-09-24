@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import warnings
 from abc import abstractmethod
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -16,7 +17,7 @@ from hydromodpy.data.contracts.completeness import compute_completeness
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.managers._base_manager_common import BaseManagerCommon
+from hydromodpy.data.managers.base_manager_common import BaseManagerCommon
 from hydromodpy.data.provenance.sidecars import unlink_with_sidecar
 from hydromodpy.data.registry.constants import (
     SENTINEL_CUSTOM,
@@ -82,11 +83,11 @@ class BaseVariableManager(BaseManagerCommon):
         ...
 
     # ------------------------------------------------------------------
-    # Bbox resolution and spatial mask (Hub'Eau expects WGS84)
+    # Bbox resolution and spatial mask (station APIs expect WGS84)
     # ------------------------------------------------------------------
 
     def _load_mask_geometry(self, mask_path: Path):
-        """Hub'Eau expects WGS84, so reproject to lon/lat."""
+        """Station APIs expect WGS84, so reproject to lon/lat."""
         from hydromodpy.data.common.geo_helpers import load_mask_geometry_wgs84
 
         return load_mask_geometry_wgs84(mask_path)
@@ -118,8 +119,76 @@ class BaseVariableManager(BaseManagerCommon):
         return ((xmin + xmax) / 2, (ymin + ymax) / 2)
 
     # ------------------------------------------------------------------
-    # Smart cache: partial coverage detection + merge
+    # Station cache: partial coverage detection + merge
     # ------------------------------------------------------------------
+
+    def _fetch_with_station_cache(
+        self,
+        source_cfg: Any,
+        fetch_fn: Callable[[list[str] | None, datetime, datetime], list[PointRecord]],
+        *,
+        source_name: str,
+    ) -> list[PointRecord]:
+        """Fetch station records, downloading only what the cache lacks.
+
+        ``fetch_fn(station_ids, start, end)`` calls the provider; ``None`` as
+        station ids asks it to discover stations in the extent. Stations named
+        in the config are read from the cache, completed for the periods it
+        misses, and a station known to have no data is not asked again.
+        Discovery by extent is never cached.
+        """
+        if self.project_period is None:
+            raise ValueError(f"project_period required to fetch {self.VARIABLE_NAME} stations.")
+
+        station_ids = list(source_cfg.station_ids or [])
+        max_stations = getattr(source_cfg, "max_stations", None)
+        if station_ids and max_stations is not None:
+            station_ids = station_ids[:max_stations]
+
+        if not station_ids or source_cfg.force_refresh:
+            records = fetch_fn(station_ids or None, *self.project_period)
+            self._persist_api_records(records, source_name)
+            return self._apply_mask(records, source_cfg)
+
+        ready: list[PointRecord] = []
+        missing_ids: list[str] = []
+        to_persist: list[PointRecord] = []
+        for sid in station_ids:
+            if self._is_empty_sentinel(source=source_name, station_id=sid):
+                logger.debug("%s station without data (cached): %s", source_name, sid)
+                continue
+            rec = self._load_cached_api_record(source=source_name, station_id=sid)
+            if rec is None:
+                missing_ids.append(sid)
+                continue
+            gaps = self._compute_missing_periods(rec.date_start, rec.date_end)
+            if not gaps:
+                ready.append(rec)
+                logger.debug("%s cache hit: %s", source_name, sid)
+                continue
+            parts: list[PointRecord] = []
+            for gap_start, gap_end in gaps:
+                parts.extend(fetch_fn([sid], gap_start, gap_end))
+            if parts:
+                merged = self._merge_into_record(rec, *parts)
+                ready.append(merged)
+                to_persist.append(merged)
+                logger.debug("%s cache merge: %s (+%d period(s))", source_name, sid, len(gaps))
+            else:
+                ready.append(rec)
+
+        if to_persist:
+            self._persist_api_records(to_persist, source_name)
+        if not missing_ids:
+            return self._apply_mask(ready, source_cfg)
+
+        records = fetch_fn(missing_ids, *self.project_period)
+        self._persist_api_records(records, source_name)
+        fetched_ids = {r.station_id for r in records}
+        empty_ids = [sid for sid in missing_ids if sid not in fetched_ids]
+        if empty_ids:
+            self._register_empty_api_stations(empty_ids, source_name)
+        return self._apply_mask(ready + records, source_cfg)
 
     def _compute_missing_periods(
         self,

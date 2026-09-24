@@ -6,9 +6,9 @@ F5 measured what that promise is worth: the fetch functions under
 ``data/variables/*/apis/`` are already clean, and everything a capability is
 forbidden to touch -- the DuckDB catalogue, the project workspace, the lock
 file, the ``geographic`` object -- lives in the manager constructors and in
-``fetch_with_smart_cache`` that wrap them. An adapter that reached for a
-manager to get at its provider would drag all four back in, one import at a
-time.
+the station cache of ``BaseVariableManager``, which wrap them. An adapter that
+reached for a manager to get at its provider would drag all four back in, one
+import at a time.
 
 ``layer_matrix.yaml`` cannot see that: it declares ``data`` as one layer, so
 ``data.source -> data.managers`` and ``data.source -> data.registry`` are

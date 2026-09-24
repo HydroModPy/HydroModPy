@@ -22,7 +22,6 @@ class PiezometryManager(BaseVariableManager):
         raise ValueError(f"Unknown piezometry source: {source_cfg.source}")
 
     def _fetch_hubeau(self, source_cfg: PiezometrySourceConfig) -> list[PointRecord]:
-        from hydromodpy.data.common.clients.hubeau_cache import fetch_with_smart_cache
         from hydromodpy.data.variables.piezometry.apis.hubeau import fetch
 
         nearest_to = self._resolve_nearest_to(source_cfg) if source_cfg.nearest else None
@@ -39,8 +38,4 @@ class PiezometryManager(BaseVariableManager):
                 fallback_search_radius_km=source_cfg.fallback_search_radius_km,
             )
 
-        return fetch_with_smart_cache(
-            self,
-            source_cfg=source_cfg,
-            fetch_fn=_fetch_for,
-        )
+        return self._fetch_with_station_cache(source_cfg, _fetch_for, source_name="hubeau")

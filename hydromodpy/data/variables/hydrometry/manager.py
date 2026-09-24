@@ -22,7 +22,6 @@ class HydrometryManager(BaseVariableManager):
         raise ValueError(f"Unknown hydrometry source: {source_cfg.source}")
 
     def _fetch_hubeau(self, source_cfg: HydrometrySourceConfig) -> list[PointRecord]:
-        from hydromodpy.data.common.clients.hubeau_cache import fetch_with_smart_cache
         from hydromodpy.data.variables.hydrometry.apis.hubeau import fetch
 
         def _fetch_for(sids, start, end):
@@ -37,8 +36,4 @@ class HydrometryManager(BaseVariableManager):
                 max_stations=source_cfg.max_stations,
             )
 
-        return fetch_with_smart_cache(
-            self,
-            source_cfg=source_cfg,
-            fetch_fn=_fetch_for,
-        )
+        return self._fetch_with_station_cache(source_cfg, _fetch_for, source_name="hubeau")

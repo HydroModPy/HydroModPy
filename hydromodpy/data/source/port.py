@@ -51,9 +51,9 @@ What is deliberately absent
 **No registry in this module.** Resolving a name to a class is
 :mod:`hydromodpy.data.source.registry`, which the vocabulary must not depend on:
 a source implements the port, and nothing it implements should require it to be
-findable. **No cache.** ``fetch_with_smart_cache`` needs a manager, a
-catalog and a project directory, and those are exactly the three things a
-source must not know about. **No config object in the signature.** Seven of the
+findable. **No cache.** The station cache is a method of
+``BaseVariableManager``: it needs a manager, a catalog and a project directory,
+and those are exactly the three things a source must not know about. **No config object in the signature.** Seven of the
 nine SIM2 adapters never read the config they are handed, and each hydrography
 adapter reads one or two fields of a nine-field model: a port that passed one
 would declare a dependency that is mostly false.

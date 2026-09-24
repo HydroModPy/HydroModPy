@@ -13,7 +13,7 @@ Sub-modules
   ABC for point variables (gauges, observations).
 - ``data/managers/base_manager_field.py`` -- ``BaseFieldManager`` ABC
   for field variables (rasters, gridded forcing).
-- ``data/managers/_base_manager_common.py`` -- shared cache and
+- ``data/managers/base_manager_common.py`` -- shared cache and
   persistence logic.
 - ``data/source/`` -- the ``DataSource`` port, its adapters and the
   registry that resolves a ``source_id`` to one of them, see below.

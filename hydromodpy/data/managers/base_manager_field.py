@@ -12,7 +12,7 @@ from hydromodpy.data.common.geo_helpers import bbox_hash
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.managers._base_manager_common import BaseManagerCommon
+from hydromodpy.data.managers.base_manager_common import BaseManagerCommon
 
 logger = get_logger(__name__)
 

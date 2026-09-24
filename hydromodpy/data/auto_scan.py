@@ -86,33 +86,6 @@ def _workspace_blobs_dir(workspace: Path) -> Path:
     return blobs
 
 
-def _last_indexed_mtime(catalog, variable: str, source_path: Path) -> float | None:
-    """Return the stored ``file_mtime`` for a given source path, or None.
-
-    P3 stores ``file_path`` as a workspace-relative POSIX string when the
-    target falls under the workspace. We look up both the encoded form and
-    the raw absolute path so we are tolerant of legacy rows and in-memory
-    catalogs.
-    """
-    conn = getattr(catalog, "_conn", None)
-    if conn is None:
-        return None
-    encoded = (
-        catalog._encode_path_for_storage(source_path)
-        if hasattr(catalog, "_encode_path_for_storage")
-        else str(source_path)
-    )
-    row = conn.execute(
-        "SELECT file_mtime FROM entries "
-        "WHERE variable = ? AND source = 'custom' "
-        "  AND file_path IN (?, ?)",
-        [variable, encoded, str(source_path)],
-    ).fetchone()
-    if row is None:
-        return None
-    return row[0]
-
-
 def _is_fresh(source_path: Path, stored_mtime: float | None) -> bool:
     """True when the source has not changed since the last index."""
     if stored_mtime is None:
@@ -167,7 +140,7 @@ def _scan_timeseries_variable(
             )
 
     for src in iter_chronicle_files(custom_dir, spec.file_prefix):
-        stored_mtime = _last_indexed_mtime(catalog, spec.name, src)
+        stored_mtime = catalog.custom_file_mtime(variable=spec.name, file_path=src)
         if _is_fresh(src, stored_mtime):
             report.skipped.append(src)
             continue
@@ -296,7 +269,7 @@ def _scan_raster_variable(
 ) -> None:
     custom_dir = _custom_dir(workspace, spec)
     for src in _iter_files(custom_dir, spec.file_prefix, _RASTER_SUFFIXES):
-        stored_mtime = _last_indexed_mtime(catalog, spec.name, src)
+        stored_mtime = catalog.custom_file_mtime(variable=spec.name, file_path=src)
         if _is_fresh(src, stored_mtime):
             report.skipped.append(src)
             continue
@@ -347,7 +320,7 @@ def _scan_vector_variable(
 ) -> None:
     custom_dir = _custom_dir(workspace, spec)
     for src in _iter_files(custom_dir, spec.file_prefix, _VECTOR_SUFFIXES):
-        stored_mtime = _last_indexed_mtime(catalog, spec.name, src)
+        stored_mtime = catalog.custom_file_mtime(variable=spec.name, file_path=src)
         if _is_fresh(src, stored_mtime):
             report.skipped.append(src)
             continue
@@ -398,7 +371,7 @@ def _scan_table_variable(
 ) -> None:
     custom_dir = _custom_dir(workspace, spec)
     for src in _iter_files(custom_dir, spec.file_prefix, _TABLE_SUFFIXES):
-        stored_mtime = _last_indexed_mtime(catalog, spec.name, src)
+        stored_mtime = catalog.custom_file_mtime(variable=spec.name, file_path=src)
         if _is_fresh(src, stored_mtime):
             report.skipped.append(src)
             continue

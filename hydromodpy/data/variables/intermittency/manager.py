@@ -24,7 +24,6 @@ class IntermittencyManager(BaseVariableManager):
         raise ValueError(f"Unknown intermittency source: {source_cfg.source}")
 
     def _fetch_hubeau(self, source_cfg: IntermittencySourceConfig) -> list[PointRecord]:
-        from hydromodpy.data.common.clients.hubeau_cache import fetch_with_smart_cache
         from hydromodpy.data.variables.intermittency.apis.hubeau import fetch
 
         def _fetch_for(sids, start, end):
@@ -38,8 +37,4 @@ class IntermittencyManager(BaseVariableManager):
                 fallback_search_radius_km=source_cfg.fallback_search_radius_km,
             )
 
-        return fetch_with_smart_cache(
-            self,
-            source_cfg=source_cfg,
-            fetch_fn=_fetch_for,
-        )
+        return self._fetch_with_station_cache(source_cfg, _fetch_for, source_name="hubeau")

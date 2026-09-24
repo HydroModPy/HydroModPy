@@ -272,6 +272,7 @@ select = [
     "UP",    # pyupgrade (modernize syntax for your target Python)
     "B",     # flake8-bugbear (likely-bug patterns)
     "TID251", # flake8-tidy-imports banned-api (block stdlib logging.getLogger)
+    "SLF001", # private member access; enforced in hydromodpy/data only, see per-file-ignores
 ]
 
 ignore = [
@@ -280,6 +281,12 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+# No module of hydromodpy/data reads a private attribute of another. The rest
+# of the repository is not held to it yet.
+"!hydromodpy/data/**" = ["SLF001"]
+# The cache store and its SQL backend are one unit split in two files.
+"hydromodpy/data/registry/cache_store.py" = ["SLF001"]
+"hydromodpy/data/registry/backend.py" = ["SLF001"]
 # Package __init__ files commonly re-export symbols and set up paths.
 "__init__.py" = ["F401", "E402", "TID251"]
 # Logging subsystem is the canonical wrapper around stdlib `logging.getLogger`.
