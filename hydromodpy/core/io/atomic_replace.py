@@ -10,6 +10,9 @@ platforms HydroModPy runs on.
 from __future__ import annotations
 
 import os
+import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 # Win32 constants used by the POSIX-semantics rename, from winbase.h and winnt.h.
@@ -45,6 +48,25 @@ def rename_over_open_file(source: Path, target: Path) -> None:
             raise
 
     _rename_with_posix_semantics(source, target)
+
+
+@contextmanager
+def staged_path(target: Path) -> Iterator[Path]:
+    """Yield a sibling path to write, then rename it onto ``target``.
+
+    The staged name keeps the target suffix, so a format driver that reads the
+    extension (GeoPackage, GeoTIFF) accepts it. A reader sees the old file or
+    the new one, never a half-written one. If the block raises, the staged
+    file is removed and ``target`` is left as it was.
+    """
+    target = Path(target)
+    staged = target.with_name(f"{target.stem}.tmp-{uuid.uuid4().hex[:8]}{target.suffix}")
+    try:
+        yield staged
+    except BaseException:
+        staged.unlink(missing_ok=True)
+        raise
+    rename_over_open_file(staged, target)
 
 
 def _rename_with_posix_semantics(source: Path, target: Path) -> None:
@@ -109,4 +131,4 @@ def _rename_with_posix_semantics(source: Path, target: Path) -> None:
         kernel32.CloseHandle(handle)
 
 
-__all__ = ["rename_over_open_file"]
+__all__ = ["rename_over_open_file", "staged_path"]

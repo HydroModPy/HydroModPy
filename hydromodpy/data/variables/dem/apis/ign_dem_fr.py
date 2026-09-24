@@ -11,8 +11,10 @@ from pathlib import Path
 from typing import Literal
 
 import requests
+from filelock import FileLock
 
 from hydromodpy.core import progress
+from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.data.common.administrative.france import department_code_to_padded
 from hydromodpy.data.variables.dem.apis.geoplateforme_download import (
     DiscoveryFilters,
@@ -257,29 +259,33 @@ def fetch_ign_dem(
     if not archive_paths:
         raise ValueError(f"No IGN DEM archive found for departments: {dept_codes}")
 
+    import shutil
+    import tempfile
+
     asc_files: list[Path] = []
+    extracted_dir.mkdir(parents=True, exist_ok=True)
     for archive_path in progress.track(archive_paths, "Extracting IGN DEM archives"):
         archive_path = Path(archive_path)
         archive_extract_dir = _archive_extract_dir(extracted_dir, archive_path)
         marker = archive_extract_dir / ".extracted"
-        if force_refresh and archive_extract_dir.exists():
-            import shutil
-
-            shutil.rmtree(archive_extract_dir)
-        if not marker.exists():
-            import shutil
-            import tempfile
-
-            with tempfile.TemporaryDirectory(prefix=f"ign_dem_{archive_extract_dir.name}_") as tmp:
-                tmp_dir = Path(tmp)
-                _extract_7z(archive_path, tmp_dir)
-                _install_extracted_archive(
-                    tmp_dir=tmp_dir,
-                    archive_path=archive_path,
-                    archive_extract_dir=archive_extract_dir,
-                )
-            marker.touch()
-        asc_files.extend(_find_asc_files(archive_extract_dir))
+        # One extractor per archive: another process would delete this tree
+        # while this one moves its own copy in.
+        with FileLock(f"{archive_extract_dir}.lock"):
+            if force_refresh and archive_extract_dir.exists():
+                shutil.rmtree(archive_extract_dir)
+            if not marker.exists():
+                with tempfile.TemporaryDirectory(
+                    prefix=f"ign_dem_{archive_extract_dir.name}_", dir=extracted_dir
+                ) as tmp:
+                    tmp_dir = Path(tmp)
+                    _extract_7z(archive_path, tmp_dir)
+                    _install_extracted_archive(
+                        tmp_dir=tmp_dir,
+                        archive_path=archive_path,
+                        archive_extract_dir=archive_extract_dir,
+                    )
+                marker.touch()
+            asc_files.extend(_find_asc_files(archive_extract_dir))
 
     if not asc_files:
         raise ValueError(f"No ASC files found for departments: {dept_codes}")
@@ -309,7 +315,10 @@ def fetch_ign_dem(
             "compress": "deflate",
             "nodata": -9999,
         }
-        with rasterio.open(str(merged_tif), "w", **profile) as dst:
+        with (
+            staged_path(merged_tif) as staged,
+            rasterio.open(str(staged), "w", **profile) as dst,
+        ):
             dst.write(mosaic)
     _write_processed_cache_metadata(
         metadata_path,
@@ -626,10 +635,11 @@ def _write_processed_cache_metadata(
         "adopted_unversioned_cache": adopted_unversioned_cache,
         "created_at_utc": datetime.now(UTC).isoformat(),
     }
-    metadata_path.write_text(
-        json.dumps(metadata, indent=2, ensure_ascii=True, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    with staged_path(metadata_path) as staged:
+        staged.write_text(
+            json.dumps(metadata, indent=2, ensure_ascii=True, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
 
 
 __all__ = [

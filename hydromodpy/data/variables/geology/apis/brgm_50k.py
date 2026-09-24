@@ -20,9 +20,11 @@ import zipfile
 from pathlib import Path
 
 import geopandas as gpd
+from filelock import FileLock
 from shapely.geometry import box
 
 from hydromodpy.core import progress
+from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -66,12 +68,26 @@ def _download_department(
         return dept_gpkg
 
     zip_path = cache_dir / f"GEO050K_HARM_{brgm_code}.zip"
+    # One builder per department archive: a second process waits, then reuses it.
+    with FileLock(f"{zip_path}.lock"):
+        if dept_gpkg.exists():
+            return dept_gpkg
+        return _build_department_gpkg(url, zip_path, dept_dir, dept_gpkg, brgm_code)
 
-    # Download ZIP
+
+def _build_department_gpkg(
+    url: str,
+    zip_path: Path,
+    dept_dir: Path,
+    dept_gpkg: Path,
+    brgm_code: str,
+) -> Path | None:
+    """Download, extract and convert one department archive to GeoPackage."""
     if not zip_path.exists():
         logger.debug("[geology] Downloading 50K map for department %s...", brgm_code)
         try:
-            urllib.request.urlretrieve(url, str(zip_path))
+            with staged_path(zip_path) as staged:
+                urllib.request.urlretrieve(url, str(staged))
         except urllib.error.HTTPError as exc:
             logger.warning("[geology] Department %s not available: %s", brgm_code, exc)
             return None
@@ -100,7 +116,8 @@ def _download_department(
     gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()].copy()
     if gdf.crs is not None and gdf.crs.to_epsg() != 2154:
         gdf = gdf.to_crs("EPSG:2154")
-    gdf.to_file(str(dept_gpkg), driver="GPKG")
+    with staged_path(dept_gpkg) as staged:
+        gdf.to_file(str(staged), driver="GPKG")
 
     return dept_gpkg
 
@@ -173,7 +190,8 @@ def fetch_brgm_50k(
         if merged.empty:
             raise ValueError("No geology feature intersects the requested bbox after merging")
 
-        merged.to_file(str(merged_gpkg), driver="GPKG")
+        with staged_path(merged_gpkg) as staged:
+            merged.to_file(str(staged), driver="GPKG")
     logger.debug("[geology] Merged 50K geology map: %s", merged_gpkg)
 
     return merged_gpkg

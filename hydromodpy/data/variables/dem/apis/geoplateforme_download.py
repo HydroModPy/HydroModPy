@@ -16,8 +16,10 @@ from typing import Any
 from urllib.parse import quote, unquote, urlparse
 
 import requests
+from filelock import FileLock
 
 from hydromodpy.core import progress
+from hydromodpy.core.io.atomic_replace import rename_over_open_file
 
 CAPABILITIES_URL = "https://data.geopf.fr/telechargement/capabilities"
 RESOURCE_URL = "https://data.geopf.fr/telechargement/resource"
@@ -231,37 +233,44 @@ def download_file(
     overwrite: bool = False,
     chunk_size: int = 1024 * 1024,
 ) -> Path:
-    """Download one file, skipping non-empty files already available locally."""
+    """Download one file, skipping non-empty files already available locally.
+
+    A lock beside the target serializes the processes that download the same
+    file, so a resumed ``.part`` file only ever has one writer.
+    """
 
     target = _target_path(destination, file.file_name)
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists() and target.stat().st_size > 0 and not overwrite:
         return target
 
-    partial = target.with_name(f"{target.name}.part")
-    existing_size = partial.stat().st_size if partial.exists() and not overwrite else 0
-    headers = {"Range": f"bytes={existing_size}-"} if existing_size else None
-    http = session or _default_session()
-    response = _request_with_retries(
-        http,
-        file.url,
-        timeout=timeout,
-        rate_limiter=rate_limiter,
-        stream=True,
-        headers=headers,
-    )
-    mode = "ab" if existing_size and getattr(response, "status_code", 200) == 206 else "wb"
-    with (
-        progress.task(f"Downloading {file.file_name}", total=file.size, unit="bytes") as bar,
-        partial.open(mode) as handle,
-    ):
-        if mode == "ab":
-            bar.update(completed=existing_size)
-        for chunk in response.iter_content(chunk_size=chunk_size):
-            if chunk:
-                handle.write(chunk)
-                bar.advance(len(chunk))
-    partial.replace(target)
+    with FileLock(f"{target}.lock"):
+        if target.exists() and target.stat().st_size > 0 and not overwrite:
+            return target
+        partial = target.with_name(f"{target.name}.part")
+        existing_size = partial.stat().st_size if partial.exists() and not overwrite else 0
+        headers = {"Range": f"bytes={existing_size}-"} if existing_size else None
+        http = session or _default_session()
+        response = _request_with_retries(
+            http,
+            file.url,
+            timeout=timeout,
+            rate_limiter=rate_limiter,
+            stream=True,
+            headers=headers,
+        )
+        mode = "ab" if existing_size and getattr(response, "status_code", 200) == 206 else "wb"
+        with (
+            progress.task(f"Downloading {file.file_name}", total=file.size, unit="bytes") as bar,
+            partial.open(mode) as handle,
+        ):
+            if mode == "ab":
+                bar.update(completed=existing_size)
+            for chunk in response.iter_content(chunk_size=chunk_size):
+                if chunk:
+                    handle.write(chunk)
+                    bar.advance(len(chunk))
+        rename_over_open_file(partial, target)
     return target
 
 

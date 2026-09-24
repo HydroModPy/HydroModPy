@@ -6,11 +6,15 @@ License: ETALAB Open Licence v2.0 (open data, attribution required)
 
 from __future__ import annotations
 
+import tempfile
 import urllib.request
 import zipfile
 from pathlib import Path
 
+from filelock import FileLock
+
 from hydromodpy.core import progress
+from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -59,43 +63,10 @@ def fetch_brgm_1m(
 
     if not full_gpkg.exists():
         zip_path = output_dir / "FR_vecteur.zip"
-
-        if not zip_path.exists():
-            with progress.task(
-                "Downloading BRGM 1:1M geological map", total=None, unit="bytes"
-            ) as handle:
-
-                def _report(block_count: int, block_size: int, total_size: int) -> None:
-                    if total_size > 0:
-                        handle.update(total=total_size)
-                    handle.update(completed=block_count * block_size)
-
-                urllib.request.urlretrieve(BRGM_1M_URL, str(zip_path), reporthook=_report)
-            logger.debug("Downloaded: %s", zip_path)
-
-        extract_dir = output_dir / "_brgm_1m_extract"
-        extract_dir.mkdir(parents=True, exist_ok=True)
-
-        with progress.status("Extracting archive"), zipfile.ZipFile(str(zip_path)) as zf:
-            zf.extractall(str(extract_dir))
-
-        shp_path = _find_fgeol_shp(extract_dir)
-        logger.debug("Loading shapefile: %s", shp_path.name)
-
-        with progress.status("Converting to GeoPackage"):
-            gdf = gpd.read_file(str(shp_path))
-            gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()].copy()
-
-            if gdf.crs is not None and gdf.crs.to_epsg() != 2154:
-                gdf = gdf.to_crs("EPSG:2154")
-
-            gdf.to_file(str(full_gpkg), driver="GPKG")
-        logger.debug("Cached national map: %s", full_gpkg)
-
-        # Cleanup extracted files
-        import shutil
-
-        shutil.rmtree(str(extract_dir), ignore_errors=True)
+        # One builder per archive: a second process waits, then reuses it.
+        with FileLock(f"{zip_path}.lock"):
+            if not full_gpkg.exists():
+                _build_national_gpkg(zip_path, full_gpkg)
 
     # If bbox provided, create a cropped version
     if bbox is not None:
@@ -115,12 +86,53 @@ def fetch_brgm_1m(
                     raise ValueError(
                         "No geology feature from the 1M map intersects the requested bbox"
                     )
-                gdf.to_file(str(cropped_gpkg), driver="GPKG")
+                with staged_path(cropped_gpkg) as staged:
+                    gdf.to_file(str(staged), driver="GPKG")
             logger.debug("Cropped 1M map: %s", cropped_gpkg)
 
         return cropped_gpkg
 
     return full_gpkg
+
+
+def _build_national_gpkg(zip_path: Path, full_gpkg: Path) -> None:
+    """Download the national archive if needed and convert it to GeoPackage."""
+    import geopandas as gpd
+
+    if not zip_path.exists():
+        with (
+            progress.task(
+                "Downloading BRGM 1:1M geological map", total=None, unit="bytes"
+            ) as handle,
+            staged_path(zip_path) as staged,
+        ):
+
+            def _report(block_count: int, block_size: int, total_size: int) -> None:
+                if total_size > 0:
+                    handle.update(total=total_size)
+                handle.update(completed=block_count * block_size)
+
+            urllib.request.urlretrieve(BRGM_1M_URL, str(staged), reporthook=_report)
+        logger.debug("Downloaded: %s", zip_path)
+
+    with tempfile.TemporaryDirectory(prefix="_brgm_1m_extract_", dir=zip_path.parent) as tmp:
+        extract_dir = Path(tmp)
+        with progress.status("Extracting archive"), zipfile.ZipFile(str(zip_path)) as zf:
+            zf.extractall(str(extract_dir))
+
+        shp_path = _find_fgeol_shp(extract_dir)
+        logger.debug("Loading shapefile: %s", shp_path.name)
+
+        with progress.status("Converting to GeoPackage"):
+            gdf = gpd.read_file(str(shp_path))
+            gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()].copy()
+
+            if gdf.crs is not None and gdf.crs.to_epsg() != 2154:
+                gdf = gdf.to_crs("EPSG:2154")
+
+            with staged_path(full_gpkg) as staged:
+                gdf.to_file(str(staged), driver="GPKG")
+    logger.debug("Cached national map: %s", full_gpkg)
 
 
 def _bbox_hash_str(bbox: tuple) -> str:
