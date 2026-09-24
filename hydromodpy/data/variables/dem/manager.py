@@ -14,10 +14,11 @@ from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
 from hydromodpy.data.common.source_extent import resolve_source_extent
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.managers.base_manager_common import SourceTable
 from hydromodpy.data.provenance.derived import custom_derived_dir
 
 
-class DemManager:
+class DemManager(SourceTable):
     """Orchestrator for DEM data acquisition and caching.
 
     Follows the standard variable-manager pattern:
@@ -56,14 +57,6 @@ class DemManager:
                 elif rec is not None:
                     result.points.append(rec)
         return result
-
-    def _fetch_from_source(self, source_cfg) -> list:
-        """Dispatch to the right loader based on source type."""
-        if source_cfg.source == "ign_geoplateforme_dem":
-            return self._fetch_ign_geoplateforme_dem(source_cfg)
-        if source_cfg.source == "custom":
-            return self._fetch_custom(source_cfg)
-        raise ValueError(f"Unknown DEM source: {source_cfg.source}")
 
     # ------------------------------------------------------------------
     # Bbox resolution
@@ -145,7 +138,7 @@ class DemManager:
     # Custom
     # ------------------------------------------------------------------
 
-    def _fetch_custom(self, source_cfg) -> list[FieldRecord]:
+    def load_custom(self, source_cfg) -> list[FieldRecord]:
         """Load custom DEM data (TIF, ASC, NC)."""
         from hydromodpy.data.variables.dem.custom import load_custom_dem
 
@@ -170,6 +163,12 @@ class DemManager:
                     )
 
         return records
+
+    SOURCES = {"ign_geoplateforme_dem": _fetch_ign_geoplateforme_dem}
+    """Each source is a method of this hand-written manager, called with the manager."""
+
+    def _fetch_listed_source(self, fetch, source_cfg) -> list:
+        return fetch(self, source_cfg)
 
 
 def _department_codes_for_french_dem_source(source_cfg: Any) -> list[str] | None:

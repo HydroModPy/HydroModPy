@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from abc import abstractmethod
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -20,11 +19,15 @@ logger = get_logger(__name__)
 class BaseFieldManager(BaseManagerCommon):
     """Base orchestrator for grid-data variable managers.
 
-    Subclasses set VARIABLE_NAME, INTERNAL_UNIT and implement
-    ``_fetch_from_source``.
+    Subclasses set ``VARIABLE_NAME``, ``INTERNAL_UNIT`` and ``SOURCES``. A
+    ``SOURCES`` function has the form ``fetch(cfg, *, bbox, period, context)``.
+    One that also has ``variables(cfg)``, the names of the grids it will
+    return, is a download: it receives the resolved box, and its grids are
+    cached and reused. One without is computed from the config (``constant``,
+    ``synthetic``) or keeps its own cache (SHOM): it is never cached here and
+    receives ``bbox=None``, so a source that needs no extent never reads the
+    mask file.
     """
-
-    INTERNAL_UNIT: str = ""
 
     def load(self) -> LoadResult:
         """Load data from all configured sources.
@@ -44,10 +47,45 @@ class BaseFieldManager(BaseManagerCommon):
         self._register_point_records(result.points)
         return result
 
-    @abstractmethod
-    def _fetch_from_source(self, source_cfg: Any) -> list[FieldRecord | PointRecord]:
-        """Dispatch to the right loader (custom, API, synthetic)."""
-        ...
+    def load_custom(self, source_cfg: Any) -> list[FieldRecord | PointRecord]:
+        """Load a folder of chronicles, a NetCDF or a GeoTIFF of the user."""
+        from hydromodpy.data.ingest.custom_points import load_custom_multiformat
+
+        records = load_custom_multiformat(
+            Path(source_cfg.path),
+            variable_name=self.VARIABLE_NAME,
+            internal_unit=self.INTERNAL_UNIT,
+            project_period=self.project_period,
+            col_id=source_cfg.col_id,
+            col_x=source_cfg.col_x,
+            col_y=source_cfg.col_y,
+            col_crs=source_cfg.col_crs,
+            default_crs=source_cfg.default_crs,
+            col_datetime=source_cfg.col_datetime,
+            col_value=source_cfg.col_value,
+            station_ids=source_cfg.station_ids,
+            default_unit=self.INTERNAL_UNIT,
+            source_unit=source_cfg.source_unit,
+            grid_crs=getattr(source_cfg, "crs", None),
+            grid_nodata=getattr(source_cfg, "nodata", None),
+        )
+        return self._handle_custom_results(records, source_cfg)
+
+    def _fetch_listed_source(self, fetch, source_cfg: Any) -> list[FieldRecord | PointRecord]:
+        context = self._source_context(source_cfg)
+        variables = getattr(fetch, "variables", None)
+        if variables is None:
+            return fetch(source_cfg, bbox=None, period=self.project_period, context=context)
+
+        def _download(cfg: Any, *, bbox, project_period) -> list[FieldRecord]:
+            return fetch(cfg, bbox=bbox, period=project_period, context=context)
+
+        return self._load_or_fetch_fields(
+            source_cfg,
+            source_cfg.source,
+            _download,
+            variable_names=variables(source_cfg),
+        )
 
     # ------------------------------------------------------------------
     # Bbox resolution and spatial mask (native CRS for grid data)
@@ -83,7 +121,7 @@ class BaseFieldManager(BaseManagerCommon):
         *,
         variable_names: list[str] | None = None,
     ) -> list[FieldRecord]:
-        """Smart cache for SIM2 grid data."""
+        """Reuse cached grids that cover the request, or fetch and cache them."""
         bbox = self._resolve_bbox(source_cfg)
         if variable_names is None:
             variable_names = [self.VARIABLE_NAME]

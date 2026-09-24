@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import warnings
-from abc import abstractmethod
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pandas as pd
 
@@ -17,7 +17,7 @@ from hydromodpy.data.contracts.completeness import compute_completeness
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.managers.base_manager_common import BaseManagerCommon
+from hydromodpy.data.managers.base_manager_common import BaseManagerCommon, SourceContext
 from hydromodpy.data.provenance.sidecars import unlink_with_sidecar
 from hydromodpy.data.registry.constants import (
     SENTINEL_CUSTOM,
@@ -39,8 +39,14 @@ _VAR_FILE_PREFIX = {
 class BaseVariableManager(BaseManagerCommon):
     """Base orchestrator inherited by each station-based variable manager.
 
-    Subclasses set VARIABLE_NAME and implement _fetch_from_source.
+    Subclasses set ``VARIABLE_NAME``, ``INTERNAL_UNIT`` and ``SOURCES``. A
+    ``SOURCES`` function has the form
+    ``fetch(cfg, *, bbox, station_ids, start, end, context)``; the station cache
+    decides which stations and which periods it is asked for.
     """
+
+    RECORD_VARIABLE: ClassVar[str | None] = None
+    """The name of each record a custom file yields; the variable name when unset."""
 
     def load(self) -> LoadResult:
         """Load data from all configured sources.
@@ -77,10 +83,50 @@ class BaseVariableManager(BaseManagerCommon):
                 stacklevel=2,
             )
 
-    @abstractmethod
-    def _fetch_from_source(self, source_cfg: Any) -> list[PointRecord] | PointRecord:
-        """Dispatch to the right loader (custom or API)."""
-        ...
+    def load_custom(self, source_cfg: Any) -> list[PointRecord]:
+        """Load a folder of station chronicles and their locations."""
+        from hydromodpy.data.ingest.custom_points import load_custom_points
+
+        records = load_custom_points(
+            data_dir=Path(source_cfg.path),
+            variable_name=self.VARIABLE_NAME,
+            internal_unit=self.INTERNAL_UNIT,
+            project_period=self.project_period,
+            col_id=source_cfg.col_id,
+            col_x=source_cfg.col_x,
+            col_y=source_cfg.col_y,
+            col_crs=source_cfg.col_crs,
+            default_crs=source_cfg.default_crs,
+            col_datetime=source_cfg.col_datetime,
+            col_value=source_cfg.col_value,
+            station_ids=source_cfg.station_ids,
+            default_unit=None,
+            record_variable=self.RECORD_VARIABLE or self.VARIABLE_NAME,
+            source_unit_override=source_cfg.source_unit,
+        )
+        return self._apply_mask(records, source_cfg)
+
+    def _source_context(self, source_cfg: Any) -> SourceContext:
+        context = super()._source_context(source_cfg)
+        if not getattr(source_cfg, "nearest", False):
+            return context
+        return replace(context, nearest_to=self._resolve_nearest_to(source_cfg))
+
+    def _fetch_listed_source(self, fetch, source_cfg: Any) -> list[PointRecord]:
+        context = self._source_context(source_cfg)
+        bbox = self._resolve_bbox(source_cfg)
+
+        def _fetch_for(station_ids, start, end) -> list[PointRecord]:
+            return fetch(
+                source_cfg,
+                bbox=bbox,
+                station_ids=station_ids,
+                start=start,
+                end=end,
+                context=context,
+            )
+
+        return self._fetch_with_station_cache(source_cfg, _fetch_for, source_name=source_cfg.source)
 
     # ------------------------------------------------------------------
     # Bbox resolution and spatial mask (station APIs expect WGS84)

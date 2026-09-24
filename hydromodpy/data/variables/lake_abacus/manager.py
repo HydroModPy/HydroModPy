@@ -13,10 +13,11 @@ from typing import Any
 
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.table import TableRecord
+from hydromodpy.data.managers.base_manager_common import SourceTable
 from hydromodpy.data.provenance.derived import custom_derived_dir
 
 
-class LakeAbacusManager:
+class LakeAbacusManager(SourceTable):
     """Orchestrator for lake-abacus data acquisition and caching."""
 
     VARIABLE_NAME = "lake_abacus"
@@ -44,13 +45,7 @@ class LakeAbacusManager:
                 result.tables.append(rec)
         return result
 
-    def _fetch_from_source(self, source_cfg) -> list[TableRecord]:
-        """Dispatch to the right loader based on source type."""
-        if source_cfg.source == "custom":
-            return self._fetch_custom(source_cfg)
-        raise ValueError(f"Unknown lake_abacus source: {source_cfg.source}")
-
-    def _fetch_custom(self, source_cfg) -> list[TableRecord]:
+    def load_custom(self, source_cfg) -> list[TableRecord]:
         """Load custom lake-abacus data (CSV, Parquet)."""
         from hydromodpy.data.variables.lake_abacus.custom import load_custom_abacus
 

@@ -28,31 +28,43 @@ from hydromodpy.data.variables.dem.config import (
     IgnGeoplateformeDemSource,
 )
 from hydromodpy.data.variables.etp.config import EtpConfig, EtpSourceConfig
-from hydromodpy.data.variables.etp.custom import load_custom as load_etp
+from hydromodpy.data.variables.etp.manager import EtpManager
 from hydromodpy.data.variables.humidity.config import HumidityConfig, HumiditySourceConfig
-from hydromodpy.data.variables.humidity.custom import load_custom as load_humidity
+from hydromodpy.data.variables.humidity.manager import HumidityManager
 from hydromodpy.data.variables.precipitation.config import (
     PrecipitationConfig,
     PrecipitationSourceConfig,
 )
-from hydromodpy.data.variables.precipitation.custom import load_custom as load_precipitation
+from hydromodpy.data.variables.precipitation.manager import PrecipitationManager
 from hydromodpy.data.variables.radiation.config import RadiationConfig, RadiationSourceConfig
-from hydromodpy.data.variables.radiation.custom import load_custom as load_radiation
+from hydromodpy.data.variables.radiation.manager import RadiationManager
 from hydromodpy.data.variables.recharge.config import RechargeConfig, RechargeSourceConfig
-from hydromodpy.data.variables.recharge.custom import load_custom as load_recharge
+from hydromodpy.data.variables.recharge.manager import RechargeManager
 from hydromodpy.data.variables.runoff.config import RunoffConfig, RunoffSourceConfig
-from hydromodpy.data.variables.runoff.custom import load_custom as load_runoff
+from hydromodpy.data.variables.runoff.manager import RunoffManager
 from hydromodpy.data.variables.soil_moisture.config import (
     SoilMoistureConfig,
     SoilMoistureSourceConfig,
 )
-from hydromodpy.data.variables.soil_moisture.custom import load_custom as load_soil_moisture
+from hydromodpy.data.variables.soil_moisture.manager import SoilMoistureManager
 from hydromodpy.data.variables.temperature.config import TemperatureConfig, TemperatureSourceConfig
-from hydromodpy.data.variables.temperature.custom import load_custom as load_temperature
+from hydromodpy.data.variables.temperature.manager import TemperatureManager
 from hydromodpy.data.variables.wind.config import WindConfig, WindSourceConfig
-from hydromodpy.data.variables.wind.custom import load_custom as load_wind
+from hydromodpy.data.variables.wind.manager import WindManager
 
 # ── Shared helpers ────────────────────────────────────────────────────
+
+
+def _custom_loader(manager_cls: type) -> Callable:
+    """The custom loader of one manager, called like a loader function."""
+
+    def load(cfg, *, project_period=None):
+        return manager_cls(config=None, catalog=None, project_period=project_period).load_custom(
+            cfg
+        )
+
+    return load
+
 
 PROJECT_PERIOD = (datetime(2020, 1, 1), datetime(2020, 3, 31))
 
@@ -113,13 +125,21 @@ class VarCase:
 
 
 VARIABLE_CASES = [
-    VarCase("etp", EtpConfig, EtpSourceConfig, load_etp, "noaa", "mm/day", 3.0),
-    VarCase("humidity", HumidityConfig, HumiditySourceConfig, load_humidity, "era5", "%", 65.0),
+    VarCase("etp", EtpConfig, EtpSourceConfig, _custom_loader(EtpManager), "noaa", "mm/day", 3.0),
+    VarCase(
+        "humidity",
+        HumidityConfig,
+        HumiditySourceConfig,
+        _custom_loader(HumidityManager),
+        "era5",
+        "%",
+        65.0,
+    ),
     VarCase(
         "precipitation",
         PrecipitationConfig,
         PrecipitationSourceConfig,
-        load_precipitation,
+        _custom_loader(PrecipitationManager),
         "gpm",
         "mm/day",
         5.0,
@@ -128,20 +148,34 @@ VARIABLE_CASES = [
         "radiation",
         RadiationConfig,
         RadiationSourceConfig,
-        load_radiation,
+        _custom_loader(RadiationManager),
         "copernicus",
         "MJ/m2/j",
         12.0,
     ),
     VarCase(
-        "recharge", RechargeConfig, RechargeSourceConfig, load_recharge, "pyhelp", "mm/day", 0.8
+        "recharge",
+        RechargeConfig,
+        RechargeSourceConfig,
+        _custom_loader(RechargeManager),
+        "pyhelp",
+        "mm/day",
+        0.8,
     ),
-    VarCase("runoff", RunoffConfig, RunoffSourceConfig, load_runoff, "hype", "mm/day", 2.0),
+    VarCase(
+        "runoff",
+        RunoffConfig,
+        RunoffSourceConfig,
+        _custom_loader(RunoffManager),
+        "hype",
+        "mm/day",
+        2.0,
+    ),
     VarCase(
         "soil_moisture",
         SoilMoistureConfig,
         SoilMoistureSourceConfig,
-        load_soil_moisture,
+        _custom_loader(SoilMoistureManager),
         "smap",
         "%",
         35.0,
@@ -150,12 +184,12 @@ VARIABLE_CASES = [
         "temperature",
         TemperatureConfig,
         TemperatureSourceConfig,
-        load_temperature,
+        _custom_loader(TemperatureManager),
         "ecmwf",
         "degC",
         15.0,
     ),
-    VarCase("wind", WindConfig, WindSourceConfig, load_wind, "ncep", "m/s", 4.2),
+    VarCase("wind", WindConfig, WindSourceConfig, _custom_loader(WindManager), "ncep", "m/s", 4.2),
 ]
 
 
@@ -343,7 +377,7 @@ class TestRunoffSpecific:
             value=1.0,
         )
         cfg = RunoffSourceConfig(source="custom", path=d)
-        records = load_runoff(cfg, project_period=PROJECT_PERIOD)
+        records = _custom_loader(RunoffManager)(cfg, project_period=PROJECT_PERIOD)
         assert len(records) == 2
         assert {r.station_id for r in records} == {"R01", "R02"}
 

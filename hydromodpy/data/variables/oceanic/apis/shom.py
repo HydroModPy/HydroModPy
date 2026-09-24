@@ -20,12 +20,35 @@ The gauge is either named outright or searched for, never both: ``station_id``
 is the explicit answer and ``near_lat``/``near_lon`` the nearest-to-a-point
 one. The flag that used to sit beside them, ``nearest``, was read by nobody --
 ``fetch`` accepted it and its body never mentioned it.
+
+Which gauge SHOM is asked for
+-----------------------------
+The manager used to hold a ``geographic`` object and hand it whole to
+``apis/shom.py``, which read ``centroid_long_lat`` off it. The object is gone
+and the selector is declared:
+
+- ``station_ids`` names the gauges outright, and nothing spatial is needed;
+- otherwise the extent -- ``mask_path``, which a project run fills in from the
+  delineated watershed like every other timeseries source -- gives the point
+  whose nearest gauge is read, taken as the centre of that extent in WGS84.
+
+**Precedence, and not D116's refusal, and the difference is who put the second
+selector there.** D116 refuses two selectors on a *request*, where both come
+from the caller. Here the mask does not: ``_apply_default_masks`` fills
+``mask_path`` on every source whose model declares the field, so a source that
+names nothing but ``station_ids`` arrives at :func:`fetch_for_config` carrying a watershed
+it never asked for. Refusing that pair makes ``station_ids`` unusable on every
+project run -- measured, and it is what the first version of this phase did.
+The named station is the specific answer and wins, the way ``mask_path`` wins
+over ``extent`` inside :func:`resolve_source_extent` itself. Naming neither is
+still a refusal.
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -35,6 +58,10 @@ from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from hydromodpy.data.managers.base_manager_common import SourceContext
+    from hydromodpy.data.variables.oceanic.config import OceanicSourceConfig
 
 logger = get_logger(__name__)
 
@@ -143,6 +170,68 @@ def fetch(
             location=location,
         )
     ]
+
+
+def fetch_for_config(
+    cfg: OceanicSourceConfig,
+    *,
+    bbox: tuple | None,
+    period: tuple[datetime, datetime] | None,
+    context: SourceContext,
+) -> list[PointRecord]:
+    """The ``SOURCES`` entry of ``source = "shom"``: the gauges one section names.
+
+    The window is the run's period, else the ``date_start``/``date_end`` of the
+    ``[data.oceanic]`` section. Readings are cached in ``context.data_dir``.
+    """
+    from hydromodpy.data.common.source_extent import resolve_source_extent
+
+    del bbox
+    start, end = _shom_window(period, context.config_period)
+    station_ids = list(cfg.station_ids or ())
+
+    if station_ids:
+        records = []
+        for station_id in station_ids:
+            records.extend(
+                fetch(
+                    date_start=start,
+                    date_end=end,
+                    station_id=station_id,
+                    cache_dir=context.data_dir,
+                )
+            )
+        return records
+
+    extent = resolve_source_extent(cfg, project_extent=context.project_extent)
+    if extent is None:
+        raise ValueError(
+            "A SHOM source needs one selector: station_ids, or mask_path (a project "
+            "run fills it in from the delineated watershed)."
+        )
+
+    lonlat = extent.to_crs("EPSG:4326")
+    return fetch(
+        date_start=start,
+        date_end=end,
+        near_lat=(lonlat.ymin + lonlat.ymax) / 2.0,
+        near_lon=(lonlat.xmin + lonlat.xmax) / 2.0,
+        fallback_search_radius_km=cfg.fallback_search_radius_km,
+        cache_dir=context.data_dir,
+    )
+
+
+def _shom_window(
+    period: tuple[datetime, datetime] | None,
+    config_period: tuple[datetime, datetime] | None,
+) -> tuple[datetime, datetime]:
+    if period is not None:
+        return period
+    if config_period is not None:
+        return config_period
+    raise ValueError(
+        "SHOM source requires date_start/date_end in oceanic config or a project_period."
+    )
 
 
 def _discover_tide_gauges(session: requests.Session) -> pd.DataFrame:

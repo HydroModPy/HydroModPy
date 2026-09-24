@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import requests
 
@@ -46,6 +46,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
     from hydromodpy.data.contracts.location import StationLocation
     from hydromodpy.data.contracts.timeseries import PointRecord
+    from hydromodpy.data.variables.piezometry.config import PiezometrySourceConfig
 
 logger = get_logger(__name__)
 
@@ -148,9 +149,37 @@ def fetch(
     return records
 
 
+def fetch_for_config(
+    cfg: PiezometrySourceConfig,
+    *,
+    bbox: tuple | None,
+    station_ids: Sequence[str] | None,
+    start: datetime,
+    end: datetime,
+    context: Any,
+) -> list[PointRecord]:
+    """The ``SOURCES`` entry of ``source = "hubeau"``: :func:`fetch` for one section.
+
+    ``context`` is the manager's ``SourceContext``, typed loosely because a
+    module that holds a data source imports no manager.
+    """
+    return fetch(
+        product=cfg.product,
+        bbox=bbox,
+        station_ids=station_ids,
+        date_start=start,
+        date_end=end,
+        nearest_to=context.nearest_to,
+        require_observations=cfg.require_observations,
+        fallback_search_radius_km=cfg.fallback_search_radius_km,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Nearest selection
 # ---------------------------------------------------------------------------
+
+
 def _keep_nearest(
     ids: list[str],
     nearest_to: tuple[float, float],
@@ -459,4 +488,5 @@ __all__ = [
     "HubeauPiezometrySource",
     "PRODUCT_VARIABLE",
     "fetch",
+    "fetch_for_config",
 ]

@@ -12,10 +12,11 @@ from typing import Any
 
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.managers.base_manager_common import SourceTable
 from hydromodpy.data.provenance.derived import custom_derived_dir
 
 
-class LakeBathymetryManager:
+class LakeBathymetryManager(SourceTable):
     """Orchestrator for lake-bathymetry data acquisition and caching."""
 
     VARIABLE_NAME = "lake_bathymetry"
@@ -43,13 +44,7 @@ class LakeBathymetryManager:
                 result.fields.append(rec)
         return result
 
-    def _fetch_from_source(self, source_cfg) -> list[FieldRecord]:
-        """Dispatch to the right loader based on source type."""
-        if source_cfg.source == "custom":
-            return self._fetch_custom(source_cfg)
-        raise ValueError(f"Unknown lake_bathymetry source: {source_cfg.source}")
-
-    def _fetch_custom(self, source_cfg) -> list[FieldRecord]:
+    def load_custom(self, source_cfg) -> list[FieldRecord]:
         """Load custom lake-bathymetry data (GeoTIFF, ASC)."""
         from hydromodpy.data.variables.lake_bathymetry.custom import (
             load_custom_lake_bathymetry,

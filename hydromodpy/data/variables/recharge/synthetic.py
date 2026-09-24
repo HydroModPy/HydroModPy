@@ -7,6 +7,7 @@ sinusoidal modulation.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -15,6 +16,9 @@ from pandas.tseries.offsets import MonthEnd, QuarterEnd, YearEnd
 
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from hydromodpy.data.managers.base_manager_common import SourceContext
 
 # Calendar offsets whose pandas date_range stamps land on the period end.
 _PERIOD_END_OFFSETS = (MonthEnd, QuarterEnd, YearEnd)
@@ -105,3 +109,15 @@ def generate(
             is_constant=(len(set(series_values)) == 1),
         )
     ]
+
+
+def fetch(
+    cfg: RechargeSourceConfig,
+    *,
+    bbox: tuple | None,
+    period: tuple[datetime, datetime] | None,
+    context: SourceContext,
+) -> list[PointRecord]:
+    """The ``SOURCES`` entry of ``source = "synthetic"``: a series built from the section."""
+    del bbox, context
+    return generate(cfg, project_period=period)

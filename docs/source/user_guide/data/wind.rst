@@ -49,8 +49,9 @@ directory holding a location file plus chronicle CSVs yields one ``PointRecord``
 each carrying a ``datetime``/``value`` time series, a start and end date, and the resolved
 unit; a single ``.nc`` or ``.tif`` file, or the ``sim2`` source, yields a ``FieldRecord``: a
 gridded dataset over a bounding box and CRS, with the source period as
-``date_start``/``date_end``. See ``hydromodpy.data.variables.wind.custom`` for the dispatch
-logic.
+``date_start``/``date_end``. The custom files are read by ``load_custom`` of
+``hydromodpy.data.managers.base_manager_field.BaseFieldManager``, shared by every gridded
+variable.
 
 Downstream uses
 ---------------

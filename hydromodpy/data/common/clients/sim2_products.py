@@ -169,10 +169,52 @@ def fetch_sim2(
     return records
 
 
+class Sim2Source:
+    """The ``SOURCES`` entry of a variable backed by SIM2.
+
+    Called as ``fetch(cfg, *, bbox, period, context)`` by the grid managers; it
+    reads only ``cfg.components``, the one option a SIM2 section adds.
+    ``variables(cfg)`` names the grids a config yields, which is what lets the
+    manager reuse the ones it already cached.
+    """
+
+    def __init__(self, variable: str) -> None:
+        self.variable = variable
+        self.product = SIM2_PRODUCTS[variable]
+
+    def variables(self, cfg: object) -> list[str]:
+        """Names of the grids this config yields, in the order they are fetched."""
+        components = getattr(cfg, "components", None)
+        return [member.variable for member in _selected(self.product, self.variable, components)]
+
+    def __call__(
+        self,
+        cfg: object,
+        *,
+        bbox: tuple[float, float, float, float] | None,
+        period: tuple[datetime, datetime] | None,
+        context: object,
+    ) -> list[FieldRecord]:
+        del context
+        return fetch_sim2(
+            self.variable,
+            components=getattr(cfg, "components", None),
+            bbox=bbox,
+            project_period=period,
+        )
+
+
+def sim2_source(variable: str) -> Sim2Source:
+    """The ``SOURCES`` entry that serves ``variable`` from SIM2."""
+    return Sim2Source(variable)
+
+
 __all__ = [
     "SIM2_CRS",
     "SIM2_PRODUCTS",
     "Sim2Component",
     "Sim2Product",
+    "Sim2Source",
     "fetch_sim2",
+    "sim2_source",
 ]

@@ -1,39 +1,13 @@
-"""Hydrometry manager: orchestrates custom and API loading."""
+"""Hydrometry manager: custom chronicles and Hub'Eau."""
 
 from __future__ import annotations
 
-from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.managers.base_manager_variable import BaseVariableManager
-from hydromodpy.data.variables.hydrometry.config import HydrometrySourceConfig
+from hydromodpy.data.variables.hydrometry.apis import hubeau
 
 
 class HydrometryManager(BaseVariableManager):
     VARIABLE_NAME = "hydrometry"
     INTERNAL_UNIT = "m3/s"
-
-    def _fetch_from_source(self, source_cfg: HydrometrySourceConfig) -> list[PointRecord]:
-        if source_cfg.source == "custom":
-            from hydromodpy.data.variables.hydrometry.custom import load_custom
-
-            records = load_custom(source_cfg, project_period=self.project_period)
-            return self._apply_mask(records, source_cfg)
-        elif source_cfg.source == "hubeau":
-            return self._fetch_hubeau(source_cfg)
-        raise ValueError(f"Unknown hydrometry source: {source_cfg.source}")
-
-    def _fetch_hubeau(self, source_cfg: HydrometrySourceConfig) -> list[PointRecord]:
-        from hydromodpy.data.variables.hydrometry.apis.hubeau import fetch
-
-        def _fetch_for(sids, start, end):
-            return fetch(
-                product=source_cfg.product,
-                bbox=self._resolve_bbox(source_cfg),
-                station_ids=sids,
-                date_start=start,
-                date_end=end,
-                require_observations=source_cfg.require_observations,
-                fallback_search_radius_km=source_cfg.fallback_search_radius_km,
-                max_stations=source_cfg.max_stations,
-            )
-
-        return self._fetch_with_station_cache(source_cfg, _fetch_for, source_name="hubeau")
+    RECORD_VARIABLE = "discharge"
+    SOURCES = {"hubeau": hubeau.fetch_for_config}

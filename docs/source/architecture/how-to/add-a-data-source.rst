@@ -19,9 +19,9 @@ reachable by name from a project TOML, from a ``data-fetch``
 ``request.json``, and from a third-party distribution that never patches
 this repository. **It is the only path available out of tree.**
 
-**The per-variable adapter.** Most variables still carry a module-level
-``fetch`` under ``variables/<variable>/apis/`` and a branch on
-``source_cfg.source`` in their manager's ``_fetch_from_source``.
+**The per-variable adapter.** Most variables still carry a provider module
+under ``variables/<variable>/apis/`` (or a shared one under
+``common/clients/``) and an entry in their manager's ``SOURCES`` table.
 Twenty-three variable packages still carry a closed ``Literal`` of source
 names; ``hydrography`` is not one of them, and is the worked example of
 what the port replaces it with.
@@ -182,9 +182,9 @@ variable package:
 
 1. a new member in the variable's ``source`` field
    (``hydromodpy/data/variables/<variable>/config.py``);
-2. a new branch in the variable manager's ``_fetch_from_source``
-   (``hydromodpy/data/variables/<variable>/manager.py``), which imports
-   the adapter module lazily and calls its module-level ``fetch``.
+2. a new entry in the variable manager's ``SOURCES`` table
+   (``hydromodpy/data/variables/<variable>/manager.py``), which maps the
+   value to the adapter's fetch function.
 
 The adapter itself is a plain module exposing a ``fetch`` function that
 returns contract records:
@@ -240,19 +240,22 @@ Custom-file source
 ------------------
 
 Pick this flavour for local rasters, vectors, or CSV time series.
-Convention is one ``custom.py`` per variable that knows how to read
-the supported formats.
+``source = "custom"`` never appears in a manager's ``SOURCES``: the base
+class loads the user's files with its ``load_custom`` method, from the
+manager's ``VARIABLE_NAME`` and ``INTERNAL_UNIT``. A variable whose files
+need real work overrides it, or keeps a ``custom.py`` beside its manager.
 
 .. code-block:: python
 
-   # hydromodpy/data/variables/<variable>/custom.py
-   def load_custom(source_cfg, project_period) -> LoadResult:
-       path = source_cfg.path
-       # parse CSV / NetCDF / shapefile / GeoTIFF
-       return LoadResult(points=[...], fields=[...], warnings=[...])
+   # hydromodpy/data/variables/<variable>/manager.py
+   class MyVariableManager(BaseVariableManager):
+       VARIABLE_NAME = "myvariable"
+       INTERNAL_UNIT = "m3/s"
 
-Custom sources need no extra wiring beyond the ``source == "custom"``
-branch the manager already carries.
+       def load_custom(self, source_cfg):
+           ...  # only when the shared loader does not fit
+
+Custom sources need no extra wiring.
 
 Synthetic source
 ----------------
@@ -305,19 +308,21 @@ section is refused by the document.
 Wire the source into the manager
 --------------------------------
 
-A variable still on the adapter path dispatches on ``source_cfg.source``
-inside ``_fetch_from_source``. Add the new branch:
+A manager reaches its providers through its ``SOURCES`` table, never by an
+``if`` on the source name. Add the entry:
 
 .. code-block:: python
 
-   def _fetch_from_source(self, source_cfg):
-       if source_cfg.source == "custom":
-           return load_custom(source_cfg, self.project_period)
-       if source_cfg.source == "mysource":
-           from hydromodpy.data.variables.myvariable.apis.mysource import fetch
+   from hydromodpy.data.variables.myvariable.apis import mysource
 
-           return fetch(source_cfg.station_ids, self.start, self.end)
-       raise ValueError(f"Unknown myvariable source: {source_cfg.source}")
+   class MyVariableManager(BaseVariableManager):
+       SOURCES = {"mysource": mysource.fetch_for_config}
+
+A station source has the form
+``fetch(cfg, *, bbox, station_ids, start, end, context)``, a gridded one
+``fetch(cfg, *, bbox, period, context)``; ``context`` carries what the
+manager knows beyond the section (project extent, cache folder, dates of the
+section).
 
 A variable on the port has no such chain.
 ``hydromodpy/data/variables/hydrography/manager.py`` keeps one branch for

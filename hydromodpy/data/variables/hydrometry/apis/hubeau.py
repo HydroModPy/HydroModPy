@@ -10,6 +10,7 @@ from __future__ import annotations
 import time
 from collections.abc import Sequence
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import requests
@@ -20,6 +21,10 @@ from hydromodpy.core.progress import MILESTONE
 from hydromodpy.data.common.api_client import get_json
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from hydromodpy.data.managers.base_manager_common import SourceContext
+    from hydromodpy.data.variables.hydrometry.config import HydrometrySourceConfig
 
 logger = get_logger(__name__)
 
@@ -167,9 +172,34 @@ def fetch(
     return records
 
 
+def fetch_for_config(
+    cfg: HydrometrySourceConfig,
+    *,
+    bbox: tuple | None,
+    station_ids: Sequence[str] | None,
+    start: datetime,
+    end: datetime,
+    context: SourceContext,
+) -> list[PointRecord]:
+    """The ``SOURCES`` entry of ``source = "hubeau"``: :func:`fetch` for one section."""
+    del context
+    return fetch(
+        product=cfg.product,
+        bbox=bbox,
+        station_ids=station_ids,
+        date_start=start,
+        date_end=end,
+        require_observations=cfg.require_observations,
+        fallback_search_radius_km=cfg.fallback_search_radius_km,
+        max_stations=cfg.max_stations,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Station discovery
 # ---------------------------------------------------------------------------
+
+
 def _discover_stations_in_bbox(
     bbox: tuple,
     *,

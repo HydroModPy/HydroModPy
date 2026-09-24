@@ -2,9 +2,9 @@
 
 What this replaces
 ------------------
-Three independent copies of the same four words. ``manager.py`` dispatched with
-``if source_cfg.source == "osm": ... elif "bdtopage": ... elif "euhydro": ...``,
-each branch importing a provider function by hand; ``resolver.py`` carried a
+Three independent copies of the same four words. ``manager.py`` dispatched
+with an ``if``/``elif`` chain on the three names, each branch importing a
+provider function by hand; ``resolver.py`` carried a
 tuple of the three names so the stream burn could tell an API source from a
 local file, and imported the manager's chain to run one; and the config model
 carried a ``Literal`` of the same list. Nothing made the three agree, and the

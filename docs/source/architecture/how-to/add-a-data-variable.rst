@@ -33,10 +33,10 @@ For a new variable called ``newvar``:
 .. code-block:: text
 
    hydromodpy/data/variables/newvar/
-   |-- __init__.py                   # exports
+   |-- __init__.py                   # imports the config only
    |-- config.py                     # NewvarSourceConfig, NewvarConfig
-   |-- manager.py                    # NewvarManager(BaseVariableManager|BaseFieldManager)
-   |-- custom.py                     # load_custom(source_cfg, project_period)
+   |-- manager.py                    # NewvarManager: VARIABLE_NAME, INTERNAL_UNIT, SOURCES
+   |-- custom.py                     # only when reading the user's files needs real work
    |-- contracts.py                  # variable-specific record fields if any
    |-- apis/
    |   |-- __init__.py
@@ -53,23 +53,19 @@ Manager skeleton
 .. code-block:: python
 
    # hydromodpy/data/variables/newvar/manager.py
-   from typing import ClassVar
-
    from hydromodpy.data.managers.base_manager_variable import BaseVariableManager
-   from hydromodpy.data.contracts.timeseries import PointRecord
-   from hydromodpy.data.contracts.load_result import LoadResult
+   from hydromodpy.data.variables.newvar.apis import myapi
 
 
    class NewvarManager(BaseVariableManager):
-       VARIABLE_NAME: ClassVar[str] = "newvar"
+       VARIABLE_NAME = "newvar"
+       INTERNAL_UNIT = "m3/s"
+       SOURCES = {"myapi": myapi.fetch_for_config}
 
-       def _fetch_from_source(self, source_cfg, project_period):
-           # dispatch on source_cfg.source ("custom", "myapi", ...)
-           # return LoadResult(points=[PointRecord(...)], fields=[], warnings=[])
-           ...
-
-The base class handles cache lookups, persistence to CSV plus LOC
-metadata, registration in the catalog, and warning aggregation.
+The base class loads ``source = "custom"`` with its ``load_custom``, calls
+``SOURCES[source]`` for every other value, and handles cache lookups,
+persistence to CSV plus LOC metadata, registration in the catalog, and
+warning aggregation.
 
 Config block
 ------------
@@ -124,8 +120,8 @@ The matching Pydantic models:
 Source modules
 --------------
 
-There is no source registry. Each public API source is a plain module
-exposing a ``fetch`` function:
+Each public API source is a plain module under ``apis/``, whose fetch
+function receives the validated section and the extent. For stations:
 
 .. code-block:: python
 
@@ -133,12 +129,11 @@ exposing a ``fetch`` function:
    from hydromodpy.data.contracts.timeseries import PointRecord
 
 
-   def fetch(station_ids, start, end) -> list[PointRecord]:
+   def fetch_for_config(cfg, *, bbox, station_ids, start, end, context) -> list[PointRecord]:
        ...
 
-``NewvarManager._fetch_from_source`` dispatches on
-``source_cfg.source`` and imports the module lazily inside the matching
-branch. See :doc:`add-a-data-source` for the full wiring.
+``NewvarManager.SOURCES`` maps each value of ``source`` except ``custom``
+to its fetch function. See :doc:`add-a-data-source` for the full wiring.
 
 Wire it into the planner
 ------------------------

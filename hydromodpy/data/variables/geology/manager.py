@@ -18,6 +18,7 @@ from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
 from hydromodpy.data.common.source_extent import resolve_source_extent
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.managers.base_manager_common import SourceTable
 from hydromodpy.data.provenance.derived import custom_derived_dir
 from hydromodpy.data.registry.constants import (
     SENTINEL_CUSTOM,
@@ -25,7 +26,7 @@ from hydromodpy.data.registry.constants import (
 )
 
 
-class GeologyManager:
+class GeologyManager(SourceTable):
     """Orchestrator for geology data acquisition and caching.
 
     Follows the standard variable-manager pattern:
@@ -63,17 +64,6 @@ class GeologyManager:
                 elif rec is not None:
                     result.points.append(rec)
         return result
-
-    def _fetch_from_source(self, source_cfg) -> list:
-        """Dispatch to the right loader based on source type."""
-        if source_cfg.source == "brgm_1m":
-            return self._fetch_brgm_1m(source_cfg)
-        elif source_cfg.source == "brgm_50k":
-            return self._fetch_brgm_50k(source_cfg)
-        elif source_cfg.source == "custom":
-            return self._fetch_custom(source_cfg)
-        else:
-            raise ValueError(f"Unknown geology source: {source_cfg.source}")
 
     # ------------------------------------------------------------------
     # Bbox resolution
@@ -237,7 +227,7 @@ class GeologyManager:
     # Custom
     # ------------------------------------------------------------------
 
-    def _fetch_custom(self, source_cfg) -> list[FieldRecord]:
+    def load_custom(self, source_cfg) -> list[FieldRecord]:
         """Load custom geology data (SHP, GPKG, TIF, CSV)."""
         from hydromodpy.data.variables.geology.custom import load_custom_geology
 
@@ -265,3 +255,9 @@ class GeologyManager:
                     )
 
         return records
+
+    SOURCES = {"brgm_1m": _fetch_brgm_1m, "brgm_50k": _fetch_brgm_50k}
+    """Each source is a method of this hand-written manager, called with the manager."""
+
+    def _fetch_listed_source(self, fetch, source_cfg) -> list:
+        return fetch(self, source_cfg)

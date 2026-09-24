@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.variables.oceanic.config import OceanicSourceConfig
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from hydromodpy.data.managers.base_manager_common import SourceContext
 
 
 def generate_constant(
@@ -45,3 +49,15 @@ def generate_constant(
             is_constant=True,
         )
     ]
+
+
+def fetch(
+    cfg: OceanicSourceConfig,
+    *,
+    bbox: tuple | None,
+    period: tuple[datetime, datetime] | None,
+    context: SourceContext,
+) -> list[PointRecord]:
+    """The ``SOURCES`` entry of ``source = "constant"``: one level over the run's period."""
+    del bbox, context
+    return generate_constant(cfg, project_period=period)

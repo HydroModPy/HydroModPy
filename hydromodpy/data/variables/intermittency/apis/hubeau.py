@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
@@ -28,6 +29,10 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import get_json, paginate_json
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from hydromodpy.data.managers.base_manager_common import SourceContext
+    from hydromodpy.data.variables.intermittency.config import IntermittencySourceConfig
 
 logger = get_logger(__name__)
 
@@ -130,9 +135,33 @@ def fetch(
     return records
 
 
+def fetch_for_config(
+    cfg: IntermittencySourceConfig,
+    *,
+    bbox: tuple | None,
+    station_ids: Sequence[str] | None,
+    start: datetime,
+    end: datetime,
+    context: SourceContext,
+) -> list[PointRecord]:
+    """The ``SOURCES`` entry of ``source = "hubeau"``: :func:`fetch` for one section."""
+    del context
+    return fetch(
+        bbox=bbox,
+        station_ids=station_ids,
+        date_start=start,
+        date_end=end,
+        code_departement=cfg.code_departement,
+        require_observations=cfg.require_observations,
+        fallback_search_radius_km=cfg.fallback_search_radius_km,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Station discovery
 # ---------------------------------------------------------------------------
+
+
 def _discover_stations(
     *,
     bbox: tuple | None = None,
