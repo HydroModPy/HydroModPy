@@ -1,7 +1,7 @@
 """The surfaces of ``hydromodpy.data`` that a move must not change.
 
-The migration of the package (``hydromodpy/data/structure.md``) moves modules,
-never what a user writes or imports. These tests pin that: the JSON schema of
+A reorganisation of the package moves modules, never what a user writes or
+imports. These tests pin that: the JSON schema of
 the ``[data]`` section, every public name, and the two data files the wheel
 must ship.
 """

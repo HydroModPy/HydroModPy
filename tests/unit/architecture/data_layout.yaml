@@ -1,11 +1,10 @@
-# Import rules inside hydromodpy/data. Source: hydromodpy/data/structure.md,
-# sections 2 and 8. Checked by test_data_layout.py.
+# Import rules inside hydromodpy/data, described in hydromodpy/data/README.md.
+# Checked by test_data_layout.py.
 
 # Each subpackage of hydromodpy/data lists the subpackages of hydromodpy/data it
 # may import. A subpackage may always import itself. "<init>" is the package
-# facade, hydromodpy/data/__init__.py. What lies outside hydromodpy/data (the
-# "spatial" and "schema" of the structure.md table) is the business of
-# layer_matrix.yaml.
+# facade, hydromodpy/data/__init__.py. What lies outside hydromodpy/data
+# (core, spatial, schema) is the business of layer_matrix.yaml.
 allowed:
   "<init>":   [loading, request]
   contracts:  []
@@ -33,7 +32,7 @@ text_paths:
 # A pattern ending in ".*" names a package and every module under it; a "*"
 # anywhere else stands for exactly one name. Everything else is private to
 # hydromodpy/data: managers, common, schemas, and the inside of loading and of
-# the variables (structure.md, section 8).
+# the variables.
 public:
   - hydromodpy.data
   - hydromodpy.data.contracts.*

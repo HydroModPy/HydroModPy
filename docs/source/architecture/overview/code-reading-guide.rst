@@ -24,8 +24,7 @@ not previously surfaced from the published architecture pages:
   roles,
 - ``hydromodpy/solver/boussinesq/README.md`` for the in-house solver
   package,
-- ``hydromodpy/data/README.md`` and ``hydromodpy/data/structure.md``
-  for the data-layer contract,
+- ``hydromodpy/data/README.md`` for the data-layer contract,
 - ``docs/_dev_notes/*.md`` for focused engineering notes and design
   documents.
 
