@@ -25,9 +25,9 @@ Code map
   activation inference and immutable ``DataLoadPlan`` creation.
 - ``hydromodpy/data/loading/loader.py``:
   runtime dispatch from activated data types to concrete managers.
-- ``hydromodpy/data/loading/container.py``:
-  lightweight loaded-data container consumed by the project facade and
-  the structure binders.
+- ``hydromodpy/core/state/data.py``:
+  ``LoadedDataContext``, one field per variable, which the loader fills and
+  the project facade and the structure binders read.
 - ``hydromodpy/data/variables/*``:
   provider-specific packages that own typed config, manager logic, and IO.
 
@@ -50,9 +50,9 @@ split responsibilities as follows:
   sections,
 - ``loading/planner.py`` merges explicit types with inference rules,
 - ``loading/plan.py`` stores the immutable ``DataLoadPlan``,
-- ``loading/loader.py`` dispatches each activated type to its concrete manager,
-- ``loading/container.py`` exposes the lightweight runtime container consumed
-  by orchestration layers.
+- ``loading/loader.py`` dispatches each activated type to its concrete manager
+  and writes what it loaded into ``LoadedDataContext``
+  (``hydromodpy/core/state/data.py``), which orchestration layers read.
 
 This means the project facade can stay focused on execution order
 while the data layer owns activation, validation, and loading
