@@ -68,10 +68,7 @@ ENTRY_POINT_GROUP = "hydromodpy.data.source"
 _BUILTIN_PATHS: dict[str, str] = {
     "bdtopage": "hydromodpy.data.variables.hydrography.apis.bdtopage:BdTopageSource",
     "euhydro": "hydromodpy.data.variables.hydrography.apis.euhydro:EuHydroSource",
-    "hubeau-piezometry": "hydromodpy.data.variables.piezometry.apis.hubeau:HubeauPiezometrySource",
-    "ign-bdalti": "hydromodpy.data.variables.dem.apis.ign_dem_fr:IgnDemSource",
     "osm": "hydromodpy.data.variables.hydrography.apis.osm:OsmSource",
-    "sim2-precipitation": "hydromodpy.data.variables.precipitation.apis.sim2:Sim2PrecipitationSource",
 }
 """Dotted paths to the in-tree source classes, imported on first lookup.
 
@@ -300,7 +297,7 @@ def build_from_section(source_cls: type, section: object) -> object:
     because a bag names no field.
 
     Restricting this to keyword-only parameters was tried first and dropped:
-    all six in-tree sources declare theirs behind a ``*``, so the narrower rule
+    all three in-tree sources declare theirs behind a ``*``, so the narrower rule
     passed every gate while **silently dropping** the value of any third-party
     source that wrote ``def __init__(self, waterway_types=...)``. A rule that
     only works for the style this repository happens to use is not a plugin

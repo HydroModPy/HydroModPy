@@ -98,14 +98,12 @@ asking for a DEM and a river network over one basin passes one extent:
 it reaches the IGN Geoplateforme in Lambert-93 and the Sandre WFS in
 WGS84 without the caller knowing either.
 
-Six adapters ship. Four of them are the conformance spread, one per
-payload kind and picked for how much they disagree:
-``HubeauPiezometrySource`` (point records, WGS84, a period is required),
-``BdTopageSource`` (a feature table, WGS84, no time axis),
-``IgnDemSource`` (files, **EPSG:2154**, writes under the directory the
-request names) and ``Sim2PrecipitationSource`` (gridded fields,
-**EPSG:2154**, a period is required). ``EuHydroSource`` and
-``OsmSource`` are the two the hydrography migration brought over.
+Three adapters ship, the river-network sources ``[data.hydrography]``
+resolves through the registry: ``BdTopageSource``, ``EuHydroSource`` and
+``OsmSource``, each a feature table with no time axis. Every other
+provider is reached through its manager's ``SOURCES`` table; a plugin
+source of any payload kind is asked through the ``installed`` member of a
+data request.
 
 ``data/source/registry.py`` maps ``source_id`` to class. In-tree sources
 are declared once, in ``_BUILTIN_PATHS``, and imported on first lookup;
@@ -257,8 +255,7 @@ Key public symbols
 - ``hydromodpy.data.contracts.timeseries.{PointRecord, FieldRecord}``
 - ``hydromodpy.data.source.{DataSource, Extent, Period, FetchRequest,
   FetchResult}``
-- ``hydromodpy.data.source.{HubeauPiezometrySource, BdTopageSource,
-  EuHydroSource, IgnDemSource, OsmSource, Sim2PrecipitationSource}``
+- ``hydromodpy.data.source.{BdTopageSource, EuHydroSource, OsmSource}``
 - ``hydromodpy.data.source.registry.{get, get_serving, register,
   list_source_ids, builtin_source_ids}`` -- ``source_id`` to class, and
   the ``hydromodpy.data.source`` entry-point group a third party joins

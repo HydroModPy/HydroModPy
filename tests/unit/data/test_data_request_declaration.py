@@ -107,7 +107,7 @@ def test_a_name_this_installation_does_not_resolve_is_refused() -> None:
         DataRequest.model_validate(_asking("acme-radar"))
 
 
-@pytest.mark.parametrize("name", ["bdtopage", "euhydro", "osm", "ign-bdalti"])
+@pytest.mark.parametrize("name", ["bdtopage", "euhydro", "osm"])
 def test_a_shipped_source_is_refused_through_installed(name: str) -> None:
     with pytest.raises(ValueError, match="ships"):
         DataRequest.model_validate(_asking(name))

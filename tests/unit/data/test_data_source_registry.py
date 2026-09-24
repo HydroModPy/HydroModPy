@@ -133,10 +133,10 @@ def test_a_builtin_is_not_imported_until_it_is_asked_for() -> None:
     script = (
         "import json, sys;"
         "from hydromodpy.data.source import registry;"
-        "target = 'hydromodpy.data.variables.dem.apis.ign_dem_fr';"
+        "target = 'hydromodpy.data.variables.hydrography.apis.osm';"
         "registry.get('bdtopage');"
         "before = target in sys.modules;"
-        "registry.get('ign-bdalti');"
+        "registry.get('osm');"
         "after = target in sys.modules;"
         "print(json.dumps([before, after]))"
     )

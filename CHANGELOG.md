@@ -71,6 +71,12 @@ Each release section includes the following standard categories:
   `features.gpkg`, `raster.tif` to one `outputs/<variable>_<source>` file per
   variable and source. A chain links the mask as `extent.mask` instead of
   `mask`.
+- `HubeauPiezometrySource`, `IgnDemSource` and `Sim2PrecipitationSource`, and
+  the source ids `hubeau-piezometry`, `ign-bdalti` and `sim2-precipitation`
+  of `hydromodpy.data.source.registry`. Their only caller was `data-fetch`.
+  Piezometry, the DEM and SIM2 are asked through their `[data]` section, in a
+  project TOML or a data request; a plugin source goes under `installed`. The
+  port keeps `BdTopageSource`, `EuHydroSource` and `OsmSource`.
 
 ### Added
 - The `data-request` process (`hmp process run data-request --job DIR`), the

@@ -43,7 +43,6 @@ def test_the_claims_are_the_reviewed_ones() -> None:
         "brgm_1m": "etalab-2.0",
         "brgm_50k": "etalab-2.0",
         "ign_geoplateforme_dem": "etalab-2.0",
-        "ign-bdalti": "etalab-2.0",
         "osm": "ODbL-1.0",
     }
 
@@ -74,8 +73,7 @@ def test_the_code_slugs_are_all_known() -> None:
         "sim2",
         "synthetic",
     }
-    port_ids = {"ign-bdalti", "hubeau-piezometry", "sim2-precipitation"}
-    assert written_by_the_code | port_ids <= set(SOURCES)
+    assert written_by_the_code <= set(SOURCES)
 
 
 def test_an_unknown_source_is_undetermined() -> None:

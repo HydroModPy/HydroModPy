@@ -54,12 +54,12 @@ lazy-attribute table. Every subpackage may import `core`. Six more rules:
    an `if` on the source name.
 4. No module uses a `_private` attribute of another. Ruff rule `SLF001`
    checks it.
-5. The six modules that hold a `DataSource` class import geopandas, pandas,
+5. The three modules that hold a `DataSource` class import geopandas, pandas,
    rasterio or requests inside their functions: looking a source up by name
    loads nothing heavy. `tests/unit/data/test_data_source_port_stands_alone.py`
    checks it.
 6. One exception to the import rules: the source registry
-   (`source/registry.py`) names the six built-in classes by a dotted path
+   (`source/registry.py`) names the three built-in classes by a dotted path
    written as text and imports each on first use, so that a third-party plugin
    joins the same table.
 

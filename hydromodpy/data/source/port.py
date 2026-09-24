@@ -404,11 +404,10 @@ class DataSource(Protocol):
     source_id: ClassVar[str]
     """Stable identity of this adapter.
 
-    Not the ``source`` its records carry, and the difference is deliberate:
-    ``hubeau-piezometry`` emits records stamped ``hubeau``, because the record
-    names the provider while the identity names the question put to it. One
-    provider answers several, and ``hubeau-hydrometry`` would stamp the same
-    word.
+    Not necessarily the ``source`` its records carry, and the difference is
+    deliberate: a record names the provider while the identity names the
+    question put to it. One provider answers several questions, and two
+    sources asking Hub'Eau for two products would stamp the same word.
     """
 
     variables: tuple[str, ...]
