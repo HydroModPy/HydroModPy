@@ -1,68 +1,23 @@
-"""Lake-abacus variable manager - hand-written table-manager pattern.
-
-Loads and caches stage-volume-area lookup tables from custom files. Returns a
-``LoadResult`` whose ``tables`` carry the new :class:`TableRecord` contract;
-Path-backed records are registered in the catalog like a custom geology
-field.
-"""
+"""Lake-abacus manager: stage-volume-area tables from the user's files."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.table import TableRecord
-from hydromodpy.data.managers.base_manager_common import SourceTable
-from hydromodpy.data.provenance.derived import custom_derived_dir
+from hydromodpy.data.managers.base_manager_file import BaseFileManager
 
 
-class LakeAbacusManager(SourceTable):
-    """Orchestrator for lake-abacus data acquisition and caching."""
-
+class LakeAbacusManager(BaseFileManager):
     VARIABLE_NAME = "lake_abacus"
+    RECORD_KIND = "tables"
 
-    def __init__(
-        self,
-        *,
-        config: Any,
-        catalog: Any,
-        project_extent: tuple | None = None,
-        project_period: tuple | None = None,
-        data_dir: Path | None = None,
-    ):
-        self.config = config
-        self.catalog = catalog
-        self.project_extent = project_extent
-        self.project_period = project_period
-        self.data_dir = Path(data_dir) if data_dir else None
-
-    def load(self) -> LoadResult:
-        """Load lake-abacus data from all configured sources."""
-        result = LoadResult()
-        for source_cfg in self.config.sources:
-            for rec in self._fetch_from_source(source_cfg):
-                result.tables.append(rec)
-        return result
-
-    def load_custom(self, source_cfg) -> list[TableRecord]:
-        """Load custom lake-abacus data (CSV, Parquet)."""
+    def read_custom(self, source_cfg: Any, *, derived_dir: Path | None) -> list[TableRecord]:
+        """Read a CSV or Parquet abacus."""
         from hydromodpy.data.variables.lake_abacus.custom import load_custom_abacus
 
-        records = load_custom_abacus(
-            source_cfg, derived_dir=custom_derived_dir(self.data_dir, self.VARIABLE_NAME)
-        )
+        return load_custom_abacus(source_cfg, derived_dir=derived_dir)
 
-        if self.catalog is not None:
-            for rec in records:
-                if isinstance(rec.data, Path):
-                    self.catalog.register(
-                        variable="lake_abacus",
-                        source="custom",
-                        station_id=rec.table_id,
-                        file_path=str(rec.data),
-                        unit=rec.unit,
-                        is_custom=True,
-                    )
-
-        return records
+    def index_fields(self, record: TableRecord) -> dict[str, Any]:
+        return {"station_id": record.table_id, "unit": record.unit}

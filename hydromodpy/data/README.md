@@ -16,7 +16,7 @@ list of the 24 sections is `VARIABLE_SPECS` in `loading/_dispatch.py`.
 | stations (4) | `hydrometry`, `piezometry`, `water_quality`, `intermittency` | `hubeau` | `BaseVariableManager` |
 | terrain and subsurface (3) | `dem`, `geology`, `hydrography` | `ign_geoplateforme_dem`; `brgm_1m`, `brgm_50k`; `bdtopage`, `euhydro`, `osm` | written by hand |
 | lake chronicles (4) | `lake_inflow`, `lake_levels`, `lake_outflow`, `lake_withdrawal` | none | `BaseVariableManager` |
-| lake files (3) | `lake_abacus` (table), `lake_bathymetry` (raster), `lake_geometry` (vector) | none | written by hand |
+| lake files (3) | `lake_abacus` (table), `lake_bathymetry` (raster), `lake_geometry` (vector) | none | `BaseFileManager` |
 
 ## Subpackages
 
@@ -31,7 +31,7 @@ In dependency order, lowest first.
 | `ingest/` | a user file to the storage format and to records: rasters, vectors, tables, station folders, grids |
 | `provenance/` | what sits next to a file on disk: sidecars, derived copies, `hydromodpy.lock` |
 | `registry/` | the DuckDB index of the cache (`data/cache.duckdb`); the files and their sidecars stay the truth |
-| `managers/` | the bases the variable managers inherit: shared state and the `SOURCES` dispatch, the grid cache, the per-station cache |
+| `managers/` | the bases the variable managers inherit: shared state and the `SOURCES` dispatch, the grid cache, the per-station cache, the user-file-only variables |
 | `variables/` | one package per `[data.<name>]` section, all on the template below |
 | `loading/` | `[data]` of the TOML to the variables it activates to the data loaded: `DataManagersConfig`, `DataPlanner`, `DataManagersRuntimeLoader`, `DataStore` |
 | `workspace/` | the workspace data folder: scaffold and scan of custom files |
