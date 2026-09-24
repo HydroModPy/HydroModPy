@@ -53,7 +53,7 @@ def _download_department(
 
     Returns path to the extracted S_FGEOL shapefile, or None if unavailable.
     """
-    from hydromodpy.data.common.administrative.france import (
+    from hydromodpy.spatial.administrative.france import (
         department_code_to_padded,
     )
 
@@ -140,7 +140,7 @@ def fetch_brgm_50k(
     -------
     Path to the merged and cropped GeoPackage.
     """
-    from hydromodpy.data.common.administrative.france import (
+    from hydromodpy.spatial.administrative.france import (
         find_departments_in_bbox,
     )
 

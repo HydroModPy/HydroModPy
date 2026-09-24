@@ -211,13 +211,13 @@ def site_selection_search_geometry(
         return None
     mode = territory.mode
     if mode == "admin_departments" and (territory.country or "").upper() == "FR":
-        from hydromodpy.data.common.administrative.france import geometry_for_departments
+        from hydromodpy.spatial.administrative.france import geometry_for_departments
 
         return _make_search_geometry_valid(
             geometry_for_departments(territory.departments, target_crs=target_crs)
         )
     if mode == "admin_regions" and (territory.country or "").upper() == "FR":
-        from hydromodpy.data.common.administrative.france import geometry_for_regions
+        from hydromodpy.spatial.administrative.france import geometry_for_regions
 
         return _make_search_geometry_valid(
             geometry_for_regions(territory.regions, target_crs=target_crs)

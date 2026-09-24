@@ -10,7 +10,7 @@ minimum a ``find_subdivisions_in_bbox()`` function following the same
 signature as :func:`france.find_departments_in_bbox`.
 """
 
-from hydromodpy.data.common.administrative.france import (
+from hydromodpy.spatial.administrative.france import (
     bbox_for_departments,
     bbox_for_regions,
     department_code_to_padded,

@@ -364,11 +364,11 @@ def _dem_request_bbox(
         return _expand_projected_bbox(tuple(territory.bbox), margin_m)
     if territory.country in {None, "", "FR"}:
         if territory.mode == "admin_regions":
-            from hydromodpy.data.common.administrative.france import bbox_for_regions
+            from hydromodpy.spatial.administrative.france import bbox_for_regions
 
             return bbox_for_regions(territory.regions, margin_m=margin_m)
         if territory.mode == "admin_departments":
-            from hydromodpy.data.common.administrative.france import bbox_for_departments
+            from hydromodpy.spatial.administrative.france import bbox_for_departments
 
             return bbox_for_departments(territory.departments, margin_m=margin_m)
     if territory.mode == "polygon_file" and territory.polygon_file is not None:

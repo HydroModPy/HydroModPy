@@ -97,7 +97,7 @@ _ENTRIES: tuple[SourceEntry, ...] = (
         basis=(
             "IGN publishes its data under Licence Ouverte Etalab 2.0 since 1 January "
             "2021, and the download endpoint is IGN's own (data.geopf.fr). The same "
-            "publisher and licence are recorded in data/common/administrative/france.py."
+            "publisher and licence are recorded in spatial/administrative/france.py."
         ),
         aliases=("ign-bdalti",),
     ),

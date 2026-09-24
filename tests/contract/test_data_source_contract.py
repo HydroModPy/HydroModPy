@@ -654,7 +654,7 @@ def test_reprojection_is_what_makes_the_request_answerable() -> None:
     Ille-et-Vilaine. A source that forwarded the caller's box unchanged would
     not fetch the wrong tiles, it would raise ``No department found``.
     """
-    from hydromodpy.data.common.administrative.france import find_departments_in_bbox
+    from hydromodpy.spatial.administrative.france import find_departments_in_bbox
 
     source = IgnDemSource()
     assert find_departments_in_bbox(CALLER_EXTENT.bbox) == []

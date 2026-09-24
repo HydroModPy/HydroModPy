@@ -15,7 +15,6 @@ from filelock import FileLock
 
 from hydromodpy.core import progress
 from hydromodpy.core.io.atomic_replace import staged_path
-from hydromodpy.data.common.administrative.france import department_code_to_padded
 from hydromodpy.data.variables.dem.apis.geoplateforme_download import (
     DiscoveryFilters,
     DownloadFile,
@@ -26,6 +25,7 @@ from hydromodpy.data.variables.dem.apis.geoplateforme_download import (
     list_files,
     list_subresources,
 )
+from hydromodpy.spatial.administrative.france import department_code_to_padded
 
 IgnDemDataset = Literal["bd-alti", "rge-alti"]
 
@@ -198,14 +198,14 @@ def fetch_ign_dem(
             "Use the CLI/download helper for raw RGE ALTI archives."
         )
 
-    from hydromodpy.data.common.administrative.france import (
-        department_code_to_padded,
-        find_departments_in_bbox,
-    )
     from hydromodpy.data.variables.dem.apis._bdalti_archive_index import (
         _extract_7z,
         _find_asc_files,
         _request_hash_str,
+    )
+    from hydromodpy.spatial.administrative.france import (
+        department_code_to_padded,
+        find_departments_in_bbox,
     )
 
     output_root = Path(output_dir)

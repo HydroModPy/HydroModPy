@@ -181,8 +181,8 @@ def test_the_project_extent_crs_matches_what_site_selection_builds():
     with no CRS documented anywhere -- that last one is a footgun this phase
     did not introduce and does not close.
     """
-    from hydromodpy.data.common.administrative.france import bbox_for_departments
     from hydromodpy.data.source.port import Extent
+    from hydromodpy.spatial.administrative.france import bbox_for_departments
 
     bbox = bbox_for_departments(["35"], margin_m=0.0)
     lonlat = Extent(*bbox, crs=PROJECT_EXTENT_CRS).to_crs("EPSG:4326")
