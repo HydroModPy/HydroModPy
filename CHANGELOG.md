@@ -104,6 +104,16 @@ Each release section includes the following standard categories:
   left without its file, such as `geology_custom_GEO1M.gpkg.json`, as a
   GeoJSON and warned on every run. It now reports it once as an orphan, and
   `hmp data check` lists it.
+- The data cache answered from where `hmp` was started. A download registered
+  by its bare name was stored against the working directory, so a run started
+  in `projects/<name>/` recorded `projects/<name>/<file>`, and a sentinel lost
+  its meaning the same way. The station, grid and river-network managers then
+  read a stored path under `data/<variable>/`, never found a workspace-relative
+  one, forgot the entry and fetched again on every run. The catalog now stores
+  the file it resolves and a sentinel as written, and every reader, the
+  lockfile and `hmp data check --fix` included, resolves a stored path by one
+  rule that also decodes `cache://` and `state://`. `check --fix` no longer
+  drops a valid entry because it was started outside the workspace.
 - Geology is requested over the buffered domain box, not the catchment
   outline. A domain larger than the geology left a frame of cells at K = 0, and
   MODFLOW 6 refused the whole NPF. A zero or non-finite conductivity on an
