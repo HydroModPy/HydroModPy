@@ -1,17 +1,18 @@
 """Conformance suite for the data-source port, run against every source.
 
 The port is only worth its name if adapters that agree on nothing else answer
-the same questions the same way, so the six sources parametrized here
-were picked for how much they disagree:
+the same questions the same way. The three sources this build ships are river
+networks and agree on too much, so three doubles defined here stand for the
+plugin sources an ``installed`` request may name:
 
-================== ============ ============= ========= ==============
-source             payload kind extent CRS    period    writes out_dir
-================== ============ ============= ========= ==============
-hubeau-piezometry  ``points``   EPSG:4326     required  no
-bdtopage           ``features`` EPSG:4326     refused   no
-ign-bdalti         ``files``    **EPSG:2154** refused   **yes**
-sim2-precipitation ``fields``   **EPSG:2154** required  no
-================== ============ ============= ========= ==============
+============== ============ ============= ========= ==============
+source         payload kind extent CRS    period    writes out_dir
+============== ============ ============= ========= ==============
+bdtopage       ``features`` EPSG:4326     refused   no
+double-gauge   ``points``   EPSG:4326     required  no
+double-grid    ``fields``   **EPSG:2154** required  no
+double-tiles   ``files``    **EPSG:2154** refused   **yes**
+============== ============ ============= ========= ==============
 
 Two CRS, all four payload kinds, both values of ``PeriodNeed`` and both answers
 on writing. A member that only makes sense for one of them cannot survive this
@@ -21,7 +22,7 @@ collapses that spread.
 Two layers, and why both are needed
 -----------------------------------
 **Layer A** records the provider entry point each adapter delegates to and
-reads the arguments off it. It is uniform over the six sources and it is
+reads the arguments off it. It is uniform over the six cases and it is
 where the declarations are compared against a real call. A source that reached
 the network behind its own provider function would be caught by
 the ``no_network`` fixture, which makes every transport of this tree raise.
@@ -29,21 +30,14 @@ the ``no_network`` fixture, which makes every transport of this tree raise.
 **Layer B** lets the real adapter run all the way to the wire with only the
 HTTP transport stubbed, and reads the bounding box out of the query string that
 was about to be sent. Layer A alone would prove the adapter passes *something*
-to a function; Layer B proves the reprojected metres are what the provider
-receives. It covers ``bdtopage`` and ``hubeau``, which both go through
+to a function; Layer B proves the reprojected coordinates are what the provider
+receives. It covers the three shipped sources, which all go through
 ``hydromodpy.core.io.http_client.HTTPClient.request``.
-
-``ign-bdalti`` has no Layer B row, and not by omission: its downloader builds
-its own ``requests.Session`` instead of the shared client
-(``geoplateforme_download.py:299``), and reaching the wire would mean
-downloading and extracting a 7z archive. What replaces it is stronger than a
-stub -- ``test_reprojection_is_what_makes_the_request_answerable`` runs the
-real department resolver on both the caller's box and the reprojected one, and
-shows the first resolves nothing at all.
 """
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -68,13 +62,14 @@ from hydromodpy.data.source import (
     Extent,
     FetchRequest,
     FetchResult,
-    HubeauPiezometrySource,
-    IgnDemSource,
     OsmSource,
     Period,
-    Sim2PrecipitationSource,
+    extent_for,
     missing_source_members,
     registry,
+    require_declared_variables,
+    require_period,
+    require_selectors,
 )
 
 pyproj = pytest.importorskip("pyproj")
@@ -127,15 +122,119 @@ def _empty_frame() -> Any:
     return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
 
-CASES: tuple[SourceCase, ...] = (
-    SourceCase(
-        name="hubeau-piezometry",
-        build=lambda: HubeauPiezometrySource(product="level"),
-        provider_module="hydromodpy.data.variables.piezometry.apis.hubeau",
-        provider_attr="fetch",
-        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
-        canned=list,
-    ),
+def _gauge_provider(*, bbox, station_ids, start, end) -> list:
+    """Stands for a station provider's ``fetch``; the suite replaces it."""
+    return []
+
+
+def _grid_provider(*, bbox, start, end) -> list:
+    """Stands for a grid provider's download; the suite replaces it."""
+    return []
+
+
+def _tile_provider(*, output_dir, bbox) -> Path:
+    """Stands for a tile downloader that writes under the directory it is given."""
+    return Path(output_dir) / "tiles.tif"
+
+
+def _provider(name: str) -> Callable[..., Any]:
+    """Look the provider up at call time, so the recorder that replaced it is used."""
+    return getattr(sys.modules[__name__], name)
+
+
+class _GaugeDouble:
+    """A station source: points, WGS84, a period required, two selectors."""
+
+    source_id = "double-gauge"
+    payload_kind = "points"
+    extent_crs = "EPSG:4326"
+    selectors = ("extent", "station_ids")
+    period_need = "required"
+    hosts = ("gauge.example",)
+    writes_out_dir = False
+
+    def __init__(self) -> None:
+        self.variables = ("gauge_level",)
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        require_selectors(self, request)
+        period = require_period(self, request)
+        extent = extent_for(self, request) if request.extent is not None else None
+        records = _provider("_gauge_provider")(
+            bbox=None if extent is None else extent.bbox,
+            station_ids=list(request.station_ids) or None,
+            start=period.start,
+            end=period.end,
+        )
+        require_declared_variables(self, [record.variable for record in records])
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent,
+            period=period,
+            points=tuple(records),
+        )
+
+
+class _GridDouble:
+    """A grid source: fields, Lambert-93, a period required."""
+
+    source_id = "double-grid"
+    payload_kind = "fields"
+    extent_crs = "EPSG:2154"
+    selectors = ("extent",)
+    period_need = "required"
+    hosts = ("grid.example",)
+    writes_out_dir = False
+
+    def __init__(self) -> None:
+        self.variables = ("grid_total",)
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        require_selectors(self, request)
+        period = require_period(self, request)
+        extent = extent_for(self, request)
+        records = _provider("_grid_provider")(bbox=extent.bbox, start=period.start, end=period.end)
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent,
+            period=period,
+            fields=tuple(records),
+        )
+
+
+class _TileDouble:
+    """A tile source: files, Lambert-93, no time axis, writes under ``out_dir``."""
+
+    source_id = "double-tiles"
+    payload_kind = "files"
+    extent_crs = "EPSG:2154"
+    selectors = ("extent",)
+    period_need = "refused"
+    hosts = ("tiles.example",)
+    writes_out_dir = True
+
+    def __init__(self) -> None:
+        self.variables = ("elevation",)
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        require_selectors(self, request)
+        require_period(self, request)
+        extent = extent_for(self, request)
+        merged = _provider("_tile_provider")(output_dir=request.out_dir, bbox=extent.bbox)
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent,
+            files=(merged,),
+        )
+
+
+BUILTIN_CASES: tuple[SourceCase, ...] = (
     SourceCase(
         name="bdtopage",
         build=BdTopageSource,
@@ -160,24 +259,36 @@ CASES: tuple[SourceCase, ...] = (
         read_bbox=lambda args, kwargs: args[1] if len(args) > 1 else kwargs.get("bbox_wgs84"),
         canned=_empty_frame,
     ),
+)
+
+DOUBLE_CASES: tuple[SourceCase, ...] = (
     SourceCase(
-        name="ign-bdalti",
-        build=IgnDemSource,
-        provider_module="hydromodpy.data.variables.dem.apis.ign_dem_fr",
-        provider_attr="fetch_ign_dem",
-        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
-        canned=lambda: Path("dem_ign_geoplateforme_bdalti_25m_stub.tif"),
-    ),
-    SourceCase(
-        name="sim2-precipitation",
-        build=lambda: Sim2PrecipitationSource(components=("total",)),
-        provider_module="hydromodpy.data.common.clients.sim2_products",
-        provider_attr="fetch_sim2",
+        name="double-gauge",
+        build=_GaugeDouble,
+        provider_module=__name__,
+        provider_attr="_gauge_provider",
         read_bbox=lambda args, kwargs: kwargs.get("bbox"),
         canned=list,
     ),
+    SourceCase(
+        name="double-grid",
+        build=_GridDouble,
+        provider_module=__name__,
+        provider_attr="_grid_provider",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=list,
+    ),
+    SourceCase(
+        name="double-tiles",
+        build=_TileDouble,
+        provider_module=__name__,
+        provider_attr="_tile_provider",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=lambda: Path("tiles_stub.tif"),
+    ),
 )
 
+CASES = BUILTIN_CASES + DOUBLE_CASES
 CASE_PARAMS = [pytest.param(case, id=case.name) for case in CASES]
 
 
@@ -236,7 +347,7 @@ def record_provider(monkeypatch: pytest.MonkeyPatch) -> Callable[[SourceCase], l
 
 def test_the_suite_covers_every_source_this_build_ships() -> None:
     """An adapter added to the registry and not here would be untested by omission."""
-    assert {case.name for case in CASES} == set(registry.builtin_source_ids())
+    assert {case.name for case in BUILTIN_CASES} == set(registry.builtin_source_ids())
 
 
 def test_the_suite_spans_the_vocabularies() -> None:
@@ -581,26 +692,6 @@ def test_the_bbox_on_the_bdtopage_wire_is_the_reprojected_one(tmp_path: Path, wi
     assert result.is_empty
 
 
-def test_the_bbox_on_the_hubeau_wire_is_the_reprojected_one(tmp_path: Path, wire: Wire) -> None:
-    """The real discovery call runs; only the transport is canned.
-
-    The caller's extent is in Lambert-93 here and in WGS84 for BD Topage, so
-    the pair covers the conversion in both directions.
-    """
-    source = HubeauPiezometrySource(product="level")
-    result = source.fetch(
-        FetchRequest(out_dir=tmp_path, extent=CALLER_EXTENT_L93, period=PERIOD),
-    )
-
-    assert wire.calls, "the adapter never reached its transport"
-    assert all("hubeau.eaufrance.fr" in call["url"] for call in wire.calls)
-    sent = wire.calls[0]["params"]["bbox"]
-    expected = _expected_bbox(CALLER_EXTENT_L93, source.extent_crs)
-    assert tuple(float(v) for v in sent.split(",")) == pytest.approx(expected, rel=0, abs=1e-6)
-    assert result.is_empty
-    assert result.extent is not None and result.extent.crs == "EPSG:4326"
-
-
 def test_the_bbox_on_the_euhydro_wire_is_the_reprojected_one(tmp_path: Path, wire: Wire) -> None:
     """The real ArcGIS discovery and query run; only their transport is canned."""
     wire.responses.extend(
@@ -644,37 +735,33 @@ def test_the_bbox_on_the_osm_wire_is_the_reprojected_one(tmp_path: Path, wire: W
     assert result.is_empty
 
 
-def test_reprojection_is_what_makes_the_request_answerable() -> None:
-    """What replaces a layer-B row for the IGN source, and it is stronger.
+def test_reprojection_is_what_makes_the_dem_request_answerable() -> None:
+    """``fetch_ign_dem`` resolves departments from a box in Lambert-93.
 
-    ``fetch_ign_dem`` turns a bounding box into department codes before it
-    contacts anything. Measured here offline: the caller's WGS84 box over
-    eastern Brittany resolves to **no department at all**, and the same box in
-    the Lambert-93 the source declares resolves to Cotes-d'Armor and
-    Ille-et-Vilaine. A source that forwarded the caller's box unchanged would
-    not fetch the wrong tiles, it would raise ``No department found``.
+    Measured offline: the caller's WGS84 box over eastern Brittany resolves to
+    **no department at all**, and the same box in Lambert-93 resolves to
+    Cotes-d'Armor and Ille-et-Vilaine. A caller that forwarded the WGS84 box
+    unchanged would not fetch the wrong tiles, it would raise ``No department
+    found``.
     """
     from hydromodpy.spatial.administrative.france import find_departments_in_bbox
 
-    source = IgnDemSource()
     assert find_departments_in_bbox(CALLER_EXTENT.bbox) == []
-    assert find_departments_in_bbox(CALLER_EXTENT.to_crs(source.extent_crs).bbox) == [
+    assert find_departments_in_bbox(CALLER_EXTENT.to_crs("EPSG:2154").bbox) == [
         "022",
         "035",
     ]
 
 
-def test_what_the_ign_source_makes_on_disk_lands_under_the_out_dir(
+def test_what_the_dem_download_makes_on_disk_lands_under_its_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The only source that declares a write, held to where it writes.
+    """The DEM downloader, held to where it writes.
 
-    Layer A proves the directory is *passed*; it cannot prove what is done
-    with it, because it stubs the provider whole. Here the real
-    ``fetch_ign_dem`` prologue runs -- department resolution, cache-key
-    hashing, the ``mkdir`` of ``processed/`` -- and only the download step is
-    replaced, by one that raises. Everything the function creates before
-    reaching the network is then read back off disk.
+    The real ``fetch_ign_dem`` prologue runs -- department resolution,
+    cache-key hashing, the ``mkdir`` of ``processed/`` -- and only the
+    download step is replaced, by one that raises. Everything the function
+    creates before reaching the network is then read back off disk.
     """
     from hydromodpy.data.variables.dem.apis import ign_dem_fr
 
@@ -691,9 +778,8 @@ def test_what_the_ign_source_makes_on_disk_lands_under_the_out_dir(
     workspace.mkdir()
     monkeypatch.chdir(workspace)
 
-    source = IgnDemSource()
     with pytest.raises(_StopBeforeDownload):
-        source.fetch(FetchRequest(out_dir=out_dir, extent=CALLER_EXTENT))
+        ign_dem_fr.fetch_ign_dem(output_dir=out_dir, bbox=CALLER_EXTENT.to_crs("EPSG:2154").bbox)
 
     assert out_dir.is_dir(), "the prologue never got as far as making the directory"
     assert sorted(p.name for p in workspace.iterdir()) == ["jobdir"], (
@@ -834,36 +920,28 @@ def test_an_empty_result_is_not_an_error() -> None:
     assert empty.is_empty
 
 
-def test_a_record_the_source_does_not_declare_is_refused() -> None:
-    """The check the adversarial gate found aimed one level too wide.
+def test_a_record_the_source_does_not_declare_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A result whose records carry a variable the instance does not serve is refused.
 
-    ``HubeauPiezometrySource`` can serve two products, and an instance serves
-    one. While ``variables`` was a class-wide constant, a ``product="level"``
-    source that received a depth-labelled record passed the check in silence
-    and returned a result whose own ``variables`` said ``groundwater_level``.
-    ``variables`` is now the instance's, and the record is refused.
+    ``variables`` is the instance's: a source configured for one product that
+    received a record labelled with another would otherwise return a result
+    whose own ``variables`` contradicts its records.
     """
     from dataclasses import dataclass as _dataclass
-
-    from hydromodpy.data.variables.piezometry.apis import hubeau
 
     @_dataclass
     class _MislabelledRecord:
         variable: str
 
-    source = HubeauPiezometrySource(product="level")
-    assert source.variables == ("groundwater_level",)
-
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(
-            hubeau,
-            "fetch",
-            lambda **_kwargs: [_MislabelledRecord(variable="groundwater_depth")],
-        )
-        with pytest.raises(DataProductError, match="groundwater_depth"):
-            source.fetch(
-                FetchRequest(out_dir=Path("."), extent=CALLER_EXTENT, period=PERIOD),
-            )
+    monkeypatch.setattr(
+        sys.modules[__name__],
+        "_gauge_provider",
+        lambda **_kwargs: [_MislabelledRecord(variable="gauge_depth")],
+    )
+    with pytest.raises(DataProductError, match="gauge_depth"):
+        _GaugeDouble().fetch(FetchRequest(out_dir=Path("."), extent=CALLER_EXTENT, period=PERIOD))
 
 
 def test_a_numpy_scalar_is_a_coordinate() -> None:

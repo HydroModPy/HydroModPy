@@ -16,21 +16,12 @@ the section becomes a tagged union.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.core.io.http_client import get_default_client
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.source.port import (
-    FetchRequest,
-    FetchResult,
-    PayloadKind,
-    PeriodNeed,
-    Selector,
-    extent_for,
-    require_period,
-    require_selectors,
-)
+from hydromodpy.data.variables.hydrography.apis.features import FeatureSource
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import geopandas as gpd
@@ -196,16 +187,11 @@ vocabulary stays importable without pydantic.
 """
 
 
-class EuHydroSource:
+class EuHydroSource(FeatureSource):
     """The EEA EU-Hydro river network, served by the Discomap MapServer."""
 
     source_id: ClassVar[str] = "euhydro"
-    payload_kind: ClassVar[PayloadKind] = "features"
-    extent_crs: ClassVar[str] = "EPSG:4326"
-    selectors: ClassVar[tuple[Selector, ...]] = ("extent",)
-    period_need: ClassVar[PeriodNeed] = "refused"
     hosts: ClassVar[tuple[str, ...]] = ("image.discomap.eea.europa.eu",)
-    writes_out_dir: ClassVar[bool] = False
 
     def __init__(
         self,
@@ -227,15 +213,8 @@ class EuHydroSource:
             )
         self.group_name = group_name
         self.euhydro_page_size = euhydro_page_size
-        self.variables: tuple[str, ...] = ("hydrography",)
-        """A river network, whichever layers the group holds."""
 
-    def fetch(self, request: FetchRequest) -> FetchResult:
-        """Download every EU-Hydro feature of the group inside the extent."""
-        require_selectors(self, request)
-        require_period(self, request)
-        extent = extent_for(self, request)
-
+    def download(self, bbox: tuple[float, float, float, float]) -> gpd.GeoDataFrame:
         from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
         config = HydrographySourceConfig(
@@ -243,16 +222,10 @@ class EuHydroSource:
             group_name=self.group_name,
             euhydro_page_size=self.euhydro_page_size,
         )
-        frame: gpd.GeoDataFrame = fetch(config, extent.bbox)
-        return FetchResult(
-            source_id=self.source_id,
-            kind=self.payload_kind,
-            variables=self.variables,
-            extent=extent,
-            period=None,
-            features=frame,
-            metadata={"group_name": self.group_name},
-        )
+        return fetch(config, bbox)
+
+    def metadata(self) -> dict[str, Any]:
+        return {"group_name": self.group_name}
 
 
 __all__ = [

@@ -118,7 +118,7 @@ class HydrographySourceConfig(HydroModelBase):
         ``data.hydrography.sources[i]``, and a section carrying nine fields
         deserves to be told which one it got wrong.
 
-        Checking only that the name resolves would let ``sim2-precipitation``
+        Checking only that the name resolves would let a plugin serving grids
         into a hydrography section, refused much later by the fetch itself; the
         payload kind is read here for the same reason it is read at the build
         seam, and it costs an import of the adapter module. Measured on this

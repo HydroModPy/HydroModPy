@@ -47,14 +47,11 @@ __all__ = [
     "Extent",
     "FetchRequest",
     "FetchResult",
-    "HubeauPiezometrySource",
-    "IgnDemSource",
     "OsmSource",
     "PayloadKind",
     "Period",
     "PeriodNeed",
     "Selector",
-    "Sim2PrecipitationSource",
     "extent_for",
     "missing_source_members",
     "require_declared_variables",
@@ -65,12 +62,7 @@ __all__ = [
 _LAZY_IMPORTS = {
     "BdTopageSource": "hydromodpy.data.variables.hydrography.apis.bdtopage:BdTopageSource",
     "EuHydroSource": "hydromodpy.data.variables.hydrography.apis.euhydro:EuHydroSource",
-    "HubeauPiezometrySource": "hydromodpy.data.variables.piezometry.apis.hubeau:HubeauPiezometrySource",
-    "IgnDemSource": "hydromodpy.data.variables.dem.apis.ign_dem_fr:IgnDemSource",
     "OsmSource": "hydromodpy.data.variables.hydrography.apis.osm:OsmSource",
-    "Sim2PrecipitationSource": (
-        "hydromodpy.data.variables.precipitation.apis.sim2:Sim2PrecipitationSource"
-    ),
 }
 
 

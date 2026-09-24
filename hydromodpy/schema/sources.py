@@ -12,8 +12,9 @@ wrong entry is worse than an absent one: it is a legal statement about
 somebody else's data.
 
 The registry is keyed by the slugs the code already writes: the ``source``
-field of a data section, of a catalog entry and of a sidecar. The ids of the
-data-source port (``ign-bdalti``, ...) are aliases of the same entries.
+field of a data section, of a catalog entry and of a sidecar. The three
+sources of the data-source port (``bdtopage``, ``euhydro``, ``osm``) carry the
+same slugs.
 
 This module lives in ``schema`` because both ends need it: ``data`` stamps a
 licence on a sidecar at fetch time, ``results`` rolls it up at seal time, and
@@ -49,7 +50,6 @@ class SourceEntry:
     publisher: str | None
     licence: Licence
     basis: str
-    aliases: tuple[str, ...] = ()
     hosts: tuple[str, ...] = ()
     """The network hosts a fetch contacts; empty for a source read or built locally."""
 
@@ -58,10 +58,10 @@ def _undetermined(
     slug: str,
     publisher: str | None,
     reason: str,
-    *aliases: str,
+    *,
     hosts: tuple[str, ...] = (),
 ) -> SourceEntry:
-    return SourceEntry(slug, publisher, UNDETERMINED, reason, tuple(aliases), hosts)
+    return SourceEntry(slug, publisher, UNDETERMINED, reason, hosts)
 
 
 _ENTRIES: tuple[SourceEntry, ...] = (
@@ -109,7 +109,6 @@ _ENTRIES: tuple[SourceEntry, ...] = (
             "2021, and the download endpoint is IGN's own (data.geopf.fr). The same "
             "publisher and licence are recorded in spatial/administrative/france.py."
         ),
-        aliases=("ign-bdalti",),
         hosts=("data.geopf.fr",),
     ),
     SourceEntry(
@@ -147,7 +146,6 @@ _ENTRIES: tuple[SourceEntry, ...] = (
         "Hub'Eau (OFB / BRGM)",
         "Hub'Eau republishes several upstream databases (ADES, Hydroportail, Naiades) "
         "and this repository records the terms of none of them.",
-        "hubeau-piezometry",
         hosts=("hubeau.eaufrance.fr",),
     ),
     _undetermined(
@@ -155,7 +153,6 @@ _ENTRIES: tuple[SourceEntry, ...] = (
         "Meteo-France, served by GeoSAS",
         "The adapter reads SAFRAN-ISBA through GeoSAS (api.geosas.fr), an "
         "intermediary; this repository records no terms for that copy.",
-        "sim2-precipitation",
         hosts=("api.geosas.fr",),
     ),
     _undetermined(
@@ -187,15 +184,14 @@ _ENTRIES: tuple[SourceEntry, ...] = (
 def _index(entries: Iterable[SourceEntry]) -> Mapping[str, SourceEntry]:
     table: dict[str, SourceEntry] = {}
     for entry in entries:
-        for name in (entry.slug, *entry.aliases):
-            if name in table:
-                raise ValueError(f"source slug {name!r} is declared twice")
-            table[name] = entry
+        if entry.slug in table:
+            raise ValueError(f"source slug {entry.slug!r} is declared twice")
+        table[entry.slug] = entry
     return MappingProxyType(table)
 
 
 SOURCES: Mapping[str, SourceEntry] = _index(_ENTRIES)
-"""Every known slug and alias, mapped to its entry."""
+"""Every known slug, mapped to its entry."""
 
 
 def source_entry(slug: str | None) -> SourceEntry | None:

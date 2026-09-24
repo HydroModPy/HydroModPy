@@ -17,7 +17,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar, Protocol, runtime_checkable
+from typing import Any, ClassVar
 
 from hydromodpy.data.contracts.timeseries import PointRecord
 
@@ -66,15 +66,6 @@ class SourceTable:
     def _fetch_listed_source(self, fetch: Callable[..., Any], source_cfg: Any) -> Any:
         """Call one ``SOURCES`` function the way this manager family calls them."""
         raise NotImplementedError
-
-
-@runtime_checkable
-class SourceConfigProtocol(Protocol):
-    """Minimal interface expected from source config objects."""
-
-    source: str
-    mask_path: Path | None
-    extent: str | None
 
 
 class BaseManagerCommon(SourceTable, ABC):
@@ -139,12 +130,10 @@ class BaseManagerCommon(SourceTable, ABC):
         """Filter records by spatial mask (WGS84)."""
         if not source_cfg.mask_path:
             return records
-        from hydromodpy.data.common.geo_helpers import (
-            filter_locations_by_geometry,
-            load_mask_geometry_wgs84,
-        )
+        from hydromodpy.data.common.geo_helpers import filter_locations_by_geometry
+        from hydromodpy.data.common.source_extent import mask_geometry_wgs84
 
-        geom = load_mask_geometry_wgs84(source_cfg.mask_path)
+        geom = mask_geometry_wgs84(source_cfg.mask_path)
         locs_to_check = [r.location for r in records if r.location is not None]
         inside = filter_locations_by_geometry(locs_to_check, geom)
         valid_ids = {loc.id for loc in inside}

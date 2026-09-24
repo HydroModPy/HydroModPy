@@ -71,6 +71,17 @@ Each release section includes the following standard categories:
   `features.gpkg`, `raster.tif` to one `outputs/<variable>_<source>` file per
   variable and source. A chain links the mask as `extent.mask` instead of
   `mask`.
+- `HubeauPiezometrySource`, `IgnDemSource` and `Sim2PrecipitationSource`, and
+  the source ids `hubeau-piezometry`, `ign-bdalti` and `sim2-precipitation`
+  of `hydromodpy.data.source.registry`. Their only caller was `data-fetch`.
+  Piezometry, the DEM and SIM2 are asked through their `[data]` section, in a
+  project TOML or a data request; a plugin source goes under `installed`. The
+  port keeps `BdTopageSource`, `EuHydroSource` and `OsmSource`.
+- `hydromodpy.data.DataManagers`, `hydromodpy.data.loading.entry.DataEntry` and
+  `hydromodpy.results.catalog.cross_db.entry_used_by`, which nothing called.
+  With them go the two layer tolerances `data -> results` and
+  `results -> data` that the cross-database bridge needed; `run.input_entries()`
+  remains the way from a run to the cache entries it read.
 
 ### Added
 - The `data-request` process (`hmp process run data-request --job DIR`), the
@@ -117,6 +128,33 @@ Each release section includes the following standard categories:
   a mask that is not a file with code 10, both before anything is written.
 
 ### Changed
+- `hydromodpy/data` is reorganised into sub-packages with one job each; its
+  map and import rules are `hydromodpy/data/README.md`, enforced by
+  `tests/unit/architecture/test_data_layout.py`. What a TOML says does not
+  change; `hydromodpy.data` gains `DataStore`, `DataRequest` and
+  `run_request` and loses `DataManagers`. The modules that moved:
+
+  | old path | new path |
+  |---|---|
+  | `hydromodpy.data.scaffold` | `hydromodpy.data.workspace.scaffold` |
+  | `hydromodpy.data.scaffold_examples` | `hydromodpy.data.workspace.example_files` |
+  | `hydromodpy.data.auto_scan` | `hydromodpy.data.workspace.custom_scan` |
+  | `hydromodpy.data.data_freeze` | `hydromodpy.data.registry.freeze` (writing) and `hydromodpy.data.provenance.lockfile` (reading, frozen mode) |
+  | `hydromodpy.data.sidecars`, `hydromodpy.data.derived` | `hydromodpy.data.provenance.sidecars`, `hydromodpy.data.provenance.derived` |
+  | `hydromodpy.data.managers.config_schema`, `.planner`, `.plan` | `hydromodpy.data.loading.config_schema`, `.planner`, `.plan` |
+  | `hydromodpy.data.managers._base_manager_common` | `hydromodpy.data.managers.base_manager_common` |
+  | `hydromodpy.data.variables.timeseries_variable_config` | `hydromodpy.data.managers.timeseries_config` |
+  | `hydromodpy.data.common.validation` | `hydromodpy.data.contracts.completeness` |
+  | `hydromodpy.data.common.custom_grid_loader`, `custom_point_loader` | `hydromodpy.data.ingest.custom_grids`, `custom_points` |
+  | `hydromodpy.data.adapters.asc_to_geotiff`, `csv_to_parquet`, `shp_to_geoparquet` | `hydromodpy.data.ingest.raster`, `tables`, `vector` |
+  | `hydromodpy.data.common.administrative.france` | `hydromodpy.spatial.administrative.france` |
+  | `hydromodpy.data.variables.<v>.cases` | `hydromodpy.data.cases.<v>` |
+  | `hydromodpy.data.source.bdtopage`, `euhydro`, `osm` | `hydromodpy.data.variables.hydrography.apis.bdtopage`, `euhydro`, `osm` |
+  | `hydromodpy.data.variables.sim2`, `sim2_manager`, `common.clients.sim2_variables`, `variables.<v>.apis.sim2` | `hydromodpy.data.common.clients.sim2_products` |
+  | `hydromodpy.data.common.clients.hubeau_cache` | the station cache of `BaseVariableManager` |
+  | `hydromodpy.data.variables.<v>.custom`, where it only called the shared loader | `load_custom` of the manager base class |
+  | `hydromodpy.data.fetch` | `hydromodpy.data.request` |
+
 - `hmp data export --format rocrate|stac|prov` writes the views inside the run
   directory, beside the seal, instead of under `share/`. An explicit
   `--output` still takes them there.
@@ -142,6 +180,18 @@ Each release section includes the following standard categories:
   clip. Copies made before are not moved.
 
 ### Fixed
+- A station manager no longer reports a station inside its extent as outside
+  it: the check reprojects each station to WGS84, the frame the extent
+  reaches it in, instead of comparing Lambert-93 metres with degrees. A data
+  request served by box now hands station managers their box in WGS84 and
+  grid managers theirs in Lambert-93.
+- A data mask is read by one loader, `hydromodpy/data/common/source_extent.py`.
+  A grid manager (SIM2, SHOM) now refuses a mask that declares no CRS, as the
+  DEM and geology managers already did, instead of reading its bounds in an
+  unknown frame. The station managers keep the WGS84 polygon they filtered
+  with, features reprojected before their union, and still read a mask
+  without a CRS as WGS84. `load_mask_geometry` and `load_mask_geometry_wgs84`
+  leave `hydromodpy.data.common.geo_helpers`.
 - A DuckDB database in memory, such as the index `DataStore()` opens without a
   data root, is migrated without a file lock: it no longer leaves
   `memory.duckdb.lock` in the working directory.

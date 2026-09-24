@@ -28,24 +28,6 @@ from hydromodpy.data.loading._dispatch import get_manager_class
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 
-def _find_workspace_root(start_path: Path) -> Path | None:
-    """Walk up from *start_path* looking for a workspace directory.
-
-    Recognises the canonical ``data/cache.duckdb`` layout.
-    """
-    current = start_path.resolve()
-    if current.is_file():
-        current = current.parent
-    for _ in range(10):
-        if (current / "data" / "cache.duckdb").exists() and (current / "data").is_dir():
-            return current
-        parent = current.parent
-        if parent == current:
-            break
-        current = parent
-    return None
-
-
 class DataStore:
     """Central coordinator for data loading, caching, and project clipping.
 

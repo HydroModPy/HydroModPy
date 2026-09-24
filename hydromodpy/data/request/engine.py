@@ -39,7 +39,11 @@ from typing import Any
 
 from hydromodpy.core.exceptions import DataContractViolation, DataRequestError
 from hydromodpy.core.io.atomic_replace import staged_path
-from hydromodpy.data.common.source_extent import PROJECT_EXTENT_CRS, mask_extent
+from hydromodpy.data.common.source_extent import (
+    PROJECT_EXTENT_CRS,
+    STATION_EXTENT_CRS,
+    mask_extent,
+)
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.request.artefacts import (
     RASTER_SUFFIXES,
@@ -163,9 +167,6 @@ def run_request(
     with TemporaryDirectory(prefix="hmp-data-request-") as scratch:
         selector = _selector(request, Path(scratch))
         target_dir.mkdir(parents=True, exist_ok=True)
-        project_extent = (
-            None if selector.extent is None else selector.extent.to_crs(PROJECT_EXTENT_CRS).bbox
-        )
         store = store or DataStore()
         for variable, section in request.sections().items():
             try:
@@ -176,7 +177,7 @@ def run_request(
                         _with_selector(section, selector),
                         store=store,
                         selector=selector,
-                        project_extent=project_extent,
+                        project_extent=_project_extent(variable, selector),
                         period=period,
                         target_dir=target_dir,
                         failures=failures,
@@ -234,6 +235,18 @@ def _selector(request: DataRequest, scratch: Path) -> _Selector:
             ) from exc
         return _Selector(extent, mask, ())
     return _Selector(None, None, tuple(extent_in.station_ids))
+
+
+def _project_extent(variable: str, selector: _Selector) -> tuple | None:
+    """The request's box in the frame this variable's manager reads ``project_extent`` in."""
+    if selector.extent is None:
+        return None
+    from hydromodpy.data.loading._dispatch import get_manager_class
+    from hydromodpy.data.managers.base_manager_variable import BaseVariableManager
+
+    stations = issubclass(get_manager_class(variable), BaseVariableManager)
+    crs = STATION_EXTENT_CRS if stations else PROJECT_EXTENT_CRS
+    return selector.extent.to_crs(crs).bbox
 
 
 def _refuse_a_mask_that_is_not_the_pinned_one(mask: Path, pinned: str | None) -> None:

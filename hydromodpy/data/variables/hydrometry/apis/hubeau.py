@@ -13,12 +13,12 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pandas as pd
-import requests
 
 from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.progress import MILESTONE
 from hydromodpy.data.common.api_client import get_json
+from hydromodpy.data.common.clients.hubeau import station_period_overlaps
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 
@@ -235,38 +235,12 @@ def _discover_stations_in_bbox(
             # Check station active period overlap
             station_start = row.get("date_ouverture_station")
             station_end = row.get("date_fermeture_station")
-            if not _station_period_overlaps(station_start, station_end, date_start, date_end):
+            if not station_period_overlaps(station_start, station_end, date_start, date_end):
                 continue
 
         ids.append(str(sid))
 
     return ids
-
-
-def _station_period_overlaps(
-    station_start_str: str | None,
-    station_end_str: str | None,
-    req_start: datetime,
-    req_end: datetime,
-) -> bool:
-    """Check if station active period overlaps with requested period."""
-    if station_start_str:
-        try:
-            s_start = datetime.fromisoformat(station_start_str[:10])
-            if s_start > req_end:
-                return False
-        except (ValueError, TypeError, requests.RequestException) as exc:
-            logger.debug("Could not parse station start date %r: %s", station_start_str, exc)
-
-    if station_end_str:
-        try:
-            s_end = datetime.fromisoformat(station_end_str[:10])
-            if s_end < req_start:
-                return False
-        except (ValueError, TypeError, requests.RequestException) as exc:
-            logger.debug("Could not parse station end date %r: %s", station_end_str, exc)
-
-    return True
 
 
 def _fetch_station_location(station_id: str) -> StationLocation | None:

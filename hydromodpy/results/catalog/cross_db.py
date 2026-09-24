@@ -1,14 +1,9 @@
-"""Cross-DB helpers federating the project catalog with the data cache.
+"""Cross-DB helper federating the project catalog with the data cache.
 
-Two read-only joins are exposed:
-
-- :func:`run_input_entries`: cache entries referenced by a sim_id through
-  the ``tracked_files`` table (joined on ``sha256``).
-- :func:`entry_used_by`: simulations that referenced a given cache entry
-  via the same SHA-256 bridge.
-
-Both rely on a strictly read-only DuckDB ``ATTACH``: the secondary
-database is opened, queried, and detached for every call. The invariant
+:func:`run_input_entries` lists the cache entries a sim_id referenced
+through the ``tracked_files`` table, joined on ``sha256``. It relies on a
+strictly read-only DuckDB ``ATTACH``: the cache database is opened,
+queried, and detached for every call. The invariant
 "three DuckDB scopes, never physically merged" stays intact.
 """
 
@@ -20,7 +15,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     import pandas as pd
 
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
     from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
     from hydromodpy.results.catalog.facade import Catalog
 
@@ -74,39 +68,9 @@ def run_input_entries(catalog: Catalog, sim_id: str) -> pd.DataFrame:
         return backend.query(sql, [sim_id])
 
 
-def entry_used_by(
-    cache: DataCatalogDuckDB,
-    *,
-    sha256: str,
-    catalog_paths: list[Path],
-) -> list[str]:
-    """Return sim_ids that consumed the cache entry identified by ``sha256``.
-
-    Walks every project catalog in ``catalog_paths``, ATTACHes it read
-    only, and joins ``tracked_files.sha256`` with the provided digest.
-    Returns the de-duplicated, lexicographically sorted list of matches.
-    """
-    if not sha256 or not catalog_paths:
-        return []
-
-    backend = cache.backend
-    sim_ids: set[str] = set()
-    for path in catalog_paths:
-        if not Path(path).is_file():
-            continue
-        with backend.attach_read_only(path, "project_db"):
-            rows = backend.fetch_all(
-                "SELECT DISTINCT CAST(sim_id AS VARCHAR) "
-                "FROM project_db.tracked_files WHERE sha256 = ?",
-                [sha256],
-            )
-        sim_ids.update(str(r[0]) for r in rows if r and r[0])
-    return sorted(sim_ids)
-
-
 def _resolve_columns(row: tuple[Any, ...], cols: tuple[str, ...]) -> dict[str, Any]:
     """Pair tuple rows with their column names (utility used by callers)."""
     return dict(zip(cols, row, strict=False))
 
 
-__all__ = ["entry_used_by", "resolve_cache_db_path", "run_input_entries"]
+__all__ = ["resolve_cache_db_path", "run_input_entries"]

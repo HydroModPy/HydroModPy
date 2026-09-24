@@ -390,14 +390,34 @@ class TestDocumentedContracts:
         for name in ("osm", "bdtopage", "euhydro"):
             assert HydrographySourceConfig(source=name).source == name
 
-    def test_a_source_serving_another_payload_kind_is_refused_by_the_document(self):
-        """``sim2-precipitation`` resolves, and it is not a river network.
+    def test_a_source_serving_another_payload_kind_is_refused_by_the_document(
+        self, isolated_registry
+    ):
+        """A gauge source resolves, and it is not a river network.
 
         Validating only that the name resolves would let it through here and
         refuse it inside the fetch, after a provider had been contacted.
         """
+        from typing import ClassVar
+
+        class AcmeGaugeSource:
+            source_id: ClassVar[str] = "acme-gauge"
+            payload_kind: ClassVar[str] = "points"
+            extent_crs: ClassVar[str] = "EPSG:4326"
+            selectors: ClassVar[tuple[str, ...]] = ("extent",)
+            period_need: ClassVar[str] = "required"
+            hosts: ClassVar[tuple[str, ...]] = ()
+            writes_out_dir: ClassVar[bool] = False
+
+            def __init__(self) -> None:
+                self.variables = ("gauge_level",)
+
+            def fetch(self, request):  # pragma: no cover - never fetched here
+                raise AssertionError("resolved, never run")
+
+        isolated_registry.register(AcmeGaugeSource)
         with pytest.raises(ValidationError, match="features"):
-            HydrographySourceConfig(source="sim2-precipitation")
+            HydrographySourceConfig(source="acme-gauge")
 
     def test_custom_vector_formats(self):
         """custom.py supports SHP, GPKG, GeoJSON."""

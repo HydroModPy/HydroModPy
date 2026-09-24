@@ -261,7 +261,7 @@ Written into the run or session directory, and restored identically by
      - tag search, ``gc`` pinning, spinup convergence gate
    * - ``tracked_files``
      - ``manifest.json``, ``inputs[]`` (path, ``sha256``, size, role)
-     - ``entry.used_by()``, cache-to-run linking
+     - ``run.input_entries()``, cache-to-run linking
    * - trash state
      - ``trash.json``
      - ``hmp catalog trash`` and ``restore``

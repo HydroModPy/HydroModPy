@@ -76,7 +76,7 @@ is forbidden and fails CI.
 Documented tolerances
 ---------------------
 
-7 edges are tolerated rather than granted. Each one carries its reason in the
+5 edges are tolerated rather than granted. Each one carries its reason in the
 contract. They are temporary or deliberately narrow; tighten one when the edge disappears.
 
 .. list-table::
@@ -95,12 +95,6 @@ contract. They are temporary or deliberately narrow; tighten one when the edge d
    * - ``physics``
      - ``spatial``
      - FlowConfig embeds spatial FieldSection discriminated union
-   * - ``data``
-     - ``results``
-     - cross-DB ATTACH bridge: data.DataEntry.used_by reads results.cross_db (commit 1bd5f31ef)
-   * - ``results``
-     - ``data``
-     - cross-DB ATTACH bridge: results.cross_db reads DataCatalogDuckDB via ATTACH read-only (commit 1bd5f31ef)
    * - ``spatial``
      - ``data``
      - site-selection BD Topage outlet snapping delegates the optional hydrography fetch to data managers through a narrow helper

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from hydromodpy.cli._conventions import verbosity_parser
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_VALIDATION, apply_verbosity, exit_code_for
@@ -110,6 +111,6 @@ def run(args: argparse.Namespace) -> None:
             f"  {failure['variable']:<16} {failure['source'] or '':<24} FAILED: {failure['error']}",
             file=sys.stderr,
         )
-    print(f"  Report -> {args.out}/request.json")
+    print(f"  Report -> {Path(args.out) / 'request.json'}")
     if report["failures"]:
         sys.exit(EXIT_VALIDATION)

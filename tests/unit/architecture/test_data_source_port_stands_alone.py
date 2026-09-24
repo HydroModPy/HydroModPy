@@ -17,7 +17,7 @@ on the pattern D46 set for the terrain port, and it reads the same scanner the
 matrix uses -- so an import deferred inside a method is caught like a top-level
 one.
 
-The six built-in sources used to be adapters in this package, each allowed one
+The three built-in sources used to be adapters in this package, each allowed one
 deferred import of its provider. They now live in the provider's module, so
 ``data/source`` holds the port and the registry and takes no exception at all;
 the provider modules are held to the forbidden list and to deferring their
@@ -70,7 +70,7 @@ FORBIDDEN_NEIGHBOURS = (
 """What the reconnaissance found the forbidden state behind, named one by one.
 
 ``data/source`` is held to :data:`ALLOWED_PREFIXES`, which already excludes
-them. The six built-in sources live in their provider's module under
+them. The three built-in sources live in their provider's module under
 ``data/variables/<v>/apis/``, which may read the rest of ``data``: this list is
 what they may still not reach.
 """
@@ -134,7 +134,7 @@ def _builtin_provider_modules() -> set[str]:
 
 
 def _names_a_builtin_by_text(edge) -> bool:
-    """The one exception: the registry and the package table name the six by text.
+    """The one exception: the registry and the package table name the three by text.
 
     A dotted path in a dict literal is imported on first lookup, never at
     import time, and it is how a third-party class joins the same table.
@@ -157,9 +157,9 @@ def test_a_source_imports_no_manager_no_catalog_no_workspace() -> None:
 
 
 def test_a_builtin_source_module_opens_no_forbidden_door() -> None:
-    """The six provider modules that hold a source reach no manager, catalog or workspace."""
+    """The three provider modules that hold a source reach no manager, catalog or workspace."""
     provider_files = _builtin_provider_files()
-    assert len(provider_files) == 6
+    assert len(provider_files) == 3
     edges = [edge for edge in scan_package(PKG_ROOT) if _relative(edge) in provider_files]
     assert {_relative(edge) for edge in edges} == provider_files, "anti-vacuity"
     offenders = [
@@ -175,7 +175,7 @@ def test_a_builtin_source_module_opens_no_forbidden_door() -> None:
 def test_every_provider_import_stays_deferred() -> None:
     """Resolving a built-in source by name loads none of its provider's libraries.
 
-    The six built-in classes live beside the functions they serve, in modules
+    The three built-in classes live beside the functions they serve, in modules
     that import geopandas, pandas, shapely, xarray and rasterio inside those
     functions. Measured one source after another in a fresh interpreter, as the
     delta each lookup adds.
@@ -199,7 +199,7 @@ def test_every_provider_import_stays_deferred() -> None:
         cwd=REPO_ROOT,
     )
     report = json.loads(completed.stdout.strip().splitlines()[-1])
-    assert len(report) == 6, "anti-vacuity: the registry resolved no built-in"
+    assert len(report) == 3, "anti-vacuity: the registry resolved no built-in"
     loaded = {
         source_id: sorted({name.split(".")[0] for name in added} & HEAVY_LIBRARIES)
         for source_id, (_module, added) in report.items()

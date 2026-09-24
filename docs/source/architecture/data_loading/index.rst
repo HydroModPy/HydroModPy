@@ -19,8 +19,8 @@ Code map
   inference and immutable plan creation.
 - ``hydromodpy/data/loading/loader.py``: data-family dispatch during
   ``Project.load_data()``.
-- ``hydromodpy/data/loading/container.py``: loaded-data container
-  published to runtime state.
+- ``hydromodpy/core/state/data.py``: ``LoadedDataContext``, the loaded data
+  published to runtime state, one field per variable.
 - ``hydromodpy/project/facade.py``: orchestration of ``setup_workspace`` /
   ``build_geographic`` / ``load_data``.
 - ``hydromodpy/physics/flow/structure_binders.py``: example downstream

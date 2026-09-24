@@ -19,6 +19,7 @@ import pandas as pd
 from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import get_json
+from hydromodpy.data.common.clients.hubeau import keep_nearest
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 
@@ -76,7 +77,12 @@ def fetch(
 
     # nearest_to: keep only the closest station to the target point
     if nearest_to and station_ids:
-        station_ids = _keep_nearest(station_ids, nearest_to, is_river=is_river)
+        station_ids = keep_nearest(
+            station_ids,
+            nearest_to,
+            lambda sid: _fetch_station_location(sid, is_river=is_river),
+            label="water quality",
+        )
         if not station_ids:
             logger.info("Hub'Eau WQ: no station with coordinates for nearest selection.")
             return []
@@ -154,40 +160,6 @@ def fetch_for_config(
         nearest_to=context.nearest_to,
         fallback_search_radius_km=cfg.fallback_search_radius_km,
     )
-
-
-def _keep_nearest(
-    ids: list[str],
-    nearest_to: tuple[float, float],
-    *,
-    is_river: bool,
-) -> list[str]:
-    """Keep only the station closest to *nearest_to* ``(lon, lat)``."""
-    from hydromodpy.data.common.geo_helpers import haversine_km
-
-    target_lon, target_lat = nearest_to
-    best_id: str | None = None
-    best_dist = float("inf")
-
-    for sid in ids:
-        loc = _fetch_station_location(sid, is_river=is_river)
-        if loc is None:
-            continue
-        dist = haversine_km(target_lon, target_lat, loc.x, loc.y)
-        if dist < best_dist:
-            best_dist = dist
-            best_id = sid
-
-    if best_id is None:
-        return []
-    logger.info(
-        "Hub'Eau WQ: nearest to (%.4f, %.4f) → %s (%.1f km)",
-        target_lon,
-        target_lat,
-        best_id,
-        best_dist,
-    )
-    return [best_id]
 
 
 def _discover_stations(bbox: tuple, *, is_river: bool, max_stations: int = 50) -> list[str]:

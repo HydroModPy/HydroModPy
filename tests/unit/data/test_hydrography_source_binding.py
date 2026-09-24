@@ -32,25 +32,8 @@ BOUND_FIELDS: dict[str, tuple[str, ...]] = {
     "bdtopage": ("typename", "page_size"),
     "euhydro": ("group_name", "euhydro_page_size"),
     "osm": ("waterway_types",),
-    "hubeau-piezometry": (),
-    "ign-bdalti": ("force_refresh",),
-    "sim2-precipitation": (),
 }
-"""Section fields each source takes, measured against its own signature.
-
-The two empty entries are half the point of the table: those sources are
-registered and serve other variables, so a hydrography section carries nothing
-they ask for, and adding a ``product`` or a ``components`` field here cannot
-start feeding them by accident.
-
-``ign-bdalti`` is the other half, and this gate is how it was found. It takes
-``force_refresh``, which the section also carries with the same meaning -- skip
-the cache, ask the provider again -- so binding it is right, and the manager
-acting on the same field for its own catalogue is not a contradiction: one
-bypasses the provider's cache, the other the catalogue's. A source named in a
-hydrography section still has to answer with a feature table, which
-``fetch_network`` is what refuses.
-"""
+"""Section fields each source takes, measured against its own signature."""
 
 SECTION_ONLY_FIELDS = ("source", "path", "rasterize_field")
 """Fields of the section no source may take.
@@ -140,7 +123,7 @@ def test_a_positional_or_keyword_parameter_is_bound_too() -> None:
     """The style a third-party source is most likely to write, and it must work.
 
     Binding keyword-only parameters alone passed every gate of this file,
-    because all six in-tree sources declare theirs behind a ``*``. It silently
+    because all three in-tree sources declare theirs behind a ``*``. It silently
     dropped the value for anyone who did not.
     """
 
@@ -208,20 +191,24 @@ def test_the_declared_defaults_match_the_config() -> None:
     assert tuple(fields["waterway_types"].default_factory()) == DEFAULT_WATERWAY_TYPES
 
 
-def test_a_source_of_another_payload_kind_is_refused_before_it_is_built() -> None:
+def test_a_source_of_another_payload_kind_is_refused_before_it_is_built(
+    isolated_registry: object,
+) -> None:
     """The resolver branches on "not custom", so the kind has to be checked here.
 
     Found by the adversarial gate of this phase: reading the kind off the
     answer meant a DEM source named in a hydrography section downloaded
     France-wide archives before anything refused it.
     """
-    with pytest.raises(DataCapabilityError, match="ign-bdalti"):
-        source_from_section(SimpleNamespace(source="ign-bdalti"))
+    registry.register(AcmeGaugeSource)
+    with pytest.raises(DataCapabilityError, match="acme-gauge"):
+        source_from_section(SimpleNamespace(source="acme-gauge"))
 
 
-def test_the_refusal_names_the_kind_the_variable_wants() -> None:
+def test_the_refusal_names_the_kind_the_variable_wants(isolated_registry: object) -> None:
+    registry.register(AcmeGaugeSource)
     with pytest.raises(DataCapabilityError, match=NETWORK_PAYLOAD_KIND):
-        source_from_section(SimpleNamespace(source="sim2-precipitation"))
+        source_from_section(SimpleNamespace(source="acme-gauge"))
 
 
 def _documented_names() -> tuple[str, ...]:
@@ -330,6 +317,6 @@ def test_the_refusal_names_the_field_and_not_only_the_entry() -> None:
     in a nine-field table is wrong without being told what.
     """
     with pytest.raises(ValidationError) as raised:
-        HydrographyConfig(sources=[{"source": "sim2-precipitation"}])
+        HydrographyConfig(sources=[{"source": "acme-absent"}])
 
     assert raised.value.errors()[0]["loc"] == ("sources", 0, "source")

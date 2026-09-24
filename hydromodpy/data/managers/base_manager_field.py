@@ -93,9 +93,9 @@ class BaseFieldManager(BaseManagerCommon):
 
     def _load_mask_geometry(self, mask_path: Path):
         """Grid managers keep the mask in its native CRS."""
-        from hydromodpy.data.common.geo_helpers import load_mask_geometry
+        from hydromodpy.data.common.source_extent import mask_geometry
 
-        return load_mask_geometry(mask_path)
+        return mask_geometry(mask_path)[0]
 
     def _handle_custom_results(self, records: list, source_cfg) -> list:
         """Dispatch custom results: mask PointRecords, register FieldRecords."""

@@ -27,7 +27,7 @@ In dependency order, lowest first.
 | `contracts/` | the records handed upward: `PointRecord`, `FieldRecord`, `TableRecord`, `LoadResult` |
 | `schemas/` | pandera schemas of the input tables (stations, chronicles, abacus, lithology, DEM), each with its `validate()` |
 | `source/` | the `DataSource` port (`port.py`) and the registry of sources, plugins included (`registry.py`) |
-| `common/` | helpers with no variable config and no cache: HTTP, units, geometry, source extent, file naming; `clients/` holds providers shared by several variables (SIM2) |
+| `common/` | helpers with no variable config and no cache: HTTP, units, geometry, file naming, and the one mask loader (`source_extent.py`); `clients/` holds what several variables share: the SIM2 product table and download, the Hub'Eau station helpers |
 | `ingest/` | a user file to the storage format and to records: rasters, vectors, tables, station folders, grids |
 | `provenance/` | what sits next to a file on disk: sidecars, derived copies, `hydromodpy.lock` |
 | `registry/` | the DuckDB index of the cache (`data/cache.duckdb`); the files and their sidecars stay the truth |
@@ -54,12 +54,12 @@ lazy-attribute table. Every subpackage may import `core`. Six more rules:
    an `if` on the source name.
 4. No module uses a `_private` attribute of another. Ruff rule `SLF001`
    checks it.
-5. The six modules that hold a `DataSource` class import geopandas, pandas,
+5. The three modules that hold a `DataSource` class import geopandas, pandas,
    rasterio or requests inside their functions: looking a source up by name
    loads nothing heavy. `tests/unit/data/test_data_source_port_stands_alone.py`
    checks it.
 6. One exception to the import rules: the source registry
-   (`source/registry.py`) names the six built-in classes by a dotted path
+   (`source/registry.py`) names the three built-in classes by a dotted path
    written as text and imports each on first use, so that a third-party plugin
    joins the same table.
 
