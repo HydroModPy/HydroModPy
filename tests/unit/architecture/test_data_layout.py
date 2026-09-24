@@ -2,8 +2,8 @@
 
 ``layer_matrix.yaml`` declares ``data`` as one layer, so an import from
 ``data/managers`` into ``data/variables`` is an edge it allows. The map of the
-package, ``hydromodpy/data/structure.md``, orders the subpackages and says who
-may import whom; ``data_layout.yaml`` is that table, and this module checks it
+package, ``hydromodpy/data/README.md``, orders the subpackages and states the
+rules; ``data_layout.yaml`` says who may import whom, and this module checks it
 with the scanner the layer matrix uses. Every import counts: at module level,
 inside a function, under ``TYPE_CHECKING``, or as a dotted path written in a
 lazy-attribute table.
@@ -131,7 +131,8 @@ def test_a_subpackage_imports_only_what_its_row_allows() -> None:
             continue
         offenders.append(f"[{src} -> {tgt}] {_describe(edge)}")
     assert not offenders, (
-        "imports that hydromodpy/data/structure.md section 2 forbids:\n  " + "\n  ".join(offenders)
+        "imports that tests/unit/architecture/data_layout.yaml forbids:\n  "
+        + "\n  ".join(offenders)
     )
 
 
@@ -167,8 +168,8 @@ def test_another_layer_imports_only_the_public_modules() -> None:
         and not _is_public(edge.target_module, patterns)
     ]
     assert not offenders, (
-        "another layer imports a module of hydromodpy/data that section 8 of "
-        "structure.md does not make public:\n  " + "\n  ".join(offenders)
+        "another layer imports a module of hydromodpy/data that the public list "
+        "of data_layout.yaml does not name:\n  " + "\n  ".join(offenders)
     )
 
 

@@ -394,8 +394,9 @@ unique contient tous les chunks avec un index interne.
 
 Deux fichiers DuckDB a des scopes differents :
 
-- **`workspace/catalog.duckdb`** : catalogue data partage (voir `data/structure.md`
-  section 6 pour le schema complet des tables `entries` et `api_coverage`)
+- **`workspace/catalog.duckdb`** : catalogue data partage (voir les migrations
+  SQL de `data/registry/migrations/` pour le schema des tables `entries` et
+  `api_coverage`)
   + registre des simulations (table `simulation_registry` ci-dessous)
 - **`projects/{name}/project.duckdb`** : resultats de simulation (tables ci-dessous)
 

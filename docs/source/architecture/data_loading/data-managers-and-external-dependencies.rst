@@ -99,8 +99,8 @@ only decides activation and calls the right loader.
 Provider Families
 -----------------
 
-The current provider inventory documented in ``hydromodpy/data/structure.md``
-is summarized below.
+The current provider inventory, whose full table is in
+``hydromodpy/data/README.md``, is summarized below.
 
 .. list-table::
    :header-rows: 1
@@ -172,10 +172,10 @@ What To Read When Touching This Layer
 
 Start with:
 
-- ``hydromodpy/data/README.md`` for the root orchestration contract,
+- ``hydromodpy/data/README.md`` for the map of the package: variables,
+  subpackages, import rules and data flows,
 - ``hydromodpy/data/loading/planner.py`` for inference rules,
-- ``hydromodpy/data/loading/loader.py`` for the active dispatch surface,
-- ``hydromodpy/data/structure.md`` for the broader provider and cache model.
+- ``hydromodpy/data/loading/loader.py`` for the active dispatch surface.
 
 Then inspect one typed family such as:
 

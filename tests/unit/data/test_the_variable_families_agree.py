@@ -1,7 +1,7 @@
 """Every list of ``[data]`` variables names the same 24 variables, and their sources agree.
 
-Adding a variable touches several lists (``hydromodpy/data/structure.md``,
-section 7). This test compares them to ``VARIABLE_SPECS`` and names the list
+Adding a variable touches several lists (``hydromodpy/data/README.md``,
+"Where to add what"). This test compares them to ``VARIABLE_SPECS`` and names the list
 that is incomplete, so a forgotten entry fails here rather than at run time.
 """
 
