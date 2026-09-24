@@ -51,11 +51,11 @@ def capability_decls() -> tuple[CapabilityDecl, ...]:
     engine stack in -- ``whitebox_workflows`` for one, geopandas, xarray and
     pyarrow for the other.
     """
-    from hydromodpy.data.fetch.capability import DATA_FETCH
+    from hydromodpy.data.request.job import DATA_REQUEST
     from hydromodpy.spatial.domain.capability import DOMAIN_BUILD
     from hydromodpy.spatial.site_selection.hydrology.capability import TERRAIN_DELINEATE
 
-    return (DATA_FETCH, DOMAIN_BUILD, TERRAIN_DELINEATE)
+    return (DATA_REQUEST, DOMAIN_BUILD, TERRAIN_DELINEATE)
 
 
 def _registry() -> Mapping[str, Capability]:
@@ -67,12 +67,12 @@ def _registry() -> Mapping[str, Capability]:
     an unknown id into a usage error, and for *every* capability rather than the
     renamed one, mapped to the generic exit 1.
     """
-    from hydromodpy.data.fetch.worker import run as data_fetch
+    from hydromodpy.data.request.job import run as data_request
     from hydromodpy.spatial.domain.worker import run as domain_build
     from hydromodpy.spatial.site_selection.hydrology.worker import run as terrain_delineate
 
     runners: Mapping[str, CapabilityRunner] = {
-        "data-fetch": data_fetch,
+        "data-request": data_request,
         "domain-build": domain_build,
         "terrain-delineate": terrain_delineate,
     }

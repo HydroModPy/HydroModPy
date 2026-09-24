@@ -36,10 +36,10 @@ What is refused, and why each refusal is not paranoia
   refused. The name is what a configuration file writes and the ``source_id``
   is what the result is stamped with: two words for one source is how a
   request and its provenance start describing different things.
-- **A plugin that takes a built-in name** is refused. The ``data-fetch``
-  description this build ships names ``bdtopage`` and publishes the exact shape
-  the in-tree adapter accepts; a plugin quietly answering under that name would
-  make a frozen, byte-gated document describe something else entirely.
+- **A plugin that takes a built-in name** is refused. A ``[data.hydrography]``
+  section, in a project TOML or a ``data-request`` document, names
+  ``bdtopage`` and means the in-tree adapter; a plugin quietly answering under
+  that name would make every document that names it ask something else.
 
 ``variables`` is not checked here, and cannot be
 ------------------------------------------------
@@ -90,8 +90,8 @@ def builtin_source_ids() -> tuple[str, ...]:
     Separate from :func:`list_source_ids` because the two answer different
     questions. What a build **describes** is frozen package data; what a
     deployment **resolves** depends on what is installed beside it. A caller
-    that needs the first -- the ``data-fetch`` declaration, whose published
-    description is compared byte for byte -- must not read the second.
+    that needs the first -- the ``installed`` member of a data request, which
+    refuses a shipped name -- must not read the second.
     """
     return tuple(sorted(_BUILTIN_PATHS))
 
@@ -253,9 +253,9 @@ def load_plugins(*, force: bool = False) -> int:
             continue
         if name in _BUILTIN_PATHS:
             logger.warning(
-                "data source plugin %r ignored: %r is a source this build ships and "
-                "describes. Answering under that name would make the published "
-                "description of data-fetch describe a different source.",
+                "data source plugin %r ignored: %r is a source this build ships. "
+                "Answering under that name would make every document that names it "
+                "ask a different source.",
                 entry_point,
                 name,
             )
@@ -310,8 +310,8 @@ def build_from_section(source_cls: type, section: object) -> object:
     defaults, which is the answer for a third-party source: the flat sections of
     this tree are closed models, so a plugin cannot add a field to one, and
     getting defaults is strictly better than being unreachable. Full
-    configuration of an out-of-tree source is the ``data-fetch`` capability's
-    job, where the request document carries it.
+    configuration of an out-of-tree source is the ``installed`` member of a
+    data request, whose ``options`` reach its constructor.
 
     ``tests/unit/data/test_hydrography_source_binding.py`` pins, per built-in
     source, which fields of ``[[data.hydrography.sources]]`` this binds -- the

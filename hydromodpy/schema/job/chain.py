@@ -2,7 +2,7 @@
 
 A capability is a function from a validated document to a directory of sealed
 artefacts, and two of them compose through the disk: the GeoPackage
-``terrain-delineate`` seals is a mask ``data-fetch`` reads. Nothing in this
+``terrain-delineate`` seals is a mask ``data-request`` reads. Nothing in this
 repository performed that composition -- the caller had to create both
 directories, write both ``request.json`` by hand, and know which artefact of
 the first fills which member of the second.
@@ -107,7 +107,11 @@ class StepLink(BaseModel):
 
     member: str = Field(
         min_length=1,
-        description="member of this step's inputs to fill with the artefact",
+        pattern=r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$",
+        description=(
+            "member of this step's inputs to fill with the artefact; a dotted path "
+            "such as extent.mask names a member nested in another"
+        ),
     )
     step: str = Field(
         min_length=1,
@@ -187,7 +191,7 @@ class ChainRequest(BaseModel):
                     f"step {step.id!r} links {link.member!r} to step {link.step!r}, which does "
                     "not run before it; a chain runs its steps in the order they are written"
                 )
-            if link.member in step.inputs:
+            if _member_is_written(step.inputs, link.member):
                 raise ValueError(
                     f"step {step.id!r} writes {link.member!r} in its inputs and links it as "
                     "well; a member is given once, literally or by link"
@@ -198,6 +202,29 @@ class ChainRequest(BaseModel):
                     "replace the first"
                 )
             filled.add(link.member)
+
+
+def _member_is_written(inputs: Mapping[str, Any], member: str) -> bool:
+    """True when *inputs* carries the dotted *member*, or a value on its way."""
+    node: Any = inputs
+    for name in member.split("."):
+        if not isinstance(node, Mapping):
+            return True
+        if name not in node:
+            return False
+        node = node[name]
+    return True
+
+
+def _write_member(inputs: dict[str, Any], member: str, value: Any) -> None:
+    """Set the dotted *member* of *inputs*, copying the objects on its way."""
+    *parents, leaf = member.split(".")
+    node = inputs
+    for name in parents:
+        child = dict(node.get(name) or {})
+        node[name] = child
+        node = child
+    node[leaf] = value
 
 
 @dataclass(frozen=True, slots=True)
@@ -372,10 +399,11 @@ def write_step_request(root: Path, resolved: ResolvedStep) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     inputs: dict[str, Any] = dict(resolved.step.inputs)
     for link in resolved.links:
-        inputs[link.member] = {
-            "href": str(root / link.path),
-            "type": link.media_type,
-        }
+        _write_member(
+            inputs,
+            link.member,
+            {"href": str(root / link.path), "type": link.media_type},
+        )
     document: dict[str, Any] = {
         "process": {"id": resolved.step.process.id},
         "inputs": inputs,
@@ -592,12 +620,11 @@ def _chain_status(records: Sequence[Mapping[str, Any]]) -> str:
 def _refuse_a_link_that_was_never_produced(root: Path, entry: ResolvedStep) -> None:
     """Refuse a link whose file the producing step did not write.
 
-    Half the artefacts of this tree are declared ``required=False`` -- a
-    ``data-fetch`` run writes one payload of four -- so a link can name a
-    declared output that this particular run legitimately did not produce. The
-    step that would read it is refused before it starts, pointed at the link,
-    rather than started and failed on a missing file whose name says nothing
-    about which member of which document was wrong.
+    An artefact declared ``required=False`` is one a run may legitimately not
+    write, so a link can name a declared output that this particular run did
+    not produce. The step that would read it is refused before it starts,
+    pointed at the link, rather than started and failed on a missing file whose
+    name says nothing about which member of which document was wrong.
     """
     for index, link in enumerate(entry.links):
         if (root / link.path).exists():

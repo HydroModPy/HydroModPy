@@ -20,9 +20,7 @@ allowed:
   loading:    [contracts, schemas, source, common, ingest, provenance, registry, managers, variables]
   workspace:  [schemas, common, ingest, provenance, registry]
   request:    [contracts, schemas, source, common, ingest, provenance, registry, managers, variables, loading, workspace]
-  # The data-fetch process; step M12 of the migration replaces it with request/.
-  fetch:      [contracts, schemas, source, common, ingest, provenance, registry, managers, variables, loading]
-  cases:      [contracts, schemas, source, common, ingest, provenance, registry, managers, variables, loading, workspace, request, fetch]
+  cases:      [contracts, schemas, source, common, ingest, provenance, registry, managers, variables, loading, workspace, request]
 
 # Rule 6: the source registry names the built-in source classes by a dotted
 # path written as text, imported on first lookup, so that a third-party plugin
@@ -45,8 +43,6 @@ public:
   - hydromodpy.data.ingest.*
   - hydromodpy.data.workspace.*
   - hydromodpy.data.request.*
-  # Until step M12 replaces the data-fetch process with request/.
-  - hydromodpy.data.fetch.*
   - hydromodpy.data.variables.*.config
   - hydromodpy.data.variables.*.manager
   - hydromodpy.data.variables.dem.resolver

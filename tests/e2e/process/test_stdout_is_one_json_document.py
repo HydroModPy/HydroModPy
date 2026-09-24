@@ -31,8 +31,9 @@ EXIT_VALIDATION = 16
 UNSERVED_CAPABILITY = "no-such-capability"
 """A name no build serves, used by the two usage-error tests below.
 
-It used to be ``data-fetch``, which stopped being unserved the day the second
-capability shipped and turned both of them red for the best possible reason.
+It used to name the data capability, which stopped being unserved the day the
+second capability shipped and turned both of them red for the best possible
+reason.
 ``test_the_unserved_name_is_still_unserved`` is what keeps the next one honest:
 a placeholder that becomes real must fail here, not silently assert nothing.
 """

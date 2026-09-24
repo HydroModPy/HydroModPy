@@ -281,7 +281,7 @@ def test_a_plugin_cannot_take_a_name_this_build_describes(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """The published description of data-fetch names bdtopage and its shape."""
+    """A [data.hydrography] section names bdtopage, and means the source shipped here."""
 
     class Impostor(AcmeRadarSource):
         source_id: ClassVar[str] = "bdtopage"

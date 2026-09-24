@@ -13,9 +13,9 @@ extent every manager already reads, reprojecting it the way its provider needs
 (WGS84 for Hub'Eau, the grid's own CRS for SIM2, Lambert-93 for the DEM). A box
 handed over as a bare tuple would carry no CRS to any of them.
 
-**Hydrography and installed sources go through the source registry**, the way
-``data-fetch`` served them, and never through the hydrography manager, whose
-job is to rasterise the network onto a project grid with Whitebox.
+**Hydrography and installed sources go through the source registry**, never
+through the hydrography manager, whose job is to rasterise the network onto a
+project grid with Whitebox.
 
 **A variable that fails is listed with its error, never dropped.** The unit
 is the source: when one source of a variable fails, the files it wrote are
@@ -31,13 +31,13 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
-from hydromodpy.core.exceptions import DataRequestError
+from hydromodpy.core.exceptions import DataContractViolation, DataRequestError
 from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.data.common.source_extent import PROJECT_EXTENT_CRS, mask_extent
 from hydromodpy.data.contracts.load_result import LoadResult
@@ -88,6 +88,8 @@ class RequestFailure:
     variable: str
     source: str | None
     error: str
+    exception: BaseException | None = field(default=None, compare=False, repr=False)
+    """What was raised, kept for a caller that maps it to a typed exit code."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,7 +183,7 @@ def run_request(
                     )
                 )
             except Exception as exc:  # noqa: BLE001 - a failed variable is reported, not raised
-                failures.append(RequestFailure(variable, None, f"{type(exc).__name__}: {exc}"))
+                failures.append(_failure(variable, None, exc))
         for installed in request.installed:
             try:
                 files.extend(
@@ -195,9 +197,7 @@ def run_request(
                     )
                 )
             except Exception as exc:  # noqa: BLE001 - a failed source is reported, not raised
-                failures.append(
-                    RequestFailure("installed", installed.name, f"{type(exc).__name__}: {exc}")
-                )
+                failures.append(_failure("installed", installed.name, exc))
 
     report = RequestReport(
         extent=_extent_document(request),
@@ -222,11 +222,35 @@ def _selector(request: DataRequest, scratch: Path) -> _Selector:
         extent = Extent(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax, crs=str(extent_in.crs))
         return _Selector(extent, _box_mask(extent, scratch), ())
     if extent_in.mask is not None:
-        mask = Path(extent_in.mask)
+        mask = Path(extent_in.mask.href)
         if not mask.is_file():
             raise FileNotFoundError(f"the request's mask {mask} is not a file")
-        return _Selector(mask_extent(mask), mask, ())
+        _refuse_a_mask_that_is_not_the_pinned_one(mask, extent_in.mask.sha256)
+        try:
+            extent = mask_extent(mask)
+        except Exception as exc:
+            raise DataRequestError(
+                f"the request's mask {mask} cannot be read as a vector with a CRS: {exc}"
+            ) from exc
+        return _Selector(extent, mask, ())
     return _Selector(None, None, tuple(extent_in.station_ids))
+
+
+def _refuse_a_mask_that_is_not_the_pinned_one(mask: Path, pinned: str | None) -> None:
+    if pinned is None:
+        return
+    from hydromodpy.schema.job.digest import sha256_file
+
+    digest, _ = sha256_file(mask)
+    if digest != pinned.lower():
+        raise DataContractViolation(
+            f"the request's mask {mask} hashes to {digest} and the request pinned "
+            f"{pinned.lower()}; the bytes are not the ones it asked for"
+        )
+
+
+def _failure(variable: str, source: str | None, exc: BaseException) -> RequestFailure:
+    return RequestFailure(variable, source, f"{type(exc).__name__}: {exc}", exc)
 
 
 def _box_mask(extent: Extent, scratch: Path) -> Path:
@@ -243,7 +267,7 @@ def _extent_document(request: DataRequest) -> dict[str, Any]:
     if extent.bbox is not None:
         return {"bbox": list(extent.bbox), "crs": extent.crs}
     if extent.mask is not None:
-        return {"mask": str(extent.mask)}
+        return {"mask": extent.mask.model_dump(mode="json", exclude_none=True)}
     return {"station_ids": list(extent.station_ids)}
 
 
@@ -372,7 +396,7 @@ def _one_source(
         for entry in entries:
             if entry.path is not None:
                 (target_dir / entry.path).unlink(missing_ok=True)
-        failures.append(RequestFailure(variable, source, f"{type(exc).__name__}: {exc}"))
+        failures.append(_failure(variable, source, exc))
         return []
     return entries
 
@@ -489,7 +513,14 @@ def _serve_installed(
     """Ask a plugin source through the port, and write what it answers by its kind."""
     from hydromodpy.data.source import registry
 
-    source = registry.get(name)(**options)
+    try:
+        source = registry.get(name)(**options)
+    except Exception as exc:
+        # An installed source is somebody else's code reading somebody else's
+        # options; its refusal is a fault of the request, not of HydroModPy.
+        raise DataRequestError(
+            f"source {name!r} refused the options this request carries: {type(exc).__name__}: {exc}"
+        ) from exc
     out = scratch / f"installed-{name}"
     out.mkdir(parents=True, exist_ok=True)
     result = source.fetch(

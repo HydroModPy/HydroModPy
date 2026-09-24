@@ -258,3 +258,31 @@ def test_an_unwritable_backup_aborts_the_migration(
         conn.close()
 
     assert list_backups(db_path) == []
+
+
+def test_a_database_in_memory_is_migrated_without_writing_to_disk(
+    tmp_path: Path, versions_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No lock file in the working directory: nothing else can open that database."""
+    workdir = tmp_path / "cwd"
+    workdir.mkdir()
+    monkeypatch.chdir(workdir)
+    conn = duckdb.connect(":memory:")
+    try:
+        ensure_schema_safe(conn, versions_dir=versions_dir, component=_CACHE_COMPONENT)
+        assert current_version(conn, component=_CACHE_COMPONENT) == 1
+    finally:
+        conn.close()
+    assert list(workdir.iterdir()) == []
+
+
+def test_a_database_in_memory_still_obeys_the_auto_migrate_switch(
+    versions_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HMP_AUTO_MIGRATE", "0")
+    conn = duckdb.connect(":memory:")
+    try:
+        with pytest.raises(auto_boot.AutoMigrationDisabled):
+            ensure_schema_safe(conn, versions_dir=versions_dir, component=_CACHE_COMPONENT)
+    finally:
+        conn.close()

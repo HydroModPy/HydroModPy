@@ -6,10 +6,15 @@ sections are the models of the TOML itself, so what works in a project works
 in a request. The extent is exactly one of three things: a box with its CRS, a
 vector mask (a basin ``terrain-delineate`` sealed, for instance), or a list of
 stations. ``installed`` asks a plugin source by its name.
+
+The mask is a file link, the shape every job input takes: ``href``, an optional
+media type and an optional ``sha256`` that pins its bytes. A chain fills it
+from the watershed of an earlier step by linking the member ``extent.mask``.
 """
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
@@ -19,13 +24,18 @@ from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.data.loading.config_schema import DataManagersConfig
+from hydromodpy.schema.job.request import FileLink
 
 CRS_PATTERN = r"^EPSG:[0-9]{4,6}$"
 """How an extent names its CRS: an EPSG code, refused early rather than guessed."""
 
 MAX_STATIONS = 1_000
 """Declared because a published schema needs a number."""
+
+MAX_INSTALLED = 16
+"""How many plugin sources one request asks, declared for the same reason."""
 
 
 class RequestExtent(HydroModelBase):
@@ -44,9 +54,8 @@ class RequestExtent(HydroModelBase):
         description="CRS the four bounds of bbox are expressed in",
         examples=["EPSG:2154"],
     )
-    mask: Annotated[str | None, Profile.USER] = Field(
+    mask: Annotated[FileLink | None, Profile.USER] = Field(
         default=None,
-        min_length=1,
         description=(
             "vector file whose shape bounds the request, typically a watershed "
             "sealed by terrain-delineate"
@@ -123,8 +132,39 @@ class InstalledSource(HydroModelBase):
     )
     options: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,
-        description="keyword arguments handed to that source's constructor",
+        description=(
+            "keyword arguments handed to that source's constructor, bound against "
+            "its signature before anything runs"
+        ),
     )
+
+    @model_validator(mode="after")
+    def _refuse_what_this_installation_cannot_answer(self) -> InstalledSource:
+        """Refuse a shipped name, an unresolvable one, and options it cannot take.
+
+        A shipped source is asked for through its ``[data]`` section, which
+        describes its shape. The options are bound against the constructor's
+        signature: a misspelled or missing one is refused by name, a wrong type
+        is the source's to refuse.
+        """
+        from hydromodpy.data.source import registry
+
+        if self.name in registry.builtin_source_ids():
+            raise ValueError(
+                f"{self.name!r} is a source this build ships; ask for it through its "
+                "[data] section, which describes its options"
+            )
+        try:
+            source_cls = registry.get(self.name)
+        except DataRequestError as exc:
+            raise ValueError(str(exc)) from exc
+        try:
+            inspect.signature(source_cls).bind(**self.options)
+        except TypeError as exc:
+            raise ValueError(
+                f"source {self.name!r} cannot be built from these options: {exc}"
+            ) from exc
+        return self
 
 
 class DataRequest(HydroModelBase):
@@ -143,6 +183,7 @@ class DataRequest(HydroModelBase):
     )
     installed: Annotated[list[InstalledSource], Profile.USER] = Field(
         default_factory=list,
+        max_length=MAX_INSTALLED,
         description="plugin sources asked by name, beside the [data] sections",
     )
 
@@ -183,7 +224,7 @@ class DataRequest(HydroModelBase):
         if bbox is not None:
             extent = {"bbox": list(bbox), "crs": crs}
         elif mask is not None:
-            extent = {"mask": str(mask)}
+            extent = {"mask": {"href": str(mask)}}
         elif station_ids:
             extent = {"station_ids": list(station_ids)}
         payload: dict[str, Any] = {
@@ -207,6 +248,7 @@ class DataRequest(HydroModelBase):
 
 __all__ = [
     "CRS_PATTERN",
+    "MAX_INSTALLED",
     "MAX_STATIONS",
     "DataRequest",
     "InstalledSource",

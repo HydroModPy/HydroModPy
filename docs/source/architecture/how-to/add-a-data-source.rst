@@ -15,9 +15,9 @@ Two paths, and which one you are on
 **The port.** ``hydromodpy/data/source/port.py`` declares what a source
 owes its callers, and ``hydromodpy/data/source/registry.py`` resolves a
 ``source_id`` to the class that implements it. A source on this path is
-reachable by name from a project TOML, from a ``data-fetch``
-``request.json``, and from a third-party distribution that never patches
-this repository. **It is the only path available out of tree.**
+reachable by name from a project TOML, from a data request (``hmp data
+get`` or the ``data-request`` process), and from a third-party distribution
+that never patches this repository. **It is the only path available out of tree.**
 
 **The per-variable adapter.** Most variables still carry a provider module
 under ``variables/<variable>/apis/`` (or a shared one under
@@ -106,9 +106,8 @@ entry-point group, from your own distribution:
 The entry-point name must equal the ``source_id`` the class declares --
 a request writes the name and a result is stamped with the ``source_id``,
 and two words for one source is how the two start disagreeing. A name
-this build already ships is refused, because the published description of
-``data-fetch`` names it and publishes the shape the in-tree adapter
-accepts. A plugin that fails any of these checks is skipped with a
+this build already ships is refused, because every document that names it
+means the in-tree adapter. A plugin that fails any of these checks is skipped with a
 warning naming what is wrong, never raised: one broken plugin must not
 take down a host that asked for a different source.
 
@@ -127,28 +126,26 @@ Once registered, the id is nameable without any further edit here:
 .. code-block:: json
 
    {
-     "process": {"id": "data-fetch", "version": "1.0.0"},
+     "process": {"id": "data-request", "version": "1.0.0"},
      "inputs": {
-       "source": {"id": "installed", "name": "acme-radar",
-                  "options": {"sweep": "short"}},
+       "installed": [{"name": "acme-radar", "options": {"sweep": "short"}}],
        "extent": {"bbox": [-1.85, 48.05, -1.55, 48.25], "crs": "EPSG:4326"}
      }
    }
 
-The ``installed`` member of ``data-fetch`` is for sources this build does
-not describe. The four it does describe have a member of their own, with
-the exact shape they accept published in
-``hydromodpy/schema/processes/data-fetch@1.json``; naming one through
+The ``installed`` member of a data request is for sources this build does
+not ship. A shipped source is asked for through its ``[data]`` section,
+whose shape the process description publishes; naming one through
 ``installed`` is refused. ``options`` is handed to the constructor as
-keyword arguments and bound against its signature before the job starts,
+keyword arguments and bound against its signature before anything runs,
 so an argument the source cannot take is refused by name rather than
 raised mid-fetch.
 
 Two things the description cannot say about an installed source, and
 both are by design: it does not appear in the process description, which
 ships frozen in the wheel, and the hosts it reaches are not in
-``hmp:invocation.network``. ``outputs/fetch.json`` records the hosts the
-run really contacted.
+``hmp:invocation.network``. ``outputs/request.json`` names the source of
+each file the run wrote.
 
 A configuration section binds by parameter name
 -----------------------------------------------
@@ -161,9 +158,9 @@ a name the section does not carry and you get your own default. A
 positional-only parameter without a default is refused, because a
 section fills a parameter by name.
 
-Full configuration of an out-of-tree source is the ``data-fetch``
-capability's job, where the request document carries an explicit
-``options`` object instead of a shared flat section.
+Full configuration of an out-of-tree source is the ``installed`` member of
+a data request, which carries an explicit ``options`` object instead of a
+shared flat section.
 
 Conformance
 -----------
@@ -373,4 +370,4 @@ See also
 - :doc:`/user_guide/data/index` for the user-facing inventory and
   provider matrix.
 - :doc:`add-a-process` for exposing work as a capability an orchestrator
-  runs, which is what ``data-fetch`` is.
+  runs, which is what ``data-request`` is.

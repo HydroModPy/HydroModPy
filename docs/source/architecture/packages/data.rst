@@ -19,10 +19,10 @@ Sub-modules
   registry that resolves a ``source_id`` to one of them, see below.
   ``hydrography`` resolves through it; the other variables still dispatch
   on a provider name with an ``if``/``elif`` in their manager.
-- ``data/fetch/`` -- the ``data-fetch`` capability: its declaration, the
-  body that runs it and the four artefact writers, see below. It is the
-  caller of the port, kept out of ``data/source/`` so the port stays
-  importable without pydantic.
+- ``data/request/`` -- data asked for from outside a project: the
+  ``DataRequest`` model, the ``run_request`` engine, the writers that cut
+  each answer to the extent and period, and the ``data-request`` process,
+  see below.
 - ``data/loading/planner.py`` and ``data/loading/plan.py`` --
   ``DataPlanner`` and immutable ``DataLoadPlan``. The planner merges
   ``[data].types`` with rules that infer extra variables from foreign
@@ -122,40 +122,40 @@ refuses any import out of ``data/source/`` that is not ``core``,
 -- the provider entry point each adapter defers into its ``fetch``.
 The layer matrix cannot see that edge, ``data`` being one layer.
 
-The data-fetch capability
--------------------------
+Data asked for from outside a project
+-------------------------------------
 
-``data/fetch/`` turns the port into something invocable from outside:
-``hmp process run data-fetch --job <dir>`` reads one ``request.json``,
-asks one source, and seals what came back. It opens no workspace, no
-catalog and no DuckDB, and it never sees a ``geographic`` object -- the
-extent is an input, a bounding box carrying its CRS or a vector mask
-another job produced.
+``data/request/`` serves ``[data]`` sections to a caller that has no
+project and no TOML. One engine, three entries: ``hmp data get``, the
+``data-request`` process (``hmp process run data-request --job <dir>``)
+and ``run_request`` from Python.
 
-- ``capability.py`` -- the ``CapabilityDecl`` and the Pydantic request
-  model. The ``source`` input is a union tagged on ``source.id``, and it
-  is **the** list: ``SERVED_SOURCES`` is read off its own discriminator
-  and resolved through the registry, and ``reaches_network`` is the union
-  of those sources' ``hosts``. One member of the union tags no source --
-  ``{"id": "installed", "name": ...}`` reaches anything the installation
-  resolves, including a source this build does not describe, and it is
-  excluded from every derivation for that reason. The derivations are
-  compared to what they came from by
-  ``tests/unit/data/test_data_fetch_declaration.py``.
-- ``worker.py`` -- resolution, refusal, fetch, seal and the reuse
-  short-circuit, on the pattern ``terrain-delineate`` set. Every fetch
-  gets a ``TemporaryDirectory`` as its ``out_dir``, so what a provider
-  leaves beside its result never lands under ``outputs/``.
-- ``artefacts.py`` -- how each payload kind becomes one sealable file:
-  one GeoPackage layer for ``features``, one moved GeoTIFF for
-  ``files``, one long Parquet table for ``points``, one merged NetCDF-4
-  for ``fields``. Zarr is what a run directory uses for field arrays and
-  it is a directory: a seal inventories files, so a job artefact cannot
-  be one.
+- ``model.py`` -- ``DataRequest``: the ``[data]`` sections with the
+  models of the TOML, an extent that is exactly one of a box with its
+  CRS, a vector mask (a file link, pinnable by ``sha256``) or station
+  codes, an optional period, and plugin sources under ``installed``,
+  whose options are bound against their constructor before anything
+  runs.
+- ``engine.py`` -- ``run_request`` loads each section through its
+  manager, over the extent written as a polygon mask in its own CRS.
+  ``hydrography`` and the installed sources go through the source
+  registry, never through the Whitebox manager. A source that fails
+  loses its files and is listed with its error; the others keep theirs.
+- ``artefacts.py`` -- each answer cut to the extent and period, whatever
+  the cache held: chronicles in one long Parquet table, grids in one
+  NetCDF, rasters in GeoTIFF, vectors in one GeoPackage layer. A seal
+  inventories files, so an artefact is never a Zarr directory.
+- ``job.py`` -- the ``data-request`` declaration and its body, on the
+  pattern ``terrain-delineate`` set: resolution and refusal before
+  anything is written, a cache under ``$TMPDIR`` indexed in memory, the
+  seal, the reuse short-circuit. A ``custom`` source is refused. The
+  declared hosts are the union of the ``hosts`` of ``schema/sources.py``,
+  compared to the served sources by
+  ``tests/unit/data/test_data_request_declaration.py``.
 
-Exactly one payload artefact is written per run, and
-``outputs/fetch.json`` is always written: it names which one, the extent
-that was really queried and the CRS it was really queried in.
+``request.json`` beside the files lists each one with its sha256, CRS,
+box, period and unit, the variables that answered nothing and the ones
+that failed.
 
 Where a manager's extent comes from
 -----------------------------------
@@ -262,8 +262,8 @@ Key public symbols
 - ``hydromodpy.data.source.registry.{get, get_serving, register,
   list_source_ids, builtin_source_ids}`` -- ``source_id`` to class, and
   the ``hydromodpy.data.source`` entry-point group a third party joins
-- ``hydromodpy.data.fetch.capability.{DATA_FETCH, DataFetchRequest}``
-- ``hydromodpy.data.fetch.worker.run``
+- ``hydromodpy.data.{DataRequest, run_request}``
+- ``hydromodpy.data.request.job.{DATA_REQUEST, run}``
 
 Recommended reading path
 ------------------------

@@ -42,8 +42,43 @@ Each release section includes the following standard categories:
   diagnostic scripts of `tools/diagnostics/` and `tools/view_mesh_grid_3d.py`
   leave the repository with the lake data only they read. None was cited by a
   test, the documentation or the example manifest.
+- The `data-fetch` process, `hydromodpy/data/fetch/` and
+  `hydromodpy/schema/processes/data-fetch@1.json`. `data-request` replaces it
+  and serves every `[data]` variable instead of six sources. Only the request
+  format changes. A `data-fetch` request named one source by a tagged `id`
+  with its options beside it, and the extent at the top of `inputs`:
+
+  ```json
+  {"process": {"id": "data-fetch", "version": "1.0.0"},
+   "inputs": {"source": {"id": "hubeau-piezometry", "product": "level"},
+              "mask": {"href": "/jobs/4711/outputs/watershed.gpkg"},
+              "period": {"start": "2020-01-01", "end": "2020-12-31"}}}
+  ```
+
+  A `data-request` request carries `[data]` sections, written as in a project
+  TOML, and the extent under `extent` (`bbox` with `crs`, `mask`, or
+  `station_ids`); a plugin source goes under `installed` by `name`:
+
+  ```json
+  {"process": {"id": "data-request", "version": "1.0.0"},
+   "inputs": {"data": {"piezometry": {"sources": [{"source": "hubeau", "product": "level"}]}},
+              "extent": {"mask": {"href": "/jobs/4711/outputs/watershed.gpkg"}},
+              "period": {"start": "2020-01-01", "end": "2020-12-31"}}}
+  ```
+
+  The report moves from `outputs/fetch.json` to `outputs/request.json`, and
+  the payload from one of `outputs/points.parquet`, `fields.nc`,
+  `features.gpkg`, `raster.tif` to one `outputs/<variable>_<source>` file per
+  variable and source. A chain links the mask as `extent.mask` instead of
+  `mask`.
 
 ### Added
+- The `data-request` process (`hmp process run data-request --job DIR`), the
+  job form of `hmp data get`: the managers' cache lives under `$TMPDIR` with an
+  in-memory index, a `custom` source is refused before anything is written, a
+  variable that fails fails the job with its typed exit code, and the declared
+  hosts are those of `hydromodpy/schema/sources.py`. A chain link fills a
+  nested member through a dotted path such as `extent.mask`.
 - The twelve v1 examples run in the current format, examples 06 to 11 included
   (particle tracking, analytical recession, exponential residence times,
   agricultural transport, PyHelp coupling, a run without plots), with the data
@@ -107,6 +142,9 @@ Each release section includes the following standard categories:
   clip. Copies made before are not moved.
 
 ### Fixed
+- A DuckDB database in memory, such as the index `DataStore()` opens without a
+  data root, is migrated without a file lock: it no longer leaves
+  `memory.duckdb.lock` in the working directory.
 - Cache invalidation, the subsumption that follows a larger fetch, and
   `hmp data prune` and `remove` with file deletion deleted nothing: the path
   was resolved against the working directory and a missing file passed in

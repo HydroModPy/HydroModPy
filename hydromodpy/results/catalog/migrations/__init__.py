@@ -75,8 +75,6 @@ def ensure_schema(
     from the connection when omitted so callers that already opened the
     file do not need to thread the path manually.
     """
-    if db_path is None:
-        db_path = _resolve_db_path_from_connection(connection)
     migration_dir = versions_dir if versions_dir is not None else MIGRATIONS_DIR
     _ensure_schema_safe(
         connection,
@@ -90,21 +88,6 @@ def ensure_schema(
         from hydromodpy.results.catalog.views import ensure_views
 
         ensure_views(connection)
-
-
-def _resolve_db_path_from_connection(
-    connection: duckdb.DuckDBPyConnection,
-) -> Path:
-    """Best-effort discovery of the on-disk catalog path from a live connection."""
-    try:
-        rows = connection.execute("PRAGMA database_list").fetchall()
-    except Exception:
-        return Path("memory.duckdb")
-    for row in rows:
-        candidate = row[2] if len(row) >= 3 else None
-        if candidate and candidate != ":memory:":
-            return Path(str(candidate))
-    return Path("memory.duckdb")
 
 
 def apply_migrations(db_path: Path, versions_dir: Path | None = None) -> int:

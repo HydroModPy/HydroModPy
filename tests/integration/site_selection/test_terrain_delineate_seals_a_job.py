@@ -295,7 +295,7 @@ def test_an_outlet_outside_the_dem_fails_as_a_backend_failure_not_as_a_bug(tmp_p
 
 def test_a_request_that_targets_another_capability_is_refused(tmp_path):
     document = _request()
-    document["process"] = {"id": "data-fetch", "version": "1.0.0"}
+    document["process"] = {"id": "data-request", "version": "1.0.0"}
     job = _staged(tmp_path, document)
 
     outcome = run(job, exit_code_for=exit_code_for)
