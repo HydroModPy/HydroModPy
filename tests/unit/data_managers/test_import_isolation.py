@@ -61,7 +61,7 @@ def test_hydromodpy_config_import_does_not_eagerly_load_sql_catalog() -> None:
     ):
         importlib.import_module("hydromodpy.config.hydromodpy_config")
 
-        assert "hydromodpy.data.registry.catalog" not in sys.modules
+        assert "hydromodpy.data.registry.catalog_duckdb" not in sys.modules
 
 
 def test_the_isolation_leaves_no_module_behind_its_parent_attribute() -> None:
