@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from hydromodpy.data.common.validation import compute_completeness
+from hydromodpy.data.contracts.completeness import compute_completeness
 from hydromodpy.data.contracts.location import StationLocation
 
 REQUIRED_COLUMNS = ("datetime", "value")

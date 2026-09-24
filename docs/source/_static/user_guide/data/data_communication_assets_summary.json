@@ -293,8 +293,8 @@
     "crs": "EPSG:2154"
   },
   "geology_case": {
-    "geology_config": "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml",
-    "field_param_config": "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml",
+    "geology_config": "hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml",
+    "field_param_config": "hydromodpy/data/cases/geology/gallery_field_param_brittany.toml",
     "window_km": 10,
     "target_n_cells": 400
   },

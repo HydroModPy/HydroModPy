@@ -3,25 +3,30 @@
 from __future__ import annotations
 
 import warnings
-from abc import abstractmethod
+from collections.abc import Callable
+from dataclasses import replace
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.io_helpers import safe_file_token
-from hydromodpy.data.common.validation import compute_completeness
+from hydromodpy.data.contracts.completeness import compute_completeness
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.managers._base_manager_common import BaseManagerCommon
+from hydromodpy.data.managers.base_manager_common import BaseManagerCommon, SourceContext
+from hydromodpy.data.provenance.sidecars import (
+    load_sidecar,
+    sidecar_path_for,
+    unlink_with_sidecar,
+)
 from hydromodpy.data.registry.constants import (
     SENTINEL_CUSTOM,
     SENTINEL_EMPTY,
 )
-from hydromodpy.data.sidecars import unlink_with_sidecar
 
 logger = get_logger(__name__)
 
@@ -35,11 +40,33 @@ _VAR_FILE_PREFIX = {
 }
 
 
+def _chronicle_sidecar(path: Path) -> dict[str, str | None]:
+    """The chronicle fields of the sidecar next to ``path``; empty when there is none."""
+    if not sidecar_path_for(path).is_file():
+        return {}
+    try:
+        sidecar = load_sidecar(path)
+    except (OSError, ValueError) as exc:
+        logger.debug("Unreadable sidecar next to %s: %s", path, exc)
+        return {}
+    return {
+        "unit": sidecar.unit,
+        "source_unit": sidecar.source_unit,
+        "frequency": sidecar.frequency,
+    }
+
+
 class BaseVariableManager(BaseManagerCommon):
     """Base orchestrator inherited by each station-based variable manager.
 
-    Subclasses set VARIABLE_NAME and implement _fetch_from_source.
+    Subclasses set ``VARIABLE_NAME``, ``INTERNAL_UNIT`` and ``SOURCES``. A
+    ``SOURCES`` function has the form
+    ``fetch(cfg, *, bbox, station_ids, start, end, context)``; the station cache
+    decides which stations and which periods it is asked for.
     """
+
+    RECORD_VARIABLE: ClassVar[str | None] = None
+    """The name of each record a custom file yields; the variable name when unset."""
 
     def load(self) -> LoadResult:
         """Load data from all configured sources.
@@ -76,17 +103,57 @@ class BaseVariableManager(BaseManagerCommon):
                 stacklevel=2,
             )
 
-    @abstractmethod
-    def _fetch_from_source(self, source_cfg: Any) -> list[PointRecord] | PointRecord:
-        """Dispatch to the right loader (custom or API)."""
-        ...
+    def load_custom(self, source_cfg: Any) -> list[PointRecord]:
+        """Load a folder of station chronicles and their locations."""
+        from hydromodpy.data.ingest.custom_points import load_custom_points
+
+        records = load_custom_points(
+            data_dir=Path(source_cfg.path),
+            variable_name=self.VARIABLE_NAME,
+            internal_unit=self.INTERNAL_UNIT,
+            project_period=self.project_period,
+            col_id=source_cfg.col_id,
+            col_x=source_cfg.col_x,
+            col_y=source_cfg.col_y,
+            col_crs=source_cfg.col_crs,
+            default_crs=source_cfg.default_crs,
+            col_datetime=source_cfg.col_datetime,
+            col_value=source_cfg.col_value,
+            station_ids=source_cfg.station_ids,
+            default_unit=None,
+            record_variable=self.RECORD_VARIABLE or self.VARIABLE_NAME,
+            source_unit_override=source_cfg.source_unit,
+        )
+        return self._apply_mask(records, source_cfg)
+
+    def _source_context(self, source_cfg: Any) -> SourceContext:
+        context = super()._source_context(source_cfg)
+        if not getattr(source_cfg, "nearest", False):
+            return context
+        return replace(context, nearest_to=self._resolve_nearest_to(source_cfg))
+
+    def _fetch_listed_source(self, fetch, source_cfg: Any) -> list[PointRecord]:
+        context = self._source_context(source_cfg)
+        bbox = self._resolve_bbox(source_cfg)
+
+        def _fetch_for(station_ids, start, end) -> list[PointRecord]:
+            return fetch(
+                source_cfg,
+                bbox=bbox,
+                station_ids=station_ids,
+                start=start,
+                end=end,
+                context=context,
+            )
+
+        return self._fetch_with_station_cache(source_cfg, _fetch_for, source_name=source_cfg.source)
 
     # ------------------------------------------------------------------
-    # Bbox resolution and spatial mask (Hub'Eau expects WGS84)
+    # Bbox resolution and spatial mask (station APIs expect WGS84)
     # ------------------------------------------------------------------
 
     def _load_mask_geometry(self, mask_path: Path):
-        """Hub'Eau expects WGS84, so reproject to lon/lat."""
+        """Station APIs expect WGS84, so reproject to lon/lat."""
         from hydromodpy.data.common.geo_helpers import load_mask_geometry_wgs84
 
         return load_mask_geometry_wgs84(mask_path)
@@ -118,8 +185,76 @@ class BaseVariableManager(BaseManagerCommon):
         return ((xmin + xmax) / 2, (ymin + ymax) / 2)
 
     # ------------------------------------------------------------------
-    # Smart cache: partial coverage detection + merge
+    # Station cache: partial coverage detection + merge
     # ------------------------------------------------------------------
+
+    def _fetch_with_station_cache(
+        self,
+        source_cfg: Any,
+        fetch_fn: Callable[[list[str] | None, datetime, datetime], list[PointRecord]],
+        *,
+        source_name: str,
+    ) -> list[PointRecord]:
+        """Fetch station records, downloading only what the cache lacks.
+
+        ``fetch_fn(station_ids, start, end)`` calls the provider; ``None`` as
+        station ids asks it to discover stations in the extent. Stations named
+        in the config are read from the cache, completed for the periods it
+        misses, and a station known to have no data is not asked again.
+        Discovery by extent is never cached.
+        """
+        if self.project_period is None:
+            raise ValueError(f"project_period required to fetch {self.VARIABLE_NAME} stations.")
+
+        station_ids = list(source_cfg.station_ids or [])
+        max_stations = getattr(source_cfg, "max_stations", None)
+        if station_ids and max_stations is not None:
+            station_ids = station_ids[:max_stations]
+
+        if not station_ids or source_cfg.force_refresh:
+            records = fetch_fn(station_ids or None, *self.project_period)
+            self._persist_api_records(records, source_name)
+            return self._apply_mask(records, source_cfg)
+
+        ready: list[PointRecord] = []
+        missing_ids: list[str] = []
+        to_persist: list[PointRecord] = []
+        for sid in station_ids:
+            if self._is_empty_sentinel(source=source_name, station_id=sid):
+                logger.debug("%s station without data (cached): %s", source_name, sid)
+                continue
+            rec = self._load_cached_api_record(source=source_name, station_id=sid)
+            if rec is None:
+                missing_ids.append(sid)
+                continue
+            gaps = self._compute_missing_periods(rec.date_start, rec.date_end)
+            if not gaps:
+                ready.append(rec)
+                logger.debug("%s cache hit: %s", source_name, sid)
+                continue
+            parts: list[PointRecord] = []
+            for gap_start, gap_end in gaps:
+                parts.extend(fetch_fn([sid], gap_start, gap_end))
+            if parts:
+                merged = self._merge_into_record(rec, *parts)
+                ready.append(merged)
+                to_persist.append(merged)
+                logger.debug("%s cache merge: %s (+%d period(s))", source_name, sid, len(gaps))
+            else:
+                ready.append(rec)
+
+        if to_persist:
+            self._persist_api_records(to_persist, source_name)
+        if not missing_ids:
+            return self._apply_mask(ready, source_cfg)
+
+        records = fetch_fn(missing_ids, *self.project_period)
+        self._persist_api_records(records, source_name)
+        fetched_ids = {r.station_id for r in records}
+        empty_ids = [sid for sid in missing_ids if sid not in fetched_ids]
+        if empty_ids:
+            self._register_empty_api_stations(empty_ids, source_name)
+        return self._apply_mask(ready + records, source_cfg)
 
     def _compute_missing_periods(
         self,
@@ -374,18 +509,20 @@ class BaseVariableManager(BaseManagerCommon):
 
         # Reconstruct location from LOC file if available
         location = self._load_cached_location(source, station_id)
+        # The sidecar speaks for the file; the index row fills what it lacks.
+        sidecar = _chronicle_sidecar(filepath)
 
         return PointRecord(
             station_id=station_id,
-            variable=entry.variable or self.VARIABLE_NAME,
+            variable=self.VARIABLE_NAME,
             source=source,
-            unit=entry.unit or "",
-            frequency=entry.frequency or "D",
+            unit=sidecar.get("unit") or entry.unit or "",
+            frequency=sidecar.get("frequency") or entry.frequency or "D",
             data=df,
             date_start=df["datetime"].min().to_pydatetime(),
             date_end=df["datetime"].max().to_pydatetime(),
             location=location,
-            source_unit=entry.source_unit,
+            source_unit=sidecar.get("source_unit") or entry.source_unit,
         )
 
     def _load_cached_location(

@@ -7,6 +7,7 @@ from typing import Annotated, Literal, TypeAlias
 
 from pydantic import Field, model_validator
 
+from hydromodpy.core.administrative_france import validate_french_regions
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
@@ -71,8 +72,6 @@ class _FrenchAdministrativeDemSource(_DemSourceBase):
     @model_validator(mode="after")
     def _check_french_regions(self) -> _FrenchAdministrativeDemSource:
         if str(self.country).upper() == "FR" and self.regions:
-            from hydromodpy.data.common.administrative.france import validate_french_regions
-
             object.__setattr__(self, "regions", validate_french_regions(self.regions))
         return self
 

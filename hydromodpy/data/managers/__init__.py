@@ -1,1 +1,1 @@
-"""Data-manager system: base ABCs, activation planning, [data] schema."""
+"""Base classes every data-variable manager and config inherits from."""

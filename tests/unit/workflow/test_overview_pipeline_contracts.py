@@ -9,7 +9,7 @@ import hydromodpy.data.variables.dem.resolver as dem_resolver
 import hydromodpy.data.variables.hydrography.resolver as hydrography_resolver
 import hydromodpy.workflow.pipelines.overview as overview_module
 from hydromodpy.core.exceptions import ConfigMissingError
-from hydromodpy.data.managers.config_schema import DataManagersConfig
+from hydromodpy.data.loading.config_schema import DataManagersConfig
 from hydromodpy.data.variables.recharge.config import RechargeConfig, RechargeSourceConfig
 from hydromodpy.data.variables.runoff.config import RunoffConfig, RunoffSourceConfig
 
@@ -85,7 +85,7 @@ def test_load_data_builds_proxy_and_attaches_hydrographic_network(monkeypatch, t
         return "features-with-network"
 
     monkeypatch.setattr(
-        "hydromodpy.data.loading.loader.DataManagersRuntimeLoader",
+        "hydromodpy.data.DataManagersRuntimeLoader",
         FakeLoader,
     )
     monkeypatch.setattr(

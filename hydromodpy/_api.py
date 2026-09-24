@@ -945,7 +945,7 @@ def example_add(
     >>> hmp.example_add("04").project_dir  # doctest: +SKIP
     PosixPath('/home/user/hydromodpy/projects/04_streamflow_intermittence_in_transient')
     """
-    from hydromodpy.data.scaffold import DEFAULT_ROOT
+    from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
     from hydromodpy.examples.blobs import resolve_source
     from hydromodpy.examples.install import install_example
 

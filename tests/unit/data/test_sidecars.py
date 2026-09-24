@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.data.sidecars import (
+from hydromodpy.data.provenance.sidecars import (
     DETERMINISTIC_FETCHED_AT_ENV,
     SIDECAR_SUFFIX,
     Sidecar,

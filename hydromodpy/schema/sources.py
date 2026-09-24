@@ -34,7 +34,7 @@ from hydromodpy.schema.job.inputset import UNDETERMINED, Licence, roll_up_licenc
 SIDECAR_SUFFIX = ".json"
 """Suffix of the provenance sidecar next to a raw input file.
 
-The same value as ``hydromodpy.data.sidecars.SIDECAR_SUFFIX``. ``schema`` may
+The same value as ``hydromodpy.data.provenance.sidecars.SIDECAR_SUFFIX``. ``schema`` may
 not import ``data``, so a test holds the two equal.
 """
 
@@ -43,17 +43,25 @@ _ETALAB_URL = "https://www.etalab.gouv.fr/licence-ouverte-open-licence/"
 
 @dataclass(frozen=True, slots=True)
 class SourceEntry:
-    """One data source: who publishes it, its licence, and why we say so."""
+    """One data source: who publishes it, its licence, why we say so, and where it is read."""
 
     slug: str
     publisher: str | None
     licence: Licence
     basis: str
     aliases: tuple[str, ...] = ()
+    hosts: tuple[str, ...] = ()
+    """The network hosts a fetch contacts; empty for a source read or built locally."""
 
 
-def _undetermined(slug: str, publisher: str | None, reason: str, *aliases: str) -> SourceEntry:
-    return SourceEntry(slug, publisher, UNDETERMINED, reason, tuple(aliases))
+def _undetermined(
+    slug: str,
+    publisher: str | None,
+    reason: str,
+    *aliases: str,
+    hosts: tuple[str, ...] = (),
+) -> SourceEntry:
+    return SourceEntry(slug, publisher, UNDETERMINED, reason, tuple(aliases), hosts)
 
 
 _ENTRIES: tuple[SourceEntry, ...] = (
@@ -70,6 +78,7 @@ _ENTRIES: tuple[SourceEntry, ...] = (
             "The adapter docstring (data/variables/geology/apis/brgm_1m.py) records "
             "'License: ETALAB Open Licence v2.0 (open data, attribution required)'."
         ),
+        hosts=("infoterre.brgm.fr",),
     ),
     SourceEntry(
         slug="brgm_50k",
@@ -84,6 +93,7 @@ _ENTRIES: tuple[SourceEntry, ...] = (
             "The adapter docstring (data/variables/geology/apis/brgm_50k.py) records "
             "'License: ETALAB Open Licence v2.0 (open data, attribution required)'."
         ),
+        hosts=("infoterre.brgm.fr",),
     ),
     SourceEntry(
         slug="ign_geoplateforme_dem",
@@ -97,9 +107,10 @@ _ENTRIES: tuple[SourceEntry, ...] = (
         basis=(
             "IGN publishes its data under Licence Ouverte Etalab 2.0 since 1 January "
             "2021, and the download endpoint is IGN's own (data.geopf.fr). The same "
-            "publisher and licence are recorded in data/common/administrative/france.py."
+            "publisher and licence are recorded in spatial/administrative/france.py."
         ),
         aliases=("ign-bdalti",),
+        hosts=("data.geopf.fr",),
     ),
     SourceEntry(
         slug="osm",
@@ -115,18 +126,21 @@ _ENTRIES: tuple[SourceEntry, ...] = (
             "OpenStreetMap data is licensed under the Open Database License 1.0, as "
             "stated at openstreetmap.org/copyright. Overpass serves that data."
         ),
+        hosts=("overpass-api.de",),
     ),
     _undetermined(
         "bdtopage",
         "Sandre / OFB",
         "Sandre states its terms on its own site; this repository does not record "
         "them for BD TOPAGE, so no licence is claimed.",
+        hosts=("services.sandre.eaufrance.fr",),
     ),
     _undetermined(
         "euhydro",
         "Copernicus Land Monitoring Service (EEA)",
         "Copernicus data follows the Copernicus data policy, which has no SPDX id, "
         "and this repository defines no LicenseRef for it.",
+        hosts=("image.discomap.eea.europa.eu",),
     ),
     _undetermined(
         "hubeau",
@@ -134,6 +148,7 @@ _ENTRIES: tuple[SourceEntry, ...] = (
         "Hub'Eau republishes several upstream databases (ADES, Hydroportail, Naiades) "
         "and this repository records the terms of none of them.",
         "hubeau-piezometry",
+        hosts=("hubeau.eaufrance.fr",),
     ),
     _undetermined(
         "sim2",
@@ -141,12 +156,14 @@ _ENTRIES: tuple[SourceEntry, ...] = (
         "The adapter reads SAFRAN-ISBA through GeoSAS (api.geosas.fr), an "
         "intermediary; this repository records no terms for that copy.",
         "sim2-precipitation",
+        hosts=("api.geosas.fr",),
     ),
     _undetermined(
         "shom",
         "SHOM",
         "SHOM products carry different licences and this repository records none "
         "for the tide-gauge service it reads.",
+        hosts=("services.data.shom.fr",),
     ),
     _undetermined(
         "custom",

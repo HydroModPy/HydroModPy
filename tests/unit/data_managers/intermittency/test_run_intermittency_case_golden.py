@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.data.variables.intermittency.cases.run_intermittency_case import (
+from hydromodpy.data.cases.intermittency.run_intermittency_case import (
     run_intermittency_case_from_toml,
 )
 
@@ -40,9 +40,8 @@ def test_run_intermittency_case_golden(update_goldens: bool, tmp_path: Path) -> 
         _repo_root()
         / "hydromodpy"
         / "data"
-        / "variables"
-        / "intermittency"
         / "cases"
+        / "intermittency"
         / "run_intermittency_config.toml"
     )
     actual = run_intermittency_case_from_toml(

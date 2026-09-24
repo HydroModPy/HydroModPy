@@ -523,7 +523,7 @@ def test_a_directory_sealed_under_another_job_is_refused_rather_than_overwritten
 def test_it_writes_nowhere_but_the_job_directory_it_was_given(tmp_path):
     """``writes_outside_jobdir`` is empty, and this is what holds it to be true.
 
-    The ceiling is the one the ``data-fetch`` gate states: GDAL opens its own
+    The ceiling is the one the ``data-request`` gate states: GDAL opens its own
     descriptors in C and no Python-level spy sees them. The controlled ``HOME``
     and the emptiness of the scratch afterwards cover the part that survives.
     """

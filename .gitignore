@@ -140,7 +140,7 @@ examples/projects/**/catalog.duckdb
 examples/projects/**/catalog.duckdb.bak-*
 hydromodpy.duckdb
 hydromodpy_debug.log
-hydromodpy/data/variables/*/cases/outputs/**
+hydromodpy/data/cases/*/outputs/**
 hydromodpy/data/variables/*/outputs/**
 hydromodpy/spatial/**/cases/outputs/**
 hydromodpy/spatial/**/outputs/**

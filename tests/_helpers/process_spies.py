@@ -1,6 +1,6 @@
 """The write spies a capability confinement gate runs its subject under.
 
-Lifted out of the ``data-fetch`` gate when a second capability needed the same
+Lifted out of the data gate when a second capability needed the same
 script: ``domain-build`` declares it writes nowhere but its job directory, and a
 claim of that shape is only worth what the spy behind it catches. The socket
 spies stayed where they are -- the two that exist differ, one asserting that

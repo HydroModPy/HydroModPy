@@ -50,7 +50,7 @@ Local deterministic run
 -----------------------
 
 The repository also includes a local intermittency-only case under
-``hydromodpy/data/variables/intermittency/cases``. It is useful for explaining
+``hydromodpy/data/cases/intermittency``. It is useful for explaining
 the custom file convention without relying on an online Hub'Eau request.
 
 .. figure:: /_static/user_guide/data/intermittency_local_state_example.png

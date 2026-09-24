@@ -51,9 +51,9 @@ What is deliberately absent
 **No registry in this module.** Resolving a name to a class is
 :mod:`hydromodpy.data.source.registry`, which the vocabulary must not depend on:
 a source implements the port, and nothing it implements should require it to be
-findable. **No cache.** ``fetch_with_smart_cache`` needs a manager, a
-catalog and a project directory, and those are exactly the three things a
-source must not know about. **No config object in the signature.** Seven of the
+findable. **No cache.** The station cache is a method of
+``BaseVariableManager``: it needs a manager, a catalog and a project directory,
+and those are exactly the three things a source must not know about. **No config object in the signature.** Seven of the
 nine SIM2 adapters never read the config they are handed, and each hydrography
 adapter reads one or two fields of a nine-field model: a port that passed one
 would declare a dependency that is mostly false.
@@ -117,10 +117,10 @@ PeriodNeed = Literal["required", "refused"]
 """Whether a period is part of the request.
 
 Two values and not three, and the third is the one worth explaining. The SIM2
-family *looks* like it takes an optional window -- ``fetch(config, *, bbox=None,
-project_period=None)`` on all nine variables -- but its own guard,
-``sim2.py:44``, raises ``SIM2 source requires project_period`` the moment it is
-left out. The default is a signature, not a behaviour, and no source of this
+family *looks* like it takes an optional window -- ``fetch_sim2(variable, *,
+bbox=None, project_period=None)`` serves all nine variables -- but its own
+guard raises ``SIM2 source requires project_period`` the moment it is left
+out. The default is a signature, not a behaviour, and no source of this
 tree treats a period as genuinely optional. A value nothing can declare is
 decoration, so ``optional`` is not offered until a provider serves it.
 """

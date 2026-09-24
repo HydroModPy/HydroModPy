@@ -171,8 +171,8 @@ CASES: tuple[SourceCase, ...] = (
     SourceCase(
         name="sim2-precipitation",
         build=lambda: Sim2PrecipitationSource(components=("total",)),
-        provider_module="hydromodpy.data.variables.precipitation.apis.sim2",
-        provider_attr="fetch",
+        provider_module="hydromodpy.data.common.clients.sim2_products",
+        provider_attr="fetch_sim2",
         read_bbox=lambda args, kwargs: kwargs.get("bbox"),
         canned=list,
     ),
@@ -654,7 +654,7 @@ def test_reprojection_is_what_makes_the_request_answerable() -> None:
     Ille-et-Vilaine. A source that forwarded the caller's box unchanged would
     not fetch the wrong tiles, it would raise ``No department found``.
     """
-    from hydromodpy.data.common.administrative.france import find_departments_in_bbox
+    from hydromodpy.spatial.administrative.france import find_departments_in_bbox
 
     source = IgnDemSource()
     assert find_departments_in_bbox(CALLER_EXTENT.bbox) == []
@@ -899,7 +899,10 @@ def test_a_numpy_scalar_is_a_coordinate() -> None:
 
 def test_the_bdtopage_defaults_match_the_config_they_replace() -> None:
     """Two copies of a default drift; this is the gate that says when."""
-    from hydromodpy.data.source.bdtopage import DEFAULT_PAGE_SIZE, DEFAULT_TYPENAME
+    from hydromodpy.data.variables.hydrography.apis.bdtopage import (
+        DEFAULT_PAGE_SIZE,
+        DEFAULT_TYPENAME,
+    )
     from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
     declared = HydrographySourceConfig(source="bdtopage")

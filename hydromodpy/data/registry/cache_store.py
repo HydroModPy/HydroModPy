@@ -5,7 +5,7 @@ file-system anchors that back them (workspace root, sidecars).
 
 The lockfile is not one of those anchors: it belongs to the project root, not
 to the workspace the cache database sits in, so frozen mode carries that root
-and :func:`hydromodpy.data.data_freeze.project_lockfile_path` turns it into
+and :func:`hydromodpy.data.provenance.lockfile.project_lockfile_path` turns it into
 the single path read here.
 """
 
@@ -21,8 +21,7 @@ import duckdb
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import decode_workspace_path, encode_workspace_path
-from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
-from hydromodpy.data.sidecars import (
+from hydromodpy.data.provenance.sidecars import (
     Sidecar,
     load_sidecar,
     resolve_fetched_at,
@@ -30,9 +29,10 @@ from hydromodpy.data.sidecars import (
     unlink_with_sidecar,
     write_sidecar,
 )
+from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
 
 if TYPE_CHECKING:
-    from hydromodpy.data.data_freeze import LockedArtifact
+    from hydromodpy.data.provenance.lockfile import LockedArtifact
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 logger = get_logger(__name__)
@@ -114,14 +114,14 @@ def resolve_entry_path(
 
 
 def frozen_enabled() -> bool:
-    from hydromodpy.data.data_freeze import is_frozen_mode
+    from hydromodpy.data.provenance.lockfile import is_frozen_mode
 
     return is_frozen_mode()
 
 
 def locked_artifacts() -> list[LockedArtifact]:
     """Return the artefacts pinned by the lockfile of the frozen project."""
-    from hydromodpy.data.data_freeze import (
+    from hydromodpy.data.provenance.lockfile import (
         frozen_project_root,
         project_lockfile_path,
         read_lockfile,
@@ -294,12 +294,23 @@ def register(
     # input so downstream tools have the upstream metadata even without
     # the DuckDB catalog around. Best-effort: failures stay non-fatal.
     if digest is not None and resolved_path.is_file():
+        chronicle = None
+        if station_id is not None and not is_custom:
+            chronicle = {
+                "variable": variable,
+                "unit": unit,
+                "source_unit": source_unit,
+                "frequency": frequency,
+                "date_start": ds,
+                "date_end": de,
+            }
         emit_input_sidecar(
             resolved_path,
             sha256=digest,
             source=source,
             crs=crs,
             bbox=bx,
+            chronicle=chronicle,
         )
 
     backend = catalog.backend
@@ -426,6 +437,7 @@ def emit_input_sidecar(
     source: str,
     crs: str | None,
     bbox: tuple,
+    chronicle: dict[str, str | None] | None = None,
 ) -> None:
     """Write the P3 JSON sidecar next to a freshly registered raw input.
 
@@ -437,7 +449,9 @@ def emit_input_sidecar(
 
     The licence comes from the source registry. A licence the user declared
     in the existing sidecar of the same bytes is kept, so a rewrite never
-    erases it.
+    erases it. ``chronicle`` (variable, unit, source unit, frequency, period)
+    is written for a downloaded station chronicle, so reading it back does
+    not depend on the index.
     """
     if _is_inside_package(path):
         return
@@ -452,10 +466,38 @@ def emit_input_sidecar(
             license=_sidecar_licence(path, source=str(source), sha256=str(sha256)),
             crs=str(crs) if crs else None,
             bbox=bbox_payload,
+            **_known_chronicle(path, sha256=str(sha256), chronicle=chronicle),
         )
         write_sidecar(path, sidecar)
     except Exception as exc:  # pragma: no cover - non-fatal
         logger.debug("Sidecar write failed for %s: %s", path, exc)
+
+
+def _known_chronicle(
+    path: Path,
+    *,
+    sha256: str,
+    chronicle: dict[str, str | None] | None,
+) -> dict[str, str | None]:
+    """Return the chronicle fields to write, keeping those the caller does not know.
+
+    A file indexed again from disk alone (after ``cache.duckdb`` is deleted)
+    is registered without its unit or frequency; the sidecar of the same bytes
+    already says them, and a rewrite must not erase what only it records.
+    """
+    if chronicle is None:
+        return {}
+    known = dict(chronicle)
+    if any(value is None for value in known.values()) and sidecar_path_for(path).is_file():
+        try:
+            existing = load_sidecar(path)
+        except Exception:  # noqa: BLE001 - an unreadable sidecar is rewritten
+            existing = None
+        if existing is not None and existing.sha256 == sha256:
+            for key, value in known.items():
+                if value is None:
+                    known[key] = getattr(existing, key)
+    return known
 
 
 def _sidecar_licence(path: Path, *, source: str, sha256: str) -> str:

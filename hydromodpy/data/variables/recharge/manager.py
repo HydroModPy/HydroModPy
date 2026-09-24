@@ -1,21 +1,13 @@
-"""Recharge manager: custom, SIM2 EDR, and synthetic generation."""
+"""Recharge manager: custom files, SIM2, and a synthetic series."""
 
 from __future__ import annotations
 
-from typing import Any
-
-from hydromodpy.data.contracts.spatial_field import FieldRecord
-from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.variables.sim2_manager import Sim2BackedFieldManager
+from hydromodpy.data.common.clients.sim2_products import sim2_source
+from hydromodpy.data.managers.base_manager_field import BaseFieldManager
+from hydromodpy.data.variables.recharge import synthetic
 
 
-class RechargeManager(Sim2BackedFieldManager):
+class RechargeManager(BaseFieldManager):
     VARIABLE_NAME = "recharge"
     INTERNAL_UNIT = "mm/day"
-
-    def _fetch_from_source(self, source_cfg: Any) -> list[FieldRecord | PointRecord]:
-        if source_cfg.source == "synthetic":
-            from hydromodpy.data.variables.recharge.synthetic import generate
-
-            return generate(source_cfg, project_period=self.project_period)
-        return super()._fetch_from_source(source_cfg)
+    SOURCES = {"sim2": sim2_source("recharge"), "synthetic": synthetic.fetch}

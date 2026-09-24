@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.data.adapters.csv_to_parquet import (
+from hydromodpy.data.ingest.tables import (
     TimeSeriesValidationError,
     convert_timeseries_csv_to_parquet,
     infer_station_id_from_filename,

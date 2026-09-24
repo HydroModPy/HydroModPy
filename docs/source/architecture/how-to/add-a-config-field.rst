@@ -31,7 +31,7 @@ Sections live close to the package they configure:
      - ``hydromodpy/spatial/domain/domain_config.py``
    * - ``[data]``
      - ``DataManagersConfig``
-     - ``hydromodpy/data/managers/config_schema.py``
+     - ``hydromodpy/data/loading/config_schema.py``
    * - ``[flow]``
      - ``FlowConfig``
      - ``hydromodpy/physics/flow/flow_config.py``

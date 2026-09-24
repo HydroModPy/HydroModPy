@@ -19,7 +19,7 @@ from hydromodpy.data.common.geo_helpers import (
     geometry_to_bbox,
     load_mask_geometry,
 )
-from hydromodpy.data.common.validation import compute_completeness
+from hydromodpy.data.contracts.completeness import compute_completeness
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.data.managers.config_schema import (
+from hydromodpy.data.loading.config_schema import (
     SUPPORTED_DATA_MANAGER_TYPES,
     DataManagersConfig,
 )

@@ -1,4 +1,8 @@
-from hydromodpy.data.variables.oceanic.config import OceanicConfig, OceanicSourceConfig
-from hydromodpy.data.variables.oceanic.manager import OceanicManager
+"""Oceanic variable: its [data.oceanic] config."""
 
-__all__ = ["OceanicManager", "OceanicConfig", "OceanicSourceConfig"]
+from hydromodpy.data.variables.oceanic.config import OceanicConfig, OceanicSourceConfig
+
+__all__ = (
+    "OceanicConfig",
+    "OceanicSourceConfig",
+)

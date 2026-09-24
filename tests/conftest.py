@@ -286,7 +286,7 @@ def tmp_workspace(tmp_path: Path) -> Path:
     only creates folders (without the geospatial example files), keeping it
     cheap and free of DuckDB I/O until a test explicitly needs it.
     """
-    from hydromodpy.data.scaffold import scaffold
+    from hydromodpy.data.workspace.scaffold import scaffold
 
     root = scaffold(tmp_path / "workspace", with_examples=False)
     return root
@@ -315,6 +315,22 @@ def minimal_config(tmp_path: Path):
         ),
         geographic=GeographicConfig(source_mode="synthetic"),
     )
+
+
+@pytest.fixture
+def isolated_registry(monkeypatch: pytest.MonkeyPatch):
+    """Give one test its own data-source registry, restored afterwards.
+
+    The registry is process-global by design -- a name resolves to one class
+    for everything running in that interpreter -- so a test that registers a
+    plugin works on a copy of the three module-level tables.
+    """
+    from hydromodpy.data.source import registry
+
+    monkeypatch.setattr(registry, "_REGISTRY", dict(registry._REGISTRY))
+    monkeypatch.setattr(registry, "_BUILTIN_PATHS", dict(registry._BUILTIN_PATHS))
+    monkeypatch.setattr(registry, "_PLUGINS_LOADED", False)
+    return registry
 
 
 @pytest.fixture(autouse=True)

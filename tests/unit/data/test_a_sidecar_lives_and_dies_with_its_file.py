@@ -12,15 +12,15 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.data.managers.base_manager_variable import BaseVariableManager
-from hydromodpy.data.registry.cache_store import try_unlink
-from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-from hydromodpy.data.sidecars import (
+from hydromodpy.data.provenance.sidecars import (
     Sidecar,
     data_path_for_sidecar,
     sidecar_path_for,
     unlink_with_sidecar,
     write_sidecar,
 )
+from hydromodpy.data.registry.cache_store import try_unlink
+from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 
 def _file_with_sidecar(folder: Path, name: str = "geology_brgm_1m_abc.gpkg") -> Path:

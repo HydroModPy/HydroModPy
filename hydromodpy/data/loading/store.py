@@ -267,7 +267,7 @@ class DataStore:
         records: LoadResult | list[PointRecord],
     ) -> pd.DataFrame:
         """Compute per-station completeness stats for point records."""
-        from hydromodpy.data.common.validation import compute_completeness
+        from hydromodpy.data.contracts.completeness import compute_completeness
 
         if isinstance(records, LoadResult):
             records = records.points

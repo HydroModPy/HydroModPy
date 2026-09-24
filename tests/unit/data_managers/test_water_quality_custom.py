@@ -7,13 +7,20 @@ import pandas as pd
 import pytest
 
 from hydromodpy.data.variables.water_quality.config import WaterQualitySourceConfig
-from hydromodpy.data.variables.water_quality.custom import load_custom
+from hydromodpy.data.variables.water_quality.manager import WaterQualityManager
+
+
+def _load_custom(cfg, *, project_period=None):
+    """Load one custom source the way the water_quality manager does."""
+    return WaterQualityManager(
+        config=None, catalog=None, project_period=project_period
+    ).load_custom(cfg)
 
 
 class TestWaterQualityCustomCSV:
     def test_load_two_sites(self, sample_wq_dir, project_period):
         cfg = WaterQualitySourceConfig(source="custom", path=sample_wq_dir)
-        records = load_custom(cfg, project_period=project_period)
+        records = _load_custom(cfg, project_period=project_period)
 
         assert len(records) == 2
         for r in records:
@@ -28,7 +35,7 @@ class TestWaterQualityCustomCSV:
             path=sample_wq_dir,
             station_ids=["SITE02"],
         )
-        records = load_custom(cfg, project_period=project_period)
+        records = _load_custom(cfg, project_period=project_period)
         assert len(records) == 1
         assert records[0].station_id == "SITE02"
 
@@ -53,7 +60,7 @@ class TestWaterQualityCustomConstant:
         )
 
         cfg = WaterQualitySourceConfig(source="custom", path=d)
-        records = load_custom(cfg, project_period=project_period)
+        records = _load_custom(cfg, project_period=project_period)
         assert len(records) == 1
         assert records[0].is_constant
         assert records[0].data["value"].iloc[0] == pytest.approx(7.0)
@@ -77,7 +84,7 @@ class TestWaterQualityCustomConstant:
         )
 
         cfg = WaterQualitySourceConfig(source="custom", path=d)
-        records = load_custom(cfg, project_period=project_period)
+        records = _load_custom(cfg, project_period=project_period)
 
         assert len(records) == 1
         assert records[0].data["value"].iloc[0] == pytest.approx(2.5)

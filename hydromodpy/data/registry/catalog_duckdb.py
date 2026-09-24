@@ -209,6 +209,10 @@ class DataCatalogDuckDB:
             date_end=date_end,
         )
 
+    def custom_file_mtime(self, *, variable: str, file_path: Path | str) -> float | None:
+        """Return the ``file_mtime`` indexed for one custom file, or None."""
+        return cache_queries.custom_file_mtime(self, variable=variable, file_path=file_path)
+
     def list_entries(
         self,
         *,

@@ -24,32 +24,48 @@ def list_data_cache(
         return catalog.list_entries(variable=variable, source=provider)
 
 
-def fetch_data_variable(
-    variable: str,
+def request_data(
+    target: str,
     *,
+    out: Any,
     bbox: tuple[float, float, float, float] | None = None,
+    crs: str | None = None,
+    mask: Any = None,
+    stations: list[str] | None = None,
+    start: str | None = None,
+    end: str | None = None,
+    source: str | None = None,
     workspace: Any = None,
-    source: str = "upstream",
 ) -> dict:
-    """Fetch an upstream variable into the cache and write a sidecar.
+    """Serve a data request into ``out`` and return its report.
 
-    Not implemented: no upstream provider fetch exists yet. The verb is gated
-    with a clear error so it never silently writes a placeholder file that
-    looks like real, checksummed data.
+    ``target`` is a request document (a ``.json`` file) or a variable name, in
+    which case the request is built from the options. The cache is the
+    workspace's when ``workspace`` is given, otherwise one in memory.
     """
-    del bbox, workspace, source  # accepted for the eventual provider fetch
+    from hydromodpy.data import DataRequest, DataStore, run_request
 
-    from hydromodpy.data.scaffold import VARIABLES
+    document = Path(target).expanduser()
+    if document.suffix.lower() == ".json" and document.is_file():
+        request = DataRequest.model_validate_json(document.read_text(encoding="utf-8"))
+    else:
+        request = DataRequest.for_variable(
+            target,
+            source=source,
+            bbox=bbox,
+            crs=crs,
+            mask=mask,
+            station_ids=stations,
+            start=start,
+            end=end,
+        )
+    store = None
+    if workspace is not None:
+        from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
 
-    spec = next((s for s in VARIABLES if s.name == variable), None)
-    if spec is None:
-        raise ValueError(f"Unknown variable {variable!r}")
-
-    raise NotImplementedError(
-        f"'hmp data get {variable}' is not implemented yet: HydroModPy has no "
-        f"upstream provider fetch. Place the file in data/{spec.name}/ using the "
-        f"naming convention, or ingest an existing file with 'hmp data add'."
-    )
+        store = DataStore(workspace_root=_resolve_ws(str(workspace)))
+    report = run_request(request, Path(out).expanduser(), store=store)
+    return report.to_document()
 
 
 def check_data_cache(
@@ -60,8 +76,8 @@ def check_data_cache(
 ) -> dict:
     """Validate custom files in ``data/<variable>/``. Returns issues + optional fix summary."""
     from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
-    from hydromodpy.data.auto_scan import check_custom
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    from hydromodpy.data.workspace.custom_scan import check_custom
 
     workspace_root = _resolve_ws(str(workspace) if workspace else None)
     issues = check_custom(workspace_root, variable=variable)
@@ -98,19 +114,19 @@ def add_data_entry(
     therefore no lockfile of its own.
     """
     from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
-    from hydromodpy.data.adapters import (
+    from hydromodpy.data.ingest import (
         convert_asc_to_geotiff,
         convert_timeseries_csv_to_parquet,
         convert_vector_to_geoparquet,
     )
-    from hydromodpy.data.data_freeze import (
+    from hydromodpy.data.provenance.lockfile import (
         project_lockfile_path,
         read_lockfile,
         resolve_lockfile_root,
         sha256_of,
     )
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-    from hydromodpy.data.scaffold import VARIABLES
+    from hydromodpy.data.workspace.scaffold import VARIABLES
 
     workspace_root = _resolve_ws(str(workspace) if workspace else None)
     src = Path(file).expanduser().resolve()
@@ -205,8 +221,8 @@ def prune_data_cache(
 def archive_data_cache(output: Any, *, workspace: Any = None) -> Path:
     """Archive the workspace cache + lockfile to a portable file."""
     from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
-    from hydromodpy.data.data_freeze import archive_lockfile
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    from hydromodpy.data.registry.freeze import archive_lockfile
 
     workspace_root = _resolve_ws(str(workspace) if workspace else None)
     db_path = workspace_root / "data" / "cache.duckdb"
@@ -219,7 +235,7 @@ def archive_data_cache(output: Any, *, workspace: Any = None) -> Path:
 def restore_data_cache(source: Any, *, workspace: Any = None) -> Path:
     """Restore a cache archive into the workspace. Returns destination path."""
     from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
-    from hydromodpy.data.data_freeze import restore_archive
+    from hydromodpy.data.registry.freeze import restore_archive
 
     workspace_root = _resolve_ws(str(workspace) if workspace else None)
     src = Path(source).expanduser().resolve()

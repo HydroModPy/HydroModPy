@@ -8,13 +8,20 @@ import pytest
 
 from hydromodpy.core.exceptions import DataSourceError
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
-from hydromodpy.data.variables.hydrometry.custom import load_custom
+from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
+
+
+def _load_custom(cfg, *, project_period=None):
+    """Load one custom source the way the hydrometry manager does."""
+    return HydrometryManager(config=None, catalog=None, project_period=project_period).load_custom(
+        cfg
+    )
 
 
 class TestHydrometryCustomCSV:
     def test_load_two_stations(self, sample_hydro_dir, project_period):
         cfg = HydrometrySourceConfig(source="custom", path=sample_hydro_dir)
-        records = load_custom(cfg, project_period=project_period)
+        records = _load_custom(cfg, project_period=project_period)
 
         assert len(records) == 2
         ids = {r.station_id for r in records}
@@ -30,7 +37,7 @@ class TestHydrometryCustomCSV:
 
     def test_filter_station_ids(self, sample_hydro_dir, project_period):
         cfg = HydrometrySourceConfig(source="custom", path=sample_hydro_dir, station_ids=["ST001"])
-        records = load_custom(cfg, project_period=project_period)
+        records = _load_custom(cfg, project_period=project_period)
         assert len(records) == 1
         assert records[0].station_id == "ST001"
 
@@ -40,7 +47,7 @@ class TestHydrometryCustomCSV:
         cfg = HydrometrySourceConfig(source="custom", path=sample_hydro_dir, station_ids=["ST999"])
 
         with pytest.raises(DataSourceError, match="ST999"):
-            load_custom(cfg, project_period=project_period)
+            _load_custom(cfg, project_period=project_period)
 
     def test_the_refusal_names_the_ids_the_file_does_hold(self, sample_hydro_dir, project_period):
         cfg = HydrometrySourceConfig(
@@ -48,7 +55,7 @@ class TestHydrometryCustomCSV:
         )
 
         with pytest.raises(DataSourceError) as excinfo:
-            load_custom(cfg, project_period=project_period)
+            _load_custom(cfg, project_period=project_period)
 
         message = str(excinfo.value)
         assert "NANCON" in message
@@ -77,7 +84,7 @@ class TestHydrometryCustomCSV:
         )
 
         cfg = HydrometrySourceConfig(source="custom", path=d)
-        records = load_custom(cfg, project_period=project_period)
+        records = _load_custom(cfg, project_period=project_period)
         # 2500 L/s -> 2.5 m3/s
         assert records[0].data["value"].iloc[0] == pytest.approx(2.5)
         assert records[0].unit == "m3/s"
@@ -105,7 +112,7 @@ class TestHydrometryCustomCSV:
 
         cfg = HydrometrySourceConfig(source="custom", path=d)
         with pytest.raises(ValueError, match="No unit"):
-            load_custom(cfg, project_period=project_period)
+            _load_custom(cfg, project_period=project_period)
 
 
 class TestHydrometryCustomConstant:
@@ -128,7 +135,7 @@ class TestHydrometryCustomConstant:
         )
 
         cfg = HydrometrySourceConfig(source="custom", path=d)
-        records = load_custom(cfg, project_period=project_period)
+        records = _load_custom(cfg, project_period=project_period)
 
         assert len(records) == 1
         assert records[0].is_constant
@@ -139,14 +146,14 @@ class TestHydrometryCustomErrors:
     def test_missing_directory(self, project_period):
         cfg = HydrometrySourceConfig(source="custom", path=Path("/nonexistent"))
         with pytest.raises(FileNotFoundError):
-            load_custom(cfg, project_period=project_period)
+            _load_custom(cfg, project_period=project_period)
 
     def test_missing_location_file(self, tmp_path, project_period):
         d = tmp_path / "empty"
         d.mkdir()
         cfg = HydrometrySourceConfig(source="custom", path=d)
         with pytest.raises(FileNotFoundError, match="hydrometry_custom_LOC"):
-            load_custom(cfg, project_period=project_period)
+            _load_custom(cfg, project_period=project_period)
 
     def test_custom_requires_path(self):
         with pytest.raises(ValueError, match="path"):

@@ -9,19 +9,19 @@ state directory.
 Whether it reaches the network is declared, not assumed. Each description lists
 under ``hmp:invocation.network`` every host the capability contacts, and an empty
 list means it runs on a node with no route out at all -- which is what
-``terrain-delineate`` and ``domain-build`` declare. ``data-fetch`` declares the
-four providers it may reach, one per source it serves, because that is the set an
-orchestrator has to allow before it has read the request; which of them a given
-run reached is named host by host under ``hosts`` in ``outputs/fetch.json``. A
-gate records every name the process resolves and every address it connects to and
-refuses one the declaration does not carry, so the list is checked rather than
-promised.
+``terrain-delineate`` and ``domain-build`` declare. ``data-request`` declares
+every provider a source it serves may reach, because that is the set an
+orchestrator has to allow before it has read the request; which sources a given
+run asked is listed file by file in ``outputs/request.json``. A gate records
+every name the process resolves and every address it connects to and refuses one
+the declaration does not carry, so the list is checked rather than promised.
 
 It is not always free of the filesystem outside the job either. Each description
 lists under ``hmp:invocation.writes_outside_jobdir`` every location the
-capability needs writable. ``terrain-delineate`` and ``data-fetch`` name
+capability needs writable. ``terrain-delineate`` and ``data-request`` name
 ``$TMPDIR``, where the first assembles one catchment per outlet and the second
-gives each fetch a scratch directory it owns; ``domain-build`` names nothing,
+keeps the download cache of the managers, indexed in memory and removed with
+the job; ``domain-build`` names nothing,
 because the job directory is the only thing it writes into. An empty list means
 exactly that, and a gate runs the capability under a controlled ``TMPDIR`` and a
 controlled ``HOME`` to hold it to it.
@@ -169,44 +169,45 @@ The capabilities this build serves
            "mask": {"href": "/scratch/jobs/4711/outputs/watershed.gpkg"},
            "mask_layer": "watershed"}}
 
-``data-fetch``
-    Asks one declared data source for one variable over a bounding box, a
-    vector mask or a list of station codes, and seals what came back.
+``data-request``
+    Loads ``[data]`` sections over a bounding box, a vector mask or a list of
+    station codes, and seals one file per variable and source, cut to the
+    extent and the period asked for. The sections are the models of the project
+    TOML, so what a project asks for, a job asks for the same way; this is the
+    document ``hmp data get`` reads, under ``inputs``.
 
     The extent is an **input**, never an object the process went looking for:
-    either ``extent``, a bounding box that carries the CRS it is expressed in,
-    or ``mask``, a vector file whose bounds are the extent. The second is what
-    chains the two capabilities -- the GeoPackage ``terrain-delineate`` seals is
-    a mask ``data-fetch`` reads -- through a directory rather than through an
-    object graph.
+    ``extent.bbox`` with ``extent.crs``, ``extent.mask``, a vector file whose
+    shape bounds the request, or ``extent.station_ids``. The mask is what chains
+    the two capabilities -- the GeoPackage ``terrain-delineate`` seals is a mask
+    ``data-request`` reads -- through a directory rather than through an object
+    graph::
 
-    A source is asked for through a tagged document: ``source.id`` selects it and
-    the rest of the object configures it, so the description carries the exact
-    shape each source accepts instead of an option bag validated by nothing::
-
-        {"process": {"id": "data-fetch", "version": "1.0.0"},
+        {"process": {"id": "data-request", "version": "1.0.0"},
          "inputs": {
-           "source": {"id": "hubeau-piezometry", "product": "level"},
-           "mask": {"href": "/scratch/jobs/4711/outputs/watershed.gpkg"},
+           "data": {"piezometry": {"sources": [{"source": "hubeau", "product": "level"}]},
+                    "dem": {"sources": [{"source": "ign_geoplateforme_dem"}]}},
+           "extent": {"mask": {"href": "/scratch/jobs/4711/outputs/watershed.gpkg"}},
            "period": {"start": "2020-01-01", "end": "2020-12-31"}}}
 
     The mask is named in full, and it has to be: a **relative** input path is
     resolved against the job directory and refused if it walks out of it, which
     is what the directory of another job is. ``hmp process chain`` writes that
-    path for the caller.
+    path for the caller. A ``sha256`` beside ``href`` pins its bytes.
 
-    Which artefact it writes depends on the source's payload kind, and the run
-    writes exactly one of them: ``outputs/points.parquet``,
-    ``outputs/fields.nc``, ``outputs/features.gpkg`` or ``outputs/raster.tif``.
-    ``outputs/fetch.json`` is always there, and it names the one that was
-    written, the hosts this run contacted, the extent that was **really
-    queried** and the CRS it was really queried in -- a WGS84 box asked for a
-    DEM reaches the Geoplateforme in Lambert-93 metres, and nothing else on disk
-    says so.
+    Each variable lands under ``outputs/`` as ``<variable>_<source>`` with the
+    suffix of its kind: ``.parquet`` for chronicles, ``.nc`` for grids,
+    ``.tif`` for rasters, ``.gpkg`` for vectors. ``outputs/request.json`` is
+    always there: it lists each file with its sha256, CRS, box, period and
+    unit, and every variable that answered nothing.
 
     A provider that holds nothing inside the extent is an answer, not a failure:
-    the run succeeds, ``fetch.json`` says ``"empty": true``, and no data artefact
-    is sealed.
+    the run succeeds, the report says ``"empty": true`` for that variable, and
+    no data file is sealed for it. A variable that **fails** fails the job, with
+    the typed exit code of its error, and nothing is sealed. A ``custom``
+    source is refused before anything is written: a job has no user files to
+    read. Plugin sources are asked under ``installed``, by name, with the
+    options their constructor takes.
 
 What the directory holds afterwards
 -----------------------------------
@@ -259,8 +260,8 @@ Chaining capabilities
 ---------------------
 
 Capabilities compose through the disk: the GeoPackage ``terrain-delineate``
-seals is a mask ``data-fetch`` reads, and the corrected DEM it seals beside it is
-the top surface ``domain-build`` places a bottom under. Asking for a variable
+seals is a mask ``data-request`` reads, and the corrected DEM it seals beside
+it is the top surface ``domain-build`` places a bottom under. Asking for a variable
 over a watershed, or for the geometry of an aquifer under one, is therefore two
 jobs, and ``chain`` is the verb that runs them as one command.
 
@@ -278,13 +279,15 @@ The caller writes **one** document at the chain root::
                   "outlets": [{"site_id": "valley", "x": 300112.5, "y": 6701262.5}],
                   "crs_project": "EPSG:2154"}},
       {"id": "fetch",
-       "process": {"id": "data-fetch"},
-       "inputs": {"source": {"id": "hubeau-piezometry", "product": "level"},
+       "process": {"id": "data-request"},
+       "inputs": {"data": {"piezometry": {"sources": [{"source": "hubeau", "product": "level"}]}},
                   "period": {"start": "2020-01-01", "end": "2020-12-31"}},
-       "links": [{"member": "mask", "step": "delineate", "output": "watershed_vector"}]}
+       "links": [{"member": "extent.mask", "step": "delineate",
+                  "output": "watershed_vector"}]}
     ]}
 
-A **link** is the whole point: ``member`` is the input of this step to fill,
+A **link** is the whole point: ``member`` is the input of this step to fill
+(a dotted path such as ``extent.mask`` names a member nested in another),
 ``step`` is an earlier step of the chain, and ``output`` is an artefact of that
 step **as its capability declares it** -- ``hmp process describe`` lists the
 names. The chain turns it into the absolute path that artefact takes, which is
@@ -312,10 +315,9 @@ Four rules, each of them checkable from the outside:
   stopped it. The status of a step is read off **its exit code** and never off
   the document it printed; a step whose document says otherwise has its
   disagreement published as a fault of that step.
-* **a linked artefact that the run did not produce refuses its reader.** Half
-  the artefacts of this tree are optional -- a ``data-fetch`` run writes one
-  payload of four -- so the chain checks the file is there before starting the
-  step that reads it.
+* **a linked artefact that the run did not produce refuses its reader.** An
+  artefact declared optional is one a run may not write, so the chain checks
+  the file is there before starting the step that reads it.
 * **idempotency composes.** Running the same chain into the same root again
   re-submits each step with a byte-identical request, so each one is a reuse:
   nothing is re-run, and ``chain-outcome.json`` says ``"reused": true`` for
@@ -365,9 +367,10 @@ The same two jobs, chained:
       "inputs": {"dem": {"href": "/data/dem_valley.tif"},
                  "outlets": [{"site_id": "valley", "x": 300112.5, "y": 6701262.5}],
                  "crs_project": "EPSG:2154"}},
-     {"id": "fetch", "process": {"id": "data-fetch"},
-      "inputs": {"source": {"id": "ign-bdalti"}},
-      "links": [{"member": "mask", "step": "delineate", "output": "watershed_vector"}]}]}
+     {"id": "fetch", "process": {"id": "data-request"},
+      "inputs": {"data": {"dem": {"sources": [{"source": "ign_geoplateforme_dem"}]}}},
+      "links": [{"member": "extent.mask", "step": "delineate",
+                 "output": "watershed_vector"}]}]}
    JSON
    $ hmp process chain --root /scratch/chains/17 \
        > /scratch/chains/17.stdout.json 2> /scratch/chains/17.stderr.log

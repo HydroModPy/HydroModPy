@@ -71,7 +71,7 @@ def test_download_dem_fr_regions_are_resolved_before_discovery(monkeypatch):
         return []
 
     monkeypatch.setattr(
-        "hydromodpy.data.common.administrative.france.find_departments_in_regions",
+        "hydromodpy.spatial.administrative.france.find_departments_in_regions",
         fake_find_departments,
     )
     monkeypatch.setattr(download_dem_fr, "discover_ign_dem_files", fake_discover)

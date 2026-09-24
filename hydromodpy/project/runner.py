@@ -386,7 +386,7 @@ class ProjectRunner:
         pipeline = Pipeline(steps, workspace=None if head_only else workspace_path)
         restore_frozen_root: Path | None = None
         if frozen:
-            from hydromodpy.data.data_freeze import frozen_project_root, set_frozen_mode
+            from hydromodpy.data.provenance.lockfile import frozen_project_root, set_frozen_mode
 
             restore_frozen_root = frozen_project_root()
             set_frozen_mode(True, project_root=workspace_path)
@@ -420,7 +420,7 @@ class ProjectRunner:
                 project_phases.open_catalog(project)
             _rebind_run_history_catalog(project)
             if frozen:
-                from hydromodpy.data.data_freeze import set_frozen_mode
+                from hydromodpy.data.provenance.lockfile import set_frozen_mode
 
                 set_frozen_mode(
                     restore_frozen_root is not None,

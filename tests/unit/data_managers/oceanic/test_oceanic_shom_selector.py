@@ -75,7 +75,7 @@ def test_a_named_station_wins_over_a_mask(tmp_path, monkeypatch):
     captured = _capture(monkeypatch)
     source = OceanicSourceConfig(source="shom", station_ids=["152"], mask_path=_mask(tmp_path))
 
-    _manager(source)._fetch_shom(source)
+    _manager(source)._fetch_from_source(source)
 
     assert captured["station_id"] == "152"
     assert "near_lat" not in captured, captured
@@ -101,9 +101,9 @@ def test_a_named_station_survives_the_mask_the_loader_injects(tmp_path, monkeypa
     source = config.sources[0]
     assert source.mask_path == watershed, "the loader stopped injecting; this test is now vacuous"
 
-    OceanicManager(config=config, catalog=None, project_period=PERIOD, data_dir=None)._fetch_shom(
-        source
-    )
+    OceanicManager(
+        config=config, catalog=None, project_period=PERIOD, data_dir=None
+    )._fetch_from_source(source)
 
     assert captured["station_id"] == "152"
 
@@ -113,7 +113,7 @@ def test_no_selector_at_all_is_refused(monkeypatch):
     _capture(monkeypatch)
     source = OceanicSourceConfig(source="shom")
     with pytest.raises(ValueError, match="station_ids"):
-        _manager(source)._fetch_shom(source)
+        _manager(source)._fetch_from_source(source)
 
 
 @pytest.mark.fast
@@ -122,7 +122,7 @@ def test_a_mask_gives_the_point_to_search_from_in_degrees(tmp_path, monkeypatch)
     captured = _capture(monkeypatch)
     source = OceanicSourceConfig(source="shom", mask_path=_mask(tmp_path))
 
-    _manager(source)._fetch_shom(source)
+    _manager(source)._fetch_from_source(source)
 
     assert "station_id" not in captured, captured
     assert captured["near_lat"] == pytest.approx(48.4, abs=0.3), captured
@@ -140,7 +140,7 @@ def test_named_stations_skip_the_search_and_are_read_one_by_one(tmp_path, monkey
     monkeypatch.setattr(shom, "fetch", fake_fetch)
     source = OceanicSourceConfig(source="shom", station_ids=["152", "170"])
 
-    _manager(source, data_dir=tmp_path / "data")._fetch_shom(source)
+    _manager(source, data_dir=tmp_path / "data")._fetch_from_source(source)
 
     assert [c["station_id"] for c in calls] == ["152", "170"]
     assert all(c.get("near_lat") is None for c in calls), calls
@@ -153,7 +153,7 @@ def test_the_cache_lives_in_the_variable_data_directory(tmp_path, monkeypatch):
     captured = _capture(monkeypatch)
     source = OceanicSourceConfig(source="shom", mask_path=_mask(tmp_path))
 
-    _manager(source, data_dir=tmp_path / "data" / "oceanic")._fetch_shom(source)
+    _manager(source, data_dir=tmp_path / "data" / "oceanic")._fetch_from_source(source)
 
     assert captured["cache_dir"] == tmp_path / "data" / "oceanic"
 

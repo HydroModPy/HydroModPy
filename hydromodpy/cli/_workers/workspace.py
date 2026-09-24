@@ -30,7 +30,7 @@ def init_workspace(
     """
     from hydromodpy.core.state.global_index import auto_register_projects
     from hydromodpy.core.workspace.workspace_toml import write_workspace_toml
-    from hydromodpy.data.scaffold import DEFAULT_ROOT, scaffold
+    from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT, scaffold
 
     target = Path(path).expanduser().resolve() if path else DEFAULT_ROOT
     if target.exists() and any(target.iterdir()) and not force:

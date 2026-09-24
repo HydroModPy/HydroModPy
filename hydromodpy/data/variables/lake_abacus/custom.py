@@ -9,9 +9,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.data.adapters import convert_abacus_to_parquet
 from hydromodpy.data.contracts.table import TableRecord
-from hydromodpy.data.derived import derived_path
+from hydromodpy.data.ingest import convert_abacus_to_parquet
+from hydromodpy.data.provenance.derived import derived_path
 
 
 def load_custom_abacus(

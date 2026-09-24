@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hydromodpy.data.provenance.sidecars import load_sidecar, sidecar_path_for
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-from hydromodpy.data.sidecars import load_sidecar, sidecar_path_for
 from hydromodpy.data.variables.geology.config import CustomGeologySource, GeologyConfig
 from hydromodpy.data.variables.geology.custom import load_custom_geology
 from hydromodpy.data.variables.geology.manager import GeologyManager

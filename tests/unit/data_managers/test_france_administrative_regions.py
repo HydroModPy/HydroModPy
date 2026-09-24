@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.data.common.administrative.france import (
+from hydromodpy.spatial.administrative.france import (
     find_departments_in_regions,
     french_region_code,
     known_french_region_names,

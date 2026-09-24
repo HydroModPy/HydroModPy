@@ -34,7 +34,7 @@ def _bbox_token(bbox: tuple[float, float, float, float]) -> str:
 
 
 def _sha256(path: Path) -> str:
-    from hydromodpy.data.lockfile import sha256_of
+    from hydromodpy.data.provenance.lockfile import sha256_of
 
     return sha256_of(path)
 

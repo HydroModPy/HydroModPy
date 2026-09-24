@@ -3380,7 +3380,7 @@ def _generate_geology_transfer_property_case(
 ) -> dict[str, Any]:
     plt = _import_pyplot()
 
-    from hydromodpy.data.variables.geology.cases import (
+    from hydromodpy.data.cases.geology import (
         run_geology_property_case as demo,
     )
 
@@ -3580,7 +3580,7 @@ def _generate_geology_transfer_variants_property_case(
     spec: GalleryCaseSpec,
     source_root: Path,
 ) -> dict[str, Any]:
-    from hydromodpy.data.variables.geology.cases import (
+    from hydromodpy.data.cases.geology import (
         run_geology_property_case as demo,
     )
 

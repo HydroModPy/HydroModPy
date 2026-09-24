@@ -3,8 +3,9 @@
 The mechanics are checked against declarations built here, because the chain
 knows no capability and asserting it against the two this build ships would
 hide that. One test does use the real pair, and it is the contract of the
-phase: the GeoPackage ``terrain-delineate`` seals fills the ``mask`` member of
-``data-fetch``, at the path the declaration gives it and nowhere else.
+phase: the GeoPackage ``terrain-delineate`` seals fills the ``extent.mask``
+member of ``data-request``, at the path the declaration gives it and nowhere
+else.
 """
 
 from __future__ import annotations
@@ -157,6 +158,48 @@ def test_the_second_step_reads_the_artefact_the_first_wrote(tmp_path: Path) -> N
     }
     assert outcome.exit_code == 0
     assert outcome.document["status"] == "successful"
+
+
+def test_a_dotted_member_is_written_inside_the_object_it_names(tmp_path: Path) -> None:
+    """``extent.mask`` fills one member of ``extent`` and keeps its siblings."""
+    chain = _chain()
+    second = chain.steps[1].model_copy(
+        update={
+            "inputs": {"extent": {"buffer": 10}},
+            "links": [
+                chain.steps[1].links[0].model_copy(update={"member": "extent.mask"}),
+            ],
+        }
+    )
+    _run(tmp_path, chain.model_copy(update={"steps": [chain.steps[0], second]}))
+
+    written = json.loads((tmp_path / "02-second" / "request.json").read_text(encoding="utf-8"))
+    assert written["inputs"]["extent"] == {
+        "buffer": 10,
+        "mask": {"href": str(tmp_path / "01-first" / THING_PATH), "type": THING_MEDIA_TYPE},
+    }
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [{"extent": {"mask": {"href": "/elsewhere"}}}, {"extent": "a string, not an object"}],
+    ids=["nested-member-given", "parent-not-an-object"],
+)
+def test_a_dotted_member_the_inputs_already_fill_is_refused(inputs: dict) -> None:
+    with pytest.raises(Exception, match="given once"):
+        ChainRequest.model_validate(
+            {
+                "steps": [
+                    {"id": "first", "process": {"id": PRODUCER_ID}},
+                    {
+                        "id": "second",
+                        "process": {"id": CONSUMER_ID},
+                        "inputs": inputs,
+                        "links": [{"member": "extent.mask", "step": "first", "output": "thing"}],
+                    },
+                ]
+            }
+        )
 
 
 def test_the_link_is_absolute_because_a_relative_one_leaves_the_job_directory(
@@ -433,18 +476,18 @@ def test_a_byte_order_mark_is_read_and_not_refused(tmp_path: Path) -> None:
 def test_the_two_capabilities_of_this_build_chain_on_the_watershed(tmp_path: Path) -> None:
     """The contract of the phase, against the real declarations.
 
-    ``data-fetch`` takes its extent as an input, and a mask already produced is
-    one of the three spellings it accepts. What the chain has to get right is
+    ``data-request`` takes its extent as an input, and a mask already produced
+    is one of the three spellings it accepts. What the chain has to get right is
     which artefact of the first step is that mask, and it reads that from the
     declaration rather than from a string written here.
     """
-    from hydromodpy.data.fetch.capability import DATA_FETCH
+    from hydromodpy.data.request.job import DATA_REQUEST
     from hydromodpy.spatial.site_selection.hydrology.capability import (
         TERRAIN_DELINEATE,
         WATERSHED_VECTOR_PATH,
     )
 
-    served = {DATA_FETCH.id: DATA_FETCH, TERRAIN_DELINEATE.id: TERRAIN_DELINEATE}
+    served = {DATA_REQUEST.id: DATA_REQUEST, TERRAIN_DELINEATE.id: TERRAIN_DELINEATE}
     chain = ChainRequest.model_validate(
         {
             "steps": [
@@ -459,10 +502,14 @@ def test_the_two_capabilities_of_this_build_chain_on_the_watershed(tmp_path: Pat
                 },
                 {
                     "id": "fetch",
-                    "process": {"id": DATA_FETCH.id},
-                    "inputs": {"source": {"id": "ign-bdalti"}},
+                    "process": {"id": DATA_REQUEST.id},
+                    "inputs": {"data": {"dem": {"sources": [{"source": "ign_geoplateforme_dem"}]}}},
                     "links": [
-                        {"member": "mask", "step": "delineate", "output": "watershed_vector"}
+                        {
+                            "member": "extent.mask",
+                            "step": "delineate",
+                            "output": "watershed_vector",
+                        }
                     ],
                 },
             ]

@@ -17,7 +17,7 @@ import pytest
 
 from hydromodpy.data.loading import loader as loader_module
 from hydromodpy.data.loading.loader import DataManagersRuntimeLoader
-from hydromodpy.data.managers.plan import DataLoadPlan
+from hydromodpy.data.loading.plan import DataLoadPlan
 from hydromodpy.data.variables.oceanic.config import OceanicConfig
 
 

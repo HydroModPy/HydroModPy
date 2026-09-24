@@ -92,15 +92,15 @@ Configuration Values
    * - ``[field] id``
      - Identifier used by FieldParam for the illustrated hydraulic property.
      - K
-     - ``hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml``
+     - ``hydromodpy/data/cases/geology/gallery_field_param_brittany.toml``
    * - ``[field] kind``
      - Homogeneous or heterogeneous assignment mode used by the field parameter.
      - heterogeneous
-     - ``hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml``
+     - ``hydromodpy/data/cases/geology/gallery_field_param_brittany.toml``
    * - ``[field] values_source``
      - How heterogeneous values are supplied to the field parameter.
      - csv
-     - ``hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml``
+     - ``hydromodpy/data/cases/geology/gallery_field_param_brittany.toml``
    * - ``[field] values_csv_file``
      - CSV file used to map zone keys to property values when the case is CSV-driven.
      - geology_K_dummy_demo.csv
@@ -108,23 +108,23 @@ Configuration Values
    * - ``[field_vertical_profile] mode``
      - Vertical-profile mode applied to the field when depth dependence is active.
      - none
-     - ``hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml``
+     - ``hydromodpy/data/cases/geology/gallery_field_param_brittany.toml``
    * - ``[geology] id``
      - Identifier of the geology field used to spatialize the property mapping.
      - field_geology
-     - ``hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml``
+     - ``hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml``
    * - ``[geology] cell_samples_per_axis``
      - Sampling density used when rasterizing geology polygons onto the support.
      - 6
-     - ``hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml``
+     - ``hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml``
    * - ``[geology.source] kind``
      - Source type used to load the geology layer shown by the property demo.
      - vector
-     - ``hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml``
+     - ``hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml``
    * - ``[geology.source] code_field``
      - Attribute used as the geology code when transferring values onto the support.
      - CODE_LEG
-     - ``hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml``
+     - ``hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml``
 
 Displayed Values
 ^^^^^^^^^^^^^^^^
@@ -157,9 +157,9 @@ Displayed Values
 Source Pointers
 ---------------
 
-- ``hydromodpy/data/variables/geology/cases/run_geology_property_case.py``
-- ``hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml``
-- ``hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml``
+- ``hydromodpy/data/cases/geology/run_geology_property_case.py``
+- ``hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml``
+- ``hydromodpy/data/cases/geology/gallery_field_param_brittany.toml``
 - ``examples/data/geology/GEO1M_brittany.shp``
 - ``examples/data/geology/GEO1M_brittany.dbf``
 - ``examples/data/geology/GEO1M_brittany.shx``

@@ -18,7 +18,7 @@ from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.toml_io.io import dump_toml_with_comments
-from hydromodpy.data.variables.timeseries_variable_config import (
+from hydromodpy.data.managers.timeseries_config import (
     TimeseriesVariableConfig,
 )
 

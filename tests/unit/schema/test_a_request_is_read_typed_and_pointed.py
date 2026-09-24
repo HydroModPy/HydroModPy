@@ -121,7 +121,7 @@ def test_an_unknown_envelope_member_is_a_warning_and_not_a_refusal(tmp_path: Pat
 def test_a_request_for_another_capability_is_refused(
     tmp_path: Path, demo_capability: CapabilityDecl
 ) -> None:
-    request = read_request(_job(tmp_path, dict(VALID, process={"id": "data-fetch"})))
+    request = read_request(_job(tmp_path, dict(VALID, process={"id": "data-request"})))
 
     with pytest.raises(ConfigValidationError) as excinfo:
         check_process(request, demo_capability)

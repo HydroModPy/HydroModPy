@@ -29,6 +29,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+from contextlib import nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -258,17 +259,17 @@ def _restore_backup(db_path: Path, backup: Path) -> None:
     shutil.copy2(native_io_path(backup), db_path_io)
 
 
-def _resolve_db_path_from_connection(connection: duckdb.DuckDBPyConnection) -> Path:
-    """Best-effort discovery of the on-disk database path from a live connection."""
+def _resolve_db_path_from_connection(connection: duckdb.DuckDBPyConnection) -> Path | None:
+    """The on-disk database path of a live connection, or None for one in memory."""
     try:
         rows = connection.execute("PRAGMA database_list").fetchall()
     except Exception:
-        return Path("memory.duckdb")
+        return None
     for row in rows:
         candidate = row[2] if len(row) >= 3 else None
         if candidate and candidate != ":memory:":
             return Path(str(candidate))
-    return Path("memory.duckdb")
+    return None
 
 
 def _has_pending_migrations(
@@ -315,11 +316,18 @@ def ensure_schema_safe(
       migrations raise :class:`AutoMigrationDisabled` instead of running.
 
     ``db_path`` is resolved from the live connection when omitted so every
-    scope (catalog, global index, data cache) can share this safe path.
+    scope (catalog, global index, data cache) can share this safe path. A
+    database in memory belongs to this process alone: it takes no lock and no
+    backup, so nothing is written to disk for it, and ``HMP_AUTO_MIGRATE=0``
+    still applies to it.
     """
     if db_path is None:
         db_path = _resolve_db_path_from_connection(connection)
-    lock = FileLock(f"{native_io_path(db_path)}.lock", timeout=lock_timeout)
+    lock = (
+        nullcontext()
+        if db_path is None
+        else FileLock(f"{native_io_path(db_path)}.lock", timeout=lock_timeout)
+    )
     with lock:
         pending = _has_pending_migrations(
             connection,
@@ -343,7 +351,7 @@ def ensure_schema_safe(
             )
 
         backup: Path | None = None
-        if _should_backup(connection, db_path, component=component):
+        if db_path is not None and _should_backup(connection, db_path, component=component):
             backup = backup_path_for(db_path)
             _copy_backup(db_path, backup, connection=connection)
             logger.debug("Pre-migration backup written: %s", backup)

@@ -11,12 +11,12 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from hydromodpy.data.common.custom_grid_loader import (
+from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.ingest.custom_grids import (
     _find_coord,
     _find_time_dim,
     load_custom_nc,
 )
-from hydromodpy.data.contracts.spatial_field import FieldRecord
 
 
 @pytest.mark.fast
@@ -212,7 +212,7 @@ class TestLoadCustomTif:
 
         monkeypatch.setattr(builtins, "__import__", block_rioxarray_import)
 
-        from hydromodpy.data.common.custom_grid_loader import load_custom_tif
+        from hydromodpy.data.ingest.custom_grids import load_custom_tif
 
         with pytest.raises(ImportError, match="rioxarray import blocked by test"):
             load_custom_tif(Path("/fake.tif"), variable="x", unit="y")

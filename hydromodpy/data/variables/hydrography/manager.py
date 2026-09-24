@@ -42,10 +42,16 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.source_extent import mask_extent_in, mask_geometry
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.managers.base_manager_common import SourceTable
+from hydromodpy.data.source import registry
 from hydromodpy.data.variables.hydrography.api_source import (
+    NETWORK_PAYLOAD_KIND,
     fetch_network,
     source_from_section,
 )
+from hydromodpy.data.variables.hydrography.apis.bdtopage import BdTopageSource
+from hydromodpy.data.variables.hydrography.apis.euhydro import EuHydroSource
+from hydromodpy.data.variables.hydrography.apis.osm import OsmSource
 from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
     HydrographySourceConfig,
@@ -62,10 +68,16 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class HydrographyManager:
+class HydrographyManager(SourceTable):
     """Load, clip, and rasterise hydrography vector data."""
 
     VARIABLE_NAME = "hydrography"
+    SOURCES = {
+        BdTopageSource.source_id: BdTopageSource,
+        EuHydroSource.source_id: EuHydroSource,
+        OsmSource.source_id: OsmSource,
+    }
+    """The built-in network sources. A section may also name one a plugin registered."""
 
     def __init__(
         self,
@@ -229,16 +241,23 @@ class HydrographyManager:
     # Source resolution
     # ------------------------------------------------------------------
 
-    def _fetch_from_source(
+    def load_custom(self, source_cfg: HydrographySourceConfig) -> gpd.GeoDataFrame | Path:
+        """Load the user's own network file."""
+        from hydromodpy.data.variables.hydrography import custom
+
+        return custom.load_custom(source_cfg)
+
+    def _listed_source(self, name: str) -> type:
+        """A built-in of ``SOURCES``, or a network source a plugin registered."""
+        return registry.get_serving(name, NETWORK_PAYLOAD_KIND)
+
+    def _fetch_listed_source(
         self,
+        source_cls: type,
         source_cfg: HydrographySourceConfig,
-    ) -> gpd.GeoDataFrame | Path:
-        """Load a local file, or ask the source the section names for the box."""
-        if source_cfg.source == "custom":
-            from hydromodpy.data.variables.hydrography.custom import load_custom
-
-            return load_custom(source_cfg)
-
+    ) -> gpd.GeoDataFrame:
+        """Ask the source the section names for the box, or reuse the cached network."""
+        del source_cls
         source = source_from_section(source_cfg)
         extent = mask_extent_in(self._require_mask_path(), source.extent_crs)
 

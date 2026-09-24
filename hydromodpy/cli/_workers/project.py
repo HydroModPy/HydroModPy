@@ -14,7 +14,7 @@ def create_project(name: str, *, workspace: Any = None) -> Path:
     name
         Project name (created under ``<workspace>/projects/<name>``).
     workspace
-        Workspace root. Defaults to :data:`hydromodpy.data.scaffold.DEFAULT_ROOT`.
+        Workspace root. Defaults to :data:`hydromodpy.data.workspace.scaffold.DEFAULT_ROOT`.
 
     Returns
     -------
@@ -26,8 +26,8 @@ def create_project(name: str, *, workspace: Any = None) -> Path:
     FileNotFoundError
         If ``workspace`` does not look like a scaffolded HydroModPy workspace.
     """
-    from hydromodpy.data.scaffold import DEFAULT_ROOT
-    from hydromodpy.data.scaffold import create_project as _create
+    from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
+    from hydromodpy.data.workspace.scaffold import create_project as _create
 
     workspace_root = Path(workspace).expanduser().resolve() if workspace else DEFAULT_ROOT
     layout_ok = (workspace_root / "data").is_dir() or (workspace_root / "projects").is_dir()
@@ -48,7 +48,7 @@ def list_projects(workspace: Any = None) -> list[dict]:
 
     from hydromodpy.cli.helpers import find_workspace_root
     from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
-    from hydromodpy.data.scaffold import DEFAULT_ROOT
+    from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
 
     if workspace:
         workspace_root = Path(workspace).expanduser().resolve()
@@ -87,7 +87,7 @@ def show_project(name: str, *, workspace: Any = None) -> dict:
 
     from hydromodpy.cli.helpers import find_workspace_root
     from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, catalog_path_for
-    from hydromodpy.data.scaffold import DEFAULT_ROOT
+    from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
 
     if workspace:
         workspace_root = Path(workspace).expanduser().resolve()
@@ -144,7 +144,7 @@ def delete_project(name: str, *, workspace: Any = None, force: bool = False) -> 
     import shutil
 
     from hydromodpy.cli.helpers import find_workspace_root
-    from hydromodpy.data.scaffold import DEFAULT_ROOT
+    from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
 
     if workspace:
         workspace_root = Path(workspace).expanduser().resolve()

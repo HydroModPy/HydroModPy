@@ -541,7 +541,7 @@ def render_spatial_local_example() -> tuple[Path, dict[str, object]]:
 
 
 def render_geology_property_local_example() -> tuple[Path, dict[str, object]]:
-    from hydromodpy.data.variables.geology.cases.run_geology_property_case import (
+    from hydromodpy.data.cases.geology.run_geology_property_case import (
         main as run_geology_case,
     )
 
@@ -564,8 +564,8 @@ def render_geology_property_local_example() -> tuple[Path, dict[str, object]]:
         ]
     )
     summary = {
-        "geology_config": "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml",
-        "field_param_config": "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml",
+        "geology_config": "hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml",
+        "field_param_config": "hydromodpy/data/cases/geology/gallery_field_param_brittany.toml",
         "window_km": 10,
         "target_n_cells": 400,
     }
@@ -1246,19 +1246,11 @@ def render_provider_case_ladder() -> Path:
 
 
 def render_oceanic_example() -> tuple[Path, dict[str, object]]:
-    from hydromodpy.data.variables.oceanic.cases.run_oceanic_case import (
+    from hydromodpy.data.cases.oceanic.run_oceanic_case import (
         run_oceanic_case_from_toml,
     )
 
-    config = (
-        REPO_ROOT
-        / "hydromodpy"
-        / "data"
-        / "variables"
-        / "oceanic"
-        / "cases"
-        / "run_oceanic_config.toml"
-    )
+    config = REPO_ROOT / "hydromodpy" / "data" / "cases" / "oceanic" / "run_oceanic_config.toml"
     summary = run_oceanic_case_from_toml(
         config, output_json=OUTPUT_DIR / "oceanic_local_case_summary.json"
     )
@@ -1266,9 +1258,8 @@ def render_oceanic_example() -> tuple[Path, dict[str, object]]:
         REPO_ROOT
         / "hydromodpy"
         / "data"
-        / "variables"
-        / "oceanic"
         / "cases"
+        / "oceanic"
         / "data"
         / "oceanic_local_sample.csv"
     )
@@ -1299,7 +1290,7 @@ def render_oceanic_example() -> tuple[Path, dict[str, object]]:
 
 
 def render_intermittency_example() -> tuple[Path, dict[str, object]]:
-    from hydromodpy.data.variables.intermittency.cases.run_intermittency_case import (
+    from hydromodpy.data.cases.intermittency.run_intermittency_case import (
         run_intermittency_case_from_toml,
     )
 
@@ -1307,15 +1298,14 @@ def render_intermittency_example() -> tuple[Path, dict[str, object]]:
         REPO_ROOT
         / "hydromodpy"
         / "data"
-        / "variables"
-        / "intermittency"
         / "cases"
+        / "intermittency"
         / "run_intermittency_config.toml"
     )
     summary = run_intermittency_case_from_toml(
         config, output_json=OUTPUT_DIR / "intermittency_local_case_summary.json"
     )
-    data_dir = REPO_ROOT / "hydromodpy" / "data" / "variables" / "intermittency" / "cases" / "data"
+    data_dir = REPO_ROOT / "hydromodpy" / "data" / "cases" / "intermittency" / "data"
     station_files = sorted(data_dir.glob("intermittency_custom_ONDE*_irregular.csv"))
 
     fig, (ax_timeline, ax_hist) = plt.subplots(
