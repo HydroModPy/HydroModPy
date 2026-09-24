@@ -26,6 +26,7 @@ from typing import Any
 from hydromodpy.schema.job.digest import sha256_file, sha256_value
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import read_document, write_document
+from hydromodpy.schema.job.extent import SpatialExtent
 from hydromodpy.schema.job.inputset import InputSet
 from hydromodpy.schema.job.layout import INPUTSET_FILENAME, SEALED_DOCUMENTS
 from hydromodpy.schema.job.outcome import OutputRecord, now
@@ -67,7 +68,7 @@ def seal_job(
     job_id: str,
     inputset: InputSet,
     outputs: Sequence[OutputRecord] = (),
-    geometry: Mapping[str, Any] | None = None,
+    geometry: SpatialExtent | None = None,
 ) -> Path:
     """Write the seal of *job*, refusing to seal what is not complete.
 
@@ -127,7 +128,7 @@ def seal_job(
         "artifacts": [record.to_document() for record in artifacts.values()],
     }
     if geometry is not None:
-        document["geometry"] = dict(geometry)
+        document["geometry"] = geometry.to_document()
     return write_document(job.manifest_path, document)
 
 

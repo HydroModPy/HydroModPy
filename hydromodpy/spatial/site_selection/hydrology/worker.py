@@ -53,6 +53,7 @@ from hydromodpy.core.io.geoparquet import write_geoparquet_atomic
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import write_document
+from hydromodpy.schema.job.extent import SpatialExtent
 from hydromodpy.schema.job.inputset import (
     InputResource,
     InputSet,
@@ -129,6 +130,7 @@ class _Resolved:
     dem_path: Path
     dem_digest: str
     dem_bytes: int
+    dem_extent: SpatialExtent
     effective_inputs: dict[str, Any]
     job_id: str
     warnings: tuple[str, ...]
@@ -232,7 +234,7 @@ def _resolve(job: JobDirectory) -> _Resolved:
     dem_path = _resolve_dem(job, inputs)
     dem_digest, dem_bytes = sha256_file(dem_path)
     _refuse_a_dem_that_is_not_the_one_asked_for(inputs, digest=dem_digest)
-    _refuse_a_dem_that_is_not_a_raster(inputs, path=dem_path)
+    dem_extent = _dem_extent(inputs, path=dem_path)
     _refuse_an_engine_this_installation_does_not_serve(inputs)
 
     effective_inputs = _effective_inputs(inputs, dem_digest=dem_digest)
@@ -241,6 +243,7 @@ def _resolve(job: JobDirectory) -> _Resolved:
         dem_path=dem_path,
         dem_digest=dem_digest,
         dem_bytes=dem_bytes,
+        dem_extent=dem_extent,
         effective_inputs=effective_inputs,
         job_id=content_address(
             process_id=decl.id,
@@ -270,6 +273,7 @@ def _execute(job: JobDirectory, resolved: _Resolved, *, started_at: str) -> JobO
     inputset = _build_inputset(
         dem_digest=resolved.dem_digest,
         dem_bytes=resolved.dem_bytes,
+        dem_extent=resolved.dem_extent,
         inputs=resolved.inputs,
         effective_inputs=resolved.effective_inputs,
     )
@@ -327,18 +331,25 @@ def _refuse_a_dem_that_is_not_the_one_asked_for(
         )
 
 
-def _refuse_a_dem_that_is_not_a_raster(inputs: TerrainDelineateRequest, *, path: Path) -> None:
-    """Refuse a declared DEM that no raster reader can open as one band.
+def _dem_extent(inputs: TerrainDelineateRequest, *, path: Path) -> SpatialExtent:
+    """Measure the declared DEM, refusing one no raster reader opens as one band.
 
     The check is here, on the input, and not around the chain: a failure the
     engine raises is the backend failing, and a file that is not a raster is
     bad input. Without it a text file handed as ``dem`` surfaced as an
     untyped ``HMPY.E000`` and exit 1, the code whose whole meaning is "this
     is a bug in HydroModPy, report it".
+
+    The extent is the raster bounds in ``crs_project``: the request declares
+    the DEM in that CRS, and the chain stamps it on every product. A raster
+    stored south-up reports its bounds inverted, so the box takes the min and
+    the max of each axis. A raster whose geotransform covers no area is bad
+    input too, and is refused the same way.
     """
     try:
         with rasterio.open(str(path)) as source:
             band_count = source.count
+            left, bottom, right, top = source.bounds
     except rasterio.errors.RasterioError as exc:
         raise DataContractViolation(
             f"input dem {inputs.dem.href!r} cannot be opened as a raster: {exc}"
@@ -350,6 +361,15 @@ def _refuse_a_dem_that_is_not_a_raster(inputs: TerrainDelineateRequest, *, path:
             f"input dem {inputs.dem.href!r} carries {band_count} band(s); "
             "an elevation model carries at least one"
         )
+    try:
+        return SpatialExtent(
+            bbox=(min(left, right), min(bottom, top), max(left, right), max(bottom, top)),
+            crs=inputs.crs_project,
+        )
+    except ValueError as exc:
+        raise DataContractViolation(
+            f"input dem {inputs.dem.href!r} gives no valid extent in {inputs.crs_project!r}: {exc}"
+        ) from exc
 
 
 def _effective_inputs(inputs: TerrainDelineateRequest, *, dem_digest: str) -> dict[str, Any]:
@@ -511,6 +531,7 @@ def _build_inputset(
     *,
     dem_digest: str,
     dem_bytes: int,
+    dem_extent: SpatialExtent,
     inputs: TerrainDelineateRequest,
     effective_inputs: dict[str, Any],
 ) -> InputSet:
@@ -537,7 +558,7 @@ def _build_inputset(
                 media_type=inputs.dem.type or GEOTIFF_MEDIA_TYPE,
                 bytes=dem_bytes,
                 sha256=dem_digest,
-                spatial={"crs": inputs.crs_project},
+                spatial=dem_extent,
             ),
             inline_resource(
                 "parameters",

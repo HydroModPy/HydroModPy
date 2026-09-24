@@ -26,6 +26,7 @@ from typing import Any, Literal
 
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.schema.job.digest import sha256_file, sha256_value
+from hydromodpy.schema.job.extent import SpatialExtent
 from hydromodpy.schema.media_types import JSON_MEDIA_TYPE
 
 INPUTSET_SCHEMA = "hmp-inputset/v1"
@@ -73,7 +74,7 @@ class InputResource:
     bytes: int | None = None
     sha256: str | None = None
     copied_to: str | None = None
-    spatial: Mapping[str, Any] | None = None
+    spatial: SpatialExtent | None = None
     temporal: Mapping[str, Any] | None = None
     source: Mapping[str, Any] | None = None
     licence: Licence = UNDETERMINED
@@ -88,7 +89,7 @@ class InputResource:
             "mediaType": self.media_type,
             "bytes": self.bytes,
             "sha256": self.sha256,
-            "spatial": dict(self.spatial) if self.spatial is not None else None,
+            "spatial": self.spatial.to_document() if self.spatial is not None else None,
             "temporal": dict(self.temporal) if self.temporal is not None else None,
             "source": dict(self.source) if self.source is not None else None,
             "licence": self.licence.to_document(),
@@ -180,7 +181,7 @@ def file_resource(
     href: str | None = None,
     media_type: str | None = None,
     licence: Licence = UNDETERMINED,
-    spatial: Mapping[str, Any] | None = None,
+    spatial: SpatialExtent | None = None,
     temporal: Mapping[str, Any] | None = None,
     source: Mapping[str, Any] | None = None,
 ) -> InputResource:

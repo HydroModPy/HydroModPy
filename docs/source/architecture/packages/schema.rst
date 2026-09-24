@@ -76,6 +76,11 @@ the one a caller outside the process relies on:
 - ``job/inputset.py`` -- the input set as a first-class object,
   whose id digests the **complete** resource array, with a licence
   per resource and a rollup that never refuses to seal.
+- ``job/extent.py`` -- ``SpatialExtent``, the one shape a job records
+  a place in: ``{"crs": ..., "bbox": [...]}``, the box in its native
+  CRS. Four finite ordered numbers and a CRS ``pyproj`` parses, or a
+  refusal. The inputset resources and the seal ``geometry`` use it; a
+  view reprojects the box to WGS84 itself.
 - ``job/provenance.py`` -- how the job ran: tool, commit and dirty
   flag, interpreter, platform, backend, package freeze. It carries no
   instant, so two identical submissions render identical bytes, and it

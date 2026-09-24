@@ -603,6 +603,24 @@ def test_the_input_set_records_the_mask_by_its_digest(tmp_path, stub_bdtopage):
     assert resource["bytes"] == size
 
 
+def test_the_input_set_records_the_mask_extent_in_the_crs_of_the_mask(tmp_path, stub_bdtopage):
+    from hydromodpy.schema.job.extent import SpatialExtent
+
+    mask = _mask_file(tmp_path)
+    job = _staged(
+        tmp_path,
+        _request(BDTOPAGE, inputs={"extent": None, "mask": {"href": str(mask)}}),
+    )
+
+    run(job, exit_code_for=exit_code_for)
+
+    inputset = read_document(job.inputset_path)
+    resource = next(one for one in inputset["resources"] if one["name"] == "mask")
+    assert SpatialExtent.from_document(resource["spatial"]) == SpatialExtent(
+        bbox=(347000.0, 6778000.0, 352000.0, 6783000.0), crs="EPSG:2154"
+    )
+
+
 def test_a_mask_whose_bytes_are_not_the_pinned_ones_is_refused(tmp_path, stub_bdtopage):
     mask = _mask_file(tmp_path)
     job = _staged(

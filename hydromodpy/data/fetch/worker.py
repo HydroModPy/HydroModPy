@@ -57,6 +57,7 @@ from hydromodpy.data.source.port import (
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import write_document
+from hydromodpy.schema.job.extent import SpatialExtent
 from hydromodpy.schema.job.inputset import (
     InputResource,
     InputSet,
@@ -243,7 +244,7 @@ def _resolve_extent(
         media_type=inputs.mask.type,
         bytes=size,
         sha256=digest,
-        spatial={"crs": extent.crs, "bbox": list(extent.bbox)},
+        spatial=SpatialExtent(bbox=extent.bbox, crs=extent.crs),
     )
     return extent, resource
 
