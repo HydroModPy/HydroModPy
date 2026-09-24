@@ -1,1 +1,0 @@
-"""Wind API adapters."""

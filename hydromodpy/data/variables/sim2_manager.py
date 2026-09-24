@@ -33,9 +33,16 @@ class Sim2BackedFieldManager(BaseFieldManager):
         return self._handle_custom_results(records, source_cfg)
 
     def _fetch_sim2(self, source_cfg: Any) -> list[FieldRecord]:
-        module = importlib.import_module(
-            f"hydromodpy.data.variables.{self.VARIABLE_NAME}.apis.sim2"
-        )
+        from hydromodpy.data.common.clients.sim2_products import fetch_sim2
+
+        def _fetch(cfg: Any, *, bbox, project_period) -> list[FieldRecord]:
+            return fetch_sim2(
+                self.VARIABLE_NAME,
+                components=getattr(cfg, "components", None),
+                bbox=bbox,
+                project_period=project_period,
+            )
+
         if self.SIM2_HAS_COMPONENTS:
             variable_names = [
                 f"{self.VARIABLE_NAME}_{component}" for component in source_cfg.components
@@ -43,13 +50,13 @@ class Sim2BackedFieldManager(BaseFieldManager):
             return self._load_or_fetch_fields(
                 source_cfg,
                 "sim2",
-                module.fetch,
+                _fetch,
                 variable_names=variable_names,
             )
         return self._load_or_fetch_fields(
             source_cfg,
             "sim2",
-            module.fetch,
+            _fetch,
             variable_names=self.SIM2_VARIABLE_NAMES,
         )
 

@@ -171,8 +171,8 @@ CASES: tuple[SourceCase, ...] = (
     SourceCase(
         name="sim2-precipitation",
         build=lambda: Sim2PrecipitationSource(components=("total",)),
-        provider_module="hydromodpy.data.variables.precipitation.apis.sim2",
-        provider_attr="fetch",
+        provider_module="hydromodpy.data.common.clients.sim2_products",
+        provider_attr="fetch_sim2",
         read_bbox=lambda args, kwargs: kwargs.get("bbox"),
         canned=list,
     ),

@@ -1,34 +1,34 @@
-"""SIM2 EDR API adapter for precipitation data.
+"""SIM2 precipitation behind the data-source port.
 
-:class:`Sim2PrecipitationSource` puts ``fetch`` behind the data-source port. It
-is the fourth payload
-kind, ``fields``, and it is the biggest family of the census: nine of the
-twenty-five fetch functions of this tree return ``list[FieldRecord]`` behind one
-shared signature, ``fetch(config, *, bbox, project_period)``. Precipitation is
-the one picked because it is the only one that folds two SIM2 parameters into a
-third component -- ``total`` is ``PRELIQ_Q + PRENEI_Q`` -- so an adapter that
-worked here works for the eight that do less.
+The product itself -- which EDR parameters, which unit, which components -- is
+a row of :data:`hydromodpy.data.common.clients.sim2_products.SIM2_PRODUCTS`,
+shared with the eight other SIM2 variables; :class:`Sim2PrecipitationSource`
+serves that row through the port. It is the fourth payload kind, ``fields``.
+Precipitation is the SIM2 product picked for the port because it is the only
+one that folds two SIM2 parameters into a third component -- ``total`` is
+``PRELIQ_Q + PRENEI_Q`` -- so a source that works here works for the eight
+that do less.
 
 Like the IGN source it is queried in **EPSG:2154**, and like the Hub'Eau one it
-cannot be called without a window: ``variables/sim2.py`` raises
-``SIM2 source requires project_period`` whatever the signature's default says.
+cannot be called without a window: ``fetch_sim2`` raises
+``SIM2 source requires project_period``.
 
 Why it declares ``writes_out_dir = False`` while writing a file
 ---------------------------------------------------------------
-``Sim2EDRClient._load_netcdf_from_bytes`` writes a temporary NetCDF on the fetch path, under
-``$TMPDIR`` and not under the directory the request names. The declaration is
-about ``request.out_dir`` and that answer is ``no``: this source leaves the
-caller's directory exactly as it found it. What the temporary file belongs to is
-the capability's own declaration of the places it writes outside its job
-directory, D92, which is F5c's business and not the port's.
+``Sim2EDRClient._load_netcdf_from_bytes`` writes a temporary NetCDF on the fetch
+path, under ``$TMPDIR`` and not under the directory the request names. The
+declaration is about ``request.out_dir`` and that answer is ``no``: this source
+leaves the caller's directory exactly as it found it. What the temporary file
+belongs to is the capability's own declaration of the places it writes outside
+its job directory, D92, which is F5c's business and not the port's.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 
 from hydromodpy.core.exceptions import DataCapabilityError
+from hydromodpy.data.common.clients import sim2_products
 from hydromodpy.data.source.port import (
     FetchRequest,
     FetchResult,
@@ -40,72 +40,12 @@ from hydromodpy.data.source.port import (
     require_period,
     require_selectors,
 )
-from hydromodpy.data.variables.sim2 import Sim2ComponentSpec, fetch_sim2_components
-
-if TYPE_CHECKING:  # pragma: no cover - typing only
-    from hydromodpy.data.contracts.spatial_field import FieldRecord
-    from hydromodpy.data.variables.precipitation.config import PrecipitationSourceConfig
-
-VARIABLE_NAME = "precipitation"
-INTERNAL_UNIT = "mm/day"
-_SPECS = {
-    "liquid": Sim2ComponentSpec(
-        component="liquid",
-        parameter="PRELIQ_Q",
-        variable="precipitation_liquid",
-        unit=INTERNAL_UNIT,
-    ),
-    "solid": Sim2ComponentSpec(
-        component="solid",
-        parameter="PRENEI_Q",
-        variable="precipitation_solid",
-        unit=INTERNAL_UNIT,
-    ),
-    "total": Sim2ComponentSpec(
-        component="total",
-        parameter="PRELIQ_Q",
-        parameters=("PRELIQ_Q", "PRENEI_Q"),
-        variable="precipitation_total",
-        unit=INTERNAL_UNIT,
-    ),
-}
-
-
-def _transform_component(component: str, ds: object) -> object:
-    if component == "total":
-        return ds["PRELIQ_Q"] + ds["PRENEI_Q"]
-    return ds[_SPECS[component].parameter]
-
-
-def fetch(
-    config: PrecipitationSourceConfig,
-    *,
-    bbox: tuple[float, float, float, float] | None = None,
-    project_period: tuple[datetime, datetime] | None = None,
-) -> list[FieldRecord]:
-    """Fetch precipitation from SIM2 via the GéoSAS EDR API.
-
-    Always returns the full spatial grid as FieldRecord(s), one per component.
-    """
-    return fetch_sim2_components(
-        config.components,
-        specs=_SPECS,
-        bbox=bbox,
-        project_period=project_period,
-        transform=_transform_component,
-    )
-
 
 COMPONENT_VARIABLE: dict[str, str] = {
-    "liquid": "precipitation_liquid",
-    "solid": "precipitation_solid",
-    "total": "precipitation_total",
+    name: component.variable
+    for name, component in sim2_products.SIM2_PRODUCTS["precipitation"].components.items()
 }
-"""The three components the SIM2 precipitation adapter exposes, and their names.
-
-Read off ``precipitation/apis/sim2.py:13-32``, where each ``Sim2ComponentSpec``
-carries the variable its record is named after.
-"""
+"""The components this source serves, and the variable each record is named after."""
 
 
 class Sim2PrecipitationSource:
@@ -149,10 +89,12 @@ class Sim2PrecipitationSource:
         period = require_period(self, request)
         assert period is not None  # period_need == "required", checked just above
         extent = extent_for(self, request)
-        from hydromodpy.data.variables.precipitation.config import PrecipitationSourceConfig
-
-        config = PrecipitationSourceConfig(source="sim2", components=list(self.components))
-        records = fetch(config, bbox=extent.bbox, project_period=period.as_tuple)
+        records = sim2_products.fetch_sim2(
+            "precipitation",
+            components=self.components,
+            bbox=extent.bbox,
+            project_period=period.as_tuple,
+        )
         require_declared_variables(self, [record.variable for record in records])
         return FetchResult(
             source_id=self.source_id,
@@ -167,8 +109,5 @@ class Sim2PrecipitationSource:
 
 __all__ = [
     "COMPONENT_VARIABLE",
-    "INTERNAL_UNIT",
     "Sim2PrecipitationSource",
-    "VARIABLE_NAME",
-    "fetch",
 ]

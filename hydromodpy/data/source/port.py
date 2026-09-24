@@ -117,10 +117,10 @@ PeriodNeed = Literal["required", "refused"]
 """Whether a period is part of the request.
 
 Two values and not three, and the third is the one worth explaining. The SIM2
-family *looks* like it takes an optional window -- ``fetch(config, *, bbox=None,
-project_period=None)`` on all nine variables -- but its own guard,
-``sim2.py:44``, raises ``SIM2 source requires project_period`` the moment it is
-left out. The default is a signature, not a behaviour, and no source of this
+family *looks* like it takes an optional window -- ``fetch_sim2(variable, *,
+bbox=None, project_period=None)`` serves all nine variables -- but its own
+guard raises ``SIM2 source requires project_period`` the moment it is left
+out. The default is a signature, not a behaviour, and no source of this
 tree treats a period as genuinely optional. A value nothing can declare is
 decoration, so ``optional`` is not offered until a provider serves it.
 """

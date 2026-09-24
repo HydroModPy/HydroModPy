@@ -216,16 +216,16 @@ def stub_hubeau(monkeypatch):
 
 @pytest.fixture
 def stub_sim2(monkeypatch):
-    import hydromodpy.data.variables.precipitation.apis.sim2 as provider
+    from hydromodpy.data.common.clients import sim2_products as provider
 
     calls: list[dict] = []
     payload = {"records": _field_records()}
 
-    def _record(config, *, bbox, project_period):
+    def _record(variable, *, components, bbox, project_period):
         calls.append({"bbox": bbox, "project_period": project_period})
         return payload["records"]
 
-    monkeypatch.setattr(provider, "fetch", _record)
+    monkeypatch.setattr(provider, "fetch_sim2", _record)
     return calls, payload
 
 
