@@ -10,17 +10,65 @@ through the raw ``_conn`` attribute.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.registry.cache_store import json_or_none, try_unlink
+from hydromodpy.data.registry.cache_store import json_or_none, resolve_entry_path, try_unlink
 from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
 
 if TYPE_CHECKING:
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 logger = get_logger(__name__)
+
+
+def _delete_entry_file(
+    catalog: DataCatalogDuckDB,
+    file_path: str,
+    *,
+    variable: str | None,
+    is_custom: bool,
+    leaving_ids: Sequence[int],
+) -> None:
+    """Delete the file of one cache entry, and its sidecar with it.
+
+    The catalog stores a workspace-anchored path relative to the data folder,
+    so it is resolved the way the catalog reads it, never against the working
+    directory. The cache deletes only what it manages: a downloaded artefact,
+    or a copy it derived under ``data/blobs/``. A file the user provided is
+    never deleted, only forgotten. Nor is a file that an entry staying in the
+    catalog still names: ``leaving_ids`` are the entries being removed.
+    """
+    if file_path in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
+        return
+    if _still_named(catalog, file_path, leaving_ids):
+        return
+    path = resolve_entry_path(catalog, file_path, variable=variable)
+    if is_custom and not _is_managed_copy(catalog, path):
+        return
+    try_unlink(str(path))
+
+
+def _still_named(catalog: DataCatalogDuckDB, file_path: str, leaving_ids: Sequence[int]) -> bool:
+    """Tell whether an entry other than the leaving ones still names ``file_path``."""
+    query = "SELECT COUNT(*) FROM entries WHERE file_path = ?"
+    params: list = [file_path]
+    if leaving_ids:
+        query += f" AND id NOT IN ({', '.join('?' for _ in leaving_ids)})"
+        params.extend(leaving_ids)
+    rows = catalog.backend.fetch_all(query, params)
+    return bool(rows and rows[0][0])
+
+
+def _is_managed_copy(catalog: DataCatalogDuckDB, path: Path) -> bool:
+    """Tell whether ``path`` lies under the ``blobs/`` folder of the catalog's data dir."""
+    db_path = getattr(catalog, "_db_path", None)
+    if db_path is None:
+        return False
+    blobs = (Path(db_path).parent / "blobs").resolve()
+    return Path(path).resolve().is_relative_to(blobs)
 
 
 def invalidate(
@@ -46,11 +94,14 @@ def invalidate(
         backend = catalog.backend
         if delete_files:
             rows = backend.fetch_all(
-                f"SELECT file_path FROM entries{where}",
+                f"SELECT id, file_path, variable, is_custom FROM entries{where}",
                 params,
             )
-            for (fp,) in rows:
-                try_unlink(fp)
+            leaving = [eid for eid, *_ in rows]
+            for _, fp, var, custom in rows:
+                _delete_entry_file(
+                    catalog, fp, variable=var, is_custom=bool(custom), leaving_ids=leaving
+                )
 
         result = backend.fetch_all(
             f"DELETE FROM entries{where} RETURNING id",
@@ -75,7 +126,7 @@ def subsume_entries(
     """Delete grid entries fully contained within the given bbox+dates."""
     try:
         query = (
-            "SELECT id, file_path FROM entries "
+            "SELECT id, file_path, variable FROM entries "
             "WHERE variable = ? AND source = ? "
             "AND station_id IS NULL AND is_custom = 0"
         )
@@ -97,8 +148,8 @@ def subsume_entries(
         backend = catalog.backend
         rows = backend.fetch_all(query, params)
         count = 0
-        for eid, fp in rows:
-            try_unlink(fp)
+        for eid, fp, var in rows:
+            _delete_entry_file(catalog, fp, variable=var, is_custom=False, leaving_ids=[eid])
             backend.execute("DELETE FROM entries WHERE id = ?", [eid])
             count += 1
         return count
@@ -263,15 +314,16 @@ def prune_older_than(
     """Delete cache entries older than *days* days. Returns count removed."""
     backend = catalog.backend
     rows = backend.fetch_all(
-        "SELECT id, file_path FROM entries WHERE created_at < now() - INTERVAL (?) DAY",
+        "SELECT id, file_path, variable, is_custom FROM entries "
+        "WHERE created_at < now() - INTERVAL (?) DAY",
         [days],
     )
     count = 0
-    for eid, fp in rows:
+    for eid, fp, var, custom in rows:
         if fp in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
             continue
         if delete_files:
-            try_unlink(fp)
+            _delete_entry_file(catalog, fp, variable=var, is_custom=bool(custom), leaving_ids=[eid])
         backend.execute("DELETE FROM entries WHERE id = ?", [eid])
         count += 1
     return count
