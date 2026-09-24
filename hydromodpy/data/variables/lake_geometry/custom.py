@@ -12,6 +12,7 @@ from typing import Any
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.adapters import convert_vector_to_geoparquet
 from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.derived import derived_path
 
 logger = get_logger(__name__)
 
@@ -19,14 +20,16 @@ logger = get_logger(__name__)
 def load_custom_lake_geometry(
     source_cfg: Any,
     *,
-    data_dir: Path | None = None,
+    derived_dir: Path | None = None,
 ) -> list[FieldRecord]:
     """Load a custom lake-geometry vector file as a :class:`FieldRecord`.
 
     Parameters
     ----------
     source_cfg : source config with a ``path`` attribute
-    data_dir : cache directory for the GeoParquet pivot output
+    derived_dir : directory for the GeoParquet pivot.
+        It is never the user's data folder: a derived copy named like a
+        user file would be taken for one.
 
     Returns
     -------
@@ -54,8 +57,8 @@ def load_custom_lake_geometry(
         )
     bbox = tuple(gdf.total_bounds)
 
-    if data_dir is not None:
-        output_path = data_dir / f"lake_geometry_custom_{path.stem}.parquet"
+    if derived_dir is not None:
+        output_path = derived_path(derived_dir, path, kind="geoparquet", suffix=".parquet")
         convert_vector_to_geoparquet(path, output_path)
         data: Path = output_path
     else:

@@ -18,6 +18,7 @@ from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
 from hydromodpy.data.common.source_extent import resolve_source_extent
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.derived import custom_derived_dir
 from hydromodpy.data.registry.constants import (
     SENTINEL_CUSTOM,
     SENTINEL_EMPTY,
@@ -247,7 +248,7 @@ class GeologyManager:
             source_cfg,
             code_field=code_field,
             bbox=bbox,
-            data_dir=self.data_dir,
+            derived_dir=custom_derived_dir(self.data_dir, self.VARIABLE_NAME),
         )
 
         # Register custom entries (never subsumed)

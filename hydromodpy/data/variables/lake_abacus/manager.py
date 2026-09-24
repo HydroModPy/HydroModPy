@@ -13,6 +13,7 @@ from typing import Any
 
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.table import TableRecord
+from hydromodpy.data.derived import custom_derived_dir
 
 
 class LakeAbacusManager:
@@ -53,7 +54,9 @@ class LakeAbacusManager:
         """Load custom lake-abacus data (CSV, Parquet)."""
         from hydromodpy.data.variables.lake_abacus.custom import load_custom_abacus
 
-        records = load_custom_abacus(source_cfg, data_dir=self.data_dir)
+        records = load_custom_abacus(
+            source_cfg, derived_dir=custom_derived_dir(self.data_dir, self.VARIABLE_NAME)
+        )
 
         if self.catalog is not None:
             for rec in records:

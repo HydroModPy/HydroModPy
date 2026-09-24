@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.derived import derived_path
 
 
 def load_custom_geology(
@@ -19,7 +20,7 @@ def load_custom_geology(
     *,
     code_field: str | None = None,
     bbox: tuple[float, float, float, float] | None = None,
-    data_dir: Path | None = None,
+    derived_dir: Path | None = None,
 ) -> list[FieldRecord]:
     """Load custom geology data from a user-provided path.
 
@@ -28,7 +29,9 @@ def load_custom_geology(
     source_cfg : source config with ``path`` attribute
     code_field : attribute column for geology codes (required for vector sources)
     bbox : optional bounding box for cropping
-    data_dir : cache directory for processed outputs
+    derived_dir : directory for the copies derived from the user file (clip,
+        Voronoi polygons). It is never the user's data folder: a derived copy
+        named like a user file would be taken for one.
 
     Returns
     -------
@@ -50,9 +53,9 @@ def load_custom_geology(
                 f"'code_field' is required for custom vector geology source ({path.name}). "
                 "Set it in [[data.geology.sources]] to the column containing geology codes."
             )
-        return _load_custom_vector(path, code_field=code_field, bbox=bbox, data_dir=data_dir)
+        return _load_custom_vector(path, code_field=code_field, bbox=bbox, derived_dir=derived_dir)
     elif ext in (".tif", ".tiff"):
-        return _load_custom_raster(path, bbox=bbox, data_dir=data_dir)
+        return _load_custom_raster(path)
     elif ext == ".csv":
         return _load_custom_csv(
             path,
@@ -61,7 +64,7 @@ def load_custom_geology(
             col_code=getattr(source_cfg, "col_code", "geology_code"),
             default_crs=getattr(source_cfg, "default_crs", "EPSG:2154"),
             bbox=bbox,
-            data_dir=data_dir,
+            derived_dir=derived_dir,
         )
     else:
         raise ValueError(
@@ -84,12 +87,22 @@ def _find_geology_file_in_dir(directory: Path) -> Path:
     )
 
 
+def _derived_path(derived_dir: Path, source: Path, bbox: tuple | None, *, kind: str) -> Path:
+    """Return the path of a GeoPackage derived from ``source`` for ``bbox``.
+
+    The name carries a key of the source path and the bbox, so two projects
+    that clip the same file to different boxes never overwrite each other.
+    """
+    box_token = "none" if bbox is None else ",".join(f"{float(v):.6f}" for v in bbox)
+    return derived_path(derived_dir, source, kind=kind, suffix=".gpkg", inputs=(box_token,))
+
+
 def _load_custom_vector(
     path: Path,
     *,
     code_field: str,
     bbox: tuple | None = None,
-    data_dir: Path | None = None,
+    derived_dir: Path | None = None,
 ) -> list[FieldRecord]:
     """Load a vector geology file, optionally crop, return as FieldRecord."""
     import geopandas as gpd
@@ -116,9 +129,8 @@ def _load_custom_vector(
 
     actual_bbox = tuple(gdf.total_bounds) if not gdf.empty else bbox
 
-    # Save as GeoPackage for uniformity
-    if data_dir is not None:
-        output_path = data_dir / f"geology_custom_{path.stem}.gpkg"
+    if derived_dir is not None:
+        output_path = _derived_path(derived_dir, path, bbox, kind="clip")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         gdf.to_file(str(output_path), driver="GPKG")
         data = output_path
@@ -137,12 +149,7 @@ def _load_custom_vector(
     ]
 
 
-def _load_custom_raster(
-    path: Path,
-    *,
-    bbox: tuple | None = None,
-    data_dir: Path | None = None,
-) -> list[FieldRecord]:
+def _load_custom_raster(path: Path) -> list[FieldRecord]:
     """Load a raster geology file as FieldRecord."""
     import rasterio
 
@@ -171,7 +178,7 @@ def _load_custom_csv(
     col_code: str = "geology_code",
     default_crs: str = "EPSG:2154",
     bbox: tuple | None = None,
-    data_dir: Path | None = None,
+    derived_dir: Path | None = None,
 ) -> list[FieldRecord]:
     """Load CSV point geology data and interpolate via Voronoi tessellation.
 
@@ -186,7 +193,7 @@ def _load_custom_csv(
     col_code : geology code column name
     default_crs : CRS for the point coordinates
     bbox : optional bounding box for the output
-    data_dir : directory for saving the interpolated output
+    derived_dir : directory for the derived Voronoi GeoPackage
     """
     import geopandas as gpd
     import numpy as np
@@ -241,9 +248,8 @@ def _load_custom_csv(
 
     actual_bbox = tuple(gdf.total_bounds) if not gdf.empty else bbox
 
-    # Save as GeoPackage
-    if data_dir is not None:
-        output_path = data_dir / f"geology_custom_{path.stem}_voronoi.gpkg"
+    if derived_dir is not None:
+        output_path = _derived_path(derived_dir, path, bbox, kind="voronoi")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         gdf.to_file(str(output_path), driver="GPKG")
         data = output_path
