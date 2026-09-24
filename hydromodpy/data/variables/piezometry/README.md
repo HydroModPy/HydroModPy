@@ -13,10 +13,3 @@ from custom CSV files or from the Hub'Eau API.
   CSVs.
 - `apis/hubeau.py`: Hub'Eau client (`level` and `depth` products).
 - `discovery.py`: spatial discovery helpers (bbox, nearest station).
-- `examples/run_examples.py`: runnable examples for each source mode.
-
-## Run the examples
-
-```bash
-python -m hydromodpy.data.variables.piezometry.examples.run_examples
-```

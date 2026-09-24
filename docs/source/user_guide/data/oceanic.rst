@@ -55,7 +55,7 @@ Local deterministic run
 -----------------------
 
 The repository includes a small local ``oceanic`` case under
-``hydromodpy/data/variables/oceanic/cases``. It is not a coastal basin study;
+``hydromodpy/data/cases/oceanic``. It is not a coastal basin study;
 it is a communication and regression asset that proves the custom source can be
 loaded, summarized, and plotted without requiring network access.
 
@@ -77,7 +77,7 @@ Downstream uses
   :doc:`/theory/hydrology/stream-ocean-and-drainage-semantics`;
 - calibration replay, which re-injects the loaded oceanic forcing into each
   trial's flow object alongside recharge;
-- the local regression case under ``hydromodpy/data/variables/oceanic/cases``,
+- the local regression case under ``hydromodpy/data/cases/oceanic``,
   kept for the ``custom`` source's data-only proof rather than a coastal study.
 
 Remaining gallery gap

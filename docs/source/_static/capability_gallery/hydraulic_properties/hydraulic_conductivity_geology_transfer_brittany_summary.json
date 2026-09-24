@@ -22,12 +22,12 @@
   "equations_rst": [],
   "walkthrough_doc": null,
   "walkthrough_title": null,
-  "reproduction_command": "python -m hydromodpy.data.variables.geology.cases.run_geology_property_case --geology-config-file gallery_geology_config_brittany.toml --field-param-config-file gallery_field_param_brittany.toml --no-show-plot",
+  "reproduction_command": "python -m hydromodpy.data.cases.geology.run_geology_property_case --geology-config-file gallery_geology_config_brittany.toml --field-param-config-file gallery_field_param_brittany.toml --no-show-plot",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "hydromodpy/data/variables/geology/cases/run_geology_property_case.py",
-    "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml",
-    "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml",
+    "hydromodpy/data/cases/geology/run_geology_property_case.py",
+    "hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml",
+    "hydromodpy/data/cases/geology/gallery_field_param_brittany.toml",
     "examples/data/geology/GEO1M_brittany.shp",
     "examples/data/geology/GEO1M_brittany.dbf",
     "examples/data/geology/GEO1M_brittany.shx",
@@ -37,9 +37,9 @@
     "tests/unit/data_managers/geology/test_geology_property_demo.py"
   ],
   "source_hashes": {
-    "hydromodpy/data/variables/geology/cases/run_geology_property_case.py": "bb646c607d60d46d7c92799176279aa7b1c3de5f9b09cf7d70a87a7036fd4686",
-    "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml": "9eb1702d8911c9b188b7379120abfc060f01eb38a204cc0c3fe75ccbabd0d7e5",
-    "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml": "fb8e1fd76f435d003cd69eba16d6cd197d4e22e2de3925ae6a98fe3347f77e63",
+    "hydromodpy/data/cases/geology/run_geology_property_case.py": "bb646c607d60d46d7c92799176279aa7b1c3de5f9b09cf7d70a87a7036fd4686",
+    "hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml": "9eb1702d8911c9b188b7379120abfc060f01eb38a204cc0c3fe75ccbabd0d7e5",
+    "hydromodpy/data/cases/geology/gallery_field_param_brittany.toml": "fb8e1fd76f435d003cd69eba16d6cd197d4e22e2de3925ae6a98fe3347f77e63",
     "examples/data/geology/GEO1M_brittany.shp": "cc219d3a2fd0c768aec9c4ea9e7f51cdefe5e1f386c4e9503513cf1dc97eff4a",
     "examples/data/geology/GEO1M_brittany.dbf": "93d6915e20b1e19742f9f9bde7d8e84c2740e91ecab6a503d7481306f2f72783",
     "examples/data/geology/GEO1M_brittany.shx": "aa6de33ceda971da31504c32a4cf4c09befb390b89c3af7e99359d53603bff37",
@@ -86,8 +86,8 @@
   ],
   "metadata": {
     "property_case_kind": "geology_transfer_demo",
-    "geology_config_path": "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml",
-    "field_param_config_path": "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml",
+    "geology_config_path": "hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml",
+    "field_param_config_path": "hydromodpy/data/cases/geology/gallery_field_param_brittany.toml",
     "parameter_ids": [
       "K"
     ],
@@ -157,19 +157,19 @@
             "field": "[field] id",
             "meaning": "Identifier used by FieldParam for the illustrated hydraulic property.",
             "value": "K",
-            "source": "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml"
+            "source": "hydromodpy/data/cases/geology/gallery_field_param_brittany.toml"
           },
           {
             "field": "[field] kind",
             "meaning": "Homogeneous or heterogeneous assignment mode used by the field parameter.",
             "value": "heterogeneous",
-            "source": "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml"
+            "source": "hydromodpy/data/cases/geology/gallery_field_param_brittany.toml"
           },
           {
             "field": "[field] values_source",
             "meaning": "How heterogeneous values are supplied to the field parameter.",
             "value": "csv",
-            "source": "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml"
+            "source": "hydromodpy/data/cases/geology/gallery_field_param_brittany.toml"
           },
           {
             "field": "[field] values_csv_file",
@@ -181,31 +181,31 @@
             "field": "[field_vertical_profile] mode",
             "meaning": "Vertical-profile mode applied to the field when depth dependence is active.",
             "value": "none",
-            "source": "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml"
+            "source": "hydromodpy/data/cases/geology/gallery_field_param_brittany.toml"
           },
           {
             "field": "[geology] id",
             "meaning": "Identifier of the geology field used to spatialize the property mapping.",
             "value": "field_geology",
-            "source": "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml"
+            "source": "hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml"
           },
           {
             "field": "[geology] cell_samples_per_axis",
             "meaning": "Sampling density used when rasterizing geology polygons onto the support.",
             "value": "6",
-            "source": "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml"
+            "source": "hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml"
           },
           {
             "field": "[geology.source] kind",
             "meaning": "Source type used to load the geology layer shown by the property demo.",
             "value": "vector",
-            "source": "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml"
+            "source": "hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml"
           },
           {
             "field": "[geology.source] code_field",
             "meaning": "Attribute used as the geology code when transferring values onto the support.",
             "value": "CODE_LEG",
-            "source": "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml"
+            "source": "hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml"
           }
         ]
       },

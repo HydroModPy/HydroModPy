@@ -1,7 +1,7 @@
 """Run a deterministic oceanic-only case from a TOML configuration.
 
 Run with:
-    python -m hydromodpy.data.variables.oceanic.cases.run_oceanic_case
+    python -m hydromodpy.data.cases.oceanic.run_oceanic_case
 
 The ``web`` mode names its tide gauge with ``station_id`` rather than handing
 over a centroid to search from. That is what a deterministic case wants: which

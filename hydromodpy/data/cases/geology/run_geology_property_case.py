@@ -1,7 +1,7 @@
 """Geology-to-property transfer demo using the generic field pipeline.
 
 Run with:
-    python -m hydromodpy.data.variables.geology.cases.run_geology_property_case
+    python -m hydromodpy.data.cases.geology.run_geology_property_case
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import numpy as np
 from rasterio.features import rasterize
 from rasterio.transform import from_bounds
 
-from hydromodpy.data.variables.geology.cases.common import (
+from hydromodpy.data.cases.geology.plotting import (
     _length_to_meters,
     clip_square_window,
     format_axes_ticks_km,

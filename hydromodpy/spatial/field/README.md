@@ -43,7 +43,7 @@ hydromodpy/spatial/field/
 - geology case integration now lives under
   `hydromodpy/spatial/field/geology/` (for `GeologyField` / `GeologyStructuredMesh`) and
   `hydromodpy/data/variables/geology/` (for data management), with runnable scripts in
-  `hydromodpy/data/variables/geology/cases/`.
+  `hydromodpy/data/cases/geology/`.
 
 ## Core Concepts
 
@@ -113,23 +113,14 @@ python hydromodpy/spatial/field/cases/square/run_field_demo.py --no-show-plot
 Default output:
 - `hydromodpy/spatial/field/cases/square/outputs/field_demo.png`
 
-Standalone geology run (no external mesh):
-
-```bash
-python hydromodpy/data/variables/geology/cases/run_geology_map_case.py
-```
-
-Default output:
-- `hydromodpy/data/variables/geology/cases/outputs/geology_france_global.png`
-
 Geology-to-property transfer demo via `FieldParam`:
 
 ```bash
-python hydromodpy/data/variables/geology/cases/run_geology_property_case.py
+python hydromodpy/data/cases/geology/run_geology_property_case.py
 ```
 
 Default output:
-- `hydromodpy/data/variables/geology/cases/outputs/geology_property_demo.png`
+- `hydromodpy/data/cases/geology/outputs/geology_property_demo.png`
 
 In this geology demo:
 - value correspondence can be inline TOML or CSV (`values_source`),

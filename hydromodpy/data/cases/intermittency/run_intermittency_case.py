@@ -1,7 +1,7 @@
 """Run a deterministic intermittency-only case from a TOML configuration.
 
 Run with:
-    python -m hydromodpy.data.variables.intermittency.cases.run_intermittency_case
+    python -m hydromodpy.data.cases.intermittency.run_intermittency_case
 """
 
 from __future__ import annotations

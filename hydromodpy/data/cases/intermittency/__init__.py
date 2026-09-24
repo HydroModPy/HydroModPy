@@ -1,6 +1,6 @@
 """Intermittency deterministic case runner."""
 
-from hydromodpy.data.variables.intermittency.cases.run_intermittency_case import (
+from hydromodpy.data.cases.intermittency.run_intermittency_case import (
     run_intermittency_case_from_toml,
 )
 

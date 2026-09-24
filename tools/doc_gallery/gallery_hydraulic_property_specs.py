@@ -196,15 +196,15 @@ def build_hydraulic_property_specs() -> tuple[GalleryCaseSpec, ...]:
                 "What a deterministic geology-driven property transfer looks like on versioned demo data.",
             ),
             reproduction_command=(
-                "python -m hydromodpy.data.variables.geology.cases.run_geology_property_case "
+                "python -m hydromodpy.data.cases.geology.run_geology_property_case "
                 "--geology-config-file gallery_geology_config_brittany.toml "
                 "--field-param-config-file gallery_field_param_brittany.toml "
                 "--no-show-plot"
             ),
             source_paths=(
-                "hydromodpy/data/variables/geology/cases/run_geology_property_case.py",
-                "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml",
-                "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml",
+                "hydromodpy/data/cases/geology/run_geology_property_case.py",
+                "hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml",
+                "hydromodpy/data/cases/geology/gallery_field_param_brittany.toml",
                 "examples/data/geology/GEO1M_brittany.shp",
                 "examples/data/geology/GEO1M_brittany.dbf",
                 "examples/data/geology/GEO1M_brittany.shx",
@@ -231,8 +231,8 @@ def build_hydraulic_property_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             metadata={
                 "property_case_kind": "geology_transfer_demo",
-                "geology_config_path": "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml",
-                "field_param_config_path": "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml",
+                "geology_config_path": "hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml",
+                "field_param_config_path": "hydromodpy/data/cases/geology/gallery_field_param_brittany.toml",
                 "parameter_ids": ["K"],
                 "parameterization_modes": ["csv", "heterogeneous"],
                 "supports": ["vector_local", "structured"],
@@ -255,9 +255,9 @@ def build_hydraulic_property_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             reproduction_command="python -m tools.doc_gallery",
             source_paths=(
-                "hydromodpy/data/variables/geology/cases/run_geology_property_case.py",
-                "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml",
-                "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml",
+                "hydromodpy/data/cases/geology/run_geology_property_case.py",
+                "hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml",
+                "hydromodpy/data/cases/geology/gallery_field_param_brittany.toml",
                 "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv",
                 "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv",
                 "tools/doc_gallery/update_gallery.py",
@@ -292,8 +292,8 @@ def build_hydraulic_property_specs() -> tuple[GalleryCaseSpec, ...]:
                     {
                         "title": "Structured Brittany",
                         "kind": "brittany",
-                        "geology_config_path": "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml",
-                        "field_param_config_path": "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml",
+                        "geology_config_path": "hydromodpy/data/cases/geology/gallery_geology_config_brittany.toml",
+                        "field_param_config_path": "hydromodpy/data/cases/geology/gallery_field_param_brittany.toml",
                     },
                     {
                         "title": "Triangular 10 km2",
