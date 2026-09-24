@@ -1,46 +1,24 @@
 """Fetch hydrography from the Sandre BD Topage WFS service.
 
 ``fetch`` serves the hydrography manager. :class:`BdTopageSource` puts the
-same function behind the data-source port. It is there beside a
-Hub'Eau source, and not because it is the easiest second one: it is the one
-that disagrees with Hub'Eau on every question the port asks. It returns a
-feature table rather than records, it has no time axis at all, and it cannot be
-asked for a station. A conformance suite that only held two point sources would
-prove nothing about the port.
+same function behind the data-source port, as one of the three
+:class:`~hydromodpy.data.variables.hydrography.apis.features.FeatureSource`.
 
-The Sandre WFS is queried in WGS84, which it shares with Hub'Eau. The pair that
-proves the reprojection is this source against the IGN one, both of which the
-suite runs with a caller extent in Lambert-93.
-
-Why this adapter builds a Pydantic config it was not given
-----------------------------------------------------------
-``bdtopage.fetch`` takes a ``HydrographySourceConfig`` and reads exactly two of
-its nine fields, ``typename`` and ``page_size``. The port does not pass config
-objects, so the adapter takes those two values and builds what the function
-demands. Rewriting the function to take them directly would be the better end
-state and it is not this phase: the api layer keeps its callers until the
-capability that replaces them exists.
+``fetch`` takes a ``HydrographySourceConfig`` and reads two of its fields,
+``typename`` and ``page_size``; the source builds that config from the two
+values it was given.
 """
 
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.core.io.http_client import get_default_client
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.progress import MILESTONE
-from hydromodpy.data.source.port import (
-    FetchRequest,
-    FetchResult,
-    PayloadKind,
-    PeriodNeed,
-    Selector,
-    extent_for,
-    require_period,
-    require_selectors,
-)
+from hydromodpy.data.variables.hydrography.apis.features import FeatureSource
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import geopandas as gpd
@@ -136,16 +114,11 @@ pydantic and the whole config kit into a caller that only wants the vocabulary.
 """
 
 
-class BdTopageSource:
+class BdTopageSource(FeatureSource):
     """The French BD Topage river network, served by the Sandre WFS."""
 
     source_id: ClassVar[str] = "bdtopage"
-    payload_kind: ClassVar[PayloadKind] = "features"
-    extent_crs: ClassVar[str] = "EPSG:4326"
-    selectors: ClassVar[tuple[Selector, ...]] = ("extent",)
-    period_need: ClassVar[PeriodNeed] = "refused"
     hosts: ClassVar[tuple[str, ...]] = ("services.sandre.eaufrance.fr",)
-    writes_out_dir: ClassVar[bool] = False
 
     def __init__(
         self,
@@ -162,32 +135,17 @@ class BdTopageSource:
             )
         self.typename = typename
         self.page_size = page_size
-        self.variables: tuple[str, ...] = ("hydrography",)
-        """A reference river network, whatever the typename selects."""
 
-    def fetch(self, request: FetchRequest) -> FetchResult:
-        """Download every BD Topage feature inside the request's extent."""
-        require_selectors(self, request)
-        require_period(self, request)
-        extent = extent_for(self, request)
-
+    def download(self, bbox: tuple[float, float, float, float]) -> gpd.GeoDataFrame:
         from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
         config = HydrographySourceConfig(
-            source="bdtopage",
-            typename=self.typename,
-            page_size=self.page_size,
+            source="bdtopage", typename=self.typename, page_size=self.page_size
         )
-        frame: gpd.GeoDataFrame = fetch(config, extent.bbox)
-        return FetchResult(
-            source_id=self.source_id,
-            kind=self.payload_kind,
-            variables=self.variables,
-            extent=extent,
-            period=None,
-            features=frame,
-            metadata={"typename": self.typename},
-        )
+        return fetch(config, bbox)
+
+    def metadata(self) -> dict[str, Any]:
+        return {"typename": self.typename}
 
 
 __all__ = [

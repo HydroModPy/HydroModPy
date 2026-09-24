@@ -486,55 +486,6 @@ def load_geology_encoded_grid_on_raster_support(
     }
 
 
-def load_vector_geology_as_gpkg(
-    vector_path: str | Path,
-    *,
-    code_field: str,
-    bbox: tuple[float, float, float, float] | None = None,
-    output_path: Path | None = None,
-) -> Path:
-    """
-    Load a vector geology source, optionally crop to bbox, save as GeoPackage.
-
-    Parameters
-    ----------
-    vector_path : path to the vector file
-    code_field : attribute column containing geology codes
-    bbox : (xmin, ymin, xmax, ymax) in the source CRS for cropping
-    output_path : where to save the .gpkg (if None, returns the GeoDataFrame)
-
-    Returns
-    -------
-    Path to the saved GeoPackage file.
-    """
-    import geopandas as gpd
-
-    gdf = gpd.read_file(str(vector_path))
-    if gdf.empty:
-        raise ValueError(f"Vector geology source has no geometry: {vector_path}")
-    if code_field not in gdf.columns:
-        raise KeyError(f"Missing vector field '{code_field}' in {vector_path}")
-
-    gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()].copy()
-
-    if bbox is not None:
-        from shapely.geometry import box
-
-        xmin, ymin, xmax, ymax = bbox
-        bbox_geom = box(xmin, ymin, xmax, ymax)
-        bbox_gdf = gpd.GeoDataFrame(geometry=[bbox_geom], crs=gdf.crs)
-        gdf = gpd.clip(gdf, bbox_gdf)
-        if gdf.empty:
-            raise ValueError("No geology feature intersects the requested bbox")
-
-    if output_path is not None:
-        output_path = Path(output_path)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        gdf.to_file(str(output_path), driver="GPKG")
-
-    return output_path
-
-
 class GeologyDataIO:
     """Concrete ``GeologyDataSource`` backed by ``data.variables.geology``."""
 

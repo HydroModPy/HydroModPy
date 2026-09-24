@@ -273,6 +273,7 @@ class DataManagersRuntimeLoader:
         """Load geology data via GeologyManager, then build GeologyField."""
         self._ensure_store(result)
         from hydromodpy.data.variables.geology.config import GeologyConfig
+        from hydromodpy.data.variables.geology.field import build_geology_field
 
         raw_section = self._get_data_section(result, "geology")
         if raw_section is None:
@@ -300,7 +301,7 @@ class DataManagersRuntimeLoader:
 
             if load_result.fields:
                 field_record = load_result.fields[0]
-                geology_field = self._build_geology_field_from_record(
+                geology_field = build_geology_field(
                     field_record,
                     geology_cfg=geology_cfg,
                     raster_support=raster_support,
@@ -330,81 +331,6 @@ class DataManagersRuntimeLoader:
         if box_dem and Path(str(box_dem)).exists():
             return Path(str(box_dem))
         return Path(geographic.watershed_shp)
-
-    @staticmethod
-    def _build_geology_field_from_record(
-        field_record,
-        *,
-        geology_cfg,
-        raster_support,
-    ):
-        """Build a GeologyField from a FieldRecord (GeoPackage or raster)."""
-        from hydromodpy.data.variables.geology.config import (
-            validate_geology_config_data,
-        )
-        from hydromodpy.data.variables.geology.io import (
-            infer_source_kind,
-            load_geology_encoded_grid,
-            load_geology_encoded_grid_on_raster_support,
-        )
-        from hydromodpy.spatial.field.geology.geology_field import GeologyField
-
-        data_path = field_record.data
-        if isinstance(data_path, Path):
-            data_path = str(data_path)
-        else:
-            data_path = str(data_path)
-
-        # BRGM data always uses CODE_LEG; custom sources carry their own code_field.
-        source_name = getattr(field_record, "source", "")
-        if source_name in ("brgm_1m", "brgm_50k"):
-            code_field = "CODE_LEG"
-        else:
-            code_field = "CODE_LEG"
-            for src in getattr(geology_cfg, "sources", []):
-                if getattr(src, "source", "") == "custom" and getattr(src, "code_field", None):
-                    code_field = src.code_field
-                    break
-        source_kind = infer_source_kind(data_path)
-
-        cfg_dict = {
-            "id": str(geology_cfg.id),
-            "source": {
-                "path": data_path,
-                "kind": source_kind,
-                "code_field": code_field,
-                "all_touched": False,
-            },
-            "cell_samples_per_axis": int(geology_cfg.cell_samples_per_axis),
-        }
-
-        if raster_support is not None and source_kind == "vector":
-            cfg_dict["source"]["reference_raster_path"] = data_path
-            cfg = validate_geology_config_data(cfg_dict)
-            loaded = load_geology_encoded_grid_on_raster_support(
-                cfg,
-                raster_support=raster_support,
-            )
-        else:
-            if source_kind == "vector":
-                cfg_dict["source"]["reference_raster_path"] = data_path
-            cfg = validate_geology_config_data(cfg_dict)
-            loaded = load_geology_encoded_grid(cfg)
-
-        field = GeologyField(
-            identifier=str(geology_cfg.id),
-            encoded_codes=loaded["encoded_codes"],
-            encoded_to_zone=loaded["encoded_to_zone"],
-            transform=loaded["transform"],
-            crs=loaded["crs"],
-            source_kind=str(loaded["source_kind"]),
-            default_cell_samples_per_axis=int(geology_cfg.cell_samples_per_axis),
-        )
-        # Expose the cached source path so the overview report can re-open
-        # the original vector file for map rendering. The overview panel
-        # looks for one of `source_path`, `geol_file`, `vector_source`.
-        field.source_path = data_path
-        return field
 
     @staticmethod
     def _resolve_geology_raster_support(result: WorkflowContext) -> Any:

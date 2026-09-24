@@ -77,6 +77,11 @@ Each release section includes the following standard categories:
   Piezometry, the DEM and SIM2 are asked through their `[data]` section, in a
   project TOML or a data request; a plugin source goes under `installed`. The
   port keeps `BdTopageSource`, `EuHydroSource` and `OsmSource`.
+- `hydromodpy.data.DataManagers`, `hydromodpy.data.loading.entry.DataEntry` and
+  `hydromodpy.results.catalog.cross_db.entry_used_by`, which nothing called.
+  With them go the two layer tolerances `data -> results` and
+  `results -> data` that the cross-database bridge needed; `run.input_entries()`
+  remains the way from a run to the cache entries it read.
 
 ### Added
 - The `data-request` process (`hmp process run data-request --job DIR`), the

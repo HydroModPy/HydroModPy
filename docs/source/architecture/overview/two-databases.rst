@@ -161,8 +161,7 @@ Provenance bridge
 -----------------
 
 Each run records, in its ``provenance`` rows, which input-cache entries
-it consumed. ``run.input_entries()`` walks the bridge to list them, and
-``entry.used_by()`` returns the runs that referenced a given entry by
+it consumed. ``run.input_entries()`` walks the bridge to list them by
 joining ``tracked_files.sha256``. Cross-project lookups go through the
 machine index.
 

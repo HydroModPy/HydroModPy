@@ -244,31 +244,31 @@ class TestFromToml:
 # =========================================================================
 class TestAdvancedDiscovery:
     def test_station_period_overlaps_hydro(self):
-        from hydromodpy.data.variables.hydrometry.apis.hubeau import _station_period_overlaps
+        from hydromodpy.data.common.clients.hubeau import station_period_overlaps
 
         # Station active 2015 to 2021, request 2020-2020 -> overlap
-        assert _station_period_overlaps(
+        assert station_period_overlaps(
             "2015-01-01",
             "2021-12-31",
             datetime(2020, 1, 1),
             datetime(2020, 12, 31),
         )
         # Station closed before request
-        assert not _station_period_overlaps(
+        assert not station_period_overlaps(
             "2015-01-01",
             "2018-12-31",
             datetime(2020, 1, 1),
             datetime(2020, 12, 31),
         )
         # Station opened after request
-        assert not _station_period_overlaps(
+        assert not station_period_overlaps(
             "2022-01-01",
             None,
             datetime(2020, 1, 1),
             datetime(2020, 12, 31),
         )
         # No dates -> assume valid
-        assert _station_period_overlaps(
+        assert station_period_overlaps(
             None,
             None,
             datetime(2020, 1, 1),
@@ -276,16 +276,16 @@ class TestAdvancedDiscovery:
         )
 
     def test_station_period_overlaps_piezo(self):
-        from hydromodpy.data.variables.piezometry.apis.hubeau import _station_period_overlaps
+        from hydromodpy.data.common.clients.hubeau import station_period_overlaps
 
         # Same logic as hydrometry
-        assert _station_period_overlaps(
+        assert station_period_overlaps(
             "2010-06-01",
             "2023-01-01",
             datetime(2020, 1, 1),
             datetime(2020, 12, 31),
         )
-        assert not _station_period_overlaps(
+        assert not station_period_overlaps(
             "2000-01-01",
             "2019-06-30",
             datetime(2020, 1, 1),

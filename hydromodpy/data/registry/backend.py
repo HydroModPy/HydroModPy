@@ -216,8 +216,7 @@ class DuckDBCacheBackend:
         """ATTACH ``db_path`` in read-only mode under ``alias`` for the block.
 
         Mirror of the helper on the catalog-side DuckDB adapter so the
-        cache can federate with a project catalog DB for cross-DB joins
-        (``DataEntry.used_by``).
+        cache can federate with a project catalog DB for cross-DB joins.
         """
         if not all(ch.isalnum() or ch == "_" for ch in alias):
             raise ValueError(f"Invalid attach alias: {alias!r}")

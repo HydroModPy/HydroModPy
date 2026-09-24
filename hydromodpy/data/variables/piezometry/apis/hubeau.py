@@ -9,11 +9,10 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-import requests
-
 from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import get_json
+from hydromodpy.data.common.clients.hubeau import keep_nearest, station_period_overlaps
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import pandas as pd
@@ -87,7 +86,7 @@ def fetch(
 
     # nearest_to: keep only the closest piezometer to the target point
     if nearest_to and ids:
-        ids = _keep_nearest(ids, nearest_to)
+        ids = keep_nearest(ids, nearest_to, _fetch_piezometer_location, label="piezometry")
 
     if not ids:
         logger.info("Hub'Eau piezo: no piezometers found.")
@@ -154,46 +153,6 @@ def fetch_for_config(
 # ---------------------------------------------------------------------------
 
 
-def _keep_nearest(
-    ids: list[str],
-    nearest_to: tuple[float, float],
-) -> list[str]:
-    """Fetch locations for all candidates and keep only the closest one.
-
-    Parameters
-    ----------
-    ids : list[str]
-        Candidate BSS codes discovered in the bbox.
-    nearest_to : tuple[float, float]
-        ``(lon, lat)`` target point.
-    """
-    from hydromodpy.data.common.geo_helpers import haversine_km
-
-    target_lon, target_lat = nearest_to
-    best_id: str | None = None
-    best_dist = float("inf")
-
-    for bss_id in progress.track(ids, "Locating piezometers"):
-        loc = _fetch_piezometer_location(bss_id)
-        if loc is None:
-            continue
-        dist = haversine_km(target_lon, target_lat, loc.x, loc.y)
-        if dist < best_dist:
-            best_dist = dist
-            best_id = bss_id
-
-    if best_id is None:
-        return []
-    logger.info(
-        "Hub'Eau piezo: nearest to (%.4f, %.4f) → %s (%.1f km)",
-        target_lon,
-        target_lat,
-        best_id,
-        best_dist,
-    )
-    return [best_id]
-
-
 # ---------------------------------------------------------------------------
 # Discovery
 # ---------------------------------------------------------------------------
@@ -231,38 +190,12 @@ def _discover_piezometers_in_bbox(
         if require_observations and date_start and date_end:
             station_start = row.get("date_debut_mesure")
             station_end = row.get("date_fin_mesure")
-            if not _station_period_overlaps(station_start, station_end, date_start, date_end):
+            if not station_period_overlaps(station_start, station_end, date_start, date_end):
                 continue
 
         ids.append(str(bss))
 
     return ids
-
-
-def _station_period_overlaps(
-    station_start_str: str | None,
-    station_end_str: str | None,
-    req_start: datetime,
-    req_end: datetime,
-) -> bool:
-    """Check if station measurement period overlaps with requested period."""
-    if station_start_str:
-        try:
-            s_start = datetime.fromisoformat(station_start_str[:10])
-            if s_start > req_end:
-                return False
-        except (ValueError, TypeError, requests.RequestException) as exc:
-            logger.debug("Could not parse station start date %r: %s", station_start_str, exc)
-
-    if station_end_str:
-        try:
-            s_end = datetime.fromisoformat(station_end_str[:10])
-            if s_end < req_start:
-                return False
-        except (ValueError, TypeError, requests.RequestException) as exc:
-            logger.debug("Could not parse station end date %r: %s", station_end_str, exc)
-
-    return True
 
 
 def _fetch_piezometer_location(bss_id: str) -> StationLocation | None:

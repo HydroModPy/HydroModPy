@@ -12,7 +12,6 @@ from importlib import import_module
 from importlib.util import find_spec
 
 __all__ = (
-    "DataManagers",
     "DataManagersConfig",
     "DataLoadPlan",
     "DataPlanner",
@@ -23,7 +22,6 @@ __all__ = (
 )
 
 _LAZY_IMPORTS = {
-    "DataManagers": "hydromodpy.data.loading.container:DataManagers",
     "DataManagersConfig": "hydromodpy.data.loading.config_schema:DataManagersConfig",
     "DataLoadPlan": "hydromodpy.data.loading.plan:DataLoadPlan",
     "DataPlanner": "hydromodpy.data.loading.planner:DataPlanner",

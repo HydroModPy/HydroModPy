@@ -17,7 +17,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar, Protocol, runtime_checkable
+from typing import Any, ClassVar
 
 from hydromodpy.data.contracts.timeseries import PointRecord
 
@@ -66,15 +66,6 @@ class SourceTable:
     def _fetch_listed_source(self, fetch: Callable[..., Any], source_cfg: Any) -> Any:
         """Call one ``SOURCES`` function the way this manager family calls them."""
         raise NotImplementedError
-
-
-@runtime_checkable
-class SourceConfigProtocol(Protocol):
-    """Minimal interface expected from source config objects."""
-
-    source: str
-    mask_path: Path | None
-    extent: str | None
 
 
 class BaseManagerCommon(SourceTable, ABC):

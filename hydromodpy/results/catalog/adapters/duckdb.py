@@ -249,8 +249,8 @@ class DuckDBBackend:
         """ATTACH ``db_path`` in read-only mode under ``alias`` for the block.
 
         DuckDB-specific helper used to federate the cache and catalog
-        databases for cross-DB joins (``Run.input_entries``,
-        ``DataEntry.used_by``). The alias is detached on exit, even on
+        databases for cross-DB joins (``Run.input_entries``). The alias
+        is detached on exit, even on
         failure, so the connection state stays clean. ATTACH is not part
         of the ``CatalogBackend`` Protocol because the semantics differ
         widely across SQL engines; future Postgres-flavoured adapters
