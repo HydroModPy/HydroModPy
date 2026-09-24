@@ -18,8 +18,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from hydromodpy.data.managers.config_schema import DataManagersConfig
-from hydromodpy.data.managers.plan import DataLoadPlan
+from hydromodpy.data.loading.config_schema import DataManagersConfig
+from hydromodpy.data.loading.plan import DataLoadPlan
 
 
 class DataPlanner:

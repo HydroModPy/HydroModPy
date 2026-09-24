@@ -10,10 +10,10 @@
 <title>Entity Relationship Diagram created by erdantic</title>
 <polygon fill="white" stroke="none" points="-4,4 -4,-9133.25 1462,-9133.25 1462,4 -4,4"/>
 <text xml:space="preserve" text-anchor="middle" x="729" y="-5.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="9.00" fill="#a8a8a8">Created by erdantic v1.2.1 &lt;https://github.com/drivendataorg/erdantic&gt;</text>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig -->
 <g id="node1" class="node">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig</title>
-<g id="a_node1"><a xlink:title="hydromodpy.data.managers.config_schema.DataManagersConfig&#10;&#10;Top&#45;level ``[data]`` configuration for manager families.&#10;&#10;The `types` list declares user&#45;requested data families. The effective&#10;active set can also include planner&#45;inferred families deduced from other&#10;sections (domain, flow) depending on `inference_mode`.&#10;&#10;For each active type, the matching nested section can be validated dynamically:&#10;&#45; `geology` already uses its dedicated Pydantic model (`GeologyConfig`),&#10;&#45; `oceanic` uses `OceanicConfig`,&#10;&#45; the other data families are kept as validated mappings for now.&#10;&#10;Use this model for validation only. Runtime activation order is represented&#10;by ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.&#10;">
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig</title>
+<g id="a_node1"><a xlink:title="hydromodpy.data.loading.config_schema.DataManagersConfig&#10;&#10;Top&#45;level ``[data]`` configuration for manager families.&#10;&#10;The `types` list declares user&#45;requested data families. The effective&#10;active set can also include planner&#45;inferred families deduced from other&#10;sections (domain, flow) depending on `inference_mode`.&#10;&#10;For each active type, the matching nested section can be validated dynamically:&#10;&#45; `geology` already uses its dedicated Pydantic model (`GeologyConfig`),&#10;&#45; `oceanic` uses `OceanicConfig`,&#10;&#45; the other data families are kept as validated mappings for now.&#10;&#10;Use this model for validation only. Runtime activation order is represented&#10;by ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.&#10;">
 <polygon fill="none" stroke="black" points="0,-5582.75 0,-5605.25 272.25,-5605.25 272.25,-5582.75 0,-5582.75"/>
 <text xml:space="preserve" text-anchor="start" x="73.5" y="-5589.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">DataManagersConfig</text>
 <polygon fill="none" stroke="black" points="0,-5560.25 0,-5582.75 97.5,-5582.75 97.5,-5560.25 0,-5560.25"/>
@@ -140,9 +140,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.dem.config.DemConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.dem.config.DemConfig -->
 <g id="edge1" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.dem.config.DemConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.dem.config.DemConfig:w</title>
 <path fill="none" stroke="black" d="M281.62,-5507.17C433.83,-5612.43 354.25,-8308.78 380.25,-8468.25 406.66,-8630.24 324.02,-8821.53 473.33,-8832.96"/>
 <polyline fill="none" stroke="black" points="272.25,-5504 276.99,-5505.6"/>
 <polyline fill="none" stroke="black" points="276.99,-5505.6 281.72,-5507.2"/>
@@ -173,9 +173,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.etp.config.EtpConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.etp.config.EtpConfig -->
 <g id="edge2" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.etp.config.EtpConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.etp.config.EtpConfig:w</title>
 <path fill="none" stroke="black" d="M281.8,-5098.3C435.32,-5074.92 278.13,-4475.28 380.25,-4344.25 434.92,-4274.1 477.2,-4264.87 561.13,-4264.06"/>
 <polyline fill="none" stroke="black" points="272.25,-5099 277.24,-5098.63"/>
 <polyline fill="none" stroke="black" points="277.24,-5098.63 282.22,-5098.27"/>
@@ -206,9 +206,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.geology.config.GeologyConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.geology.config.GeologyConfig -->
 <g id="edge3" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.geology.config.GeologyConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.geology.config.GeologyConfig:w</title>
 <path fill="none" stroke="black" d="M281.45,-5484.84C424.03,-5592.75 230.61,-8280.16 367.43,-8432.29"/>
 <polyline fill="none" stroke="black" points="272.25,-5481.5 276.95,-5483.21"/>
 <polyline fill="none" stroke="black" points="276.95,-5483.21 281.65,-5484.91"/>
@@ -239,9 +239,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.humidity.config.HumidityConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.humidity.config.HumidityConfig -->
 <g id="edge4" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.humidity.config.HumidityConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.humidity.config.HumidityConfig:w</title>
 <path fill="none" stroke="black" d="M281.69,-5029.92C427.22,-4979.96 344.53,-3760.32 380.25,-3609.25 427.39,-3409.89 353.06,-3183.35 544.38,-3172.41"/>
 <polyline fill="none" stroke="black" points="272.25,-5031.5 277.18,-5030.68"/>
 <polyline fill="none" stroke="black" points="277.18,-5030.68 282.11,-5029.85"/>
@@ -264,9 +264,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.hydrography.config.HydrographyConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.hydrography.config.HydrographyConfig -->
 <g id="edge5" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.hydrography.config.HydrographyConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.hydrography.config.HydrographyConfig:w</title>
 <path fill="none" stroke="black" d="M281.31,-5463.15C388.63,-5564.43 343.37,-7486.53 380.25,-7596.25 422.69,-7722.52 417.62,-7844.13 540.69,-7852.99"/>
 <polyline fill="none" stroke="black" points="272.25,-5459 276.8,-5461.08"/>
 <polyline fill="none" stroke="black" points="276.8,-5461.08 281.34,-5463.17"/>
@@ -297,9 +297,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.hydrometry.config.HydrometryConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.hydrometry.config.HydrometryConfig -->
 <g id="edge6" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.hydrometry.config.HydrometryConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.hydrometry.config.HydrometryConfig:w</title>
 <path fill="none" stroke="black" d="M280.83,-5440.98C369.24,-5535.69 357.14,-7101.29 380.25,-7193.25 423.55,-7365.55 372.36,-7555.89 537.16,-7566.53"/>
 <polyline fill="none" stroke="black" points="272.25,-5436.5 276.68,-5438.81"/>
 <polyline fill="none" stroke="black" points="276.68,-5438.81 281.11,-5441.13"/>
@@ -330,9 +330,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.intermittency.config.IntermittencyConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.intermittency.config.IntermittencyConfig -->
 <g id="edge7" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.intermittency.config.IntermittencyConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.intermittency.config.IntermittencyConfig:w</title>
 <path fill="none" stroke="black" d="M281.78,-5415.6C428.47,-5466.17 336.21,-6700.7 380.25,-6851.25 423.15,-6997.91 392.95,-7153.62 534.07,-7163.5"/>
 <polyline fill="none" stroke="black" points="272.25,-5414 277.18,-5414.83"/>
 <polyline fill="none" stroke="black" points="277.18,-5414.83 282.11,-5415.65"/>
@@ -359,9 +359,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.lake_abacus.config.LakeAbacusConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.lake_abacus.config.LakeAbacusConfig -->
 <g id="edge8" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.lake_abacus.config.LakeAbacusConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.lake_abacus.config.LakeAbacusConfig:w</title>
 <path fill="none" stroke="black" d="M281.92,-5393.38C410.75,-5445.15 315.86,-6551.17 380.25,-6675.25 424.58,-6760.67 450.96,-6815.92 540.24,-6821.32"/>
 <polyline fill="none" stroke="black" points="272.25,-5391.5 277.16,-5392.45"/>
 <polyline fill="none" stroke="black" points="277.16,-5392.45 282.07,-5393.41"/>
@@ -388,9 +388,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.lake_bathymetry.config.LakeBathymetryConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.lake_bathymetry.config.LakeBathymetryConfig -->
 <g id="edge9" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.lake_bathymetry.config.LakeBathymetryConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.lake_bathymetry.config.LakeBathymetryConfig:w</title>
 <path fill="none" stroke="black" d="M281.75,-5371.14C389.72,-5421.35 335.01,-6341 380.25,-6449.25 421.98,-6549.11 429.09,-6637.29 528.17,-6645.18"/>
 <polyline fill="none" stroke="black" points="272.25,-5369 277.13,-5370.1"/>
 <polyline fill="none" stroke="black" points="277.13,-5370.1 282.01,-5371.19"/>
@@ -417,9 +417,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.lake_geometry.config.LakeGeometryConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.lake_geometry.config.LakeGeometryConfig -->
 <g id="edge10" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.lake_geometry.config.LakeGeometryConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.lake_geometry.config.LakeGeometryConfig:w</title>
 <path fill="none" stroke="black" d="M282.13,-5347.11C465.34,-5370.54 298.84,-6057.45 380.25,-6235.25 424.23,-6331.29 436.08,-6411.86 533.06,-6419.2"/>
 <polyline fill="none" stroke="black" points="272.25,-5346.5 277.24,-5346.81"/>
 <polyline fill="none" stroke="black" points="277.24,-5346.81 282.23,-5347.12"/>
@@ -450,9 +450,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.lake_inflow.config.LakeInflowConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.lake_inflow.config.LakeInflowConfig -->
 <g id="edge11" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.lake_inflow.config.LakeInflowConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.lake_inflow.config.LakeInflowConfig:w</title>
 <path fill="none" stroke="black" d="M282.09,-5324.8C419.29,-5347.89 318.73,-5863.27 380.25,-5998.25 428.03,-6103.07 433.25,-6197.54 539.12,-6205.46"/>
 <polyline fill="none" stroke="black" points="272.25,-5324 277.23,-5324.41"/>
 <polyline fill="none" stroke="black" points="277.23,-5324.41 282.22,-5324.81"/>
@@ -483,9 +483,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.lake_levels.config.LakeLevelsConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.lake_levels.config.LakeLevelsConfig -->
 <g id="edge12" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.lake_levels.config.LakeLevelsConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.lake_levels.config.LakeLevelsConfig:w</title>
 <path fill="none" stroke="black" d="M282.01,-5301.75C431.77,-5309.78 317.4,-5507.01 380.25,-5655.25 440.47,-5797.27 397.57,-5958.26 539.22,-5968.49"/>
 <polyline fill="none" stroke="black" points="272.25,-5301.5 277.25,-5301.63"/>
 <polyline fill="none" stroke="black" points="277.25,-5301.63 282.25,-5301.76"/>
@@ -516,9 +516,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.lake_outflow.config.LakeOutflowConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.lake_outflow.config.LakeOutflowConfig -->
 <g id="edge13" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.lake_outflow.config.LakeOutflowConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.lake_outflow.config.LakeOutflowConfig:w</title>
 <path fill="none" stroke="black" d="M282.1,-5279.3C460.89,-5290.46 361.08,-5608.55 534.78,-5625.31"/>
 <polyline fill="none" stroke="black" points="272.25,-5279 277.25,-5279.15"/>
 <polyline fill="none" stroke="black" points="277.25,-5279.15 282.25,-5279.31"/>
@@ -549,9 +549,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.lake_withdrawal.config.LakeWithdrawalConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.lake_withdrawal.config.LakeWithdrawalConfig -->
 <g id="edge14" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.lake_withdrawal.config.LakeWithdrawalConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.lake_withdrawal.config.LakeWithdrawalConfig:w</title>
 <path fill="none" stroke="black" d="M282.02,-5256.63C390.55,-5259.47 419.27,-5309.42 525.35,-5313.71"/>
 <polyline fill="none" stroke="black" points="272.25,-5256.5 277.25,-5256.56"/>
 <polyline fill="none" stroke="black" points="277.25,-5256.56 282.25,-5256.63"/>
@@ -582,9 +582,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.oceanic.config.OceanicConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.oceanic.config.OceanicConfig -->
 <g id="edge15" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.oceanic.config.OceanicConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.oceanic.config.OceanicConfig:w</title>
 <path fill="none" stroke="black" d="M282.2,-5233.8C406.84,-5228.75 426.57,-5129.04 548.41,-5121.46"/>
 <polyline fill="none" stroke="black" points="272.25,-5234 277.25,-5233.9"/>
 <polyline fill="none" stroke="black" points="277.25,-5233.9 282.25,-5233.8"/>
@@ -615,9 +615,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.piezometry.config.PiezometryConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.piezometry.config.PiezometryConfig -->
 <g id="edge16" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.piezometry.config.PiezometryConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.piezometry.config.PiezometryConfig:w</title>
 <path fill="none" stroke="black" d="M281.79,-5211.02C363.81,-5202.31 304.41,-5077.55 380.25,-5024.25 440.43,-4981.95 471.59,-4991.45 539.74,-4992.85"/>
 <polyline fill="none" stroke="black" points="272.25,-5211.5 277.24,-5211.25"/>
 <polyline fill="none" stroke="black" points="277.24,-5211.25 282.24,-5211"/>
@@ -648,9 +648,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.precipitation.config.PrecipitationConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.precipitation.config.PrecipitationConfig -->
 <g id="edge17" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.precipitation.config.PrecipitationConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.precipitation.config.PrecipitationConfig:w</title>
 <path fill="none" stroke="black" d="M282.11,-5120.59C407.26,-5096.42 290.12,-4600.17 380.25,-4496.25 429.14,-4439.88 466.19,-4440.63 536.07,-4440.96"/>
 <polyline fill="none" stroke="black" points="272.25,-5121.5 277.23,-5121.04"/>
 <polyline fill="none" stroke="black" points="277.23,-5121.04 282.21,-5120.58"/>
@@ -681,9 +681,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.radiation.config.RadiationConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.radiation.config.RadiationConfig -->
 <g id="edge18" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.radiation.config.RadiationConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.radiation.config.RadiationConfig:w</title>
 <path fill="none" stroke="black" d="M281.1,-5004.68C379.09,-4906.89 366.46,-3178.89 380.25,-3075.25 430.21,-2699.62 181.94,-2242.24 544.39,-2230.24"/>
 <polyline fill="none" stroke="black" points="272.25,-5009 276.74,-5006.81"/>
 <polyline fill="none" stroke="black" points="276.74,-5006.81 281.24,-5004.62"/>
@@ -714,9 +714,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.recharge.config.RechargeConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.recharge.config.RechargeConfig -->
 <g id="edge19" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.recharge.config.RechargeConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.recharge.config.RechargeConfig:w</title>
 <path fill="none" stroke="black" d="M282.08,-5166.22C448.39,-5156.39 248.26,-4890.24 380.25,-4767.25 436.09,-4715.22 473.66,-4729.76 545.22,-4731.79"/>
 <polyline fill="none" stroke="black" points="272.25,-5166.5 277.25,-5166.36"/>
 <polyline fill="none" stroke="black" points="277.25,-5166.36 282.25,-5166.21"/>
@@ -747,9 +747,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.runoff.config.RunoffConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.runoff.config.RunoffConfig -->
 <g id="edge20" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.runoff.config.RunoffConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.runoff.config.RunoffConfig:w</title>
 <path fill="none" stroke="black" d="M282.08,-5143.78C495.13,-5133.96 220.33,-4797.43 380.25,-4635.25 436.2,-4578.51 476.43,-4591.09 551.43,-4592.82"/>
 <polyline fill="none" stroke="black" points="272.25,-5144 277.25,-5143.89"/>
 <polyline fill="none" stroke="black" points="277.25,-5143.89 282.25,-5143.78"/>
@@ -780,9 +780,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.soil_moisture.config.SoilMoistureConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.soil_moisture.config.SoilMoistureConfig -->
 <g id="edge21" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.soil_moisture.config.SoilMoistureConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.soil_moisture.config.SoilMoistureConfig:w</title>
 <path fill="none" stroke="black" d="M279.08,-4979.49C352.91,-4826.27 374.88,-2210.05 380.25,-2133.25 431.67,-1397.42 -184.38,-483.36 535.1,-471.12"/>
 <polyline fill="none" stroke="black" points="272.25,-4986.5 275.74,-4982.92"/>
 <polyline fill="none" stroke="black" points="275.74,-4982.92 279.23,-4979.34"/>
@@ -813,9 +813,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.temperature.config.TemperatureConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.temperature.config.TemperatureConfig -->
 <g id="edge22" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.temperature.config.TemperatureConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.temperature.config.TemperatureConfig:w</title>
 <path fill="none" stroke="black" d="M282.06,-5075.9C469.3,-5052.34 281.37,-4341.21 380.25,-4167.25 425.01,-4088.5 452.25,-4041.26 536.15,-4036.41"/>
 <polyline fill="none" stroke="black" points="272.25,-5076.5 277.24,-5076.19"/>
 <polyline fill="none" stroke="black" points="277.24,-5076.19 282.23,-5075.89"/>
@@ -846,9 +846,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.water_quality.config.WaterQualityConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.water_quality.config.WaterQualityConfig -->
 <g id="edge23" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.water_quality.config.WaterQualityConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.water_quality.config.WaterQualityConfig:w</title>
 <path fill="none" stroke="black" d="M281.92,-5188.64C404.41,-5179.15 277.03,-4983.72 380.25,-4896.25 434.67,-4850.13 468.07,-4862.02 534.44,-4863.8"/>
 <polyline fill="none" stroke="black" points="272.25,-5189 277.25,-5188.81"/>
 <polyline fill="none" stroke="black" points="277.25,-5188.81 282.24,-5188.63"/>
@@ -879,9 +879,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.data.managers.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.wind.config.WindConfig -->
+<!-- hydromodpy.data.loading.config_schema.DataManagersConfig&#45;&gt;hydromodpy.data.variables.wind.config.WindConfig -->
 <g id="edge24" class="edge">
-<title>hydromodpy.data.managers.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.wind.config.WindConfig:w</title>
+<title>hydromodpy.data.loading.config_schema.DataManagersConfig:e&#45;&gt;hydromodpy.data.variables.wind.config.WindConfig:w</title>
 <path fill="none" stroke="black" d="M281.71,-5051.95C393.4,-5001.9 334.14,-4051.29 380.25,-3939.25 429.22,-3820.25 436.23,-3714.36 555.76,-3706.47"/>
 <polyline fill="none" stroke="black" points="272.25,-5054 277.14,-5052.94"/>
 <polyline fill="none" stroke="black" points="277.14,-5052.94 282.02,-5051.88"/>

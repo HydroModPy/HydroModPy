@@ -25,8 +25,8 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time import resolve_simulation_time_window_dates
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR, WorkspacePathRegistry
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, VariableSpec
+from hydromodpy.data.loading.plan import DataLoadPlan
 from hydromodpy.data.loading.store import DataStore
-from hydromodpy.data.managers.plan import DataLoadPlan
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 if TYPE_CHECKING:

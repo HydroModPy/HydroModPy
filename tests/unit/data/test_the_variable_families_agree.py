@@ -14,7 +14,7 @@ from hydromodpy._lazy import LAZY_IMPORTS
 from hydromodpy.core.state.data import LoadedDataContext
 from hydromodpy.data import DataManagersConfig
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
-from hydromodpy.data.managers.config_schema import SUPPORTED_DATA_MANAGER_TYPES
+from hydromodpy.data.loading.config_schema import SUPPORTED_DATA_MANAGER_TYPES
 from hydromodpy.data.scaffold import VARIABLES
 
 # The two fields of [data] that configure the planner, not a variable.
@@ -29,10 +29,10 @@ def _variable_of_config_name(name: str) -> str:
 
 def _families() -> dict[str, set[str]]:
     return {
-        "DataManagersConfig fields (data/managers/config_schema.py)": (
+        "DataManagersConfig fields (data/loading/config_schema.py)": (
             set(DataManagersConfig.model_fields) - _PLANNER_FIELDS
         ),
-        "SUPPORTED_DATA_MANAGER_TYPES (data/managers/config_schema.py)": set(
+        "SUPPORTED_DATA_MANAGER_TYPES (data/loading/config_schema.py)": set(
             SUPPORTED_DATA_MANAGER_TYPES
         ),
         "LoadedDataContext fields (core/state/data.py)": {

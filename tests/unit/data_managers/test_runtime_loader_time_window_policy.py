@@ -10,7 +10,7 @@ from typing import Any, cast
 from hydromodpy.core.state.run_state import WorkflowContext
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
 from hydromodpy.data.loading.loader import DataManagersRuntimeLoader
-from hydromodpy.data.managers.plan import DataLoadPlan
+from hydromodpy.data.loading.plan import DataLoadPlan
 
 SIM_WINDOW = ("2020-01-01", "2020-01-31")
 

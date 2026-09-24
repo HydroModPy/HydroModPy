@@ -8,7 +8,7 @@ The role of this module is strictly declarative:
   ``data.oceanic``).
 
 Inference rules (domain/process-driven activation) are intentionally
-implemented elsewhere in ``data_managers.planner``.
+implemented elsewhere in ``data.loading.planner``.
 """
 
 from __future__ import annotations

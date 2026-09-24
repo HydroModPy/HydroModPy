@@ -18,10 +18,10 @@ __all__ = (
 )
 
 _LAZY_IMPORTS = {
-    "DataManagers": "hydromodpy.data.managers.container:DataManagers",
-    "DataManagersConfig": "hydromodpy.data.managers.config_schema:DataManagersConfig",
-    "DataLoadPlan": "hydromodpy.data.managers.plan:DataLoadPlan",
-    "DataPlanner": "hydromodpy.data.managers.planner:DataPlanner",
+    "DataManagers": "hydromodpy.data.loading.container:DataManagers",
+    "DataManagersConfig": "hydromodpy.data.loading.config_schema:DataManagersConfig",
+    "DataLoadPlan": "hydromodpy.data.loading.plan:DataLoadPlan",
+    "DataPlanner": "hydromodpy.data.loading.planner:DataPlanner",
     "DataManagersRuntimeLoader": "hydromodpy.data.loading.loader:DataManagersRuntimeLoader",
 }
 

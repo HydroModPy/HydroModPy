@@ -10,8 +10,8 @@ boundary does NOT infer any of them.
 
 from __future__ import annotations
 
-from hydromodpy.data.managers.config_schema import DataManagersConfig
-from hydromodpy.data.managers.planner import DataPlanner
+from hydromodpy.data.loading.config_schema import DataManagersConfig
+from hydromodpy.data.loading.planner import DataPlanner
 
 _CONSUMED_LAKE_FAMILIES = ("lake_geometry", "lake_abacus", "lake_inflow", "lake_withdrawal")
 _UNCONSUMED_LAKE_FAMILIES = ("lake_bathymetry", "lake_levels", "lake_outflow")

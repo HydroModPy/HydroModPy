@@ -13,8 +13,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from hydromodpy.data.managers.config_schema import DataManagersConfig
-from hydromodpy.data.managers.plan import DataLoadPlan
+from hydromodpy.data.loading.config_schema import DataManagersConfig
+from hydromodpy.data.loading.plan import DataLoadPlan
 
 
 @dataclass(slots=True)

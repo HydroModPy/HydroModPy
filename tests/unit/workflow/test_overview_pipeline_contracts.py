@@ -9,7 +9,7 @@ import hydromodpy.data.variables.dem.resolver as dem_resolver
 import hydromodpy.data.variables.hydrography.resolver as hydrography_resolver
 import hydromodpy.workflow.pipelines.overview as overview_module
 from hydromodpy.core.exceptions import ConfigMissingError
-from hydromodpy.data.managers.config_schema import DataManagersConfig
+from hydromodpy.data.loading.config_schema import DataManagersConfig
 from hydromodpy.data.variables.recharge.config import RechargeConfig, RechargeSourceConfig
 from hydromodpy.data.variables.runoff.config import RunoffConfig, RunoffSourceConfig
 

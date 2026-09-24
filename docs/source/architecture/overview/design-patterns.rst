@@ -120,7 +120,7 @@ climate) has a subclass of ``BaseVariableManager``:
        def load(self) -> LoadResult: ...
 
 ``LoadResult`` wraps the fetched data plus a fingerprint used for
-provenance. ``DataManagersPlanner`` (``hydromodpy/data/managers/planner.py``)
+provenance. ``DataManagersPlanner`` (``hydromodpy/data/loading/planner.py``)
 resolves the explicit config and the inferred needs into an immutable
 ``DataLoadPlan``.
 

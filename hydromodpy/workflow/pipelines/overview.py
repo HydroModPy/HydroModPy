@@ -229,7 +229,7 @@ class DataOverviewLauncher:
         injected into data sections that have no explicit dates of their own.
         """
         from hydromodpy.data.loading.loader import DataManagersRuntimeLoader
-        from hydromodpy.data.managers.plan import DataLoadPlan
+        from hydromodpy.data.loading.plan import DataLoadPlan
         from hydromodpy.spatial.geographic.core.derived_features import (
             attach_reference_hydrographic_network,
         )

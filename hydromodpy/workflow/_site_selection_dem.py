@@ -12,7 +12,7 @@ from hydromodpy.core.exceptions import (
     ConfigValidationError,
 )
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-from hydromodpy.data.managers.config_schema import DataManagersConfig
+from hydromodpy.data.loading.config_schema import DataManagersConfig
 from hydromodpy.data.variables.dem.config import DemConfig as DataDemConfig
 from hydromodpy.spatial.geographic.core.catchment_from_point import (
     extract_catchment_from_point,

@@ -1173,7 +1173,7 @@
     "section": "data",
     "anchor": "data-types",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L109",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L109",
     "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydro"
   },
   {
@@ -1185,7 +1185,7 @@
     "section": "data",
     "anchor": "data-inference-mode",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L118",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L118",
     "description": "Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred type has no explicit data.<type> section (except geo"
   },
   {
@@ -1197,7 +1197,7 @@
     "section": "data",
     "anchor": "data-dem",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L128",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L128",
     "description": "DEM configuration used when 'dem' is listed in data.types."
   },
   {
@@ -1365,7 +1365,7 @@
     "section": "data",
     "anchor": "data-geology",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L132",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L132",
     "description": "Geology configuration used when 'geology' is listed in data.types."
   },
   {
@@ -1545,7 +1545,7 @@
     "section": "data",
     "anchor": "data-hydrography",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L136",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L136",
     "description": "Hydrography configuration (stream network vector data)."
   },
   {
@@ -1692,7 +1692,7 @@
     "section": "data",
     "anchor": "data-hydrometry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L140",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L140",
     "description": "Hydrometry configuration (discharge time-series)."
   },
   {
@@ -1962,7 +1962,7 @@
     "section": "data",
     "anchor": "data-intermittency",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L144",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L144",
     "description": "Intermittency configuration (ONDE stream flow-state observations)."
   },
   {
@@ -2220,7 +2220,7 @@
     "section": "data",
     "anchor": "data-lake-abacus",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L148",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L148",
     "description": "Lake abacus configuration (stage-volume-area lookup table)."
   },
   {
@@ -2292,7 +2292,7 @@
     "section": "data",
     "anchor": "data-lake-bathymetry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L152",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L152",
     "description": "Lake bathymetry configuration (lake-bed elevation raster)."
   },
   {
@@ -2364,7 +2364,7 @@
     "section": "data",
     "anchor": "data-lake-geometry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L156",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L156",
     "description": "Lake geometry configuration (lake/reservoir footprint vector)."
   },
   {
@@ -2436,7 +2436,7 @@
     "section": "data",
     "anchor": "data-lake-inflow",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L160",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L160",
     "description": "Lake inflow configuration (observed inflow volumetric time series)."
   },
   {
@@ -2658,7 +2658,7 @@
     "section": "data",
     "anchor": "data-lake-levels",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L164",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L164",
     "description": "Lake levels configuration (observed water-level time series)."
   },
   {
@@ -2880,7 +2880,7 @@
     "section": "data",
     "anchor": "data-lake-outflow",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L168",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L168",
     "description": "Lake outflow configuration (observed outflow volumetric time series)."
   },
   {
@@ -3102,7 +3102,7 @@
     "section": "data",
     "anchor": "data-lake-withdrawal",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L172",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L172",
     "description": "Lake withdrawal configuration (observed withdrawal volumetric time series)."
   },
   {
@@ -3324,7 +3324,7 @@
     "section": "data",
     "anchor": "data-oceanic",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L176",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L176",
     "description": "Oceanic configuration used when 'oceanic' is listed in data.types."
   },
   {
@@ -3582,7 +3582,7 @@
     "section": "data",
     "anchor": "data-piezometry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L180",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L180",
     "description": "Piezometry configuration (groundwater level time-series)."
   },
   {
@@ -3852,7 +3852,7 @@
     "section": "data",
     "anchor": "data-water-quality",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L184",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L184",
     "description": "Water quality configuration (physico-chemical parameters)."
   },
   {
@@ -4122,7 +4122,7 @@
     "section": "data",
     "anchor": "data-recharge",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L188",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L188",
     "description": "Recharge configuration (drainage / soil infiltration time series)."
   },
   {
@@ -4440,7 +4440,7 @@
     "section": "data",
     "anchor": "data-runoff",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L192",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L192",
     "description": "Runoff configuration (surface runoff time series)."
   },
   {
@@ -4662,7 +4662,7 @@
     "section": "data",
     "anchor": "data-precipitation",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L196",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L196",
     "description": "Precipitation configuration (liquid and solid precipitation)."
   },
   {
@@ -4896,7 +4896,7 @@
     "section": "data",
     "anchor": "data-etp",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L200",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L200",
     "description": "ETP configuration (potential evapotranspiration)."
   },
   {
@@ -5142,7 +5142,7 @@
     "section": "data",
     "anchor": "data-temperature",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L204",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L204",
     "description": "Temperature configuration (air temperature time series)."
   },
   {
@@ -5364,7 +5364,7 @@
     "section": "data",
     "anchor": "data-wind",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L208",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L208",
     "description": "Wind configuration (wind speed time series)."
   },
   {
@@ -5586,7 +5586,7 @@
     "section": "data",
     "anchor": "data-humidity",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L212",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L212",
     "description": "Humidity configuration (relative humidity time series)."
   },
   {
@@ -5808,7 +5808,7 @@
     "section": "data",
     "anchor": "data-radiation",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L216",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L216",
     "description": "Radiation configuration (atmospheric and visible radiation)."
   },
   {
@@ -6042,7 +6042,7 @@
     "section": "data",
     "anchor": "data-soil-moisture",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/managers/config_schema.py#L220",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L220",
     "description": "Soil moisture configuration (soil moisture index)."
   },
   {

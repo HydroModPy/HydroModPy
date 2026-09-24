@@ -57,7 +57,7 @@ LAZY_IMPORTS: dict[str, str] = {
     # Display
     "DisplayConfig": "hydromodpy.display.config",
     # Data variables (public surface)
-    "DataManagersConfig": "hydromodpy.data.managers.config_schema",
+    "DataManagersConfig": "hydromodpy.data.loading.config_schema",
     "DemConfig": "hydromodpy.data.variables.dem.config",
     "CustomDemSource": "hydromodpy.data.variables.dem.config",
     "IgnGeoplateformeDemSource": "hydromodpy.data.variables.dem.config",

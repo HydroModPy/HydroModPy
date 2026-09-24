@@ -15,11 +15,11 @@ Open it when you want:
 Code map
 --------
 
-- ``hydromodpy/data/managers/planner.py`` and ``managers/plan.py``: activation
+- ``hydromodpy/data/loading/planner.py`` and ``loading/plan.py``: activation
   inference and immutable plan creation.
 - ``hydromodpy/data/loading/loader.py``: data-family dispatch during
   ``Project.load_data()``.
-- ``hydromodpy/data/managers/container.py``: loaded-data container
+- ``hydromodpy/data/loading/container.py``: loaded-data container
   published to runtime state.
 - ``hydromodpy/project/facade.py``: orchestration of ``setup_workspace`` /
   ``build_geographic`` / ``load_data``.
@@ -29,8 +29,8 @@ Code map
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/data/managers/config_schema.py``
-2. ``hydromodpy/data/managers/planner.py``
+1. ``hydromodpy/data/loading/config_schema.py``
+2. ``hydromodpy/data/loading/planner.py``
 3. ``hydromodpy/data/loading/loader.py``
 4. ``hydromodpy/project/facade.py``
 5. one bound family such as ``hydromodpy/data/variables/geology/`` or

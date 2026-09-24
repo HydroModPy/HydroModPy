@@ -12,7 +12,7 @@ import pandas as pd
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.io_helpers import safe_file_token
-from hydromodpy.data.common.validation import compute_completeness
+from hydromodpy.data.contracts.completeness import compute_completeness
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord

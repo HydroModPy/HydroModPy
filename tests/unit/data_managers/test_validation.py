@@ -1,11 +1,11 @@
-"""Tests for common/validation."""
+"""Tests for contracts/completeness."""
 
 from datetime import datetime
 
 import pandas as pd
 import pytest
 
-from hydromodpy.data.common.validation import check_required_columns, compute_completeness
+from hydromodpy.data.contracts.completeness import check_required_columns, compute_completeness
 
 
 class TestComputeCompleteness:

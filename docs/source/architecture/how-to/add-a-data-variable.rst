@@ -143,7 +143,7 @@ branch. See :doc:`add-a-data-source` for the full wiring.
 Wire it into the planner
 ------------------------
 
-``DataPlanner`` (``hydromodpy/data/managers/planner.py``) merges the
+``DataPlanner`` (``hydromodpy/data/loading/planner.py``) merges the
 ``[data].types`` list with rules that infer extra families from other
 sections (geology if the domain references "geology", hydrography if
 the flow uses ``"stream"`` boundary conditions, etc.). If your
@@ -160,7 +160,7 @@ Otherwise the user activates it explicitly:
 Wire it into ``HydroModPyConfig``
 ---------------------------------
 
-In ``hydromodpy/data/managers/config_schema.py`` (or the equivalent
+In ``hydromodpy/data/loading/config_schema.py`` (or the equivalent
 discriminated union), add ``NewvarConfig`` so ``[data.newvar]``
 parses cleanly.
 

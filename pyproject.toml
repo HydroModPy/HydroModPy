@@ -312,8 +312,7 @@ ignore = [
 "hydromodpy/cli/**" = ["E402"]
 # Pydantic `model_rebuild(_types_namespace=...)` pattern: forward refs are
 # resolved at runtime via an explicit namespace dict, so ruff can't see them
-# with static analysis. Known-good, silencing F821 in these files.
-"hydromodpy/data/data_managers_config.py" = ["F821"]
+# with static analysis. Known-good, silencing F821 in this file.
 "hydromodpy/config/hydromodpy_config.py" = ["F821"]
 # MODFLOW-NWT solver subtree: import ordering and double-docstring license
 # headers are handled separately from this release cleanup.

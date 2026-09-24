@@ -23,7 +23,7 @@ Sub-modules
   body that runs it and the four artefact writers, see below. It is the
   caller of the port, kept out of ``data/source/`` so the port stays
   importable without pydantic.
-- ``data/managers/planner.py`` and ``data/managers/plan.py`` --
+- ``data/loading/planner.py`` and ``data/loading/plan.py`` --
   ``DataPlanner`` and immutable ``DataLoadPlan``. The planner merges
   ``[data].types`` with rules that infer extra variables from foreign
   sections (for example geology if ``domain.zone_ids`` mentions
@@ -250,8 +250,8 @@ Key public symbols
 - ``hydromodpy.data.managers.base_manager_variable.BaseVariableManager``
 - ``hydromodpy.data.managers.base_manager_field.BaseFieldManager``
 - ``hydromodpy.data.loading.loader.DataManagersRuntimeLoader``
-- ``hydromodpy.data.managers.planner.DataPlanner``
-- ``hydromodpy.data.managers.plan.DataLoadPlan``
+- ``hydromodpy.data.loading.planner.DataPlanner``
+- ``hydromodpy.data.loading.plan.DataLoadPlan``
 - ``hydromodpy.data.registry.catalog_duckdb.DataCatalogDuckDB``
 - ``hydromodpy.data.contracts.load_result.LoadResult``
 - ``hydromodpy.data.contracts.timeseries.{PointRecord, FieldRecord}``
@@ -279,7 +279,7 @@ Recommended reading path
 4. ``hydromodpy/data/variables/hydrometry/`` for a complete point
    variable.
 5. ``hydromodpy/data/variables/dem/`` for a complete field variable.
-6. ``hydromodpy/data/managers/planner.py`` for the inference rules.
+6. ``hydromodpy/data/loading/planner.py`` for the inference rules.
 7. ``hydromodpy/data/registry/catalog_duckdb.py`` for the cache
    schema.
 
