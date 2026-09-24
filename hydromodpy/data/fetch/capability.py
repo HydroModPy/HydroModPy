@@ -58,15 +58,15 @@ from hydromodpy.core.exceptions import (
     JobUsageError,
 )
 from hydromodpy.data.source import registry
-from hydromodpy.data.source.bdtopage import DEFAULT_PAGE_SIZE, DEFAULT_TYPENAME
-from hydromodpy.data.source.euhydro import (
+from hydromodpy.data.source.port import DataSource
+from hydromodpy.data.variables.hydrography.apis.bdtopage import DEFAULT_PAGE_SIZE, DEFAULT_TYPENAME
+from hydromodpy.data.variables.hydrography.apis.euhydro import (
     DEFAULT_GROUP_NAME,
 )
-from hydromodpy.data.source.euhydro import (
+from hydromodpy.data.variables.hydrography.apis.euhydro import (
     DEFAULT_PAGE_SIZE as DEFAULT_EUHYDRO_PAGE_SIZE,
 )
-from hydromodpy.data.source.osm import DEFAULT_WATERWAY_TYPES
-from hydromodpy.data.source.port import DataSource
+from hydromodpy.data.variables.hydrography.apis.osm import DEFAULT_WATERWAY_TYPES
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
 from hydromodpy.schema.job.request import FileLink
 from hydromodpy.schema.media_types import (

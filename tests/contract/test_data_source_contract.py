@@ -899,7 +899,10 @@ def test_a_numpy_scalar_is_a_coordinate() -> None:
 
 def test_the_bdtopage_defaults_match_the_config_they_replace() -> None:
     """Two copies of a default drift; this is the gate that says when."""
-    from hydromodpy.data.source.bdtopage import DEFAULT_PAGE_SIZE, DEFAULT_TYPENAME
+    from hydromodpy.data.variables.hydrography.apis.bdtopage import (
+        DEFAULT_PAGE_SIZE,
+        DEFAULT_TYPENAME,
+    )
     from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
     declared = HydrographySourceConfig(source="bdtopage")

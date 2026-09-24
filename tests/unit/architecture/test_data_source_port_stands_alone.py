@@ -15,7 +15,13 @@ import at a time.
 intra-layer edges it allows. This module is the gate for the promise instead,
 on the pattern D46 set for the terrain port, and it reads the same scanner the
 matrix uses -- so an import deferred inside a method is caught like a top-level
-one, and then held to being deferred on purpose.
+one.
+
+The six built-in sources used to be adapters in this package, each allowed one
+deferred import of its provider. They now live in the provider's module, so
+``data/source`` holds the port and the registry and takes no exception at all;
+the provider modules are held to the forbidden list and to deferring their
+heavy libraries.
 """
 
 from __future__ import annotations
@@ -53,70 +59,6 @@ ALLOWED_PREFIXES = (
 """``core`` is the kernel leaf every layer may read, ``contracts`` holds the
 record types a payload is made of, and the rest is the port itself."""
 
-CONFIG_REASON = (
-    "the three hydrography fetch functions take a HydrographySourceConfig and read "
-    "one or two of its nine fields. The adapter builds one rather than changing the "
-    "api function, which keeps its own callers until the capability replaces them."
-)
-
-PROVIDER_REASON = (
-    "the adapter serves its provider's fetch function, which is the whole point "
-    "of the phase. The import is deferred into fetch() so importing the port "
-    "pulls in neither the provider's client libraries nor pydantic."
-)
-
-DECLARED_EXCEPTIONS: dict[tuple[str, str], str] = {
-    (
-        "hydromodpy/data/source/bdtopage.py",
-        "hydromodpy.data.variables.hydrography.apis.bdtopage",
-    ): PROVIDER_REASON,
-    (
-        "hydromodpy/data/source/bdtopage.py",
-        "hydromodpy.data.variables.hydrography.config",
-    ): CONFIG_REASON,
-    (
-        "hydromodpy/data/source/euhydro.py",
-        "hydromodpy.data.variables.hydrography.apis.euhydro",
-    ): PROVIDER_REASON,
-    (
-        "hydromodpy/data/source/euhydro.py",
-        "hydromodpy.data.variables.hydrography.config",
-    ): CONFIG_REASON,
-    (
-        "hydromodpy/data/source/hubeau_piezometry.py",
-        "hydromodpy.data.variables.piezometry.apis.hubeau",
-    ): PROVIDER_REASON,
-    (
-        "hydromodpy/data/source/osm.py",
-        "hydromodpy.data.variables.hydrography.apis.osm",
-    ): PROVIDER_REASON,
-    (
-        "hydromodpy/data/source/osm.py",
-        "hydromodpy.data.variables.hydrography.config",
-    ): CONFIG_REASON,
-    (
-        "hydromodpy/data/source/ign_dem.py",
-        "hydromodpy.data.variables.dem.apis.ign_dem_fr",
-    ): PROVIDER_REASON,
-    (
-        "hydromodpy/data/source/sim2_precipitation.py",
-        "hydromodpy.data.variables.precipitation.apis.sim2",
-    ): PROVIDER_REASON,
-    (
-        "hydromodpy/data/source/sim2_precipitation.py",
-        "hydromodpy.data.variables.precipitation.config",
-    ): (
-        "the nine SIM2 adapters take a per-variable Pydantic config and read at most "
-        "one field of it. The adapter builds one rather than changing the api "
-        "function, for the reason bdtopage gives above."
-    ),
-}
-"""Every remaining edge out of ``data/source``, each with the reason it is taken.
-
-Every one of them is inside ``fetch``: see
-:func:`test_every_provider_import_stays_deferred`.
-"""
-
 FORBIDDEN_NEIGHBOURS = (
     "hydromodpy.data.managers",
     "hydromodpy.data.registry",
@@ -127,9 +69,17 @@ FORBIDDEN_NEIGHBOURS = (
 )
 """What the reconnaissance found the forbidden state behind, named one by one.
 
-A prefix list on top of :data:`ALLOWED_PREFIXES`, which already excludes them:
-this one exists so a future exception added by hand still cannot open one of
-these six doors without the test saying which.
+``data/source`` is held to :data:`ALLOWED_PREFIXES`, which already excludes
+them. The six built-in sources live in their provider's module under
+``data/variables/<v>/apis/``, which may read the rest of ``data``: this list is
+what they may still not reach.
+"""
+
+HEAVY_LIBRARIES = frozenset({"geopandas", "pandas", "rasterio", "shapely", "xarray"})
+"""What resolving a source by name must not load.
+
+``requests`` is left out because ``import hydromodpy`` already loads it, so a
+delta measured after that import cannot see it either way.
 """
 
 
@@ -139,6 +89,10 @@ def _source_edges() -> list:
         for edge in scan_package(PKG_ROOT)
         if pathlib.Path(edge.src_file).is_relative_to(SOURCE_ROOT)
     ]
+
+
+def _builtin_provider_files() -> set[str]:
+    return {m.replace(".", "/") + ".py" for m in _builtin_provider_modules()}
 
 
 def _relative(edge) -> str:
@@ -154,13 +108,7 @@ def test_the_scanner_sees_the_data_source_package() -> None:
     edges = _source_edges()
     files = {_relative(edge) for edge in edges}
     assert "hydromodpy/data/source/port.py" in files
-    assert "hydromodpy/data/source/bdtopage.py" in files
-    assert "hydromodpy/data/source/euhydro.py" in files
-    assert "hydromodpy/data/source/osm.py" in files
     assert "hydromodpy/data/source/registry.py" in files
-    assert "hydromodpy/data/source/hubeau_piezometry.py" in files
-    assert "hydromodpy/data/source/ign_dem.py" in files
-    assert "hydromodpy/data/source/sim2_precipitation.py" in files
     assert any(edge.target_module.startswith("hydromodpy.core.") for edge in edges)
 
 
@@ -179,12 +127,27 @@ def test_the_port_module_itself_imports_only_core() -> None:
     )
 
 
+def _builtin_provider_modules() -> set[str]:
+    from hydromodpy.data.source import registry
+
+    return {path.split(":", 1)[0] for path in registry._BUILTIN_PATHS.values()}
+
+
+def _names_a_builtin_by_text(edge) -> bool:
+    """The one exception: the registry and the package table name the six by text.
+
+    A dotted path in a dict literal is imported on first lookup, never at
+    import time, and it is how a third-party class joins the same table.
+    """
+    return edge.kind == "lazy_map" and edge.target_module in _builtin_provider_modules()
+
+
 def test_a_source_imports_no_manager_no_catalog_no_workspace() -> None:
+    """Every edge of the source package stays inside the port, bar the text paths."""
     offenders = [
         f"{_relative(edge)}:{edge.lineno} imports {edge.target_module}"
         for edge in _source_edges()
-        if not _is_allowed(edge.target_module)
-        and (_relative(edge), edge.target_module) not in DECLARED_EXCEPTIONS
+        if not _is_allowed(edge.target_module) and not _names_a_builtin_by_text(edge)
     ]
     assert not offenders, (
         "the data-source port promises a source needs nothing of HydroModPy beyond "
@@ -193,38 +156,55 @@ def test_a_source_imports_no_manager_no_catalog_no_workspace() -> None:
     )
 
 
-def test_no_declared_exception_opens_a_forbidden_door() -> None:
-    """A hand-written exception must not be the way a manager gets back in."""
+def test_a_builtin_source_module_opens_no_forbidden_door() -> None:
+    """The six provider modules that hold a source reach no manager, catalog or workspace."""
+    provider_files = _builtin_provider_files()
+    assert len(provider_files) == 6
+    edges = [edge for edge in scan_package(PKG_ROOT) if _relative(edge) in provider_files]
+    assert {_relative(edge) for edge in edges} == provider_files, "anti-vacuity"
     offenders = [
-        f"{src} imports {module}"
-        for (src, module) in DECLARED_EXCEPTIONS
+        f"{_relative(edge)}:{edge.lineno} imports {edge.target_module}"
+        for edge in edges
         for prefix in FORBIDDEN_NEIGHBOURS
-        if module == prefix or module.startswith(prefix + ".")
+        if edge.target_module == prefix or edge.target_module.startswith(prefix + ".")
     ]
-    assert not offenders, f"declared exceptions reaching forbidden state: {offenders}"
+    assert not offenders, "a built-in source reaches forbidden state:\n  " + "\n  ".join(offenders)
 
 
-def test_every_declared_exception_is_still_taken() -> None:
-    """A stale exception protects nothing and hides the next one."""
-    taken = {(_relative(edge), edge.target_module) for edge in _source_edges()}
-    stale = sorted(key for key in DECLARED_EXCEPTIONS if key not in taken)
-    assert not stale, f"declared exceptions no edge takes any more: {stale}"
-
-
+@pytest.mark.allow_subprocess
 def test_every_provider_import_stays_deferred() -> None:
-    """A module-level provider import would pull its client into the port."""
-    provider_edges = [
-        edge
-        for edge in _source_edges()
-        if (_relative(edge), edge.target_module) in DECLARED_EXCEPTIONS
-    ]
-    assert len(provider_edges) == len(DECLARED_EXCEPTIONS)
-    eager = [
-        f"{_relative(edge)}:{edge.lineno} imports {edge.target_module} at module level"
-        for edge in provider_edges
-        if not edge.in_function
-    ]
-    assert not eager, "\n  ".join(eager)
+    """Resolving a built-in source by name loads none of its provider's libraries.
+
+    The six built-in classes live beside the functions they serve, in modules
+    that import geopandas, pandas, shapely, xarray and rasterio inside those
+    functions. Measured one source after another in a fresh interpreter, as the
+    delta each lookup adds.
+    """
+    script = (
+        "import json, sys\n"
+        "import hydromodpy\n"
+        "from hydromodpy.data.source import registry\n"
+        "report = {}\n"
+        "for source_id in registry.builtin_source_ids():\n"
+        "    before = set(sys.modules)\n"
+        "    cls = registry.get(source_id)\n"
+        "    report[source_id] = [cls.__module__, sorted(set(sys.modules) - before)]\n"
+        "print(json.dumps(report))\n"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=REPO_ROOT,
+    )
+    report = json.loads(completed.stdout.strip().splitlines()[-1])
+    assert len(report) == 6, "anti-vacuity: the registry resolved no built-in"
+    loaded = {
+        source_id: sorted({name.split(".")[0] for name in added} & HEAVY_LIBRARIES)
+        for source_id, (_module, added) in report.items()
+    }
+    assert all(not heavy for heavy in loaded.values()), f"a lookup loaded {loaded}"
 
 
 @pytest.mark.allow_subprocess

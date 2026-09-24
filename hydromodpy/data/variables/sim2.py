@@ -5,8 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import TYPE_CHECKING
 
-from hydromodpy.data.contracts.spatial_field import FieldRecord
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from hydromodpy.data.contracts.spatial_field import FieldRecord
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +73,7 @@ def fetch_sim2_field(
     bbox, project_period = _require_fetch_context(bbox=bbox, project_period=project_period)
 
     from hydromodpy.data.common.clients.sim2_edr import Sim2EDRClient
+    from hydromodpy.data.contracts.spatial_field import FieldRecord
 
     # NetCDF4, not CoverageJSON: the EDR cube CoverageJSON lists axisNames
     # (y, x, t) that do not match its flat value ordering, which silently
@@ -120,6 +123,7 @@ def fetch_sim2_components(
     )
 
     from hydromodpy.data.common.clients.sim2_edr import Sim2EDRClient
+    from hydromodpy.data.contracts.spatial_field import FieldRecord
 
     # NetCDF4, not CoverageJSON (see fetch_sim2_field for why).
     client = Sim2EDRClient(

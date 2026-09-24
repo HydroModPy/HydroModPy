@@ -400,7 +400,7 @@ def test_the_report_names_the_host_the_run_really_contacted(tmp_path, stub_bdtop
     reader of the report had to hold the source-to-host table of this repository
     to turn ``"bdtopage"`` into something a firewall log can be compared to.
     """
-    from hydromodpy.data.source.bdtopage import BdTopageSource
+    from hydromodpy.data.variables.hydrography.apis.bdtopage import BdTopageSource
 
     job = _staged(tmp_path, _request(BDTOPAGE))
 
@@ -674,7 +674,7 @@ def test_a_mask_that_is_not_there_is_refused_as_not_found(tmp_path, stub_bdtopag
 def test_two_submissions_that_differ_only_by_an_omitted_default_carry_one_job_id(
     tmp_path, stub_bdtopage
 ):
-    from hydromodpy.data.source.bdtopage import DEFAULT_PAGE_SIZE
+    from hydromodpy.data.variables.hydrography.apis.bdtopage import DEFAULT_PAGE_SIZE
 
     bare = _staged(tmp_path, _request(BDTOPAGE), name="bare")
     spelled = _staged(
@@ -823,7 +823,7 @@ def test_a_files_payload_of_more_than_one_file_is_refused(tmp_path, stub_ign, mo
     """
     from dataclasses import replace
 
-    import hydromodpy.data.source.ign_dem as adapter
+    import hydromodpy.data.variables.dem.apis.ign_dem_fr as adapter
 
     real = adapter.IgnDemSource.fetch
 
@@ -853,7 +853,7 @@ def test_a_files_payload_holding_nothing_is_an_empty_answer_and_not_a_refusal(
     """
     from dataclasses import replace
 
-    import hydromodpy.data.source.ign_dem as adapter
+    import hydromodpy.data.variables.dem.apis.ign_dem_fr as adapter
 
     real = adapter.IgnDemSource.fetch
     monkeypatch.setattr(
@@ -1197,13 +1197,10 @@ class AcmeLineworkSource:
 
 
 @pytest.fixture
-def installed_linework_source():
-    """Register the plugin the way an entry point would, and take it back out."""
-    from hydromodpy.data.source import registry
-
-    registry.register(AcmeLineworkSource)
-    yield AcmeLineworkSource
-    registry.unregister(AcmeLineworkSource.source_id)
+def installed_linework_source(isolated_registry):
+    """Register the plugin the way an entry point would, on a registry copy."""
+    isolated_registry.register(AcmeLineworkSource)
+    return AcmeLineworkSource
 
 
 def test_a_request_json_names_an_installed_source_and_the_job_seals(

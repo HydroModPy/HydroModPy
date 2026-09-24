@@ -133,7 +133,7 @@ def test_a_builtin_is_not_imported_until_it_is_asked_for() -> None:
     script = (
         "import json, sys;"
         "from hydromodpy.data.source import registry;"
-        "target = 'hydromodpy.data.source.ign_dem';"
+        "target = 'hydromodpy.data.variables.dem.apis.ign_dem_fr';"
         "registry.get('bdtopage');"
         "before = target in sys.modules;"
         "registry.get('ign-bdalti');"
@@ -400,7 +400,9 @@ def test_a_declared_builtin_whose_class_is_missing_is_the_same_fault(
     isolated_registry: object,
 ) -> None:
     """A dotted path can be wrong in two ways, and both are one answer."""
-    registry._BUILTIN_PATHS["misnamed-builtin"] = "hydromodpy.data.source.osm:NotThere"
+    registry._BUILTIN_PATHS["misnamed-builtin"] = (
+        "hydromodpy.data.variables.hydrography.apis.osm:NotThere"
+    )
 
     with pytest.raises(DataRequestError, match="misnamed-builtin"):
         registry.get("misnamed-builtin")

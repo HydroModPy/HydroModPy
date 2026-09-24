@@ -63,13 +63,13 @@ __all__ = [
 ]
 
 _LAZY_IMPORTS = {
-    "BdTopageSource": "hydromodpy.data.source.bdtopage:BdTopageSource",
-    "EuHydroSource": "hydromodpy.data.source.euhydro:EuHydroSource",
-    "HubeauPiezometrySource": "hydromodpy.data.source.hubeau_piezometry:HubeauPiezometrySource",
-    "IgnDemSource": "hydromodpy.data.source.ign_dem:IgnDemSource",
-    "OsmSource": "hydromodpy.data.source.osm:OsmSource",
+    "BdTopageSource": "hydromodpy.data.variables.hydrography.apis.bdtopage:BdTopageSource",
+    "EuHydroSource": "hydromodpy.data.variables.hydrography.apis.euhydro:EuHydroSource",
+    "HubeauPiezometrySource": "hydromodpy.data.variables.piezometry.apis.hubeau:HubeauPiezometrySource",
+    "IgnDemSource": "hydromodpy.data.variables.dem.apis.ign_dem_fr:IgnDemSource",
+    "OsmSource": "hydromodpy.data.variables.hydrography.apis.osm:OsmSource",
     "Sim2PrecipitationSource": (
-        "hydromodpy.data.source.sim2_precipitation:Sim2PrecipitationSource"
+        "hydromodpy.data.variables.precipitation.apis.sim2:Sim2PrecipitationSource"
     ),
 }
 

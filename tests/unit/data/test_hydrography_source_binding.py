@@ -122,7 +122,10 @@ def test_osm_takes_its_waterway_types_and_nothing_else() -> None:
 
 def test_a_source_the_section_says_nothing_about_gets_its_own_defaults() -> None:
     """How a third-party source is served: defaults, never a missing argument."""
-    from hydromodpy.data.source.euhydro import DEFAULT_GROUP_NAME, DEFAULT_PAGE_SIZE
+    from hydromodpy.data.variables.hydrography.apis.euhydro import (
+        DEFAULT_GROUP_NAME,
+        DEFAULT_PAGE_SIZE,
+    )
 
     source = registry.build_from_section(
         registry.get("euhydro"),
@@ -193,8 +196,11 @@ def test_a_section_naming_a_source_nobody_serves_is_refused_by_name() -> None:
 
 def test_the_declared_defaults_match_the_config() -> None:
     """The adapters repeat the section's defaults so they stay pydantic-free."""
-    from hydromodpy.data.source.euhydro import DEFAULT_GROUP_NAME, DEFAULT_PAGE_SIZE
-    from hydromodpy.data.source.osm import DEFAULT_WATERWAY_TYPES
+    from hydromodpy.data.variables.hydrography.apis.euhydro import (
+        DEFAULT_GROUP_NAME,
+        DEFAULT_PAGE_SIZE,
+    )
+    from hydromodpy.data.variables.hydrography.apis.osm import DEFAULT_WATERWAY_TYPES
 
     fields = HydrographySourceConfig.model_fields
     assert fields["group_name"].default == DEFAULT_GROUP_NAME

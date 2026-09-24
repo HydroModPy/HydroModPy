@@ -66,12 +66,12 @@ ENTRY_POINT_GROUP = "hydromodpy.data.source"
 """The out-of-tree plugin group. One entry point per source, named on its id."""
 
 _BUILTIN_PATHS: dict[str, str] = {
-    "bdtopage": "hydromodpy.data.source.bdtopage:BdTopageSource",
-    "euhydro": "hydromodpy.data.source.euhydro:EuHydroSource",
-    "hubeau-piezometry": "hydromodpy.data.source.hubeau_piezometry:HubeauPiezometrySource",
-    "ign-bdalti": "hydromodpy.data.source.ign_dem:IgnDemSource",
-    "osm": "hydromodpy.data.source.osm:OsmSource",
-    "sim2-precipitation": "hydromodpy.data.source.sim2_precipitation:Sim2PrecipitationSource",
+    "bdtopage": "hydromodpy.data.variables.hydrography.apis.bdtopage:BdTopageSource",
+    "euhydro": "hydromodpy.data.variables.hydrography.apis.euhydro:EuHydroSource",
+    "hubeau-piezometry": "hydromodpy.data.variables.piezometry.apis.hubeau:HubeauPiezometrySource",
+    "ign-bdalti": "hydromodpy.data.variables.dem.apis.ign_dem_fr:IgnDemSource",
+    "osm": "hydromodpy.data.variables.hydrography.apis.osm:OsmSource",
+    "sim2-precipitation": "hydromodpy.data.variables.precipitation.apis.sim2:Sim2PrecipitationSource",
 }
 """Dotted paths to the in-tree source classes, imported on first lookup.
 
