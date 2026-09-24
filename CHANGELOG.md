@@ -180,6 +180,11 @@ Each release section includes the following standard categories:
   clip. Copies made before are not moved.
 
 ### Fixed
+- A station manager no longer reports a station inside its extent as outside
+  it: the check reprojects each station to WGS84, the frame the extent
+  reaches it in, instead of comparing Lambert-93 metres with degrees. A data
+  request served by box now hands station managers their box in WGS84 and
+  grid managers theirs in Lambert-93.
 - A data mask is read by one loader, `hydromodpy/data/common/source_extent.py`.
   A grid manager (SIM2, SHOM) now refuses a mask that declares no CRS, as the
   DEM and geology managers already did, instead of reading its bounds in an

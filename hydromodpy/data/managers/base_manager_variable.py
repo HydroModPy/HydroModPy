@@ -85,17 +85,24 @@ class BaseVariableManager(BaseManagerCommon):
         return LoadResult(points=results)
 
     def _warn_stations_outside_extent(self, records: list[PointRecord]) -> None:
-        """Warn if any loaded stations fall outside project_extent."""
+        """Warn if any loaded station falls outside project_extent, read in WGS84."""
         if self.project_extent is None:
             return
-        xmin, ymin, xmax, ymax = self.project_extent
-        outside = []
-        for r in records:
-            if r.location is None:
-                continue
-            x, y = r.location.x, r.location.y
-            if not (xmin <= x <= xmax and ymin <= y <= ymax):
-                outside.append(r.station_id)
+        from shapely.geometry import box
+
+        from hydromodpy.data.common.geo_helpers import filter_locations_by_geometry
+        from hydromodpy.data.common.source_extent import STATION_EXTENT_CRS
+
+        located = [r.location for r in records if r.location is not None]
+        inside = filter_locations_by_geometry(
+            located, box(*self.project_extent), geometry_crs=STATION_EXTENT_CRS
+        )
+        inside_ids = {location.id for location in inside}
+        outside = [
+            r.station_id
+            for r in records
+            if r.location is not None and r.location.id not in inside_ids
+        ]
         if outside:
             warnings.warn(
                 f"{self.VARIABLE_NAME}: {len(outside)} station(s) outside "

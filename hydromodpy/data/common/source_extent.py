@@ -84,6 +84,12 @@ See the module docstring: the tuple carries no CRS of its own, and the value
 here is the one its only producer builds for these managers.
 """
 
+STATION_EXTENT_CRS = "EPSG:4326"
+"""The CRS of the ``project_extent`` tuple as the station managers receive it.
+
+Site selection builds it in WGS84 for them, the frame Hub'Eau is asked in.
+"""
+
 
 def mask_geometry(path: str | Path) -> tuple[Any, str]:
     """Return a mask's polygon **and the CRS it is in**.
