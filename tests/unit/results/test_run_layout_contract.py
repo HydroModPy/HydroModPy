@@ -23,7 +23,7 @@ from hydromodpy.core.state.paths import (
     SESSIONS_DIRNAME,
     SHARE_DIRNAME,
 )
-from hydromodpy.data.data_freeze import LOCKFILE_NAME
+from hydromodpy.data.provenance.lockfile import LOCKFILE_NAME
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME
 from hydromodpy.results.storage.contract import (

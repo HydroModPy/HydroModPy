@@ -439,16 +439,14 @@ def _verify_frozen_inputs_strict(config_path: Path, raw_toml: dict[str, Any]) ->
 
     Resolves the same project root as the post-run lockfile writer, opens the
     data cache, and calls
-    :func:`hydromodpy.data.data_freeze.verify_inputs_strict` against the
+    :func:`hydromodpy.data.registry.freeze.verify_inputs_strict` against the
     project's ``hydromodpy.lock``. Any mismatch aborts the run. Returns the
     project root it verified, so a caller can assert it is the address the
     post-run write uses.
     """
-    from hydromodpy.data.data_freeze import (
-        project_lockfile_path,
-        verify_inputs_strict,
-    )
+    from hydromodpy.data.provenance.lockfile import project_lockfile_path
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    from hydromodpy.data.registry.freeze import verify_inputs_strict
 
     workspace_payload = raw_toml.get("workspace") if isinstance(raw_toml, dict) else None
     project_root = _resolve_project_root(config_path, workspace_payload)
@@ -517,8 +515,9 @@ def _post_run_lockfile_write(config_path: Path, raw_toml: dict[str, Any]) -> Non
     data catalog is present.
     """
     from hydromodpy.config.schema_export import schema_sha256
-    from hydromodpy.data.data_freeze import project_lockfile_path, write_lockfile
+    from hydromodpy.data.provenance.lockfile import project_lockfile_path
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    from hydromodpy.data.registry.freeze import write_lockfile
     from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
     from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 

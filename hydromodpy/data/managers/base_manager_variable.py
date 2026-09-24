@@ -17,11 +17,11 @@ from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.managers._base_manager_common import BaseManagerCommon
+from hydromodpy.data.provenance.sidecars import unlink_with_sidecar
 from hydromodpy.data.registry.constants import (
     SENTINEL_CUSTOM,
     SENTINEL_EMPTY,
 )
-from hydromodpy.data.sidecars import unlink_with_sidecar
 
 logger = get_logger(__name__)
 

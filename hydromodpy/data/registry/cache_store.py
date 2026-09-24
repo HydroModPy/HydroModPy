@@ -5,7 +5,7 @@ file-system anchors that back them (workspace root, sidecars).
 
 The lockfile is not one of those anchors: it belongs to the project root, not
 to the workspace the cache database sits in, so frozen mode carries that root
-and :func:`hydromodpy.data.data_freeze.project_lockfile_path` turns it into
+and :func:`hydromodpy.data.provenance.lockfile.project_lockfile_path` turns it into
 the single path read here.
 """
 
@@ -21,8 +21,7 @@ import duckdb
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import decode_workspace_path, encode_workspace_path
-from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
-from hydromodpy.data.sidecars import (
+from hydromodpy.data.provenance.sidecars import (
     Sidecar,
     load_sidecar,
     resolve_fetched_at,
@@ -30,9 +29,10 @@ from hydromodpy.data.sidecars import (
     unlink_with_sidecar,
     write_sidecar,
 )
+from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
 
 if TYPE_CHECKING:
-    from hydromodpy.data.data_freeze import LockedArtifact
+    from hydromodpy.data.provenance.lockfile import LockedArtifact
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 logger = get_logger(__name__)
@@ -114,14 +114,14 @@ def resolve_entry_path(
 
 
 def frozen_enabled() -> bool:
-    from hydromodpy.data.data_freeze import is_frozen_mode
+    from hydromodpy.data.provenance.lockfile import is_frozen_mode
 
     return is_frozen_mode()
 
 
 def locked_artifacts() -> list[LockedArtifact]:
     """Return the artefacts pinned by the lockfile of the frozen project."""
-    from hydromodpy.data.data_freeze import (
+    from hydromodpy.data.provenance.lockfile import (
         frozen_project_root,
         project_lockfile_path,
         read_lockfile,

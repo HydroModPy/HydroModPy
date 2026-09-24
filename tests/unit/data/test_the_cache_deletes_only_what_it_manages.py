@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hydromodpy.data.provenance.sidecars import sidecar_path_for
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-from hydromodpy.data.sidecars import sidecar_path_for
 
 
 def _catalog(workspace: Path) -> DataCatalogDuckDB:

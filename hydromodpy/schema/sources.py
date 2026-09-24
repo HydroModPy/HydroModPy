@@ -34,7 +34,7 @@ from hydromodpy.schema.job.inputset import UNDETERMINED, Licence, roll_up_licenc
 SIDECAR_SUFFIX = ".json"
 """Suffix of the provenance sidecar next to a raw input file.
 
-The same value as ``hydromodpy.data.sidecars.SIDECAR_SUFFIX``. ``schema`` may
+The same value as ``hydromodpy.data.provenance.sidecars.SIDECAR_SUFFIX``. ``schema`` may
 not import ``data``, so a test holds the two equal.
 """
 

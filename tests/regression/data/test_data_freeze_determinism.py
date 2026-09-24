@@ -25,20 +25,22 @@ from typing import Any
 import pytest
 import tomlkit
 
-from hydromodpy.data.data_freeze import (
+from hydromodpy.data.provenance.lockfile import (
     LOCKFILE_NAME,
     LockedArtifact,
-    archive_lockfile,
     read_lockfile,
     read_lockfile_inputs,
     read_lockfile_schema_sha256,
-    restore_archive,
     sha256_of,
+)
+from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+from hydromodpy.data.registry.freeze import (
+    archive_lockfile,
+    restore_archive,
     verify_frozen,
     verify_inputs_strict,
     write_lockfile,
 )
-from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 pytestmark = pytest.mark.regression
 

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.data.contracts.spatial_field import FieldRecord
-from hydromodpy.data.derived import derived_path
+from hydromodpy.data.provenance.derived import derived_path
 
 
 def load_custom_geology(

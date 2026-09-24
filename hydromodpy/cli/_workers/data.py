@@ -103,7 +103,7 @@ def add_data_entry(
         convert_timeseries_csv_to_parquet,
         convert_vector_to_geoparquet,
     )
-    from hydromodpy.data.data_freeze import (
+    from hydromodpy.data.provenance.lockfile import (
         project_lockfile_path,
         read_lockfile,
         resolve_lockfile_root,
@@ -205,8 +205,8 @@ def prune_data_cache(
 def archive_data_cache(output: Any, *, workspace: Any = None) -> Path:
     """Archive the workspace cache + lockfile to a portable file."""
     from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
-    from hydromodpy.data.data_freeze import archive_lockfile
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    from hydromodpy.data.registry.freeze import archive_lockfile
 
     workspace_root = _resolve_ws(str(workspace) if workspace else None)
     db_path = workspace_root / "data" / "cache.duckdb"
@@ -219,7 +219,7 @@ def archive_data_cache(output: Any, *, workspace: Any = None) -> Path:
 def restore_data_cache(source: Any, *, workspace: Any = None) -> Path:
     """Restore a cache archive into the workspace. Returns destination path."""
     from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
-    from hydromodpy.data.data_freeze import restore_archive
+    from hydromodpy.data.registry.freeze import restore_archive
 
     workspace_root = _resolve_ws(str(workspace) if workspace else None)
     src = Path(source).expanduser().resolve()

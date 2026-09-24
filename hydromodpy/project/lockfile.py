@@ -35,7 +35,7 @@ tolerating it by accident. What the lockfile no longer has to carry is the
 per-run input list: that duplication is gone.
 
 One address, one resolver: every writer and every reader goes through
-:func:`hydromodpy.data.data_freeze.project_lockfile_path`, and frozen mode
+:func:`hydromodpy.data.provenance.lockfile.project_lockfile_path`, and frozen mode
 carries the project root instead of guessing it from the cache database.
 """
 
@@ -61,8 +61,9 @@ def write_project_lockfile(config: HydroModPyConfig, *, quiet: bool = True) -> P
     is the data provenance plus the storage-schema versions.
     """
     from hydromodpy.config.schema_export import schema_sha256
-    from hydromodpy.data.data_freeze import project_lockfile_path, write_lockfile
+    from hydromodpy.data.provenance.lockfile import project_lockfile_path
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    from hydromodpy.data.registry.freeze import write_lockfile
     from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
     from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 

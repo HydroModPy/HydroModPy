@@ -160,7 +160,7 @@ def _lock_targets(workspace: Any, project: Any, lockfile: Any) -> tuple[Path, Pa
     asks :func:`resolve_lockfile_root` for a root, and that is the call that
     refuses to answer outside a project.
     """
-    from hydromodpy.data.data_freeze import project_lockfile_path, resolve_lockfile_root
+    from hydromodpy.data.provenance.lockfile import project_lockfile_path, resolve_lockfile_root
 
     explicit = Path(lockfile).expanduser().resolve() if lockfile else None
     if project:
@@ -184,8 +184,8 @@ def lock_update(workspace: Any = None, *, project: Any = None, output: Any = Non
     ``[hydromodpy].project_git_commit`` as the one ``hmp run`` produces.
     """
     from hydromodpy.config.schema_export import schema_sha256
-    from hydromodpy.data.data_freeze import write_lockfile
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    from hydromodpy.data.registry.freeze import write_lockfile
     from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
     from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 
@@ -203,8 +203,8 @@ def lock_update(workspace: Any = None, *, project: Any = None, output: Any = Non
 
 def lock_archive(output: Any, *, workspace: Any = None) -> Path:
     """Create a portable archive of the lockfile + cache artefacts."""
-    from hydromodpy.data.data_freeze import archive_lockfile
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    from hydromodpy.data.registry.freeze import archive_lockfile
 
     db_path = _lock_cache_database(_lock_workspace_root(workspace))
     dest = Path(output).expanduser().resolve()
@@ -215,7 +215,7 @@ def lock_archive(output: Any, *, workspace: Any = None) -> Path:
 
 def lock_restore(source: Any, *, workspace: Any = None, output: Any = None) -> Path:
     """Restore a lockfile archive and verify SHA-256."""
-    from hydromodpy.data.data_freeze import restore_archive
+    from hydromodpy.data.registry.freeze import restore_archive
 
     workspace_root = _lock_workspace_root(workspace)
     src = Path(source).expanduser().resolve()
@@ -235,12 +235,9 @@ def lock_verify(
 ) -> dict:
     """Verify the cache matches the lockfile of one project."""
     from hydromodpy.config.schema_export import schema_sha256
-    from hydromodpy.data.data_freeze import (
-        read_lockfile_schema_sha256,
-        verify_frozen,
-        verify_inputs_strict,
-    )
+    from hydromodpy.data.provenance.lockfile import read_lockfile_schema_sha256
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    from hydromodpy.data.registry.freeze import verify_frozen, verify_inputs_strict
 
     db_path, lockfile_path, _ = _lock_targets(workspace, project, lockfile)
     if not lockfile_path.is_file():

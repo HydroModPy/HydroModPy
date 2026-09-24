@@ -28,9 +28,9 @@ from hydromodpy.data.adapters import (
 )
 from hydromodpy.data.adapters.csv_to_parquet import Station, iter_chronicle_files
 from hydromodpy.data.common.io_helpers import is_scaffold_example, parse_chronicle_filename
+from hydromodpy.data.provenance.sidecars import SIDECAR_SUFFIX, data_path_for_sidecar
 from hydromodpy.data.scaffold import VARIABLES, VariableSpec
 from hydromodpy.data.schemas import StationCollectionSchema, validate_warn_only
-from hydromodpy.data.sidecars import SIDECAR_SUFFIX, data_path_for_sidecar
 
 _WGS84_CRS_TOKENS = frozenset({"EPSG:4326", "epsg:4326", "WGS84", "WGS 84"})
 

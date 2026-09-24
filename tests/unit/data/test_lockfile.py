@@ -18,21 +18,23 @@ from pathlib import Path
 import pytest
 import tomlkit
 
-from hydromodpy.data.data_freeze import (
+from hydromodpy.data.provenance.lockfile import (
     LOCKFILE_NAME,
     LOCKFILE_VERSION,
-    archive_lockfile,
     read_lockfile,
     read_lockfile_binaries,
     read_lockfile_inputs,
     read_lockfile_meta,
-    restore_archive,
     sha256_of,
+)
+from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+from hydromodpy.data.registry.freeze import (
+    archive_lockfile,
+    restore_archive,
     verify_frozen,
     verify_inputs_strict,
     write_lockfile,
 )
-from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 
 def _seed_workspace(tmp: Path) -> tuple[DataCatalogDuckDB, Path, Path]:
@@ -395,7 +397,7 @@ def test_verify_frozen_keeps_distinct_gridded_artifacts(tmp_path: Path) -> None:
 @pytest.fixture
 def frozen_mode_reset() -> Iterator[None]:
     """Leave the process-wide frozen mode as it was found."""
-    from hydromodpy.data.data_freeze import (
+    from hydromodpy.data.provenance.lockfile import (
         frozen_project_root,
         is_frozen_mode,
         set_frozen_mode,
@@ -432,7 +434,7 @@ def _seed_workspace_project(tmp: Path) -> tuple[Path, Path, Path]:
 
 
 def test_project_lockfile_path_is_the_project_root(tmp_path: Path) -> None:
-    from hydromodpy.data.data_freeze import project_lockfile_path
+    from hydromodpy.data.provenance.lockfile import project_lockfile_path
 
     assert project_lockfile_path(tmp_path) == tmp_path / LOCKFILE_NAME
 
@@ -451,7 +453,7 @@ def test_frozen_mode_reads_the_lockfile_the_run_wrote(
 ) -> None:
     """The file the post-run write produced is the one frozen mode loads."""
     from hydromodpy.cli.commands.run import _post_run_lockfile_write
-    from hydromodpy.data.data_freeze import project_lockfile_path, set_frozen_mode
+    from hydromodpy.data.provenance.lockfile import project_lockfile_path, set_frozen_mode
     from hydromodpy.data.registry import cache_store
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
@@ -491,7 +493,7 @@ def test_locked_artifacts_names_the_expected_path_when_missing(
     tmp_path: Path,
     frozen_mode_reset: None,
 ) -> None:
-    from hydromodpy.data.data_freeze import project_lockfile_path, set_frozen_mode
+    from hydromodpy.data.provenance.lockfile import project_lockfile_path, set_frozen_mode
     from hydromodpy.data.registry import cache_store
 
     project_root = tmp_path / "project"
@@ -505,7 +507,7 @@ def test_locked_artifacts_names_the_expected_path_when_missing(
 
 def test_locked_artifacts_without_a_bound_project_says_so(frozen_mode_reset: None) -> None:
     """A lookup made outside frozen mode names the missing binding, never guesses."""
-    from hydromodpy.data.data_freeze import set_frozen_mode
+    from hydromodpy.data.provenance.lockfile import set_frozen_mode
     from hydromodpy.data.registry import cache_store
 
     set_frozen_mode(False)
@@ -515,7 +517,7 @@ def test_locked_artifacts_without_a_bound_project_says_so(frozen_mode_reset: Non
 
 def test_enabling_frozen_mode_without_a_project_is_refused(frozen_mode_reset: None) -> None:
     """``project_root`` is required to enable: no sticky previous binding."""
-    from hydromodpy.data.data_freeze import is_frozen_mode, set_frozen_mode
+    from hydromodpy.data.provenance.lockfile import is_frozen_mode, set_frozen_mode
 
     with pytest.raises(ValueError, match="project_root"):
         set_frozen_mode(True)
@@ -523,7 +525,7 @@ def test_enabling_frozen_mode_without_a_project_is_refused(frozen_mode_reset: No
 
 
 def test_every_enable_names_its_own_project(tmp_path: Path, frozen_mode_reset: None) -> None:
-    from hydromodpy.data.data_freeze import frozen_project_root, set_frozen_mode
+    from hydromodpy.data.provenance.lockfile import frozen_project_root, set_frozen_mode
 
     first = tmp_path / "first"
     second = tmp_path / "second"
@@ -550,7 +552,7 @@ def test_project_runner_binds_the_project_root_it_runs(
     from types import SimpleNamespace
 
     from hydromodpy.cli.commands.run import _post_run_lockfile_write
-    from hydromodpy.data.data_freeze import frozen_project_root, is_frozen_mode
+    from hydromodpy.data.provenance.lockfile import frozen_project_root, is_frozen_mode
     from hydromodpy.data.registry import cache_store
     from hydromodpy.project.runner import ProjectRunner
 
@@ -699,12 +701,12 @@ def test_both_writers_record_the_same_project_commit(
     """``hmp dev lock update`` and ``hmp run`` fill the same header keys."""
     from hydromodpy.cli._workers.dev import lock_update
     from hydromodpy.cli.commands.run import _post_run_lockfile_write
-    from hydromodpy.data import data_freeze
-    from hydromodpy.data.data_freeze import project_lockfile_path
+    from hydromodpy.data.provenance.lockfile import project_lockfile_path
+    from hydromodpy.data.registry import freeze
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     monkeypatch.delenv("HMP_PROJECT_ROOT", raising=False)
-    monkeypatch.setattr(data_freeze, "_git_head", lambda cwd: f"commit-of-{Path(cwd).name}")
+    monkeypatch.setattr(freeze, "_git_head", lambda cwd: f"commit-of-{Path(cwd).name}")
     _, project_root, config_path = _seed_workspace_project(tmp_path)
     dest = project_lockfile_path(project_root)
 
@@ -728,7 +730,7 @@ def test_env_project_root_beats_the_declared_one(
         _post_run_lockfile_write,
         _verify_frozen_inputs_strict,
     )
-    from hydromodpy.data.data_freeze import project_lockfile_path
+    from hydromodpy.data.provenance.lockfile import project_lockfile_path
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     workspace, declared, config_path = _seed_workspace_project(tmp_path)
@@ -830,7 +832,7 @@ def test_atomic_write_uses_a_short_temporary_suffix(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The tmp sibling keeps 8 hex chars, the repo-wide budget against MAX_PATH."""
-    from hydromodpy.data import data_freeze
+    from hydromodpy.data.registry import freeze
 
     swapped: list[str] = []
     real_replace = os.replace
@@ -841,7 +843,7 @@ def test_atomic_write_uses_a_short_temporary_suffix(
 
     monkeypatch.setattr(os, "replace", spy)
     dest = tmp_path / LOCKFILE_NAME
-    data_freeze._atomic_write_text(dest, 'version = "1"\n')
+    freeze._atomic_write_text(dest, 'version = "1"\n')
 
     assert dest.read_text() == 'version = "1"\n'
     prefix = f".{LOCKFILE_NAME}.tmp."

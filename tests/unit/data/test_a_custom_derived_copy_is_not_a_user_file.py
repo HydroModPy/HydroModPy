@@ -16,9 +16,9 @@ from typing import Any
 
 import pytest
 
-from hydromodpy.data.derived import custom_derived_dir, derived_path
+from hydromodpy.data.provenance.derived import custom_derived_dir, derived_path
+from hydromodpy.data.provenance.sidecars import load_sidecar, sidecar_path_for, unlink_with_sidecar
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-from hydromodpy.data.sidecars import load_sidecar, sidecar_path_for, unlink_with_sidecar
 from hydromodpy.data.variables.dem.config import CustomDemSource, DemConfig
 from hydromodpy.data.variables.dem.custom import load_custom_dem
 from hydromodpy.data.variables.dem.manager import DemManager

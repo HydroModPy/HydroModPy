@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
-from hydromodpy.data.sidecars import SIDECAR_SUFFIX as DATA_SIDECAR_SUFFIX
+from hydromodpy.data.provenance.sidecars import SIDECAR_SUFFIX as DATA_SIDECAR_SUFFIX
 from hydromodpy.schema.job.inputset import UNDETERMINED, Licence
 from hydromodpy.schema.sources import (
     SIDECAR_SUFFIX,

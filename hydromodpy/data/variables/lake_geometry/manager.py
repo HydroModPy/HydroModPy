@@ -12,7 +12,7 @@ from typing import Any
 
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
-from hydromodpy.data.derived import custom_derived_dir
+from hydromodpy.data.provenance.derived import custom_derived_dir
 
 
 class LakeGeometryManager:

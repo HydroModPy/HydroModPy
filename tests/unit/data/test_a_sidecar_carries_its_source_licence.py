@@ -10,8 +10,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
+from hydromodpy.data.provenance.sidecars import Sidecar, load_sidecar, write_sidecar
 from hydromodpy.data.registry.cache_store import emit_input_sidecar
-from hydromodpy.data.sidecars import Sidecar, load_sidecar, write_sidecar
 
 
 def _raw(tmp_path: Path) -> Path:
