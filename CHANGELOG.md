@@ -83,8 +83,27 @@ Each release section includes the following standard categories:
 - `[simulation.time] step_value` without a unit and without `step_unit` is
   refused instead of read as one day, since the documented default is
   `"1 month"`.
+- A job records its extent as one typed box in its native CRS, and the
+  RO-Crate, STAC and PROV views reproject that box to WGS84. The views no
+  longer read a `bbox_wgs84` or a `crs_wkt2` field. A job input set written
+  before, which holds a `crs` and no box, is refused by the export.
+- Copies derived from a custom geology, DEM, lake abacus, bathymetry or lake
+  outline live under `data/blobs/<variable>/custom/`, named after their inputs,
+  instead of beside the user file in its `<variable>_custom_*` namespace. A
+  scan no longer ingests them as user data, and two domains no longer share one
+  clip. Copies made before are not moved.
 
 ### Fixed
+- Cache invalidation, the subsumption that follows a larger fetch, and
+  `hmp data prune` and `remove` with file deletion deleted nothing: the path
+  was resolved against the working directory and a missing file passed in
+  silence. They now delete the downloads and the `data/blobs/` copies they
+  name, with their sidecar, and never a user file or a file another entry
+  still names.
+- A sidecar is deleted with its data file, before it. A scan read a sidecar
+  left without its file, such as `geology_custom_GEO1M.gpkg.json`, as a
+  GeoJSON and warned on every run. It now reports it once as an orphan, and
+  `hmp data check` lists it.
 - Geology is requested over the buffered domain box, not the catchment
   outline. A domain larger than the geology left a frame of cells at K = 0, and
   MODFLOW 6 refused the whole NPF. A zero or non-finite conductivity on an
