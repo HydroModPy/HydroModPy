@@ -39,8 +39,8 @@ Paramètre constructeur de `hydromodpy.data.DataStore(workspace_root=...)`.
 
 Docstrings de traçabilité dans :
 
-- `hydromodpy/calibration/adapters/da_mh_gp_adapter.py`
-- `hydromodpy/calibration/adapters/gp_mapping_adapter.py`
+- `hydromodpy/calibration/optim/adapters/da_mh_gp_adapter.py`
+- `hydromodpy/calibration/optim/adapters/gp_mapping_adapter.py`
 - `hydromodpy/calibration/cases/__init__.py`
 - `hydromodpy/calibration/cases/recession_brutsaert.py`
 

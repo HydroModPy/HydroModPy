@@ -87,6 +87,10 @@ Each release section includes the following standard categories:
   With them go the two layer tolerances `data -> results` and
   `results -> data` that the cross-database bridge needed; `run.input_entries()`
   remains the way from a run to the cache entries it read.
+- The 7-name facade of `hydromodpy.calibration.runners`, which nothing
+  imported, and `hydromodpy.calibration.protocols.registry.assert_version_is_available`:
+  the protocol version is checked in `matching_hydrographic_network.py`
+  instead.
 
 ### Added
 - A raster substratum: two depth models read the bottom of the aquifer from
@@ -194,6 +198,27 @@ Each release section includes the following standard categories:
   instead of beside the user file in its `<variable>_custom_*` namespace. A
   scan no longer ingests them as user data, and two domains no longer share one
   clip. Copies made before are not moved.
+- `hydromodpy/calibration` closes the import cycle between its optimizer
+  registry, its runners and its metrics: six modules and a handful of symbols
+  move next to what they serve. Its map and import rules are
+  `hydromodpy/calibration/README.md`, enforced by
+  `tests/unit/architecture/test_calibration_layout.py`. The `[calibration]`
+  TOML schema does not change, and logger names follow the new paths. The
+  modules and names that moved:
+
+  | old path | new path |
+  |---|---|
+  | `hydromodpy.calibration.adapters.*` | `hydromodpy.calibration.optim.adapters.*` |
+  | `hydromodpy.calibration.adapters._prior_sampling` | `hydromodpy.calibration.optim.prior_sampling` |
+  | `hydromodpy.calibration.optim.promotion` | `hydromodpy.calibration.runners.promotion` |
+  | `hydromodpy.calibration.metrics.network` | `hydromodpy.calibration.observations.network_cost` |
+  | `hydromodpy.calibration.evaluation.pipeline_evaluator` | `hydromodpy.calibration.runners.pipeline_evaluator` |
+  | `hydromodpy.calibration.evaluation.scored_forward` | `hydromodpy.calibration.metrics.scored_forward` |
+  | `optim.objective.{METRICS, HIGHER_IS_BETTER, LOG_METRICS, clip_negatives_for_log_metric}` | `hydromodpy.calibration.criteria.series` |
+  | `optim.objective.{distance_gap, distance_mean}` | `hydromodpy.calibration.criteria.hydrographic_network_distance` |
+  | `protocols.matching_hydrographic_network.MatchingHydrographicNetworkOptions` | `hydromodpy.calibration.config` |
+  | `runners.state.{default_store_factory, CalibrationStoreFactory}` | `hydromodpy.calibration.persistence` |
+  | `hydromodpy.solver.modflow_common.flow_adapter_helpers.WATER_BUDGET_METRIC` | `hydromodpy.simulation.planning.plan` |
 
 ### Fixed
 - `Project.simulate(thickness=...)` on a depth model without a thickness raises
@@ -274,6 +299,10 @@ Each release section includes the following standard categories:
 - The example manifest follows example 04 again: its short README, no
   `run_manual.py`, and the current step 4. It still listed the removed files,
   which made `hmp example add 04` fail.
+- The DA-MH-GP adapter returns the evaluated trial nearest its posterior mode
+  instead of the first accepted one: `tell` now keeps the transformed point of
+  each evaluated trial, and the acceptance distance reads it instead of
+  `metadata["values"]`, which the engine never wrote.
 
 ---
 

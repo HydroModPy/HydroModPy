@@ -156,7 +156,7 @@ JSON Schema export for frontends; units handled in one place.
 7. Calibration adapters
 -----------------------
 
-Location: ``hydromodpy/calibration/adapters/``.
+Location: ``hydromodpy/calibration/optim/adapters/``.
 
 A calibration adapter plugs a concrete optimizer into the engine. The
 available adapters:

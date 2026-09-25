@@ -4,7 +4,7 @@ Add a Calibration Method
 Calibration in HydroModPy runs an ask/tell loop: an optimizer
 proposes a parameter point, the engine evaluates it, the optimizer
 ingests the result. Optimizers are plugged through *adapters* under
-``hydromodpy/calibration/adapters/``.
+``hydromodpy/calibration/optim/adapters/``.
 
 Today nine adapters ship: ``Grid``, ``RandomSearch``,
 ``ScipyNelderMead``, ``ScipyDE``, ``Optuna`` (TPE / CMA-ES samplers),
@@ -14,28 +14,30 @@ Contract
 --------
 
 A calibration adapter exposes an ``ask`` / ``tell`` pair plus a small
-configuration surface. The Protocol lives in
-``hydromodpy/calibration/adapters/__init__.py`` (or the matching
-contracts module).
+configuration surface. The Protocol, ``Optimizer``, lives in
+``hydromodpy/calibration/optim/optimizer.py``.
 
 .. code-block:: python
 
-   class CalibrationMethodAdapter(Protocol):
-       method_name: ClassVar[str]
+   class Optimizer(Protocol):
+       name: str
 
-       def configure(self, params: ParameterSpace, options: dict) -> None: ...
+       def ask(self, n: int = 1) -> list[ParamSuggestion]: ...
 
-       def ask(self) -> ParamSuggestion: ...
+       def tell(self, results: list[EvaluationResult]) -> None: ...
 
-       def tell(self, result: EvaluationResult) -> None: ...
+       def suggest_next(self) -> ParamSuggestion: ...
 
        def best(self) -> EvaluationResult | None: ...
+
+       def converged(self) -> bool: ...
 
 ``ParameterSpace`` aggregates the ``[calibration.parameters.*]``
 declarations (bounds, transform, prior, dotted path).
 ``ParamSuggestion`` carries one parameter point;
 ``EvaluationResult`` carries the matching scalar objective plus
-metadata.
+metadata. ``ask`` proposes one or more points at once; ``tell`` feeds back
+the matching batch of results.
 
 Files to create
 ---------------
@@ -44,7 +46,7 @@ A new method called ``mymethod``:
 
 .. code-block:: text
 
-   hydromodpy/calibration/adapters/mymethod.py
+   hydromodpy/calibration/optim/adapters/mymethod.py
 
 Skeleton:
 
@@ -60,20 +62,26 @@ Skeleton:
 
    @register_optimizer("mymethod")
    class MyMethodOptimizer:
+       name = "mymethod"
+
        def __init__(self, space: ParameterSpace, *, max_iter: int = 100) -> None:
            self._space = space
            self._max_iter = max_iter
            self._iter = 0
            self._best: EvaluationResult | None = None
 
-       def ask(self) -> ParamSuggestion:
-           # propose the next point in the internal sampling space
+       def ask(self, n: int = 1) -> list[ParamSuggestion]:
+           # propose n points in the internal sampling space
            ...
 
-       def tell(self, result: EvaluationResult) -> None:
-           self._iter += 1
-           if self._best is None or result.objective < self._best.objective:
-               self._best = result
+       def tell(self, results: list[EvaluationResult]) -> None:
+           self._iter += len(results)
+           for result in results:
+               if self._best is None or result.objective < self._best.objective:
+                   self._best = result
+
+       def suggest_next(self) -> ParamSuggestion:
+           return self.ask(1)[0]
 
        def best(self) -> EvaluationResult | None:
            return self._best
@@ -88,9 +96,22 @@ There is no registry dict to edit. ``@register_optimizer("mymethod")``
 publishes the class under the name accepted by
 ``CalibrationConfig.method`` and by ``build_optimizer``. The registry
 (``hydromodpy/calibration/optim/optimizer.py``) auto-discovers every
-module under ``hydromodpy/calibration/adapters/`` on the first
+module under ``hydromodpy/calibration/optim/adapters/`` on the first
 ``build_optimizer`` call, so dropping the file in that package is all
 the wiring required.
+
+Declaring the options
+----------------------
+
+Registering the class is not enough: ``optimizer_kwargs`` is validated
+against a typed model before it ever reaches the adapter constructor. Add a
+``BaseModel`` for ``mymethod`` in ``hydromodpy/calibration/optim/method_config.py``,
+with ``method: Literal["mymethod"]`` and one field per accepted constructor
+keyword, and list it in the ``CalibrationMethodConfig`` union at the bottom
+of that module. ``CalibrationConfig.validate_registry`` calls
+``validate_method_kwargs``, which raises on an unknown key or a wrong type
+at config-load time, instead of inside the adapter where the message is
+much less helpful.
 
 Third-party methods shipped outside the repository register through the
 ``hydromodpy.optimizer`` entry-point group instead.
@@ -257,7 +278,7 @@ Tests to add
 ------------
 
 - **Unit** under ``tests/unit/calibration/`` for
-  ``configure`` (option parsing), ``ask`` (point generation),
+  ``__init__`` (option parsing), ``ask`` (point generation),
   ``tell`` (state update), ``best`` (post-loop selection).
 - **Synthetic benchmark** under
   ``hydromodpy/calibration/cases/`` reusing
