@@ -96,6 +96,12 @@ Each release section includes the following standard categories:
   `hydromodpy.display.geo.basemaps`, and `GeoFigureMixin.add_basemap` with the
   `crs` attribute only it read. Nothing called them; a figure is saved by
   `BaseFigure.plot`.
+- The module `hydromodpy.display.catchment_report.cli`: the options of
+  `hmp report catchment` live in `hydromodpy/cli/commands/report.py`,
+  unchanged. `python -m hydromodpy.display.catchment_report.pipeline` and
+  `python -m hydromodpy.display.catchment_report.context` go with it: use
+  `hmp report catchment <toml>`, or `build_context_from_report_config` from
+  Python for the context alone.
 
 ### Added
 - A raster substratum: two depth models read the bottom of the aquifer from
@@ -324,6 +330,8 @@ Each release section includes the following standard categories:
   instead of the first accepted one: `tell` now keeps the transformed point of
   each evaluated trial, and the acceptance distance reads it instead of
   `metadata["values"]`, which the engine never wrote.
+- `hmp` no longer imports the catchment report, nor `matplotlib.pyplot` with
+  it, each time it builds its parser; only `hmp report catchment` does.
 
 ---
 

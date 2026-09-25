@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -253,28 +252,3 @@ def _validate_simulation_outputs(inputs: CatchmentReportInputs) -> None:
             "Simulation completed but the catchment report expected outputs "
             f"were not found:\n{details}"
         )
-
-
-def main(argv: list[str] | None = None) -> int:
-    from hydromodpy.display.catchment_report.cli import (
-        add_catchment_report_arguments,
-        print_catchment_report_result,
-        run_catchment_report_from_args,
-    )
-
-    parser = argparse.ArgumentParser(description=__doc__)
-    add_catchment_report_arguments(
-        parser,
-        report_config_option=True,
-    )
-    args = parser.parse_args(argv)
-    try:
-        result = run_catchment_report_from_args(args)
-    except ValueError as exc:
-        parser.error(str(exc))
-    print_catchment_report_result(result)
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

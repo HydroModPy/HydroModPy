@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import json
 import math
 import shutil
@@ -424,16 +423,3 @@ def _rel(path: Path | None) -> str | None:
         return path.resolve().relative_to(REPO_ROOT.resolve()).as_posix()
     except ValueError:
         return str(path.resolve())
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--report-config", type=Path, required=True)
-    args = parser.parse_args(argv)
-    summary_path = build_context_from_report_config(args.report_config)
-    print(summary_path)
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

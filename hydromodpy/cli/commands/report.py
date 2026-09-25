@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.cli._conventions import verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import (
@@ -26,10 +27,19 @@ from hydromodpy.cli.helpers import (
 )
 from hydromodpy.core import progress
 from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
-from hydromodpy.display.catchment_report.cli import add_catchment_report_arguments
+
+if TYPE_CHECKING:
+    from hydromodpy.display.catchment_report.pipeline import CatchmentReportPipelineResult
 
 NAME: str = "report"
 HELP: str = "Render HTML reports and pairwise comparisons"
+
+CATCHMENT_PRESETS: tuple[str, ...] = ("generic", "generic_catchment_report")
+"""The keys of ``PRESETS_BY_NAME`` in ``hydromodpy/display/catchment_report/presets.py``.
+
+Written out so that building the ``hmp`` parser does not import the catchment
+report, and with it ``matplotlib.pyplot``. A test keeps the two lists equal.
+"""
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -81,7 +91,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Build a catchment HTML report from one TOML configuration",
         parents=[verbosity_parser()],
     )
-    add_catchment_report_arguments(catchment_p, report_config_option=False)
+    _add_catchment_arguments(catchment_p)
 
     parser.set_defaults(_handler=run)
     return parser
@@ -160,19 +170,117 @@ def _cmd_compare(args: argparse.Namespace) -> None:
     print(df.to_string())
 
 
-def _cmd_catchment(args: argparse.Namespace) -> None:
-    from hydromodpy.display.catchment_report.cli import (
-        print_catchment_report_result,
-        run_catchment_report_from_args,
+def _add_catchment_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the ``hmp report catchment`` arguments to its parser."""
+    parser.add_argument(
+        "report_config",
+        type=Path,
+        metavar="REPORT_CONFIG",
+        help="Catchment report TOML configuration.",
+    )
+    parser.add_argument(
+        "--run-overview",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Run the configured overview before building report artifacts.",
+    )
+    parser.add_argument(
+        "--run-simulation",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Run the configured simulation before building report artifacts.",
+    )
+    parser.add_argument(
+        "--context-only",
+        action="store_true",
+        help="Build only the context artifacts, not the final HTML report.",
+    )
+    parser.add_argument(
+        "--report-only",
+        action="store_true",
+        help="Build only the final HTML report from existing context artifacts.",
+    )
+    parser.add_argument(
+        "--with-lock",
+        action="store_true",
+        help="Do not pass --no-lock to the optional hydromodpy run steps.",
+    )
+    parser.add_argument(
+        "--stream-run-logs",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Stream logs from optional hydromodpy run steps.",
+    )
+    parser.add_argument(
+        "--strict-figure-postflight",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Fail when post-render figure completeness checks find missing figures.",
+    )
+    parser.add_argument(
+        "--preset",
+        choices=CATCHMENT_PRESETS,
+        default=None,
+        help="Override the catchment report preset declared in the TOML.",
     )
 
+
+def _catchment_overrides(args: argparse.Namespace) -> dict[str, Any]:
+    """Resolve the command flags into the pipeline's optional override values."""
+    if args.context_only and args.report_only:
+        raise ValueError("--context-only and --report-only are mutually exclusive.")
+
+    run_overview = args.run_overview
+    run_simulation = args.run_simulation
+    build_context_artifacts = None
+    build_report_html = None
+    if args.context_only:
+        build_context_artifacts = True
+        build_report_html = False
+    elif args.report_only:
+        run_overview = False if run_overview is None else run_overview
+        run_simulation = False if run_simulation is None else run_simulation
+        build_context_artifacts = False
+        build_report_html = True
+
+    return {
+        "run_overview": run_overview,
+        "run_simulation": run_simulation,
+        "build_context_artifacts": build_context_artifacts,
+        "build_report_html": build_report_html,
+        "no_lock": False if args.with_lock else None,
+        "stream_run_logs": args.stream_run_logs,
+        "strict_figure_postflight": args.strict_figure_postflight,
+    }
+
+
+def _cmd_catchment(args: argparse.Namespace) -> None:
+    from hydromodpy.display.catchment_report import preset_from_name
+    from hydromodpy.display.catchment_report.pipeline import run_catchment_report_pipeline
+
     try:
-        result = run_catchment_report_from_args(args)
-    except ValueError as exc:
-        print(
-            str(exc),
-            file=sys.stderr,
+        overrides = _catchment_overrides(args)
+        result = run_catchment_report_pipeline(
+            args.report_config,
+            preset=preset_from_name(args.preset) if args.preset else None,
+            **overrides,
         )
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
-    print_catchment_report_result(result)
+    _print_catchment_result(result)
+
+
+def _print_catchment_result(result: CatchmentReportPipelineResult) -> None:
+    """Print the paths the catchment report wrote, one ``key=path`` per line."""
+    if result.overview_config is not None:
+        print(f"overview_config={result.overview_config}")
+    if result.simulation_config is not None:
+        print(f"simulation_config={result.simulation_config}")
+    if result.context_summary is not None:
+        print(f"context_summary={result.context_summary}")
+    if result.html_report is not None:
+        print(f"html_report={result.html_report}")
+    if result.postflight_report is not None:
+        print(f"postflight_report={result.postflight_report}")
