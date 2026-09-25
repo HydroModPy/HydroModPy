@@ -2,7 +2,8 @@
 
 Each sub-module of ``hydromodpy.calibration.metrics`` exposes a focused
 concern. These tests import each sub-module independently and exercise one
-representative entry point so the package layout stays stable.
+representative entry point so the package layout stays stable. The network
+cost left ``metrics`` for ``observations.network_cost`` and keeps its test here.
 """
 
 from __future__ import annotations
@@ -36,8 +37,8 @@ def test_series_module_exposes_observed_series_and_helpers() -> None:
     assert callable(series.add_runoff_to_discharge)
 
 
-def test_network_module_exposes_network_cost() -> None:
-    from hydromodpy.calibration.metrics import network
+def test_network_cost_module_exposes_network_cost() -> None:
+    from hydromodpy.calibration.observations import network_cost
 
     # Not a 0/1 vector: network_cost refuses a binary mask where a
     # per-cell outflow is required, which is the trap this guards.
@@ -45,7 +46,7 @@ def test_network_module_exposes_network_cost() -> None:
     ref = np.array([0.0, 1.0, 0.0, 0.5])
     centroids = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]])
     cell_area = np.ones(4)
-    cost = network.network_cost(
+    cost = network_cost.network_cost(
         sim,
         ref,
         centroids,

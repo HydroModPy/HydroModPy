@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.calibration.metrics.network import (
+from hydromodpy.calibration.observations.network_cost import (
     active_network_mask,
     network_cost,
     network_distance_error,
