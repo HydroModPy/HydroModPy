@@ -163,6 +163,7 @@ Each release section includes the following standard categories:
   | `hydromodpy.data.adapters.asc_to_geotiff`, `csv_to_parquet`, `shp_to_geoparquet` | `hydromodpy.data.ingest.raster`, `tables`, `vector` |
   | `hydromodpy.data.common.administrative.france` | `hydromodpy.spatial.administrative.france` |
   | `hydromodpy.data.variables.<v>.cases` | `hydromodpy.data.cases.<v>` |
+  | `hydromodpy.data.variables.geology.cases.common` | `hydromodpy.data.cases.geology.plotting` |
   | `hydromodpy.data.source.bdtopage`, `euhydro`, `osm` | `hydromodpy.data.variables.hydrography.apis.bdtopage`, `euhydro`, `osm` |
   | `hydromodpy.data.variables.sim2`, `sim2_manager`, `common.clients.sim2_variables`, `variables.<v>.apis.sim2` | `hydromodpy.data.common.clients.sim2_products` |
   | `hydromodpy.data.common.clients.hubeau_cache` | the station cache of `BaseVariableManager` |

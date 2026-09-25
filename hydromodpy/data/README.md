@@ -56,7 +56,7 @@ lazy-attribute table. Every subpackage may import `core`. Six more rules:
    checks it.
 5. The three modules that hold a `DataSource` class import geopandas, pandas,
    rasterio or requests inside their functions: looking a source up by name
-   loads nothing heavy. `tests/unit/data/test_data_source_port_stands_alone.py`
+   loads nothing heavy. `tests/unit/architecture/test_data_source_port_stands_alone.py`
    checks it.
 6. One exception to the import rules: the source registry
    (`source/registry.py`) names the three built-in classes by a dotted path
@@ -81,9 +81,12 @@ fetches it:
 class HydrometryManager(BaseVariableManager):
     VARIABLE_NAME = "hydrometry"
     INTERNAL_UNIT = "m3/s"
-    SOURCES = {"hubeau": hubeau.fetch}
+    RECORD_VARIABLE = "discharge"
+    SOURCES = {"hubeau": hubeau.fetch_for_config}
 ```
 
+- `RECORD_VARIABLE` is optional. It names what a record carries when that
+  differs from `VARIABLE_NAME`.
 - `custom` is never in `SOURCES`. The base class loads the user's files through
   `load_custom`; a variable whose format takes real work overrides it or keeps
   a `custom.py`.
