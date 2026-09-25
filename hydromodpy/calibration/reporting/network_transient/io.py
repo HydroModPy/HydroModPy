@@ -108,16 +108,6 @@ def fmt_float(value: Any, digits: int = 4) -> str:
     return f"{val:.{digits}f}"
 
 
-def as_int_str(value: Any) -> str:
-    """Format an integer-like value with thousands separators; '-' when missing."""
-    if value in (None, 0):
-        return "-"
-    try:
-        return f"{int(value):,}"
-    except (TypeError, ValueError):
-        return str(value)
-
-
 def default_truth_packages(real_root: Path) -> tuple[Path, ...]:
     """Return the default truth-package paths under one real_runs root."""
     return (

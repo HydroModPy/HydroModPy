@@ -202,27 +202,7 @@ def protocol_record(name: str, declared: object | None = None) -> dict[str, Any]
     return record
 
 
-def assert_version_is_available(name: str, version: str | None) -> None:
-    """Refuse a pinned version this registry does not hold.
-
-    Approximating it with the current recipe is the one thing a pin exists to
-    prevent: a file that pins 1.0 and silently gets 1.1 has lost the guarantee it
-    asked for.
-    """
-    if version is None:
-        return
-    protocol = get_protocol(name)
-    if str(version) != str(protocol.version):
-        raise ValueError(
-            f"[calibration.protocol] pins {name!r} at version {version!r}, and this "
-            f"installation carries {protocol.version!r}. A pin exists so a result stays "
-            "replayable, so it is refused rather than approximated: install the version "
-            "this file was written against, or drop the pin to run the one that is here."
-        )
-
-
 __all__ = [
-    "assert_version_is_available",
     "available_protocols",
     "expand_calibration_protocol",
     "get_protocol",
