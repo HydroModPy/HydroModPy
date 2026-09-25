@@ -238,6 +238,11 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
     the single-metric route instead, and inherits neither. ``phases`` is cleared
     so the sub-run is an ordinary calibration.
 
+    ``objective_blocks`` as a list keeps each named block's declared weight. As a
+    table ``{block: share}`` it replaces the selected blocks' weight with the
+    phase's own share; ``CompositeObjective`` normalises it the same way it
+    already normalises a declared weight, so the shares need not sum to one.
+
     A phase used to inherit every declared output whatever it scored. A
     two-stage file naming a network output for its steady stage and a discharge
     output for its transient one therefore handed each stage the output of the
@@ -272,7 +277,14 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
         payload["outputs"] = {}
         payload["objective_blocks"] = []
     else:
-        if decl.objective_blocks:
+        if isinstance(decl.objective_blocks, dict):
+            shares = decl.objective_blocks
+            payload["objective_blocks"] = [
+                {**block, "weight": shares[block["name"]]}
+                for block in payload["objective_blocks"]
+                if block["name"] in shares
+            ]
+        elif decl.objective_blocks:
             selected = set(decl.objective_blocks)
             payload["objective_blocks"] = [
                 block for block in payload["objective_blocks"] if block["name"] in selected

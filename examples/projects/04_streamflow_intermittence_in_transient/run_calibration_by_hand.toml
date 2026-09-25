@@ -50,16 +50,12 @@ y = 6816518.749
 # |D_so - D_os| in metres. The other estimator, `distance_mean`, has an
 # interior minimum instead of a zero crossing, so swapping it means swapping
 # `method` on the steady stage too; `--check` refuses the mismatched pair.
+# No weight here: it would only apply to stage one, which reads this block
+# alone, and stage two sets its own share below.
 [[calibration.objective_blocks]]
 name = "network_extension"
 metric = "distance_gap"
 uses_outputs = ["seepage_network"]
-# An exchange rate between metres and an efficiency, which nothing in the
-# machinery can set. Normalized to sum to one, so the trial cost is
-# 0.0099 * |gap in m| + 0.990 * (1 - NSElog); over the sixteen trials of stage
-# two the two terms weighed about the same, which is the intent. Both are
-# reported per trial, as `network_extension.total` and `hydrograph.total`.
-weight = 0.01
 
 # The other half of stage two. NSE on the logarithms, which weights the
 # recessions where storage shows. Not `transform = "log"`, which takes the
@@ -68,7 +64,6 @@ weight = 0.01
 name = "hydrograph"
 metric = "nse_log"
 uses_outputs = ["gauged_discharge"]
-weight = 1.0
 # The year 2000, dropped from this block alone. A scoring_window would say the
 # same in dates and is refused here: it cuts a record on its dates, and the
 # network block of the same stage is scored on distances that carry none.
@@ -139,7 +134,14 @@ max_iter = 30
 # here is a full 36-month run.
 tolerance = 0.05
 parameters = ["Sy"]
-objective_blocks = ["hydrograph", "network_extension"]
+# A share table, not a list: this stage sets its own balance between the two
+# blocks instead of taking their declared weight. An exchange rate between
+# metres and an efficiency, which nothing in the machinery can set. Normalized
+# to sum to one, so the trial cost is 0.0099 * |gap in m| + 0.990 * (1 -
+# NSElog); over the sixteen trials of stage two the two terms weighed about
+# the same, which is the intent. Both are reported per trial, as
+# `network_extension.total` and `hydrograph.total`.
+objective_blocks = { hydrograph = 100, network_extension = 1 }
 depends_on = "steady_conductivity"
 regime = "transient"
 

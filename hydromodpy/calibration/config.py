@@ -1048,10 +1048,13 @@ class CalibPhaseDecl(HydroModelBase):
         description="Names of the calibration outputs this phase scores on. Empty "
         "means every declared output.",
     )
-    objective_blocks: Annotated[list[str], Profile.USER] = Field(
+    objective_blocks: Annotated[list[str] | dict[str, PositiveFloat], Profile.USER] = Field(
         default_factory=list,
-        description="Names of the objective blocks this phase evaluates. Empty means "
-        "every declared block.",
+        description="Objective blocks this phase evaluates. Empty means every declared "
+        "block. A list names them and keeps their declared weight. A table gives each "
+        "named block the phase's own share instead, {block = share}, normalised to sum "
+        "to one like a block's weight already is; every key must be a declared block, "
+        "and every share must be positive.",
     )
     variable: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -1824,8 +1827,10 @@ class CalibrationConfig(HydroModelBase):
                 )
             unknown_blocks = sorted(set(phase.objective_blocks) - declared_blocks)
             if unknown_blocks:
+                declared = sorted(declared_blocks) or "nothing"
                 raise ValueError(
-                    f"phase {phase.name!r} uses undeclared objective block(s) {unknown_blocks}."
+                    f"phase {phase.name!r} uses undeclared objective block(s) {unknown_blocks}; "
+                    f"[[calibration.objective_blocks]] declares {declared}."
                 )
 
             if phase.depends_on is not None:

@@ -1964,12 +1964,24 @@
             "x-hmp-profile": "user"
           },
           "objective_blocks": {
-            "description": "Names of the objective blocks this phase evaluates. Empty means every declared block.",
-            "items": {
-              "type": "string"
-            },
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "additionalProperties": {
+                  "description": "Positive floating-point value.",
+                  "exclusiveMinimum": 0.0,
+                  "type": "number"
+                },
+                "type": "object"
+              }
+            ],
+            "description": "Objective blocks this phase evaluates. Empty means every declared block. A list names them and keeps their declared weight. A table gives each named block the phase's own share instead, {block = share}, normalised to sum to one like a block's weight already is; every key must be a declared block, and every share must be positive.",
             "title": "Objective Blocks",
-            "type": "array",
             "x-hmp-profile": "user"
           },
           "variable": {
