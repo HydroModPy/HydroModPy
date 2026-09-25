@@ -1,4 +1,4 @@
-"""Calibration run in phases: each stage calibrates, then freezes.
+"""Calibration run in phases: each stage calibrates, then passes its values on.
 
 A staged calibration runs the phases of ``[[calibration.phases]]`` in
 declaration order. Each phase is an ordinary mono-phase calibration: it gets
@@ -6,15 +6,22 @@ its own configuration, its own optimizer, its own session, and goes through
 :func:`hydromodpy.calibration.runners.cli_runner.run_calibration_core` like
 any other. What staging adds is what happens between two phases.
 
-Freezing
---------
-A phase that declares ``freeze_on_success`` and converges hands the
-parameters it calibrated to the phases after it, as fixed values. A frozen
-parameter leaves the search: it is written once into the baseline
-configuration every trial of the next phase forks from, and its declaration
-is dropped from that phase's parameter space. Keeping it in the space with
-equal bounds would make a grid sampler spend points on a degenerate axis and
-would break the one-dimensional guard of the bisection adapter.
+Passing values on
+-----------------
+A phase moves the parameters it lists. Every other parameter holds the last
+value an earlier converged phase passed on, otherwise the value of the model
+file. A phase passes its values on when it declares ``freeze_on_success`` and
+converges. A held value is written once into the baseline configuration every
+trial of the phase forks from. It is not in that phase's parameter space,
+because the phase does not list it.
+
+A phase that lists a parameter an earlier phase passed on moves it again. The
+passed value is not written into its baseline, so no trial overwrites what the
+search proposes. The search starts from that value when the engine declares
+``accepts_a_start_point``; the other coordinates of that start are the prior
+centre. An engine that takes no start point keeps its own start. When two
+phases pass on the same parameter, the latest wins, and the report names both:
+``frozen`` lists each of them, and the later phase lists the value it re-opened.
 
 Chaining
 --------
@@ -37,12 +44,13 @@ from pydantic import ValidationError
 
 from hydromodpy.calibration.config import CalibPhaseDecl, CalibrationConfig
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
-from hydromodpy.calibration.optim.optimizer import FAILED_EVAL_COST
+from hydromodpy.calibration.optim.optimizer import FAILED_EVAL_COST, engine_traits
 from hydromodpy.calibration.optim.parameters import (
     CalibParameter,
     ParameterSpace,
     apply_parameter_to_config,
 )
+from hydromodpy.calibration.optim.prior_sampling import transformed_prior_center
 from hydromodpy.calibration.persistence import (
     CalibrationStoreFactory,
     default_store_factory,
@@ -72,6 +80,8 @@ from hydromodpy.core.exceptions import CalibrationError, ConfigValidationError
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
+    import numpy as np
+
     from hydromodpy.calibration.report import CalibrationReport
     from hydromodpy.calibration.runners.trial import TrialContext
 
@@ -128,18 +138,23 @@ class PhaseRun:
     parent_session_id: str | None
     report: CalibrationReport
     frozen: tuple[FrozenParameter, ...]
+    reopened: tuple[FrozenParameter, ...] = ()
+    """The passed values this phase moved again, each with the phase that found it."""
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly view of the phase, report included."""
-        return {
+        summary: dict[str, Any] = {
             "phase": self.name,
             "index": self.index,
             "session_id": self.session_id,
             "root_session_id": self.root_session_id,
             "parent_session_id": self.parent_session_id,
             "frozen": [item.to_dict() for item in self.frozen],
-            "report": self.report.to_dict(),
         }
+        if self.reopened:
+            summary["reopened"] = [item.to_dict() for item in self.reopened]
+        summary["report"] = self.report.to_dict()
+        return summary
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,7 +163,8 @@ class StagedCalibrationReport:
 
     ``phases`` keeps the runs in the order they ran and ``frozen`` gathers,
     in the same order, every value a converged phase declared frozen, with
-    the path it is written to.
+    the path it is written to. A parameter two phases froze appears twice; the
+    later value is the one the phases after both of them hold.
     """
 
     phases: tuple[PhaseRun, ...]
@@ -345,8 +361,84 @@ def _injected_paths(
 # ---------------------------------------------------------------------------
 
 
-def _freeze_into_baseline(trial_ctx: TrialContext, frozen: list[FrozenParameter]) -> None:
-    """Write the frozen values into the baseline the phase forks from.
+def _held(frozen: Sequence[FrozenParameter], space: ParameterSpace) -> list[FrozenParameter]:
+    """Return the passed values a phase holds fixed: the latest per path, minus what it moves.
+
+    A value the phase moves again is left out. Written into the baseline, it
+    would sit under every trial: the sample would overwrite it, or, under
+    ``mode="scale"``, multiply it instead of the declared value.
+    """
+    moved_names = set(space.names)
+    moved_paths = {param.effective_path for param in space if param.effective_path is not None}
+    return [
+        item
+        for item in _latest_per_path(frozen).values()
+        if item.name not in moved_names and item.path not in moved_paths
+    ]
+
+
+def _reopened(
+    frozen: Sequence[FrozenParameter], space: ParameterSpace
+) -> tuple[FrozenParameter, ...]:
+    """Return the passed values a phase moves again, the latest per path.
+
+    Two parameter names may write the same path. The phase then starts from
+    the latest value on that path, whichever name found it, so each item is
+    given the parameter this phase moves and keeps the phase that found it.
+    """
+    latest = _latest_per_path(frozen)
+    reopened: list[FrozenParameter] = []
+    for param in space:
+        item = latest.get(param.effective_path or param.name)
+        if item is not None:
+            reopened.append(FrozenParameter(parameter=param, value=item.value, phase=item.phase))
+    return tuple(reopened)
+
+
+def _latest_per_path(frozen: Sequence[FrozenParameter]) -> dict[str, FrozenParameter]:
+    """Return the last passed value for each path, or for each name without a path."""
+    latest: dict[str, FrozenParameter] = {}
+    for item in frozen:
+        latest[item.path or item.name] = item
+    return latest
+
+
+def _passed_start(
+    phase_name: str,
+    method: str,
+    space: ParameterSpace,
+    reopened: Sequence[FrozenParameter],
+) -> np.ndarray | None:
+    """Return where a phase that moves passed values again starts its search.
+
+    The passed values, and the prior centre for the other parameters. One
+    coordinate per parameter of ``space``, in transformed space, as
+    ``run_calibration_core(start_at=...)`` reads it. ``None`` when the phase
+    re-opens nothing, or when its engine takes no start point: the engine then
+    keeps its own start, and the log says so.
+    """
+    if not reopened:
+        return None
+    moved = ", ".join(f"{item.name}<-{item.phase}" for item in reopened)
+    if not engine_traits(method).accepts_a_start_point:
+        logger.info(
+            "Phase %s moves %s again. The %s engine takes no start point, so it keeps its own.",
+            phase_name,
+            moved,
+            method,
+        )
+        return None
+    start = transformed_prior_center(space)
+    passed = {item.name: item.value for item in reopened}
+    for index, param in enumerate(space.parameters):
+        if param.name in passed:
+            start[index] = param.to_transformed(float(passed[param.name]))
+    logger.info("Phase %s moves %s again, starting from the passed values.", phase_name, moved)
+    return start
+
+
+def _freeze_into_baseline(trial_ctx: TrialContext, held: Sequence[FrozenParameter]) -> None:
+    """Write the held values into the baseline the phase forks from.
 
     ``TrialContext.fork`` starts every trial from a deep copy of ``base_cfg``
     and then writes the sampled values in, so a value written here reaches
@@ -355,7 +447,7 @@ def _freeze_into_baseline(trial_ctx: TrialContext, frozen: list[FrozenParameter]
     the TOML, so ``mode="scale"`` multiplies the declared value once and
     exactly as the phase that calibrated it did.
     """
-    for item in frozen:
+    for item in held:
         apply_parameter_to_config(trial_ctx.base_cfg, item.parameter, item.value)
 
 
@@ -658,6 +750,52 @@ def _reuse_from_disk(
 
 
 # ---------------------------------------------------------------------------
+# Listing
+# ---------------------------------------------------------------------------
+
+
+def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
+    """Describe the declared phases in declaration order, without running anything.
+
+    A phase that lists a parameter an earlier phase passes on also carries
+    ``reopens``, each such parameter with the phase it comes from, and
+    ``starts_from_passed_values``, whether its engine takes a start point. A
+    phase that re-opens nothing carries neither key. The earlier phase is the
+    latest one before it that declares ``freeze_on_success`` on the same path,
+    under any parameter name; at run time it passes its values on only if it
+    converges.
+    """
+    rows: list[dict[str, Any]] = []
+    passed_by: dict[str, str] = {}
+    declared = cfg.parameters if cfg is not None else {}
+
+    def written_at(name: str) -> str:
+        return declared[name].resolve_target() or name
+
+    for decl in getattr(cfg, "phases", None) or []:
+        row: dict[str, Any] = {
+            "name": decl.name,
+            "description": decl.description,
+            "method": decl.method,
+            "parameters": list(decl.parameters),
+            "depends_on": decl.depends_on,
+            "freeze_on_success": decl.freeze_on_success,
+        }
+        reopens = [
+            {"parameter": name, "from_phase": passed_by[written_at(name)]}
+            for name in decl.parameters
+            if written_at(name) in passed_by
+        ]
+        if reopens:
+            row["reopens"] = reopens
+            row["starts_from_passed_values"] = engine_traits(decl.method).accepts_a_start_point
+        rows.append(row)
+        if decl.freeze_on_success:
+            passed_by.update({written_at(name): decl.name for name in decl.parameters})
+    return rows
+
+
+# ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 
@@ -758,15 +896,13 @@ def run_staged_calibration(
         else:
             ws_root = trial_ctx.workspace
 
+        held = _held(frozen, space)
+        reopened = _reopened(frozen, space)
         # Before anything reads this baseline, including the fingerprint that
         # decides whether a completed phase may be reused. The hash recorded on
         # disk for this phase was computed with the upstream freezes baked in, so
         # asking the question without them can only ever answer no.
-        # Before anything reads this baseline, including the fingerprint that
-        # decides whether a completed phase may be reused. The hash recorded on
-        # disk for this phase was computed with the upstream freezes baked in, so
-        # asking the question without them can only ever answer no.
-        _freeze_into_baseline(trial_ctx, frozen)
+        _freeze_into_baseline(trial_ctx, held)
 
         disk_result: tuple[CalibrationReport, tuple[FrozenParameter, ...]] | None = None
         if cfg.reuse_completed_phases and resume_root_session_id is not None:
@@ -832,6 +968,7 @@ def run_staged_calibration(
                 decl.method,
                 list(decl.parameters),
             )
+            passed_start = _passed_start(decl.name, phase_cfg.method, space, reopened)
 
             def _one_search(
                 restart_seed: int,
@@ -841,7 +978,10 @@ def run_staged_calibration(
                 _ctx=trial_ctx,
                 _space=space,
                 _ws=ws_root,
+                _passed_start=passed_start,
             ):
+                # The first restart, or the only search, starts from the passed
+                # values. The other restarts start from their own draws.
                 return run_calibration_core(
                     _cfg
                     if restart_seed == _seed_of(_cfg)
@@ -855,7 +995,7 @@ def run_staged_calibration(
                     objective=objective,
                     store_factory=store_factory,
                     chain=_chain,
-                    start_at=start_at,
+                    start_at=_passed_start if start_at is None else start_at,
                 )
 
             restarts = _declared_restarts(cfg)
@@ -884,7 +1024,7 @@ def run_staged_calibration(
                 phase_name=decl.name,
                 trial_ctx=trial_ctx,
                 space=space,
-                frozen=frozen,
+                frozen=held,
             )
             froze = _frozen_by(decl, report, declared)
 
@@ -899,6 +1039,7 @@ def run_staged_calibration(
                 parent_session_id=parent_session_id,
                 report=report,
                 frozen=froze,
+                reopened=reopened,
             )
         )
         parent_session_id = session_id
@@ -963,5 +1104,6 @@ __all__ = [
     "FrozenParameter",
     "PhaseRun",
     "StagedCalibrationReport",
+    "phase_summaries",
     "run_staged_calibration",
 ]

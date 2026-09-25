@@ -86,6 +86,23 @@ class TestAccepted:
 
         assert cfg.parameters["K"].resolve_target() is None
 
+    def test_two_phases_may_freeze_the_same_path(self) -> None:
+        # The second moves K again from the value the first passed on, and the
+        # later value wins. The staged report names both.
+        cfg = _config(
+            [
+                {**STEADY, "objective_blocks": ["b"]},
+                {
+                    "name": "again",
+                    "parameters": ["K"],
+                    "objective_blocks": ["b"],
+                    "freeze_on_success": True,
+                },
+            ]
+        )
+
+        assert [phase.name for phase in cfg.phases] == ["steady_k_over_r", "again"]
+
     def test_an_empty_selection_means_every_declaration(self) -> None:
         cfg = _config([STEADY])
         assert cfg.phases[0].outputs == []
@@ -113,14 +130,18 @@ class TestRefused:
         with pytest.raises(ValueError, match="undeclared parameter"):
             _config([{**STEADY, "parameters": ["Kv"]}])
 
-    def test_two_phases_freezing_the_same_path(self) -> None:
-        # The second would overwrite what the first calibrated, and nothing
-        # downstream would say which value the model actually ran with.
-        with pytest.raises(ValueError, match="both freeze"):
+    def test_an_override_on_a_path_an_earlier_phase_froze(self) -> None:
+        # The calibrated value would be overwritten, and nothing downstream
+        # would say which one the model ran with.
+        with pytest.raises(ValueError, match="which phase 'steady_k_over_r' freezes"):
             _config(
                 [
-                    STEADY,
-                    {"name": "again", "parameters": ["K"], "freeze_on_success": True},
+                    {**STEADY, "objective_blocks": ["b"]},
+                    {
+                        **TRANSIENT,
+                        "objective_blocks": ["b"],
+                        "overrides": {"flow.param.K.field.value": 1e-5},
+                    },
                 ]
             )
 

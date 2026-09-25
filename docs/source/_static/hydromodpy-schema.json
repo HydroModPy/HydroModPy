@@ -1642,7 +1642,7 @@
     },
     "CalibPhaseDecl": {
       "additionalProperties": false,
-      "description": "One stage of a calibration that runs in several.\n\nA phase selects, by name, from the parameters, outputs and objective blocks\nthe calibration already declares: nothing is redeclared, so the two stages\nof a method cannot drift apart in a single file. What a phase carries of\nits own is its search: a method, a budget, and which parameters it is\nallowed to move.\n\n``freeze_on_success`` means the parameters this phase calibrated are held\nfixed for the phases that depend on it. It reads \"freeze if the phase\nconverged\", never \"freeze if the result is good\": a validity indicator\nqualifies a result, and a phase that returns a coarse agreement still\nreturns a number. The state of that indicator travels to the dependent\nphase and into the report, so a value calibrated on top of a doubtful one\ncarries the mention all the way out.",
+      "description": "One stage of a calibration that runs in several.\n\nA phase selects, by name, from the parameters, outputs and objective blocks\nthe calibration already declares: nothing is redeclared, so the two stages\nof a method cannot drift apart in a single file. What a phase carries of\nits own is its search: a method, a budget, and which parameters it is\nallowed to move.\n\n``freeze_on_success`` means this phase passes the values it found to the\nphases after it. A later phase holds them fixed, unless it lists the\nparameter: it then moves it again, starting from the passed value when its\nmethod accepts a start point. It reads \"pass on if the phase converged\",\nnever \"pass on if the result is good\": a validity indicator qualifies a\nresult, and a phase that returns a coarse agreement still returns a number.\nThe state of that indicator travels to the later phases and into the\nreport, so a value calibrated on top of a doubtful one carries the mention\nall the way out.",
       "properties": {
         "name": {
           "description": "Phase identifier, unique in the calibration and used in the session directory and in the report.",
@@ -1841,13 +1841,13 @@
             }
           ],
           "default": null,
-          "description": "Name of the phase that must run first. Its frozen parameters enter this one as fixed values.",
+          "description": "Name of the phase that must run first. The values it passes on enter this one fixed, except those this phase lists and moves again.",
           "title": "Depends On",
           "x-hmp-profile": "user"
         },
         "freeze_on_success": {
           "default": true,
-          "description": "Hold the parameters this phase calibrated fixed for the phases that depend on it. Success means the phase converged, not that its validity indicator is good.",
+          "description": "Pass the values this phase found to the phases after it. A later phase holds them fixed, unless it lists the parameter: it then moves it again, starting from the passed value when its method accepts a start point. When two phases pass on the same parameter, the later one wins. Success means the phase converged, not that its validity indicator is good.",
           "examples": [
             true
           ],

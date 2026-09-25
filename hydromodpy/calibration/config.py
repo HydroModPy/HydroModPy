@@ -905,13 +905,15 @@ class CalibPhaseDecl(HydroModelBase):
     its own is its search: a method, a budget, and which parameters it is
     allowed to move.
 
-    ``freeze_on_success`` means the parameters this phase calibrated are held
-    fixed for the phases that depend on it. It reads "freeze if the phase
-    converged", never "freeze if the result is good": a validity indicator
-    qualifies a result, and a phase that returns a coarse agreement still
-    returns a number. The state of that indicator travels to the dependent
-    phase and into the report, so a value calibrated on top of a doubtful one
-    carries the mention all the way out.
+    ``freeze_on_success`` means this phase passes the values it found to the
+    phases after it. A later phase holds them fixed, unless it lists the
+    parameter: it then moves it again, starting from the passed value when its
+    method accepts a start point. It reads "pass on if the phase converged",
+    never "pass on if the result is good": a validity indicator qualifies a
+    result, and a phase that returns a coarse agreement still returns a number.
+    The state of that indicator travels to the later phases and into the
+    report, so a value calibrated on top of a doubtful one carries the mention
+    all the way out.
     """
 
     name: Annotated[NonEmptyStr, Profile.USER] = Field(
@@ -1011,14 +1013,16 @@ class CalibPhaseDecl(HydroModelBase):
     )
     depends_on: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Name of the phase that must run first. Its frozen parameters "
-        "enter this one as fixed values.",
+        description="Name of the phase that must run first. The values it passes on "
+        "enter this one fixed, except those this phase lists and moves again.",
     )
     freeze_on_success: Annotated[bool, Profile.USER] = Field(
         default=True,
-        description="Hold the parameters this phase calibrated fixed for the phases "
-        "that depend on it. Success means the phase converged, not that its validity "
-        "indicator is good.",
+        description="Pass the values this phase found to the phases after it. A later "
+        "phase holds them fixed, unless it lists the parameter: it then moves it again, "
+        "starting from the passed value when its method accepts a start point. When two "
+        "phases pass on the same parameter, the later one wins. Success means the phase "
+        "converged, not that its validity indicator is good.",
     )
 
     @property
@@ -1693,15 +1697,11 @@ class CalibrationConfig(HydroModelBase):
                 # A parameter may name its quantity instead of writing a path, and
                 # the name is resolved against the project catalogue once the whole
                 # configuration is loaded. Until then the parameter's own name is
-                # what two phases would be freezing.
+                # what a phase freezes. Two phases may freeze the same path: the
+                # later one moves it again from the earlier value, and its value
+                # wins. The staged report names both.
                 path = self.parameters[parameter].resolve_target() or f"<{parameter}>"
                 if phase.freeze_on_success:
-                    owner = frozen_by.get(path)
-                    if owner is not None:
-                        raise ValueError(
-                            f"phases {owner!r} and {phase.name!r} both freeze {path!r}; "
-                            "the second would overwrite what the first calibrated."
-                        )
                     frozen_by[path] = phase.name
 
             unknown_outputs = sorted(set(phase.outputs) - declared_outputs)

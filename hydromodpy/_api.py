@@ -320,21 +320,6 @@ def run(config: Any, **kwargs: Any) -> Run | dict | None:
         return dispatch_workflow(mode, materialized_path, **kwargs)
 
 
-def _phase_summaries(declarations: Any) -> list[dict[str, Any]]:
-    """Describe declared calibration phases, in declaration order."""
-    return [
-        {
-            "name": decl.name,
-            "description": decl.description,
-            "method": decl.method,
-            "parameters": list(decl.parameters),
-            "depends_on": decl.depends_on,
-            "freeze_on_success": decl.freeze_on_success,
-        }
-        for decl in (declarations or [])
-    ]
-
-
 def calibrate(
     config: Any,
     *,
@@ -364,7 +349,9 @@ def calibrate(
         froze, so a phase whose dependency has not run is refused rather than
         calibrated against un-frozen values.
     list_phases
-        Return the declared phases without running anything.
+        Return the declared phases without running anything. A phase that
+        moves again a parameter an earlier phase passes on also names that
+        phase, and says whether its engine starts from the passed value.
     kwargs
         Options forwarded to the underlying calibration runner. The
         ``headless`` keyword controls the project initialization for the
@@ -415,7 +402,10 @@ def calibrate(
             load_toml_calibration,
             run_calibration_cli,
         )
-        from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
+        from hydromodpy.calibration.runners.staged_runner import (
+            phase_summaries,
+            run_staged_calibration,
+        )
 
         kwargs.pop("headless", None)
         target = Path(config).expanduser().resolve()
@@ -430,16 +420,19 @@ def calibrate(
                 raise ConfigError(f"{target} cannot be read: {exc}") from exc
             return run_calibration_cli(target, **kwargs)
         if list_phases:
-            return _phase_summaries(cfg.phases)
+            return phase_summaries(cfg)
         if cfg.phases:
             return run_staged_calibration(target, phase=phase, **kwargs)
         if phase is not None:
             raise CalibrationError(no_such_phase(target.name, phase))
         return run_calibration_cli(target, **kwargs)
 
-    declared = getattr(getattr(config, "calibration", None), "phases", None)
+    calibration = getattr(config, "calibration", None)
+    declared = getattr(calibration, "phases", None)
     if list_phases:
-        return _phase_summaries(declared)
+        from hydromodpy.calibration.runners.staged_runner import phase_summaries
+
+        return phase_summaries(calibration)
     if declared:
         raise CalibrationError(in_memory_staged_refusal([decl.name for decl in declared]))
     if phase is not None:

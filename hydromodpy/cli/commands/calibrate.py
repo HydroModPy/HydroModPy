@@ -168,6 +168,26 @@ def _values_this_file_set(cfg, keys: list[str]) -> dict[str, object]:
     return found
 
 
+def _phase_line(index: int, phase: dict[str, Any]) -> str:
+    """Return the ``--list-phases`` line of one phase.
+
+    A column is added only for a phase that moves again what an earlier phase
+    passed on: which parameters, from which phase, and whether the search
+    starts there.
+    """
+    line = f"{index}\t{phase['name']}\t{phase['method']}\t{phase['description']}"
+    reopens = phase.get("reopens")
+    if not reopens:
+        return line
+    moved = ", ".join(f"{item['parameter']}<-{item['from_phase']}" for item in reopens)
+    start = (
+        "starts there"
+        if phase["starts_from_passed_values"]
+        else f"{phase['method']} takes no start point and keeps its own"
+    )
+    return f"{line}\tre-opens {moved}, {start}"
+
+
 def _format_calibration_result(result: Any) -> list[str]:
     """Return the lines to print for a finished calibration.
 
@@ -266,7 +286,7 @@ def run(args: argparse.Namespace) -> None:
             print(f"{target.name} declares no phases.", file=sys.stderr)
             return
         for index, phase in enumerate(phases):
-            print(f"{index}\t{phase['name']}\t{phase['method']}\t{phase['description']}")
+            print(_phase_line(index, phase))
         return
 
     profile_output = resolve_profile_output(profile_arg, target)
