@@ -1,0 +1,87 @@
+# Import rules inside hydromodpy/calibration, described in
+# hydromodpy/calibration/README.md ("Import rules").
+# Checked by test_calibration_layout.py.
+
+# Each part of hydromodpy/calibration lists the parts of hydromodpy/calibration
+# it may import. A part may always import itself. "<init>" is the package
+# facade, hydromodpy/calibration/__init__.py. A part is a subpackage or a
+# module at the root of the package. What lies outside hydromodpy/calibration
+# (core, schema, physics, data, spatial, solver, simulation, results) is the
+# business of layer_matrix.yaml; solver_access below narrows what
+# layer_matrix.yaml lets calibration reach inside solver.
+#
+# Rows are written lowest first: a row names only rows written above it, so
+# this table cannot allow a cycle (checked by
+# test_a_row_names_only_rows_above_it).
+allowed:
+  targets: []
+  lumped: []
+  criteria: []
+  parameter_resolution: [targets]
+  optim: [criteria]
+  persistence: [optim]
+  report: [persistence]
+  # optim only inside "if TYPE_CHECKING:", never at runtime
+  # (test_evaluation_reads_optim_only_for_types).
+  evaluation: [optim]
+  # criteria, evaluation and optim only from inside a validator, never at
+  # module level (test_config_reads_the_upper_parts_only_inside_its_validators).
+  config: [criteria, evaluation, optim]
+  protocols: [config]
+  observations: [config]
+  metrics: [config, criteria, evaluation, observations, optim]
+  runners:
+    [
+      config,
+      criteria,
+      evaluation,
+      metrics,
+      optim,
+      parameter_resolution,
+      persistence,
+      protocols,
+      report,
+    ]
+  reporting: [observations]
+  # criteria, metrics, observations, optim, parameter_resolution, runners and
+  # targets only from inside one of its checks, never at module level
+  # (test_preflight_reads_the_other_parts_only_inside_its_checks).
+  preflight: [criteria, metrics, observations, optim, parameter_resolution, runners, targets]
+  "<init>": [config, optim, report, runners]
+  cases: ["<init>", optim]
+
+# Rule 5: evaluation/registry.py names two of its built-in evaluators
+# (hydromodpy_pipeline -> runners.pipeline_evaluator, scored_forward_model ->
+# metrics.scored_forward) by a dotted path written as text, imported on the
+# first lookup that asks for it. Both live below evaluation in the table
+# above; the text path is how they join it without evaluation importing them
+# at the top. Only this file may name a module of calibration that way.
+text_paths:
+  - hydromodpy/calibration/evaluation/registry.py
+
+# Rule 4: the only modules of the solver layer calibration may import. A
+# backend package (hydromodpy.solver.modflow6, .modflow_nwt, .modflow_common,
+# .boussinesq) is never one of them, so a backend can be added or replaced
+# without touching calibration.
+solver_access:
+  - hydromodpy.solver.base.*
+
+# Rule 2: what another layer of hydromodpy may import from
+# hydromodpy/calibration. None of these fourteen names a subtree: each is one
+# module, exactly as calibration-README-cible.md "What other layers import"
+# lists it. Everything else is private to hydromodpy/calibration.
+public:
+  - hydromodpy.calibration
+  - hydromodpy.calibration.config
+  - hydromodpy.calibration.targets
+  - hydromodpy.calibration.parameter_resolution
+  - hydromodpy.calibration.preflight
+  - hydromodpy.calibration.protocols
+  - hydromodpy.calibration.report
+  - hydromodpy.calibration.reporting
+  - hydromodpy.calibration.reporting.network_transient_html
+  - hydromodpy.calibration.optim.parameters
+  - hydromodpy.calibration.runners.cli_runner
+  - hydromodpy.calibration.runners.staged_runner
+  - hydromodpy.calibration.runners.programmatic_runner
+  - hydromodpy.calibration.runners.contracts
