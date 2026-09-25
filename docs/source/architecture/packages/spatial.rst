@@ -35,13 +35,17 @@ Sub-modules
   and display layers), ``domain_geographic_pipeline`` (high-level
   orchestration).
 - ``spatial/domain/`` -- ``Domain`` aggregates ``surface_topo``,
-  ``substratum`` (via depth model), and ``zones``. Two depth models
+  ``substratum`` (via depth model), and ``zones``. Four depth models
   ship: ``ConstantThicknessDepthModel`` (homogeneous offset),
-  ``FlatSubstratumDepthModel`` (fixed elevation). ``build.py`` is the one
-  constructor of that geometry -- it copies the declared section before arming
-  the binder zone ids on it -- and the setup step, the rebuild a second run on a
-  live project triggers, the domain case script and the bundle exporter all go
-  through it. Beside it, the ``domain-build`` capability: ``capability.py``
+  ``FlatSubstratumDepthModel`` (fixed elevation), and their raster twins
+  ``RasterThicknessDepthModel`` and ``RasterSubstratumDepthModel``, which read
+  a thickness or an elevation from the ``[data.substratum]`` raster,
+  reprojected onto the top and required over every cell of the domain. ``build.py`` is the one constructor of that geometry --
+  it copies the declared section before arming the binder zone ids on it --
+  and the setup step, the rebuild a second run on a live project triggers, the
+  domain case script and the bundle exporter all go through it.
+  ``read_substratum_source`` beside it is the one reader of that raster: the
+  domain is built during setup, before the data step loads anything. Beside it, the ``domain-build`` capability: ``capability.py``
   declares it (``DOMAIN_BUILD``, ``DomainBuildRequest``) and ``worker.py`` runs
   it, sealing a bottom, a thickness, an active-cell mask and one
   ``domain.json`` from a terrain and a depth model. It declares

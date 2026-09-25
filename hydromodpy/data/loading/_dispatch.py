@@ -196,6 +196,13 @@ VARIABLE_SPECS: dict[str, VariableSpec] = {
         manager_module="hydromodpy.data.variables.lake_withdrawal.manager",
         manager_class="LakeWithdrawalManager",
     ),
+    "substratum": VariableSpec(
+        config_module="hydromodpy.data.variables.substratum.config",
+        config_class="SubstratumConfig",
+        manager_module="hydromodpy.data.variables.substratum.manager",
+        manager_class="SubstratumManager",
+        apply_simulation_window=False,
+    ),
 }
 
 

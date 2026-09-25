@@ -287,12 +287,12 @@ def carve_lake_bed(
         return solver_mesh
 
     from hydromodpy.spatial.lake_bed import (
-        load_surface_from_raster,
         reconstruct_lake_bed,
         regrade_column_active_top,
         regrade_column_to_bed,
         simulate_abacus,
     )
+    from hydromodpy.spatial.surface import Surface
 
     top = np.asarray(solver_mesh.top, dtype=float).reshape(-1).copy()
     botm = np.asarray(solver_mesh.botm, dtype=float).copy()
@@ -334,7 +334,7 @@ def carve_lake_bed(
                 "reconcile_to_abacus = false."
             )
 
-        surface = load_surface_from_raster(raster)
+        surface = Surface.from_raster(raster, name="lake_bathymetry")
         bed_by_cell, diag = reconstruct_lake_bed(
             planar_mesh=solver_mesh.planar_mesh,
             surface=surface,

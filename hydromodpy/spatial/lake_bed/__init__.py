@@ -3,7 +3,6 @@
 Pure ``spatial`` building blocks the MODFLOW 6 build uses to carve a real lake
 basin into the grid instead of a flat reservoir:
 
-* :func:`load_surface_from_raster` - read a bathymetry raster into a ``Surface``.
 * :func:`cell_bed_from_surface` - conservative (zonal) raster-to-cell bed.
 * :func:`reconcile_bed_to_abacus` - area-weighted quantile map onto the abacus.
 * :func:`simulate_abacus` - flood a per-cell bed into a stage-volume-area curve.
@@ -20,14 +19,12 @@ from hydromodpy.spatial.lake_bed.carve_math import (
     regrade_column_active_top,
     regrade_column_to_bed,
 )
-from hydromodpy.spatial.lake_bed.raster_io import load_surface_from_raster
 from hydromodpy.spatial.lake_bed.reconcile import reconcile_bed_to_abacus
 from hydromodpy.spatial.lake_bed.regrid import cell_bed_from_surface
 from hydromodpy.spatial.surface import Surface
 
 __all__ = [
     "cell_bed_from_surface",
-    "load_surface_from_raster",
     "reconcile_bed_to_abacus",
     "reconstruct_lake_bed",
     "regrade_column_active_top",

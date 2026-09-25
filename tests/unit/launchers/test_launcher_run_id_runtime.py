@@ -54,7 +54,7 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
             )
 
     class _DummyRunDomain:
-        def __init__(self, config, surface_topo) -> None:
+        def __init__(self, config, surface_topo, substratum_source=None, active_cells=None) -> None:
             self.config = config
             self.surface_topo = surface_topo
 
@@ -174,7 +174,7 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
             return SimpleNamespace(surface_topo=object())
 
     class _DummyRunDomain:
-        def __init__(self, config, surface_topo) -> None:
+        def __init__(self, config, surface_topo, substratum_source=None, active_cells=None) -> None:
             self.config = config
             self.surface_topo = surface_topo
 

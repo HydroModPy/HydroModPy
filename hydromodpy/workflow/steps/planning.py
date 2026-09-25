@@ -45,6 +45,14 @@ def resolve_run_config(cfg: Any, *, thickness: float | None) -> Any:
     """
     if thickness is None:
         return cfg
+    kind = cfg.domain.depth_model.kind
+    if kind != "constant_thickness":
+        # Assigning the field on another kind raised a raw Pydantic error.
+        raise ConfigError(
+            f"thickness overrides domain.depth_model.thickness, and depth_model kind "
+            f"{kind!r} has no thickness. Change [domain.depth_model] in the "
+            "configuration instead."
+        )
     domain_cfg = cfg.domain.model_copy(deep=True)
     domain_cfg.depth_model.thickness = thickness
     return cfg.model_copy(update={"domain": domain_cfg})

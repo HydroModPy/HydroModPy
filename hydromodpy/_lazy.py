@@ -112,6 +112,8 @@ LAZY_IMPORTS: dict[str, str] = {
     "LakeOutflowSourceConfig": "hydromodpy.data.variables.lake_outflow.config",
     "LakeWithdrawalConfig": "hydromodpy.data.variables.lake_withdrawal.config",
     "LakeWithdrawalSourceConfig": "hydromodpy.data.variables.lake_withdrawal.config",
+    "SubstratumConfig": "hydromodpy.data.variables.substratum.config",
+    "CustomSubstratumSource": "hydromodpy.data.variables.substratum.config",
     # Project / run API (programmatic facade)
     "Project": "hydromodpy.project",
     "SimulationPlan": "hydromodpy.simulation.planning.plan",

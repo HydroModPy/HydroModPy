@@ -21,7 +21,7 @@ from hydromodpy._lazy import LAZY_IMPORTS
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
-DATA_SCHEMA_SHA256 = "d5eb3a8c3708904f897d2f17635189998f4220ac5b4b8755edad99772fe2595f"
+DATA_SCHEMA_SHA256 = "228748b36e4ffc9906f0cab2911dd8db322f1bc688b04a3fa6c1077c0ab7bed7"
 
 
 def test_the_data_config_schema_keeps_its_fingerprint() -> None:

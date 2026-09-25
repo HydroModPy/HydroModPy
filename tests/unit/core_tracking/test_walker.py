@@ -170,12 +170,24 @@ def test_walker_on_real_hydromodpy_config_annotations() -> None:
     outlet_roles = _collect_roles(OutletCatchDef)
     polygon_roles = _collect_roles(PolygonCatchDef)
 
-    assert geographic_roles == {"bottom_path": "aquifer_bottom"}
+    # The substratum raster is tracked by [data.substratum], not by [geographic].
+    assert geographic_roles == {}
     assert outlet_roles == {"dem_init_path": "dem"}
     assert polygon_roles == {
         "dem_init_path": "dem",
         "polyg_shp_path": "watershed_polygon",
     }
+
+
+def test_walker_on_real_substratum_source_annotations() -> None:
+    """The substratum raster is tracked as geometry under its own role."""
+    from hydromodpy.data.variables.substratum.config import CustomSubstratumSource
+
+    field_info = CustomSubstratumSource.model_fields["path"]
+    markers = [m for m in field_info.metadata if isinstance(m, InputFile)]
+    assert len(markers) == 1
+    assert markers[0].role == "substratum"
+    assert markers[0].category == "geometry"
 
 
 def test_walker_on_real_dem_source_annotations() -> None:

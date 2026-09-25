@@ -75,8 +75,6 @@ Sub-models are linked back to their per-section page.
       # terrain_engine = ...  # default = None
       # Selects the DEM surface used for the domain. 'box' (default) keeps the full buffered rectangular support. 'watershed' / 'watershed_buff' select the catchment (optionally with a buffer ring) surface. Note: the MODFLOW 6 mesh still covers the buffered box (the buffer stays active for inter-basin exchange); out-of-watershed drainage is kept out of the catchment discharge by the DRN watershed-routing, not by an idomain mask. Experimental.
       domain_extent = "box"
-      # Path to a raster representing the aquifer bottom elevation. Must share the same grid as the model domain.
-      # bottom_path = ...  # default = None
       # Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed.
       # reg_fold = ...  # default = None
       # Synthetic geographic support used when source_mode='synthetic'. This analytical mode bypasses watershed delineation from external DEM files.
@@ -106,7 +104,7 @@ Sub-models are linked back to their per-section page.
       # zone_ids = ...  # uses factory default
       # Named spatial supports available to heterogeneous parameters. Each key is a support identifier referenced by field_spatial_id.
       # supports = ...  # uses factory default
-      # Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'.
+      # Vertical domain model configuration. Use 'constant_thickness', 'flat_substratum', or 'raster' with a [data.substratum] raster.
       # depth_model = ...  # uses factory default
 
 .. dropdown:: ``[data]`` (DataManagersConfig)
@@ -117,7 +115,7 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [data]
-      # Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
+      # Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.
       # types = ...  # uses factory default
       # Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred type has no explicit data.<type> section (except geology, which can use its default typed config).
       inference_mode = "warn"
@@ -169,6 +167,8 @@ Sub-models are linked back to their per-section page.
       # radiation = ...  # default = None
       # Soil moisture configuration (soil moisture index).
       # soil_moisture = ...  # default = None
+      # Substratum configuration (aquifer-bottom raster, elevation or thickness).
+      # substratum = ...  # default = None
 
 .. dropdown:: ``[flow]`` (FlowConfig)
    :icon: gear

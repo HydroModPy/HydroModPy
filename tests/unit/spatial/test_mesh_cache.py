@@ -73,3 +73,30 @@ def test_mesh_cache_is_valid_requires_all_artifacts(tmp_path: Path) -> None:
     write_mesh_cache_key(tmp_path, "k")
     assert mesh_cache_is_valid(tmp_path, "k") is True
     assert mesh_cache_is_valid(tmp_path, "other") is False  # key mismatch -> regenerate
+
+
+def test_cache_key_tracks_the_substratum_raster_and_ignores_it_when_absent() -> None:
+    import numpy as np
+
+    from hydromodpy.spatial import RasterSupport, Surface
+
+    support = RasterSupport(
+        crs="EPSG:2154", dx=1.0, dy=1.0, xmin=0.0, xmax=2.0, ymin=0.0, ymax=2.0, nrows=2, ncols=2
+    )
+
+    def key(values: np.ndarray | None) -> str:
+        return compute_mesh_cache_key(
+            section_data=_Cfg({"size": 80}),
+            geographic_cfg=_Cfg({"extent": "watershed"}),
+            domain_cfg=_Cfg({"buffer": 10}),
+            constraints_mode="rivers_only",
+            extra_size_fields=(),
+            domain_geographic=_DomainGeographic(None),
+            substratum_source=(
+                None if values is None else Surface(name="s", values=values, support=support)
+            ),
+        )
+
+    assert key(None) == _key()
+    assert key(np.zeros((2, 2))) != key(np.ones((2, 2)))
+    assert key(np.zeros((2, 2))) != key(None)

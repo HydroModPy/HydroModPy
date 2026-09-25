@@ -408,3 +408,37 @@ def test_frozen_export_config_from_example_04_migrates_and_loads(tmp_path: Path)
     assert any("export.times -> export.time" in c for c in changes)
     # migrate_config_doc mutates the in-memory payload only, never the file
     assert source.read_bytes() == original_bytes
+
+
+def test_moves_the_bottom_path_to_the_substratum_and_leaves_the_depth_model(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path,
+        '[geographic]\nbottom_path = "data/bottom.tif"\n\n'
+        '[domain.depth_model]\nkind = "constant_thickness"\nthickness = "30 m"\n',
+    )
+
+    changes = fix_config_file(path)
+
+    assert any("geographic.bottom_path -> [[data.substratum.sources]]" in c for c in changes)
+    parsed = tomllib.loads(path.read_text())
+    assert "bottom_path" not in parsed["geographic"]
+    assert parsed["data"]["substratum"]["sources"] == [
+        {"source": "custom", "path": "data/bottom.tif"}
+    ]
+    # The key was never read: switching the kind would change the results.
+    assert parsed["domain"]["depth_model"] == {"kind": "constant_thickness", "thickness": "30 m"}
+
+
+def test_bottom_path_dropped_when_a_substratum_is_already_declared() -> None:
+    doc = {
+        "geographic": {"bottom_path": "old.tif"},
+        "data": {"substratum": {"sources": [{"source": "custom", "path": "new.tif"}]}},
+    }
+
+    changes = migrate_config_doc(doc)
+
+    assert changes == ["geographic.bottom_path dropped ([data.substratum] already set)"]
+    assert doc["data"]["substratum"]["sources"][0]["path"] == "new.tif"
+    assert "bottom_path" not in doc["geographic"]

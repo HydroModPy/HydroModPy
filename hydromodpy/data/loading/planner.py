@@ -11,6 +11,9 @@ Current inference scope (V3)
   (``lake_bathymetry``, ``lake_levels``, ``lake_outflow``) are not auto-inferred
   so the catalog never accumulates data nothing reads; declare them explicitly if
   needed.
+- ``substratum`` is never inferred: the domain layer reads its raster path
+  directly from config, before the data step runs, so it is loaded only when
+  listed in ``[data].types``.
 """
 
 from __future__ import annotations

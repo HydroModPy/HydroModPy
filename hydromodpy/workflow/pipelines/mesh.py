@@ -13,7 +13,7 @@ The key design choice is that batch orchestration now lives in
 
 - loading and validating the launcher-specific section;
 - loading the shared runtime sections (`workspace`, `geographic`, optional
-  `domain`);
+  `domain`, and `data.substratum` for a raster depth model);
 - preparing the geographic config for the chosen constraints mode;
 - delegating either to one mono-catchment run or to the batch runner.
 """
@@ -30,6 +30,8 @@ from hydromodpy.config.toml_section_loader import load_standard_section
 from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
+from hydromodpy.data import DataManagersConfig
+from hydromodpy.spatial.domain.build import read_substratum_source
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.launcher import runtime as mesh_runtime
@@ -50,6 +52,9 @@ class MeshCatchmentLauncher:
         self.mesh_section_data = mesh_runtime.require_mesh_section(self.raw_toml)
         self.workspace_cfg, self.geographic_cfg, self.domain_cfg = self._load_runtime_configs(
             self.raw_toml
+        )
+        self.substratum_source = read_substratum_source(
+            self.domain_cfg.depth_model, self._load_substratum_data(self.raw_toml)
         )
         self.constraints_mode = self.mesh_section_data.constraints_mode
         self.geographic_cfg = mesh_runtime.prepare_geographic_config_for_meshing(
@@ -111,6 +116,17 @@ class MeshCatchmentLauncher:
             domain_cfg = DomainConfig()
         return workspace_cfg, geographic_cfg, domain_cfg
 
+    def _load_substratum_data(self, payload: Mapping[str, Any]) -> object | None:
+        """Return ``[data]`` holding only ``substratum``, anchored as a project run anchors it."""
+        data_section = payload.get("data")
+        if not isinstance(data_section, Mapping) or "substratum" not in data_section:
+            return None
+        return DataManagersConfig.from_toml_section(
+            {"substratum": data_section["substratum"]},
+            base_dir=self.config_path.parent,
+            workspace_data_dir=getattr(self.workspace_cfg, "data_dir", None),
+        )
+
     def _run_single_workflow(
         self,
         *,
@@ -128,6 +144,7 @@ class MeshCatchmentLauncher:
             domain_cfg=domain_cfg,
             constraints_mode=self.constraints_mode,
             output_overrides=output_overrides,
+            substratum_source=self.substratum_source,
             section_name=self.SECTION_NAME,
         )
 

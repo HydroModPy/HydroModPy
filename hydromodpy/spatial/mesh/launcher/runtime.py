@@ -127,6 +127,7 @@ def run_single_mesh_catchment_workflow(
     workspace: object | None = None,
     geographic_features: object | None = None,
     domain_geographic: object | None = None,
+    substratum_source: object | None = None,
     section_name: str = DEFAULT_SECTION_NAME,
 ) -> dict[str, Any]:
     """Run one mono-catchment mesh workflow and return the summary payload."""
@@ -141,6 +142,7 @@ def run_single_mesh_catchment_workflow(
         workspace=workspace,
         geographic_features=geographic_features,
         domain_geographic=domain_geographic,
+        substratum_source=substratum_source,
         section_name=section_name,
         deps=MeshCatchmentSingleRunDependencies(
             workspace_factory=Workspace,
@@ -164,6 +166,7 @@ def run_single_mesh_catchment_workflow_with_runtime_artifacts(
     workspace: object | None = None,
     geographic_features: object | None = None,
     domain_geographic: object | None = None,
+    substratum_source: object | None = None,
     extra_size_fields: tuple = (),
     section_name: str = DEFAULT_SECTION_NAME,
 ) -> MeshCatchmentWorkflowRuntimeArtifacts:
@@ -179,6 +182,7 @@ def run_single_mesh_catchment_workflow_with_runtime_artifacts(
         workspace=workspace,
         geographic_features=geographic_features,
         domain_geographic=domain_geographic,
+        substratum_source=substratum_source,
         extra_size_fields=extra_size_fields,
         section_name=section_name,
         deps=MeshCatchmentSingleRunDependencies(

@@ -24,11 +24,14 @@ RASTER_SUFFIXES = frozenset({".asc", ".tif", ".tiff"})
 def convert_asc_to_geotiff(
     src: str | Path,
     dest: str | Path,
+    *,
+    crs: str | None = None,
 ) -> Path:
     """Convert an ASC or GeoTIFF raster to a COG-style GeoTIFF.
 
-    ``dest`` should end with ``.tif``. Raises
-    :class:`RasterConversionError` when the source has no CRS metadata.
+    ``dest`` should end with ``.tif``. *crs* is stamped on the copy when the
+    source declares none. Raises :class:`RasterConversionError` when neither
+    the source nor *crs* gives one.
     """
     src = Path(src)
     dest = Path(dest)
@@ -52,10 +55,12 @@ def convert_asc_to_geotiff(
         ) from None
 
     with rasterio.open(src) as ds:
-        if ds.crs is None:
+        if ds.crs is None and crs is None:
             raise RasterConversionError(f"{src} has no CRS; add a .prj sidecar before ingest")
         data = ds.read()
         profile = ds.profile
+    if profile.get("crs") is None:
+        profile["crs"] = crs
 
     profile.update(
         driver="GTiff",

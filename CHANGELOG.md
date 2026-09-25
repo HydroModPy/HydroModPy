@@ -34,6 +34,11 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Removed
+- `geographic.bottom_path`, which nothing read. `hmp doctor --fix-config` and
+  the loader move its path to `[[data.substratum.sources]]` and leave
+  `[domain.depth_model]` as it was; a loader that skips the migration accepts
+  the key, ignores it and warns. Dropping it from the geographic fingerprint
+  rebuilds each geographic cache once.
 - `examples/projects/02_nancon_watershed/run_sweep_sy.toml`, a design draft for
   a `sweep` workflow that does not exist, and `run_transient_prototype.py.draft`
   leave the example.
@@ -84,6 +89,16 @@ Each release section includes the following standard categories:
   remains the way from a run to the cache entries it read.
 
 ### Added
+- A raster substratum: two depth models read the bottom of the aquifer from
+  the new `[data.substratum]` variable, one user raster in metres.
+  `kind = "raster_substratum"` takes its values as the substratum elevation,
+  the raster twin of `flat_substratum`; `kind = "raster_thickness"` subtracts
+  them from the top, the raster twin of `constant_thickness`, and takes a
+  `scale`. Both take `offset` and `min_thickness`. The raster is reprojected
+  onto the grid of the top and must cover every cell of the chosen extent (the
+  catchment for `domain_extent = "watershed"`, the buffered box for `"box"`),
+  or the run stops and counts the missing cells. The `domain-build` process
+  takes it as a `substratum` input, the mask being the extent there.
 - The `data-request` process (`hmp process run data-request --job DIR`), the
   job form of `hmp data get`: the managers' cache lives under `$TMPDIR` with an
   in-memory index, a `custom` source is refused before anything is written, a
@@ -149,6 +164,7 @@ Each release section includes the following standard categories:
   | `hydromodpy.data.adapters.asc_to_geotiff`, `csv_to_parquet`, `shp_to_geoparquet` | `hydromodpy.data.ingest.raster`, `tables`, `vector` |
   | `hydromodpy.data.common.administrative.france` | `hydromodpy.spatial.administrative.france` |
   | `hydromodpy.data.variables.<v>.cases` | `hydromodpy.data.cases.<v>` |
+  | `hydromodpy.data.variables.geology.cases.common` | `hydromodpy.data.cases.geology.plotting` |
   | `hydromodpy.data.source.bdtopage`, `euhydro`, `osm` | `hydromodpy.data.variables.hydrography.apis.bdtopage`, `euhydro`, `osm` |
   | `hydromodpy.data.variables.sim2`, `sim2_manager`, `common.clients.sim2_variables`, `variables.<v>.apis.sim2` | `hydromodpy.data.common.clients.sim2_products` |
   | `hydromodpy.data.common.clients.hubeau_cache` | the station cache of `BaseVariableManager` |
@@ -180,6 +196,14 @@ Each release section includes the following standard categories:
   clip. Copies made before are not moved.
 
 ### Fixed
+- `Project.simulate(thickness=...)` on a depth model without a thickness raises
+  a `ConfigError` naming the kind instead of a raw Pydantic error.
+- A custom lake-bathymetry raster without a CRS loads in its `default_crs`, as
+  its warning said, instead of failing in the conversion to GeoTIFF. The
+  `data/lake_bathymetry/` drop zone describes GeoTIFF and ASC files of its own
+  name instead of copying the DEM one.
+- A comparison report names the depth model a synthetic case declares instead
+  of always printing a constant thickness.
 - A station manager no longer reports a station inside its extent as outside
   it: the check reprojects each station to WGS84, the frame the extent
   reaches it in, instead of comparing Lambert-93 metres with degrees. A data
