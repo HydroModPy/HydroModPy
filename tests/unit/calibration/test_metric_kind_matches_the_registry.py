@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import get_args
 
 from hydromodpy.calibration.config import MetricKind
-from hydromodpy.calibration.optim.objective import HIGHER_IS_BETTER, METRICS
+from hydromodpy.calibration.criteria.series import HIGHER_IS_BETTER, METRICS
 
 
 def test_every_computable_metric_is_selectable() -> None:

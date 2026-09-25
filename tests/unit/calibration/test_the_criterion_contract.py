@@ -26,7 +26,7 @@ from hydromodpy.calibration.criteria import (
     available_criteria,
     criterion_for,
 )
-from hydromodpy.calibration.optim.objective import HIGHER_IS_BETTER, METRICS
+from hydromodpy.calibration.criteria.series import HIGHER_IS_BETTER, METRICS
 
 # Long enough that the seasonal kernels return a number rather than NaN: they
 # read a cycle out of the samples themselves.
@@ -145,7 +145,7 @@ class TestTheCostsAreUnchanged:
     @staticmethod
     def _inline_cost(name: str) -> float:
         """Reproduce exactly what the objective did before the contract."""
-        from hydromodpy.calibration.optim.objective import (
+        from hydromodpy.calibration.criteria.series import (
             LOG_METRICS,
             clip_negatives_for_log_metric,
         )

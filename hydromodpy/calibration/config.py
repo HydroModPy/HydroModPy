@@ -81,7 +81,7 @@ MetricKind = Literal[
 ]
 """Metric names a TOML may select.
 
-Kept equal to the keys of ``calibration.optim.objective.METRICS`` by
+Kept equal to the keys of ``calibration.criteria.series.METRICS`` by
 ``tests/unit/calibration/test_metric_kind_matches_the_registry.py``: the engine
 computed metrics this list did not offer, so they ran in Python and were refused
 by validation.

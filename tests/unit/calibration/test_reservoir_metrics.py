@@ -18,11 +18,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.calibration.metrics.scalar import score
-from hydromodpy.calibration.optim.objective import (
+from hydromodpy.calibration.criteria.series import (
     HIGHER_IS_BETTER,
     METRICS,
     RESERVOIR_INCREMENT_STEP,
+)
+from hydromodpy.calibration.metrics.scalar import score
+from hydromodpy.calibration.optim.objective import (
     ConfigBlockObjective,
     ObservationSet,
     ScalarObjective,

@@ -17,16 +17,7 @@ import numpy as np
 from hydromodpy.calibration.criteria.series import (
     HIGHER_IS_BETTER,
     LOG_METRICS,
-    clip_negatives_for_log_metric,
-)
-from hydromodpy.core.metrics import (
-    kge,
-    log_nse,
-    mae,
-    nse,
-    nse_delta,
-    nse_seasonal,
-    rmse,
+    METRICS,
 )
 
 
@@ -93,98 +84,6 @@ class Objective(Protocol):
 # ---------------------------------------------------------------------------
 # Builtin metrics and a lightweight ScalarObjective
 # ---------------------------------------------------------------------------
-
-
-def _kge_score(sim: np.ndarray, obs: np.ndarray) -> float:
-    """Scalar KGE score; calibration needs a single number, not the decomposition."""
-    return float(kge(sim, obs)["kge"])
-
-
-# Window, in samples, over which the reservoir objective differences the level.
-# A day-to-day increment is wrecked by a two or three day phase shift even when the
-# filling and emptying are right; ten days keeps the flux signal while making such a
-# shift a perturbation rather than a sign flip.
-RESERVOIR_INCREMENT_STEP: int = 10
-
-
-# KGE is NOT offered on increments, on purpose. Its beta term is a ratio of means,
-# and the mean of an increment series is (last - first) / n, i.e. near zero by
-# construction, so the score swings wildly for one and the same run depending only
-# on where the series is cut. NSE has no such term and stays stable, so the
-# increment side of the objective uses it.
-
-
-def _reservoir_score(sim: np.ndarray, obs: np.ndarray) -> float:
-    """Half seasonal efficiency on the level, half efficiency on its increments.
-
-    Built for an impounded level, where the two usual metrics mislead in opposite
-    ways. ``nse`` on the level compares the model to a flat mean, a benchmark a
-    strongly seasonal signal beats on its own, so a run can score comfortably and
-    still be worse than the seasonal cycle. And a level is an integral, so
-    compensating flux errors cancel in it: a low-water bias and a high-water bias of
-    opposite signs hide behind a mean bias near zero while the increments stay
-    uncorrelated.
-
-    Pairing the two closes both holes: the seasonal term keeps the absolute level
-    honest and demands more than climatology, the increment term makes the water
-    balance count. Equal weights, no tuning knob, so the score stays readable.
-
-    The increments are taken over ``RESERVOIR_INCREMENT_STEP`` samples rather than
-    one, so a timing error of a few days is not punished as though the model had
-    filled when it should have emptied.
-    """
-    seasonal = nse_seasonal(sim, obs)
-    increments = nse_delta(sim, obs, step=RESERVOIR_INCREMENT_STEP)
-    if not np.isfinite(seasonal) or not np.isfinite(increments):
-        return float("nan")
-    return 0.5 * float(seasonal) + 0.5 * float(increments)
-
-
-def _distance_pair(simulated: np.ndarray) -> tuple[float, float]:
-    """Read the ``(D_so, D_os)`` pair a network output produces."""
-    values = np.asarray(simulated, dtype=float).ravel()
-    if values.size != 2:
-        raise ValueError(
-            "a distance metric scores the pair (D_so, D_os) a network output "
-            f"produces; got {values.size} value(s)."
-        )
-    return float(values[0]), float(values[1])
-
-
-def distance_gap(simulated: np.ndarray) -> float:
-    """``abs(D_so - D_os)``, Eq. 1: the cost the root search drives to zero.
-
-    It takes no observed vector, structurally: the criterion balances an excess
-    of simulated stream against a missing one, both simulated. That is why the
-    zero of this cost is an intersection and not a minimum of distance.
-    """
-    d_so, d_os = _distance_pair(simulated)
-    return abs(d_so - d_os)
-
-
-def distance_mean(simulated: np.ndarray) -> float:
-    """``(D_so + D_os) / 2``, Eq. 2. A diagnostic, and a cost only outside.
-
-    It is legitimate as a cost in the outer loop that picks between structures
-    already balanced at ``J = 0``; using it inside, in place of Eq. 1, is a
-    different estimator, and nothing puts its interior minimum at the crossing.
-    """
-    d_so, d_os = _distance_pair(simulated)
-    return 0.5 * (d_so + d_os)
-
-
-METRICS: dict[str, Callable[..., float]] = {
-    "nse": nse,
-    "rmse": rmse,
-    "mae": mae,
-    "kge": _kge_score,
-    "nse_delta": nse_delta,
-    "nse_seasonal": nse_seasonal,
-    "nse_log": log_nse,
-    "distance_gap": distance_gap,
-    "distance_mean": distance_mean,
-    "reservoir": _reservoir_score,
-}
 
 # Output supports whose values carry no time axis. A ``network`` output produces the
 # pair (D_so, D_os), two distances in metres, so nothing in it can be read as "the
@@ -691,13 +590,7 @@ __all__ = [
     "CompositeObjective",
     "ConfigBlockObjective",
     "build_objective_from_config",
-    "METRICS",
-    "HIGHER_IS_BETTER",
-    "LOG_METRICS",
     "TIMELESS_SUPPORTS",
-    "distance_gap",
-    "distance_mean",
-    "clip_negatives_for_log_metric",
     "refuse_a_normalisation_that_means_nothing",
     "evaluate_objective",
 ]
