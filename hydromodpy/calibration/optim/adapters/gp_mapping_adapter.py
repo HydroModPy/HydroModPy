@@ -18,13 +18,13 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from hydromodpy.calibration.adapters._prior_sampling import transformed_prior_samples
 from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     ParamSuggestion,
     register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
+from hydromodpy.calibration.optim.prior_sampling import transformed_prior_samples
 
 try:
     from scipy.optimize import minimize as _scipy_minimize

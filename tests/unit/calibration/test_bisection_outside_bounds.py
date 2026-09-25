@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import math
 
-from hydromodpy.calibration.adapters.bisection_adapter import BisectionAdapter
+from hydromodpy.calibration.optim.adapters.bisection_adapter import BisectionAdapter
 from hydromodpy.calibration.optim.optimizer import EvaluationResult
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 

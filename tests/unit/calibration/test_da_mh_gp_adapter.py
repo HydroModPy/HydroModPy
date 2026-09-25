@@ -1,4 +1,4 @@
-"""Unit tests for :class:`hydromodpy.calibration.adapters.da_mh_gp_adapter.DaMhGpOptimizer`.
+"""Unit tests for :class:`hydromodpy.calibration.optim.adapters.da_mh_gp_adapter.DaMhGpOptimizer`.
 
 The DA-MH-GP sampler exposes the ask/tell Protocol. These tests exercise the
 high-level behaviour - smoke run, posterior-mode recovery, chain length - on

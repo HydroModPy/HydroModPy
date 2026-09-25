@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from hydromodpy.calibration.adapters.bisection_adapter import (
+from hydromodpy.calibration.optim.adapters.bisection_adapter import (
     LOG10_ONE_PERCENT,
     BisectionAdapter,
     signed_residual,
