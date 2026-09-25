@@ -13,6 +13,7 @@ from typing import Any
 
 from pydantic import TypeAdapter, ValidationError
 
+from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibPhaseDecl
 from hydromodpy.calibration.protocols.base import CalibrationProtocol
 from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     MatchingHydrographicNetwork,
@@ -110,14 +111,7 @@ def expand_calibration_protocol(document: Mapping[str, Any]) -> dict[str, Any]:
 
 @functools.cache
 def _section_adapter(section: str) -> TypeAdapter:
-    """Return the validator of one section a protocol writes.
-
-    Imported here and not at module scope: the declarations live in
-    ``calibration.config``, which imports this package to type its own
-    ``protocol`` field.
-    """
-    from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibPhaseDecl
-
+    """Return the validator of one section a protocol writes."""
     return {
         "phases": TypeAdapter(list[CalibPhaseDecl]),
         "objective_blocks": TypeAdapter(list[CalibObjectiveBlockDecl]),
