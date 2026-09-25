@@ -8,7 +8,12 @@ from hydromodpy.display.report_blocks import DetailLevel
 
 
 @dataclass(frozen=True)
-class FigureSpec:
+class BlockFigureSpec:
+    """Where one PNG goes in a report block, and from which detail level.
+
+    Not the ``FigureSpec`` of a registered figure (``hydromodpy.display.figure``).
+    """
+
     minimum_level: DetailLevel
     figure_id: str
     title: str
@@ -22,7 +27,7 @@ class ReportBlockSpec:
     lead: str
     content_key: str
     minimum_level: DetailLevel = "compact"
-    figures: tuple[FigureSpec, ...] = field(default_factory=tuple)
+    figures: tuple[BlockFigureSpec, ...] = field(default_factory=tuple)
 
 
 DEFAULT_BLOCK_SPECS: tuple[ReportBlockSpec, ...] = (
@@ -32,8 +37,8 @@ DEFAULT_BLOCK_SPECS: tuple[ReportBlockSpec, ...] = (
         content_key="site_context",
         lead="Bloc d'identification du bassin versant et des donnees disponibles.",
         figures=(
-            FigureSpec("compact", "identity_stats", "Carte d'identite"),
-            FigureSpec("standard", "station_inventory", "Inventaire stations"),
+            BlockFigureSpec("compact", "identity_stats", "Carte d'identite"),
+            BlockFigureSpec("standard", "station_inventory", "Inventaire stations"),
         ),
     ),
     ReportBlockSpec(
@@ -48,9 +53,9 @@ DEFAULT_BLOCK_SPECS: tuple[ReportBlockSpec, ...] = (
         content_key="spatial_context",
         lead="Support physique du bassin: situation regionale, relief et geologie.",
         figures=(
-            FigureSpec("compact", "regional_context", "Contexte regional"),
-            FigureSpec("compact", "dem_context", "DEM, bassin versant et exutoire"),
-            FigureSpec("standard", "geology_map", "Geologie du bassin"),
+            BlockFigureSpec("compact", "regional_context", "Contexte regional"),
+            BlockFigureSpec("compact", "dem_context", "DEM, bassin versant et exutoire"),
+            BlockFigureSpec("standard", "geology_map", "Geologie du bassin"),
         ),
     ),
     ReportBlockSpec(
@@ -62,16 +67,18 @@ DEFAULT_BLOCK_SPECS: tuple[ReportBlockSpec, ...] = (
             "Le seuil d'aire contributive est celui de la simulation source."
         ),
         figures=(
-            FigureSpec("compact", "hydrography_map", "Reseau hydrographique de reference"),
-            FigureSpec("standard", "network_generated", "Reseau genere DEM", required=False),
-            FigureSpec("audit", "network_comparison", "Comparaison reference / reseau DEM"),
-            FigureSpec(
+            BlockFigureSpec("compact", "hydrography_map", "Reseau hydrographique de reference"),
+            BlockFigureSpec("standard", "network_generated", "Reseau genere DEM", required=False),
+            BlockFigureSpec("audit", "network_comparison", "Comparaison reference / reseau DEM"),
+            BlockFigureSpec(
                 "audit",
                 "network_missing",
                 "Segments reference absents du genere",
                 required=False,
             ),
-            FigureSpec("audit", "network_extra", "Segments generes hors reference", required=False),
+            BlockFigureSpec(
+                "audit", "network_extra", "Segments generes hors reference", required=False
+            ),
         ),
     ),
     ReportBlockSpec(
@@ -83,8 +90,10 @@ DEFAULT_BLOCK_SPECS: tuple[ReportBlockSpec, ...] = (
             "de reference et zones de seepage quand la figure est disponible."
         ),
         figures=(
-            FigureSpec("standard", "active_network_overlay", "Reseau actif simule vs reference"),
-            FigureSpec("compact", "seepage_map", "Carte seepage simule", required=False),
+            BlockFigureSpec(
+                "standard", "active_network_overlay", "Reseau actif simule vs reference"
+            ),
+            BlockFigureSpec("compact", "seepage_map", "Carte seepage simule", required=False),
         ),
     ),
     ReportBlockSpec(
@@ -96,11 +105,11 @@ DEFAULT_BLOCK_SPECS: tuple[ReportBlockSpec, ...] = (
             "associe a la fenetre de simulation."
         ),
         figures=(
-            FigureSpec(
+            BlockFigureSpec(
                 "compact", "forcing_window", "Fenetre de simulation: debit observe et simule"
             ),
-            FigureSpec("audit", "observed_discharge_full", "Debit observe complet"),
-            FigureSpec("audit", "climate_summary", "Climatologie mensuelle"),
+            BlockFigureSpec("audit", "observed_discharge_full", "Debit observe complet"),
+            BlockFigureSpec("audit", "climate_summary", "Climatologie mensuelle"),
         ),
     ),
     ReportBlockSpec(
@@ -109,10 +118,12 @@ DEFAULT_BLOCK_SPECS: tuple[ReportBlockSpec, ...] = (
         content_key="simulation_outputs",
         lead="Hydrographe, carte de charge et bilan en eau de la simulation de reference.",
         figures=(
-            FigureSpec("compact", "baseline_discharge_comparison", "Debits observes vs simules"),
-            FigureSpec("standard", "simulated_hydrograph", "Hydrographe simule"),
-            FigureSpec("audit", "piezometric_map", "Carte de charge"),
-            FigureSpec("audit", "water_budget", "Bilan en eau du bassin"),
+            BlockFigureSpec(
+                "compact", "baseline_discharge_comparison", "Debits observes vs simules"
+            ),
+            BlockFigureSpec("standard", "simulated_hydrograph", "Hydrographe simule"),
+            BlockFigureSpec("audit", "piezometric_map", "Carte de charge"),
+            BlockFigureSpec("audit", "water_budget", "Bilan en eau du bassin"),
         ),
     ),
     ReportBlockSpec(
@@ -129,7 +140,7 @@ DEFAULT_BLOCK_SPECS: tuple[ReportBlockSpec, ...] = (
 
 
 __all__ = [
-    "FigureSpec",
+    "BlockFigureSpec",
     "DEFAULT_BLOCK_SPECS",
     "ReportBlockSpec",
 ]

@@ -246,6 +246,9 @@ Each release section includes the following standard categories:
   `hydromodpy.results.run.particles` (`read_particle_tracks`,
   `particle_time_to_days`). The map overlay no longer imports a figure, which
   closes the import cycle between `display.figures` and `display.overlays`.
+- `hydromodpy.display.catchment_report.block_specs.FigureSpec`, the place of a
+  PNG in a catchment report block, is renamed `BlockFigureSpec`, so that
+  `FigureSpec` names only the contract of a registered figure.
 
 ### Fixed
 - `Project.simulate(thickness=...)` on a depth model without a thickness raises

@@ -9,7 +9,7 @@ from typing import Any
 
 from hydromodpy.display.catchment_report.block_specs import (
     DEFAULT_BLOCK_SPECS,
-    FigureSpec,
+    BlockFigureSpec,
     ReportBlockSpec,
 )
 from hydromodpy.display.report_blocks import (
@@ -108,7 +108,7 @@ def _content_for_spec(spec: ReportBlockSpec, context: BlockBuildContext) -> Bloc
 
 
 def _figures_from_spec(
-    figure_specs: Sequence[FigureSpec],
+    figure_specs: Sequence[BlockFigureSpec],
     context: BlockBuildContext,
 ) -> tuple[ReportFigure, ...]:
     return _for_level(
