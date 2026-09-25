@@ -42,7 +42,7 @@ def completed_phases(catalog: Any, root_session_id: str) -> dict[str, str]:
     one produced some trials and stopped, and reusing its best as if the stage had
     converged would report a frozen value the search never settled on.
     """
-    rows = catalog._backend.fetch_all(
+    rows = catalog.backend.fetch_all(
         "SELECT cs.phase_name, CAST(cs.session_id AS VARCHAR) "
         "FROM calibration_sessions cs JOIN statuses st ON cs.status_id = st.id "
         "WHERE CAST(cs.root_session_id AS VARCHAR) = ? AND st.code = 'completed' "
@@ -79,7 +79,7 @@ def _best_trial_row(catalog: Any, session_id: str) -> tuple[dict[str, float], st
     the values because it was computed *from* them: read apart, either one alone
     proves nothing about what the trial actually ran under.
     """
-    rows = catalog._backend.fetch_all(
+    rows = catalog.backend.fetch_all(
         "SELECT parameters, params_hash FROM calibration_iterations "
         "WHERE CAST(session_id AS VARCHAR) = ? AND status = 'completed' "
         "AND objective_value IS NOT NULL ORDER BY objective_value LIMIT 1",
@@ -150,7 +150,7 @@ def reusable_stage(catalog: Any, root_session_id: str, phase_name: str) -> Reusa
     values, recorded_hash = _best_trial_row(catalog, session_id)
     if not values:
         return None
-    rows = catalog._backend.fetch_all(
+    rows = catalog.backend.fetch_all(
         "SELECT n_iterations, best_objective FROM calibration_sessions "
         "WHERE CAST(session_id AS VARCHAR) = ?",
         [str(session_id)],
