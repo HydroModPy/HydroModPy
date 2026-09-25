@@ -205,3 +205,9 @@ class RunExecutionResult:
     primary_model: SolverModel | None
     solver_output_dir: Path | None = None
     metrics: Mapping[str, Any] = field(default_factory=dict)
+
+
+# Key a backend writes into ``RunExecutionResult.metrics`` for the final
+# water-budget PERCENT DISCREPANCY, in percent. Any backend may write it;
+# readers of ``metrics`` should not assume it comes from MODFLOW.
+WATER_BUDGET_METRIC = "water_budget_percent_discrepancy"

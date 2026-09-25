@@ -16,10 +16,8 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.runners.verdict import (
-    WATER_BUDGET_METRIC,
-    water_budget_verdict,
-)
+from hydromodpy.calibration.runners.verdict import water_budget_verdict
+from hydromodpy.simulation.planning.plan import WATER_BUDGET_METRIC
 
 
 class TestTheDeclaration:

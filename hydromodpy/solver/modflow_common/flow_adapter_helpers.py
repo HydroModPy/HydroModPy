@@ -23,6 +23,7 @@ from typing import Literal
 from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.simulation.planning.plan import (
+    WATER_BUDGET_METRIC,
     ProcessRun,
     RunContext,
     RunExecutionResult,
@@ -32,9 +33,6 @@ from hydromodpy.solver.modflow_common.options import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
-
-WATER_BUDGET_METRIC = "water_budget_percent_discrepancy"
-"""Run-metric name for the final water-budget PERCENT DISCREPANCY, in percent."""
 
 WATER_BUDGET_WORST_METRIC = "water_budget_worst_percent_discrepancy"
 """Run-metric name for the worst water-budget PERCENT DISCREPANCY, in percent."""

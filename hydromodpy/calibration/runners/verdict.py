@@ -23,7 +23,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from hydromodpy.calibration.criteria.base import Validity
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import WATER_BUDGET_METRIC
+from hydromodpy.simulation.planning.plan import WATER_BUDGET_METRIC
 
 
 def water_budget_verdict(
@@ -68,4 +68,4 @@ def water_budget_verdict(
     )
 
 
-__all__ = ["WATER_BUDGET_METRIC", "water_budget_verdict"]
+__all__ = ["water_budget_verdict"]
