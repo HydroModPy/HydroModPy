@@ -19,7 +19,9 @@ from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     STEADY_STAGE,
     TRANSIENT_STAGE,
 )
+from hydromodpy.calibration.runners.phase_regime import phase_overrides
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 REFERENCE = (
     Path(__file__).resolve().parents[3]
@@ -59,7 +61,9 @@ def test_stage_one_keeps_the_scripts_mean_offset_and_nelder_mead(calibration) ->
 
 def test_stage_one_collapses_the_record_into_one_steady_period(calibration) -> None:
     # 1995-01-01 to 2020-12-31 inclusive, the window the REA recharge stops at.
-    assert calibration.phases[0].overrides == {
+    # The protocol writes the regime; the paths are what the trials run with.
+    assert calibration.phases[0].regime == "steady"
+    assert phase_overrides(calibration.phases[0], load_toml_with_base_config(REFERENCE)) == {
         "flow.flow_regime": "steady",
         "simulation.time.start_datetime": "1995-01-01",
         "simulation.time.end_datetime": "2020-12-31",

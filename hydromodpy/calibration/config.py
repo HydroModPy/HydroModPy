@@ -896,6 +896,76 @@ class CalibObjectiveBlockDecl(HydroModelBase):
         return self
 
 
+PHASE_REGIME_PATHS: dict[str, tuple[str, ...]] = {
+    "steady": (
+        "flow.flow_regime",
+        "simulation.time.start_datetime",
+        "simulation.time.end_datetime",
+        "simulation.time.step_unit",
+        "simulation.time.step_value",
+    ),
+    "transient": ("flow.flow_regime",),
+}
+"""The dotted paths a phase's ``regime`` writes, by regime.
+
+``runners/phase_regime.py`` writes them. They are listed here because a phase
+that also writes one of them in ``overrides`` is refused when the file is read,
+and ``config`` does not import ``runners``.
+``tests/unit/calibration/test_phase_regime.py`` keeps the two equal.
+"""
+
+
+def fold_a_legacy_regime(
+    phase: Mapping[str, Any], steady_window: Mapping[str, Any] | None = None
+) -> dict[str, Any] | None:
+    """Return a phase written with its regime as overrides, rewritten with ``regime``.
+
+    Runs sealed before ``regime`` existed carry each protocol stage in that
+    spelling, and reading one back must not refuse it as a contradiction of the
+    protocol that wrote it.
+
+    The spelling is a phase with no ``regime`` whose ``overrides`` hold every
+    path ``PHASE_REGIME_PATHS`` lists for its ``flow.flow_regime``. Those paths
+    are dropped and every other override is kept. When the protocol names a
+    ``steady_window``, the sealed bounds have to be the same instants; otherwise
+    they are trusted, since the file was written from its own
+    ``[simulation.time]``. Returns None for any other phase, and for a window
+    that does not match.
+    """
+    if phase.get("regime") is not None:
+        return None
+    overrides = phase.get("overrides")
+    if not isinstance(overrides, Mapping):
+        return None
+    regime = overrides.get("flow.flow_regime")
+    paths = PHASE_REGIME_PATHS.get(regime) if isinstance(regime, str) else None
+    if paths is None or not all(path in overrides for path in paths):
+        return None
+    folded = dict(phase)
+    folded["regime"] = regime
+    folded["overrides"] = {key: value for key, value in overrides.items() if key not in paths}
+    if steady_window is not None and regime == "steady":
+        sealed = (
+            overrides["simulation.time.start_datetime"],
+            overrides["simulation.time.end_datetime"],
+        )
+        named = (steady_window.get("start"), steady_window.get("end"))
+        if not all(_same_instant(a, b) for a, b in zip(sealed, named, strict=True)):
+            return None
+        folded["steady_window"] = dict(steady_window)
+    return folded
+
+
+def _same_instant(a: Any, b: Any) -> bool:
+    """Say whether two spellings name the same instant."""
+    import pandas as pd
+
+    try:
+        return bool(pd.Timestamp(a) == pd.Timestamp(b))
+    except (TypeError, ValueError):
+        return False
+
+
 class CalibPhaseDecl(HydroModelBase):
     """One stage of a calibration that runs in several.
 
@@ -1000,12 +1070,30 @@ class CalibPhaseDecl(HydroModelBase):
         default_factory=dict,
         description="Extra keyword arguments forwarded to this phase's optimizer.",
     )
+    regime: Annotated[Literal["steady", "transient"] | None, Profile.USER] = Field(
+        default=None,
+        description="Flow regime this phase runs, a property of the model and not of "
+        "the search. 'steady' is one period over steady_window, by default the extent "
+        "of [simulation.time]. 'transient' is the project's own time grid. Unset, the "
+        "phase runs the model as the project and its overrides declare it.",
+        json_schema_extra={
+            "value_docs": {
+                "steady": "One period over steady_window, so the recharge over it "
+                "averages to its mean. A steady solve carries no storage.",
+                "transient": "The project's time grid, with only the regime restated.",
+            }
+        },
+    )
+    steady_window: Annotated[dict[str, str] | None, Profile.USER] = Field(
+        default=None,
+        description="Dates the steady period spans, as {start, end}, when regime = "
+        "'steady'. Unset takes the whole [simulation.time] window.",
+    )
     overrides: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,
         description="Configuration values this phase runs with, as dotted paths into "
-        "the project configuration. The two stages of a stream-network calibration "
-        "are one steady and one transient, which is a property of the model and not "
-        "of the search, so a phase has to be able to say it.",
+        "the project configuration. A phase that gives regime may not write here a "
+        "path regime writes: that would say the same thing twice.",
     )
     scoring_window: Annotated[CalibScoringWindow | None, Profile.USER] = Field(
         default=None,
@@ -1035,6 +1123,31 @@ class CalibPhaseDecl(HydroModelBase):
         and score it on a criterion it never asked for.
         """
         return self.variable is not None or self.objective is not None
+
+    @model_validator(mode="after")
+    def _say_the_regime_once(self) -> CalibPhaseDecl:
+        """Refuse a regime said twice, and a steady window with no steady regime.
+
+        ``regime`` writes its paths into the configuration the trials run with,
+        and ``overrides`` writes into the same one. A path in both would leave
+        the reader to guess which value the model ran with.
+        """
+        if self.steady_window is not None and self.regime != "steady":
+            raise ValueError(
+                f"phase {self.name!r} gives a steady_window and regime = {self.regime!r}. "
+                'The window is the span of the one steady period: write regime = "steady", '
+                "or drop the window."
+            )
+        if self.regime is None:
+            return self
+        twice = [path for path in PHASE_REGIME_PATHS[self.regime] if path in self.overrides]
+        if twice:
+            raise ValueError(
+                f"phase {self.name!r} gives regime = {self.regime!r}, which writes "
+                f"{', '.join(twice)}, and writes the same in overrides: two ways to say "
+                "the same thing. Keep regime and drop these overrides, or drop regime."
+            )
+        return self
 
 
 class CalibAggregateDecl(HydroModelBase):

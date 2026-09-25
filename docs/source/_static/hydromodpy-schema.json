@@ -1811,9 +1811,48 @@
           "type": "object",
           "x-hmp-profile": "dev"
         },
+        "regime": {
+          "anyOf": [
+            {
+              "enum": [
+                "steady",
+                "transient"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Flow regime this phase runs, a property of the model and not of the search. 'steady' is one period over steady_window, by default the extent of [simulation.time]. 'transient' is the project's own time grid. Unset, the phase runs the model as the project and its overrides declare it.",
+          "title": "Regime",
+          "value_docs": {
+            "steady": "One period over steady_window, so the recharge over it averages to its mean. A steady solve carries no storage.",
+            "transient": "The project's time grid, with only the regime restated."
+          },
+          "x-hmp-profile": "user"
+        },
+        "steady_window": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Dates the steady period spans, as {start, end}, when regime = 'steady'. Unset takes the whole [simulation.time] window.",
+          "title": "Steady Window",
+          "x-hmp-profile": "user"
+        },
         "overrides": {
           "additionalProperties": true,
-          "description": "Configuration values this phase runs with, as dotted paths into the project configuration. The two stages of a stream-network calibration are one steady and one transient, which is a property of the model and not of the search, so a phase has to be able to say it.",
+          "description": "Configuration values this phase runs with, as dotted paths into the project configuration. A phase that gives regime may not write here a path regime writes: that would say the same thing twice.",
           "title": "Overrides",
           "type": "object",
           "x-hmp-profile": "user"

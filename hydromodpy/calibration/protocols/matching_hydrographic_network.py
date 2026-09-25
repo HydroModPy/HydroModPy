@@ -22,11 +22,8 @@ conductivity identifiable there.
 from __future__ import annotations
 
 import copy
-import datetime
 from collections.abc import Mapping
 from typing import Any
-
-import pandas as pd
 
 from hydromodpy.calibration.config import MatchingHydrographicNetworkOptions
 from hydromodpy.calibration.protocols.base import Deviation, Reference
@@ -203,7 +200,6 @@ class MatchingHydrographicNetwork:
             _require_parameter(parameters, opts.storage, "storage", opts.storage)
 
         network_output = _resolve_network_output(calibration.get("outputs") or {}, opts)
-        steady_start, steady_end = _steady_window(expanded, opts)
 
         calibration["objective_blocks"] = [
             {
@@ -212,7 +208,7 @@ class MatchingHydrographicNetwork:
                 "uses_outputs": [network_output],
             }
         ]
-        calibration["phases"] = _phases(opts, steady_start=steady_start, steady_end=steady_end)
+        calibration["phases"] = _phases(opts)
         expanded["calibration"] = calibration
         return expanded
 
@@ -263,106 +259,26 @@ def _resolve_network_output(
     return candidates[0]
 
 
-def _canonical_instant(value: Any, source: str) -> str:
-    """Return the one spelling of an instant a TOML file can write three ways.
-
-    ``start_datetime = 2000-01-01`` parses as a date, ``2000-01-01T00:00:00`` as
-    a datetime, and a quoted value stays a string. The stages this protocol
-    writes, and the sentence describing them, must not depend on which spelling
-    a file chose: a run re-read from its own sealed config expands to the stages
-    it ran, not to stages that differ by a rendered midnight.
-
-    The spelling is a function of the instant alone. A naive bound that falls on
-    midnight is written as its date, because a steady window is read in days and
-    that is the half of the span that carries information. A bound carrying an
-    offset keeps its offset: dropping it would move the instant by that much,
-    silently, and two offsets apart would collapse onto the same date.
-
-    Only a date, a datetime or a string is read. A bare number is not a
-    misspelling of an instant, it is a different kind of value, and pandas would
-    take it for nanoseconds since the epoch.
-    """
-    if not isinstance(value, (str, datetime.date, datetime.datetime, pd.Timestamp)):
-        raise ValueError(f"{source} is not an instant this protocol can read: {value!r}.")
-    try:
-        stamp = pd.Timestamp(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{source} is not an instant this protocol can read: {value!r}.") from exc
-    if stamp is pd.NaT:
-        raise ValueError(f"{source} is not an instant this protocol can read: {value!r}.")
-    if stamp.tzinfo is None and stamp == stamp.normalize():
-        return stamp.strftime("%Y-%m-%d")
-    return stamp.isoformat()
-
-
-def _steady_window(
-    document: Mapping[str, Any], opts: MatchingHydrographicNetworkOptions
-) -> tuple[str, str]:
-    if opts.steady_window is not None:
-        window = opts.steady_window
-        missing = [key for key in ("start", "end") if not window.get(key)]
-        if missing:
-            raise ValueError(
-                "[calibration.protocol].steady_window needs both 'start' and 'end'; "
-                f"missing {', '.join(missing)}."
-            )
-        source = "[calibration.protocol].steady_window"
-        return (
-            _canonical_instant(window["start"], f"{source}.start"),
-            _canonical_instant(window["end"], f"{source}.end"),
-        )
-
-    time = (document.get("simulation") or {}).get("time") or {}
-    start = time.get("start_datetime")
-    end = time.get("end_datetime")
-    if not start or not end:
-        raise ValueError(
-            "protocol 'matching_hydrographic_network' averages the record over one steady "
-            "period and reads its span from [simulation.time], which declares no "
-            "start_datetime/end_datetime here. Write them, or name the span in "
-            "[calibration.protocol].steady_window."
-        )
-    return (
-        _canonical_instant(start, "simulation.time.start_datetime"),
-        _canonical_instant(end, "simulation.time.end_datetime"),
-    )
-
-
-def _phases(
-    opts: MatchingHydrographicNetworkOptions, *, steady_start: str, steady_end: str
-) -> list[dict[str, Any]]:
-    start, end = pd.Timestamp(steady_start), pd.Timestamp(steady_end)
-    if (start.tzinfo is None) != (end.tzinfo is None):
-        raise ValueError(
-            f"the steady stage spans {steady_start} to {steady_end}, where one bound "
-            "carries a UTC offset and the other does not, so the span is undefined. "
-            "Write both with an offset, or neither."
-        )
-    span_days = (end - start).days + 1
-    if span_days < 1:
-        raise ValueError(
-            f"the steady stage spans {steady_start} to {steady_end}, which is not a forward window."
-        )
-
+def _phases(opts: MatchingHydrographicNetworkOptions) -> list[dict[str, Any]]:
+    # The regime says steady and runners/phase_regime.py writes what it means:
+    # one period over the window, read from [simulation.time] unless the file
+    # names one. So the stages written here never depend on how a date is spelled.
+    over = "its steady_window" if opts.steady_window is not None else "the record"
     steady: dict[str, Any] = {
         "name": STEADY_STAGE,
         "description": (
             "Match the simulated seepage network to the mapped one by moving "
-            f"{opts.conductivity}, steady state over {steady_start}..{steady_end}."
+            f"{opts.conductivity}, steady state over {over}."
         ),
         "method": opts.steady_method,
         "max_iter": opts.steady_max_iter,
         "parameters": [opts.conductivity],
         "objective_blocks": [NETWORK_BLOCK],
         "freeze_on_success": True,
-        "overrides": {
-            "flow.flow_regime": "steady",
-            "simulation.time.start_datetime": steady_start,
-            "simulation.time.end_datetime": steady_end,
-            "simulation.time.step_unit": "day",
-            "simulation.time.step_value": span_days,
-        },
+        "regime": "steady",
     }
+    if opts.steady_window is not None:
+        steady["steady_window"] = dict(opts.steady_window)
     if opts.steady_tolerance is not None:
         steady["tolerance"] = float(opts.steady_tolerance)
     if opts.steady_engine_options:
@@ -382,7 +298,7 @@ def _phases(
         "variable": opts.discharge_variable,
         "objective": opts.transient_metric,
         "depends_on": STEADY_STAGE,
-        "overrides": {"flow.flow_regime": "transient"},
+        "regime": "transient",
     }
     if opts.transient_tolerance is not None:
         transient["tolerance"] = float(opts.transient_tolerance)

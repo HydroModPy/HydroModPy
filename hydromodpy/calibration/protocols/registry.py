@@ -13,7 +13,11 @@ from typing import Any
 
 from pydantic import TypeAdapter, ValidationError
 
-from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibPhaseDecl
+from hydromodpy.calibration.config import (
+    CalibObjectiveBlockDecl,
+    CalibPhaseDecl,
+    fold_a_legacy_regime,
+)
 from hydromodpy.calibration.protocols.base import CalibrationProtocol
 from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     MatchingHydrographicNetwork,
@@ -127,13 +131,44 @@ def _declares_what_the_protocol_writes(section: str, declared: Any, produced: An
     sides are compared through the section model rather than raw: the dumped one
     carries every default filled in, the fresh expansion only what the protocol
     spelled out, and nobody wrote the difference.
+
+    A stage sealed before phases said their ``regime`` spells it as overrides
+    and describes its steady window with dates. It is read as the regime it
+    states, and its description is not compared.
     """
+    if section == "phases":
+        declared = _read_legacy_regimes(declared, produced)
     adapter = _section_adapter(section)
     try:
         here = adapter.dump_python(adapter.validate_python(declared), mode="json")
     except ValidationError:
         return False
     return here == adapter.dump_python(adapter.validate_python(produced or []), mode="json")
+
+
+def _read_legacy_regimes(declared: Any, produced: Any) -> Any:
+    """Return *declared* with each stage in the legacy spelling folded, else unchanged.
+
+    Stages are paired by position with the ones the protocol produced. A folded
+    stage takes the produced description, so the dates the old one embedded do
+    not count as a contradiction. A stage whose regime contradicts the produced
+    one still differs from it, and is still refused.
+    """
+    if not isinstance(declared, list) or not isinstance(produced, list):
+        return declared
+    read: list[Any] = []
+    for index, phase in enumerate(declared):
+        fresh = produced[index] if index < len(produced) else None
+        if not isinstance(phase, Mapping) or not isinstance(fresh, Mapping):
+            read.append(phase)
+            continue
+        folded = fold_a_legacy_regime(phase, fresh.get("steady_window"))
+        if folded is None:
+            read.append(phase)
+            continue
+        folded["description"] = fresh.get("description", "")
+        read.append(folded)
+    return read
 
 
 def protocol_options_away_from_the_recipe(

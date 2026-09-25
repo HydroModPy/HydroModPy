@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import math
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -65,6 +65,7 @@ from hydromodpy.calibration.runners.cli_runner import (
     refuse_an_objective_that_is_not_an_entry_point,
     run_calibration_core,
 )
+from hydromodpy.calibration.runners.phase_regime import phase_overrides
 from hydromodpy.calibration.runners.restarts import RestartSpread, run_restarts
 from hydromodpy.calibration.runners.resume import fingerprint_matches, reusable_stage
 from hydromodpy.calibration.runners.state import (
@@ -244,6 +245,10 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
     only waste: a stage whose criteria cannot read an inherited output is
     refused, so that file did not run at all.
     """
+    # The phase-scoped fields (overrides, regime, steady_window) never enter this
+    # payload: they reach prepare_trials through _PhasePlan.overrides. This
+    # configuration feeds the params hash, so forwarding one would change the
+    # hash of every completed stage and void its cache and its reuse.
     payload = cfg.model_dump()
     payload["method"] = decl.method
     payload["max_iter"] = decl.max_iter
@@ -294,17 +299,23 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
 
 @dataclass(frozen=True, slots=True)
 class _PhasePlan:
-    """One selected phase, with the calibration and the space it runs under."""
+    """One selected phase, with the calibration, the space and the model it runs under.
+
+    ``overrides`` is what ``prepare_trials(config_overrides=...)`` writes: the
+    paths the phase's regime writes, then the phase's own overrides.
+    """
 
     index: int
     decl: CalibPhaseDecl
     config: CalibrationConfig
     space: ParameterSpace
+    overrides: dict[str, Any]
 
 
 def _phase_plans(
     cfg: CalibrationConfig,
     selected: Sequence[tuple[int, CalibPhaseDecl]],
+    document: Mapping[str, Any],
 ) -> list[_PhasePlan]:
     """Build every selected phase before the first one runs.
 
@@ -314,10 +325,21 @@ def _phase_plans(
     its turn comes: after the phases before it have spent their whole solve
     budget. Building them all here moves that refusal before the first solve,
     and the loop then runs what was built instead of building it again.
+
+    The regime is read here too, from ``document``, the raw configuration the
+    phases belong to: a steady window that cannot be read is refused before the
+    first solve as well.
     """
     plans: list[_PhasePlan] = []
     for index, decl in selected:
         phase_cfg = _phase_config(cfg, decl)
+        try:
+            overrides = phase_overrides(decl, document)
+        except ValueError as exc:
+            raise ConfigValidationError(
+                f"phase {decl.name!r} gives regime = {decl.regime!r}, which cannot be "
+                f"written: {exc}"
+            ) from exc
         try:
             phase_cfg.validate_registry()
         except ValueError as exc:
@@ -330,7 +352,9 @@ def _phase_plans(
             raise ConfigValidationError(
                 f"phase {decl.name!r} declares a parameter space that cannot be built: {exc}"
             ) from exc
-        plans.append(_PhasePlan(index=index, decl=decl, config=phase_cfg, space=space))
+        plans.append(
+            _PhasePlan(index=index, decl=decl, config=phase_cfg, space=space, overrides=overrides)
+        )
     return plans
 
 
@@ -851,7 +875,7 @@ def run_staged_calibration(
     # the reuse fingerprint either way.
     refuse_an_objective_that_is_not_an_entry_point(objective)
     cfg_path = Path(config_path).expanduser().resolve()
-    cfg, _raw = load_toml_calibration(cfg_path)
+    cfg, raw = load_toml_calibration(cfg_path)
     if not evaluation_registry.needs_prepared_model(cfg.evaluator):
         # A staged calibration freezes a phase's result into the configuration
         # the next phase runs with, and that configuration is the pipeline's.
@@ -865,7 +889,7 @@ def run_staged_calibration(
             "never reads. Run the phases as separate single-phase documents, or name an "
             "evaluator that runs the pipeline."
         )
-    plans = _phase_plans(cfg, _phases_to_run(cfg, phase))
+    plans = _phase_plans(cfg, _phases_to_run(cfg, phase), raw)
     declared = space_from_config(cfg)
 
     frozen: list[FrozenParameter] = []
@@ -883,7 +907,7 @@ def run_staged_calibration(
             trial_ctx = prepare_trials(
                 cfg_path,
                 override_paths=_injected_paths(phase_cfg, frozen),
-                config_overrides=dict(decl.overrides),
+                config_overrides=dict(plan.overrides),
                 parameter_space=space,
             )
         except ConfigValidationError as exc:

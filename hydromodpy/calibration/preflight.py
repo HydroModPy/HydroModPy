@@ -69,6 +69,7 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     findings.extend(_check_outputs(calibration, where_from, config))
     findings.extend(_check_blocks(calibration))
     findings.extend(_check_phases(calibration))
+    findings.extend(_check_the_regimes(calibration, where_from))
     findings.extend(_check_engines(calibration))
     findings.extend(_check_the_precision_can_be_honoured(calibration))
     findings.extend(_check_the_backend_can_serve_the_outputs(config, calibration))
@@ -238,6 +239,48 @@ def _check_phases(calibration: Any) -> list[PreflightFinding]:
                 )
             )
         ran.add(phase.name)
+    return findings
+
+
+def _check_the_regimes(calibration: Any, source: Path) -> list[PreflightFinding]:
+    """Write every phase's regime the way the run will, and report what cannot be.
+
+    A steady phase reads its window from ``steady_window`` or from
+    ``[simulation.time]`` of the raw document, which is what the run reads too.
+    A window given backwards, with one offset, or in no readable spelling is
+    otherwise found only when the run starts.
+    """
+    phases = [
+        phase for phase in calibration.phases or () if getattr(phase, "regime", None) is not None
+    ]
+    if not phases:
+        return []
+    from hydromodpy.calibration.runners.phase_regime import regime_overrides
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+    try:
+        document = load_toml_with_base_config(source)
+    except (OSError, ValueError) as exc:
+        return [
+            PreflightFinding(
+                "error",
+                "[simulation.time]",
+                f"the phases that give a regime read their window from {source.name}, "
+                f"which cannot be read: {exc}",
+            )
+        ]
+    findings: list[PreflightFinding] = []
+    for phase in phases:
+        try:
+            regime_overrides(phase, document)
+        except ValueError as exc:
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    f"[[calibration.phases]] {phase.name!r}",
+                    f"regime = {phase.regime!r} cannot be written: {exc}",
+                )
+            )
     return findings
 
 

@@ -75,10 +75,11 @@ weight = 1.0
 warmup = 12
 
 
-# Stage one: K against the mapped network, in steady state. The record becomes
-# one period of 1096 days, 2000 being a leap year, and the recharge over it
-# averages to the mean the criterion is defined at. A steady solve carries no
-# storage, which is what makes K identifiable without a discharge record.
+# Stage one: K against the mapped network, in steady state. `regime = "steady"`
+# makes the record of [simulation.time] one period, 1096 days here, 2000 being a
+# leap year, and the recharge over it averages to the mean the criterion is
+# defined at. A steady solve carries no storage, which is what makes K
+# identifiable without a discharge record.
 [[calibration.phases]]
 name = "steady_conductivity"
 description = "Match the simulated seepage network to the mapped one by moving K, steady state over the record."
@@ -92,6 +93,7 @@ max_iter = 18
 tolerance = 0.01
 parameters = ["K"]
 objective_blocks = ["network_extension"]
+regime = "steady"
 # Stage two inherits this K and may not move it.
 freeze_on_success = true
 
@@ -102,15 +104,9 @@ freeze_on_success = true
 sweep_points = 7
 
 # An override is a dotted path into the whole configuration, not only into the
-# model. The last two lines are what makes this stage draw its two maps:
-# project.toml points them at step 33 of the monthly run, and this stage solves
-# one period.
+# model. These two make this stage draw its two maps: project.toml points them
+# at step 33 of the monthly run, and this stage solves one period.
 [calibration.phases.overrides]
-"flow.flow_regime" = "steady"
-"simulation.time.start_datetime" = "2000-01-01"
-"simulation.time.end_datetime" = "2002-12-31"
-"simulation.time.step_unit" = "day"
-"simulation.time.step_value" = 1096
 "display.overrides.seepage_map.timestep" = 0
 "display.overrides.cross_section.timestep" = 0
 
@@ -145,9 +141,7 @@ tolerance = 0.05
 parameters = ["Sy"]
 objective_blocks = ["hydrograph", "network_extension"]
 depends_on = "steady_conductivity"
-
-[calibration.phases.overrides]
-"flow.flow_regime" = "transient"
+regime = "transient"
 
 
 # Back to the published method: replace the `objective_blocks` line of
