@@ -14,6 +14,8 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
 - ``solver_scratch`` and ``persistence.save_lock`` dropped: both drove
   nothing. The solver scratch directory is ``<project>/.hmp/scratch`` and
   the lockfile is written on every run.
+- ``geographic.bottom_path`` -> one ``[[data.substratum.sources]]`` entry,
+  ``[domain.depth_model]`` left as it is (the old key was never read)
 
 This is a migration tool, not a backward-compat shim: the runtime model itself
 never accepts the old keys (``extra="forbid"``). ``migrate_config_doc`` is the
@@ -71,6 +73,7 @@ def migrate_config_doc(doc: Any) -> list[str]:
     human-readable changes applied.
     """
     changes: list[str] = _drop_dead_result_options(doc)
+    changes.extend(_move_the_bottom_path(doc))
     changes.extend(_flatten_boundary_conditions(doc))
     changes.extend(_drop_the_solver_time_grids(doc))
 
@@ -298,6 +301,33 @@ def _drop_dead_result_options(doc: Any) -> list[str]:
             del persistence["save_lock"]
             changes.append(f"{path}.save_lock dropped (never read)")
     return changes
+
+
+def _move_the_bottom_path(doc: Any) -> list[str]:
+    """Move ``geographic.bottom_path`` to one ``[[data.substratum.sources]]`` entry.
+
+    The key named a bottom raster that nothing read. It moves to the variable
+    that reads one. ``[domain.depth_model]`` is left alone: every run of this
+    config was built by its declared depth model, and switching the kind here
+    would change the results the config reproduces.
+    """
+    geographic = doc.get("geographic")
+    if geographic is None or "bottom_path" not in geographic:
+        return []
+    value = geographic["bottom_path"]
+    del geographic["bottom_path"]
+    path = str(value.unwrap() if hasattr(value, "unwrap") else value)
+    data = doc.get("data")
+    if data is not None and "substratum" in data:
+        return ["geographic.bottom_path dropped ([data.substratum] already set)"]
+    if data is None:
+        doc["data"] = {}
+        data = doc["data"]
+    data["substratum"] = {"sources": [{"source": "custom", "path": path}]}
+    return [
+        "geographic.bottom_path -> [[data.substratum.sources]] "
+        "(read only with [domain.depth_model] kind = 'raster')"
+    ]
 
 
 def _promote_export(doc: Any, simulation: Any) -> list[str]:

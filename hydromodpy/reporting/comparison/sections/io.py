@@ -106,6 +106,20 @@ def _recharge_values(payload: Mapping[str, Any]) -> list[float]:
     return []
 
 
+def _depth_model_text(depth_model: Mapping[str, Any]) -> str:
+    """Describe the substratum the way the declared depth model places it."""
+    kind = depth_model.get("kind", "constant_thickness")
+    if kind == "flat_substratum":
+        elevation = _format_value(depth_model.get("substratum_elevation"), default="0 m")
+        return f"substratum plat a l'altitude {elevation}"
+    if kind == "raster":
+        quantity = "epaisseur" if depth_model.get("quantity") == "thickness" else "altitude"
+        offset = _format_value(depth_model.get("offset"), default="0 m")
+        return f"substratum lu dans [data.substratum] ({quantity}), decalage {offset}"
+    thickness = _format_value(depth_model.get("thickness"), default="80 m")
+    return f"substratum a epaisseur constante {thickness}"
+
+
 def _synthetic_context_rows(payload: Mapping[str, Any]) -> list[tuple[str, str]]:
     from .templates import _format_mapping_values
 
@@ -142,10 +156,7 @@ def _synthetic_context_rows(payload: Mapping[str, Any]) -> list[tuple[str, str]]
             "Topographie",
             f"plan incline, altitude de base {_format_value(topography.get('base_elevation'), default='20')} m, denivele lateral {_format_value(topography.get('right_to_left_amplitude'), default='20')} m",
         ),
-        (
-            "Epaisseur",
-            f"substratum a epaisseur constante {_format_value(depth_model.get('thickness'), default='80 m')}",
-        ),
+        ("Epaisseur", _depth_model_text(depth_model)),
         (
             "Conductivite K",
             _format_mapping_values(

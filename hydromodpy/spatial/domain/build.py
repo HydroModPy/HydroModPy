@@ -26,6 +26,9 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 
+import numpy as np
+
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.spatial.domain.domain import Domain
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.domain.zone_arming import arm_runtime_zone_ids
@@ -63,17 +66,49 @@ def build_domain(
     *,
     surface_topo: Surface,
     zone_ids: Iterable[str] = (),
+    substratum_source: Surface | None = None,
+    active_cells: np.ndarray | None = None,
 ) -> Domain:
     """Build the domain geometry *config* defines on *surface_topo*.
 
     The returned domain carries its vertical extent -- the substratum the
     depth model derives -- and no zone at all. Whoever has the artefacts binds
     them afterwards.
+
+    *substratum_source* is the raster a ``raster`` depth model reads, on its own
+    grid. *active_cells* narrows the cells that raster must cover, for a caller
+    that masks the top rather than clipping it.
     """
     return Domain(
         config=domain_config_for_build(config, zone_ids=zone_ids),
         surface_topo=surface_topo,
+        substratum_source=substratum_source,
+        active_cells=active_cells,
     )
 
 
-__all__ = ["build_domain", "domain_config_for_build"]
+def read_substratum_source(depth_model: object, data: object | None) -> Surface | None:
+    """Read the raster a ``raster`` depth model places the substratum from.
+
+    *data* is the ``[data]`` section, and only its ``substratum`` member is read,
+    only for a ``raster`` depth model. The raster is read on its own grid, and
+    the domain reprojects it onto the top. Any other depth model reads nothing.
+
+    Every caller that builds a domain from a project configuration reads the
+    raster here, before the data step: the domain is built during setup.
+    """
+    if getattr(depth_model, "kind", None) != "raster":
+        return None
+    substratum = getattr(data, "substratum", None)
+    if substratum is None:
+        raise ConfigError(
+            "domain.depth_model kind = 'raster' reads the raster declared under "
+            "[data.substratum], and the configuration declares none."
+        )
+    source = substratum.sources[0]
+    return Surface.from_raster(
+        source.path, name="substratum_source", default_crs=source.default_crs
+    )
+
+
+__all__ = ["build_domain", "domain_config_for_build", "read_substratum_source"]

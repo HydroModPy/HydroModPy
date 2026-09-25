@@ -54,3 +54,34 @@ def test_data_inference_warn_without_types_is_accepted(tmp_path) -> None:
         data=empty_data,
     )
     assert cfg.data.inference_mode == "warn"
+
+
+def test_a_raster_depth_model_without_a_substratum_is_rejected(tmp_path) -> None:
+    with pytest.raises(ValidationError, match=r"\[data.substratum\]"):
+        HydroModPyConfig(
+            **_base_kwargs(tmp_path),
+            domain={"depth_model": {"kind": "raster"}},
+        )
+
+
+def test_a_raster_depth_model_with_a_substratum_is_accepted(tmp_path) -> None:
+    from hydromodpy.data.variables.substratum.config import SubstratumConfig
+
+    raster = tmp_path / "substratum.tif"
+    raster.write_bytes(b"")
+    cfg = HydroModPyConfig(
+        **_base_kwargs(tmp_path),
+        domain={"depth_model": {"kind": "raster", "quantity": "thickness"}},
+        data=DataManagersConfig(substratum=SubstratumConfig.from_raster(raster)),
+    )
+
+    assert cfg.domain.depth_model.quantity == "thickness"
+
+
+def test_a_geographic_bottom_path_is_accepted_ignored_and_warned_about() -> None:
+    with pytest.warns(DeprecationWarning, match="bottom_path"):
+        cfg = GeographicConfig.model_validate(
+            {"source_mode": "synthetic", "bottom_path": "bottom.tif"}
+        )
+
+    assert "bottom_path" not in cfg.model_dump()

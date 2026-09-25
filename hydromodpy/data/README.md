@@ -8,7 +8,7 @@ variable, how data flows, and where to add what.
 ## Variables
 
 Each `[data.<name>]` section of a project TOML is one variable. The single
-list of the 24 sections is `VARIABLE_SPECS` in `loading/_dispatch.py`.
+list of the 25 sections is `VARIABLE_SPECS` in `loading/_dispatch.py`.
 
 | family | variables | sources besides `custom` | manager base |
 |---|---|---|---|
@@ -16,7 +16,7 @@ list of the 24 sections is `VARIABLE_SPECS` in `loading/_dispatch.py`.
 | stations (4) | `hydrometry`, `piezometry`, `water_quality`, `intermittency` | `hubeau` | `BaseVariableManager` |
 | terrain and subsurface (3) | `dem`, `geology`, `hydrography` | `ign_geoplateforme_dem`; `brgm_1m`, `brgm_50k`; `bdtopage`, `euhydro`, `osm` | written by hand |
 | lake chronicles (4) | `lake_inflow`, `lake_levels`, `lake_outflow`, `lake_withdrawal` | none | `BaseVariableManager` |
-| lake files (3) | `lake_abacus` (table), `lake_bathymetry` (raster), `lake_geometry` (vector) | none | `BaseFileManager` |
+| user files (4) | `lake_abacus` (table), `lake_bathymetry` (raster), `lake_geometry` (vector), `substratum` (raster) | none | `BaseFileManager` |
 
 ## Subpackages
 

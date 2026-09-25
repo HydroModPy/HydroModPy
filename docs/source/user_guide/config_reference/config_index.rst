@@ -79,13 +79,13 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `geographic <geographic.html#geographic-source-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L545>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L553>`__
    * - ``geographic.catchment``
      - ``Optional[DemCatchDef | TxtCatchDef | OutletCatchDef | PolygonCatchDef]``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L553>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L561>`__
    * - ``geographic.catchment.dem_init_path``
      - ``Path | None``
      - user
@@ -139,31 +139,25 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `geographic <geographic.html#geographic-crs-project>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L565>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L573>`__
    * - ``geographic.dem_correc_type``
      - ``Literal['breach', 'fill']``
      - user
      - -
      - `geographic <geographic.html#geographic-dem-correc-type>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L569>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L577>`__
    * - ``geographic.terrain_engine``
      - ``str | None``
      - user
      - -
      - `geographic <geographic.html#geographic-terrain-engine>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L573>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L581>`__
    * - ``geographic.domain_extent``
      - ``Literal['box', 'watershed_buff', 'watershed']``
      - user
      - -
      - `geographic <geographic.html#geographic-domain-extent>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L582>`__
-   * - ``geographic.bottom_path``
-     - ``Path | None``
-     - user
-     - -
-     - `geographic <geographic.html#geographic-bottom-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L594>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L590>`__
    * - ``geographic.reg_fold``
      - ``Path | None``
      - dev
@@ -573,7 +567,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `domain <domain.html#domain-supports>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/spatial_support_config.py#L199>`__
    * - ``domain.depth_model``
-     - ``ConstantThicknessDepthModel | FlatSubstratumDepthModel``
+     - ``ConstantThicknessDepthModel | FlatSubstratumDepthModel | RasterSubstratumDepthModel``
      - user
      - -
      - `domain <domain.html#domain-depth-model>`__
@@ -596,24 +590,48 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `domain <domain.html#domain-depth-model-substratum-elevation>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L52>`__
+   * - ``domain.depth_model.quantity``
+     - ``Literal['elevation', 'thickness']``
+     - user
+     - -
+     - `domain <domain.html#domain-depth-model-quantity>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L83>`__
+   * - ``domain.depth_model.offset``
+     - ``float``
+     - user
+     - -
+     - `domain <domain.html#domain-depth-model-offset>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L91>`__
+   * - ``domain.depth_model.scale``
+     - ``float``
+     - user
+     - -
+     - `domain <domain.html#domain-depth-model-scale>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L99>`__
+   * - ``domain.depth_model.min_thickness``
+     - ``float``
+     - user
+     - -
+     - `domain <domain.html#domain-depth-model-min-thickness>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L107>`__
    * - ``data.types``
      - ``list[str]``
      - user
      - -
      - `data <data.html#data-types>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L109>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L111>`__
    * - ``data.inference_mode``
      - ``Literal['warn', 'strict']``
      - dev
      - -
      - `data <data.html#data-inference-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L118>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L120>`__
    * - ``data.dem``
      - ``DemConfig | None``
      - user
      - -
      - `data <data.html#data-dem>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L128>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L130>`__
    * - ``data.dem.sources``
      - ``list[CustomDemSource | IgnGeoplateformeDemSource]``
      - user
@@ -697,7 +715,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-geology>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L132>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L134>`__
    * - ``data.geology.sources``
      - ``list[CustomGeologySource | BrgmGeology1mSource | BrgmGeology50kSource]``
      - user
@@ -787,7 +805,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-hydrography>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L136>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L138>`__
    * - ``data.hydrography.sources``
      - ``list[HydrographySourceConfig]``
      - user
@@ -859,7 +877,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-hydrometry>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L140>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L142>`__
    * - ``data.hydrometry.date_start``
      - ``str | None``
      - user
@@ -991,7 +1009,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-intermittency>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L144>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L146>`__
    * - ``data.intermittency.date_start``
      - ``str | None``
      - user
@@ -1117,7 +1135,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-lake-abacus>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L148>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L150>`__
    * - ``data.lake_abacus.sources``
      - ``list[CustomLakeAbacusSource]``
      - user
@@ -1153,7 +1171,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-lake-bathymetry>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L152>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L154>`__
    * - ``data.lake_bathymetry.sources``
      - ``list[CustomLakeBathymetrySource]``
      - user
@@ -1189,7 +1207,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-lake-geometry>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L156>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L158>`__
    * - ``data.lake_geometry.sources``
      - ``list[CustomLakeGeometrySource]``
      - user
@@ -1225,7 +1243,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-lake-inflow>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L160>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L162>`__
    * - ``data.lake_inflow.date_start``
      - ``str | None``
      - user
@@ -1333,7 +1351,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-lake-levels>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L164>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L166>`__
    * - ``data.lake_levels.date_start``
      - ``str | None``
      - user
@@ -1441,7 +1459,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-lake-outflow>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L168>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L170>`__
    * - ``data.lake_outflow.date_start``
      - ``str | None``
      - user
@@ -1549,7 +1567,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-lake-withdrawal>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L172>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L174>`__
    * - ``data.lake_withdrawal.date_start``
      - ``str | None``
      - user
@@ -1657,7 +1675,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-oceanic>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L176>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L178>`__
    * - ``data.oceanic.date_start``
      - ``str | None``
      - user
@@ -1783,7 +1801,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-piezometry>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L180>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L182>`__
    * - ``data.piezometry.date_start``
      - ``str | None``
      - user
@@ -1915,7 +1933,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-water-quality>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L184>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L186>`__
    * - ``data.water_quality.date_start``
      - ``str | None``
      - user
@@ -2047,7 +2065,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-recharge>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L188>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L190>`__
    * - ``data.recharge.date_start``
      - ``str | None``
      - user
@@ -2203,7 +2221,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-runoff>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L192>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L194>`__
    * - ``data.runoff.date_start``
      - ``str | None``
      - user
@@ -2311,7 +2329,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-precipitation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L196>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L198>`__
    * - ``data.precipitation.date_start``
      - ``str | None``
      - user
@@ -2425,7 +2443,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-etp>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L200>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L202>`__
    * - ``data.etp.date_start``
      - ``str | None``
      - user
@@ -2545,7 +2563,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-temperature>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L204>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L206>`__
    * - ``data.temperature.date_start``
      - ``str | None``
      - user
@@ -2653,7 +2671,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-wind>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L208>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L210>`__
    * - ``data.wind.date_start``
      - ``str | None``
      - user
@@ -2761,7 +2779,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-humidity>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L212>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L214>`__
    * - ``data.humidity.date_start``
      - ``str | None``
      - user
@@ -2869,7 +2887,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-radiation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L216>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L218>`__
    * - ``data.radiation.date_start``
      - ``str | None``
      - user
@@ -2983,7 +3001,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-soil-moisture>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L220>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L222>`__
    * - ``data.soil_moisture.date_start``
      - ``str | None``
      - user
@@ -3086,6 +3104,36 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `data <data.html#data-soil-moisture-sources-path>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L33>`__
+   * - ``data.substratum``
+     - ``SubstratumConfig | None``
+     - user
+     - -
+     - `data <data.html#data-substratum>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L226>`__
+   * - ``data.substratum.sources``
+     - ``list[CustomSubstratumSource]``
+     - user
+     - -
+     - `data <data.html#data-substratum-sources>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/substratum/config.py#L55>`__
+   * - ``data.substratum.sources.source``
+     - ``Literal['custom']``
+     - user
+     - -
+     - `data <data.html#data-substratum-sources-source>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/substratum/config.py#L24>`__
+   * - ``data.substratum.sources.path``
+     - ``Path``
+     - user
+     - -
+     - `data <data.html#data-substratum-sources-path>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/substratum/config.py#L28>`__
+   * - ``data.substratum.sources.default_crs``
+     - ``str``
+     - user
+     - -
+     - `data <data.html#data-substratum-sources-default-crs>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/substratum/config.py#L36>`__
    * - ``flow.runtime_backend``
      - ``Literal['local', 'scipy', 'scipy_sparse', 'petsc']``
      - dev

@@ -822,3 +822,134 @@ def test_a_terrain_of_several_bands_is_read_on_band_one_and_says_so(tmp_path):
     assert any("band 1 is read" in warning for warning in outcome.warnings)
     active = _band(job, ACTIVE_CELLS_PATH).astype(bool)
     np.testing.assert_allclose(_band(job, BOTTOM_PATH)[active], _elevation()[active] - THICKNESS)
+
+
+def _substratum(
+    path: Path,
+    values: np.ndarray,
+    *,
+    crs: str | None = CRS,
+    xmin: float = XMIN,
+    ymax: float = YMAX,
+) -> Path:
+    """Write a substratum raster at the cell size of the terrain."""
+    profile = {
+        "driver": "GTiff",
+        "height": values.shape[0],
+        "width": values.shape[1],
+        "count": 1,
+        "dtype": "float64",
+        "crs": crs,
+        "transform": rasterio.transform.from_origin(xmin, ymax, CELL, CELL),
+        "nodata": NODATA,
+    }
+    with rasterio.open(str(path), "w", **profile) as sink:
+        sink.write(values, 1)
+    return path
+
+
+def _raster_request(tmp_path: Path, substratum: Path | None, **depth_model: object) -> dict:
+    inputs: dict[str, object] = {"depth_model": {"kind": "raster", **depth_model}}
+    if substratum is not None:
+        inputs["substratum"] = {"href": str(substratum)}
+    return _request(tmp_path, inputs=inputs)
+
+
+def test_a_raster_substratum_places_the_bottom_and_the_seal_names_its_digest(tmp_path):
+    bottom = _elevation() - 40.0
+    raster = _substratum(tmp_path / "substratum.tif", bottom)
+    job = _staged(tmp_path, _raster_request(tmp_path, raster))
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "successful", outcome.errors
+    assert verify_job(job).ok
+    active = _band(job, ACTIVE_CELLS_PATH).astype(bool)
+    np.testing.assert_allclose(_band(job, BOTTOM_PATH)[active], bottom[active])
+    digest, _size = sha256_file(raster)
+    layer = read_document(job.resolve_output(DOMAIN_DOCUMENT_PATH))["layers"][0]
+    assert layer["substratum"] == {"input": "substratum", "sha256": digest}
+    resources = read_document(job.inputset_path)["resources"]
+    assert {"name": "substratum", "sha256": digest} in [
+        {"name": r["name"], "sha256": r["sha256"]} for r in resources
+    ]
+
+
+def test_a_raster_covering_the_mask_alone_serves_a_masked_terrain(tmp_path):
+    """The mask is the extent: cells outside it need no substratum value."""
+    values = np.full((SIZE, SIZE), NODATA)
+    values[3:17, 3:17] = 60.0
+    raster = _substratum(tmp_path / "substratum.tif", values)
+    job = _staged(tmp_path, _raster_request(tmp_path, raster))
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "successful", outcome.errors
+    active = _band(job, ACTIVE_CELLS_PATH).astype(bool)
+    np.testing.assert_allclose(_band(job, BOTTOM_PATH)[active], 60.0)
+
+
+def test_a_raster_that_misses_active_cells_is_refused(tmp_path):
+    values = np.full((SIZE, SIZE), NODATA)
+    values[:, :10] = 60.0
+    raster = _substratum(tmp_path / "substratum.tif", values)
+    job = _staged(tmp_path, _raster_request(tmp_path, raster))
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "failed"
+    assert outcome.exit_code == EXIT_VALIDATION
+    assert "without a value" in outcome.errors[0]["detail"]
+    assert not job.is_sealed
+
+
+def test_the_raster_kind_without_a_substratum_is_refused_at_the_member(tmp_path):
+    job = _staged(tmp_path, _raster_request(tmp_path, None))
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "failed"
+    assert outcome.exit_code == EXIT_CONFIG
+    assert outcome.errors[0]["details"][0]["pointer"] == "/inputs/substratum"
+
+
+def test_a_substratum_handed_to_another_kind_is_refused_at_the_member(tmp_path):
+    raster = _substratum(tmp_path / "substratum.tif", _elevation() - 40.0)
+    job = _staged(tmp_path, _request(tmp_path, inputs={"substratum": {"href": str(raster)}}))
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "failed"
+    assert outcome.exit_code == EXIT_CONFIG
+    assert outcome.errors[0]["details"][0]["pointer"] == "/inputs/substratum"
+
+
+def test_a_substratum_carrying_no_crs_is_refused(tmp_path):
+    raster = _substratum(tmp_path / "substratum.tif", _elevation() - 40.0, crs=None)
+    job = _staged(tmp_path, _raster_request(tmp_path, raster))
+
+    outcome = run(job, exit_code_for=exit_code_for)
+
+    assert outcome.status == "failed"
+    assert outcome.exit_code == EXIT_VALIDATION
+    assert "input substratum" in outcome.errors[0]["detail"]
+    assert "carries no CRS" in outcome.errors[0]["detail"]
+
+
+def test_a_request_without_a_substratum_keeps_the_job_id_it_had_before_the_member(sealed_job):
+    """Adding the member must not re-address the jobs already sealed."""
+    from hydromodpy.schema.job.request import content_address
+    from hydromodpy.spatial.domain.capability import DomainBuildRequest
+
+    job, outcome = sealed_job
+    inputs = read_document(job.request_path)["inputs"]
+    payload = DomainBuildRequest.model_validate(inputs).model_dump(mode="json")
+    payload.pop("substratum")
+    payload["dem"] = {"sha256": sha256_file(Path(inputs["dem"]["href"]))[0]}
+    payload["mask"] = {"sha256": sha256_file(Path(inputs["mask"]["href"]))[0]}
+    payload["mask_layer"] = "watershed"
+
+    expected = content_address(
+        process_id=DOMAIN_BUILD.id, process_version=DOMAIN_BUILD.version, inputs=payload
+    )
+    assert outcome.job_id == expected

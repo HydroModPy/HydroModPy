@@ -542,6 +542,14 @@ class GeographicConfig(HydroModelBase):
     delineation.
     """
 
+    model_retired_keys = frozenset({"bottom_path"})
+    """``bottom_path`` named a bottom raster that nothing read.
+
+    The raster a run reads is ``[data.substratum]``, with
+    ``[domain.depth_model] kind = "raster"``. ``from_toml`` moves the path there;
+    a loader that skips the migration still accepts the key and ignores it.
+    """
+
     source_mode: Annotated[Literal["standard", "synthetic"], Profile.USER] = Field(
         default="standard",
         description=(
@@ -590,14 +598,6 @@ class GeographicConfig(HydroModelBase):
             "out of the catchment discharge by the DRN watershed-routing, not by "
             "an idomain mask. Experimental."
         ),
-    )
-    bottom_path: Annotated[
-        Path | None,
-        Profile.USER,
-        InputFile(role="aquifer_bottom", category="geometry"),
-    ] = Field(
-        default=None,
-        description="Path to a raster representing the aquifer bottom elevation. Must share the same grid as the model domain.",
     )
     reg_fold: Annotated[Path | None, Profile.DEV] = Field(
         default=None,

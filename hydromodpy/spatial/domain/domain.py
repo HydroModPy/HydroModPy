@@ -16,12 +16,17 @@ from collections.abc import Mapping
 
 import numpy as np
 
+from hydromodpy.core.exceptions import ConfigError, DataContractViolation
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     FlatSubstratumDepthModel,
+    RasterSubstratumDepthModel,
 )
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.surface import Surface
+
+logger = get_logger(__name__)
 
 
 class Domain:
@@ -48,10 +53,14 @@ class Domain:
         config: DomainConfig | Mapping[str, object] | None = None,
         *,
         surface_topo: Surface,
+        substratum_source: Surface | None = None,
+        active_cells: np.ndarray | None = None,
     ):
         self.config = self._coerce_config(config)
         self.surface_topo: Surface = surface_topo
         self.substratum: Surface | None = None
+        self._substratum_source = substratum_source
+        self._active_cells = active_cells
         self.zones: dict[str, object] = {}
         if self.surface_topo.support is not None:
             self.georeferencing = self.surface_topo.support.as_georeferencing_dict()
@@ -83,19 +92,98 @@ class Domain:
         """
         Build the lower domain surface from the configured depth model.
 
-        Two modes are currently supported:
+        Three modes are supported:
         - `ConstantThicknessDepthModel`:
           shift the topography downward by a constant offset,
         - `FlatSubstratumDepthModel`:
-          create one flat surface at a constant elevation below the topography.
+          create one flat surface at a constant elevation below the topography,
+        - `RasterSubstratumDepthModel`:
+          read the substratum from the raster handed over as `substratum_source`.
         """
         depth_model = self.config.depth_model
+        if self._substratum_source is not None and not isinstance(
+            depth_model, RasterSubstratumDepthModel
+        ):
+            raise ValueError(
+                f"A substratum raster was given, and depth_model kind "
+                f"{depth_model.kind!r} does not read one."
+            )
         if isinstance(depth_model, ConstantThicknessDepthModel):
             self.substratum = self.surface_topo.shifted_down_by(float(depth_model.thickness))
         elif isinstance(depth_model, FlatSubstratumDepthModel):
             self.substratum = self.surface_topo.flat_like(float(depth_model.substratum_elevation))
+        elif isinstance(depth_model, RasterSubstratumDepthModel):
+            self.substratum = self._substratum_from_raster(depth_model)
         else:
             raise TypeError(f"Unsupported depth_model payload: {type(depth_model)!r}")
+
+    def _substratum_from_raster(self, depth_model: RasterSubstratumDepthModel) -> Surface:
+        """Place the substratum from a raster, on the grid of the top surface.
+
+        The raster must carry a value on every cell of the domain. Those cells
+        are the ones where the top carries data, which follows
+        ``geographic.domain_extent``, narrowed to ``active_cells`` when given.
+        A cell outside the domain keeps the nodata sentinel of the top.
+        """
+        source = self._substratum_source
+        if source is None:
+            raise ConfigError(
+                "domain.depth_model kind 'raster' reads the raster declared under "
+                "[data.substratum], and none was given to the domain."
+            )
+        support = self.surface_topo.support
+        if support is None:
+            raise ValueError(
+                "The top surface has no RasterSupport to place a raster substratum on."
+            )
+
+        top = self.surface_topo.as_array()
+        has_top = np.isfinite(top)
+        if support.nodata is not None:
+            has_top &= top != float(support.nodata)
+        cells = has_top if self._active_cells is None else has_top & self._active_cells
+        n_cells = int(np.count_nonzero(cells))
+        if n_cells == 0:
+            raise ValueError("The domain holds no cell with a top elevation.")
+
+        values = source.reprojected_onto(support, name="substratum").as_array()
+        n_uncovered = int(np.count_nonzero(cells & ~np.isfinite(values)))
+        if n_uncovered:
+            raise DataContractViolation(
+                f"The substratum raster leaves {n_uncovered} of the {n_cells} cells of the "
+                "domain without a value. It must cover the whole extent the domain is "
+                "built on: the catchment for geographic.domain_extent = 'watershed', the "
+                "buffered box for 'box'. Extend the raster, or choose a smaller extent."
+            )
+
+        offset = float(depth_model.offset)
+        if depth_model.quantity == "elevation":
+            bottom = values + offset
+        else:
+            bottom = top - float(depth_model.scale) * values + offset
+        ceiling = top - float(depth_model.min_thickness)
+        capped = cells & (bottom > ceiling)
+        n_capped = int(np.count_nonzero(capped))
+        if n_capped == n_cells:
+            raise ValueError(
+                "The substratum raster sits within min_thickness of the top on every "
+                "cell of the domain; no aquifer would remain."
+            )
+        if n_capped:
+            logger.warning(
+                "The substratum raster sits within min_thickness=%g m of the top on %d of "
+                "the %d cells of the domain, up to %.3g m above top - min_thickness; "
+                "those cells are lowered to top - min_thickness.",
+                float(depth_model.min_thickness),
+                n_capped,
+                n_cells,
+                float(np.max((bottom - ceiling)[capped])),
+            )
+
+        bottom = np.where(np.isfinite(bottom), np.minimum(bottom, ceiling), ceiling)
+        if support.nodata is not None:
+            bottom = np.where(has_top, bottom, float(support.nodata))
+        return Surface(name="substratum", values=bottom, support=support)
 
     @property
     def z_interfaces(self) -> np.ndarray:

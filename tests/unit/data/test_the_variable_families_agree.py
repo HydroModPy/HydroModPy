@@ -1,4 +1,4 @@
-"""Every list of ``[data]`` variables names the same 24 variables, and their sources agree.
+"""Every list of ``[data]`` variables names the same 25 variables, and their sources agree.
 
 Adding a variable touches several lists (``hydromodpy/data/README.md``,
 "Where to add what"). This test compares them to ``VARIABLE_SPECS`` and names the list
@@ -66,8 +66,8 @@ def test_every_variable_list_names_the_same_variables() -> None:
     )
 
 
-def test_there_are_twenty_four_variables() -> None:
-    assert len(VARIABLE_SPECS) == 24
+def test_there_are_twenty_five_variables() -> None:
+    assert len(VARIABLE_SPECS) == 25
 
 
 # Sources computed from the section alone: they contact no host.

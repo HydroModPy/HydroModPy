@@ -3956,6 +3956,48 @@
       "title": "CustomLakeGeometrySource",
       "type": "object"
     },
+    "CustomSubstratumSource": {
+      "additionalProperties": false,
+      "description": "User-provided substratum raster (GeoTIFF/ASC).\n\nThe raster places the bottom of the aquifer. It is read only when\n``[domain.depth_model] kind = \"raster\"``: ``domain.depth_model.quantity``\nthen says whether its values are an elevation or a thickness below the\ntop. Without that kind the raster is loaded but unused.",
+      "properties": {
+        "source": {
+          "const": "custom",
+          "default": "custom",
+          "description": "Discriminator tag selecting the 'custom' substratum provider.",
+          "examples": [
+            "custom"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to a custom substratum raster file (GeoTIFF, ASC).",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "default_crs": {
+          "default": "EPSG:2154",
+          "description": "Fallback CRS used only when the raster carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
+          "examples": [
+            "EPSG:2154"
+          ],
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "CustomSubstratumSource",
+      "type": "object"
+    },
     "DamCarveConfig": {
       "additionalProperties": false,
       "description": "Optional dam structure-carve of the MODEL-TOP DEM.\n\nA raw DEM samples the concrete dam crest as terrain, so the aquifer column\nunder the dam is lifted to the crest (~87 m on the Cheze 5 m DEM) and a\ncutoff-wall HFB band lands above the real seepage. This carves ONLY the dam\nfootprint of the model-top DEM down to the surrounding valley floor, so the\ncutoff wall can sit on the surveyed axis at the dam (not shifted downstream,\nand no need for a stream-burned DEM that would lower every channel). It is\nthe mirror of enforce_lakes: enforce_lakes carves the routing DEM, this\ncarves the top DEM, at the dam only.",
@@ -4020,7 +4062,7 @@
       "description": "Top-level ``[data]`` configuration for manager families.\n\nThe `types` list declares user-requested data families. The effective\nactive set can also include planner-inferred families deduced from other\nsections (domain, flow) depending on `inference_mode`.\n\nFor each active type, the matching nested section can be validated dynamically:\n- `geology` already uses its dedicated Pydantic model (`GeologyConfig`),\n- `oceanic` uses `OceanicConfig`,\n- the other data families are kept as validated mappings for now.\n\nUse this model for validation only. Runtime activation order is represented\nby ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.",
       "properties": {
         "types": {
-          "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.",
+          "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
           "items": {
             "type": "string"
           },
@@ -4352,6 +4394,19 @@
           ],
           "default": null,
           "description": "Soil moisture configuration (soil moisture index).",
+          "x-hmp-profile": "user"
+        },
+        "substratum": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SubstratumConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Substratum configuration (aquifer-bottom raster, elevation or thickness).",
           "x-hmp-profile": "user"
         }
       },
@@ -4913,11 +4968,12 @@
           "x-hmp-profile": "user"
         },
         "depth_model": {
-          "description": "Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'.",
+          "description": "Vertical domain model configuration. Use 'constant_thickness', 'flat_substratum', or 'raster' with a [data.substratum] raster.",
           "discriminator": {
             "mapping": {
               "constant_thickness": "#/$defs/ConstantThicknessDepthModel",
-              "flat_substratum": "#/$defs/FlatSubstratumDepthModel"
+              "flat_substratum": "#/$defs/FlatSubstratumDepthModel",
+              "raster": "#/$defs/RasterSubstratumDepthModel"
             },
             "propertyName": "kind"
           },
@@ -4927,6 +4983,9 @@
             },
             {
               "$ref": "#/$defs/FlatSubstratumDepthModel"
+            },
+            {
+              "$ref": "#/$defs/RasterSubstratumDepthModel"
             }
           ],
           "title": "Depth Model",
@@ -10327,21 +10386,6 @@
           ],
           "title": "Domain Extent",
           "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "bottom_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Path to a raster representing the aquifer bottom elevation. Must share the same grid as the model domain.",
-          "title": "Bottom Path",
           "x-hmp-profile": "user"
         },
         "reg_fold": {
@@ -17940,6 +17984,71 @@
       "title": "RadiationSourceConfig",
       "type": "object"
     },
+    "RasterSubstratumDepthModel": {
+      "additionalProperties": false,
+      "description": "Vertical model reading the substratum from a raster.\n\nThe raster is the one ``[data.substratum]`` declares. It is reprojected\nonto the grid of the top surface and must cover every cell of the domain,\nso the whole catchment for ``geographic.domain_extent = \"watershed\"`` and\nthe whole buffered box for ``\"box\"``. Bottom elevation is computed cell-wise\nas ``bottom = raster + offset`` for an elevation raster, and\n``bottom = top - scale * raster + offset`` for a thickness raster. It is then\ncapped at ``top - min_thickness``.",
+      "properties": {
+        "kind": {
+          "const": "raster",
+          "default": "raster",
+          "description": "Depth-model kind discriminator. Use 'raster' to read the substratum from the raster declared under [data.substratum].",
+          "examples": [
+            "raster"
+          ],
+          "title": "Kind",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "quantity": {
+          "default": "elevation",
+          "description": "What the raster values are. 'elevation': the absolute elevation of the substratum (metres, same datum as the DEM). 'thickness': the aquifer thickness below the top surface (metres).",
+          "enum": [
+            "elevation",
+            "thickness"
+          ],
+          "examples": [
+            "elevation"
+          ],
+          "title": "Quantity",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "offset": {
+          "default": 0.0,
+          "description": "Vertical shift added to the substratum everywhere (canonical metres). Positive raises it, so it thins the aquifer. One number to move the whole surface, for a sensitivity test for example. Accepts inline units, e.g. '-5 m'.",
+          "examples": [
+            0.0
+          ],
+          "title": "Offset",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "scale": {
+          "default": 1.0,
+          "description": "Factor applied to a thickness raster before it is subtracted from the top (dimensionless). Only valid with quantity = 'thickness'.",
+          "examples": [
+            1.0
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Scale",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "min_thickness": {
+          "default": 1.0,
+          "description": "Smallest aquifer thickness kept under the top (canonical metres). Where the raster places the substratum higher than top - min_thickness, it is lowered to that level and a warning counts the cells.",
+          "examples": [
+            1.0
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Min Thickness",
+          "type": "number",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "RasterSubstratumDepthModel",
+      "type": "object"
+    },
     "RechargeConfig": {
       "additionalProperties": false,
       "description": "Top-level recharge configuration.\n\nThe section groups recharge sources and an optional date window. Loaded\nrecharge is used by groundwater and coupled flow workflows as a time-series\nor gridded forcing.",
@@ -21201,6 +21310,28 @@
         }
       },
       "title": "StreamEnforcementConfig",
+      "type": "object"
+    },
+    "SubstratumConfig": {
+      "additionalProperties": false,
+      "description": "Top-level substratum variable configuration.\n\nExample TOML::\n\n    [[data.substratum.sources]]\n    source = \"custom\"\n    path = \"data/substratum/substratum_custom_bottom.tif\"",
+      "properties": {
+        "sources": {
+          "description": "Exactly one substratum data source: one bottom surface per model.",
+          "items": {
+            "$ref": "#/$defs/CustomSubstratumSource"
+          },
+          "maxItems": 1,
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "sources"
+      ],
+      "title": "SubstratumConfig",
       "type": "object"
     },
     "SyntheticGeographicConfig": {

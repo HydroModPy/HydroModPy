@@ -84,6 +84,7 @@ from hydromodpy.spatial.domain.capability import (
 )
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
+from hydromodpy.spatial.surface import Surface
 
 ExitCodeMapper = Callable[[BaseException], int]
 """How the runtime turns an exception into the status a shim reads."""
@@ -108,6 +109,9 @@ class _Resolved:
     mask_digest: str | None
     mask_bytes: int | None
     mask_layer: str | None
+    substratum_path: Path | None
+    substratum_digest: str | None
+    substratum_bytes: int | None
     effective_inputs: dict[str, Any]
     job_id: str
     warnings: tuple[str, ...]
@@ -210,7 +214,17 @@ def _resolve(job: JobDirectory) -> _Resolved:
     _refuse_a_file_that_is_not_the_one_asked_for(
         inputs.dem.sha256, digest=dem_digest, href=inputs.dem.href, member="dem"
     )
-    warnings.extend(_check_the_terrain_the_domain_will_stand_on(inputs.dem.href, path=dem_path))
+    warnings.extend(
+        _check_a_raster_input(
+            inputs.dem.href,
+            path=dem_path,
+            member="dem",
+            why_a_crs=(
+                "the domain is built on its grid; the working CRS of this capability "
+                "is the one the terrain declares"
+            ),
+        )
+    )
 
     mask_path = mask_digest = mask_bytes = mask_layer = None
     if inputs.mask is not None:
@@ -227,8 +241,45 @@ def _resolve(job: JobDirectory) -> _Resolved:
             msg="declare a mask, or drop mask_layer",
         )
 
+    substratum_path = substratum_digest = substratum_bytes = None
+    reads_a_raster = inputs.depth_model.kind == "raster"
+    if inputs.substratum is not None:
+        if not reads_a_raster:
+            raise refuse_request(
+                f"substratum names a raster, and depth_model kind "
+                f"{inputs.depth_model.kind!r} reads none",
+                loc=("inputs", "substratum"),
+                msg="drop substratum, or use depth_model kind 'raster'",
+            )
+        substratum_path = _resolve_file(job, inputs.substratum.href, member="substratum")
+        substratum_digest, substratum_bytes = sha256_file(substratum_path)
+        _refuse_a_file_that_is_not_the_one_asked_for(
+            inputs.substratum.sha256,
+            digest=substratum_digest,
+            href=inputs.substratum.href,
+            member="substratum",
+        )
+        warnings.extend(
+            _check_a_raster_input(
+                inputs.substratum.href,
+                path=substratum_path,
+                member="substratum",
+                why_a_crs="it is reprojected onto the grid of the dem",
+            )
+        )
+    elif reads_a_raster:
+        raise refuse_request(
+            "depth_model kind 'raster' reads the substratum raster, and the request declares none",
+            loc=("inputs", "substratum"),
+            msg="declare the substratum raster",
+        )
+
     effective_inputs = _effective_inputs(
-        inputs, dem_digest=dem_digest, mask_digest=mask_digest, mask_layer=mask_layer
+        inputs,
+        dem_digest=dem_digest,
+        mask_digest=mask_digest,
+        mask_layer=mask_layer,
+        substratum_digest=substratum_digest,
     )
     return _Resolved(
         inputs=inputs,
@@ -239,6 +290,9 @@ def _resolve(job: JobDirectory) -> _Resolved:
         mask_digest=mask_digest,
         mask_bytes=mask_bytes,
         mask_layer=mask_layer,
+        substratum_path=substratum_path,
+        substratum_digest=substratum_digest,
+        substratum_bytes=substratum_bytes,
         effective_inputs=effective_inputs,
         job_id=content_address(
             process_id=decl.id,
@@ -306,14 +360,15 @@ def _refuse_a_file_that_is_not_the_one_asked_for(
         )
 
 
-def _check_the_terrain_the_domain_will_stand_on(href: str, *, path: Path) -> tuple[str, ...]:
-    """Refuse a terrain no grid can be read off, and warn about what was ignored.
+def _check_a_raster_input(href: str, *, path: Path, member: str, why_a_crs: str) -> tuple[str, ...]:
+    """Refuse a raster no grid can be read off, and warn about what was ignored.
 
     The checks are on the input and not around the build: a file that is not a
     raster, a raster carrying no CRS, a grid no axis-aligned cell size describes
     -- each one is bad input, and without this they surfaced as an untyped
     ``HMPY.E000`` and exit 1, the code whose whole meaning is "this is a bug in
-    HydroModPy, report it".
+    HydroModPy, report it". The terrain and the substratum both go through it;
+    *why_a_crs* says what the CRS of that one is needed for.
     """
     try:
         with rasterio.open(str(path)) as source:
@@ -322,37 +377,34 @@ def _check_the_terrain_the_domain_will_stand_on(href: str, *, path: Path) -> tup
             transform = source.transform
     except rasterio.errors.RasterioError as exc:
         raise DataContractViolation(
-            f"input dem {href!r} cannot be opened as a raster: {exc}"
+            f"input {member} {href!r} cannot be opened as a raster: {exc}"
         ) from exc
     except OSError as exc:
-        raise DataContractViolation(f"input dem {href!r} cannot be read: {exc}") from exc
+        raise DataContractViolation(f"input {member} {href!r} cannot be read: {exc}") from exc
     if band_count < 1:
         raise DataContractViolation(
-            f"input dem {href!r} carries {band_count} band(s); "
+            f"input {member} {href!r} carries {band_count} band(s); "
             "an elevation model carries at least one"
         )
     if crs is None:
-        raise DataContractViolation(
-            f"input dem {href!r} carries no CRS, and the domain is built on its grid; "
-            "the working CRS of this capability is the one the terrain declares"
-        )
+        raise DataContractViolation(f"input {member} {href!r} carries no CRS, and {why_a_crs}")
     if transform.b or transform.d:
         # A rotated or sheared grid has no ``dx`` and no ``dy``: the cell size is
         # ``sqrt(a**2 + b**2)`` along one axis and the cell area is
         # ``abs(a*e - b*d)``. Refused rather than described with the two numbers
         # this document would otherwise publish, and refused rather than
-        # supported because ``build_surface_topo_from_dem`` derives its bounds
-        # from ``a`` and ``e`` alone and would place the surface wrong.
+        # supported because ``Surface.from_raster`` derives its bounds from
+        # ``a`` and ``e`` alone and would place the surface wrong.
         raise DataContractViolation(
-            f"input dem {href!r} carries a rotated or sheared transform "
+            f"input {member} {href!r} carries a rotated or sheared transform "
             f"(b={transform.b}, d={transform.d}); the domain is built on an "
-            "axis-aligned grid, so reproject the terrain to a north-up one first"
+            "axis-aligned grid, so reproject it to a north-up one first"
         )
     if band_count == 1:
         return ()
     return (
-        f"input dem {href!r} carries {band_count} bands; band 1 is read as the "
-        "top surface and the others are ignored",
+        f"input {member} {href!r} carries {band_count} bands; band 1 is read "
+        "and the others are ignored",
     )
 
 
@@ -362,6 +414,7 @@ def _effective_inputs(
     dem_digest: str,
     mask_digest: str | None,
     mask_layer: str | None,
+    substratum_digest: str | None,
 ) -> dict[str, Any]:
     """Return what the run really used, each file replaced by its digest.
 
@@ -370,11 +423,18 @@ def _effective_inputs(
     why *mask_layer* is the layer that was **resolved** and not the one that was
     written: a file holding one layer is read the same way whether the request
     named it or left the choice to the file.
+
+    A request without a substratum carries no ``substratum`` key at all, so
+    every ``job_id`` sealed before the member existed still names the same work.
     """
     payload = inputs.model_dump(mode="json")
     payload["dem"] = {"sha256": dem_digest}
     payload["mask"] = None if mask_digest is None else {"sha256": mask_digest}
     payload["mask_layer"] = mask_layer
+    if substratum_digest is None:
+        payload.pop("substratum")
+    else:
+        payload["substratum"] = {"sha256": substratum_digest}
     return payload
 
 
@@ -382,10 +442,33 @@ def _produce(job: JobDirectory, resolved: _Resolved) -> None:
     """Build the geometry and leave the four declared artefacts in ``outputs/``."""
     inputs = resolved.inputs
     surface_topo = build_surface_topo_from_dem(resolved.dem_path)
+    top = surface_topo.as_array()
+    with rasterio.open(str(resolved.dem_path)) as source:
+        transform = source.transform
+        crs = source.crs
+        bounds = source.bounds
+        nodata = source.nodata
+
+    active = _active_cells(
+        top,
+        nodata=nodata,
+        mask=resolved.mask_target,
+        transform=transform,
+        crs=crs,
+    )
+    # The mask is the extent here: a substratum raster has to cover the active
+    # cells, not the whole terrain the mask cuts them out of.
+    substratum_source = (
+        None
+        if resolved.substratum_path is None
+        else Surface.from_raster(resolved.substratum_path, name="substratum_source")
+    )
     try:
         domain = build_domain(
             DomainConfig(depth_model=inputs.depth_model),
             surface_topo=surface_topo,
+            substratum_source=substratum_source,
+            active_cells=active,
         )
     except ValueError as exc:
         # A depth model the terrain leaves no aquifer under: ``flat_like``
@@ -403,21 +486,7 @@ def _produce(job: JobDirectory, resolved: _Resolved) -> None:
             "the depth model produced no substratum, so the domain has no vertical extent"
         )
 
-    top = surface_topo.as_array()
     bottom = domain.substratum.as_array()
-    with rasterio.open(str(resolved.dem_path)) as source:
-        transform = source.transform
-        crs = source.crs
-        bounds = source.bounds
-        nodata = source.nodata
-
-    active = _active_cells(
-        top,
-        nodata=nodata,
-        mask=resolved.mask_target,
-        transform=transform,
-        crs=crs,
-    )
     # NaN outside the domain, on both elevation rasters. There is no aquifer
     # where the cell is inactive, and every other spelling of that publishes a
     # number: the DEM's own sentinel is not preserved by ``flat_like``, which
@@ -654,6 +723,13 @@ def _domain_document(
                 # the digest of the raster the bottom was derived from.
                 "top": {"input": "dem", "sha256": resolved.dem_digest},
                 "bottom": BOTTOM_PATH,
+                # The raster a ``raster`` depth model read, by input and digest
+                # like the top; null for a depth model that reads none.
+                "substratum": (
+                    None
+                    if resolved.substratum_digest is None
+                    else {"input": "substratum", "sha256": resolved.substratum_digest}
+                ),
                 "thickness": THICKNESS_PATH,
             }
         ],
@@ -681,10 +757,11 @@ def _domain_document(
 
 
 def _build_inputset(resolved: _Resolved) -> InputSet:
-    """Record what the job consumed: one or two files, and the parameters."""
+    """Record what the job consumed: one to three files, and the parameters."""
     parameters = dict(resolved.effective_inputs)
     parameters.pop("dem")
     parameters.pop("mask")
+    parameters.pop("substratum", None)
     resources = [
         InputResource(
             name="dem",
@@ -711,6 +788,18 @@ def _build_inputset(resolved: _Resolved) -> InputSet:
                 media_type=resolved.inputs.mask.type or GEOPACKAGE_MEDIA_TYPE,
                 bytes=resolved.mask_bytes,
                 sha256=resolved.mask_digest,
+            ),
+        )
+    if resolved.inputs.substratum is not None:
+        resources.insert(
+            len(resources) - 1,
+            InputResource(
+                name="substratum",
+                role="substratum",
+                href=resolved.inputs.substratum.href,
+                media_type=resolved.inputs.substratum.type or GEOTIFF_MEDIA_TYPE,
+                bytes=resolved.substratum_bytes,
+                sha256=resolved.substratum_digest,
             ),
         )
     return build_inputset(resources)

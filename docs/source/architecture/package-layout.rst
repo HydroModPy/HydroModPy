@@ -86,7 +86,7 @@ Subpackages
        registry (``data/sources.py``), planner
        (``data/planner.py``), DuckDB cache
        (``data/registry/catalog_duckdb.py``), and load contracts
-       (``data/contracts/``). 24 variables, several public APIs
+       (``data/contracts/``). 25 variables, several public APIs
        (Hub'Eau, BD TOPAGE, BRGM, IGN BD Alti, SHOM, SIM2). See
        :doc:`packages/data`.
    * - ``display/``

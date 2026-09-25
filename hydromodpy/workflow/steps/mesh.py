@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.exceptions import ConfigError, MeshError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.domain.build import read_substratum_source
 from hydromodpy.spatial.mesh.gmsh_grid import load_planar_mesh
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
@@ -242,6 +243,7 @@ def run_mesh_phase(
     extra_size_fields = _build_lake_mesh_refinement(
         cfg=cfg, section_data=mesh_section_data, setup_state=setup_state
     )
+    substratum_source = read_substratum_source(cfg.domain.depth_model, getattr(cfg, "data", None))
 
     # Gmsh is not reproducible run to run (see mesh_cache), so when caching is enabled
     # reuse a previously generated mesh whose inputs are unchanged instead of
@@ -256,6 +258,7 @@ def run_mesh_phase(
             constraints_mode=constraints_mode,
             extra_size_fields=extra_size_fields,
             domain_geographic=setup_state.domain_geographic,
+            substratum_source=substratum_source,
         )
         if mesh_cache_is_valid(mesh_dir, cache_key):
             # The description was written by the build that produced this very
@@ -284,6 +287,7 @@ def run_mesh_phase(
         workspace=setup_state.workspace,
         geographic_features=setup_state.geographic_features,
         domain_geographic=setup_state.domain_geographic,
+        substratum_source=substratum_source,
         extra_size_fields=extra_size_fields,
     )
     setup_state.mesh_summary = mesh_runtime.summary

@@ -129,7 +129,7 @@
     "section": "geographic",
     "anchor": "geographic-source-mode",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L545",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L553",
     "description": "Geographic runtime mode. 'standard' keeps the historical DEM/outlet/polygon workflow. 'synthetic' builds one analytical support from [geographic.synthetic]."
   },
   {
@@ -141,7 +141,7 @@
     "section": "geographic",
     "anchor": "geographic-catchment",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L553",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L561",
     "description": "Catchment definition payload used when source_mode='standard'. Discriminated by 'catch_def' on the nested table: 'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'."
   },
   {
@@ -249,7 +249,7 @@
     "section": "geographic",
     "anchor": "geographic-crs-project",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L565",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L573",
     "description": "Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the input DEM."
   },
   {
@@ -261,7 +261,7 @@
     "section": "geographic",
     "anchor": "geographic-dem-correc-type",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L569",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L577",
     "description": "DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point."
   },
   {
@@ -273,7 +273,7 @@
     "section": "geographic",
     "anchor": "geographic-terrain-engine",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L573",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L581",
     "description": "Flow-routing engine that conditions the DEM and delineates the catchment. Unset uses the engine this build defaults to. A string and not an enumeration: the values that resolve depend on what is installed beside HydroModPy, which is how a t"
   },
   {
@@ -285,20 +285,8 @@
     "section": "geographic",
     "anchor": "geographic-domain-extent",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L582",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L590",
     "description": "Selects the DEM surface used for the domain. 'box' (default) keeps the full buffered rectangular support. 'watershed' / 'watershed_buff' select the catchment (optionally with a buffer ring) surface. Note: the MODFLOW 6 mesh still covers the"
-  },
-  {
-    "path": "geographic.bottom_path",
-    "name": "bottom_path",
-    "type": "Path | None",
-    "profile": "user",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-bottom-path",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L594",
-    "description": "Path to a raster representing the aquifer bottom elevation. Must share the same grid as the model domain."
   },
   {
     "path": "geographic.reg_fold",
@@ -1119,14 +1107,14 @@
   {
     "path": "domain.depth_model",
     "name": "depth_model",
-    "type": "ConstantThicknessDepthModel | FlatSubstratumDepthModel",
+    "type": "ConstantThicknessDepthModel | FlatSubstratumDepthModel | RasterSubstratumDepthModel",
     "profile": "user",
     "stability": "stable",
     "section": "domain",
     "anchor": "domain-depth-model",
     "page": "domain.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/domain_config.py#L43",
-    "description": "Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'."
+    "description": "Vertical domain model configuration. Use 'constant_thickness', 'flat_substratum', or 'raster' with a [data.substratum] raster."
   },
   {
     "path": "domain.depth_model.kind",
@@ -1165,6 +1153,54 @@
     "description": "Flat substratum elevation applied over the full domain (canonical metres). Accepts inline units, e.g. '40 m'. This is an ABSOLUTE elevation, not a depth below topography: where the land surface drops under it, no aquifer is left. Use 'const"
   },
   {
+    "path": "domain.depth_model.quantity",
+    "name": "quantity",
+    "type": "Literal['elevation', 'thickness']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "domain",
+    "anchor": "domain-depth-model-quantity",
+    "page": "domain.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L83",
+    "description": "What the raster values are. 'elevation': the absolute elevation of the substratum (metres, same datum as the DEM). 'thickness': the aquifer thickness below the top surface (metres)."
+  },
+  {
+    "path": "domain.depth_model.offset",
+    "name": "offset",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "domain",
+    "anchor": "domain-depth-model-offset",
+    "page": "domain.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L91",
+    "description": "Vertical shift added to the substratum everywhere (canonical metres). Positive raises it, so it thins the aquifer. One number to move the whole surface, for a sensitivity test for example. Accepts inline units, e.g. '-5 m'."
+  },
+  {
+    "path": "domain.depth_model.scale",
+    "name": "scale",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "domain",
+    "anchor": "domain-depth-model-scale",
+    "page": "domain.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L99",
+    "description": "Factor applied to a thickness raster before it is subtracted from the top (dimensionless). Only valid with quantity = 'thickness'."
+  },
+  {
+    "path": "domain.depth_model.min_thickness",
+    "name": "min_thickness",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "domain",
+    "anchor": "domain-depth-model-min-thickness",
+    "page": "domain.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L107",
+    "description": "Smallest aquifer thickness kept under the top (canonical metres). Where the raster places the substratum higher than top - min_thickness, it is lowered to that level and a warning counts the cells."
+  },
+  {
     "path": "data.types",
     "name": "types",
     "type": "list[str]",
@@ -1173,7 +1209,7 @@
     "section": "data",
     "anchor": "data-types",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L109",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L111",
     "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydro"
   },
   {
@@ -1185,7 +1221,7 @@
     "section": "data",
     "anchor": "data-inference-mode",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L118",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L120",
     "description": "Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred type has no explicit data.<type> section (except geo"
   },
   {
@@ -1197,7 +1233,7 @@
     "section": "data",
     "anchor": "data-dem",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L128",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L130",
     "description": "DEM configuration used when 'dem' is listed in data.types."
   },
   {
@@ -1365,7 +1401,7 @@
     "section": "data",
     "anchor": "data-geology",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L132",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L134",
     "description": "Geology configuration used when 'geology' is listed in data.types."
   },
   {
@@ -1545,7 +1581,7 @@
     "section": "data",
     "anchor": "data-hydrography",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L136",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L138",
     "description": "Hydrography configuration (stream network vector data)."
   },
   {
@@ -1692,7 +1728,7 @@
     "section": "data",
     "anchor": "data-hydrometry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L140",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L142",
     "description": "Hydrometry configuration (discharge time-series)."
   },
   {
@@ -1962,7 +1998,7 @@
     "section": "data",
     "anchor": "data-intermittency",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L144",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L146",
     "description": "Intermittency configuration (ONDE stream flow-state observations)."
   },
   {
@@ -2220,7 +2256,7 @@
     "section": "data",
     "anchor": "data-lake-abacus",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L148",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L150",
     "description": "Lake abacus configuration (stage-volume-area lookup table)."
   },
   {
@@ -2292,7 +2328,7 @@
     "section": "data",
     "anchor": "data-lake-bathymetry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L152",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L154",
     "description": "Lake bathymetry configuration (lake-bed elevation raster)."
   },
   {
@@ -2364,7 +2400,7 @@
     "section": "data",
     "anchor": "data-lake-geometry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L156",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L158",
     "description": "Lake geometry configuration (lake/reservoir footprint vector)."
   },
   {
@@ -2436,7 +2472,7 @@
     "section": "data",
     "anchor": "data-lake-inflow",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L160",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L162",
     "description": "Lake inflow configuration (observed inflow volumetric time series)."
   },
   {
@@ -2658,7 +2694,7 @@
     "section": "data",
     "anchor": "data-lake-levels",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L164",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L166",
     "description": "Lake levels configuration (observed water-level time series)."
   },
   {
@@ -2880,7 +2916,7 @@
     "section": "data",
     "anchor": "data-lake-outflow",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L168",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L170",
     "description": "Lake outflow configuration (observed outflow volumetric time series)."
   },
   {
@@ -3102,7 +3138,7 @@
     "section": "data",
     "anchor": "data-lake-withdrawal",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L172",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L174",
     "description": "Lake withdrawal configuration (observed withdrawal volumetric time series)."
   },
   {
@@ -3324,7 +3360,7 @@
     "section": "data",
     "anchor": "data-oceanic",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L176",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L178",
     "description": "Oceanic configuration used when 'oceanic' is listed in data.types."
   },
   {
@@ -3582,7 +3618,7 @@
     "section": "data",
     "anchor": "data-piezometry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L180",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L182",
     "description": "Piezometry configuration (groundwater level time-series)."
   },
   {
@@ -3852,7 +3888,7 @@
     "section": "data",
     "anchor": "data-water-quality",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L184",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L186",
     "description": "Water quality configuration (physico-chemical parameters)."
   },
   {
@@ -4122,7 +4158,7 @@
     "section": "data",
     "anchor": "data-recharge",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L188",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L190",
     "description": "Recharge configuration (drainage / soil infiltration time series)."
   },
   {
@@ -4440,7 +4476,7 @@
     "section": "data",
     "anchor": "data-runoff",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L192",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L194",
     "description": "Runoff configuration (surface runoff time series)."
   },
   {
@@ -4662,7 +4698,7 @@
     "section": "data",
     "anchor": "data-precipitation",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L196",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L198",
     "description": "Precipitation configuration (liquid and solid precipitation)."
   },
   {
@@ -4896,7 +4932,7 @@
     "section": "data",
     "anchor": "data-etp",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L200",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L202",
     "description": "ETP configuration (potential evapotranspiration)."
   },
   {
@@ -5142,7 +5178,7 @@
     "section": "data",
     "anchor": "data-temperature",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L204",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L206",
     "description": "Temperature configuration (air temperature time series)."
   },
   {
@@ -5364,7 +5400,7 @@
     "section": "data",
     "anchor": "data-wind",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L208",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L210",
     "description": "Wind configuration (wind speed time series)."
   },
   {
@@ -5586,7 +5622,7 @@
     "section": "data",
     "anchor": "data-humidity",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L212",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L214",
     "description": "Humidity configuration (relative humidity time series)."
   },
   {
@@ -5808,7 +5844,7 @@
     "section": "data",
     "anchor": "data-radiation",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L216",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L218",
     "description": "Radiation configuration (atmospheric and visible radiation)."
   },
   {
@@ -6042,7 +6078,7 @@
     "section": "data",
     "anchor": "data-soil-moisture",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L220",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L222",
     "description": "Soil moisture configuration (soil moisture index)."
   },
   {
@@ -6254,6 +6290,66 @@
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L33",
     "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file."
+  },
+  {
+    "path": "data.substratum",
+    "name": "substratum",
+    "type": "SubstratumConfig | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-substratum",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L226",
+    "description": "Substratum configuration (aquifer-bottom raster, elevation or thickness)."
+  },
+  {
+    "path": "data.substratum.sources",
+    "name": "sources",
+    "type": "list[CustomSubstratumSource]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-substratum-sources",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/substratum/config.py#L55",
+    "description": "Exactly one substratum data source: one bottom surface per model."
+  },
+  {
+    "path": "data.substratum.sources.source",
+    "name": "source",
+    "type": "Literal['custom']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-substratum-sources-source",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/substratum/config.py#L24",
+    "description": "Discriminator tag selecting the 'custom' substratum provider."
+  },
+  {
+    "path": "data.substratum.sources.path",
+    "name": "path",
+    "type": "Path",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-substratum-sources-path",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/substratum/config.py#L28",
+    "description": "Path to a custom substratum raster file (GeoTIFF, ASC)."
+  },
+  {
+    "path": "data.substratum.sources.default_crs",
+    "name": "default_crs",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-substratum-sources-default-crs",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/substratum/config.py#L36",
+    "description": "Fallback CRS used only when the raster carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset."
   },
   {
     "path": "flow.runtime_backend",

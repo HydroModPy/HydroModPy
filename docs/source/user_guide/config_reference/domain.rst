@@ -358,9 +358,9 @@ Fields
         <code class="hmp-field-toml">[domain.depth_model]</code>
       </div>
 
-   :bdg-primary:`kind = "constant_thickness" | "flat_substratum"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/domain_config.py#L43>`__
+   :bdg-primary:`kind = "constant_thickness" | "flat_substratum" | "raster"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/domain_config.py#L43>`__
 
-      Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'.
+      Vertical domain model configuration. Use 'constant_thickness', 'flat_substratum', or 'raster' with a [data.substratum] raster.
 
       Pick a tab below: setting ``kind`` selects the matching schema.
 
@@ -409,6 +409,81 @@ Fields
                :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L52>`__
 
                   Flat substratum elevation applied over the full domain (canonical metres). Accepts inline units, e.g. '40 m'. This is an ABSOLUTE elevation, not a depth below topography: where the land surface drops under it, no aquifer is left. Use 'constant_thickness' to follow the relief instead.
+
+
+
+      .. tab-item:: raster
+
+         TOML: ``[domain.depth_model]`` with ``kind = "raster"`` -- model ``RasterSubstratumDepthModel``.
+
+         .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. index:: ! quantity
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: domain-depth-model-quantity
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="domain.depth_model.quantity">
+                    <code class="hmp-field-name">quantity</code>
+                  </div>
+
+               :bdg-primary:`str` :bdg-secondary:`default = "elevation"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L83>`__
+
+                  What the raster values are. 'elevation': the absolute elevation of the substratum (metres, same datum as the DEM). 'thickness': the aquifer thickness below the top surface (metres).
+
+               .. rst-class:: hmp-field-values
+
+               **One of:** ``"elevation"`` ``"thickness"``
+
+
+            .. index:: ! offset
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: domain-depth-model-offset
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="domain.depth_model.offset">
+                    <code class="hmp-field-name">offset</code>
+                  </div>
+
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L91>`__
+
+                  Vertical shift added to the substratum everywhere (canonical metres). Positive raises it, so it thins the aquifer. One number to move the whole surface, for a sensitivity test for example. Accepts inline units, e.g. '-5 m'.
+
+
+            .. index:: ! scale
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: domain-depth-model-scale
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="domain.depth_model.scale">
+                    <code class="hmp-field-name">scale</code>
+                  </div>
+
+               :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L99>`__
+
+                  Factor applied to a thickness raster before it is subtracted from the top (dimensionless). Only valid with quantity = 'thickness'.
+
+
+            .. index:: ! min_thickness
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: domain-depth-model-min-thickness
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="domain.depth_model.min_thickness">
+                    <code class="hmp-field-name">min_thickness</code>
+                  </div>
+
+               :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L107>`__
+
+                  Smallest aquifer thickness kept under the top (canonical metres). Where the raster places the substratum higher than top - min_thickness, it is lowered to that level and a warning counts the cells.
 
 
 

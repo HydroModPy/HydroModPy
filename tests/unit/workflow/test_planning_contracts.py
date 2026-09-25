@@ -519,3 +519,20 @@ def test_resolve_run_config_shares_every_section_the_override_does_not_touch(tmp
     assert resolved.flow is cfg.flow
     assert resolved.simulation is cfg.simulation
     assert resolved.domain is not cfg.domain
+
+
+def test_resolve_run_config_refuses_a_thickness_on_a_kind_that_has_none(tmp_path) -> None:
+    """Assigning the field on a flat substratum used to raise a raw Pydantic error."""
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.workspace.config import WorkspaceConfig
+    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+
+    cfg = HydroModPyConfig(
+        workflow={"mode": "simulation"},
+        workspace=WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
+        geographic=GeographicConfig(source_mode="synthetic"),
+        domain={"depth_model": {"kind": "flat_substratum", "substratum_elevation": 10.0}},
+    )
+
+    with pytest.raises(ConfigError, match="'flat_substratum' has no thickness"):
+        planning_module.resolve_run_config(cfg, thickness=30.0)

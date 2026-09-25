@@ -31,7 +31,7 @@ class VariableSpec:
 
     name: str
     file_prefix: str  # filename token (e.g. water_quality -> "waterquality")
-    category: str  # "point" | "grid" | "dem" | "geology" | "hydrography"
+    category: str  # "point" | "grid" | "dem" | "raster" | "geology" | "hydrography" | "table"
     kind: str  # auto_scan scanner: "timeseries" | "raster" | "vector"
     unit: str
     label_fr: str
@@ -114,7 +114,7 @@ VARIABLES: tuple[VariableSpec, ...] = (
     VariableSpec(
         "lake_bathymetry",
         "lake_bathymetry",
-        "dem",
+        "raster",
         "raster",
         "m",
         "bathymetrie du lac",
@@ -164,6 +164,15 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "m3/s",
         "prelevements sur le lac",
         "parquet",
+    ),
+    VariableSpec(
+        "substratum",
+        "substratum",
+        "raster",
+        "raster",
+        "m",
+        "substratum (fond de l'aquifere)",
+        "geotiff_cog",
     ),
 )
 
@@ -254,6 +263,29 @@ Each file must carry its CRS: GeoTIFF tags, a `.prj` sidecar for `.asc`, or a
 - `dem_custom_EXAMPLE.tif`, `dem_custom_EXAMPLE.asc`, `dem_custom_EXAMPLE.nc`.
 """
 
+_README_RASTER_BODY = """\
+## Accepted formats
+
+| format                   | file name                         |
+|--------------------------|-----------------------------------|
+| GeoTIFF (`.tif`/`.tiff`) | `{prefix}_custom_<name>.tif`      |
+| Esri ASCII (`.asc`)      | `{prefix}_custom_<name>.asc`      |
+
+One band, in metres. Each file should carry its CRS: GeoTIFF tags, or a `.prj`
+sidecar for `.asc`. A file without one is read in `default_crs` of its source
+(EPSG:2154 unless set), with a warning.
+
+## Wire it in your run TOML
+
+    [[data.{name}.sources]]
+    source = "custom"
+    path = "data/{name}/{prefix}_custom_my_file.tif"
+
+## Example files in this folder
+
+- `{prefix}_custom_EXAMPLE.tif`, `{prefix}_custom_EXAMPLE.asc`.
+"""
+
 _README_GEOLOGY_BODY = """\
 ## Accepted formats
 
@@ -331,6 +363,7 @@ _README_BODY = {
     "point": _README_POINT_BODY,
     "grid": _README_GRID_BODY,
     "dem": _README_DEM_BODY,
+    "raster": _README_RASTER_BODY,
     "geology": _README_GEOLOGY_BODY,
     "hydrography": _README_HYDROGRAPHY_BODY,
     "table": _README_TABLE_BODY,
@@ -386,6 +419,8 @@ types = []
 [domain]
 
 [domain.depth_model]
+# Also "flat_substratum" (one elevation), or "raster" to read the substratum
+# from [[data.substratum.sources]] (quantity = "elevation" or "thickness").
 kind = "constant_thickness"
 thickness = "50 m"
 

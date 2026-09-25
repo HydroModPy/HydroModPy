@@ -50,7 +50,7 @@ class _DummyGeographic:
 
 
 class _DummyDomain:
-    def __init__(self, config, surface_topo) -> None:
+    def __init__(self, config, surface_topo, substratum_source=None, active_cells=None) -> None:
         self.config = config
         self.surface_topo = surface_topo
 

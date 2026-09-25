@@ -43,7 +43,8 @@ class DomainConfig(HydroModelBase):
     depth_model: Annotated[DepthModelConfig, Profile.USER] = Field(
         default_factory=ConstantThicknessDepthModel,
         description=(
-            "Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'."
+            "Vertical domain model configuration. Use 'constant_thickness', "
+            "'flat_substratum', or 'raster' with a [data.substratum] raster."
         ),
     )
 

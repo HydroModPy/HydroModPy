@@ -14,11 +14,16 @@ transformations that conceptually belong to a surface remain implemented here.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isclose
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.raster_support import RasterSupport
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -60,6 +65,56 @@ class Surface:
         - and, when available, the matching ``RasterSupport``.
         """
         values = np.asarray(dem_values, dtype=float)
+        return cls(name=name, values=values, support=support)
+
+    @classmethod
+    def from_raster(
+        cls,
+        path: str | Path,
+        *,
+        name: str,
+        default_crs: str | None = None,
+    ) -> Surface:
+        """Read band 1 of a raster file into a surface on the file's own grid.
+
+        The bounds come from the affine transform, and the nodata sentinel of
+        the file is kept in the values and on the support. *default_crs* is
+        used only when the file declares no CRS.
+        """
+        import rasterio
+
+        raster_path = Path(path)
+        if not raster_path.exists():
+            raise FileNotFoundError(f"Raster not found: {raster_path}")
+
+        with rasterio.open(str(raster_path)) as src:
+            values = np.asarray(src.read(1), dtype=float)
+            transform = src.transform
+            nodata = src.nodata
+            declared_crs = src.crs.to_string() if src.crs is not None else None
+        crs = declared_crs if declared_crs is not None else default_crs
+        if declared_crs is None and default_crs is not None:
+            logger.warning("Raster %s declares no CRS; it is read as %s.", raster_path, default_crs)
+
+        resolution_x = float(transform.a)
+        resolution_y = float(transform.e)
+        xmin = float(transform.c)
+        ymax = float(transform.f)
+        xmax = xmin + values.shape[1] * resolution_x
+        ymin = ymax + values.shape[0] * resolution_y
+        support = RasterSupport.from_georeferencing(
+            {
+                "crs": crs,
+                "dx": abs(resolution_x),
+                "dy": abs(resolution_y),
+                "xmin": xmin,
+                "xmax": xmax,
+                "ymin": ymin,
+                "ymax": ymax,
+            },
+            shape=values.shape,
+            nodata=nodata,
+        )
         return cls(name=name, values=values, support=support)
 
     def as_array(self) -> np.ndarray:
@@ -273,50 +328,15 @@ class Surface:
         Only raster shape changes. Geographic domain (CRS + extent) remains the
         one carried by ``self.support``.
         """
-        from rasterio.enums import Resampling
-        from rasterio.transform import from_bounds
-        from rasterio.warp import reproject
-
         if self.support is None:
             raise ValueError(f"Surface '{self.name}' has no RasterSupport.")
         self.support.assert_complete_domain()
 
-        source = np.asarray(self.as_array(), dtype=float)
         src = self.support
-
-        src_transform = from_bounds(
-            float(src.xmin),
-            float(src.ymin),
-            float(src.xmax),
-            float(src.ymax),
-            int(src.ncols),
-            int(src.nrows),
-        )
         target_nrows_int = int(target_nrows)
         target_ncols_int = int(target_ncols)
         if target_nrows_int < 1 or target_ncols_int < 1:
             raise ValueError("target_nrows and target_ncols must be >= 1.")
-
-        dst_transform = from_bounds(
-            float(src.xmin),
-            float(src.ymin),
-            float(src.xmax),
-            float(src.ymax),
-            target_ncols_int,
-            target_nrows_int,
-        )
-
-        method = str(resampling).strip().lower()
-        if method == "bilinear":
-            rs = Resampling.bilinear
-        elif method == "average":
-            rs = Resampling.average
-        elif method == "nearest":
-            rs = Resampling.nearest
-        else:
-            raise ValueError(
-                f"Unsupported resampling='{resampling}'. Allowed: bilinear, average, nearest."
-            )
 
         nodata_value: float
         if nodata is not None:
@@ -326,22 +346,6 @@ class Surface:
         else:
             nodata_value = -9999.0
 
-        destination = np.full(
-            (target_nrows_int, target_ncols_int),
-            nodata_value,
-            dtype=float,
-        )
-        reproject(
-            source=source,
-            destination=destination,
-            src_transform=src_transform,
-            src_crs=src.crs,
-            dst_transform=dst_transform,
-            dst_crs=src.crs,
-            src_nodata=nodata_value,
-            dst_nodata=nodata_value,
-            resampling=rs,
-        )
         xmin = float(src.xmin)
         xmax = float(src.xmax)
         ymin = float(src.ymin)
@@ -358,8 +362,131 @@ class Surface:
             ncols=target_ncols_int,
             nodata=nodata_value,
         )
+        destination = _warp(
+            np.asarray(self.as_array(), dtype=float),
+            src=src,
+            dst=out_support,
+            resampling=resampling,
+            nodata=nodata_value,
+        )
         return Surface(
             name=(self.name if name is None else name),
             values=destination,
             support=out_support,
         )
+
+    def reprojected_onto(
+        self,
+        support: RasterSupport,
+        *,
+        resampling: str | None = None,
+        name: str | None = None,
+    ) -> Surface:
+        """Return this surface on *support*, whatever its CRS, extent and shape.
+
+        The values of the returned surface are NaN on every cell this surface
+        carries no data for: outside its extent, or on its nodata sentinel.
+        The returned surface takes *support* by reference, so a caller aligns
+        it cell by cell with the surface *support* came from.
+
+        A surface already on the grid of *support* is copied, not resampled.
+        Otherwise *resampling* defaults to ``average`` when this surface is
+        finer than the target in the same CRS, and to ``bilinear`` otherwise.
+        """
+        if self.support is None:
+            raise ValueError(
+                f"Surface '{self.name}' has no RasterSupport and cannot be reprojected."
+            )
+        self.support.assert_complete_domain()
+        support.assert_complete_domain()
+        self.assert_support_matches_values()
+
+        source = self.as_array().copy()
+        if self.support.nodata is not None:
+            source[source == float(self.support.nodata)] = np.nan
+        out_name = self.name if name is None else name
+        if _same_grid(self.support, support):
+            return Surface(name=out_name, values=source, support=support)
+
+        method = resampling
+        if method is None:
+            method = "average" if _is_finer(self.support, support) else "bilinear"
+        destination = _warp(source, src=self.support, dst=support, resampling=method, nodata=np.nan)
+        return Surface(name=out_name, values=destination, support=support)
+
+
+_RESAMPLING_NAMES = ("bilinear", "average", "nearest")
+
+
+def _warp(
+    source: np.ndarray,
+    *,
+    src: RasterSupport,
+    dst: RasterSupport,
+    resampling: str,
+    nodata: float,
+) -> np.ndarray:
+    """Resample *source* from the grid of *src* onto the grid of *dst*.
+
+    Both grids are north-up and described by their bounds and shape. Cells of
+    *dst* that no source cell reaches keep *nodata*.
+    """
+    from rasterio.enums import Resampling
+    from rasterio.transform import from_bounds
+    from rasterio.warp import reproject
+
+    method = str(resampling).strip().lower()
+    if method not in _RESAMPLING_NAMES:
+        raise ValueError(
+            f"Unsupported resampling='{resampling}'. Allowed: {', '.join(_RESAMPLING_NAMES)}."
+        )
+
+    def _transform(support: RasterSupport) -> Any:
+        return from_bounds(
+            float(support.xmin),
+            float(support.ymin),
+            float(support.xmax),
+            float(support.ymax),
+            int(support.ncols),
+            int(support.nrows),
+        )
+
+    destination = np.full((int(dst.nrows), int(dst.ncols)), nodata, dtype=float)
+    reproject(
+        source=source,
+        destination=destination,
+        src_transform=_transform(src),
+        src_crs=src.crs,
+        dst_transform=_transform(dst),
+        dst_crs=dst.crs,
+        src_nodata=nodata,
+        dst_nodata=nodata,
+        resampling=getattr(Resampling, method),
+    )
+    return destination
+
+
+def _same_grid(a: RasterSupport, b: RasterSupport, *, atol: float = 1.0e-9) -> bool:
+    """Return True when two supports place the same cells at the same place."""
+    if (int(a.nrows), int(a.ncols)) != (int(b.nrows), int(b.ncols)):
+        return False
+    if str(a.crs).strip().lower() != str(b.crs).strip().lower():
+        return False
+    return all(
+        isclose(float(getattr(a, key)), float(getattr(b, key)), rel_tol=0.0, abs_tol=atol)
+        for key in ("xmin", "xmax", "ymin", "ymax")
+    )
+
+
+def _is_finer(a: RasterSupport, b: RasterSupport) -> bool:
+    """Return True when the cells of *a* are smaller than those of *b* in one CRS.
+
+    Across two CRSs the cell sizes are not comparable, and the answer is False.
+    """
+    if str(a.crs).strip().lower() != str(b.crs).strip().lower():
+        return False
+    area_a = (float(a.xmax) - float(a.xmin)) * (float(a.ymax) - float(a.ymin))
+    area_b = (float(b.xmax) - float(b.xmin)) * (float(b.ymax) - float(b.ymin))
+    cell_a = area_a / (int(a.nrows) * int(a.ncols))
+    cell_b = area_b / (int(b.nrows) * int(b.ncols))
+    return cell_a < cell_b

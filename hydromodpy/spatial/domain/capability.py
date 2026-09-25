@@ -85,6 +85,14 @@ class DomainBuildRequest(HydroModelBase):
             "the [domain.depth_model] section of a project, verbatim"
         ),
     )
+    substratum: Annotated[FileLink | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "raster the substratum is read from, carrying its own CRS; required by a "
+            "depth model of kind 'raster' and refused by any other. Once reprojected "
+            "onto the grid of the dem it must cover every active cell"
+        ),
+    )
     mask: Annotated[FileLink | None, Profile.USER] = Field(
         default=None,
         description=(
@@ -182,7 +190,7 @@ DOMAIN_BUILD = CapabilityDecl(
     # scratch root. The test that runs the capability with a controlled TMPDIR
     # is what holds this to be true.
     writes_outside_jobdir=(),
-    # Two files in, four files out, and no provider of any kind. This is the
+    # Up to three files in, four files out, and no provider of any kind. This is the
     # first capability of the build that is a pure function of its inputs, and
     # the egress gate is what makes the claim refutable.
     reaches_network=(),

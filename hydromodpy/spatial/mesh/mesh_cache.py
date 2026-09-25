@@ -43,6 +43,8 @@ import hashlib
 import json
 from pathlib import Path
 
+import numpy as np
+
 _CACHE_KEY_SUFFIX = ".cachekey"
 _MESH_FILENAME = "mesh_catchment.msh"
 _BUNDLE_DIRNAME = "mesh_catchment_bundle"
@@ -59,6 +61,14 @@ def _file_digest(path: object) -> str:
     with open(file_path, "rb") as handle:
         for chunk in iter(lambda: handle.read(1 << 20), b""):
             digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _surface_digest(surface: object) -> str:
+    """SHA-256 of a surface's values and of the grid they sit on."""
+    values = np.ascontiguousarray(np.asarray(surface.as_array(), dtype=float))
+    digest = hashlib.sha256(values.tobytes())
+    digest.update(repr(surface.support).encode("utf-8"))
     return digest.hexdigest()
 
 
@@ -81,6 +91,7 @@ def compute_mesh_cache_key(
     constraints_mode: object,
     extra_size_fields: object,
     domain_geographic: object,
+    substratum_source: object | None = None,
 ) -> str:
     """Hash the inputs that determine the generated mesh (geometry, not physics).
 
@@ -92,6 +103,11 @@ def compute_mesh_cache_key(
     geometry is identical, which would make the key vary and the cache never hit. The
     config plus the raw DEM capture every mesh-determining input; ``extra_size_fields``
     carries the lake/dam refinement.
+
+    A ``raster`` depth model adds the raster it reads, hashed by its values and
+    its grid: the bundle carries the substratum, and a raster edited under an
+    unchanged configuration would otherwise hit a stale bundle. The part is
+    absent for any other depth model, so their keys do not move.
     """
     parts = {
         "mesh_config": _config_payload(section_data),
@@ -101,6 +117,8 @@ def compute_mesh_cache_key(
         "extra_size_fields": repr(extra_size_fields),
         "regional_dem": _file_digest(getattr(domain_geographic, "regional_dem_path", None)),
     }
+    if substratum_source is not None:
+        parts["substratum"] = _surface_digest(substratum_source)
     payload = json.dumps(parts, sort_keys=True, default=str).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
 

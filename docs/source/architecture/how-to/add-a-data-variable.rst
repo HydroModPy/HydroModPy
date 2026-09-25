@@ -2,7 +2,7 @@ Add a Data Variable
 ===================
 
 A *data variable* is one ``[data.<name>]`` section of a project TOML, loaded
-by one manager and stored in the input cache. Twenty-four ship under
+by one manager and stored in the input cache. Twenty-five ship under
 ``hydromodpy/data/variables/``; their single list is ``VARIABLE_SPECS`` in
 ``hydromodpy/data/loading/_dispatch.py``.
 
@@ -20,7 +20,10 @@ Pick a manager base
 - ``BaseVariableManager`` for station chronicles (``PointRecord``): it caches
   one file per station and asks a provider only for the missing periods.
 - ``BaseFileManager`` for a variable read only from the user's own files
-  (``lake_abacus``, ``lake_bathymetry``, ``lake_geometry``).
+  (``lake_abacus``, ``lake_bathymetry``, ``lake_geometry``, ``substratum``).
+  ``RasterFileManager``, in the same module, is the further-specialized base
+  for a single-band raster read only from the user's own files
+  (``lake_bathymetry``, ``substratum``): it needs only ``VARIABLE_NAME``.
 
 All three live in ``hydromodpy/data/managers/``. ``wind`` is the shortest
 grid variable to copy, ``hydrometry`` the shortest station variable.

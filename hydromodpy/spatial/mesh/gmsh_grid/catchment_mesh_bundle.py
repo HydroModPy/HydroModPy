@@ -29,6 +29,7 @@ from hydromodpy.spatial.domain.build import build_domain
 from hydromodpy.spatial.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     FlatSubstratumDepthModel,
+    RasterSubstratumDepthModel,
 )
 from hydromodpy.spatial.domain.domain import Domain
 from hydromodpy.spatial.mesh.gmsh_grid._geology_bundle_export import _compute_geology_payload
@@ -57,6 +58,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
 from hydromodpy.spatial.mesh.gmsh_grid.exchange_api import load_planar_mesh
+from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 
 BUNDLE_SCHEMA_VERSION = "mesh_catchment_bundle_v1"
@@ -179,11 +181,13 @@ def _sample_surface(surface, x_values, y_values) -> np.ndarray:
     return PreparedSurfaceSampler.from_surface(surface).sample(x_values, y_values)
 
 
-def _build_domain_for_bundle(*, surface, domain_cfg: object | None) -> Domain:
+def _build_domain_for_bundle(
+    *, surface, domain_cfg: object | None, substratum_source: Surface | None
+) -> Domain:
     """Resolve topography/substratum surfaces used by bundle export."""
     if surface is None:
         raise ValueError("domain_geographic.surface_topo is required for bundle export")
-    domain = build_domain(domain_cfg, surface_topo=surface)
+    domain = build_domain(domain_cfg, surface_topo=surface, substratum_source=substratum_source)
     if domain.substratum is None:
         raise ValueError(
             "domain.depth_model did not produce a substratum surface for bundle export"
@@ -203,6 +207,14 @@ def _serialize_depth_model(domain: Domain) -> dict[str, Any]:
         return {
             "kind": str(depth_model.kind),
             "substratum_elevation_m": float(depth_model.substratum_elevation),
+        }
+    if isinstance(depth_model, RasterSubstratumDepthModel):
+        return {
+            "kind": str(depth_model.kind),
+            "quantity": str(depth_model.quantity),
+            "offset_m": float(depth_model.offset),
+            "scale": float(depth_model.scale),
+            "min_thickness_m": float(depth_model.min_thickness),
         }
     return {"kind": str(getattr(depth_model, "kind", "unknown"))}
 
@@ -426,6 +438,7 @@ def export_catchment_mesh_bundle(
     mesh_path: str | Path,
     domain_geographic: object,
     domain_cfg: object | None = None,
+    substratum_source: Surface | None = None,
     bundle_dir: str | Path | None = None,
     geology_cfg: CatchmentBundleGeologyExportConfig | None = None,
     hydraulic_properties_cfg: CatchmentBundleHydraulicPropertiesConfig | None = None,
@@ -454,7 +467,9 @@ def export_catchment_mesh_bundle(
     # Load the reference 2D mesh and the surfaces used to derive top/bottom Z.
     mesh = load_planar_mesh(mesh_path_obj)
     surface = getattr(domain_geographic, "surface_topo", None)
-    domain = _build_domain_for_bundle(surface=surface, domain_cfg=domain_cfg)
+    domain = _build_domain_for_bundle(
+        surface=surface, domain_cfg=domain_cfg, substratum_source=substratum_source
+    )
     substratum = domain.substratum
     surface_sampler = PreparedSurfaceSampler.from_surface(surface)
     substratum_sampler = PreparedSurfaceSampler.from_surface(substratum)

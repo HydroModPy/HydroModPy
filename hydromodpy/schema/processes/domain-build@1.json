@@ -114,7 +114,8 @@
         "discriminator": {
           "mapping": {
             "constant_thickness": "#/$defs/ConstantThicknessDepthModel",
-            "flat_substratum": "#/$defs/FlatSubstratumDepthModel"
+            "flat_substratum": "#/$defs/FlatSubstratumDepthModel",
+            "raster": "#/$defs/RasterSubstratumDepthModel"
           },
           "propertyName": "kind"
         },
@@ -124,6 +125,9 @@
           },
           {
             "$ref": "#/$defs/FlatSubstratumDepthModel"
+          },
+          {
+            "$ref": "#/$defs/RasterSubstratumDepthModel"
           }
         ],
         "title": "Depth Model",
@@ -187,12 +191,142 @@
             },
             "title": "FlatSubstratumDepthModel",
             "type": "object"
+          },
+          "RasterSubstratumDepthModel": {
+            "additionalProperties": false,
+            "description": "Vertical model reading the substratum from a raster.\n\nThe raster is the one ``[data.substratum]`` declares. It is reprojected\nonto the grid of the top surface and must cover every cell of the domain,\nso the whole catchment for ``geographic.domain_extent = \"watershed\"`` and\nthe whole buffered box for ``\"box\"``. Bottom elevation is computed cell-wise\nas ``bottom = raster + offset`` for an elevation raster, and\n``bottom = top - scale * raster + offset`` for a thickness raster. It is then\ncapped at ``top - min_thickness``.",
+            "properties": {
+              "kind": {
+                "const": "raster",
+                "default": "raster",
+                "description": "Depth-model kind discriminator. Use 'raster' to read the substratum from the raster declared under [data.substratum].",
+                "examples": [
+                  "raster"
+                ],
+                "title": "Kind",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "quantity": {
+                "default": "elevation",
+                "description": "What the raster values are. 'elevation': the absolute elevation of the substratum (metres, same datum as the DEM). 'thickness': the aquifer thickness below the top surface (metres).",
+                "enum": [
+                  "elevation",
+                  "thickness"
+                ],
+                "examples": [
+                  "elevation"
+                ],
+                "title": "Quantity",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "offset": {
+                "default": 0.0,
+                "description": "Vertical shift added to the substratum everywhere (canonical metres). Positive raises it, so it thins the aquifer. One number to move the whole surface, for a sensitivity test for example. Accepts inline units, e.g. '-5 m'.",
+                "examples": [
+                  0.0
+                ],
+                "title": "Offset",
+                "type": "number",
+                "x-hmp-profile": "user"
+              },
+              "scale": {
+                "default": 1.0,
+                "description": "Factor applied to a thickness raster before it is subtracted from the top (dimensionless). Only valid with quantity = 'thickness'.",
+                "examples": [
+                  1.0
+                ],
+                "exclusiveMinimum": 0.0,
+                "title": "Scale",
+                "type": "number",
+                "x-hmp-profile": "user"
+              },
+              "min_thickness": {
+                "default": 1.0,
+                "description": "Smallest aquifer thickness kept under the top (canonical metres). Where the raster places the substratum higher than top - min_thickness, it is lowered to that level and a warning counts the cells.",
+                "examples": [
+                  1.0
+                ],
+                "exclusiveMinimum": 0.0,
+                "title": "Min Thickness",
+                "type": "number",
+                "x-hmp-profile": "user"
+              }
+            },
+            "title": "RasterSubstratumDepthModel",
+            "type": "object"
           }
         },
         "$id": "urn:hmp:schema:domain-build:1.0.0:depth_model",
         "$schema": "https://json-schema.org/draft/2020-12/schema"
       },
       "description": "how the bottom of the aquifer is placed below the top surface; the [domain.depth_model] section of a project, verbatim"
+    },
+    "substratum": {
+      "title": "Substratum",
+      "minOccurs": 0,
+      "maxOccurs": 1,
+      "schema": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/FileLink"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "raster the substratum is read from, carrying its own CRS; required by a depth model of kind 'raster' and refused by any other. Once reprojected onto the grid of the dem it must cover every active cell",
+        "x-hmp-profile": "user",
+        "$defs": {
+          "FileLink": {
+            "additionalProperties": false,
+            "description": "A file input: where it is, what it is, and optionally what it hashes to.",
+            "properties": {
+              "href": {
+                "description": "absolute path, or a path relative to the job directory",
+                "title": "Href",
+                "type": "string"
+              },
+              "type": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "IANA media type of the file",
+                "title": "Type"
+              },
+              "sha256": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "expected digest, lowercase hex",
+                "title": "Sha256"
+              }
+            },
+            "required": [
+              "href"
+            ],
+            "title": "FileLink",
+            "type": "object"
+          }
+        },
+        "$id": "urn:hmp:schema:domain-build:1.0.0:substratum",
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "description": "raster the substratum is read from, carrying its own CRS; required by a depth model of kind 'raster' and refused by any other. Once reprojected onto the grid of the dem it must cover every active cell"
     },
     "mask": {
       "title": "Mask",

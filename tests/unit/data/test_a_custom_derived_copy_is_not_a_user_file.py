@@ -29,7 +29,6 @@ from hydromodpy.data.variables.lake_abacus.config import (
 from hydromodpy.data.variables.lake_abacus.custom import load_custom_abacus
 from hydromodpy.data.variables.lake_abacus.manager import LakeAbacusManager
 from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
-from hydromodpy.data.variables.lake_bathymetry.custom import load_custom_lake_bathymetry
 from hydromodpy.data.variables.lake_bathymetry.manager import LakeBathymetryManager
 from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
 from hydromodpy.data.variables.lake_geometry.custom import load_custom_lake_geometry
@@ -205,8 +204,9 @@ def test_two_lake_files_with_one_stem_give_two_copies(tmp_path: Path) -> None:
     rasters = [_write_asc(tmp_path / d / "lac0.asc") for d in ("a", "b")]
     vectors = [_write_lake_polygon(tmp_path / d / "lac0.gpkg") for d in ("a", "b")]
 
+    bathy_manager = LakeBathymetryManager(config=None, catalog=None)
     bathy = [
-        load_custom_lake_bathymetry(
+        bathy_manager.read_custom(
             LakeBathymetryConfig.from_raster(p).sources[0], derived_dir=derived
         )[0].data
         for p in rasters

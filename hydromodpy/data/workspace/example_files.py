@@ -35,8 +35,8 @@ def write_variable_examples(
 ) -> list[Path]:
     """Write one example file per accepted input format for a variable.
 
-    ``category`` is one of ``point``, ``grid``, ``dem``, ``geology``,
-    ``hydrography``. Returns the list of written (or already present) paths.
+    ``category`` is one of ``point``, ``grid``, ``dem``, ``raster``, ``geology``,
+    ``hydrography``, ``table``. Returns the list of written (or already present) paths.
     """
     var_dir.mkdir(parents=True, exist_ok=True)
     if category == "point":
@@ -45,6 +45,8 @@ def write_variable_examples(
         return _grid_examples(var_dir, file_prefix, unit)
     if category == "dem":
         return _dem_examples(var_dir, file_prefix, unit)
+    if category == "raster":
+        return _raster_examples(var_dir, file_prefix)
     if category == "geology":
         return _geology_examples(var_dir, file_prefix)
     if category == "hydrography":
@@ -89,12 +91,18 @@ def _grid_examples(var_dir: Path, prefix: str, unit: str) -> list[Path]:
     return out
 
 
-def _dem_examples(var_dir: Path, prefix: str, unit: str) -> list[Path]:
+def _raster_examples(var_dir: Path, prefix: str) -> list[Path]:
     return [
         _write_geotiff(
             var_dir / f"{prefix}_custom_EXAMPLE.tif", values=_elevation_grid(), dtype="float32"
         ),
         _write_asc(var_dir / f"{prefix}_custom_EXAMPLE.asc", values=_elevation_grid()),
+    ]
+
+
+def _dem_examples(var_dir: Path, prefix: str, unit: str) -> list[Path]:
+    return [
+        *_raster_examples(var_dir, prefix),
         _write_netcdf(var_dir / f"{prefix}_custom_EXAMPLE.nc", var="elevation", unit=unit),
     ]
 

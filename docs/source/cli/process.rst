@@ -160,7 +160,12 @@ The capabilities this build serves
     the raster the bottom was derived from, so a reader holding a DEM can prove
     it is that one, and the largest write of the job is not doubled to produce a
     copy of its own input. The two artefacts a chain feeds it are the corrected
-    DEM and the catchment ``terrain-delineate`` seals::
+    DEM and the catchment ``terrain-delineate`` seals.
+
+    A depth model of kind ``raster`` also takes ``substratum``, the raster the
+    bottom is read from. It carries its own CRS, is reprojected onto the grid of
+    the DEM, and must cover every active cell: the mask is the extent. Its digest
+    is recorded like the DEM's. Any other kind refuses a ``substratum``::
 
         {"process": {"id": "domain-build", "version": "1.0.0"},
          "inputs": {
