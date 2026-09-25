@@ -35,7 +35,7 @@ def test_programmatic_runner_module_exposes_run_calibration_programmatic() -> No
 
 
 def test_promotion_module_exposes_helpers() -> None:
-    promotion = importlib.import_module("hydromodpy.calibration.optim.promotion")
+    promotion = importlib.import_module("hydromodpy.calibration.runners.promotion")
 
     assert callable(promotion.promote_iterations)
     assert callable(promotion.select_iterations_to_promote)

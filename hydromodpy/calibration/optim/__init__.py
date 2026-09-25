@@ -1,1 +1,1 @@
-"""Optimization engine: ask/tell loop, objective, parameters, promotion."""
+"""Optimization engine: ask/tell loop, objective, parameters."""

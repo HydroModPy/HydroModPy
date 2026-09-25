@@ -19,7 +19,7 @@ Workflow:
 5. Persist every iteration into the DuckDB ``calibration_iterations``
    table (``sim_id`` left ``NULL`` by default).
 6. Honor ``save_runs`` -- ``"best_n"`` / ``"all"`` promote the chosen
-   trials through :mod:`hydromodpy.calibration.optim.promotion`. Promotion
+   trials through :mod:`hydromodpy.calibration.runners.promotion`. Promotion
    replays the pipeline, so it is refused outright when no model was prepared.
 
 The ``objective`` argument is a Python escape hatch
@@ -50,7 +50,6 @@ from hydromodpy.calibration.optim.optimizer import (
     engine_traits,
 )
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
-from hydromodpy.calibration.optim.promotion import promote_iterations
 from hydromodpy.calibration.optim.stopping import stopping_kwargs
 from hydromodpy.calibration.optim.tolerance import (
     ParameterInterval,
@@ -62,6 +61,7 @@ from hydromodpy.calibration.persistence import (
 )
 from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.calibration.runners.failure_watch import ConsecutiveFailureWatch
+from hydromodpy.calibration.runners.promotion import promote_iterations
 from hydromodpy.calibration.runners.restarts import run_restarts
 from hydromodpy.calibration.runners.sandbox import keep_trial_scratch
 from hydromodpy.calibration.runners.state import (

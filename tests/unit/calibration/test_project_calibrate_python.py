@@ -28,9 +28,9 @@ import pytest
 
 from hydromodpy.calibration import CalibrationReport
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.optim import promotion as promotion_module
 from hydromodpy.calibration.runners import cli_runner as cli_runner_module
 from hydromodpy.calibration.runners import programmatic_runner as programmatic_runner_module
+from hydromodpy.calibration.runners import promotion as promotion_module
 from hydromodpy.calibration.runners.programmatic_runner import run_calibration_programmatic
 
 # ---------------------------------------------------------------------------
