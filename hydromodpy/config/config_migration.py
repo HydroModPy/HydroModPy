@@ -326,7 +326,8 @@ def _move_the_bottom_path(doc: Any) -> list[str]:
     data["substratum"] = {"sources": [{"source": "custom", "path": path}]}
     return [
         "geographic.bottom_path -> [[data.substratum.sources]] "
-        "(read only with [domain.depth_model] kind = 'raster')"
+        "(read only with [domain.depth_model] kind = 'raster_substratum' "
+        "or 'raster_thickness')"
     ]
 
 
