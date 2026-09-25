@@ -84,11 +84,11 @@ the default is a compatibility statement and not a preference.
 
 _BUILTIN_PATHS: dict[str, str] = {
     "hydromodpy_pipeline": (
-        "hydromodpy.calibration.evaluation.pipeline_evaluator:PipelineTrialEvaluator"
+        "hydromodpy.calibration.runners.pipeline_evaluator:PipelineTrialEvaluator"
     ),
     "analytic_bowl": "hydromodpy.calibration.evaluation.analytic_bowl:AnalyticBowlEvaluator",
     "scored_forward_model": (
-        "hydromodpy.calibration.evaluation.scored_forward:ScoredForwardEvaluator"
+        "hydromodpy.calibration.metrics.scored_forward:ScoredForwardEvaluator"
     ),
 }
 """Dotted paths to the in-tree evaluator classes, imported on first lookup.

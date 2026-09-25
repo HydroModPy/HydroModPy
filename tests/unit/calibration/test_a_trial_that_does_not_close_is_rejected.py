@@ -109,7 +109,7 @@ class TestTheTrialActsOnIt:
         """
         import inspect
 
-        from hydromodpy.calibration.evaluation.pipeline_evaluator import (
+        from hydromodpy.calibration.runners.pipeline_evaluator import (
             PipelineTrialEvaluator,
         )
 
