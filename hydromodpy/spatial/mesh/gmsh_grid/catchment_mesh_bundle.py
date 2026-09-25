@@ -29,7 +29,8 @@ from hydromodpy.spatial.domain.build import build_domain
 from hydromodpy.spatial.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     FlatSubstratumDepthModel,
-    RasterSubstratumDepthModel,
+    RasterDepthModel,
+    RasterThicknessDepthModel,
 )
 from hydromodpy.spatial.domain.domain import Domain
 from hydromodpy.spatial.mesh.gmsh_grid._geology_bundle_export import _compute_geology_payload
@@ -208,14 +209,15 @@ def _serialize_depth_model(domain: Domain) -> dict[str, Any]:
             "kind": str(depth_model.kind),
             "substratum_elevation_m": float(depth_model.substratum_elevation),
         }
-    if isinstance(depth_model, RasterSubstratumDepthModel):
-        return {
+    if isinstance(depth_model, RasterDepthModel):
+        payload: dict[str, Any] = {
             "kind": str(depth_model.kind),
-            "quantity": str(depth_model.quantity),
             "offset_m": float(depth_model.offset),
-            "scale": float(depth_model.scale),
             "min_thickness_m": float(depth_model.min_thickness),
         }
+        if isinstance(depth_model, RasterThicknessDepthModel):
+            payload["scale"] = float(depth_model.scale)
+        return payload
     return {"kind": str(getattr(depth_model, "kind", "unknown"))}
 
 

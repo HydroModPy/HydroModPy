@@ -35,12 +35,12 @@ Sub-modules
   and display layers), ``domain_geographic_pipeline`` (high-level
   orchestration).
 - ``spatial/domain/`` -- ``Domain`` aggregates ``surface_topo``,
-  ``substratum`` (via depth model), and ``zones``. Three depth models
+  ``substratum`` (via depth model), and ``zones``. Four depth models
   ship: ``ConstantThicknessDepthModel`` (homogeneous offset),
-  ``FlatSubstratumDepthModel`` (fixed elevation) and
-  ``RasterSubstratumDepthModel`` (the ``[data.substratum]`` raster, an
-  elevation or a thickness, reprojected onto the top and required over every
-  cell of the domain). ``build.py`` is the one constructor of that geometry --
+  ``FlatSubstratumDepthModel`` (fixed elevation), and their raster twins
+  ``RasterThicknessDepthModel`` and ``RasterSubstratumDepthModel``, which read
+  a thickness or an elevation from the ``[data.substratum]`` raster,
+  reprojected onto the top and required over every cell of the domain. ``build.py`` is the one constructor of that geometry --
   it copies the declared section before arming the binder zone ids on it --
   and the setup step, the rebuild a second run on a live project triggers, the
   domain case script and the bundle exporter all go through it.

@@ -849,7 +849,7 @@ def _substratum(
 
 
 def _raster_request(tmp_path: Path, substratum: Path | None, **depth_model: object) -> dict:
-    inputs: dict[str, object] = {"depth_model": {"kind": "raster", **depth_model}}
+    inputs: dict[str, object] = {"depth_model": {"kind": "raster_substratum", **depth_model}}
     if substratum is not None:
         inputs["substratum"] = {"href": str(substratum)}
     return _request(tmp_path, inputs=inputs)

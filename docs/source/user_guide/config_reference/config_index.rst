@@ -25,19 +25,19 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `workflow <workflow.html#workflow-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L109>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L110>`__
    * - ``workflow.verbosity``
      - ``Literal['quiet', 'normal', 'verbose', 'debug']``
      - user
      - -
      - `workflow <workflow.html#workflow-verbosity>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L141>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L142>`__
    * - ``workflow.profile``
      - ``bool | str``
      - expert
      - -
      - `workflow <workflow.html#workflow-profile>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L166>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L167>`__
    * - ``workspace.project_root``
      - ``Path | UPath``
      - user
@@ -567,7 +567,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `domain <domain.html#domain-supports>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/spatial_support_config.py#L199>`__
    * - ``domain.depth_model``
-     - ``ConstantThicknessDepthModel | FlatSubstratumDepthModel | RasterSubstratumDepthModel``
+     - ``ConstantThicknessDepthModel | FlatSubstratumDepthModel | RasterSubstratumDepthModel | RasterThicknessDepthModel``
      - user
      - -
      - `domain <domain.html#domain-depth-model>`__
@@ -590,30 +590,24 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `domain <domain.html#domain-depth-model-substratum-elevation>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L52>`__
-   * - ``domain.depth_model.quantity``
-     - ``Literal['elevation', 'thickness']``
-     - user
-     - -
-     - `domain <domain.html#domain-depth-model-quantity>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L83>`__
    * - ``domain.depth_model.offset``
      - ``float``
      - user
      - -
      - `domain <domain.html#domain-depth-model-offset>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L91>`__
-   * - ``domain.depth_model.scale``
-     - ``float``
-     - user
-     - -
-     - `domain <domain.html#domain-depth-model-scale>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L99>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L94>`__
    * - ``domain.depth_model.min_thickness``
      - ``float``
      - user
      - -
      - `domain <domain.html#domain-depth-model-min-thickness>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L107>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L94>`__
+   * - ``domain.depth_model.scale``
+     - ``float``
+     - user
+     - -
+     - `domain <domain.html#domain-depth-model-scale>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L127>`__
    * - ``data.types``
      - ``list[str]``
      - user

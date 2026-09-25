@@ -546,7 +546,7 @@ class GeographicConfig(HydroModelBase):
     """``bottom_path`` named a bottom raster that nothing read.
 
     The raster a run reads is ``[data.substratum]``, with
-    ``[domain.depth_model] kind = "raster"``. ``from_toml`` moves the path there;
+    ``[domain.depth_model] kind = "raster_substratum"`` or ``"raster_thickness"``. ``from_toml`` moves the path there;
     a loader that skips the migration still accepts the key and ignores it.
     """
 

@@ -8,7 +8,7 @@
     "section": "workflow",
     "anchor": "workflow-mode",
     "page": "workflow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L109",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L110",
     "description": "Workflow mode dispatched by `hmp run`."
   },
   {
@@ -20,7 +20,7 @@
     "section": "workflow",
     "anchor": "workflow-verbosity",
     "page": "workflow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L141",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L142",
     "description": "How much the run prints on the console. The project debug log, `.hmp/logs/hydromodpy_debug.log`, records every DEBUG line whatever this says. `hmp run -q/-v/--debug` and the HMP_VERBOSITY environment variable both win over this field.",
     "examples": [
       "\"normal\"",
@@ -36,7 +36,7 @@
     "section": "workflow",
     "anchor": "workflow-profile",
     "page": "workflow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L166",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L167",
     "description": "Profile the run with pyinstrument (honored by the hmp CLI; the --profile flag wins over this field). true writes <config>.profile.html next to the config; a string sets the HTML report path."
   },
   {
@@ -1107,7 +1107,7 @@
   {
     "path": "domain.depth_model",
     "name": "depth_model",
-    "type": "ConstantThicknessDepthModel | FlatSubstratumDepthModel | RasterSubstratumDepthModel",
+    "type": "ConstantThicknessDepthModel | FlatSubstratumDepthModel | RasterSubstratumDepthModel | RasterThicknessDepthModel",
     "profile": "user",
     "stability": "stable",
     "section": "domain",
@@ -1153,18 +1153,6 @@
     "description": "Flat substratum elevation applied over the full domain (canonical metres). Accepts inline units, e.g. '40 m'. This is an ABSOLUTE elevation, not a depth below topography: where the land surface drops under it, no aquifer is left. Use 'const"
   },
   {
-    "path": "domain.depth_model.quantity",
-    "name": "quantity",
-    "type": "Literal['elevation', 'thickness']",
-    "profile": "user",
-    "stability": "stable",
-    "section": "domain",
-    "anchor": "domain-depth-model-quantity",
-    "page": "domain.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L83",
-    "description": "What the raster values are. 'elevation': the absolute elevation of the substratum (metres, same datum as the DEM). 'thickness': the aquifer thickness below the top surface (metres)."
-  },
-  {
     "path": "domain.depth_model.offset",
     "name": "offset",
     "type": "float",
@@ -1173,20 +1161,8 @@
     "section": "domain",
     "anchor": "domain-depth-model-offset",
     "page": "domain.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L91",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L94",
     "description": "Vertical shift added to the substratum everywhere (canonical metres). Positive raises it, so it thins the aquifer. One number to move the whole surface, for a sensitivity test for example. Accepts inline units, e.g. '-5 m'."
-  },
-  {
-    "path": "domain.depth_model.scale",
-    "name": "scale",
-    "type": "float",
-    "profile": "user",
-    "stability": "stable",
-    "section": "domain",
-    "anchor": "domain-depth-model-scale",
-    "page": "domain.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L99",
-    "description": "Factor applied to a thickness raster before it is subtracted from the top (dimensionless). Only valid with quantity = 'thickness'."
   },
   {
     "path": "domain.depth_model.min_thickness",
@@ -1197,8 +1173,20 @@
     "section": "domain",
     "anchor": "domain-depth-model-min-thickness",
     "page": "domain.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L107",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L94",
     "description": "Smallest aquifer thickness kept under the top (canonical metres). Where the raster places the substratum higher than top - min_thickness, it is lowered to that level and a warning counts the cells."
+  },
+  {
+    "path": "domain.depth_model.scale",
+    "name": "scale",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "domain",
+    "anchor": "domain-depth-model-scale",
+    "page": "domain.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/domain/depth_model_config.py#L127",
+    "description": "Factor applied to the thickness raster (dimensionless)."
   },
   {
     "path": "data.types",

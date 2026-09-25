@@ -1,4 +1,4 @@
-"""The ``raster`` depth model, attacked through the two kinds it must reproduce."""
+"""The raster depth models, attacked through the two kinds they must reproduce."""
 
 from __future__ import annotations
 
@@ -47,9 +47,11 @@ def _top(nrows: int = 6, ncols: int = 8) -> Surface:
     return Surface(name="surface_topo", values=values.astype(float), support=_support(nrows, ncols))
 
 
-def _raster_domain(top: Surface, source: Surface, **depth_model) -> Domain:
+def _raster_domain(
+    top: Surface, source: Surface, *, kind: str = "raster_substratum", **depth_model
+) -> Domain:
     return build_domain(
-        DomainConfig.model_validate({"depth_model": {"kind": "raster", **depth_model}}),
+        DomainConfig.model_validate({"depth_model": {"kind": kind, **depth_model}}),
         surface_topo=top,
         substratum_source=source,
     )
@@ -69,7 +71,7 @@ def test_a_thickness_raster_of_50_is_a_constant_thickness_of_50() -> None:
     top = _top()
     source = Surface(name="raw", values=np.full((6, 8), 50.0), support=_support(6, 8))
 
-    raster = _raster_domain(top, source, quantity="thickness").substratum.as_array()
+    raster = _raster_domain(top, source, kind="raster_thickness").substratum.as_array()
 
     np.testing.assert_array_equal(raster, top.as_array() - 50.0)
 
@@ -94,15 +96,15 @@ def test_offset_moves_and_scale_multiplies_the_raster() -> None:
     thickness = Surface(name="raw", values=np.full((6, 8), 20.0), support=_support(6, 8))
 
     bottom = _raster_domain(
-        top, thickness, quantity="thickness", scale=2.0, offset="3 m"
+        top, thickness, kind="raster_thickness", scale=2.0, offset="3 m"
     ).substratum.as_array()
 
     np.testing.assert_allclose(bottom, top.as_array() - 40.0 + 3.0)
 
 
-def test_scale_is_refused_on_an_elevation_raster() -> None:
-    with pytest.raises(ValidationError, match="scale multiplies a thickness raster"):
-        DomainConfig.model_validate({"depth_model": {"kind": "raster", "scale": 2.0}})
+def test_scale_belongs_to_the_thickness_raster_only() -> None:
+    with pytest.raises(ValidationError, match="scale"):
+        DomainConfig.model_validate({"depth_model": {"kind": "raster_substratum", "scale": 2.0}})
 
 
 def test_a_finer_raster_of_a_plane_averages_back_to_the_plane() -> None:
@@ -197,7 +199,7 @@ def test_active_cells_narrow_the_cells_the_raster_must_cover() -> None:
     source = Surface(name="raw", values=np.full((6, 4), 50.0), support=_support(6, 4))
 
     domain = build_domain(
-        DomainConfig.model_validate({"depth_model": {"kind": "raster"}}),
+        DomainConfig.model_validate({"depth_model": {"kind": "raster_substratum"}}),
         surface_topo=top,
         substratum_source=source,
         active_cells=active,
@@ -231,7 +233,7 @@ def test_a_raster_above_the_top_everywhere_is_refused() -> None:
 def test_the_raster_kind_without_a_raster_is_refused() -> None:
     with pytest.raises(ConfigError, match=r"\[data.substratum\]"):
         Domain(
-            DomainConfig.model_validate({"depth_model": {"kind": "raster"}}),
+            DomainConfig.model_validate({"depth_model": {"kind": "raster_substratum"}}),
             surface_topo=_top(),
         )
 

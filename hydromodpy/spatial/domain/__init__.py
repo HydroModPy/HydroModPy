@@ -5,6 +5,7 @@ from hydromodpy.spatial.domain.depth_model_config import (
     DepthModelConfig,
     FlatSubstratumDepthModel,
     RasterSubstratumDepthModel,
+    RasterThicknessDepthModel,
 )
 from hydromodpy.spatial.domain.domain import Domain
 from hydromodpy.spatial.domain.domain_config import DomainConfig
@@ -30,6 +31,7 @@ __all__ = [
     "ConstantThicknessDepthModel",
     "FlatSubstratumDepthModel",
     "RasterSubstratumDepthModel",
+    "RasterThicknessDepthModel",
     "DomainSupportConfig",
     "GeneratedBandsSupportConfig",
     "GeneratedRingsSupportConfig",

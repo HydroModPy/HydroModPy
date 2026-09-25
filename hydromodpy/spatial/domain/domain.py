@@ -21,7 +21,8 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     FlatSubstratumDepthModel,
-    RasterSubstratumDepthModel,
+    RasterDepthModel,
+    RasterThicknessDepthModel,
 )
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.surface import Surface
@@ -92,18 +93,17 @@ class Domain:
         """
         Build the lower domain surface from the configured depth model.
 
-        Three modes are supported:
+        Four modes are supported:
         - `ConstantThicknessDepthModel`:
           shift the topography downward by a constant offset,
         - `FlatSubstratumDepthModel`:
           create one flat surface at a constant elevation below the topography,
-        - `RasterSubstratumDepthModel`:
-          read the substratum from the raster handed over as `substratum_source`.
+        - `RasterSubstratumDepthModel` and `RasterThicknessDepthModel`:
+          read the substratum elevation, or the aquifer thickness, from the
+          raster handed over as `substratum_source`.
         """
         depth_model = self.config.depth_model
-        if self._substratum_source is not None and not isinstance(
-            depth_model, RasterSubstratumDepthModel
-        ):
+        if self._substratum_source is not None and not isinstance(depth_model, RasterDepthModel):
             raise ValueError(
                 f"A substratum raster was given, and depth_model kind "
                 f"{depth_model.kind!r} does not read one."
@@ -112,12 +112,12 @@ class Domain:
             self.substratum = self.surface_topo.shifted_down_by(float(depth_model.thickness))
         elif isinstance(depth_model, FlatSubstratumDepthModel):
             self.substratum = self.surface_topo.flat_like(float(depth_model.substratum_elevation))
-        elif isinstance(depth_model, RasterSubstratumDepthModel):
+        elif isinstance(depth_model, RasterDepthModel):
             self.substratum = self._substratum_from_raster(depth_model)
         else:
             raise TypeError(f"Unsupported depth_model payload: {type(depth_model)!r}")
 
-    def _substratum_from_raster(self, depth_model: RasterSubstratumDepthModel) -> Surface:
+    def _substratum_from_raster(self, depth_model: RasterDepthModel) -> Surface:
         """Place the substratum from a raster, on the grid of the top surface.
 
         The raster must carry a value on every cell of the domain. Those cells
@@ -128,8 +128,8 @@ class Domain:
         source = self._substratum_source
         if source is None:
             raise ConfigError(
-                "domain.depth_model kind 'raster' reads the raster declared under "
-                "[data.substratum], and none was given to the domain."
+                f"domain.depth_model kind {depth_model.kind!r} reads the raster declared "
+                "under [data.substratum], and none was given to the domain."
             )
         support = self.surface_topo.support
         if support is None:
@@ -157,10 +157,10 @@ class Domain:
             )
 
         offset = float(depth_model.offset)
-        if depth_model.quantity == "elevation":
-            bottom = values + offset
-        else:
+        if isinstance(depth_model, RasterThicknessDepthModel):
             bottom = top - float(depth_model.scale) * values + offset
+        else:
+            bottom = values + offset
         ceiling = top - float(depth_model.min_thickness)
         capped = cells & (bottom > ceiling)
         n_capped = int(np.count_nonzero(capped))

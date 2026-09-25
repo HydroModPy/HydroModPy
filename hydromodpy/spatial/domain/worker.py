@@ -82,6 +82,7 @@ from hydromodpy.spatial.domain.capability import (
     THICKNESS_PATH,
     DomainBuildRequest,
 )
+from hydromodpy.spatial.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
 from hydromodpy.spatial.surface import Surface
@@ -242,14 +243,14 @@ def _resolve(job: JobDirectory) -> _Resolved:
         )
 
     substratum_path = substratum_digest = substratum_bytes = None
-    reads_a_raster = inputs.depth_model.kind == "raster"
+    reads_a_raster = inputs.depth_model.kind in RASTER_DEPTH_MODEL_KINDS
     if inputs.substratum is not None:
         if not reads_a_raster:
             raise refuse_request(
                 f"substratum names a raster, and depth_model kind "
                 f"{inputs.depth_model.kind!r} reads none",
                 loc=("inputs", "substratum"),
-                msg="drop substratum, or use depth_model kind 'raster'",
+                msg="drop substratum, or use a raster depth model kind",
             )
         substratum_path = _resolve_file(job, inputs.substratum.href, member="substratum")
         substratum_digest, substratum_bytes = sha256_file(substratum_path)
@@ -269,7 +270,8 @@ def _resolve(job: JobDirectory) -> _Resolved:
         )
     elif reads_a_raster:
         raise refuse_request(
-            "depth_model kind 'raster' reads the substratum raster, and the request declares none",
+            f"depth_model kind {inputs.depth_model.kind!r} reads the substratum raster, "
+            "and the request declares none",
             loc=("inputs", "substratum"),
             msg="declare the substratum raster",
         )

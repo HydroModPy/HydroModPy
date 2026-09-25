@@ -115,7 +115,8 @@
           "mapping": {
             "constant_thickness": "#/$defs/ConstantThicknessDepthModel",
             "flat_substratum": "#/$defs/FlatSubstratumDepthModel",
-            "raster": "#/$defs/RasterSubstratumDepthModel"
+            "raster_substratum": "#/$defs/RasterSubstratumDepthModel",
+            "raster_thickness": "#/$defs/RasterThicknessDepthModel"
           },
           "propertyName": "kind"
         },
@@ -128,6 +129,9 @@
           },
           {
             "$ref": "#/$defs/RasterSubstratumDepthModel"
+          },
+          {
+            "$ref": "#/$defs/RasterThicknessDepthModel"
           }
         ],
         "title": "Depth Model",
@@ -194,30 +198,16 @@
           },
           "RasterSubstratumDepthModel": {
             "additionalProperties": false,
-            "description": "Vertical model reading the substratum from a raster.\n\nThe raster is the one ``[data.substratum]`` declares. It is reprojected\nonto the grid of the top surface and must cover every cell of the domain,\nso the whole catchment for ``geographic.domain_extent = \"watershed\"`` and\nthe whole buffered box for ``\"box\"``. Bottom elevation is computed cell-wise\nas ``bottom = raster + offset`` for an elevation raster, and\n``bottom = top - scale * raster + offset`` for a thickness raster. It is then\ncapped at ``top - min_thickness``.",
+            "description": "Vertical model reading the substratum elevation from a raster.\n\nThe raster twin of ``flat_substratum``: ``bottom = raster + offset``.",
             "properties": {
               "kind": {
-                "const": "raster",
-                "default": "raster",
-                "description": "Depth-model kind discriminator. Use 'raster' to read the substratum from the raster declared under [data.substratum].",
+                "const": "raster_substratum",
+                "default": "raster_substratum",
+                "description": "Depth-model kind discriminator. Use 'raster_substratum' when the raster declared under [data.substratum] holds the elevation of the substratum (metres, same datum as the DEM).",
                 "examples": [
-                  "raster"
+                  "raster_substratum"
                 ],
                 "title": "Kind",
-                "type": "string",
-                "x-hmp-profile": "user"
-              },
-              "quantity": {
-                "default": "elevation",
-                "description": "What the raster values are. 'elevation': the absolute elevation of the substratum (metres, same datum as the DEM). 'thickness': the aquifer thickness below the top surface (metres).",
-                "enum": [
-                  "elevation",
-                  "thickness"
-                ],
-                "examples": [
-                  "elevation"
-                ],
-                "title": "Quantity",
                 "type": "string",
                 "x-hmp-profile": "user"
               },
@@ -228,17 +218,6 @@
                   0.0
                 ],
                 "title": "Offset",
-                "type": "number",
-                "x-hmp-profile": "user"
-              },
-              "scale": {
-                "default": 1.0,
-                "description": "Factor applied to a thickness raster before it is subtracted from the top (dimensionless). Only valid with quantity = 'thickness'.",
-                "examples": [
-                  1.0
-                ],
-                "exclusiveMinimum": 0.0,
-                "title": "Scale",
                 "type": "number",
                 "x-hmp-profile": "user"
               },
@@ -255,6 +234,57 @@
               }
             },
             "title": "RasterSubstratumDepthModel",
+            "type": "object"
+          },
+          "RasterThicknessDepthModel": {
+            "additionalProperties": false,
+            "description": "Vertical model reading the aquifer thickness from a raster.\n\nThe raster twin of ``constant_thickness``:\n``bottom = top - scale * raster + offset``.",
+            "properties": {
+              "kind": {
+                "const": "raster_thickness",
+                "default": "raster_thickness",
+                "description": "Depth-model kind discriminator. Use 'raster_thickness' when the raster declared under [data.substratum] holds the aquifer thickness below the top surface (metres).",
+                "examples": [
+                  "raster_thickness"
+                ],
+                "title": "Kind",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "offset": {
+                "default": 0.0,
+                "description": "Vertical shift added to the substratum everywhere (canonical metres). Positive raises it, so it thins the aquifer. One number to move the whole surface, for a sensitivity test for example. Accepts inline units, e.g. '-5 m'.",
+                "examples": [
+                  0.0
+                ],
+                "title": "Offset",
+                "type": "number",
+                "x-hmp-profile": "user"
+              },
+              "min_thickness": {
+                "default": 1.0,
+                "description": "Smallest aquifer thickness kept under the top (canonical metres). Where the raster places the substratum higher than top - min_thickness, it is lowered to that level and a warning counts the cells.",
+                "examples": [
+                  1.0
+                ],
+                "exclusiveMinimum": 0.0,
+                "title": "Min Thickness",
+                "type": "number",
+                "x-hmp-profile": "user"
+              },
+              "scale": {
+                "default": 1.0,
+                "description": "Factor applied to the thickness raster (dimensionless).",
+                "examples": [
+                  1.0
+                ],
+                "exclusiveMinimum": 0.0,
+                "title": "Scale",
+                "type": "number",
+                "x-hmp-profile": "user"
+              }
+            },
+            "title": "RasterThicknessDepthModel",
             "type": "object"
           }
         },
@@ -277,7 +307,7 @@
           }
         ],
         "default": null,
-        "description": "raster the substratum is read from, carrying its own CRS; required by a depth model of kind 'raster' and refused by any other. Once reprojected onto the grid of the dem it must cover every active cell",
+        "description": "raster the substratum is read from, carrying its own CRS; required by a depth model of kind 'raster_substratum' or 'raster_thickness' and refused by any other. Once reprojected onto the grid of the dem it must cover every active cell",
         "x-hmp-profile": "user",
         "$defs": {
           "FileLink": {
@@ -326,7 +356,7 @@
         "$id": "urn:hmp:schema:domain-build:1.0.0:substratum",
         "$schema": "https://json-schema.org/draft/2020-12/schema"
       },
-      "description": "raster the substratum is read from, carrying its own CRS; required by a depth model of kind 'raster' and refused by any other. Once reprojected onto the grid of the dem it must cover every active cell"
+      "description": "raster the substratum is read from, carrying its own CRS; required by a depth model of kind 'raster_substratum' or 'raster_thickness' and refused by any other. Once reprojected onto the grid of the dem it must cover every active cell"
     },
     "mask": {
       "title": "Mask",

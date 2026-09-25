@@ -60,7 +60,7 @@ def test_a_raster_depth_model_without_a_substratum_is_rejected(tmp_path) -> None
     with pytest.raises(ValidationError, match=r"\[data.substratum\]"):
         HydroModPyConfig(
             **_base_kwargs(tmp_path),
-            domain={"depth_model": {"kind": "raster"}},
+            domain={"depth_model": {"kind": "raster_substratum"}},
         )
 
 
@@ -71,11 +71,11 @@ def test_a_raster_depth_model_with_a_substratum_is_accepted(tmp_path) -> None:
     raster.write_bytes(b"")
     cfg = HydroModPyConfig(
         **_base_kwargs(tmp_path),
-        domain={"depth_model": {"kind": "raster", "quantity": "thickness"}},
+        domain={"depth_model": {"kind": "raster_thickness", "scale": 1.5}},
         data=DataManagersConfig(substratum=SubstratumConfig.from_raster(raster)),
     )
 
-    assert cfg.domain.depth_model.quantity == "thickness"
+    assert cfg.domain.depth_model.scale == 1.5
 
 
 def test_a_geographic_bottom_path_is_accepted_ignored_and_warned_about() -> None:

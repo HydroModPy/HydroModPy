@@ -16,9 +16,9 @@ class CustomSubstratumSource(HydroModelBase):
     """User-provided substratum raster (GeoTIFF/ASC).
 
     The raster places the bottom of the aquifer. It is read only when
-    ``[domain.depth_model] kind = "raster"``: ``domain.depth_model.quantity``
-    then says whether its values are an elevation or a thickness below the
-    top. Without that kind the raster is loaded but unused.
+    ``[domain.depth_model] kind`` is ``"raster_substratum"`` (its values are the
+    elevation of the substratum) or ``"raster_thickness"`` (its values are the
+    aquifer thickness below the top). With any other kind it is loaded but unused.
     """
 
     source: Annotated[Literal["custom"], Profile.USER] = Field(

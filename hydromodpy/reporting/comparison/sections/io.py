@@ -112,10 +112,10 @@ def _depth_model_text(depth_model: Mapping[str, Any]) -> str:
     if kind == "flat_substratum":
         elevation = _format_value(depth_model.get("substratum_elevation"), default="0 m")
         return f"substratum plat a l'altitude {elevation}"
-    if kind == "raster":
-        quantity = "epaisseur" if depth_model.get("quantity") == "thickness" else "altitude"
+    if kind in ("raster_substratum", "raster_thickness"):
+        read = "epaisseur" if kind == "raster_thickness" else "altitude"
         offset = _format_value(depth_model.get("offset"), default="0 m")
-        return f"substratum lu dans [data.substratum] ({quantity}), decalage {offset}"
+        return f"substratum lu dans [data.substratum] ({read}), decalage {offset}"
     thickness = _format_value(depth_model.get("thickness"), default="80 m")
     return f"substratum a epaisseur constante {thickness}"
 

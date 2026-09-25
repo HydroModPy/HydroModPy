@@ -29,6 +29,7 @@ from collections.abc import Iterable, Mapping
 import numpy as np
 
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.spatial.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
 from hydromodpy.spatial.domain.domain import Domain
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.domain.zone_arming import arm_runtime_zone_ids
@@ -75,7 +76,7 @@ def build_domain(
     depth model derives -- and no zone at all. Whoever has the artefacts binds
     them afterwards.
 
-    *substratum_source* is the raster a ``raster`` depth model reads, on its own
+    *substratum_source* is the raster a raster depth model reads, on its own
     grid. *active_cells* narrows the cells that raster must cover, for a caller
     that masks the top rather than clipping it.
     """
@@ -88,21 +89,22 @@ def build_domain(
 
 
 def read_substratum_source(depth_model: object, data: object | None) -> Surface | None:
-    """Read the raster a ``raster`` depth model places the substratum from.
+    """Read the raster a raster depth model places the substratum from.
 
     *data* is the ``[data]`` section, and only its ``substratum`` member is read,
-    only for a ``raster`` depth model. The raster is read on its own grid, and
+    only for a ``raster_substratum`` or ``raster_thickness`` depth model. The raster is read on its own grid, and
     the domain reprojects it onto the top. Any other depth model reads nothing.
 
     Every caller that builds a domain from a project configuration reads the
     raster here, before the data step: the domain is built during setup.
     """
-    if getattr(depth_model, "kind", None) != "raster":
+    kind = getattr(depth_model, "kind", None)
+    if kind not in RASTER_DEPTH_MODEL_KINDS:
         return None
     substratum = getattr(data, "substratum", None)
     if substratum is None:
         raise ConfigError(
-            "domain.depth_model kind = 'raster' reads the raster declared under "
+            f"domain.depth_model kind = {kind!r} reads the raster declared under "
             "[data.substratum], and the configuration declares none."
         )
     source = substratum.sources[0]

@@ -86,6 +86,7 @@ from hydromodpy.simulation.spinup_config import SpinupConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
+from hydromodpy.spatial.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
@@ -543,8 +544,9 @@ class HydroModPyConfig(HydroModelBase):
           calibrating with zero tunable parameters).
         * ``transport`` actif ⇒ solver must not be ``boussinesq`` (the
           Boussinesq solver does not support a transport process).
-        * ``domain.depth_model.kind == "raster"`` ⇒ ``[data.substratum]`` is
-          declared, since that is the raster the domain reads.
+        * ``domain.depth_model.kind`` is ``raster_substratum`` or
+          ``raster_thickness`` ⇒ ``[data.substratum]`` is declared, since that
+          is the raster the domain reads.
         """
         data_cfg = getattr(self, "data", None)
         if data_cfg is not None and getattr(data_cfg, "inference_mode", None) == "strict":
@@ -555,13 +557,12 @@ class HydroModPyConfig(HydroModelBase):
                     "data type in data.types"
                 )
 
-        depth_model = getattr(getattr(self, "domain", None), "depth_model", None)
-        if (
-            getattr(depth_model, "kind", None) == "raster"
-            and getattr(data_cfg, "substratum", None) is None
-        ):
+        depth_kind = getattr(
+            getattr(getattr(self, "domain", None), "depth_model", None), "kind", None
+        )
+        if depth_kind in RASTER_DEPTH_MODEL_KINDS and getattr(data_cfg, "substratum", None) is None:
             raise ValueError(
-                "domain.depth_model kind = 'raster' reads the raster declared under "
+                f"domain.depth_model kind = {depth_kind!r} reads the raster declared under "
                 "[data.substratum]; declare it with one custom source."
             )
 

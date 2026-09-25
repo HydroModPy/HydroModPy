@@ -89,8 +89,9 @@ class DomainBuildRequest(HydroModelBase):
         default=None,
         description=(
             "raster the substratum is read from, carrying its own CRS; required by a "
-            "depth model of kind 'raster' and refused by any other. Once reprojected "
-            "onto the grid of the dem it must cover every active cell"
+            "depth model of kind 'raster_substratum' or 'raster_thickness' and refused "
+            "by any other. Once reprojected onto the grid of the dem it must cover "
+            "every active cell"
         ),
     )
     mask: Annotated[FileLink | None, Profile.USER] = Field(

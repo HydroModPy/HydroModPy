@@ -51,8 +51,7 @@ base_elevation = 20.0
 right_to_left_amplitude = 5.0
 
 [domain.depth_model]
-kind = "raster"
-quantity = "thickness"
+kind = "raster_thickness"
 
 [[data.substratum.sources]]
 source = "custom"

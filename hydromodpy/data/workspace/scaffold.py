@@ -419,8 +419,8 @@ types = []
 [domain]
 
 [domain.depth_model]
-# Also "flat_substratum" (one elevation), or "raster" to read the substratum
-# from [[data.substratum.sources]] (quantity = "elevation" or "thickness").
+# Also "flat_substratum" (one elevation), or "raster_substratum" and
+# "raster_thickness" to read an elevation or a thickness from [[data.substratum.sources]].
 kind = "constant_thickness"
 thickness = "50 m"
 

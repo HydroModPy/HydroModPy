@@ -89,15 +89,16 @@ Each release section includes the following standard categories:
   remains the way from a run to the cache entries it read.
 
 ### Added
-- A raster substratum: `[domain.depth_model] kind = "raster"` reads the bottom
-  of the aquifer from the new `[data.substratum]` variable, one user raster in
-  metres. `quantity = "elevation"` takes its values as the substratum,
-  `"thickness"` subtracts them from the top; `offset`, `scale` and
-  `min_thickness` adjust it. The raster is reprojected onto the grid of the top
-  and must cover every cell of the chosen extent (the catchment for
-  `domain_extent = "watershed"`, the buffered box for `"box"`), or the run
-  stops and counts the missing cells. The `domain-build` process takes it as a
-  `substratum` input, the mask being the extent there.
+- A raster substratum: two depth models read the bottom of the aquifer from
+  the new `[data.substratum]` variable, one user raster in metres.
+  `kind = "raster_substratum"` takes its values as the substratum elevation,
+  the raster twin of `flat_substratum`; `kind = "raster_thickness"` subtracts
+  them from the top, the raster twin of `constant_thickness`, and takes a
+  `scale`. Both take `offset` and `min_thickness`. The raster is reprojected
+  onto the grid of the top and must cover every cell of the chosen extent (the
+  catchment for `domain_extent = "watershed"`, the buffered box for `"box"`),
+  or the run stops and counts the missing cells. The `domain-build` process
+  takes it as a `substratum` input, the mask being the extent there.
 - The `data-request` process (`hmp process run data-request --job DIR`), the
   job form of `hmp data get`: the managers' cache lives under `$TMPDIR` with an
   in-memory index, a `custom` source is refused before anything is written, a
