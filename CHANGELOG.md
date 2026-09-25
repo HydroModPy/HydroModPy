@@ -231,6 +231,11 @@ Each release section includes the following standard categories:
   | `protocols.matching_hydrographic_network.MatchingHydrographicNetworkOptions` | `hydromodpy.calibration.config` |
   | `runners.state.{default_store_factory, CalibrationStoreFactory}` | `hydromodpy.calibration.persistence` |
   | `hydromodpy.solver.modflow_common.flow_adapter_helpers.WATER_BUDGET_METRIC` | `hydromodpy.simulation.planning.plan` |
+- The particle pathline reader moves from
+  `hydromodpy.display.figures.particle_tracks` to
+  `hydromodpy.results.run.particles` (`read_particle_tracks`,
+  `particle_time_to_days`). The map overlay no longer imports a figure, which
+  closes the import cycle between `display.figures` and `display.overlays`.
 
 ### Fixed
 - `Project.simulate(thickness=...)` on a depth model without a thickness raises

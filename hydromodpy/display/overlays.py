@@ -24,6 +24,7 @@ import numpy as np
 
 from hydromodpy.display.map_axes import overlay_watershed_contour
 from hydromodpy.display.mesh_geometry import face_centroids, face_polygons
+from hydromodpy.results.run.particles import read_particle_tracks
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -71,8 +72,6 @@ def draw_seepage(ax: Axes, sim: Run, *, timestep: int | None = None, **_) -> Non
 
 def draw_particles(ax: Axes, sim: Run, *, max_tracks: int = 400, **_) -> None:
     """Particle pathlines projected in plan view."""
-    from hydromodpy.display.figures.particle_tracks import read_particle_tracks
-
     tracks = read_particle_tracks(sim)
     if not tracks:
         raise OverlayUnavailable("run has no particle pathlines")
