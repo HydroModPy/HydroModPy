@@ -157,6 +157,10 @@ Each release section includes the following standard categories:
   `hydromodpy.results.calibration_trials.calibration_sessions`, and
   `hydromodpy.results.run.array.acting_faces_over_run` and `acting_faces`. Each
   takes the run; `Run` keeps its 50 public attributes.
+- `hydromodpy.display.geo.project_gdf_for_metric_operations`, which puts a
+  GeoDataFrame in a metric CRS. `reporting` and the network figures imported it
+  under a private name from a figure module. The network figures also share
+  `plot_topography_background` under a public name.
 
 ### Changed
 - `hydromodpy/data` is reorganised into sub-packages with one job each; its

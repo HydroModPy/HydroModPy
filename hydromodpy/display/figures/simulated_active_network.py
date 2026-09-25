@@ -35,7 +35,7 @@ from hydromodpy.display.figures._stream_comparison import (
     map_legend,
     select_cells,
 )
-from hydromodpy.display.figures.hydrographic_network import _project_gdf_for_metric_operations
+from hydromodpy.display.geo import project_gdf_for_metric_operations
 from hydromodpy.display.map_axes import (
     RELATIVE_MAP_LEGEND_SIZE,
     overlay_watershed_contour,
@@ -310,7 +310,7 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
             fallback_crs = None if watershed is None or watershed.empty else watershed.crs
         except Exception:
             fallback_crs = None
-        reference = _project_gdf_for_metric_operations(reference, fallback_crs=fallback_crs)
+        reference = project_gdf_for_metric_operations(reference, fallback_crs=fallback_crs)
         reference.plot(
             ax=ax,
             color=reference_color,

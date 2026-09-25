@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.figures.hydrographic_network import _plot_topography_background
+from hydromodpy.display.figures.hydrographic_network import plot_topography_background
 from hydromodpy.display.geo import GeoFigureMixin
 from hydromodpy.display.map_axes import (
     RELATIVE_MAP_LEGEND_SIZE,
@@ -286,7 +286,7 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
             alpha=0.7,
             target_crs=comparison.crs,
         )
-        _plot_topography_background(ax, sim, alpha=0.72)
+        plot_topography_background(ax, sim, alpha=0.72)
         bounds = _combined_total_bounds(
             comparison.reference_gdf,
             comparison.candidate_gdf,

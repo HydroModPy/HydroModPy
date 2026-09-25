@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.geo import GeoFigureMixin
+from hydromodpy.display.geo import GeoFigureMixin, project_gdf_for_metric_operations
 from hydromodpy.display.map_axes import overlay_watershed_contour, style_relative_km_axes
 
 if TYPE_CHECKING:
@@ -43,12 +43,12 @@ class _HydrographicNetworkRoleFigure(GeoFigureMixin, BaseFigure):
 
         watershed = _read_watershed(sim)
         fallback_crs = None if watershed is None else watershed.crs
-        gdf = _project_gdf_for_metric_operations(raw_gdf, fallback_crs=fallback_crs)
+        gdf = project_gdf_for_metric_operations(raw_gdf, fallback_crs=fallback_crs)
         if watershed is not None and gdf.crs is not None and watershed.crs is not None:
             if str(watershed.crs) != str(gdf.crs):
                 watershed = watershed.to_crs(gdf.crs)
 
-        _plot_topography_background(ax, sim)
+        plot_topography_background(ax, sim)
         gdf.plot(ax=ax, color=self.color, linewidth=1.5, alpha=0.98, zorder=4)
         if watershed is not None and not watershed.empty:
             watershed.boundary.plot(
@@ -148,7 +148,7 @@ def _read_watershed(sim: Run):
     return gdf
 
 
-def _plot_topography_background(ax, sim: Run, *, alpha: float = 0.82) -> None:
+def plot_topography_background(ax, sim: Run, *, alpha: float = 0.82) -> None:
     """Draw cell topography with the same terrain palette as context maps."""
     import numpy as np
     from matplotlib.collections import PolyCollection
@@ -186,50 +186,13 @@ def _plot_topography_background(ax, sim: Run, *, alpha: float = 0.82) -> None:
     ax.autoscale_view()
 
 
-def _project_gdf_for_metric_operations(gdf, *, fallback_crs: str | object | None = None):
-    if gdf is None or gdf.empty:
-        return gdf
-
-    out = gdf.copy()
-    source_crs = _coerce_crs(out.crs)
-    fallback = _coerce_crs(fallback_crs)
-    if source_crs is None and fallback is not None:
-        out = out.set_crs(fallback, allow_override=True)
-        source_crs = fallback
-
-    if source_crs is None or getattr(source_crs, "is_projected", False):
-        return out
-
-    target = None
-    try:
-        target = out.estimate_utm_crs()
-    except Exception:
-        target = None
-    if target is None and fallback is not None and getattr(fallback, "is_projected", False):
-        target = fallback
-    return out if target is None else out.to_crs(target)
-
-
 def _measure_linework_length_m(gdf) -> float:
     import numpy as np
 
     if gdf is None or gdf.empty:
         return 0.0
-    metric_gdf = _project_gdf_for_metric_operations(gdf)
+    metric_gdf = project_gdf_for_metric_operations(gdf)
     return float(np.sum(np.asarray(metric_gdf.length, dtype=float)))
-
-
-def _coerce_crs(crs_like) -> object | None:
-    if crs_like is None:
-        return None
-    if isinstance(crs_like, str) and crs_like.strip() == "":
-        return None
-    try:
-        from pyproj import CRS
-
-        return CRS.from_user_input(crs_like)
-    except Exception:
-        return None
 
 
 def _fmt_km(length_m: float | None) -> str:
