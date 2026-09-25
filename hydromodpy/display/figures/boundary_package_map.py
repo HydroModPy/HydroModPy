@@ -42,7 +42,7 @@ then the map answers which cells are exchanging water on that day instead.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
@@ -53,6 +53,7 @@ from hydromodpy.display.mesh_geometry import face_polygons
 from hydromodpy.display.overlays import apply_overlays
 from hydromodpy.display.ugrid import last_timestep
 from hydromodpy.results.derive.config_flags import enable_options_hint, missing_field_options
+from hydromodpy.results.run.array import acting_faces, acting_faces_over_run
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -136,9 +137,6 @@ VIEW_MARGIN = 0.02
 
 _NOTE_BOX = {"facecolor": "white", "alpha": 0.9, "edgecolor": GROUND_EDGE}
 
-_DEFAULT_SLAB_STEPS = 64
-"""Steps read at once from a store that does not declare a time chunk."""
-
 _WATERSHED_FEATURE = "watershed"
 """The delineated catchment, under the name the geographic step persists it."""
 
@@ -209,7 +207,7 @@ class BoundaryPackageMap(BaseFigure):
         acting = (
             {name: _acting_cells(sim, name, step, n_faces) for name in stored}
             if over == "step"
-            else _acting_cells_over_run(sim, stored, n_faces)
+            else acting_faces_over_run(sim, stored, n_faces)
         )
 
         several = np.sum(list(acting.values()), axis=0) >= 2
@@ -259,67 +257,7 @@ class BoundaryPackageMap(BaseFigure):
 
 def _acting_cells(sim: Run, name: str, step: int, n_faces: int) -> np.ndarray:
     """Return the cells one package carries a non-zero flux on, at one step."""
-    return _acting_faces(np.asarray(sim.field(name, timestep=step)), name, n_faces)
-
-
-def _acting_cells_over_run(sim: Run, names: list[str], n_faces: int) -> dict[str, np.ndarray]:
-    """Return, per package, the cells it acts on at any persisted step.
-
-    One store opening for the whole map. Asking the run for one timestep at a
-    time reopens the Zarr store on every call: six components over a 365-day
-    chronicle is 2 190 openings for one figure, and a ten-year daily run is
-    twenty times that. The stack of each component is read once instead, in
-    slabs of the chunking it was written in, so the memory stays bounded
-    whatever the chronicle is worth.
-    """
-    from hydromodpy.results.field_registry import get as field_descriptor
-    from hydromodpy.results.run.array import lookup_zarr_path
-
-    store = sim._catalog.open_zarr(sim.sim_id)
-    try:
-        return {
-            name: _acting_over_stack(
-                lookup_zarr_path(store.root, field_descriptor(name).zarr_path), name, n_faces
-            )
-            for name in names
-        }
-    finally:
-        store.close()
-
-
-def _acting_over_stack(stack: Any, name: str, n_faces: int) -> np.ndarray:
-    """Reduce one stored component to the cells it ever acts on."""
-    if stack is None:
-        raise ValueError(f"the '{name}' budget is not an array of the store of this run.")
-    acting = np.zeros(n_faces, dtype=bool)
-    slab = _slab_steps(stack)
-    for start in range(0, int(stack.shape[0]), slab):
-        acting |= _acting_faces(np.asarray(stack[start : start + slab]), name, n_faces)
-        if acting.all():
-            break
-    return acting
-
-
-def _slab_steps(stack: Any) -> int:
-    """Return how many steps to read at once, from how they were written."""
-    chunks = getattr(stack, "chunks", None)
-    return int(chunks[0]) if chunks else _DEFAULT_SLAB_STEPS
-
-
-def _acting_faces(values: np.ndarray, name: str, n_faces: int) -> np.ndarray:
-    """Return the faces one block of fluxes carries a finite non-zero value on.
-
-    Every axis but the last is reduced away, so a layered component names the
-    cell whichever layer the package sits in, and signed layer fluxes that
-    cancel out over the column are still an acting cell.
-    """
-    if values.shape[-1] != n_faces:
-        raise ValueError(
-            f"the '{name}' budget holds {values.shape[-1]} values per step, which is not "
-            f"the {n_faces} cells the mesh holds."
-        )
-    carried = np.isfinite(values) & (np.abs(values) > 0.0)
-    return np.any(carried, axis=tuple(range(values.ndim - 1)))
+    return acting_faces(np.asarray(sim.field(name, timestep=step)), name, n_faces)
 
 
 def _note(sim: Run, step: int, over: str, *, acting_cells: int, n_faces: int) -> str:

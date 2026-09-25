@@ -19,6 +19,7 @@ from hydromodpy.core.state.paths import catalog_path_for
 
 if TYPE_CHECKING:
     from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.run import Run
 
 DISCHARGE_VARIABLE = "discharge"
@@ -30,12 +31,12 @@ def catalog_file(inputs: CatchmentReportInputs) -> Path:
 
 
 @contextmanager
-def open_simulation_run(inputs: CatchmentReportInputs) -> Iterator[Run]:
-    """Yield the report's run, opened read-only from the workspace catalog."""
+def open_simulation_run(inputs: CatchmentReportInputs) -> Iterator[tuple[Catalog, Run]]:
+    """Yield the workspace catalog, opened read-only, and the report's run in it."""
     from hydromodpy.results.catalog import Catalog
 
     with Catalog(inputs.simulation_workspace_dir, read_only=True) as catalog:
-        yield catalog[inputs.simulation_name]
+        yield catalog, catalog[inputs.simulation_name]
 
 
 def simulation_run_exists(inputs: CatchmentReportInputs) -> bool:
@@ -71,9 +72,9 @@ def newest_completed_run_name(inputs: CatchmentReportInputs) -> str | None:
         return runs[0].name if len(runs) else None
 
 
-def simulation_parquet_dir(run: Run) -> Path | None:
+def simulation_parquet_dir(catalog: Catalog, run: Run) -> Path | None:
     """Return the run's Parquet directory when it exists on disk."""
-    parquet_dir = run._catalog.tables_dir_for(run.sim_id)
+    parquet_dir = catalog.tables_dir_for(run.sim_id)
     return parquet_dir if parquet_dir.is_dir() else None
 
 

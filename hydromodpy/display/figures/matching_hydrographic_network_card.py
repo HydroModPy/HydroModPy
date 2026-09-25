@@ -42,7 +42,7 @@ from hydromodpy.display.figures._stream_comparison import (
 )
 from hydromodpy.display.figures._trial_diagnostics import TrialTable, trial_table
 from hydromodpy.display.legend_placement import place_legend
-from hydromodpy.results.calibration_trials import calibration_trials
+from hydromodpy.results.calibration_trials import calibration_sessions, calibration_trials
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -512,14 +512,7 @@ def _session_rows(sim: Run) -> dict[str, dict[str, Any]]:
     of other calibrations are harmless, since only the ids named by this
     run's trials are ever looked up.
     """
-    frame = getattr(sim, "calibration_sessions", None)
-    if frame is None:
-        catalog = getattr(sim, "_catalog", None)
-        frame = getattr(catalog, "calibration_sessions", None) if catalog is not None else None
-    if frame is None:
-        return {}
-    if not isinstance(frame, pd.DataFrame):
-        frame = pd.DataFrame(list(frame))
+    frame = calibration_sessions(sim)
     if frame.empty or "session_id" not in frame.columns:
         return {}
     return {str(row["session_id"]): dict(row) for row in frame.to_dict("records")}

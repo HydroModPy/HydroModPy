@@ -201,28 +201,15 @@ class BaseFigure(ABC):
 
 
 def _extract_crs_epsg(sim: Run) -> int | None:
-    """Pull the EPSG integer code from a ``Run`` instance when available.
+    """Return the EPSG code the catalog recorded for ``sim``, or ``None``.
 
-    Tries the catalog-backed ``simulations.crs_epsg`` column first; falls
-    back to ``None`` rather than raising, so PNG metadata stays optional.
+    PNG provenance is optional. A run-shaped object with no catalog behind it
+    (the calibration report builds one from a session journal) still gets its
+    PNG, without an EPSG.
     """
+    from hydromodpy.results.run.geographic import crs_epsg
+
     try:
-        catalog = getattr(sim, "_catalog", None)
-        sim_id = getattr(sim, "_sim_id", None) or getattr(sim, "sim_id", None)
-        if catalog is None or sim_id is None:
-            return None
-        backend = getattr(catalog, "backend", None)
-        if backend is None:
-            return None
-        df = backend.query(
-            "SELECT crs_epsg FROM simulations WHERE sim_id = ?",
-            [sim_id],
-        )
-        if df.empty:
-            return None
-        value = df.iloc[0]["crs_epsg"]
-        if value is None:
-            return None
-        return int(value)
-    except Exception:
+        return crs_epsg(sim)
+    except Exception:  # provenance is optional; it never costs the PNG
         return None

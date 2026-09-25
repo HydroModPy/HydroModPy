@@ -16,6 +16,7 @@ from hydromodpy.display.map_axes import (
     overlay_watershed_contour,
     style_map_axes,
 )
+from hydromodpy.results.run.geographic import geographic_metadata
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -163,7 +164,7 @@ class WatershedIdCardFigure(BaseFigure):
         """
         try:
             # geographic_metadata stores outlet coordinates as x_outlet / y_outlet.
-            meta = sim._catalog.read_geographic_metadata(sim.sim_id)
+            meta = geographic_metadata(sim)
         except Exception:
             return
         if not isinstance(meta, dict):

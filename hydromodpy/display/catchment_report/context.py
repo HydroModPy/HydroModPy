@@ -63,9 +63,9 @@ def build_context(inputs: CatchmentReportInputs) -> Path:
     assets_dir.mkdir(parents=True, exist_ok=True)
 
     config = _load_resolved_toml(inputs.transient_config)
-    with open_simulation_run(inputs) as run:
+    with open_simulation_run(inputs) as (catalog, run):
         simulated = read_simulated_discharge(run)
-        parquet_dir = simulation_parquet_dir(run)
+        parquet_dir = simulation_parquet_dir(catalog, run)
     observed = (
         _read_series(inputs.observed_discharge_path)
         if inputs.observed_discharge_path is not None and inputs.observed_discharge_path.exists()
