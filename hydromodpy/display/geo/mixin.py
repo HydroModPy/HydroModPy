@@ -1,10 +1,8 @@
 """Mixin for spatial figures drawn on a CRS-aware axes.
 
-A figure that inherits from :class:`GeoFigureMixin` gains three helpers
+A figure that inherits from :class:`GeoFigureMixin` gains two helpers
 that are useful for maps: :meth:`add_scale_bar` draws a simple metric
-scale bar, :meth:`add_north_arrow` adds a small N arrow, and
-:meth:`add_basemap` delegates to ``basemaps.add_basemap`` when the
-optional contextily dependency is available.
+scale bar and :meth:`add_north_arrow` adds a small N arrow.
 """
 
 from __future__ import annotations
@@ -21,8 +19,6 @@ class GeoFigureMixin:
     The mixin assumes axes are in a projected CRS whose units are metres
     (this is the HydroModPy convention - all meshes live in a metric CRS).
     """
-
-    crs: str | None = None
 
     def add_scale_bar(
         self,
@@ -80,11 +76,6 @@ class GeoFigureMixin:
             textcoords="axes fraction",
             arrowprops={"facecolor": "black", "width": 2, "headwidth": 8},
         )
-
-    def add_basemap(self, ax: Axes, *, crs: str | None = None, source: str | None = None) -> None:
-        from hydromodpy.display.geo import basemaps
-
-        basemaps.add_basemap(ax, crs=crs or self.crs, source=source)
 
 
 def _nice_round(value: float) -> float:

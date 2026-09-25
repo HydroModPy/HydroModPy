@@ -17,8 +17,8 @@ Sub-modules
 - ``display/figures/`` -- one module per named figure. Auto-discovery
   through ``pkgutil.iter_modules`` in
   ``display/figures/__init__.py``.
-- ``display/geo/`` -- shared geographic plotting helpers (basemaps,
-  CRS-aware axes, scalebar, north arrow).
+- ``display/geo/`` -- shared geographic plotting helpers (scale bar
+  and north arrow on metric axes).
 - ``display/overview/`` -- composed overview report rendering used
   by the ``[overview]`` workflow.
 - ``display/report_blocks/`` -- shared static HTML block primitives
@@ -130,7 +130,6 @@ Key public symbols
 - ``hydromodpy.display.{get, list_figures, names}``
 - ``hydromodpy.display.figure.{FigureSpec, BaseFigure}``
 - ``hydromodpy.display.figure_registry.register``
-- ``hydromodpy.display.theme.plot_params``
 - ``hydromodpy.display.config.DisplayConfig``
 - ``hydromodpy.display.report_blocks.{ReportBlock, ReportMetric,
   ReportFigure, ReportTable, ReportLink}``

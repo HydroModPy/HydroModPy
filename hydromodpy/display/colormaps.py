@@ -3,14 +3,10 @@
 A short list of perceptually-broken colormaps is banned across the whole
 display corpus. :func:`get_cmap` is the single entry point - it rejects
 a banned name up-front so misuse fails loudly at figure construction
-time, not later in a CI pipeline. The ``check_no_banned_in_call`` helper
-is used by the unit-test that scans the figures directory for direct
-matplotlib calls.
+time, not later in a CI pipeline.
 """
 
 from __future__ import annotations
-
-from collections.abc import Iterable
 
 BANNED_CMAPS: frozenset[str] = frozenset(
     {
@@ -57,19 +53,9 @@ def get_cmap(name: str | None = None, kind: str = "sequential"):
     return mpl.colormaps.get_cmap(name)
 
 
-def check_no_banned_in_call(call_args: Iterable[str]) -> list[str]:
-    """Return the subset of ``call_args`` that are banned colormap names.
-
-    Used by the test that statically inspects figure source files to make
-    sure no figure hard-codes a banned cmap via a literal string.
-    """
-    return [arg for arg in call_args if arg in BANNED_CMAPS]
-
-
 __all__ = [
     "BANNED_CMAPS",
     "HIGH_CONTRAST_TRIPLET",
     "PREFERRED_CMAPS",
     "get_cmap",
-    "check_no_banned_in_call",
 ]

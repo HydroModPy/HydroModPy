@@ -12,7 +12,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.geo import GeoFigureMixin
 from hydromodpy.display.map_axes import (
     overlay_watershed_contour,
     style_map_axes,
@@ -32,7 +31,7 @@ _DEM_RASTER_CANDIDATES = ("watershed_dem", "dem", "watershed_fill")
 
 
 @register
-class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
+class WatershedIdCardFigure(BaseFigure):
     """Compact summary: topography and metadata table."""
 
     spec = FigureSpec(

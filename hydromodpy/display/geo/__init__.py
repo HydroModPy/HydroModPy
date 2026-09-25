@@ -1,8 +1,7 @@
 """Geographic figure helpers.
 
-Provides :class:`GeoFigureMixin` for figures that draw on a map (CRS
-awareness, scale bar, optional basemap) and a tiny ``basemaps`` helper
-module.
+Provides :class:`GeoFigureMixin` for figures that draw a vector map on
+metric axes: a scale bar and a north arrow.
 """
 
 from __future__ import annotations

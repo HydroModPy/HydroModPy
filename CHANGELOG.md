@@ -91,6 +91,11 @@ Each release section includes the following standard categories:
   imported, and `hydromodpy.calibration.protocols.registry.assert_version_is_available`:
   the protocol version is checked in `matching_hydrographic_network.py`
   instead.
+- `hydromodpy.display.renderer.save_figure`, `hydromodpy.display.theme.plot_params`,
+  `hydromodpy.display.colormaps.check_no_banned_in_call`, the module
+  `hydromodpy.display.geo.basemaps`, and `GeoFigureMixin.add_basemap` with the
+  `crs` attribute only it read. Nothing called them; a figure is saved by
+  `BaseFigure.plot`.
 
 ### Added
 - A raster substratum: two depth models read the bottom of the aquifer from
