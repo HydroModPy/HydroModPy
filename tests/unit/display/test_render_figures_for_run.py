@@ -353,3 +353,22 @@ def test_merged_reports_read_as_one_batch(runs_module):
     merged = first.merged_with(second)
 
     assert merged.summary() == "Rendered 1/2 figure(s); 1 skipped: b (no calibration)"
+
+
+def test_one_figure_the_run_cannot_feed_is_refused_with_its_reason(
+    tmp_path, patched_registry, runs_module
+):
+    with pytest.raises(ValueError, match="'na_particles' does not apply to this run: stub is"):
+        runs_module.render_figure("na_particles", _StubRun(), save=tmp_path)
+
+    assert patched_registry["na_particles"].calls == []
+    assert not (tmp_path / "na_particles.png").exists()
+
+
+def test_one_figure_gets_its_dpi_and_lands_in_the_directory_it_is_given(
+    tmp_path, patched_registry, runs_module
+):
+    runs_module.render_figure("piezometric_map", _StubRun(), save=tmp_path, dpi=300)
+
+    assert patched_registry["piezometric_map"].calls == [(tmp_path / "piezometric_map.png", 300)]
+    assert (tmp_path / "piezometric_map.png").is_file()

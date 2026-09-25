@@ -332,6 +332,12 @@ Each release section includes the following standard categories:
   `metadata["values"]`, which the engine never wrote.
 - `hmp` no longer imports the catchment report, nor `matplotlib.pyplot` with
   it, each time it builds its parser; only `hmp report catchment` does.
+- `hmp viz show` refuses a figure the run cannot feed, with the figure's reason
+  and exit code 1, instead of drawing it or failing inside the drawing, and
+  names the file it wrote: `--output X` writes `X.png` and now says so.
+  `hmp.figure`, `hmp viz show` and the capability gallery of the export step
+  render one figure through `hydromodpy.display.runs.render_figure`, which
+  takes `dpi` and the figure options and returns the figure.
 
 ---
 

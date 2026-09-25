@@ -1,4 +1,8 @@
-"""``hmp viz show`` - thin wrapper around :func:`hydromodpy.render_figure`."""
+"""``hmp viz show`` - thin wrapper around :func:`hydromodpy.display.runs.render_figure`.
+
+A figure the run cannot feed is refused with its reason (exit code 1), as
+``hmp.figure`` refuses it.
+"""
 
 from __future__ import annotations
 

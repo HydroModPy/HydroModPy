@@ -737,20 +737,9 @@ def figure(
     >>> run = cat.latest()  # doctest: +SKIP
     >>> hmp.figure(run, "cross_section", orientation="sn")  # doctest: +SKIP
     """
-    from pathlib import Path as _Path
+    from hydromodpy.display.runs import render_figure
 
-    from hydromodpy.display import get as _get_figure
-
-    renderer = _get_figure(name)
-    reason = renderer.unavailable_reason(sim)
-    if reason is not None:
-        raise ValueError(f"figure '{name}' does not apply to this run: {reason}")
-
-    save_path = None
-    if save is not None:
-        target = _Path(save)
-        save_path = target / f"{name}.png" if target.suffix == "" else target
-    return renderer.plot(sim, dpi=dpi, save_path=save_path, **opts)
+    return render_figure(name, sim, save=save, dpi=dpi, **opts)
 
 
 def export(
