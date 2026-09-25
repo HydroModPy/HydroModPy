@@ -129,6 +129,57 @@ class TestDaMhGpBest:
         assert np.isclose(mode["x"], 1.0, atol=0.6)
         assert np.isclose(mode["y"], -2.0, atol=0.6)
 
+    def test_best_picks_the_trial_nearest_the_mode_without_values_metadata(self):
+        """``best()`` must not rely on ``metadata["values"]``.
+
+        The real engine (``optim/engine.py``) never writes a ``values`` key
+        into ``EvaluationResult.metadata``; only the ``values`` fixture above
+        does, as a convenience. Reproduce the production shape here so the
+        picked trial cannot be found through that key, and check it is still
+        the evaluated point nearest the posterior mode in transformed space.
+        """
+        space = _quadratic_space()
+        opt = build_optimizer(
+            "da_mh_gp",
+            space,
+            max_iter=40,
+            n_init=6,
+            burn_in=10,
+            proposal_sigma=0.4,
+            seed=42,
+            sigma_noise=0.3,
+        )
+        transformed_by_trial: dict[int, np.ndarray] = {}
+
+        def _eval(sugg):
+            transformed_by_trial[sugg.trial_id] = np.array(
+                [p.to_transformed(float(sugg.values[p.name])) for p in space.parameters],
+                dtype=float,
+            )
+            x = float(sugg.values["x"])
+            y = float(sugg.values["y"])
+            rmse = float(np.sqrt((x - 1.0) ** 2 + (y - (-2.0)) ** 2))
+            return EvaluationResult(trial_id=sugg.trial_id, sim_id=None, objective_value=rmse)
+
+        engine = CalibrationEngine(
+            space=space,
+            optimizer=opt,
+            evaluator=_eval,
+            max_iter=100,
+        )
+        engine.run()
+        best = opt.best()
+        assert best is not None
+        assert "values" not in (best.metadata or {})
+
+        idx_mode = int(np.argmax(opt._chain_logpost))
+        x_mode_t = np.asarray(opt._chain[idx_mode], dtype=float)
+        expected_trial_id = min(
+            transformed_by_trial,
+            key=lambda tid: float(np.linalg.norm(transformed_by_trial[tid] - x_mode_t)),
+        )
+        assert best.trial_id == expected_trial_id
+
     def test_best_returns_none_when_nothing_evaluated(self):
         """``best()`` must return ``None`` before any ``tell()``."""
         space = _quadratic_space()

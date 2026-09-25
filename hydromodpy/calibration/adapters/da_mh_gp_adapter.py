@@ -199,6 +199,7 @@ class DaMhGpOptimizer:
         self._rng = np.random.default_rng(self._seed)
         self._trial_id = 0
         self._pending: dict[int, np.ndarray] = {}
+        self._trial_points: dict[int, np.ndarray] = {}
         self._results: list[EvaluationResult] = []
         self._chain: list[np.ndarray] = []
         self._chain_logpost: list[float] = []
@@ -375,7 +376,7 @@ class DaMhGpOptimizer:
         for r in results:
             if r.trial_id not in self._pending:
                 continue
-            self._pending.pop(r.trial_id, None)
+            self._trial_points[r.trial_id] = self._pending.pop(r.trial_id)
             self._results.append(r)
             value = r.objective_value
             if r.status != "completed" or not np.isfinite(value):
@@ -400,15 +401,8 @@ class DaMhGpOptimizer:
         x_mode_t = np.asarray(self._chain[idx_mode], dtype=float)
 
         def _dist(result: EvaluationResult) -> float:
-            values = (result.metadata or {}).get("values")
-            if not values:
-                return np.inf
-            try:
-                x_r = np.array(
-                    [p.to_transformed(float(values[p.name])) for p in self.space.parameters],
-                    dtype=float,
-                )
-            except Exception:  # pragma: no cover - defensive
+            x_r = self._trial_points.get(result.trial_id)
+            if x_r is None:
                 return np.inf
             return float(np.linalg.norm(x_r - x_mode_t))
 
