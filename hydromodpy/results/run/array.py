@@ -60,6 +60,67 @@ def lookup_zarr_path(root, zarr_path: str):
     return root.get(zarr_path)
 
 
+_DEFAULT_SLAB_STEPS = 64
+"""Steps read at once from a store that does not declare a time chunk."""
+
+
+def acting_faces_over_run(run: Run, names: list[str], n_faces: int) -> dict[str, np.ndarray]:
+    """Return, per flux component, the faces it acts on at any persisted step.
+
+    One store opening for the whole run. Asking the run for one timestep at a
+    time reopens the Zarr store on every call: six components over a 365-day
+    chronicle is 2 190 openings for one figure, and a ten-year daily run is
+    twenty times that. The stack of each component is read once instead, in
+    slabs of the chunking it was written in, so the memory stays bounded
+    whatever the chronicle is worth.
+    """
+    store = run._catalog.open_zarr(run.sim_id)
+    try:
+        return {
+            name: _acting_over_stack(
+                lookup_zarr_path(store.root, field_registry.get(name).zarr_path), name, n_faces
+            )
+            for name in names
+        }
+    finally:
+        store.close()
+
+
+def _acting_over_stack(stack, name: str, n_faces: int) -> np.ndarray:
+    """Reduce one stored component to the faces it ever acts on."""
+    if stack is None:
+        raise ValueError(f"the '{name}' budget is not an array of the store of this run.")
+    acting = np.zeros(n_faces, dtype=bool)
+    slab = _slab_steps(stack)
+    for start in range(0, int(stack.shape[0]), slab):
+        acting |= acting_faces(np.asarray(stack[start : start + slab]), name, n_faces)
+        if acting.all():
+            break
+    return acting
+
+
+def _slab_steps(stack) -> int:
+    """Return how many steps to read at once, from how they were written."""
+    chunks = getattr(stack, "chunks", None)
+    return int(chunks[0]) if chunks else _DEFAULT_SLAB_STEPS
+
+
+def acting_faces(values: np.ndarray, name: str, n_faces: int) -> np.ndarray:
+    """Return the faces one block of fluxes carries a finite non-zero value on.
+
+    Every axis but the last is reduced away, so a layered component names the
+    face whichever layer the package sits in, and signed layer fluxes that
+    cancel out over the column are still an acting face.
+    """
+    if values.shape[-1] != n_faces:
+        raise ValueError(
+            f"the '{name}' budget holds {values.shape[-1]} values per step, which is not "
+            f"the {n_faces} cells the mesh holds."
+        )
+    carried = np.isfinite(values) & (np.abs(values) > 0.0)
+    return np.any(carried, axis=tuple(range(values.ndim - 1)))
+
+
 class RunArrayProvider:
     """Field-array readers (UGRID / xarray) bound to a single :class:`Run`."""
 

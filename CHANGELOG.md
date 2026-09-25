@@ -150,6 +150,13 @@ Each release section includes the following standard categories:
   day. A failed source exits with code 16 once the others are written, and
   leaves no file behind; a request the model refuses exits with code 14, and
   a mask that is not a file with code 10, both before anything is written.
+- Public readers in `results` for what `display` read through private
+  attributes of a run: `hydromodpy.results.run.particles`
+  (`read_particle_tracks`, `particle_time_to_days`, `travel_time`),
+  `hydromodpy.results.run.geographic.crs_epsg` and `geographic_metadata`,
+  `hydromodpy.results.calibration_trials.calibration_sessions`, and
+  `hydromodpy.results.run.array.acting_faces_over_run` and `acting_faces`. Each
+  takes the run; `Run` keeps its 50 public attributes.
 
 ### Changed
 - `hydromodpy/data` is reorganised into sub-packages with one job each; its
