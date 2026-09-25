@@ -385,7 +385,7 @@ def test_the_scoring_evaluator_binds_exactly_the_options_the_registry_publishes(
     :data:`CONSTRUCTION_OPTIONS`. That refusal is only true while the evaluator
     passes exactly those, so the tuple is compared with the call itself.
     """
-    source = (REPO_ROOT / "hydromodpy/calibration/evaluation/scored_forward.py").read_text(
+    source = (REPO_ROOT / "hydromodpy/calibration/metrics/scored_forward.py").read_text(
         encoding="utf-8"
     )
     tree = ast.parse(source)

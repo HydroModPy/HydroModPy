@@ -1,7 +1,7 @@
 """Unit tests for the Gaussian-process surrogate optimizer adapter.
 
 The adapter lives at
-:mod:`hydromodpy.calibration.adapters.gp_mapping_adapter` and implements
+:mod:`hydromodpy.calibration.optim.adapters.gp_mapping_adapter` and implements
 the :class:`~hydromodpy.calibration.optim.optimizer.Optimizer` Protocol with
 Latin-hypercube initial sampling and Expected-Improvement refinement.
 

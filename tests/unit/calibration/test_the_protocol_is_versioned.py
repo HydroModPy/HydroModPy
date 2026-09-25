@@ -128,9 +128,7 @@ class TestTheDeviations:
 class TestWhatMayBeAdjusted:
     def test_the_whitelist_matches_what_the_options_expose(self) -> None:
         """A setting outside it would be a variant claiming to be the method."""
-        from hydromodpy.calibration.protocols.matching_hydrographic_network import (
-            MatchingHydrographicNetworkOptions,
-        )
+        from hydromodpy.calibration.config import MatchingHydrographicNetworkOptions
 
         declared = get_protocol("matching_hydrographic_network").adjustable
         exposed = set(MatchingHydrographicNetworkOptions.model_fields) - {"name", "version"}

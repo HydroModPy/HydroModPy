@@ -1,6 +1,6 @@
 """Behavioural unit tests for the SciPy optimizer adapters.
 
-Covers :mod:`hydromodpy.calibration.adapters.scipy_adapter`
+Covers :mod:`hydromodpy.calibration.optim.adapters.scipy_adapter`
 (``scipy_de`` and ``scipy_nelder_mead``), which bridge SciPy's push-style
 ``differential_evolution`` / ``minimize`` API to the ask/tell Protocol via a
 background worker thread and a pair of queues.
@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import math
 
-from hydromodpy.calibration.adapters.scipy_adapter import ScipyDE, ScipyNelderMead
+from hydromodpy.calibration.optim.adapters.scipy_adapter import ScipyDE, ScipyNelderMead
 from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
     EvaluationResult,

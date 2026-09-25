@@ -22,8 +22,8 @@ from typing import Any
 import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.optim import promotion as promotion_module
-from hydromodpy.calibration.optim.promotion import promote_iterations
+from hydromodpy.calibration.runners import promotion as promotion_module
+from hydromodpy.calibration.runners.promotion import promote_iterations
 from hydromodpy.display import get as get_figure
 from hydromodpy.results.catalog import Catalog
 

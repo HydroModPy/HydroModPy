@@ -51,7 +51,7 @@ def _save_outflow_map_grid(
     from matplotlib.collections import PolyCollection
     from matplotlib.colors import LogNorm, Normalize
 
-    from hydromodpy.calibration.metrics.network import active_network_mask
+    from hydromodpy.calibration.observations.network_cost import active_network_mask
 
     # A synthetic truth package carries a real per-cell outflow; a natural one
     # only knows which cells are on the network, and writes that mask under its

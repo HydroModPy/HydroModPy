@@ -21,9 +21,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from hydromodpy.calibration.adapters._prior_sampling import transformed_prior_samples
 from hydromodpy.calibration.optim.optimizer import engine_traits
 from hydromodpy.calibration.optim.parameters import ParameterSpace
+from hydromodpy.calibration.optim.prior_sampling import transformed_prior_samples
 
 
 @dataclass(frozen=True)

@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from hydromodpy.calibration.optim.objective import (
+from hydromodpy.calibration.criteria.series import (
     HIGHER_IS_BETTER,
     LOG_METRICS,
     METRICS,

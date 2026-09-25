@@ -435,21 +435,21 @@ Implementation Provenance And References
 ----------------------------------------
 
 - ``grid`` is implemented directly in
-  ``hydromodpy.calibration.adapters.grid_adapter`` using NumPy and
+  ``hydromodpy.calibration.optim.adapters.grid_adapter`` using NumPy and
   ``itertools.product``. It does not wrap a dedicated external optimization
   library.
 - ``random_search`` is implemented directly in
-  ``hydromodpy.calibration.adapters.random_search_adapter`` using NumPy's
+  ``hydromodpy.calibration.optim.adapters.random_search_adapter`` using NumPy's
   random generator. It is intentionally kept as a pragmatic Monte Carlo
   baseline. For the practical argument that random search is a strong baseline
   for bounded search spaces, see :cite:`bergstra2012`.
 - ``optuna`` is implemented in
-  ``hydromodpy.calibration.adapters.optuna_adapter`` and delegates sampler
+  ``hydromodpy.calibration.optim.adapters.optuna_adapter`` and delegates sampler
   state to Optuna's native ask/tell API. HydroModPy still owns configuration
   injection, simulation execution, objective evaluation, and result
   persistence. Reference: :cite:`akiba2019`.
 - ``cma_es`` is implemented in
-  ``hydromodpy.calibration.adapters.cma_adapter`` and delegates the
+  ``hydromodpy.calibration.optim.adapters.cma_adapter`` and delegates the
   covariance-update logic to the `CMA-ES package <https://cma-es.github.io/>`_,
   while HydroModPy keeps bound normalization and result packaging consistent
   with the other methods. Reference: :cite:`hansen2016`.
@@ -458,12 +458,12 @@ Implementation Provenance And References
   ``scipy.optimize.minimize(..., method="Nelder-Mead")``. References:
   :cite:`virtanen2020`; :cite:`neldermead1965`.
 - ``gp_mapping`` is a HydroModPy-specific orchestration implemented in
-  ``hydromodpy.calibration.adapters.gp_mapping_adapter``. It uses
+  ``hydromodpy.calibration.optim.adapters.gp_mapping_adapter``. It uses
   ``sklearn.gaussian_process.GaussianProcessRegressor`` when available and
   otherwise falls back to an internal inverse-distance-weighted surrogate.
   References: :cite:`pedregosa2011`; :cite:`rasmussen2006`.
 - ``da_mh_gp`` is reimplemented in HydroModPy in
-  ``hydromodpy.calibration.adapters.da_mh_gp_adapter`` as a
+  ``hydromodpy.calibration.optim.adapters.da_mh_gp_adapter`` as a
   delayed-acceptance random-walk Metropolis-Hastings workflow with an internal
   lightweight Gaussian-process surrogate. Its initial design uses
   ``scipy.stats.qmc.Sobol`` when SciPy is available. References:

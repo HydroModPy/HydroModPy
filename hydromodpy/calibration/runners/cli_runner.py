@@ -19,7 +19,7 @@ Workflow:
 5. Persist every iteration into the DuckDB ``calibration_iterations``
    table (``sim_id`` left ``NULL`` by default).
 6. Honor ``save_runs`` -- ``"best_n"`` / ``"all"`` promote the chosen
-   trials through :mod:`hydromodpy.calibration.optim.promotion`. Promotion
+   trials through :mod:`hydromodpy.calibration.runners.promotion`. Promotion
    replays the pipeline, so it is refused outright when no model was prepared.
 
 The ``objective`` argument is a Python escape hatch
@@ -50,21 +50,23 @@ from hydromodpy.calibration.optim.optimizer import (
     engine_traits,
 )
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
-from hydromodpy.calibration.optim.promotion import promote_iterations
 from hydromodpy.calibration.optim.stopping import stopping_kwargs
 from hydromodpy.calibration.optim.tolerance import (
     ParameterInterval,
     tolerance_intervals,
 )
+from hydromodpy.calibration.persistence import (
+    CalibrationStoreFactory,
+    default_store_factory,
+)
 from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.calibration.runners.failure_watch import ConsecutiveFailureWatch
+from hydromodpy.calibration.runners.promotion import promote_iterations
 from hydromodpy.calibration.runners.restarts import run_restarts
 from hydromodpy.calibration.runners.sandbox import keep_trial_scratch
 from hydromodpy.calibration.runners.state import (
-    CalibrationStoreFactory,
     SessionChain,
     build_cache_context,
-    default_store_factory,
     load_metric_fn_entry_point,
     preload_hash_cache,
     space_from_config,
@@ -127,7 +129,7 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
         raise ConfigError(
             format_validation_error(exc, source_path=path, loc_prefix=("calibration",))
         ) from None
-    _resolve_stream_geometry_paths(cfg, path)
+    resolve_stream_geometry_paths(cfg, path)
     _resolve_parameter_names(cfg, path)
     return cfg, raw
 
@@ -137,7 +139,7 @@ def _resolve_parameter_names(cfg: CalibrationConfig, config_path: Path) -> None:
 
     The catalogue is read off the resolved project configuration, which this
     section is one part of, so the project is built here. Anchored on the same
-    file, and idempotent like :func:`_resolve_stream_geometry_paths`, because a
+    file, and idempotent like :func:`resolve_stream_geometry_paths`, because a
     declaration is only ever completed where the file said nothing.
     """
     from hydromodpy.calibration.parameter_resolution import (
@@ -167,7 +169,7 @@ def _resolve_parameter_names(cfg: CalibrationConfig, config_path: Path) -> None:
     resolve_parameter_targets(cfg, project_cfg)
 
 
-def _resolve_stream_geometry_paths(cfg: CalibrationConfig, config_path: Path) -> None:
+def resolve_stream_geometry_paths(cfg: CalibrationConfig, config_path: Path) -> None:
     """Anchor every relative ``stream_geometry_path`` to the file that declares it.
 
     A path in a TOML is relative to that TOML, the way ``base_config`` is, and a
@@ -694,7 +696,7 @@ def run_calibration_core(
     from hydromodpy.calibration.report import CalibrationReport
 
     if cfg_path is not None:
-        _resolve_stream_geometry_paths(cfg, cfg_path)
+        resolve_stream_geometry_paths(cfg, cfg_path)
     # Same refusal for a mono-phase run as for a staged one: an optimizer_kwarg
     # foreign to the declared method used to die as a bare TypeError inside the
     # adapter constructor, after the first solve.
@@ -1158,6 +1160,7 @@ __all__ = [
     "attach_a_linearized_width",
     "refuse_an_objective_that_is_not_an_entry_point",
     "load_toml_calibration",
+    "resolve_stream_geometry_paths",
     "run_calibration_cli",
     "run_calibration_core",
 ]

@@ -24,142 +24,16 @@ from __future__ import annotations
 import copy
 import datetime
 from collections.abc import Mapping
-from typing import Annotated, Any, Literal
+from typing import Any
 
 import pandas as pd
-from pydantic import Field, model_validator
 
+from hydromodpy.calibration.config import MatchingHydrographicNetworkOptions
 from hydromodpy.calibration.protocols.base import Deviation, Reference
-from hydromodpy.core.config_kit.base import HydroModelBase
-from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import PositiveFloat
 
 STEADY_STAGE = "steady_conductivity"
 TRANSIENT_STAGE = "transient_storage"
 NETWORK_BLOCK = "network_extension"
-
-
-class MatchingHydrographicNetworkOptions(HydroModelBase):
-    """What a file may say about the protocol beyond naming it.
-
-    Everything here has a default that reproduces the published method. The
-    names are the ones the file uses for its own parameters and outputs, and the
-    engines are free: the method is the pair of criteria and the order they run
-    in, not the optimizer that walks them.
-    """
-
-    name: Annotated[Literal["matching_hydrographic_network"], Profile.USER] = Field(
-        description="Protocol identifier.",
-    )
-    version: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Recipe version this file was written against. Unset runs the version this "
-            "installation carries; pinned, a mismatch is refused rather than "
-            "approximated, so a result that informed a decision stays replayable."
-        ),
-    )
-    conductivity: Annotated[str, Profile.USER] = Field(
-        default="K",
-        description="Name of the calibration parameter stage one moves, as the file "
-        "declares it under [calibration.parameters].",
-    )
-    storage: Annotated[str | None, Profile.USER] = Field(
-        default="Sy",
-        description="Name of the calibration parameter stage two moves. Null runs the "
-        "network stage alone, which is a method in its own right: it identifies the "
-        "conductivity without any discharge record.",
-    )
-    network_output: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description="Name of the network output stage one is scored on. Unset picks "
-        "the single output declared with support='network'.",
-    )
-    steady_metric: Annotated[Literal["distance_gap", "distance_mean"], Profile.USER] = Field(
-        default="distance_gap",
-        description="Criterion of stage one. 'distance_gap' is the signed difference "
-        "of Eq. 1, whose zero is the balance the paper solves for. 'distance_mean' is "
-        "the mean offset: a diagnostic, and the estimator of the reference script, "
-        "whose interior minimum sits nowhere in particular.",
-    )
-    steady_method: Annotated[str, Profile.USER] = Field(
-        default="bisection",
-        description="Engine of stage one. The signed criterion crosses zero once over "
-        "several decades, which is what a root search wants; any registered engine is "
-        "accepted.",
-    )
-    steady_max_iter: Annotated[int, Profile.USER] = Field(
-        default=20,
-        ge=1,
-        description="Evaluation budget of stage one.",
-    )
-    steady_tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
-        default=None,
-        description="How precisely stage one has to pin the conductivity before it "
-        "stops, as a relative precision on the conductivity: 0.01 is the paper's one "
-        "per cent. Unset takes the engine's default, which for the bisection is that "
-        "same one per cent.",
-    )
-    steady_engine_options: Annotated[dict[str, Any], Profile.DEV] = Field(
-        default_factory=dict,
-        description="Options of the stage-one engine itself, named as that engine "
-        "names them. Which ones exist depends on steady_method, and the model of "
-        "each engine is in calibration.optim.method_config. A key the engine does not "
-        "know is refused before the first solver call. The escape hatch for "
-        "reproducing a published call; a "
-        "precision is said once, in steady_tolerance.",
-    )
-    steady_window: Annotated[dict[str, str] | None, Profile.USER] = Field(
-        default=None,
-        description="Dates the steady stage averages, as {start, end}. Unset takes the "
-        "whole [simulation.time] window.",
-    )
-    transient_metric: Annotated[str, Profile.USER] = Field(
-        default="nse_log",
-        description="Criterion of stage two. The default weights recessions as heavily "
-        "as peaks, which is where storage shows.",
-    )
-    transient_method: Annotated[str, Profile.USER] = Field(
-        default="scipy_nelder_mead",
-        description="Engine of stage two.",
-    )
-    transient_max_iter: Annotated[int, Profile.USER] = Field(
-        default=120,
-        ge=1,
-        description="Evaluation budget of stage two.",
-    )
-    transient_tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
-        default=None,
-        description="How precisely stage two has to pin the storage before it stops, "
-        "as a relative precision on the storage coefficient.",
-    )
-    transient_engine_options: Annotated[dict[str, Any], Profile.DEV] = Field(
-        default_factory=dict,
-        description="Options of the stage-two engine itself, named as that engine "
-        "names them, and refused when it does not know them. Which ones exist depends "
-        "on transient_method.",
-    )
-    discharge_variable: Annotated[str, Profile.USER] = Field(
-        default="discharge",
-        description="Observed variable stage two is scored on.",
-    )
-    observed_station_id: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description="Gauge whose cost drives stage two. Required when several stations are loaded.",
-    )
-    scoring_window: Annotated[dict[str, str] | None, Profile.USER] = Field(
-        default=None,
-        description="Dates bounding the samples stage two scores on, as {start, end}. "
-        "Use it to drop the spin-up year the transient stage still has to simulate.",
-    )
-
-    @model_validator(mode="before")
-    @classmethod
-    def _accept_the_bare_name(cls, data: Any) -> Any:
-        """``protocol = "matching_hydrographic_network"`` is the whole declaration."""
-        if isinstance(data, str):
-            return {"name": data}
-        return data
 
 
 class MatchingHydrographicNetwork:
@@ -526,5 +400,4 @@ __all__ = [
     "STEADY_STAGE",
     "TRANSIENT_STAGE",
     "MatchingHydrographicNetwork",
-    "MatchingHydrographicNetworkOptions",
 ]

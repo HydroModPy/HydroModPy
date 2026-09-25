@@ -14,7 +14,7 @@ a burn-in in samples applies, whether a root search may be pointed at it.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import numpy as np
@@ -23,6 +23,19 @@ from hydromodpy.calibration.criteria.base import (
     SERIES_SUPPORTS,
     CriterionRequirements,
     CriterionResult,
+)
+from hydromodpy.calibration.criteria.hydrographic_network_distance import (
+    distance_gap,
+    distance_mean,
+)
+from hydromodpy.core.metrics import (
+    kge,
+    log_nse,
+    mae,
+    nse,
+    nse_delta,
+    nse_seasonal,
+    rmse,
 )
 
 # Kernels whose score rises with agreement, so the cost is one minus the score.
@@ -42,6 +55,65 @@ DIMENSIONLESS: frozenset[str] = frozenset(
 
 # The unit of the cost of a residual kernel: whatever the observations are in.
 _OBSERVED_UNIT = "observed unit"
+
+
+def _kge_score(sim: np.ndarray, obs: np.ndarray) -> float:
+    """Scalar KGE score; calibration needs a single number, not the decomposition."""
+    return float(kge(sim, obs)["kge"])
+
+
+# Window, in samples, over which the reservoir objective differences the level.
+# A day-to-day increment is wrecked by a two or three day phase shift even when the
+# filling and emptying are right; ten days keeps the flux signal while making such a
+# shift a perturbation rather than a sign flip.
+RESERVOIR_INCREMENT_STEP: int = 10
+
+
+# KGE is NOT offered on increments, on purpose. Its beta term is a ratio of means,
+# and the mean of an increment series is (last - first) / n, i.e. near zero by
+# construction, so the score swings wildly for one and the same run depending only
+# on where the series is cut. NSE has no such term and stays stable, so the
+# increment side of the objective uses it.
+
+
+def _reservoir_score(sim: np.ndarray, obs: np.ndarray) -> float:
+    """Half seasonal efficiency on the level, half efficiency on its increments.
+
+    Built for an impounded level, where the two usual metrics mislead in opposite
+    ways. ``nse`` on the level compares the model to a flat mean, a benchmark a
+    strongly seasonal signal beats on its own, so a run can score comfortably and
+    still be worse than the seasonal cycle. And a level is an integral, so
+    compensating flux errors cancel in it: a low-water bias and a high-water bias of
+    opposite signs hide behind a mean bias near zero while the increments stay
+    uncorrelated.
+
+    Pairing the two closes both holes: the seasonal term keeps the absolute level
+    honest and demands more than climatology, the increment term makes the water
+    balance count. Equal weights, no tuning knob, so the score stays readable.
+
+    The increments are taken over ``RESERVOIR_INCREMENT_STEP`` samples rather than
+    one, so a timing error of a few days is not punished as though the model had
+    filled when it should have emptied.
+    """
+    seasonal = nse_seasonal(sim, obs)
+    increments = nse_delta(sim, obs, step=RESERVOIR_INCREMENT_STEP)
+    if not np.isfinite(seasonal) or not np.isfinite(increments):
+        return float("nan")
+    return 0.5 * float(seasonal) + 0.5 * float(increments)
+
+
+METRICS: dict[str, Callable[..., float]] = {
+    "nse": nse,
+    "rmse": rmse,
+    "mae": mae,
+    "kge": _kge_score,
+    "nse_delta": nse_delta,
+    "nse_seasonal": nse_seasonal,
+    "nse_log": log_nse,
+    "distance_gap": distance_gap,
+    "distance_mean": distance_mean,
+    "reservoir": _reservoir_score,
+}
 
 
 def clip_negatives_for_log_metric(
@@ -116,6 +188,8 @@ __all__ = [
     "DIMENSIONLESS",
     "HIGHER_IS_BETTER",
     "LOG_METRICS",
+    "METRICS",
+    "RESERVOIR_INCREMENT_STEP",
     "SeriesCriterion",
     "clip_negatives_for_log_metric",
 ]

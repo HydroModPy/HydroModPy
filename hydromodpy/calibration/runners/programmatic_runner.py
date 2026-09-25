@@ -14,17 +14,15 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
+from hydromodpy.calibration.persistence import CalibrationStoreFactory
 from hydromodpy.calibration.runners.cli_runner import (
     refuse_an_objective_that_is_not_an_entry_point,
     run_calibration_core,
 )
 from hydromodpy.calibration.runners.state import (
-    CalibrationStoreFactory,
-    space_from_config,
-)
-from hydromodpy.calibration.runners.state import (
     override_paths as resolve_override_paths,
 )
+from hydromodpy.calibration.runners.state import space_from_config
 from hydromodpy.calibration.runners.trial import TrialMetricFn, prepare_trials
 
 if TYPE_CHECKING:

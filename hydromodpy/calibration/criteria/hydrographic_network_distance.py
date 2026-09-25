@@ -43,6 +43,28 @@ def distance_pair(simulated: Sequence[float] | Any) -> tuple[float, float]:
     return float(values[0]), float(values[1])
 
 
+def distance_gap(simulated: Sequence[float] | Any) -> float:
+    """``abs(D_so - D_os)``, Eq. 1: the cost the root search drives to zero.
+
+    It takes no observed vector, structurally: the criterion balances an excess
+    of simulated stream against a missing one, both simulated. That is why the
+    zero of this cost is an intersection and not a minimum of distance.
+    """
+    d_so, d_os = distance_pair(simulated)
+    return abs(d_so - d_os)
+
+
+def distance_mean(simulated: Sequence[float] | Any) -> float:
+    """``(D_so + D_os) / 2``, Eq. 2. A diagnostic, and a cost only outside.
+
+    It is legitimate as a cost in the outer loop that picks between structures
+    already balanced at ``J = 0``; using it inside, in place of Eq. 1, is a
+    different estimator, and nothing puts its interior minimum at the crossing.
+    """
+    d_so, d_os = distance_pair(simulated)
+    return 0.5 * (d_so + d_os)
+
+
 class HydrographicNetworkDistance:
     """The two published estimators of the stream-network method."""
 
@@ -88,4 +110,10 @@ class HydrographicNetworkDistance:
         )
 
 
-__all__ = ["Estimator", "HydrographicNetworkDistance", "distance_pair"]
+__all__ = [
+    "Estimator",
+    "HydrographicNetworkDistance",
+    "distance_gap",
+    "distance_mean",
+    "distance_pair",
+]

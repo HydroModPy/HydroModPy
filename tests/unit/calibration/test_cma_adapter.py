@@ -1,6 +1,6 @@
 """Behavioural unit tests for the CMA-ES optimizer adapter.
 
-The adapter under test is :mod:`hydromodpy.calibration.adapters.cma_adapter`.
+The adapter under test is :mod:`hydromodpy.calibration.optim.adapters.cma_adapter`.
 It is backed by the ``cma`` package (not ``cmaes``); skip the whole module
 when that optional dependency is missing.
 

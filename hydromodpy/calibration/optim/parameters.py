@@ -159,7 +159,7 @@ def _assert_path_is_not_a_stage_boundary(name: str, path: str | None) -> None:
     )
 
 
-def _assert_bounds_are_physical(name: str, low: float, high: float, unit: object) -> None:
+def assert_bounds_are_physical(name: str, low: float, high: float, unit: object) -> None:
     """Face a declared bound with the ceiling a literal value already faces.
 
     The registry refuses a specific yield of 0.8 written in ``[flow.param]`` and
@@ -298,7 +298,7 @@ class ParameterSpace:
                 )
             path = decl.get("path")
             target = decl.get("target")
-            _assert_bounds_are_physical(name, low, high, decl.get("units"))
+            assert_bounds_are_physical(name, low, high, decl.get("units"))
             if prior not in {"uniform", "log_uniform", "normal"}:
                 raise ValueError(f"Parameter {name!r}: unknown prior {prior!r}")
             if prior == "log_uniform" and low <= 0.0:
@@ -466,5 +466,6 @@ __all__ = [
     "CalibParameter",
     "ParameterSpace",
     "apply_parameter_to_config",
+    "assert_bounds_are_physical",
     "set_by_path",
 ]

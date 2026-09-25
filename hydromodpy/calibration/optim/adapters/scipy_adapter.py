@@ -19,10 +19,6 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.calibration.adapters._prior_sampling import (
-    transformed_prior_center,
-    transformed_prior_samples,
-)
 from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
     EngineTraits,
@@ -31,6 +27,10 @@ from hydromodpy.calibration.optim.optimizer import (
     register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
+from hydromodpy.calibration.optim.prior_sampling import (
+    transformed_prior_center,
+    transformed_prior_samples,
+)
 from hydromodpy.core.exceptions import OptimizerError
 
 

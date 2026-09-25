@@ -12,7 +12,7 @@ from hydromodpy.calibration.criteria.base import Criterion
 from hydromodpy.calibration.criteria.hydrographic_network_distance import (
     HydrographicNetworkDistance,
 )
-from hydromodpy.calibration.criteria.series import SeriesCriterion
+from hydromodpy.calibration.criteria.series import METRICS, SeriesCriterion
 
 NETWORK_ESTIMATORS: frozenset[str] = frozenset({"distance_gap", "distance_mean"})
 """The two estimators :class:`HydrographicNetworkDistance` answers to.
@@ -24,8 +24,6 @@ as published.
 
 
 def _kernels() -> dict[str, object]:
-    from hydromodpy.calibration.optim.objective import METRICS
-
     return dict(METRICS)
 
 

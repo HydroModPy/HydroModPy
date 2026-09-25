@@ -25,9 +25,9 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.optim import promotion as promotion_module
 from hydromodpy.calibration.optim.cache import ParamsHashCache
 from hydromodpy.calibration.runners import cli_runner as runner_module
+from hydromodpy.calibration.runners import promotion as promotion_module
 from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
 # ---------------------------------------------------------------------------

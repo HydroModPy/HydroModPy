@@ -5,12 +5,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.calibration.adapters._prior_sampling import (
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.optim.prior_sampling import (
     physical_prior_sample,
     transformed_prior_center,
     transformed_prior_samples,
 )
-from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 
 
 def test_log_uniform_center_uses_geometric_mean() -> None:

@@ -174,7 +174,7 @@ class TestMinSamplesReachesThePairing:
         """
         import inspect
 
-        from hydromodpy.calibration.evaluation import pipeline_evaluator
+        from hydromodpy.calibration.runners import pipeline_evaluator
 
         source = inspect.getsource(pipeline_evaluator._extractor_for)
 

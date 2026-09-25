@@ -2,7 +2,7 @@
 
 An optimizer proposes parameter points (``ask``) and ingests evaluation
 results (``tell``). Adapters for scipy, optuna, grid-search are found under
-``hydromodpy/calibration/adapters/`` and registered here.
+``hydromodpy/calibration/optim/adapters/`` and registered here.
 """
 
 from __future__ import annotations
@@ -194,7 +194,7 @@ _LOADED = False
 
 
 def _ensure_builtins_loaded() -> None:
-    """Auto-discover every adapter module under ``calibration/adapters/``.
+    """Auto-discover every adapter module under ``calibration/optim/adapters/``.
 
     Each adapter registers itself via ``@register_optimizer`` at import
     time. Optional dependencies (optuna, GP, DA-MH-GP) surface as
@@ -207,7 +207,7 @@ def _ensure_builtins_loaded() -> None:
     import importlib
     import pkgutil
 
-    from hydromodpy.calibration import adapters
+    from hydromodpy.calibration.optim import adapters
     from hydromodpy.core.logging import get_logger
 
     logger = get_logger(__name__)

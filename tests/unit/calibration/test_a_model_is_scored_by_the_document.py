@@ -32,7 +32,7 @@ from hydromodpy.calibration.evaluation.forward import (
     forward_model_members,
 )
 from hydromodpy.calibration.evaluation.port import TrialRequest
-from hydromodpy.calibration.evaluation.scored_forward import (
+from hydromodpy.calibration.metrics.scored_forward import (
     ScoredForwardEvaluator,
     requests_for_outputs,
 )

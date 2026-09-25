@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.calibration.adapters._prior_sampling import physical_prior_sample
 from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     ParamSuggestion,
     register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
+from hydromodpy.calibration.optim.prior_sampling import physical_prior_sample
 
 
 @register_optimizer("random_search")

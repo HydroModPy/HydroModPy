@@ -5,7 +5,7 @@ The legacy ``hydromodpy.calibration.runner`` god-module has been split into:
 - ``cli_runner``     CLI entry + ``run_calibration_core``.
 - ``programmatic_runner``  ``Project.calibrate`` entry.
 - ``promotion``    top-N promotion and DB back-fills.
-- ``state``      cache preload, fingerprinting, store factory.
+- ``state``      cache preload, fingerprinting.
 
 These tests guarantee each sub-module imports independently and exposes the
 expected public callables. The legacy ``runner`` module must be gone so
@@ -35,7 +35,7 @@ def test_programmatic_runner_module_exposes_run_calibration_programmatic() -> No
 
 
 def test_promotion_module_exposes_helpers() -> None:
-    promotion = importlib.import_module("hydromodpy.calibration.optim.promotion")
+    promotion = importlib.import_module("hydromodpy.calibration.runners.promotion")
 
     assert callable(promotion.promote_iterations)
     assert callable(promotion.select_iterations_to_promote)
@@ -45,8 +45,9 @@ def test_promotion_module_exposes_helpers() -> None:
 
 def test_state_module_exposes_helpers() -> None:
     state = importlib.import_module("hydromodpy.calibration.runners.state")
+    persistence = importlib.import_module("hydromodpy.calibration.persistence")
 
-    assert callable(state.default_store_factory)
+    assert callable(persistence.default_store_factory)
     assert callable(state.preload_hash_cache)
     assert callable(state.build_cache_context)
     assert callable(state.override_paths)

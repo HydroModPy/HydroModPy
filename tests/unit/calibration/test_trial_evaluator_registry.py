@@ -153,7 +153,7 @@ class TestTheRegistryRefuses:
         wrong reason as soon as another test in the file has resolved the
         default first.
         """
-        from hydromodpy.calibration.evaluation.pipeline_evaluator import (
+        from hydromodpy.calibration.runners.pipeline_evaluator import (
             PipelineTrialEvaluator,
         )
 
@@ -483,7 +483,7 @@ class TestWhatNeedsTheModelIsRefusedNotFaked:
 LAUNCHERS_ALLOWED_TO_RUN_A_PIPELINE_TRIAL = {
     # The evaluator the registry resolves for "hydromodpy_pipeline". This is the
     # one the ask/tell loop reaches, and the only one.
-    "calibration/evaluation/pipeline_evaluator.py:evaluate",
+    "calibration/runners/pipeline_evaluator.py:evaluate",
     # Not an evaluator: it perturbs the optimum once per parameter to read a
     # Jacobian off it, and it is refused outright when no model was prepared.
     "calibration/runners/cli_runner.py:_simulate",

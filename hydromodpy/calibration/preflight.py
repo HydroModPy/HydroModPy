@@ -125,12 +125,12 @@ def _check_parameters(cfg: Any, calibration: Any) -> list[PreflightFinding]:
 def _check_bounds_against_physics(
     where: str, name: str, decl: Any, bounds: list[float]
 ) -> list[PreflightFinding]:
-    from hydromodpy.calibration.optim.parameters import _assert_bounds_are_physical
+    from hydromodpy.calibration.optim.parameters import assert_bounds_are_physical
 
     if len(bounds) != 2:
         return []
     try:
-        _assert_bounds_are_physical(name, float(bounds[0]), float(bounds[1]), decl.units)
+        assert_bounds_are_physical(name, float(bounds[0]), float(bounds[1]), decl.units)
     except ValueError as exc:
         return [PreflightFinding("error", where, str(exc))]
     if str(getattr(decl, "transform", "identity")).lower() == "log" and bounds[0] <= 0.0:
@@ -154,9 +154,9 @@ def _check_outputs(calibration: Any, source: Path, project_config: Any) -> list[
     wrong, rather than at the first trial.
     """
     from hydromodpy.calibration.observations.network_source import unresolved_observed_networks
-    from hydromodpy.calibration.runners.cli_runner import _resolve_stream_geometry_paths
+    from hydromodpy.calibration.runners.cli_runner import resolve_stream_geometry_paths
 
-    _resolve_stream_geometry_paths(calibration, source)
+    resolve_stream_geometry_paths(calibration, source)
     refused_networks = unresolved_observed_networks(calibration, project_config)
     findings: list[PreflightFinding] = []
     for name, decl in (calibration.outputs or {}).items():

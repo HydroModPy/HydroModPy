@@ -15,18 +15,20 @@ from hydromodpy.calibration.config import (
     CalibScoringWindow,
     scoring_window_bounds,
 )
+from hydromodpy.calibration.criteria.hydrographic_network_distance import (
+    distance_gap,
+    distance_mean,
+)
+from hydromodpy.calibration.criteria.series import (
+    HIGHER_IS_BETTER,
+    METRICS,
+    clip_negatives_for_log_metric,
+)
 from hydromodpy.calibration.metrics import composite
 from hydromodpy.calibration.metrics.composite import build_metric_extractor
 from hydromodpy.calibration.metrics.scalar import score
 from hydromodpy.calibration.metrics.solver_extract import ExtractedOutputs
-from hydromodpy.calibration.optim.objective import (
-    HIGHER_IS_BETTER,
-    METRICS,
-    build_objective_from_config,
-    clip_negatives_for_log_metric,
-    distance_gap,
-    distance_mean,
-)
+from hydromodpy.calibration.optim.objective import build_objective_from_config
 from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.metrics import log_nse
 
