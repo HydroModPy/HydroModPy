@@ -32,6 +32,14 @@ def test_display_import_does_not_mutate_rcparams() -> None:
             if mod.startswith("hydromodpy.display"):
                 del sys.modules[mod]
         sys.modules.update(display_modules)
+        # The fresh import also bound each new module on its parent package.
+        # Left there, a later lookup by attribute (a monkeypatch target such as
+        # "hydromodpy.display.runs._get_figure") lands on an orphaned copy.
+        for name, module in display_modules.items():
+            parent, _, child = name.rpartition(".")
+            setattr(sys.modules[parent], child, module)
+        if "hydromodpy.display" not in display_modules:
+            vars(sys.modules["hydromodpy"]).pop("display", None)
 
     after = dict(matplotlib.rcParams)
     changed = {k: (before.get(k), after.get(k)) for k in after if before.get(k) != after.get(k)}
