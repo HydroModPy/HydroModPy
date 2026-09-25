@@ -2,7 +2,6 @@
 
 The functions in this module deal with the *out-of-loop* concerns:
 
-- default ``CalibrationStore`` factory,
 - params_hash cache preload from DuckDB,
 - input-file fingerprinting feeding the params_hash context,
 - helpers to translate a TOML calibration declaration into a runtime
@@ -18,7 +17,6 @@ from __future__ import annotations
 import hashlib
 import importlib
 import json
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -34,15 +32,6 @@ if TYPE_CHECKING:
     from hydromodpy.calibration.runners.trial import TrialContext, TrialMetricFn
 
 logger = get_logger(__name__)
-
-CalibrationStoreFactory = Callable[[Path, object], Any]
-
-
-def default_store_factory(workspace: Path, persistence: object) -> Any:
-    """Open the default calibration store (project catalog DuckDB)."""
-    from hydromodpy.results.catalog import Catalog
-
-    return Catalog(workspace, persistence=persistence)
 
 
 @dataclass(frozen=True, slots=True)
@@ -373,8 +362,6 @@ def _sha256_directory(root: Path) -> str:
 
 
 __all__ = [
-    "CalibrationStoreFactory",
-    "default_store_factory",
     "space_from_config",
     "override_paths",
     "load_metric_fn_entry_point",

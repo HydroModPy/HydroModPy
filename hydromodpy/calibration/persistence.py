@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal, Protocol
@@ -23,6 +24,15 @@ from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.results.session_journal import SessionJournal, SessionTrial
 
 PersistDetail = Literal["none", "summary", "full"]
+
+CalibrationStoreFactory = Callable[[Path, object], Any]
+
+
+def default_store_factory(workspace: Path, persistence: object) -> Any:
+    """Open the default calibration store (project catalog DuckDB)."""
+    from hydromodpy.results.catalog import Catalog
+
+    return Catalog(workspace, persistence=persistence)
 
 
 class CalibrationStore(Protocol):
@@ -359,4 +369,9 @@ def _build_metrics(
     return payload or None
 
 
-__all__ = ["CalibrationPersistence", "PersistDetail"]
+__all__ = [
+    "CalibrationPersistence",
+    "CalibrationStoreFactory",
+    "PersistDetail",
+    "default_store_factory",
+]
