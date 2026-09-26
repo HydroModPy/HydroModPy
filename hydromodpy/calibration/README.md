@@ -221,16 +221,11 @@ Only these modules, listed under `public` in `calibration_layout.yaml`:
 A model outside HydroModPy joins through two entry-point groups: an
 evaluator (`hydromodpy.calibration.evaluator`, written against
 `evaluation.port`) or a forward model (`hydromodpy.calibration.forward_model`,
-against `evaluation.forward`). A third-party search method may register on
-the `hydromodpy.optimizer` entry-point group (`optim/optimizer.py`), and
-`available_optimizers()` lists it, but `CalibrationConfig.validate_registry`
-also calls `validate_method_kwargs`: the discriminated union of
-`optim/method_config.py` accepts only the built-in method names, so pydantic
-refuses the name there. No plugin exercises this group today. A search of
-one's own runs from Python instead: an object that satisfies `Optimizer`
-(`optim/optimizer.py`: `ask`, `tell`, `suggest_next`, `best`, `converged`),
-handed to `CalibrationEngine(optimizer=...)` (`optim/engine.py`), with no
-registration.
+against `evaluation.forward`). Search methods ship with HydroModPy and are not
+plugged from outside. A search of one's own runs from Python: an object that
+satisfies `Optimizer` (`optim/optimizer.py`: `name`, `ask`, `tell`,
+`suggest_next`, `best`, `converged`), handed to
+`CalibrationEngine(optimizer=...)` (`optim/engine.py`), with no registration.
 
 ## Vocabulary
 

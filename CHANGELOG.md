@@ -34,6 +34,10 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Removed
+- The `hydromodpy.optimizer` entry-point group. A method it listed was refused
+  anyway by the closed union of `optim/method_config.py`. Search methods ship
+  with HydroModPy; a search of one's own runs from Python, as an object that
+  satisfies `Optimizer` handed to `CalibrationEngine(optimizer=...)`.
 - `geographic.bottom_path`, which nothing read. `hmp doctor --fix-config` and
   the loader move its path to `[[data.substratum.sources]]` and leave
   `[domain.depth_model]` as it was; a loader that skips the migration accepts

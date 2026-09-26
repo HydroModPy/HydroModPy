@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from importlib.metadata import entry_points
 from typing import Literal, Protocol, runtime_checkable
 
 FAILED_EVAL_COST: float = 1e12
@@ -102,8 +101,8 @@ class EngineTraits:
     same facts here lets a check read them before anything solves.
 
     The defaults are permissive on purpose: an engine that constrains nothing
-    declares nothing, and a third-party one that says nothing is taken at its
-    word rather than assumed to be limited.
+    declares nothing, and one that says nothing is taken at its word rather
+    than assumed to be limited.
     """
 
     max_parameters: int | None = None
@@ -155,14 +154,6 @@ def engine_traits(name: str) -> EngineTraits:
     """Return what the engine registered under ``name`` declares about itself."""
     _ensure_builtins_loaded()
     engine = _BUILTIN.get(name)
-    if engine is None:
-        for ep in entry_points(group="hydromodpy.optimizer"):
-            if ep.name == name:
-                try:
-                    engine = ep.load()
-                except Exception:  # noqa: BLE001 - an engine that will not load has no traits
-                    return DEFAULT_ENGINE_TRAITS
-                break
     declared = getattr(engine, "traits", None)
     return declared if isinstance(declared, EngineTraits) else DEFAULT_ENGINE_TRAITS
 
@@ -257,26 +248,18 @@ def _why(traits: EngineTraits, transforms: Mapping[str, str], *, lacking: str) -
 
 
 def build_optimizer(name: str, space, **kwargs) -> Optimizer:
-    """Construct an optimizer by name.
-
-    Looks up built-ins first, then ``hydromodpy.optimizer`` entry points.
-    """
+    """Construct a built-in optimizer by name."""
     # Lazy-load adapters so missing optionals do not break import.
     _ensure_builtins_loaded()
     if name in _BUILTIN:
         return _BUILTIN[name](space, **kwargs)
-    for ep in entry_points(group="hydromodpy.optimizer"):
-        if ep.name == name:
-            return ep.load()(space, **kwargs)
     raise KeyError(f"Unknown optimizer: {name!r}. Available built-ins: {sorted(_BUILTIN)}")
 
 
 def available_optimizers() -> tuple[str, ...]:
-    """Return registered optimizer names, including installed entry points."""
+    """Return the names of the built-in optimizers."""
     _ensure_builtins_loaded()
-    names = set(_BUILTIN)
-    names.update(ep.name for ep in entry_points(group="hydromodpy.optimizer"))
-    return tuple(sorted(names))
+    return tuple(sorted(_BUILTIN))
 
 
 _LOADED = False
