@@ -150,6 +150,7 @@ class FakeRunner:
         store_factory=None,
         chain=None,
         start_at=None,
+        interval_width=None,
     ) -> CalibrationReport:
         self.calls.append(SimpleNamespace(cfg=cfg, chain=chain, trial_ctx=trial_ctx))
         best = {name: self.values[name] for name in cfg.parameters}

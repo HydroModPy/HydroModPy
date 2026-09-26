@@ -34,6 +34,10 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Removed
+- The `hydromodpy.optimizer` entry-point group. A method it listed was refused
+  anyway by the closed union of `optim/method_config.py`. Search methods ship
+  with HydroModPy; a search of one's own runs from Python, as an object that
+  satisfies `Optimizer` handed to `CalibrationEngine(optimizer=...)`.
 - `geographic.bottom_path`, which nothing read. `hmp doctor --fix-config` and
   the loader move its path to `[[data.substratum.sources]]` and leave
   `[domain.depth_model]` as it was; a loader that skips the migration accepts
@@ -91,6 +95,17 @@ Each release section includes the following standard categories:
   imported, and `hydromodpy.calibration.protocols.registry.assert_version_is_available`:
   the protocol version is checked in `matching_hydrographic_network.py`
   instead.
+- `hydromodpy.display.renderer.save_figure`, `hydromodpy.display.theme.plot_params`,
+  `hydromodpy.display.colormaps.check_no_banned_in_call`, the module
+  `hydromodpy.display.geo.basemaps`, and `GeoFigureMixin.add_basemap` with the
+  `crs` attribute only it read. Nothing called them; a figure is saved by
+  `BaseFigure.plot`.
+- The module `hydromodpy.display.catchment_report.cli`: the options of
+  `hmp report catchment` live in `hydromodpy/cli/commands/report.py`,
+  unchanged. `python -m hydromodpy.display.catchment_report.pipeline` and
+  `python -m hydromodpy.display.catchment_report.context` go with it: use
+  `hmp report catchment <toml>`, or `build_context_from_report_config` from
+  Python for the context alone.
 
 ### Added
 - A raster substratum: two depth models read the bottom of the aquifer from
@@ -145,11 +160,72 @@ Each release section includes the following standard categories:
   day. A failed source exits with code 16 once the others are written, and
   leaves no file behind; a request the model refuses exits with code 14, and
   a mask that is not a file with code 10, both before anything is written.
+- Public readers in `results` for what `display` read through private
+  attributes of a run: `hydromodpy.results.run.particles`
+  (`read_particle_tracks`, `particle_time_to_days`, `travel_time`),
+  `hydromodpy.results.run.geographic.crs_epsg` and `geographic_metadata`,
+  `hydromodpy.results.calibration_trials.calibration_sessions`, and
+  `hydromodpy.results.run.array.acting_faces_over_run` and `acting_faces`. Each
+  takes the run; `Run` keeps its 50 public attributes.
+- `hydromodpy.results.run.particles.has_particle_tracks(run, timed=False)`,
+  which says whether at least one particle moved (and, with `timed=True`,
+  carries a clock) from the first two steps of each particle.
+- `hmp viz list --run <ref>` says, for each figure, whether that run supports
+  it or why not (`--workspace` as for `hmp viz show`, `--kind` still filters).
+  Without `--run` the listing is unchanged. The Python side is
+  `hydromodpy.display.runs.figure_availability(run)`, which returns each figure
+  spec with its reason, `None` for a figure the run supports.
+- `hydromodpy.display.geo.project_gdf_for_metric_operations`, which puts a
+  GeoDataFrame in a metric CRS. `reporting` and the network figures imported it
+  under a private name from a figure module. The network figures also share
+  `plot_topography_background` under a public name.
+- A phase declares `regime = "steady"` or `regime = "transient"` instead of
+  overriding the flow regime and the time grid by hand. Steady collapses
+  `[simulation.time]` to one period, by default its own extent or the phase's
+  `steady_window`; transient restates only the regime and keeps the project's
+  own grid. A phase that also overrides one of the paths its regime writes is
+  refused. `hmp calibrate --check` catches a steady window given the wrong way
+  round, or without both bounds. A protocol now writes `regime` instead of
+  computing the five dotted overrides by hand.
+- A phase's `objective_blocks` accepts a table, `{ block = share, ... }`,
+  instead of a list, giving that phase its own share of each block's cost,
+  normalised to sum to one. The list form keeps the block's own declared
+  weight, unchanged.
+- `[[calibration.phases]]` takes `uncertainty`, with the keys of
+  `[calibration.uncertainty]`. The phase wins key by key, and a phase can run
+  its own `multistart` or `linearized` width. `hmp calibrate --list-phases`
+  prints the width each phase reads and where it comes from, and each phase
+  report records the width it used (`extra.interval_width`). `hmp calibrate
+  --check` refuses `mode = "relative"` on a phase scored only by network
+  distances. The network criterion records one mesh cell per trial
+  (`<output>.cell_spacing_m`).
+- A calibration report gives the share of the cost each objective block
+  actually took (weighted contribution, mean over the finished trials with
+  their count, and at the best trial), `CalibrationReport.objective_block_shares`,
+  printed by `hmp calibrate` for a phase with two or more blocks, per phase of
+  a staged run too (the CLI printed nothing for a staged run before), and
+  recomputed for a reused phase from its persisted trials. On the example 04
+  by-hand session `20260923-143036`, the best trial takes 37 % hydrograph and
+  63 % network for declared shares of 99 % and 1 %.
+- `hmp calibrate --list-phases` and `--check` show, per objective block, its
+  criterion, share, simulated quantity and observed source (or the
+  single-metric route as one row). The first trial of each phase records, per
+  output, the dates and pair count it retained (`report.extra["first_trial_pairing"]`).
+- `Project.calibrate` accepts `phases=[...]` in Python mode, dictionaries with
+  the same keys as `[[calibration.phases]]`, and runs them like a TOML
+  calibration that declares phases. Python mode and an embedded declaration on
+  a project built in memory write the calibration document the staged run
+  reads into the project's `sessions/`, instead of refusing; `hmp calibrate
+  <path>` replays it.
+- `hmp calibrate FILE --expand` and `hmp.calibrate(FILE, expand=True)` print
+  the `[calibration]` section a protocol unfolds into (objective blocks and
+  phases), ready to paste into a hand-written file with
+  `protocol__delete = true`.
 
 ### Changed
 - `hydromodpy/data` is reorganised into sub-packages with one job each; its
   map and import rules are `hydromodpy/data/README.md`, enforced by
-  `tests/unit/architecture/test_data_layout.py`. What a TOML says does not
+  `tests/unit/architecture/test_package_layouts.py`. What a TOML says does not
   change; `hydromodpy.data` gains `DataStore`, `DataRequest` and
   `run_request` and loses `DataManagers`. The modules that moved:
 
@@ -202,7 +278,7 @@ Each release section includes the following standard categories:
   registry, its runners and its metrics: six modules and a handful of symbols
   move next to what they serve. Its map and import rules are
   `hydromodpy/calibration/README.md`, enforced by
-  `tests/unit/architecture/test_calibration_layout.py`. The `[calibration]`
+  `tests/unit/architecture/test_package_layouts.py`. The `[calibration]`
   TOML schema does not change, and logger names follow the new paths. The
   modules and names that moved:
 
@@ -219,6 +295,45 @@ Each release section includes the following standard categories:
   | `protocols.matching_hydrographic_network.MatchingHydrographicNetworkOptions` | `hydromodpy.calibration.config` |
   | `runners.state.{default_store_factory, CalibrationStoreFactory}` | `hydromodpy.calibration.persistence` |
   | `hydromodpy.solver.modflow_common.flow_adapter_helpers.WATER_BUDGET_METRIC` | `hydromodpy.simulation.planning.plan` |
+- The particle pathline reader moves from
+  `hydromodpy.display.figures.particle_tracks` to
+  `hydromodpy.results.run.particles` (`read_particle_tracks`,
+  `particle_time_to_days`). The map overlay no longer imports a figure, which
+  closes the import cycle between `display.figures` and `display.overlays`.
+- `hydromodpy.display.catchment_report.block_specs.FigureSpec`, the place of a
+  PNG in a catchment report block, is renamed `BlockFigureSpec`, so that
+  `FigureSpec` names only the contract of a registered figure.
+- A figure names what it shows, not a solver or a provider: `mesh_map` is
+  titled "Model mesh" (was "Solver mesh") and `hydrographic_network_reference`
+  "Reference hydrographic network" (was "BD Topage hydrographic network", while
+  the reference may come from `bdtopage`, `euhydro` or `osm`); the network
+  figures draw "Reference network" where they wrote "BD Topage".
+  `watershed_id_card` is of `kind` `spatial` (was `comparison`).
+  `[display].overrides`, the documented way to set a figure option such as the
+  orientation of a section, is a `USER` field (was `EXPERT`), so
+  `hmp config template --profile user` shows it.
+- `method` in `[calibration]` and in a `[[calibration.phases]]` entry no
+  longer defaults to `grid`. Unwritten, it follows from what the search
+  scores: `bisection` when it moves one parameter in log space and every one
+  of its objective blocks is signed (`distance_gap`), `scipy_nelder_mead`
+  otherwise. `hmp calibrate --list-phases` prints the method each phase runs,
+  and why when it was chosen. `optimizer_kwargs` without `method` are refused,
+  since they belong to an engine the file has to name. No TOML file of the
+  repository relied on the old default.
+- `[calibration.uncertainty] tolerance` and `mode` left unwritten follow what
+  the search scores: one mesh cell, absolute, for a phase (or a calibration
+  with no phases) scored only by network distances, five per cent of the best
+  cost otherwise. Example 04's `project.toml` drops `[calibration.uncertainty]`:
+  K keeps its interval, one 75 m cell, and Sy gets a bounded one instead of
+  five per cent of a cost that never reaches the same scale on every project.
+- The interval width no longer enters the params hash. A cache, or a
+  `reuse_completed_phases` chain, built before this change misses once and
+  rebuilds under the new hash.
+- A calibration sealed before `regime` existed carries a phase's flow regime
+  as `overrides`-only, in the five dotted paths a protocol used to compute by
+  hand. Such a session now reloads through `config.fold_a_legacy_regime`,
+  which rewrites that spelling into `regime`; before this, rereading one to
+  resume it refused the session it had itself written.
 
 ### Fixed
 - `Project.simulate(thickness=...)` on a depth model without a thickness raises
@@ -303,6 +418,40 @@ Each release section includes the following standard categories:
   instead of the first accepted one: `tell` now keeps the transformed point of
   each evaluated trial, and the acceptance distance reads it instead of
   `metadata["values"]`, which the engine never wrote.
+- `hmp` no longer imports the catchment report, nor `matplotlib.pyplot` with
+  it, each time it builds its parser; only `hmp report catchment` does.
+- `hmp viz show` refuses a figure the run cannot feed, with the figure's reason
+  and exit code 1, instead of drawing it or failing inside the drawing, and
+  names the file it wrote: `--output X` writes `X.png` and now says so.
+  `hmp.figure`, `hmp viz show` and the capability gallery of the export step
+  render one figure through `hydromodpy.display.runs.render_figure`, which
+  takes `dpi` and the figure options and returns the figure.
+- A figure the run cannot feed is refused with a sentence, never by an error
+  from inside its drawing nor by a placeholder PNG. `piper_diagram`,
+  `schoeller_diagram` and `stiff_diagram` need hydrochemistry samples,
+  `lake_abacus_comparison` a lake abacus, `watershed_id_card` a DEM raster,
+  `particle_tracks` and `residence_time_distribution` pathline coordinates
+  (an empty `particles` group or release points alone no longer count),
+  `sfr_*` stream-reach series,
+  `lake_stage_sim_obs` and `lake_volume_sim_obs` a simulated and a gauged lake
+  level, `piezo_timeseries_sim_obs` a simulated head series, and `ensemble_band`
+  a set of runs. `[display].figures` skips them with that reason.
+  `piezo_timeseries_sim_obs` without `station=` names the stations it could
+  draw, and `difference_map` and `side_by_side` without `reference=` say so.
+- The catchment report reads the cell count from the simulated run, for every
+  solver. It read `[modflownwt.sgrid.planar]` and left the count empty for any
+  other run. The generated-network context figure it cannot draw is now
+  logged with its name and the reason (the missing input at INFO, a failed
+  read at WARNING), instead of missing from the report without a word.
+- A phase that lists a parameter an earlier phase already calibrated moved it
+  again from the parameter's search bounds, silently overwrote the frozen
+  value at every trial of the phase, and the report still called the
+  parameter frozen. It now starts the search from the passed value, on the
+  engines that declare `accepts_a_start_point` (`cma_es`, `scipy_nelder_mead`;
+  not `scipy_de`); an engine without one keeps its own start, and
+  `--list-phases` says so. Two phases that freeze the same path no longer
+  refuse each other: the later one wins, and the report and `--list-phases`
+  name both, the later as re-opened.
 
 ---
 

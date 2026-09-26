@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
+from datetime import date
 from types import SimpleNamespace
 
 import numpy as np
@@ -123,6 +124,9 @@ def test_dates_window_then_warmup_are_identical_for_both_producers(
     assert total == pytest.approx(3.0)
     assert components["flow.n_values"] == 2.0
     assert components["q.n_paired"] == 3.0
+    # The window and the warmup both bite: only 2001-01-02 to 2001-01-04 remain.
+    assert date.fromordinal(int(components["q.date_start"])) == date(2001, 1, 2)
+    assert date.fromordinal(int(components["q.date_end"])) == date(2001, 1, 4)
     assert pipeline(object()) == (total, components)
     with pytest.raises(ValueError, match="fewer than the 4"):
         ObservableScorer(

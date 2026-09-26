@@ -307,7 +307,7 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "water_budget": ("hydromodpy.display.figures.water_budget.WaterBudget", "balance", ()),
     "watershed_id_card": (
         "hydromodpy.display.figures.watershed_id_card.WatershedIdCardFigure",
-        "comparison",
+        "spatial",
         (),
     ),
     "watertable_depth_map": (

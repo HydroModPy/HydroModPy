@@ -64,7 +64,9 @@ def step_save_run_artifacts(
         solvers_used = {r.solver for r in plan.runs} if plan is not None else set()
 
         def _render(figure_name: str, run: object, target_path: Path) -> None:
-            render_figure(figure_name, cast("Run", run), save=target_path)
+            import matplotlib.pyplot as plt
+
+            plt.close(render_figure(figure_name, cast("Run", run), save=target_path))
 
         publish_run_to_capability_gallery(
             run_id=str(ctx.setup.run_id),

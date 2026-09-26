@@ -101,9 +101,9 @@ hydrograph. See :doc:`stream-network-calibration` for what the criterion
 measures and :cite:`abherve2023` for the method.
 
 ``protocol = "matching_hydrographic_network"`` writes the whole assembly: two
-stages, their criteria, the regime and time-grid overrides that make the first
-steady and the second transient, and the objective block wiring. What stays in
-the file is what belongs to the site.
+stages, their criteria, the regime that makes the first steady and the second
+transient, and the objective block wiring. What stays in the file is what
+belongs to the site.
 
 .. literalinclude:: ../recipes/calibration_matching_hydrographic_network.toml
    :language: toml
@@ -130,6 +130,18 @@ The engines are not part of the method. ``steady_method`` and
 be walked by a bisection, by Nelder-Mead, or by Optuna without changing what is
 being calibrated.
 
+Read what a name expands to without running it:
+
+.. code-block:: bash
+
+   hmp calibrate calibration_matching_hydrographic_network.toml --expand
+
+It prints the two stages and their objective blocks as TOML, ready to paste
+into a file with ``protocol__delete = true``, plus the ``[calibration.outputs]``
+entry the transient stage adds when the gauging station is known from the
+file alone. A file that loads several stations keeps the protocol's older
+form there instead, a single ``variable`` and ``objective`` naming no output.
+
 .. _recipe-staged-by-hand:
 
 The same method, written out instead of named
@@ -140,13 +152,22 @@ method, generic and ready to copy next to any project: no ``protocol`` line,
 every stage, criterion and override spelled out instead.
 
 Two phases, chained by ``depends_on`` and ``freeze_on_success`` exactly as the
-protocol writes them. Stage one moves K alone, steady state, scored by
+protocol writes them. ``regime = "steady"`` and ``regime = "transient"`` say
+which model each stage runs, in place of overriding the flow regime and the
+time grid by hand. Stage one moves K alone, steady state, scored by
 ``distance_gap`` on a ``support = "network"`` output, walked by a bisection to
 the root the criterion crosses. Stage two moves Sy alone, monthly transient, K
 frozen, and scores it on two blocks: ``nse_log`` on the gauge, declared as a
 ``support = "point"`` output with ``observes``, next to ``distance_gap`` on the
 same network output. That second block is the one thing the named protocol
 does not offer; writing the stages out is what makes room for it.
+
+Stage two gives the two blocks a share table, ``{ hydrograph = 100,
+network_extension = 1 }``, instead of a weight on each block: this stage sets
+its own balance, normalised to sum to one, without touching what another
+phase might read from the same blocks. Stage two also names no ``method``: the
+hydrograph block is not signed, so the phase has a cost to minimise and gets
+``scipy_nelder_mead`` on its own; ``--list-phases`` prints the choice and why.
 
 ``warmup`` sits on the hydrograph block rather than on a ``scoring_window``. A
 window is refused there: it would apply to every block of the stage, and the
@@ -234,11 +255,12 @@ nothing about its own standing. The report adds two things read off the trials
 the search already ran, so they cost no extra model runs.
 
 **How wide the optimum is.** ``parameter_intervals`` gives, per parameter, the
-range of sampled values whose cost stayed within 5 % of the best, together with
-how many trials that was out of how many. Read it as "the search could not tell
-these apart", not as a confidence interval: it rests on no error model, and a
-parameter the search never varied far has a narrow range because nothing else
-was tried.
+range of sampled values whose cost stayed within a tolerance of the best,
+together with how many trials that was out of how many. Read it as "the
+search could not tell these apart", not as a confidence interval: it rests on
+no error model, and a parameter the search never varied far has a narrow range
+because nothing else was tried. See :doc:`calibration-uncertainty` for what the
+interval means, its other two methods, and when to change the default.
 
 The flag to read first is whether the range runs into a search bound. There the
 record did not determine the parameter, the search simply ran out of room, and
@@ -252,7 +274,13 @@ The run says so in one line:
    Sy = 0.35, and 31 of 120 trials scored within 0.12 of the best over
    [0.19, 0.35]; that range runs into the upper search bound.
 
-The width is a decision, so it is written in the file:
+Left unwritten, the tolerance follows what is scored: five per cent of the
+best cost for an ordinary criterion, or one mesh cell, in metres, for a phase
+(or a whole calibration with no phases) scored only by network distances such
+as ``distance_gap``. A stream cannot move by less than a cell, and five per
+cent of a criterion solved at zero is always zero. ``hmp calibrate
+--list-phases`` prints the width in use and where it came from. Write it only
+to choose otherwise:
 
 .. code-block:: toml
 
@@ -261,10 +289,10 @@ The width is a decision, so it is written in the file:
    mode = "relative"
    tolerance = 0.05
 
-A criterion whose best cost is zero, such as the stream-network gap, has no
-fraction of itself to take: five per cent of zero is zero and no interval comes
-back. State the width in the unit of the cost there instead, and the run says so
-when it has to:
+``mode = "relative"`` is refused on a phase scored only by network distances,
+because there is no fraction of a zero cost to take. State the width in the
+unit of the cost there instead, which is the default already, or write it to
+depart from the mesh cell:
 
 .. code-block:: toml
 

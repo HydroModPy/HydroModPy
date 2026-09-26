@@ -167,14 +167,27 @@ class LakeAbacusComparison(BaseFigure):
         default_figsize=(7.0, 5.0),
     )
 
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Require a lake abacus persisted for the run, which ``spec`` cannot declare."""
+        reason = super().unavailable_reason(sim)
+        if reason is not None:
+            return reason
+        from hydromodpy.results.run.lake_abacus_view import run_lake_abacus
+
+        try:
+            run_lake_abacus(sim)
+        except KeyError:
+            return "run holds no lake abacus"
+        return None
+
     def render(self, sim: Run, ax: Axes, *, lake_id: str | None = None, **_: Any) -> Axes:
         from hydromodpy.results.run.lake_abacus_view import run_lake_abacus
 
         try:
             ab = run_lake_abacus(sim, lake_id)
-        except KeyError:
-            ax.text(0.5, 0.5, "no lake abacus", ha="center", va="center", transform=ax.transAxes)
-            return ax
+        except KeyError as exc:
+            lake = "" if lake_id is None else f" for lake {lake_id!r}"
+            raise ValueError(f"run holds no lake abacus{lake}") from exc
         stage = np.asarray(ab["stage"], dtype=float)
         real_volume = np.asarray(ab["real_volume"], dtype=float)
         sim_volume = np.asarray(ab["sim_volume"], dtype=float)

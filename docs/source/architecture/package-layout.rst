@@ -91,10 +91,10 @@ Subpackages
        :doc:`packages/data`.
    * - ``display/``
      - Solver-agnostic figures registered through
-       ``display/figure_registry.py``. 58 named figures under
-       ``display/figures/``, plus geographic helpers (``display/geo``)
-       and overview rendering (``display/overview``). See
-       :doc:`packages/display`.
+       ``display/figure_registry.py``, one module per figure under
+       ``display/figures/`` (inventory in :doc:`/user_guide/figures`),
+       plus geographic helpers (``display/geo``) and overview rendering
+       (``display/overview``). See :doc:`packages/display`.
    * - ``physics/``
      - Process layer. ``physics/base/`` defines ``ProcessSpatial``,
        ``physics/flow/`` and ``physics/transport/`` carry the concrete

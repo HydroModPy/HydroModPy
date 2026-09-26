@@ -130,11 +130,9 @@ def context_topography_layers(run, watershed_path: Path | None):
 def project_for_plot(gdf, fallback_crs=None):
     if gdf is None or gdf.empty:
         return gdf
-    from hydromodpy.display.figures.hydrographic_network import (
-        _project_gdf_for_metric_operations,
-    )
+    from hydromodpy.display.geo import project_gdf_for_metric_operations
 
-    return _project_gdf_for_metric_operations(gdf, fallback_crs=fallback_crs)
+    return project_gdf_for_metric_operations(gdf, fallback_crs=fallback_crs)
 
 
 def run_watershed_gdf(run):

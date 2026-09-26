@@ -113,8 +113,12 @@ of that module. ``CalibrationConfig.validate_registry`` calls
 at config-load time, instead of inside the adapter where the message is
 much less helpful.
 
-Third-party methods shipped outside the repository register through the
-``hydromodpy.optimizer`` entry-point group instead.
+Search methods ship with HydroModPy and are not plugged from outside. A
+search of your own does not go through this registry: write an object
+that satisfies ``Optimizer`` (``ask``, ``tell``, ``suggest_next``,
+``best``, ``converged``, ``name``) and hand it to
+``CalibrationEngine(optimizer=...)`` (``optim/engine.py``), with no
+registration.
 
 Saying what the engine can be handed
 ------------------------------------

@@ -13,6 +13,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pandas as pd
 
 from hydromodpy.results import field_registry
 from hydromodpy.results.errors import FieldNotFoundError
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
     import geopandas as gpd
 
     from hydromodpy.results.grid import Grid
+    from hydromodpy.results.run import Run
 
 
 def crs_proj_from_metadata(metadata: Mapping[str, object]) -> str | None:
@@ -36,6 +38,33 @@ def crs_proj_from_metadata(metadata: Mapping[str, object]) -> str | None:
     """
     crs = metadata.get("crs_proj")
     return None if crs in (None, "") else str(crs)
+
+
+def crs_epsg(run: Run) -> int | None:
+    """Return the EPSG code the catalog recorded for ``run``, ``None`` when unknown.
+
+    A module function rather than a ``Run`` attribute: ``Run`` is capped at 50
+    public attributes (``tests/unit/results/test_run_surface.py``).
+    """
+    frame = run._catalog.backend.query(
+        "SELECT crs_epsg FROM simulations WHERE sim_id = ?",
+        [run.sim_id],
+    )
+    if frame.empty:
+        return None
+    value = frame.iloc[0]["crs_epsg"]
+    return None if pd.isna(value) else int(value)
+
+
+def geographic_metadata(run: Run) -> dict[str, str]:
+    """Return the ``key -> value`` geographic metadata the geographic step wrote.
+
+    Holds the declared outlet (``x_outlet``, ``y_outlet``), the snapped one
+    (``x_outlet_snapped``, ``y_outlet_snapped``, ``outlet_snap_distance_m``)
+    and the projected CRS (``crs_proj``). Values are the stored text; an empty
+    dict when the run recorded none.
+    """
+    return run._catalog.read_geographic_metadata(run.sim_id)
 
 
 class RunGeographicMixin:

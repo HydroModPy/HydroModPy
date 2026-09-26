@@ -99,7 +99,7 @@ class DisplayConfig(HydroModelBase):
             "a broken figure cannot pass unnoticed."
         ),
     )
-    overrides: Annotated[dict[str, dict], Profile.EXPERT] = Field(
+    overrides: Annotated[dict[str, dict], Profile.USER] = Field(
         default_factory=dict,
         description=(
             "Per-figure keyword overrides, keyed by figure name "
@@ -116,16 +116,16 @@ class DisplayConfig(HydroModelBase):
         what makes a project TOML self-checking: `hmp config check` fails
         loudly rather than a run silently producing one figure less.
         """
-        from hydromodpy.display import figure_registry
+        from hydromodpy.display.figure_registry import names, resolve
 
-        known = set(figure_registry.names())
+        known = set(names())
         current: dict[str, str] = {}
         unknown: list[str] = []
         for name in value:
             try:
                 # A name a figure used to carry resolves to the current one and
                 # warns; downstream then only ever sees one spelling.
-                current[name] = figure_registry.resolve(name)
+                current[name] = resolve(name)
             except KeyError:
                 unknown.append(name)
         if unknown:

@@ -240,7 +240,8 @@ Exhaustive option reference:
      - Effect
    * - ``method``
      - ``grid`` / ``random_search`` / ``optuna`` / ``scipy_de`` / ``scipy_nelder_mead``
-     - ``grid``
+     - chosen from what is scored: ``bisection`` for one log parameter
+       under signed criteria, ``scipy_nelder_mead`` otherwise
      - Sampler backing the ask/tell loop. ``optuna`` is installed by
        default; ``cma_es`` and the Optuna ``cmaes`` sampler require the
        calibration extra.
@@ -387,7 +388,7 @@ Recipe cheat sheet
      - ``method = "grid"``, ``max_iter ~= 25``,
        ``save_runs = "none"``
    * - Default production calibration
-     - ``method = "grid"``, ``max_iter = 100``,
+     - no ``method`` (chosen from what is scored), ``max_iter = 100``,
        ``save_runs = "best_n"``, ``save_best_n = 5``,
        ``seed = 42``
    * - Multi-dim continuous (3+ params)

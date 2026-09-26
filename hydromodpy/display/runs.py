@@ -22,12 +22,15 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.progress import MILESTONE
 from hydromodpy.core.state.paths import display_path
 from hydromodpy.display import get as _get_figure
+from hydromodpy.display import list_figures as _list_figures
 from hydromodpy.display.renderer import matplotlib_backend
 from hydromodpy.display.theme import apply_theme
 
 if TYPE_CHECKING:
+    from matplotlib.figure import Figure as MplFigure
+
     from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.display.figure import BaseFigure
+    from hydromodpy.display.figure import BaseFigure, FigureSpec
     from hydromodpy.results.run import Run
 
 logger = get_logger(__name__)
@@ -175,13 +178,29 @@ def render_figure(
     sim: Run,
     *,
     save: str | Path | None = None,
-) -> None:
-    """Render one figure registered in :mod:`hydromodpy.display`.
+    dpi: int | None = None,
+    **opts: Any,
+) -> MplFigure:
+    """Render one figure registered in :mod:`hydromodpy.display` and return it.
 
-    ``save`` may be a directory (one ``<figure_name>.png`` is written into
-    it) or a full file path.
+    The one path for a single figure: ``hmp.figure``, ``hmp viz show`` and the
+    export step all come here, so each refuses a figure the run cannot feed
+    in the same words. ``save`` may be a directory (one ``<figure_name>.png``
+    is written into it) or a full file path. ``opts`` are the figure's own
+    options, as in ``[display.overrides]``.
+
+    Raises
+    ------
+    KeyError
+        If ``figure_name`` is not registered.
+    ValueError
+        If the run does not carry what the figure needs; the message gives
+        the figure's reason.
     """
     fig = _get_figure(figure_name)
+    reason = fig.unavailable_reason(sim)
+    if reason is not None:
+        raise ValueError(f"figure '{figure_name}' does not apply to this run: {reason}")
     save_path: Path | None
     if save is None:
         save_path = None
@@ -190,7 +209,20 @@ def render_figure(
         # Treat suffix-less paths as a directory; anything with an extension
         # is a complete file path the caller wants honoured verbatim.
         save_path = target / f"{figure_name}.png" if target.suffix == "" else target
-    fig.plot(sim, save_path=save_path)
+    if dpi is not None:
+        opts["dpi"] = dpi
+    return fig.plot(sim, save_path=save_path, **opts)
+
+
+def figure_availability(sim: Run) -> list[tuple[FigureSpec, str | None]]:
+    """Return every registered figure with the reason ``sim`` cannot feed it.
+
+    The reason is ``None`` for a figure the run supports. Each figure answers
+    through its own ``unavailable_reason``, the check ``[display].figures`` and
+    ``render_figure`` apply before drawing, so the list says in advance what
+    those would skip or refuse. Nothing is drawn.
+    """
+    return [(spec, _get_figure(spec.name).unavailable_reason(sim)) for spec in _list_figures()]
 
 
 def resolve_run_output_dir(

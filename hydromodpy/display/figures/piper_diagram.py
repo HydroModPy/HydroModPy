@@ -51,6 +51,23 @@ class PiperDiagramFigure(BaseFigure):
         default_figsize=(7.5, 6.5),
     )
 
+    def unavailable_reason(self, sim: Run | Any) -> str | None:
+        """Require hydrochemistry samples, which ``spec`` cannot declare.
+
+        A DataFrame given directly is its own samples. A run is asked for its
+        ``hydrochemistry`` series, read here and not drawn.
+        """
+        reason = super().unavailable_reason(sim)
+        if reason is not None:
+            return reason
+        try:
+            samples = _to_dataframe(sim)
+        except (TypeError, ValueError):
+            return "run holds no hydrochemistry series"
+        if len(samples) == 0:
+            return "run holds no hydrochemistry sample"
+        return None
+
     def render(
         self,
         sim: Run | Any,

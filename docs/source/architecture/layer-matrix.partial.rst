@@ -100,7 +100,7 @@ contract. They are temporary or deliberately narrow; tighten one when the edge d
      - site-selection BD Topage outlet snapping delegates the optional hydrography fetch to data managers through a narrow helper
    * - ``calibration``
      - ``display``
-     - network-transient calibration diagnostics reuse the shared static HTML report-block renderer
+     - network-transient calibration diagnostics reuse the shared static HTML report-block renderer; hydromodpy.display.report_blocks only (tolerated in display_layout.yaml)
 
 Files exempt from the layer rule
 --------------------------------

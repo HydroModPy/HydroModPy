@@ -59,6 +59,19 @@ def test_a_point_with_no_coordinates_is_refused_at_declaration() -> None:
         CalibOutputPoint.model_validate({"variable": "head", "support": "point"})
 
 
+def test_a_point_that_observes_a_station_needs_no_coordinates() -> None:
+    """'observes' locates the point by the station's own record.
+
+    A protocol writing this output has no coordinate to give it, and none is
+    read once 'observes' is set (`observable_request_for_output` above).
+    """
+    declaration = CalibOutputPoint.model_validate(
+        {"variable": "discharge", "support": "point", "observes": "NANCON"}
+    )
+    assert declaration.x is None
+    assert declaration.y is None
+
+
 def test_a_point_output_s_diagonal_neighbors_reaches_the_request(ctx) -> None:
     # The D4/D8 knob only helps if it survives the translation to a solver
     # request; declared and dropped here is indistinguishable from absent.

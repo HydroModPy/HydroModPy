@@ -49,7 +49,7 @@ from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import Field, TypeAdapter, field_validator, model_validator
+from pydantic import Field, TypeAdapter, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
@@ -394,8 +394,11 @@ class CalibOutputPoint(ScoresAnObservedRecord, HydroModelBase):
 
     @model_validator(mode="after")
     def _check_point_selectors(self) -> CalibOutputPoint:
-        if (self.x is None or self.y is None) and self.geometry is None:
-            raise ValueError("support='point' requires both 'x' and 'y', or 'geometry'.")
+        if self.observes is None and (self.x is None or self.y is None) and self.geometry is None:
+            raise ValueError(
+                "support='point' requires both 'x' and 'y', or 'geometry', unless "
+                "'observes' names a station: its own record locates the point instead."
+            )
         _check_snap_radius(self.snap_radius, self.variable, support="point")
         return self
 
@@ -751,6 +754,27 @@ def validate_calib_output(
     return _CALIB_OUTPUT_ADAPTER.validate_python(payload)
 
 
+def outputs_agree(here: Any, there: Any) -> bool:
+    """Say whether two output declarations describe the same output.
+
+    Compared through the model rather than raw: a persisted document spells
+    out every default (``time``, ``reducer``, ``diagonal_neighbors``, ...)
+    that a freshly written declaration leaves out, and the two describe the
+    same output either way. Returns ``False`` on anything that does not
+    validate as an output, rather than raising.
+    """
+    try:
+        dumped_here = _CALIB_OUTPUT_ADAPTER.dump_python(
+            _CALIB_OUTPUT_ADAPTER.validate_python(here), mode="json"
+        )
+        dumped_there = _CALIB_OUTPUT_ADAPTER.dump_python(
+            _CALIB_OUTPUT_ADAPTER.validate_python(there), mode="json"
+        )
+    except ValidationError:
+        return False
+    return dumped_here == dumped_there
+
+
 class CalibScoringWindow(HydroModelBase):
     """Dates bounding the samples a metric is computed on.
 
@@ -896,6 +920,154 @@ class CalibObjectiveBlockDecl(HydroModelBase):
         return self
 
 
+PHASE_REGIME_PATHS: dict[str, tuple[str, ...]] = {
+    "steady": (
+        "flow.flow_regime",
+        "simulation.time.start_datetime",
+        "simulation.time.end_datetime",
+        "simulation.time.step_unit",
+        "simulation.time.step_value",
+    ),
+    "transient": ("flow.flow_regime",),
+}
+"""The dotted paths a phase's ``regime`` writes, by regime.
+
+``runners/phase_regime.py`` writes them. They are listed here because a phase
+that also writes one of them in ``overrides`` is refused when the file is read,
+and ``config`` does not import ``runners``.
+``tests/unit/calibration/test_phase_regime.py`` keeps the two equal.
+"""
+
+
+def fold_a_legacy_regime(
+    phase: Mapping[str, Any], steady_window: Mapping[str, Any] | None = None
+) -> dict[str, Any] | None:
+    """Return a phase written with its regime as overrides, rewritten with ``regime``.
+
+    Runs sealed before ``regime`` existed carry each protocol stage in that
+    spelling, and reading one back must not refuse it as a contradiction of the
+    protocol that wrote it.
+
+    The spelling is a phase with no ``regime`` whose ``overrides`` hold every
+    path ``PHASE_REGIME_PATHS`` lists for its ``flow.flow_regime``. Those paths
+    are dropped and every other override is kept. When the protocol names a
+    ``steady_window``, the sealed bounds have to be the same instants; otherwise
+    they are trusted, since the file was written from its own
+    ``[simulation.time]``. Returns None for any other phase, and for a window
+    that does not match.
+    """
+    if phase.get("regime") is not None:
+        return None
+    overrides = phase.get("overrides")
+    if not isinstance(overrides, Mapping):
+        return None
+    regime = overrides.get("flow.flow_regime")
+    paths = PHASE_REGIME_PATHS.get(regime) if isinstance(regime, str) else None
+    if paths is None or not all(path in overrides for path in paths):
+        return None
+    folded = dict(phase)
+    folded["regime"] = regime
+    folded["overrides"] = {key: value for key, value in overrides.items() if key not in paths}
+    if steady_window is not None and regime == "steady":
+        sealed = (
+            overrides["simulation.time.start_datetime"],
+            overrides["simulation.time.end_datetime"],
+        )
+        named = (steady_window.get("start"), steady_window.get("end"))
+        if not all(_same_instant(a, b) for a, b in zip(sealed, named, strict=True)):
+            return None
+        folded["steady_window"] = dict(steady_window)
+    return folded
+
+
+def _same_instant(a: Any, b: Any) -> bool:
+    """Say whether two spellings name the same instant."""
+    import pandas as pd
+
+    try:
+        return bool(pd.Timestamp(a) == pd.Timestamp(b))
+    except (TypeError, ValueError):
+        return False
+
+
+_OPTIONS_WITHOUT_AN_ENGINE = (
+    "{where} gives optimizer_kwargs and no method. They are options of one engine, "
+    "and a search that names no method gets the one its criteria call for. Write "
+    "method beside them, or drop them."
+)
+
+
+UncertaintyMethod = Literal["cost_profile", "multistart", "linearized"]
+
+
+def _refuse_a_posterior(data: Any, where: str) -> None:
+    """Answer 'posterior' with the reason it is not offered, instead of an enum error."""
+    if isinstance(data, Mapping) and str(data.get("method", "")).strip() == "posterior":
+        raise ValueError(
+            f"{where} method='posterior' is not offered, and the "
+            "reason is worth stating rather than hiding behind a list. A posterior "
+            "is a statement about probability, so it needs a likelihood, and a "
+            "likelihood needs a criterion built from residuals with an error model "
+            "on each observation. An efficiency score is not one: NSE, KGE and "
+            "nse_log are aggregates already stripped of their units, and a "
+            "posterior computed from one would carry a precision nothing "
+            "established. Sampling it also costs thousands of model runs, not the "
+            "one per parameter that 'linearized' costs. Use 'linearized', which "
+            "reports a first-order width and the parameter tradeoffs from "
+            "residuals, or 'multistart', which reports the spread of restarted "
+            "searches, and say in the write-up which of the two the number rests "
+            "on."
+        )
+
+
+class CalibPhaseUncertaintyDecl(HydroModelBase):
+    """How wide one phase says its answer is, key by key over ``[calibration.uncertainty]``.
+
+    Every key is optional and has the meaning it has in the section. A key
+    written here wins for this phase. A key left out takes the section's value,
+    then the default that follows what the phase scores. ``restarts`` and
+    ``perturbation`` belong to a method: a phase that names another method than
+    the section does not inherit them.
+    """
+
+    method: Annotated[UncertaintyMethod | None, Profile.USER] = Field(
+        default=None,
+        description="How this phase's interval is obtained: 'cost_profile', "
+        "'multistart' or 'linearized', read as in [calibration.uncertainty] method.",
+    )
+    restarts: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        ge=2,
+        description="How many times method='multistart' repeats this phase's search.",
+    )
+    perturbation: Annotated[PositiveFloat | None, Profile.USER] = Field(
+        default=None,
+        description="Relative step of method='linearized' for this phase, as a fraction "
+        "of each calibrated value.",
+    )
+    tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
+        default=None,
+        description="Width of this phase's interval: a fraction of the best cost when "
+        "mode='relative', a number in the unit of the cost (metres for a network "
+        "distance) when mode='absolute'. Unset here and in [calibration.uncertainty], "
+        "one mesh cell for a phase scored only by network distances, five per cent of "
+        "the best cost otherwise.",
+    )
+    mode: Annotated[Literal["relative", "absolute"] | None, Profile.USER] = Field(
+        default=None,
+        description="How this phase's tolerance is read. Unset here and in "
+        "[calibration.uncertainty], 'absolute' for a phase scored only by network "
+        "distances, 'relative' otherwise.",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _say_why_a_posterior_is_not_one_of_these(cls, data: Any) -> Any:
+        """Answer 'posterior' the way the section does."""
+        _refuse_a_posterior(data, "a phase's uncertainty")
+        return data
+
+
 class CalibPhaseDecl(HydroModelBase):
     """One stage of a calibration that runs in several.
 
@@ -905,13 +1077,15 @@ class CalibPhaseDecl(HydroModelBase):
     its own is its search: a method, a budget, and which parameters it is
     allowed to move.
 
-    ``freeze_on_success`` means the parameters this phase calibrated are held
-    fixed for the phases that depend on it. It reads "freeze if the phase
-    converged", never "freeze if the result is good": a validity indicator
-    qualifies a result, and a phase that returns a coarse agreement still
-    returns a number. The state of that indicator travels to the dependent
-    phase and into the report, so a value calibrated on top of a doubtful one
-    carries the mention all the way out.
+    ``freeze_on_success`` means this phase passes the values it found to the
+    phases after it. A later phase holds them fixed, unless it lists the
+    parameter: it then moves it again, starting from the passed value when its
+    method accepts a start point. It reads "pass on if the phase converged",
+    never "pass on if the result is good": a validity indicator qualifies a
+    result, and a phase that returns a coarse agreement still returns a number.
+    The state of that indicator travels to the later phases and into the
+    report, so a value calibrated on top of a doubtful one carries the mention
+    all the way out.
     """
 
     name: Annotated[NonEmptyStr, Profile.USER] = Field(
@@ -922,10 +1096,15 @@ class CalibPhaseDecl(HydroModelBase):
         default="",
         description="What this phase calibrates and against what, in one sentence.",
     )
-    method: Annotated[CalibrationMethod, Profile.USER] = Field(
-        default="grid",
+    method: Annotated[CalibrationMethod | None, Profile.USER] = Field(
+        default=None,
         description=(
-            "Optimization method for this phase only. "
+            "Optimization method for this phase only. Unset, it follows from what the "
+            "phase scores: 'bisection' when the phase moves one parameter in log space "
+            "and every one of its blocks is signed (distance_gap), since the answer is "
+            "then a zero to find; 'scipy_nelder_mead' otherwise, a cost to minimise. "
+            "hmp calibrate --list-phases prints the method and why. Write it to "
+            "depart from that choice, and whenever optimizer_kwargs are given. "
             "Built-ins: 'grid' (regular sweep, sized by "
             "optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of "
             "a signed criterion on one parameter, the stream-network stage), 'optuna' "
@@ -976,10 +1155,13 @@ class CalibPhaseDecl(HydroModelBase):
         description="Names of the calibration outputs this phase scores on. Empty "
         "means every declared output.",
     )
-    objective_blocks: Annotated[list[str], Profile.USER] = Field(
+    objective_blocks: Annotated[list[str] | dict[str, PositiveFloat], Profile.USER] = Field(
         default_factory=list,
-        description="Names of the objective blocks this phase evaluates. Empty means "
-        "every declared block.",
+        description="Objective blocks this phase evaluates. Empty means every declared "
+        "block. A list names them and keeps their declared weight. A table gives each "
+        "named block the phase's own share instead, {block = share}, normalised to sum "
+        "to one like a block's weight already is; every key must be a declared block, "
+        "and every share must be positive.",
     )
     variable: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -996,14 +1178,33 @@ class CalibPhaseDecl(HydroModelBase):
     )
     optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
         default_factory=dict,
-        description="Extra keyword arguments forwarded to this phase's optimizer.",
+        description="Extra keyword arguments forwarded to this phase's optimizer. They "
+        "belong to one engine, so a phase that gives them names its method.",
+    )
+    regime: Annotated[Literal["steady", "transient"] | None, Profile.USER] = Field(
+        default=None,
+        description="Flow regime this phase runs, a property of the model and not of "
+        "the search. 'steady' is one period over steady_window, by default the extent "
+        "of [simulation.time]. 'transient' is the project's own time grid. Unset, the "
+        "phase runs the model as the project and its overrides declare it.",
+        json_schema_extra={
+            "value_docs": {
+                "steady": "One period over steady_window, so the recharge over it "
+                "averages to its mean. A steady solve carries no storage.",
+                "transient": "The project's time grid, with only the regime restated.",
+            }
+        },
+    )
+    steady_window: Annotated[dict[str, str] | None, Profile.USER] = Field(
+        default=None,
+        description="Dates the steady period spans, as {start, end}, when regime = "
+        "'steady'. Unset takes the whole [simulation.time] window.",
     )
     overrides: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,
         description="Configuration values this phase runs with, as dotted paths into "
-        "the project configuration. The two stages of a stream-network calibration "
-        "are one steady and one transient, which is a property of the model and not "
-        "of the search, so a phase has to be able to say it.",
+        "the project configuration. A phase that gives regime may not write here a "
+        "path regime writes: that would say the same thing twice.",
     )
     scoring_window: Annotated[CalibScoringWindow | None, Profile.USER] = Field(
         default=None,
@@ -1011,14 +1212,25 @@ class CalibPhaseDecl(HydroModelBase):
     )
     depends_on: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Name of the phase that must run first. Its frozen parameters "
-        "enter this one as fixed values.",
+        description="Name of the phase that must run first. The values it passes on "
+        "enter this one fixed, except those this phase lists and moves again.",
     )
     freeze_on_success: Annotated[bool, Profile.USER] = Field(
         default=True,
-        description="Hold the parameters this phase calibrated fixed for the phases "
-        "that depend on it. Success means the phase converged, not that its validity "
-        "indicator is good.",
+        description="Pass the values this phase found to the phases after it. A later "
+        "phase holds them fixed, unless it lists the parameter: it then moves it again, "
+        "starting from the passed value when its method accepts a start point. When two "
+        "phases pass on the same parameter, the later one wins. Success means the phase "
+        "converged, not that its validity indicator is good.",
+    )
+    uncertainty: Annotated[CalibPhaseUncertaintyDecl | None, Profile.USER] = Field(
+        default=None,
+        description="How wide this phase says its answer is, with the keys of "
+        "[calibration.uncertainty]. A key written here wins for this phase; a key left "
+        "out takes the section's value, then the default that follows what the phase "
+        "scores: one mesh cell for a phase scored only by network distances, five per "
+        "cent of the best cost otherwise. hmp calibrate --list-phases prints the width "
+        "each phase reads and where it comes from.",
     )
 
     @property
@@ -1031,6 +1243,43 @@ class CalibPhaseDecl(HydroModelBase):
         and score it on a criterion it never asked for.
         """
         return self.variable is not None or self.objective is not None
+
+    @model_validator(mode="after")
+    def _name_the_engine_the_options_belong_to(self) -> CalibPhaseDecl:
+        """Refuse optimizer_kwargs on a phase that names no method.
+
+        The options belong to one engine, and a phase that names none gets the
+        one its criteria call for. The options would then reach an engine the
+        file never chose.
+        """
+        if self.optimizer_kwargs and self.method is None:
+            raise ValueError(_OPTIONS_WITHOUT_AN_ENGINE.format(where=f"phase {self.name!r}"))
+        return self
+
+    @model_validator(mode="after")
+    def _say_the_regime_once(self) -> CalibPhaseDecl:
+        """Refuse a regime said twice, and a steady window with no steady regime.
+
+        ``regime`` writes its paths into the configuration the trials run with,
+        and ``overrides`` writes into the same one. A path in both would leave
+        the reader to guess which value the model ran with.
+        """
+        if self.steady_window is not None and self.regime != "steady":
+            raise ValueError(
+                f"phase {self.name!r} gives a steady_window and regime = {self.regime!r}. "
+                'The window is the span of the one steady period: write regime = "steady", '
+                "or drop the window."
+            )
+        if self.regime is None:
+            return self
+        twice = [path for path in PHASE_REGIME_PATHS[self.regime] if path in self.overrides]
+        if twice:
+            raise ValueError(
+                f"phase {self.name!r} gives regime = {self.regime!r}, which writes "
+                f"{', '.join(twice)}, and writes the same in overrides: two ways to say "
+                "the same thing. Keep regime and drop these overrides, or drop regime."
+            )
+        return self
 
 
 class CalibAggregateDecl(HydroModelBase):
@@ -1102,7 +1351,7 @@ class CalibUncertaintyDecl(HydroModelBase):
     trace and not a posterior.
     """
 
-    method: Annotated[Literal["cost_profile", "multistart", "linearized"], Profile.USER] = Field(
+    method: Annotated[UncertaintyMethod, Profile.USER] = Field(
         default="cost_profile",
         description=(
             "How the interval around each calibrated value is obtained. "
@@ -1151,22 +1400,7 @@ class CalibUncertaintyDecl(HydroModelBase):
         the reason it is not offered is a position rather than an omission. Leaving
         them a bare list of three literals sends them looking for a bug.
         """
-        if isinstance(data, Mapping) and str(data.get("method", "")).strip() == "posterior":
-            raise ValueError(
-                "[calibration.uncertainty] method='posterior' is not offered, and the "
-                "reason is worth stating rather than hiding behind a list. A posterior "
-                "is a statement about probability, so it needs a likelihood, and a "
-                "likelihood needs a criterion built from residuals with an error model "
-                "on each observation. An efficiency score is not one: NSE, KGE and "
-                "nse_log are aggregates already stripped of their units, and a "
-                "posterior computed from one would carry a precision nothing "
-                "established. Sampling it also costs thousands of model runs, not the "
-                "one per parameter that 'linearized' costs. Use 'linearized', which "
-                "reports a first-order width and the parameter tradeoffs from "
-                "residuals, or 'multistart', which reports the spread of restarted "
-                "searches, and say in the write-up which of the two the number rests "
-                "on."
-            )
+        _refuse_a_posterior(data, "[calibration.uncertainty]")
         return data
 
     @model_validator(mode="after")
@@ -1197,21 +1431,29 @@ class CalibUncertaintyDecl(HydroModelBase):
             )
         return self
 
-    tolerance: Annotated[PositiveFloat, Profile.USER] = Field(
-        default=0.05,
+    tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
+        default=None,
         description=(
             "Width of the interval. A fraction of the best cost when mode='relative' "
             "(0.05 = five per cent), and a number in the unit of the cost when "
-            "mode='absolute'."
+            "mode='absolute'. Unset, it follows what the search scores: one mesh cell, "
+            "in metres, for a search scored only by network distances (distance_gap, "
+            "distance_mean), because a stream cannot move by less than a cell; 0.05 "
+            "otherwise, five per cent of the best cost. The cell is the median distance "
+            "between the centres of neighbouring cells, measured by the network "
+            "criterion on the mesh it scores. A phase may write its own, which wins."
         ),
     )
-    mode: Annotated[Literal["relative", "absolute"], Profile.USER] = Field(
-        default="relative",
+    mode: Annotated[Literal["relative", "absolute"] | None, Profile.USER] = Field(
+        default=None,
         description=(
             "How 'tolerance' is read. 'relative' is a fraction of the best cost and is "
             "the usual choice for an efficiency score. A criterion solved at zero, such "
             "as the stream-network gap, has no fraction of itself to take: state the "
-            "width in the unit of the cost with 'absolute', for example 25 metres."
+            "width in the unit of the cost with 'absolute', for example 25 metres. "
+            "Unset, 'absolute' for a search scored only by network distances and "
+            "'relative' otherwise. hmp calibrate --check refuses 'relative' on a search "
+            "scored only by network distances."
         ),
     )
 
@@ -1241,10 +1483,15 @@ class CalibrationConfig(HydroModelBase):
             "objective blocks cannot also name a protocol."
         ),
     )
-    method: Annotated[CalibrationMethod, Profile.USER] = Field(
-        default="grid",
+    method: Annotated[CalibrationMethod | None, Profile.USER] = Field(
+        default=None,
         description=(
-            "Optimization method. "
+            "Optimization method. Unset, it follows from what the calibration scores: "
+            "'bisection' when it moves one parameter in log space and every one of its "
+            "blocks is signed (distance_gap), since the answer is then a zero to find; "
+            "'scipy_nelder_mead' otherwise, a cost to minimise. Write it to depart from "
+            "that choice, and whenever optimizer_kwargs are given. A phase of "
+            "[[calibration.phases]] names its own. "
             "Built-ins: 'grid' (regular sweep, sized by "
             "optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of "
             "a signed criterion on one parameter, the stream-network stage), 'optuna' "
@@ -1420,7 +1667,8 @@ class CalibrationConfig(HydroModelBase):
     )
     optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
         default_factory=dict,
-        description="Extra keyword arguments forwarded to the optimizer adapter.",
+        description="Extra keyword arguments forwarded to the optimizer adapter. They "
+        "belong to one engine, so a calibration that gives them names its method.",
     )
     parameters: Annotated[dict[str, CalibParameterDecl], Profile.USER] = Field(
         default_factory=dict,
@@ -1466,7 +1714,8 @@ class CalibrationConfig(HydroModelBase):
     uncertainty: Annotated[CalibUncertaintyDecl, Profile.USER] = Field(
         default_factory=CalibUncertaintyDecl,
         description="How wide the search reports its own answer to be. The calibrated "
-        "value is unaffected; this only decides the interval printed beside it.",
+        "value is unaffected; this only decides the interval printed beside it. It is "
+        "the default of every phase, and a phase may write its own keys.",
     )
     persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
         default_factory=PersistenceConfig,
@@ -1615,6 +1864,17 @@ class CalibrationConfig(HydroModelBase):
         return self
 
     @model_validator(mode="after")
+    def _name_the_engine_the_options_belong_to(self) -> CalibrationConfig:
+        """Refuse optimizer_kwargs on a section that names no method.
+
+        Same reason as on a phase: the options belong to one engine, and the one a
+        section gets when it names none follows from its criteria.
+        """
+        if self.optimizer_kwargs and self.method is None:
+            raise ValueError(_OPTIONS_WITHOUT_AN_ENGINE.format(where="[calibration]"))
+        return self
+
+    @model_validator(mode="after")
     def _check_the_protocol_was_expanded(self) -> CalibrationConfig:
         """Refuse a protocol whose stages nobody wrote.
 
@@ -1635,22 +1895,155 @@ class CalibrationConfig(HydroModelBase):
         return self
 
     def validate_registry(self) -> None:
-        """Verify the selected method is registered and its kwargs validate.
+        """Verify the method this calibration runs is registered and its kwargs validate.
 
         The discriminated union :data:`CalibrationMethodConfig` raises eagerly
         when ``optimizer_kwargs`` carries keys foreign to ``method`` so the
         failure happens at config-load time instead of inside the adapter
-        constructor.
+        constructor. A method left unwritten is checked as :meth:`method_for`
+        chooses it.
         """
         from hydromodpy.calibration.optim.method_config import validate_method_kwargs
         from hydromodpy.calibration.optim.optimizer import available_optimizers
 
+        method, _reason = self.method_for()
         available = available_optimizers()
-        if self.method not in available:
+        if method not in available:
             raise ValueError(
-                f"Unknown calibration method {self.method!r}. Available methods: {available}"
+                f"Unknown calibration method {method!r}. Available methods: {available}"
             )
-        validate_method_kwargs(self.method, self.optimizer_kwargs)
+        validate_method_kwargs(method, self.optimizer_kwargs)
+
+    def method_for(self, phase: CalibPhaseDecl | None = None) -> tuple[str, str | None]:
+        """Return the method this calibration, or one of its phases, runs, and why.
+
+        A method the file writes comes back as written, with no reason. One it
+        leaves unwritten is chosen from what the search scores, by
+        ``optim.optimizer.choose_method``, and the reason says why. ``phase``
+        reads the parameters that phase moves and the blocks it scores, selected
+        as the staged runner selects them; ``None`` reads the whole section.
+        """
+        written = self.method if phase is None else phase.method
+        if written is not None:
+            return written, None
+        from hydromodpy.calibration.optim.optimizer import choose_method
+
+        moved = self.parameters if phase is None else phase.parameters
+        transforms = {
+            name: str(self.parameters[name].transform) for name in moved if name in self.parameters
+        }
+        choice = choose_method(transforms, self._criteria_scored_by(phase))
+        return choice.method, choice.reason
+
+    def uncertainty_for(self, phase: CalibPhaseDecl | None = None) -> CalibUncertaintyDecl:
+        """Return the uncertainty a search reads: the phase's keys over the section's.
+
+        ``None`` reads the section alone. A phase that names another method than
+        the section does not inherit the section's ``restarts`` or
+        ``perturbation``, which belong to the section's method.
+        """
+        own = None if phase is None else phase.uncertainty
+        if own is None:
+            return self.uncertainty
+        written = own.model_dump(exclude_none=True)
+        merged = self.uncertainty.model_dump()
+        if written.get("method", self.uncertainty.method) != self.uncertainty.method:
+            merged["restarts"] = None
+            merged["perturbation"] = None
+        merged.update(written)
+        return CalibUncertaintyDecl.model_validate(merged)
+
+    def interval_width_for(self, phase: CalibPhaseDecl | None = None) -> Any:
+        """Return the width a search reads its interval with, and where it comes from.
+
+        A tolerance or a mode written in the phase wins, then the one written in
+        ``[calibration.uncertainty]``. Left unwritten, both follow what the search
+        scores, by ``optim.tolerance.choose_interval_width``. ``phase`` reads the
+        blocks that phase scores; ``None`` reads the whole section.
+
+        The answer is an ``optim.tolerance.IntervalWidth``. The signature does not
+        name it because this module imports ``optim`` only inside a function.
+        """
+        from hydromodpy.calibration.optim.tolerance import choose_interval_width
+
+        own = None if phase is None else phase.uncertainty
+
+        def written(key: str) -> tuple[Any, str] | None:
+            if own is not None and getattr(own, key) is not None:
+                return getattr(own, key), "phase"
+            if getattr(self.uncertainty, key) is not None:
+                return getattr(self.uncertainty, key), "section"
+            return None
+
+        return choose_interval_width(
+            self._scored_on_network_distances(phase),
+            tolerance=written("tolerance"),
+            mode=written("mode"),
+        )
+
+    def objective_blocks_for(
+        self, phase: CalibPhaseDecl | None = None
+    ) -> list[tuple[CalibObjectiveBlockDecl, float]]:
+        """Return the blocks a phase, or the whole section, scores, each with its weight.
+
+        Selection is :meth:`_blocks_scored_by`, the same a search itself reads.
+        The weight is the phase's own share when it names a table ``{block:
+        share}``, else the block's declared weight -- unnormalised, the same
+        way :class:`optim.objective.CompositeObjective` takes its own weights
+        before dividing by their sum. Empty for a single-metric route
+        (:attr:`CalibPhaseDecl.is_single_metric`, or the section route when it
+        declares no block). ``hmp calibrate --list-phases`` and ``--check``
+        read this to say what each block compares with what.
+        """
+        blocks = self._blocks_scored_by(phase)
+        if phase is not None and isinstance(phase.objective_blocks, dict):
+            shares = phase.objective_blocks
+            return [(block, float(shares[block.name])) for block in blocks if block.name in shares]
+        return [(block, float(block.weight)) for block in blocks]
+
+    def _blocks_scored_by(self, phase: CalibPhaseDecl | None) -> list[CalibObjectiveBlockDecl]:
+        """Return the blocks a search scores: the phase's, or every declared one.
+
+        A single-metric phase scores no block.
+        """
+        if phase is not None and phase.is_single_metric:
+            return []
+        blocks = self.objective_blocks
+        if phase is not None and phase.objective_blocks:
+            blocks = [block for block in blocks if block.name in phase.objective_blocks]
+        return list(blocks)
+
+    def _criteria_scored_by(self, phase: CalibPhaseDecl | None) -> list[str]:
+        """Return the criterion of each block a search scores.
+
+        A phase scores its single metric, or the blocks it names, or every
+        declared block. With no block, the section scores ``objective``.
+        """
+        if phase is not None and phase.is_single_metric:
+            return [str(phase.objective or self.objective)]
+        blocks = self._blocks_scored_by(phase)
+        return [str(block.metric) for block in blocks] or [str(self.objective)]
+
+    def _scored_on_network_distances(self, phase: CalibPhaseDecl | None) -> bool:
+        """Whether a search is scored only by network distances left in metres.
+
+        Read as :meth:`_criteria_scored_by` reads the criteria: a single-metric
+        phase scores its own ``objective`` or the section's, and a search with
+        no block scores the section's ``objective``. A block with a transform is
+        no longer in metres. A distance cannot be normalised, so that case does
+        not arise, and the single-metric route has no transform.
+        """
+        from hydromodpy.calibration.criteria.registry import NETWORK_ESTIMATORS
+
+        if phase is not None and phase.is_single_metric:
+            return str(phase.objective or self.objective) in NETWORK_ESTIMATORS
+        blocks = self._blocks_scored_by(phase)
+        if not blocks:
+            return str(self.objective) in NETWORK_ESTIMATORS
+        return all(
+            str(block.metric) in NETWORK_ESTIMATORS and block.transform == "identity"
+            for block in blocks
+        )
 
     @field_validator("candidates_root", mode="before")
     @classmethod
@@ -1693,15 +2086,11 @@ class CalibrationConfig(HydroModelBase):
                 # A parameter may name its quantity instead of writing a path, and
                 # the name is resolved against the project catalogue once the whole
                 # configuration is loaded. Until then the parameter's own name is
-                # what two phases would be freezing.
+                # what a phase freezes. Two phases may freeze the same path: the
+                # later one moves it again from the earlier value, and its value
+                # wins. The staged report names both.
                 path = self.parameters[parameter].resolve_target() or f"<{parameter}>"
                 if phase.freeze_on_success:
-                    owner = frozen_by.get(path)
-                    if owner is not None:
-                        raise ValueError(
-                            f"phases {owner!r} and {phase.name!r} both freeze {path!r}; "
-                            "the second would overwrite what the first calibrated."
-                        )
                     frozen_by[path] = phase.name
 
             unknown_outputs = sorted(set(phase.outputs) - declared_outputs)
@@ -1711,8 +2100,10 @@ class CalibrationConfig(HydroModelBase):
                 )
             unknown_blocks = sorted(set(phase.objective_blocks) - declared_blocks)
             if unknown_blocks:
+                declared = sorted(declared_blocks) or "nothing"
                 raise ValueError(
-                    f"phase {phase.name!r} uses undeclared objective block(s) {unknown_blocks}."
+                    f"phase {phase.name!r} uses undeclared objective block(s) {unknown_blocks}; "
+                    f"[[calibration.objective_blocks]] declares {declared}."
                 )
 
             if phase.depends_on is not None:
@@ -1752,6 +2143,15 @@ class CalibrationConfig(HydroModelBase):
                     "different routes and only one of them would run. Pick one "
                     "convention."
                 )
+            if phase.uncertainty is not None:
+                try:
+                    self.uncertainty_for(phase)
+                except ValidationError as exc:
+                    reasons = "; ".join(str(item["msg"]) for item in exc.errors())
+                    raise ValueError(
+                        f"phase {phase.name!r} writes an uncertainty that does not hold "
+                        f"once read over [calibration.uncertainty]: {reasons}"
+                    ) from None
         return self
 
     @model_validator(mode="after")

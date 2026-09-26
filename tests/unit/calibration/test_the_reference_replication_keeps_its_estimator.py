@@ -15,11 +15,15 @@ import pytest
 
 from hydromodpy.calibration.protocols import protocol_options_away_from_the_recipe
 from hydromodpy.calibration.protocols.matching_hydrographic_network import (
+    HYDROGRAPH_BLOCK,
+    HYDROGRAPH_OUTPUT,
     NETWORK_BLOCK,
     STEADY_STAGE,
     TRANSIENT_STAGE,
 )
+from hydromodpy.calibration.runners.phase_regime import phase_overrides
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 REFERENCE = (
     Path(__file__).resolve().parents[3]
@@ -41,7 +45,10 @@ def test_the_two_stages_come_from_the_named_protocol(calibration) -> None:
     # Pinned, so the comparison cannot silently move with the recipe.
     assert calibration.protocol.version == "1.0"
     assert [phase.name for phase in calibration.phases] == [STEADY_STAGE, TRANSIENT_STAGE]
-    assert [block.name for block in calibration.objective_blocks] == [NETWORK_BLOCK]
+    assert [block.name for block in calibration.objective_blocks] == [
+        NETWORK_BLOCK,
+        HYDROGRAPH_BLOCK,
+    ]
 
 
 def test_stage_one_keeps_the_scripts_mean_offset_and_nelder_mead(calibration) -> None:
@@ -59,7 +66,9 @@ def test_stage_one_keeps_the_scripts_mean_offset_and_nelder_mead(calibration) ->
 
 def test_stage_one_collapses_the_record_into_one_steady_period(calibration) -> None:
     # 1995-01-01 to 2020-12-31 inclusive, the window the REA recharge stops at.
-    assert calibration.phases[0].overrides == {
+    # The protocol writes the regime; the paths are what the trials run with.
+    assert calibration.phases[0].regime == "steady"
+    assert phase_overrides(calibration.phases[0], load_toml_with_base_config(REFERENCE)) == {
         "flow.flow_regime": "steady",
         "simulation.time.start_datetime": "1995-01-01",
         "simulation.time.end_datetime": "2020-12-31",
@@ -73,11 +82,20 @@ def test_stage_two_reads_storage_from_the_hydrograph_with_conductivity_frozen(ca
     storage = calibration.phases[1]
     assert storage.depends_on == STEADY_STAGE
     assert storage.parameters == ["Sy"]
-    assert storage.objective == "nse_log"
+    assert storage.objective_blocks == [HYDROGRAPH_BLOCK]
     assert storage.max_iter == 120
     assert storage.optimizer_kwargs["xatol"] == pytest.approx(3.7e-5)
     # The reference scores the whole calibration window, with no spin-up year cut.
     assert storage.scoring_window is None
+
+    hydrograph = next(
+        block for block in calibration.objective_blocks if block.name == HYDROGRAPH_BLOCK
+    )
+    assert hydrograph.metric == "nse_log"
+    assert hydrograph.uses_outputs == [HYDROGRAPH_OUTPUT]
+    output = calibration.outputs[HYDROGRAPH_OUTPUT]
+    assert output.observes == "NANCON"
+    assert output.variable == "discharge"
 
 
 def test_the_file_departs_from_the_recipe_on_the_estimator_and_the_engine(calibration) -> None:

@@ -10,6 +10,7 @@ Two carriers hold those rows in this codebase, and both are legitimate: a
 run-shaped adapter the calibration report builds from a session journal without
 a catalog behind it. :func:`calibration_trials` resolves either into the same
 frame, so a figure has one call to make and no shape to test for.
+:func:`calibration_sessions` reads the session rows from the same two carriers.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ import pandas as pd
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
-__all__ = ("calibration_trials",)
+__all__ = ("calibration_sessions", "calibration_trials")
 
 _TABLE = "calibration_iterations"
 
@@ -98,3 +99,26 @@ def calibration_trials(source: Run | Any, *, session_id: str | None = None) -> p
         scope = "" if session_id is None else f" for session {session_id!r}"
         raise ValueError(f"no trial recorded{scope} by this calibration.")
     return frame.reset_index(drop=True)
+
+
+def calibration_sessions(source: Run | Any) -> pd.DataFrame:
+    """Return the calibration session rows reachable from ``source``.
+
+    A run does not carry its sessions, the catalog it comes from does; the
+    run-shaped adapter of the calibration report carries its own. Rows of
+    other calibrations come back too: a caller looks up only the session ids
+    its trials name.
+
+    Unlike :func:`calibration_trials`, a source with no session behind it is
+    not an error. The frame is empty, because a figure drawn without the
+    session rows still draws, one phase to the chain.
+    """
+    frame = getattr(source, "calibration_sessions", None)
+    if frame is None:
+        catalog = getattr(source, "_catalog", None)
+        frame = getattr(catalog, "calibration_sessions", None) if catalog is not None else None
+    if frame is None:
+        return pd.DataFrame()
+    if not isinstance(frame, pd.DataFrame):
+        frame = pd.DataFrame(list(frame))
+    return frame

@@ -69,8 +69,10 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     findings.extend(_check_outputs(calibration, where_from, config))
     findings.extend(_check_blocks(calibration))
     findings.extend(_check_phases(calibration))
+    findings.extend(_check_the_regimes(calibration, where_from))
     findings.extend(_check_engines(calibration))
     findings.extend(_check_the_precision_can_be_honoured(calibration))
+    findings.extend(_check_the_interval_widths(calibration))
     findings.extend(_check_the_backend_can_serve_the_outputs(config, calibration))
     return findings
 
@@ -241,6 +243,48 @@ def _check_phases(calibration: Any) -> list[PreflightFinding]:
     return findings
 
 
+def _check_the_regimes(calibration: Any, source: Path) -> list[PreflightFinding]:
+    """Write every phase's regime the way the run will, and report what cannot be.
+
+    A steady phase reads its window from ``steady_window`` or from
+    ``[simulation.time]`` of the raw document, which is what the run reads too.
+    A window given backwards, with one offset, or in no readable spelling is
+    otherwise found only when the run starts.
+    """
+    phases = [
+        phase for phase in calibration.phases or () if getattr(phase, "regime", None) is not None
+    ]
+    if not phases:
+        return []
+    from hydromodpy.calibration.runners.phase_regime import regime_overrides
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+    try:
+        document = load_toml_with_base_config(source)
+    except (OSError, ValueError) as exc:
+        return [
+            PreflightFinding(
+                "error",
+                "[simulation.time]",
+                f"the phases that give a regime read their window from {source.name}, "
+                f"which cannot be read: {exc}",
+            )
+        ]
+    findings: list[PreflightFinding] = []
+    for phase in phases:
+        try:
+            regime_overrides(phase, document)
+        except ValueError as exc:
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    f"[[calibration.phases]] {phase.name!r}",
+                    f"regime = {phase.regime!r} cannot be written: {exc}",
+                )
+            )
+    return findings
+
+
 def _publishes_a_signed_residual(metric: str) -> bool:
     """Whether this criterion's cost IS the absolute residual a root search closes on.
 
@@ -360,8 +404,8 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
 
     known = set(available_optimizers())
     findings: list[PreflightFinding] = []
-    uncertainty = getattr(calibration, "uncertainty", None)
-    if getattr(uncertainty, "method", None) == "linearized":
+    linearized = _linearized_scored_outputs(calibration)
+    if linearized:
         # Same reason as the precision below: the width is built after the
         # last solve, so `hmp calibrate --check` is where a document that can
         # never carry one is named, before any of it is paid for. A phased
@@ -373,7 +417,7 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
         )
         from hydromodpy.core.exceptions import UncertaintyNotAvailableError
 
-        for where, outputs, blocks, single_metric in _linearized_scored_outputs(calibration):
+        for where, outputs, blocks, single_metric in linearized:
             observing = [
                 name
                 for name, decl in outputs.items()
@@ -405,8 +449,7 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
                 )
             except UncertaintyNotAvailableError as exc:
                 findings.append(PreflightFinding("error", where, str(exc)))
-    restarts = getattr(getattr(calibration, "uncertainty", None), "restarts", None)
-    for where, method, tolerance, kwargs in _declared_precisions(calibration):
+    for where, method, tolerance, kwargs, restarts in _declared_precisions(calibration):
         if restarts is not None and method in known:
             from hydromodpy.calibration.runners.restarts import assert_restarts_can_explore
 
@@ -440,26 +483,68 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
     return findings
 
 
-def _declared_precisions(calibration: Any) -> list[tuple[str, str, float | None, dict]]:
-    """Return one entry per search: where it is written, its engine and its precision."""
+def _declared_precisions(
+    calibration: Any,
+) -> list[tuple[str, str, float | None, dict, int | None]]:
+    """Return one entry per search: where it is written, its engine, its precision, its restarts.
+
+    The engine is the one the search runs: a method left unwritten is checked as
+    the run will choose it. The restarts are the phase's own over the section's.
+    """
     if not calibration.phases:
         return [
             (
                 "[calibration]",
-                str(calibration.method),
+                calibration.method_for()[0],
                 calibration.tolerance,
                 dict(calibration.optimizer_kwargs or {}),
+                calibration.uncertainty.restarts,
             )
         ]
     return [
         (
             f"[[calibration.phases]] {phase.name!r}",
-            str(phase.method),
+            calibration.method_for(phase)[0],
             phase.tolerance,
             dict(phase.optimizer_kwargs or {}),
+            calibration.uncertainty_for(phase).restarts,
         )
         for phase in calibration.phases
     ]
+
+
+def _check_the_interval_widths(calibration: Any) -> list[PreflightFinding]:
+    """Refuse a relative width on a search scored only by network distances.
+
+    A relative width is a fraction of the best cost. A network distance is in
+    metres and solved at zero, so a fraction of it says nothing about how far a
+    stream may move. The width is read after the last solve, so this is where
+    it is named, before any of it is paid for.
+    """
+    searches = [(None, "[calibration.uncertainty]")] if not calibration.phases else []
+    searches += [
+        (phase, f"[[calibration.phases]] {phase.name!r}") for phase in calibration.phases or ()
+    ]
+    findings: list[PreflightFinding] = []
+    for phase, where in searches:
+        width = calibration.interval_width_for(phase)
+        if width.mode != "relative" or not width.on_distances:
+            continue
+        written = (
+            "in this phase" if width.mode_source == "phase" else "in [calibration.uncertainty]"
+        )
+        findings.append(
+            PreflightFinding(
+                "error",
+                where,
+                f"mode = 'relative', written {written}, reads the interval width as a "
+                "fraction of the best cost, and this search is scored only on network "
+                "distances, in metres, solved at zero: a fraction of a distance has no "
+                "meaning. Write mode = 'absolute' with a tolerance in metres, or leave "
+                "both unwritten for one mesh cell.",
+            )
+        )
+    return findings
 
 
 def _check_the_backend_can_serve_the_outputs(
@@ -513,7 +598,11 @@ def _flow_adapter_for(config: Any) -> Any | None:
 
 
 def _searches(calibration: Any) -> list[tuple[str, str, list[str], set[str], int]]:
-    """Return one entry per search: where it is written, and what it is handed."""
+    """Return one entry per search: where it is written, and what it is handed.
+
+    The engine is the one the search runs: a method left unwritten is faced with
+    its traits as the run will choose it.
+    """
 
     def _metrics_of(selected: list[str], single: str | None) -> set[str]:
         if single:
@@ -530,7 +619,7 @@ def _searches(calibration: Any) -> list[tuple[str, str, list[str], set[str], int
         return [
             (
                 "[calibration]",
-                str(calibration.method),
+                calibration.method_for()[0],
                 sorted(calibration.parameters or {}),
                 _metrics_of([], None if calibration.objective_blocks else calibration.objective),
                 int(calibration.parallel),
@@ -539,7 +628,7 @@ def _searches(calibration: Any) -> list[tuple[str, str, list[str], set[str], int
     return [
         (
             f"[[calibration.phases]] {phase.name!r}",
-            str(phase.method),
+            calibration.method_for(phase)[0],
             list(phase.parameters),
             _metrics_of(list(phase.objective_blocks), phase.objective),
             int(phase.parallel),
@@ -566,7 +655,11 @@ def _phase_named_blocks(calibration: Any, names: list[str]) -> list[Any]:
 def _linearized_scored_outputs(
     calibration: Any,
 ) -> list[tuple[str, Mapping[str, Any], list[Any], bool]]:
-    """Return, per search, its label, what it actually scores, and whether it is single-metric.
+    """Return, per search whose width is linearized, its label, what it scores, and more.
+
+    The last item says whether the search is single-metric. A search reads the
+    method of its phase over the section's, so only the phases that end up
+    linearized are returned.
 
     Mirrors the output and block selection
     ``hydromodpy.calibration.runners.staged_runner._phase_config`` builds for
@@ -583,6 +676,8 @@ def _linearized_scored_outputs(
     OTHER phases' blocks read, dropping an output this phase would have kept.
     """
     if not calibration.phases:
+        if calibration.uncertainty.method != "linearized":
+            return []
         return [
             (
                 "[calibration.uncertainty]",
@@ -593,6 +688,8 @@ def _linearized_scored_outputs(
         ]
     result: list[tuple[str, Mapping[str, Any], list[Any], bool]] = []
     for phase in calibration.phases:
+        if calibration.uncertainty_for(phase).method != "linearized":
+            continue
         where = f"[[calibration.phases]] {phase.name!r}"
         if phase.is_single_metric:
             result.append((where, {}, [], True))

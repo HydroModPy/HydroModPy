@@ -26,6 +26,16 @@ class EnsembleBandFigure(BaseFigure):
         default_figsize=(8.5, 4.5),
     )
 
+    def unavailable_reason(self, sim: Any) -> str | None:
+        """Require a set of runs: one run has no envelope.
+
+        A ``RunSet`` is checked member by member while drawing, where a member
+        without the series is left out.
+        """
+        if not hasattr(sim, "__iter__"):
+            return "draws the envelope of several runs, and a run is one; pass a RunSet"
+        return None
+
     def render(
         self,
         sim: Any,

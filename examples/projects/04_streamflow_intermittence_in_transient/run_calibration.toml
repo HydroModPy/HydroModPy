@@ -18,9 +18,9 @@ mode = "calibration"
 name = "nancon_intermittence_mf6_calibrated"
 description = "Nancon catchment, K from the mapped network then Sy from the gauge."
 
-# The bounds, the protocol, the scoring window, the uncertainty tolerance and
-# the figures stay the parent's. Tables merge key by key, so a variant narrows
-# one of them with one line:
+# The bounds, the protocol, the scoring window and the figures stay the
+# parent's. Tables merge key by key, so a variant narrows one of them with one
+# line:
 #
 #   [calibration.protocol]
 #   steady_max_iter = 8

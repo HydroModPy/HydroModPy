@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import importlib
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
+from hydromodpy.cli.commands.report import CATCHMENT_PRESETS
 from hydromodpy.cli.helpers import EXIT_CONFIG
 from hydromodpy.display.catchment_report.pipeline import CatchmentReportPipelineResult
-from hydromodpy.display.catchment_report.presets import CatchmentReportPreset
+from hydromodpy.display.catchment_report.presets import PRESETS_BY_NAME, CatchmentReportPreset
 
 
 def _load_main():
@@ -251,3 +254,40 @@ def test_report_catchment_rejects_context_only_with_report_only(capsys, tmp_path
 
     assert exc_info.value.code == EXIT_CONFIG
     assert "mutually exclusive" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("legacy_flag", ["--no-context", "--no-report"])
+def test_report_catchment_rejects_legacy_skip_aliases(capsys, legacy_flag: str, tmp_path) -> None:
+    config_path = tmp_path / "catchment_report.toml"
+
+    with pytest.raises(SystemExit):
+        _load_main().main(["report", "catchment", str(config_path), legacy_flag])
+
+    assert f"unrecognized arguments: {legacy_flag}" in capsys.readouterr().err
+
+
+@pytest.mark.allow_subprocess
+def test_building_the_hmp_parser_loads_neither_the_catchment_report_nor_pyplot() -> None:
+    """Every ``hmp`` call builds the whole parser. The catchment report imports
+    ``matplotlib.pyplot`` at module level, a tenth of a second on each start.
+    A fresh interpreter, because this process has imported both long ago."""
+    probe = (
+        "import sys\n"
+        "from hydromodpy.cli.main import _build_parser\n"
+        "_build_parser()\n"
+        "heavy = ('hydromodpy.display.catchment_report', 'matplotlib.pyplot')\n"
+        "print(','.join(name for name in heavy if name in sys.modules))\n"
+    )
+    loaded = subprocess.run(
+        [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+    assert loaded == "", f"building the hmp parser imported {loaded}"
+
+
+def test_the_preset_choices_are_the_registered_presets() -> None:
+    assert list(CATCHMENT_PRESETS) == sorted(PRESETS_BY_NAME), (
+        "a catchment report preset was added or removed in "
+        "hydromodpy/display/catchment_report/presets.py; write the same names in "
+        "CATCHMENT_PRESETS, hydromodpy/cli/commands/report.py"
+    )

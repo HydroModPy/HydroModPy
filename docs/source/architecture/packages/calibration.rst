@@ -13,7 +13,8 @@ layers and reuses the prepare-once / evaluate-many primitive of
 The map of the package -- its parts, its import rules, the tree of
 modules and where to add a search method, criterion, evaluator, forward
 model or protocol -- is ``hydromodpy/calibration/README.md``, enforced by
-``tests/unit/architecture/test_calibration_layout.py``.
+``tests/unit/architecture/calibration_layout.yaml`` and
+``tests/unit/architecture/test_package_layouts.py``.
 
 Ask / tell flow
 ----------------

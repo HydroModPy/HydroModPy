@@ -5,8 +5,8 @@
 #
 # The whole two-stage assembly is one line. What is left in this file is what
 # belongs to the site: the two search ranges and the mapped network. The
-# protocol writes the stages, their criteria, and the regime and time-grid
-# overrides that make the first steady and the second transient.
+# protocol writes the stages, their criteria, and the regime that makes the
+# first steady and the second transient.
 #
 # `hmp calibrate --list-phases <this file>` prints the assembly before running it.
 

@@ -122,8 +122,11 @@ def reference_length(cell_area_m2: np.ndarray, support: np.ndarray) -> float:
     The median, not the mean: on a mesh refined along the streams a handful of
     large buffer cells inflate the mean, and the two conventions differ enough
     to move the validity ratio across its bound for a size ratio of three. The
-    same convention is already used elsewhere in the package, so there is one
-    definition of a cell size in the repository and not two.
+    same convention is already used elsewhere in the package to normalise a
+    length. The interval width of a calibration reads another size, the median
+    distance between the centres of neighbouring cells (``cell_spacing_m``),
+    because a stream moves from one cell centre to the next. The two agree on
+    a square grid.
     """
     areas = np.asarray(cell_area_m2, dtype=float).reshape(-1)
     kept = areas[np.asarray(support, dtype=bool).reshape(-1) & np.isfinite(areas)]

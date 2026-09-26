@@ -1,4 +1,4 @@
-"""Calibration run in phases: each stage calibrates, then freezes.
+"""Calibration run in phases: each stage calibrates, then passes its values on.
 
 A staged calibration runs the phases of ``[[calibration.phases]]`` in
 declaration order. Each phase is an ordinary mono-phase calibration: it gets
@@ -6,15 +6,22 @@ its own configuration, its own optimizer, its own session, and goes through
 :func:`hydromodpy.calibration.runners.cli_runner.run_calibration_core` like
 any other. What staging adds is what happens between two phases.
 
-Freezing
---------
-A phase that declares ``freeze_on_success`` and converges hands the
-parameters it calibrated to the phases after it, as fixed values. A frozen
-parameter leaves the search: it is written once into the baseline
-configuration every trial of the next phase forks from, and its declaration
-is dropped from that phase's parameter space. Keeping it in the space with
-equal bounds would make a grid sampler spend points on a degenerate axis and
-would break the one-dimensional guard of the bisection adapter.
+Passing values on
+-----------------
+A phase moves the parameters it lists. Every other parameter holds the last
+value an earlier converged phase passed on, otherwise the value of the model
+file. A phase passes its values on when it declares ``freeze_on_success`` and
+converges. A held value is written once into the baseline configuration every
+trial of the phase forks from. It is not in that phase's parameter space,
+because the phase does not list it.
+
+A phase that lists a parameter an earlier phase passed on moves it again. The
+passed value is not written into its baseline, so no trial overwrites what the
+search proposes. The search starts from that value when the engine declares
+``accepts_a_start_point``; the other coordinates of that start are the prior
+centre. An engine that takes no start point keeps its own start. When two
+phases pass on the same parameter, the latest wins, and the report names both:
+``frozen`` lists each of them, and the later phase lists the value it re-opened.
 
 Chaining
 --------
@@ -28,22 +35,36 @@ from __future__ import annotations
 
 import math
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
 
-from hydromodpy.calibration.config import CalibPhaseDecl, CalibrationConfig
+from hydromodpy.calibration.config import (
+    CalibObjectiveBlockDecl,
+    CalibOutputDecl,
+    CalibPhaseDecl,
+    CalibrationConfig,
+)
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
-from hydromodpy.calibration.optim.optimizer import FAILED_EVAL_COST
+from hydromodpy.calibration.metrics.observed_pairing import OBSERVED_FAMILY_BY_VARIABLE
+from hydromodpy.calibration.metrics.series import DATA_FAMILY_SECTION
+from hydromodpy.calibration.optim.objective import (
+    mean_objective_block_shares,
+    objective_block_shares,
+)
+from hydromodpy.calibration.optim.optimizer import FAILED_EVAL_COST, engine_traits
 from hydromodpy.calibration.optim.parameters import (
     CalibParameter,
     ParameterSpace,
     apply_parameter_to_config,
 )
+from hydromodpy.calibration.optim.prior_sampling import transformed_prior_center
+from hydromodpy.calibration.optim.tolerance import IntervalWidth
 from hydromodpy.calibration.persistence import (
+    CalibrationPersistence,
     CalibrationStoreFactory,
     default_store_factory,
 )
@@ -57,6 +78,7 @@ from hydromodpy.calibration.runners.cli_runner import (
     refuse_an_objective_that_is_not_an_entry_point,
     run_calibration_core,
 )
+from hydromodpy.calibration.runners.phase_regime import phase_overrides
 from hydromodpy.calibration.runners.restarts import RestartSpread, run_restarts
 from hydromodpy.calibration.runners.resume import fingerprint_matches, reusable_stage
 from hydromodpy.calibration.runners.state import (
@@ -72,6 +94,8 @@ from hydromodpy.core.exceptions import CalibrationError, ConfigValidationError
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
+    import numpy as np
+
     from hydromodpy.calibration.report import CalibrationReport
     from hydromodpy.calibration.runners.trial import TrialContext
 
@@ -128,18 +152,23 @@ class PhaseRun:
     parent_session_id: str | None
     report: CalibrationReport
     frozen: tuple[FrozenParameter, ...]
+    reopened: tuple[FrozenParameter, ...] = ()
+    """The passed values this phase moved again, each with the phase that found it."""
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly view of the phase, report included."""
-        return {
+        summary: dict[str, Any] = {
             "phase": self.name,
             "index": self.index,
             "session_id": self.session_id,
             "root_session_id": self.root_session_id,
             "parent_session_id": self.parent_session_id,
             "frozen": [item.to_dict() for item in self.frozen],
-            "report": self.report.to_dict(),
         }
+        if self.reopened:
+            summary["reopened"] = [item.to_dict() for item in self.reopened]
+        summary["report"] = self.report.to_dict()
+        return summary
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,7 +177,8 @@ class StagedCalibrationReport:
 
     ``phases`` keeps the runs in the order they ran and ``frozen`` gathers,
     in the same order, every value a converged phase declared frozen, with
-    the path it is written to.
+    the path it is written to. A parameter two phases froze appears twice; the
+    later value is the one the phases after both of them hold.
     """
 
     phases: tuple[PhaseRun, ...]
@@ -204,7 +234,7 @@ def _seed_of(cfg: CalibrationConfig) -> int:
 
 
 def _declared_restarts(cfg: CalibrationConfig) -> int | None:
-    """Return how many times each phase repeats its search, or None for one pass."""
+    """Return how many times a phase repeats its search, or None for one pass."""
     uncertainty = getattr(cfg, "uncertainty", None)
     if uncertainty is None or getattr(uncertainty, "method", None) != "multistart":
         return None
@@ -221,6 +251,11 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
     the single-metric route instead, and inherits neither. ``phases`` is cleared
     so the sub-run is an ordinary calibration.
 
+    ``objective_blocks`` as a list keeps each named block's declared weight. As a
+    table ``{block: share}`` it replaces the selected blocks' weight with the
+    phase's own share; ``CompositeObjective`` normalises it the same way it
+    already normalises a declared weight, so the shares need not sum to one.
+
     A phase used to inherit every declared output whatever it scored. A
     two-stage file naming a network output for its steady stage and a discharge
     output for its transient one therefore handed each stage the output of the
@@ -228,13 +263,22 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
     only waste: a stage whose criteria cannot read an inherited output is
     refused, so that file did not run at all.
     """
+    # The phase-scoped fields (overrides, regime, steady_window) never enter this
+    # payload: they reach prepare_trials through _PhasePlan.overrides. This
+    # configuration feeds the params hash, so forwarding one would change the
+    # hash of every completed stage and void its cache and its reuse.
     payload = cfg.model_dump()
-    payload["method"] = decl.method
+    # A phase that names no method gets the one its criteria call for, written
+    # here so the session, the params hash and the report all read that name.
+    payload["method"] = cfg.method_for(decl)[0]
     payload["max_iter"] = decl.max_iter
     payload["tolerance"] = decl.tolerance
     payload["batch_size"] = decl.batch_size
     payload["parallel"] = decl.parallel
     payload["optimizer_kwargs"] = dict(decl.optimizer_kwargs)
+    # The phase's own keys over [calibration.uncertainty]: the method, its
+    # restarts or its perturbation, and the width the interval is read with.
+    payload["uncertainty"] = cfg.uncertainty_for(decl).model_dump()
     if decl.variable is not None:
         payload["variable"] = decl.variable
     if decl.objective is not None:
@@ -251,7 +295,14 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
         payload["outputs"] = {}
         payload["objective_blocks"] = []
     else:
-        if decl.objective_blocks:
+        if isinstance(decl.objective_blocks, dict):
+            shares = decl.objective_blocks
+            payload["objective_blocks"] = [
+                {**block, "weight": shares[block["name"]]}
+                for block in payload["objective_blocks"]
+                if block["name"] in shares
+            ]
+        elif decl.objective_blocks:
             selected = set(decl.objective_blocks)
             payload["objective_blocks"] = [
                 block for block in payload["objective_blocks"] if block["name"] in selected
@@ -278,17 +329,25 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
 
 @dataclass(frozen=True, slots=True)
 class _PhasePlan:
-    """One selected phase, with the calibration and the space it runs under."""
+    """One selected phase, with the calibration, the space and the model it runs under.
+
+    ``overrides`` is what ``prepare_trials(config_overrides=...)`` writes: the
+    paths the phase's regime writes, then the phase's own overrides. ``width``
+    is the width the phase reads its interval with, and where it comes from.
+    """
 
     index: int
     decl: CalibPhaseDecl
     config: CalibrationConfig
     space: ParameterSpace
+    overrides: dict[str, Any]
+    width: IntervalWidth
 
 
 def _phase_plans(
     cfg: CalibrationConfig,
     selected: Sequence[tuple[int, CalibPhaseDecl]],
+    document: Mapping[str, Any],
 ) -> list[_PhasePlan]:
     """Build every selected phase before the first one runs.
 
@@ -298,10 +357,24 @@ def _phase_plans(
     its turn comes: after the phases before it have spent their whole solve
     budget. Building them all here moves that refusal before the first solve,
     and the loop then runs what was built instead of building it again.
+
+    The regime is read here too, from ``document``, the raw configuration the
+    phases belong to: a steady window that cannot be read is refused before the
+    first solve as well.
     """
     plans: list[_PhasePlan] = []
     for index, decl in selected:
         phase_cfg = _phase_config(cfg, decl)
+        method, reason = cfg.method_for(decl)
+        if reason is not None:
+            logger.info("Phase %s names no method and runs %s: %s.", decl.name, method, reason)
+        try:
+            overrides = phase_overrides(decl, document)
+        except ValueError as exc:
+            raise ConfigValidationError(
+                f"phase {decl.name!r} gives regime = {decl.regime!r}, which cannot be "
+                f"written: {exc}"
+            ) from exc
         try:
             phase_cfg.validate_registry()
         except ValueError as exc:
@@ -314,7 +387,16 @@ def _phase_plans(
             raise ConfigValidationError(
                 f"phase {decl.name!r} declares a parameter space that cannot be built: {exc}"
             ) from exc
-        plans.append(_PhasePlan(index=index, decl=decl, config=phase_cfg, space=space))
+        plans.append(
+            _PhasePlan(
+                index=index,
+                decl=decl,
+                config=phase_cfg,
+                space=space,
+                overrides=overrides,
+                width=cfg.interval_width_for(decl),
+            )
+        )
     return plans
 
 
@@ -345,8 +427,84 @@ def _injected_paths(
 # ---------------------------------------------------------------------------
 
 
-def _freeze_into_baseline(trial_ctx: TrialContext, frozen: list[FrozenParameter]) -> None:
-    """Write the frozen values into the baseline the phase forks from.
+def _held(frozen: Sequence[FrozenParameter], space: ParameterSpace) -> list[FrozenParameter]:
+    """Return the passed values a phase holds fixed: the latest per path, minus what it moves.
+
+    A value the phase moves again is left out. Written into the baseline, it
+    would sit under every trial: the sample would overwrite it, or, under
+    ``mode="scale"``, multiply it instead of the declared value.
+    """
+    moved_names = set(space.names)
+    moved_paths = {param.effective_path for param in space if param.effective_path is not None}
+    return [
+        item
+        for item in _latest_per_path(frozen).values()
+        if item.name not in moved_names and item.path not in moved_paths
+    ]
+
+
+def _reopened(
+    frozen: Sequence[FrozenParameter], space: ParameterSpace
+) -> tuple[FrozenParameter, ...]:
+    """Return the passed values a phase moves again, the latest per path.
+
+    Two parameter names may write the same path. The phase then starts from
+    the latest value on that path, whichever name found it, so each item is
+    given the parameter this phase moves and keeps the phase that found it.
+    """
+    latest = _latest_per_path(frozen)
+    reopened: list[FrozenParameter] = []
+    for param in space:
+        item = latest.get(param.effective_path or param.name)
+        if item is not None:
+            reopened.append(FrozenParameter(parameter=param, value=item.value, phase=item.phase))
+    return tuple(reopened)
+
+
+def _latest_per_path(frozen: Sequence[FrozenParameter]) -> dict[str, FrozenParameter]:
+    """Return the last passed value for each path, or for each name without a path."""
+    latest: dict[str, FrozenParameter] = {}
+    for item in frozen:
+        latest[item.path or item.name] = item
+    return latest
+
+
+def _passed_start(
+    phase_name: str,
+    method: str,
+    space: ParameterSpace,
+    reopened: Sequence[FrozenParameter],
+) -> np.ndarray | None:
+    """Return where a phase that moves passed values again starts its search.
+
+    The passed values, and the prior centre for the other parameters. One
+    coordinate per parameter of ``space``, in transformed space, as
+    ``run_calibration_core(start_at=...)`` reads it. ``None`` when the phase
+    re-opens nothing, or when its engine takes no start point: the engine then
+    keeps its own start, and the log says so.
+    """
+    if not reopened:
+        return None
+    moved = ", ".join(f"{item.name}<-{item.phase}" for item in reopened)
+    if not engine_traits(method).accepts_a_start_point:
+        logger.info(
+            "Phase %s moves %s again. The %s engine takes no start point, so it keeps its own.",
+            phase_name,
+            moved,
+            method,
+        )
+        return None
+    start = transformed_prior_center(space)
+    passed = {item.name: item.value for item in reopened}
+    for index, param in enumerate(space.parameters):
+        if param.name in passed:
+            start[index] = param.to_transformed(float(passed[param.name]))
+    logger.info("Phase %s moves %s again, starting from the passed values.", phase_name, moved)
+    return start
+
+
+def _freeze_into_baseline(trial_ctx: TrialContext, held: Sequence[FrozenParameter]) -> None:
+    """Write the held values into the baseline the phase forks from.
 
     ``TrialContext.fork`` starts every trial from a deep copy of ``base_cfg``
     and then writes the sampled values in, so a value written here reaches
@@ -355,7 +513,7 @@ def _freeze_into_baseline(trial_ctx: TrialContext, frozen: list[FrozenParameter]
     the TOML, so ``mode="scale"`` multiplies the declared value once and
     exactly as the phase that calibrated it did.
     """
-    for item in frozen:
+    for item in held:
         apply_parameter_to_config(trial_ctx.base_cfg, item.parameter, item.value)
 
 
@@ -410,7 +568,6 @@ _NO_STATION_TO_TAKE_A_WIDTH_FROM = (
 def _attach_linearized_width(
     report: CalibrationReport,
     *,
-    cfg: CalibrationConfig,
     phase_cfg: CalibrationConfig,
     phase_name: str,
     trial_ctx: TrialContext,
@@ -419,10 +576,10 @@ def _attach_linearized_width(
 ) -> CalibrationReport:
     """Attach a linearized width to one phase's report, when the document asks for one.
 
-    ``uncertainty.method`` is declared once for the whole document, so every
-    phase shares it (D234 in the campaign decisions): the width is built at the
-    end of each phase, from the parameters and the outputs THAT PHASE scored --
-    ``phase_cfg``, not ``cfg``.
+    ``uncertainty.method`` is declared in ``[calibration.uncertainty]`` for every
+    phase (D234 in the campaign decisions), and a phase may write its own: the
+    width is built at the end of each phase, from the method, the parameters
+    and the outputs THAT PHASE reads -- ``phase_cfg``, which carries them.
 
     A phase none of whose outputs can name a station cannot structurally carry
     a width. That is refused early, before paying for a call this phase could
@@ -435,7 +592,7 @@ def _attach_linearized_width(
     still left to fail loudly the way it always has, by the un-caught call
     below - that is D231's own exception and it is kept intact.
     """
-    uncertainty = getattr(cfg, "uncertainty", None)
+    uncertainty = getattr(phase_cfg, "uncertainty", None)
     if getattr(uncertainty, "method", None) != "linearized":
         return report
     if not _phase_can_carry_a_linearized_width(phase_cfg):
@@ -580,6 +737,53 @@ def _require_dependency(decl: CalibPhaseDecl, ran: set[str]) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _reused_phase_objective_block_shares(
+    phase_cfg: CalibrationConfig,
+    catalog: Any,
+    session_id: str,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Return a reused phase's ``objective_block_shares``, or why it has none.
+
+    Same definition as the live path
+    (:func:`hydromodpy.calibration.runners.cli_runner._phase_objective_block_shares`),
+    through the same functions, read from ``session_id``'s persisted
+    iterations instead of an in-memory history: what a live run keeps in
+    memory is exactly what the journal and the index already wrote for this
+    session, read back with :meth:`CalibrationPersistence.load_iterations`.
+
+    A phase with fewer than two declared blocks has nothing to report, same
+    as the live path: returns ``(None, None)``. One with two or more whose
+    persisted trials carry no usable ``<block>.total`` (an older session, or
+    one persisted at ``persist_iteration_detail = "none"``) gets an explicit
+    note instead of a share: the components are simply not on disk to read
+    back, which is a different thing from nothing to report.
+    """
+    blocks = [(str(block.name), float(block.weight)) for block in phase_cfg.objective_blocks or []]
+    if len(blocks) < 2:
+        return None, None
+    rows = CalibrationPersistence(catalog).load_iterations(session_id)
+    finished = [
+        row
+        for row in rows
+        if row.get("status") == "completed"
+        and isinstance(row.get("objective_value"), (int, float))
+        and math.isfinite(row["objective_value"])
+    ]
+    mean_result = mean_objective_block_shares(blocks, (row.get("metrics") for row in finished))
+    if mean_result is None:
+        return None, (
+            "reused from a previous run: its persisted trials carry no cost share "
+            "to read back, so it is not recomputed here"
+        )
+    mean_shares, n_trials = mean_result
+    payload: dict[str, Any] = {"mean": mean_shares, "mean_n_trials": n_trials}
+    best_row = min(finished, key=lambda row: row["objective_value"])
+    best_shares = objective_block_shares(best_row.get("metrics"), blocks)
+    if best_shares is not None:
+        payload["best"] = best_shares
+    return payload, None
+
+
 def _reuse_from_disk(
     *,
     resume_root_session_id: str,
@@ -641,6 +845,13 @@ def _reuse_from_disk(
         if decl.freeze_on_success
         else ()
     )
+    shares, absent_note = _reused_phase_objective_block_shares(phase_cfg, catalog, stage.session_id)
+    extra: dict[str, Any] = {
+        "reused_from_disk": True,
+        "source_root_session_id": resume_root_session_id,
+    }
+    if absent_note is not None:
+        extra["objective_block_shares_absent_note"] = absent_note
     report = CalibrationReport(
         session_id=stage.session_id,
         method=phase_cfg.method,
@@ -651,10 +862,215 @@ def _reuse_from_disk(
         save_runs="none",
         promoted=0,
         best_parameters=dict(stage.parameters),
+        objective_block_shares=shares,
         workspace=workspace,
-        extra={"reused_from_disk": True, "source_root_session_id": resume_root_session_id},
+        extra=extra,
     )
     return report, froze
+
+
+# ---------------------------------------------------------------------------
+# Comparisons: what each block, or the single-metric route, compares with what
+# ---------------------------------------------------------------------------
+
+
+def _length_text(value: Any) -> str:
+    """Return a coordinate the way a report reads it: its bare magnitude.
+
+    ``:.10g`` rather than ``str()``: a document written by hand carries a bare
+    TOML number, ``0``, and one written by the Python-mode overlay round-trips
+    it through a pint string, ``0.0``. Both name the same coordinate, and a
+    phase-less comparison table built from either has to read the same either
+    way (``tests/unit/api/test_calibrate.py`` compares the two routes).
+    """
+    if value is None:
+        return "?"
+    magnitude = getattr(value, "magnitude", value)
+    return f"{float(magnitude):.10g}"
+
+
+def _output_where(output: CalibOutputDecl) -> str:
+    """Return where one output reads its simulated value, or '' for a network.
+
+    A network output names no cell of its own: what it is read against is the
+    file or the section its source names, which the caller adds as the
+    observed source instead.
+    """
+    support = str(getattr(output, "support", ""))
+    if support == "point":
+        if getattr(output, "geometry", None) is not None:
+            return "its declared geometry"
+        if getattr(output, "x", None) is None or getattr(output, "y", None) is None:
+            # The schema requires 'x'/'y', 'geometry' or 'observes': none of the
+            # first two here means the station's own record locates the point.
+            return "its observed station's own cell"
+        return f"({_length_text(output.x)}, {_length_text(output.y)})"
+    if support == "boundary":
+        return f"boundary {output.boundary_id!r}"
+    if support == "cell":
+        if getattr(output, "cell_id", None) is not None:
+            return f"cell {output.cell_id}"
+        return f"cell (row {output.row}, col {output.col})"
+    if support == "lake":
+        return f"lake {output.lake_id!r}"
+    return ""
+
+
+def _output_quantity(output: CalibOutputDecl) -> str:
+    """Return the simulated quantity one output reads: variable, support, where."""
+    variable = str(getattr(output, "variable", ""))
+    support = str(getattr(output, "support", ""))
+    where = _output_where(output)
+    return f"{variable} ({support}, {where})" if where else f"{variable} ({support})"
+
+
+def _observed_source(output: CalibOutputDecl) -> str:
+    """Return what one output is compared against.
+
+    A station and its ``[data.<family>]`` section for an output that
+    ``observes`` one; the file or the mapped source for a network output;
+    what ``observed_values`` carries otherwise.
+    """
+    observes = getattr(output, "observes", None)
+    if observes is not None:
+        variable = str(getattr(output, "variable", ""))
+        family = OBSERVED_FAMILY_BY_VARIABLE.get(variable)
+        section = DATA_FAMILY_SECTION.get(family) if family else None
+        return f"station {observes} ([data.{section}])" if section else f"station {observes}"
+    if str(getattr(output, "support", "")) == "network":
+        geometry = getattr(output, "stream_geometry_path", None)
+        if geometry is not None:
+            return str(geometry)
+        network = getattr(output, "observed_network", None)
+        return str(network) if network is not None else "no source declared"
+    values = getattr(output, "observed_values", None)
+    if values is not None:
+        return f"{len(values)} value(s) written in the file"
+    return "nothing declared"
+
+
+def _block_row(
+    outputs: Mapping[str, CalibOutputDecl], block: CalibObjectiveBlockDecl, share: float
+) -> dict[str, Any]:
+    """Return one row for a declared block: its criterion, share, and comparison."""
+    used = [name for name in block.uses_outputs if name in outputs]
+    return {
+        "block": block.name,
+        "metric": str(block.metric),
+        "share": share,
+        "quantity": "; ".join(_output_quantity(outputs[name]) for name in used),
+        "source": "; ".join(_observed_source(outputs[name]) for name in used),
+    }
+
+
+def _single_metric_row(cfg: CalibrationConfig, phase: CalibPhaseDecl | None) -> dict[str, Any]:
+    """Return the one row of the single-metric route: 'variable' scored by 'objective'."""
+    variable = str((phase.variable if phase is not None else None) or cfg.variable)
+    objective = str((phase.objective if phase is not None else None) or cfg.objective)
+    station = (phase.observed_station_id if phase is not None else None) or cfg.observed_station_id
+    family = OBSERVED_FAMILY_BY_VARIABLE.get(variable)
+    section = DATA_FAMILY_SECTION.get(family) if family else None
+    where = f"[data.{section}]" if section else "the loaded records"
+    source = f"station {station} ({where})" if station else f"every loaded station ({where})"
+    return {
+        "block": None,
+        "metric": objective,
+        "share": 1.0,
+        "quantity": f"{variable}, at the station(s) the project loads",
+        "source": source,
+    }
+
+
+def objective_comparison_table(
+    cfg: CalibrationConfig, phase: CalibPhaseDecl | None = None
+) -> list[dict[str, Any]]:
+    """Return, for a phase or the whole section, what each block compares with what.
+
+    One row per declared block, in declaration order: its criterion
+    (``metric``), its normalised share (:meth:`CalibrationConfig.objective_blocks_for`,
+    divided by the sum, as :class:`optim.objective.CompositeObjective`
+    normalises its own weights), the simulated quantity each of its outputs
+    reads, and what it is compared against. A phase that declares no block, or
+    a phase-less calibration with none either, takes the single-metric route
+    instead: one row for 'variable' scored by 'objective'.
+
+    Reads declarations only, no project data: this is what lets
+    ``--list-phases`` build it without the data on disk, and is why
+    ``--check`` can show it for a plain calibration's one search, which
+    ``--list-phases`` has no phase to attach it to.
+    """
+    single_metric = phase.is_single_metric if phase is not None else not cfg.objective_blocks
+    if single_metric:
+        return [_single_metric_row(cfg, phase)]
+    weighted = cfg.objective_blocks_for(phase)
+    if not weighted:
+        return []
+    outputs = cfg.outputs or {}
+    total = sum(weight for _, weight in weighted)
+    return [
+        _block_row(outputs, block, weight / total if total > 0 else 0.0)
+        for block, weight in weighted
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Listing
+# ---------------------------------------------------------------------------
+
+
+def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
+    """Describe the declared phases in declaration order, without running anything.
+
+    ``method`` is the method the phase runs. A phase that names none also
+    carries ``method_reason``, why its criteria call for that one.
+    ``interval_width`` is the width the phase reads its interval with and where
+    it comes from (``IntervalWidth.to_dict``); one mesh cell has no number
+    before the mesh exists.
+
+    A phase that lists a parameter an earlier phase passes on also carries
+    ``reopens``, each such parameter with the phase it comes from, and
+    ``starts_from_passed_values``, whether its engine takes a start point. A
+    phase that re-opens nothing carries neither key. The earlier phase is the
+    latest one before it that declares ``freeze_on_success`` on the same path,
+    under any parameter name; at run time it passes its values on only if it
+    converges.
+
+    ``comparisons`` is :func:`objective_comparison_table` for that phase: what
+    each of its blocks, or its single metric, compares with what.
+    """
+    rows: list[dict[str, Any]] = []
+    passed_by: dict[str, str] = {}
+    declared = cfg.parameters if cfg is not None else {}
+
+    def written_at(name: str) -> str:
+        return declared[name].resolve_target() or name
+
+    for decl in getattr(cfg, "phases", None) or []:
+        method, reason = cfg.method_for(decl)
+        row: dict[str, Any] = {
+            "name": decl.name,
+            "description": decl.description,
+            "method": method,
+            "parameters": list(decl.parameters),
+            "depends_on": decl.depends_on,
+            "freeze_on_success": decl.freeze_on_success,
+        }
+        if reason is not None:
+            row["method_reason"] = reason
+        reopens = [
+            {"parameter": name, "from_phase": passed_by[written_at(name)]}
+            for name in decl.parameters
+            if written_at(name) in passed_by
+        ]
+        if reopens:
+            row["reopens"] = reopens
+            row["starts_from_passed_values"] = engine_traits(method).accepts_a_start_point
+        row["interval_width"] = cfg.interval_width_for(decl).to_dict()
+        row["comparisons"] = objective_comparison_table(cfg, decl)
+        rows.append(row)
+        if decl.freeze_on_success:
+            passed_by.update({written_at(name): decl.name for name in decl.parameters})
+    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -713,7 +1129,7 @@ def run_staged_calibration(
     # the reuse fingerprint either way.
     refuse_an_objective_that_is_not_an_entry_point(objective)
     cfg_path = Path(config_path).expanduser().resolve()
-    cfg, _raw = load_toml_calibration(cfg_path)
+    cfg, raw = load_toml_calibration(cfg_path)
     if not evaluation_registry.needs_prepared_model(cfg.evaluator):
         # A staged calibration freezes a phase's result into the configuration
         # the next phase runs with, and that configuration is the pipeline's.
@@ -727,7 +1143,7 @@ def run_staged_calibration(
             "never reads. Run the phases as separate single-phase documents, or name an "
             "evaluator that runs the pipeline."
         )
-    plans = _phase_plans(cfg, _phases_to_run(cfg, phase))
+    plans = _phase_plans(cfg, _phases_to_run(cfg, phase), raw)
     declared = space_from_config(cfg)
 
     frozen: list[FrozenParameter] = []
@@ -745,7 +1161,7 @@ def run_staged_calibration(
             trial_ctx = prepare_trials(
                 cfg_path,
                 override_paths=_injected_paths(phase_cfg, frozen),
-                config_overrides=dict(decl.overrides),
+                config_overrides=dict(plan.overrides),
                 parameter_space=space,
             )
         except ConfigValidationError as exc:
@@ -758,15 +1174,13 @@ def run_staged_calibration(
         else:
             ws_root = trial_ctx.workspace
 
+        held = _held(frozen, space)
+        reopened = _reopened(frozen, space)
         # Before anything reads this baseline, including the fingerprint that
         # decides whether a completed phase may be reused. The hash recorded on
         # disk for this phase was computed with the upstream freezes baked in, so
         # asking the question without them can only ever answer no.
-        # Before anything reads this baseline, including the fingerprint that
-        # decides whether a completed phase may be reused. The hash recorded on
-        # disk for this phase was computed with the upstream freezes baked in, so
-        # asking the question without them can only ever answer no.
-        _freeze_into_baseline(trial_ctx, frozen)
+        _freeze_into_baseline(trial_ctx, held)
 
         disk_result: tuple[CalibrationReport, tuple[FrozenParameter, ...]] | None = None
         if cfg.reuse_completed_phases and resume_root_session_id is not None:
@@ -795,7 +1209,7 @@ def run_staged_calibration(
                 decl.name,
                 session_id,
             )
-            if getattr(getattr(cfg, "uncertainty", None), "method", None) == "linearized":
+            if getattr(phase_cfg.uncertainty, "method", None) == "linearized":
                 if _phase_can_carry_a_linearized_width(phase_cfg):
                     note = (
                         "not attached: this phase was reused from a previous run "
@@ -829,9 +1243,10 @@ def run_staged_calibration(
                 index + 1,
                 len(cfg.phases or []),
                 decl.name,
-                decl.method,
+                phase_cfg.method,
                 list(decl.parameters),
             )
+            passed_start = _passed_start(decl.name, phase_cfg.method, space, reopened)
 
             def _one_search(
                 restart_seed: int,
@@ -841,7 +1256,11 @@ def run_staged_calibration(
                 _ctx=trial_ctx,
                 _space=space,
                 _ws=ws_root,
+                _passed_start=passed_start,
+                _width=plan.width,
             ):
+                # The first restart, or the only search, starts from the passed
+                # values. The other restarts start from their own draws.
                 return run_calibration_core(
                     _cfg
                     if restart_seed == _seed_of(_cfg)
@@ -855,10 +1274,11 @@ def run_staged_calibration(
                     objective=objective,
                     store_factory=store_factory,
                     chain=_chain,
-                    start_at=start_at,
+                    start_at=_passed_start if start_at is None else start_at,
+                    interval_width=_width,
                 )
 
-            restarts = _declared_restarts(cfg)
+            restarts = _declared_restarts(phase_cfg)
             if restarts is None:
                 report = _one_search(_seed_of(phase_cfg), None)
                 spread: tuple = ()
@@ -879,12 +1299,11 @@ def run_staged_calibration(
             restart_spreads.extend(spread)
             report = _attach_linearized_width(
                 report,
-                cfg=cfg,
                 phase_cfg=phase_cfg,
                 phase_name=decl.name,
                 trial_ctx=trial_ctx,
                 space=space,
-                frozen=frozen,
+                frozen=held,
             )
             froze = _frozen_by(decl, report, declared)
 
@@ -899,6 +1318,7 @@ def run_staged_calibration(
                 parent_session_id=parent_session_id,
                 report=report,
                 frozen=froze,
+                reopened=reopened,
             )
         )
         parent_session_id = session_id
@@ -963,5 +1383,7 @@ __all__ = [
     "FrozenParameter",
     "PhaseRun",
     "StagedCalibrationReport",
+    "objective_comparison_table",
+    "phase_summaries",
     "run_staged_calibration",
 ]

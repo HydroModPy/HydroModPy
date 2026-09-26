@@ -21,12 +21,13 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.figures.particle_tracks import (
-    _travel_time,
+from hydromodpy.display.legend_placement import place_legend
+from hydromodpy.results.run.particles import (
+    has_particle_tracks,
     particle_time_to_days,
     read_particle_tracks,
+    travel_time,
 )
-from hydromodpy.display.legend_placement import place_legend
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -45,7 +46,7 @@ def particle_travel_years(sim: Run) -> np.ndarray:
     """
     to_days = particle_time_to_days(sim)
     times = np.array(
-        [_travel_time(track) * to_days / _DAYS_PER_YEAR for track in read_particle_tracks(sim)],
+        [travel_time(track) * to_days / _DAYS_PER_YEAR for track in read_particle_tracks(sim)],
         dtype="float64",
     )
     return times[np.isfinite(times) & (times > 0.0)]
@@ -81,6 +82,15 @@ class ResidenceTimeDistribution(BaseFigure):
         required_fields=("particles",),
         default_figsize=(7.0, 5.0),
     )
+
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Require a timed pathline, not only the ``particles`` group."""
+        reason = super().unavailable_reason(sim)
+        if reason is not None:
+            return reason
+        if not has_particle_tracks(sim, timed=True):
+            return "run holds no timed particle pathline"
+        return None
 
     def render(
         self,

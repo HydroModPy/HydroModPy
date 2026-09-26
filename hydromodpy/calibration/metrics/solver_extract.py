@@ -29,7 +29,7 @@ from hydromodpy.calibration.metrics.series import (
     add_runoff_to_discharge,
     resolve_time_index,
 )
-from hydromodpy.calibration.observations.network_geometry import geometry_from_run
+from hydromodpy.calibration.observations.network_geometry import geometry_from_run, mesh_cell_m
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
     ObservableResult,
@@ -493,6 +493,10 @@ def score_network_output(
             **scored.components,
             **geometry.diagnostics,
             **network_provenance,
+            # One cell of the mesh scored here, the default width of the interval
+            # a search on this criterion reports. Measured with the geometry, so
+            # the runner reads it off the trial and asks the mesh nothing.
+            "cell_spacing_m": mesh_cell_m(run_ctx, geometry),
         }.items()
     }
     return pair, diagnostics

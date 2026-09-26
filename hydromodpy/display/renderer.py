@@ -1,14 +1,9 @@
-"""Matplotlib backend lifecycle and figure saving."""
+"""Matplotlib backend lifecycle for the length of a render."""
 
 from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from matplotlib.figure import Figure as MplFigure
 
 
 @contextmanager
@@ -37,22 +32,4 @@ def matplotlib_backend(*, interactive: bool = False, dpi: int = 150) -> Iterator
                 pass
 
 
-def save_figure(
-    fig: MplFigure,
-    path: str | Path,
-    *,
-    dpi: int = 150,
-    fmt: str | None = None,
-) -> Path:
-    """Save ``fig`` to ``path``, creating parent directories as needed."""
-    p = Path(path).expanduser()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    if fmt is not None and p.suffix.lstrip(".").lower() != fmt.lower():
-        p = p.with_suffix(f".{fmt}")
-    elif p.suffix == "":
-        p = p.with_suffix(".png")
-    fig.savefig(p, dpi=dpi, bbox_inches="tight")
-    return p
-
-
-__all__ = ["matplotlib_backend", "save_figure"]
+__all__ = ["matplotlib_backend"]

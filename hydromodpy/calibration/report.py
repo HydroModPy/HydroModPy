@@ -16,7 +16,7 @@ Two concerns live here, both purely data-side:
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -86,6 +86,18 @@ class CalibrationReport:
 
     Empty unless ``[calibration.uncertainty]`` declared a method that produces it.
     The values themselves are in ``best_parameters`` and are never touched by it."""
+    objective_block_shares: dict[str, Any] | None = None
+    """Share of the cost each objective block actually took.
+
+    ``"mean"`` averages the share over the finished trials (each a mapping of
+    block name to its share, 0 to 1, of the cost), ``"mean_n_trials"`` is how
+    many of them entered that average, and ``"best"`` reads the share at the
+    reported candidate. ``None`` when the phase scores through a single
+    metric with no declared ``[[calibration.objective_blocks]]``, or, for a
+    phase reused from a previous run (see ``extra["objective_block_shares_absent_note"]``
+    when that is why), when its persisted trials carry nothing to recompute it
+    from. See :func:`hydromodpy.calibration.optim.objective.objective_block_shares`
+    for how a share is defined."""
     workspace: Path | None = None
     extra: dict[str, Any] = field(default_factory=dict)
     store_factory: Callable[[Path], Any] | None = field(
@@ -151,6 +163,11 @@ class CalibrationReport:
             payload["parameter_uncertainty"] = [
                 item.to_dict() for item in self.parameter_uncertainty
             ]
+        if self.objective_block_shares:
+            payload["objective_block_shares"] = {
+                key: (dict(value) if isinstance(value, Mapping) else value)
+                for key, value in self.objective_block_shares.items()
+            }
         if self.workspace is not None:
             payload["workspace"] = str(self.workspace)
         if self.extra:

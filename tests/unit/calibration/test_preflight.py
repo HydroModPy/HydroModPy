@@ -259,6 +259,43 @@ class TestPhases:
         assert "nowhere" in _messages(findings)
 
 
+class TestRegimes:
+    """A steady window the run cannot read is found without solving."""
+
+    _REGIME = """
+    [calibration]
+    method = "grid"
+
+    [calibration.parameters.K]
+    bounds = [1e-7, 1e-3]
+    transform = "log"
+    path = "flow.param.K.field.value"
+    units = "m/s"
+
+    [[calibration.phases]]
+    name = "k_steady"
+    method = "grid"
+    parameters = ["K"]
+    regime = "steady"
+    {window}
+    """
+
+    def test_a_window_given_backwards_is_one_finding_on_its_phase(self, tmp_path) -> None:
+        window = 'steady_window = { start = "2000-12-31", end = "2000-01-01" }'
+
+        findings = _preflight(_write(tmp_path, self._REGIME.format(window=window)))
+
+        assert len(findings) == 1
+        assert "'k_steady'" in findings[0].where
+        assert "not a forward window" in findings[0].detail
+
+    @pytest.mark.parametrize(
+        "window", ["", 'steady_window = { start = "2000-01-01", end = "2000-06-30" }']
+    )
+    def test_a_readable_window_is_no_finding(self, tmp_path, window: str) -> None:
+        assert _preflight(_write(tmp_path, self._REGIME.format(window=window))) == []
+
+
 class TestItReportsEverythingAtOnce:
     def test_three_mistakes_come_back_together(self, tmp_path) -> None:
         findings = _preflight(

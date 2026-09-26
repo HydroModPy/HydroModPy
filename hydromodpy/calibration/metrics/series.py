@@ -26,6 +26,14 @@ class ObservedSeries:
     series: pd.Series
 
 
+DATA_FAMILY_SECTION: dict[str, str] = {
+    "discharge": "hydrometry",
+    "head": "piezometry",
+    "lake_level": "lake_levels",
+}
+"""``[data.<family>]`` TOML section behind each calibration variable ``load_observed`` reads."""
+
+
 def load_observed(ctx: Any, variable: str) -> list[ObservedSeries]:
     """Pull observation timeseries from the loaded-data context.
 
@@ -34,11 +42,7 @@ def load_observed(ctx: Any, variable: str) -> list[ObservedSeries]:
     from ``piezometry``, lake level from ``lake_levels``. Returns one
     ``ObservedSeries`` per station so multi-station calibration works uniformly.
     """
-    field_name = {
-        "discharge": "hydrometry",
-        "head": "piezometry",
-        "lake_level": "lake_levels",
-    }.get(variable)
+    field_name = DATA_FAMILY_SECTION.get(variable)
     if field_name is None:
         return []
     result = getattr(ctx.loaded_data, field_name, None)
@@ -214,6 +218,7 @@ def add_runoff_to_discharge(
 
 
 __all__ = [
+    "DATA_FAMILY_SECTION",
     "ObservedSeries",
     "load_observed",
     "resolve_time_index",

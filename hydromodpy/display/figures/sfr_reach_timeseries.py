@@ -35,6 +35,17 @@ def sfr_reach_stations(sim: Run, variable: str) -> list[tuple[str, int, str]]:
     return triples
 
 
+def no_reach_series_reason(sim: Run, variable: str = "downstream_flow") -> str | None:
+    """Return why the run holds no stream-reach ``variable`` series, or ``None``.
+
+    ``required_tables=("timeseries",)`` holds for any transient run; the reach
+    series exist only when the run routed its streams.
+    """
+    if not sfr_reach_stations(sim, variable):
+        return f"run holds no stream-reach '{variable}' series"
+    return None
+
+
 @register
 class SfrReachTimeseries(BaseFigure):
     """Time series of one quantity on one SFR reach.
@@ -50,6 +61,10 @@ class SfrReachTimeseries(BaseFigure):
         required_tables=("timeseries",),
         default_figsize=(8.0, 4.5),
     )
+
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Require the stream-reach series, which ``spec`` cannot declare."""
+        return super().unavailable_reason(sim) or no_reach_series_reason(sim)
 
     def render(
         self,

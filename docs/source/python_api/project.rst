@@ -85,7 +85,7 @@ There is no sweep verb. A sweep is a plain Python loop over :meth:`~hydromodpy.p
        project.simulate(name=f"sy_{value}", Sy=value)
 
 :meth:`~hydromodpy.project.Project.calibrate` runs a calibration campaign on the project, either from a TOML path passed
-as ``config_path`` or from parameters, outputs, objective blocks and a method given in Python.
+as ``config_path`` or from parameters, outputs, objective blocks, phases and a method given in Python.
 
 :meth:`~hydromodpy.project.Project.spinup` runs the cyclic spin-up loop, restarting the representative window each cycle
 from the previous cycle's state until heads and lake stage converge. It defaults to the ``[spinup]`` section of the

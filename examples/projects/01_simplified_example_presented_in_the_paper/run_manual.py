@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 
 import hydromodpy as hmp
-from hydromodpy.display.figures.particle_tracks import (
+from hydromodpy.results.run.particles import (
     particle_time_to_days,
     read_particle_tracks,
 )

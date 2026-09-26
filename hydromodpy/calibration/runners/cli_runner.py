@@ -30,10 +30,12 @@ covers the standard NSE / KGE / RMSE cases.
 
 from __future__ import annotations
 
+import math
 import time
 import uuid
 from collections.abc import Iterable, Mapping
 from dataclasses import replace
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -43,6 +45,10 @@ from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.optim.cache import ParamsHashCache
 from hydromodpy.calibration.optim.diagnostics import correlated_parameter_pairs
 from hydromodpy.calibration.optim.engine import CalibrationEngine
+from hydromodpy.calibration.optim.objective import (
+    mean_objective_block_shares,
+    objective_block_shares,
+)
 from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     ParamSuggestion,
@@ -52,6 +58,7 @@ from hydromodpy.calibration.optim.optimizer import (
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
 from hydromodpy.calibration.optim.stopping import stopping_kwargs
 from hydromodpy.calibration.optim.tolerance import (
+    IntervalWidth,
     ParameterInterval,
     tolerance_intervals,
 )
@@ -421,23 +428,40 @@ def _tolerance_intervals_or_none(
     trace: list[dict[str, Any]],
     names: list[str],
     space: ParameterSpace,
-    decl: Any,
+    width: IntervalWidth,
 ) -> list[ParameterInterval]:
     """Return the interval around each calibrated value, or nothing.
 
     A criterion solved at zero, such as the stream-network gap, has no fraction
     of itself to take, so a relative tolerance means nothing there. Reporting
     nothing is the honest answer rather than a number under a rule nobody chose,
-    and the run says which line turns it back on.
+    and the run says which line turns it back on. The same holds for one mesh
+    cell no trial measured, and for a relative width on network distances.
     """
+    if width.tolerance is None:
+        logger.warning(
+            "No interval was reported around the calibrated values: the width is one "
+            "mesh cell, and no trial measured the mesh. Write [calibration.uncertainty] "
+            "tolerance in metres to get one."
+        )
+        return []
+    if width.mode == "relative" and width.on_distances:
+        logger.warning(
+            "No interval was reported around the calibrated values: mode = 'relative' "
+            "reads the width as a fraction of the best cost, and this search is scored "
+            "only on network distances, in metres, where a fraction has no meaning. "
+            "Write mode = 'absolute' with a tolerance in metres, or leave both unwritten "
+            "for one mesh cell."
+        )
+        return []
     bounds = {param.name: (param.lower, param.upper) for param in space}
     try:
         return tolerance_intervals(
             trace,
             names,
             bounds=bounds,
-            tolerance=float(decl.tolerance),
-            mode=decl.mode,
+            tolerance=float(width.tolerance),
+            mode=width.mode,
         )
     except ValueError as exc:
         logger.warning(
@@ -447,6 +471,43 @@ def _tolerance_intervals_or_none(
             exc,
         )
         return []
+
+
+def _cell_measured_by_the_criterion(results: Iterable[EvaluationResult | None]) -> float | None:
+    """Return the mesh cell the network criterion measured on a trial, or ``None``.
+
+    Every trial of one search scores the same mesh, so the first finite value
+    is the cell. ``None`` when no trial scored a network output.
+    """
+    for result in results:
+        if result is None:
+            continue
+        for key, value in (result.components or {}).items():
+            if str(key).endswith(".cell_spacing_m") and math.isfinite(float(value)):
+                return float(value)
+    return None
+
+
+def _width_read_off_the_trials(
+    width: IntervalWidth, best: EvaluationResult | None, history: Iterable[EvaluationResult]
+) -> IntervalWidth:
+    """Return ``width`` with its one mesh cell measured, and log the width read."""
+    if width.tolerance is None:
+        cell = _cell_measured_by_the_criterion([best, *history])
+        if cell is not None:
+            width = width.measured(cell)
+    where = {
+        "phase": "written in the phase",
+        "section": "written in [calibration.uncertainty]",
+        "default": f"default, {width.rule}",
+    }[width.source]
+    logger.info(
+        "Interval width: %s %s (%s).",
+        "unmeasured" if width.tolerance is None else f"{width.tolerance:.4g}",
+        width.mode,
+        where,
+    )
+    return width
 
 
 def _log_parameter_interval(interval: ParameterInterval, best: EvaluationResult | None) -> None:
@@ -520,6 +581,71 @@ def _network_k_over_r_extra(
             "the ratio is not a conductivity."
         ),
     }
+
+
+def _phase_objective_block_shares(
+    cfg: CalibrationConfig,
+    history: list[EvaluationResult],
+    best: EvaluationResult | None,
+) -> dict[str, Any] | None:
+    """Return the ``objective_block_shares`` a finished phase's report carries.
+
+    ``"mean"`` averages each block's share of the cost over the finished
+    trials (``status == "completed"`` and a finite objective, the convention
+    every optimizer adapter reads its own history with); ``"mean_n_trials"``
+    is how many of them entered that average. ``"best"`` reads the share at
+    the trial the search reports. ``None`` for a phase scored through a
+    single metric, with no ``[[calibration.objective_blocks]]`` declared, or
+    when no finished trial gives a computable share.
+    """
+    blocks = [(str(block.name), float(block.weight)) for block in cfg.objective_blocks or []]
+    if not blocks:
+        return None
+    finished = [
+        result
+        for result in history
+        if result.status == "completed" and math.isfinite(result.objective_value)
+    ]
+    mean_result = mean_objective_block_shares(blocks, (result.components for result in finished))
+    if mean_result is None:
+        return None
+    mean_shares, n_trials = mean_result
+    payload: dict[str, Any] = {"mean": mean_shares, "mean_n_trials": n_trials}
+    if best is not None:
+        best_shares = objective_block_shares(best.components, blocks)
+        if best_shares is not None:
+            payload["best"] = best_shares
+    return payload
+
+
+def _first_trial_pairing(history: list[EvaluationResult]) -> dict[str, dict[str, Any]] | None:
+    """Return, per output, the dates and pair count the first trial retained.
+
+    Read from ``history[0]`` rather than recomputed for every trial: the
+    pairing a search follows is set before the first candidate is scored and
+    does not change trial to trial, so the first one already says it for the
+    whole phase (``ObservableScorer.score`` in ``metrics/observable_scoring.py``
+    writes ``<name>.n_paired`` and ``<name>.date_start`` / ``<name>.date_end``
+    into the components of every trial, from ``PairedOutputs``,
+    ``metrics/observed_pairing.py``). ``None`` when no output names a station:
+    nothing was paired.
+    """
+    if not history:
+        return None
+    components = history[0].components or {}
+    names = sorted({key.rsplit(".", 1)[0] for key in components if key.endswith(".n_paired")})
+    if not names:
+        return None
+    pairing: dict[str, dict[str, Any]] = {}
+    for name in names:
+        entry: dict[str, Any] = {"n_paired": int(components[f"{name}.n_paired"])}
+        start = components.get(f"{name}.date_start")
+        end = components.get(f"{name}.date_end")
+        if start is not None and end is not None:
+            entry["start"] = date.fromordinal(int(start)).isoformat()
+            entry["end"] = date.fromordinal(int(end)).isoformat()
+        pairing[name] = entry
+    return pairing
 
 
 def attach_a_linearized_width(
@@ -622,6 +748,21 @@ def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: A
     return kwargs
 
 
+def _with_its_method(cfg: CalibrationConfig) -> CalibrationConfig:
+    """Return ``cfg`` with the method it runs written in.
+
+    Itself when the file names one. Otherwise a copy carrying the method its
+    criteria call for (``CalibrationConfig.method_for``), so every reader after
+    this point, the session journal and the params hash included, sees the name
+    that ran.
+    """
+    method, reason = cfg.method_for()
+    if reason is None:
+        return cfg
+    logger.info("The calibration names no method and runs %s: %s.", method, reason)
+    return cfg.model_copy(update={"method": method})
+
+
 def refuse_an_objective_that_is_not_an_entry_point(objective: str | None) -> None:
     """Refuse an ``objective=`` that does not name a Python callable.
 
@@ -664,6 +805,7 @@ def run_calibration_core(
     store_factory: CalibrationStoreFactory | None = None,
     chain: SessionChain | None = None,
     start_at: Any | None = None,
+    interval_width: IntervalWidth | None = None,
 ) -> CalibrationReport:
     """Heart of the calibration loop. Caller-agnostic.
 
@@ -671,6 +813,11 @@ def run_calibration_core(
     restart-based uncertainty makes one repetition differ from the next. It is
     handed to the engine only when the engine declares it accepts one; on any
     other engine a new seed is the whole of the difference.
+
+    ``interval_width`` is the width the interval beside each value is read
+    with, as the staged runner resolved it for the phase. Unset, it is resolved
+    from ``cfg``. One mesh cell is measured off the trials, which the network
+    criterion records beside its cost.
 
     The caller is responsible for:
 
@@ -697,6 +844,7 @@ def run_calibration_core(
 
     if cfg_path is not None:
         resolve_stream_geometry_paths(cfg, cfg_path)
+    cfg = _with_its_method(cfg)
     # Same refusal for a mono-phase run as for a staged one: an optimizer_kwarg
     # foreign to the declared method used to die as a bare TypeError inside the
     # adapter constructor, after the first solve.
@@ -979,7 +1127,12 @@ def run_calibration_core(
     trace = calibration_trace(session.history, values_by_trial)
     names = [param.name for param in space]
     correlated = correlated_parameter_pairs(trace, names)
-    intervals = _tolerance_intervals_or_none(trace, names, space, cfg.uncertainty)
+    width = _width_read_off_the_trials(
+        interval_width if interval_width is not None else cfg.interval_width_for(),
+        best,
+        session.history,
+    )
+    intervals = _tolerance_intervals_or_none(trace, names, space, width)
     if correlated:
         for first, second, coefficient in correlated:
             logger.warning(
@@ -993,11 +1146,22 @@ def run_calibration_core(
     for interval in intervals:
         _log_parameter_interval(interval, best)
 
-    extra: dict[str, Any] = {}
+    extra: dict[str, Any] = {"interval_width": width.to_dict()}
     if correlated:
         extra["correlated_parameters"] = correlated
     if intervals:
         extra["parameter_intervals"] = [interval.to_dict() for interval in intervals]
+    pairing = _first_trial_pairing(session.history)
+    if pairing:
+        logger.info(
+            "First trial paired: %s",
+            "; ".join(
+                f"{name} {info['n_paired']} pair(s)"
+                + (f" from {info['start']} to {info['end']}" if "start" in info else "")
+                for name, info in pairing.items()
+            ),
+        )
+        extra["first_trial_pairing"] = pairing
     extra.update(
         _network_k_over_r_extra(
             has_network_output=any(
@@ -1016,6 +1180,7 @@ def run_calibration_core(
         best_objective=best.objective_value if best else None,
         best_sim_id=best_sim_id,
         best_parameters=values_by_trial.get(best.trial_id) if best else None,
+        objective_block_shares=_phase_objective_block_shares(cfg, session.history, best),
         duration_s=float(session.duration_s if session.duration_s else elapsed),
         save_runs=cfg.save_runs,
         promoted=promotion_count,
@@ -1064,6 +1229,7 @@ def run_calibration_cli(
     refuse_an_objective_that_is_not_an_entry_point(objective)
     cfg_path = Path(config_path).expanduser().resolve()
     cfg, raw = load_toml_calibration(cfg_path)
+    cfg = _with_its_method(cfg)
     space = space_from_config(cfg)
     paths = resolve_override_paths(cfg)
 

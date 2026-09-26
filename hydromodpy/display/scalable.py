@@ -4,9 +4,8 @@ Wraps datashader so dense meshes (> 100k cells) and dense gridded arrays
 can be rendered as raster images at a target pixel resolution. Auto-trigger
 threshold defaults to 100_000 cells.
 
-Used by the public ``hmp.viz.show`` dispatcher and by figures that opt-in
-to downsampling when they detect a mesh too large for matplotlib's
-PolyCollection path.
+Used by the public ``hmp.viz.show`` dispatcher only. No registered figure
+calls it.
 """
 
 from __future__ import annotations

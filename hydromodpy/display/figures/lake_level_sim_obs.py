@@ -62,6 +62,23 @@ def _observed_stage(sim: Run, lake_id: str):
     return None
 
 
+def _no_lake_pair_reason(sim: Run, variable: str) -> str | None:
+    """Return why the run cannot pair a simulated lake ``variable`` with a gauge.
+
+    Checked on the lake the figure draws by default. ``spec`` only declares a
+    ``timeseries`` table, which any transient run holds.
+    """
+    try:
+        lake = _default_lake(sim)
+    except KeyError:
+        return "run holds no lake abacus"
+    if f"{_STATION_PREFIX}{lake}" not in sim.stations(variable):
+        return f"run holds no simulated lake {variable} for {lake!r}"
+    if _observed_stage(sim, lake) is None:
+        return f"run holds no gauged lake level for {lake!r}; declare [data.lake_levels]"
+    return None
+
+
 def _metrics_box(ax: Axes, sim_values: np.ndarray, obs_values: np.ndarray, unit: str) -> None:
     """Write KGE / NSE / RMSE / bias for the aligned pair."""
     if sim_values.size < 2:
@@ -137,6 +154,10 @@ class LakeStageSimObs(BaseFigure):
         default_figsize=(9.0, 4.6),
     )
 
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Require a simulated stage and a gauged level for the lake."""
+        return super().unavailable_reason(sim) or _no_lake_pair_reason(sim, "stage")
+
     def render(self, sim: Run, ax: Axes, *, lake_id: str | None = None, **_: Any) -> Axes:
         lake = lake_id or _default_lake(sim)
         sim_ts = normalize_datetime_series(
@@ -174,6 +195,10 @@ class LakeVolumeSimObs(BaseFigure):
         required_tables=("timeseries",),
         default_figsize=(9.0, 4.6),
     )
+
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Require a simulated storage and a gauged level for the lake."""
+        return super().unavailable_reason(sim) or _no_lake_pair_reason(sim, "volume")
 
     def render(self, sim: Run, ax: Axes, *, lake_id: str | None = None, **_: Any) -> Axes:
         from hydromodpy.results.run.lake_abacus_view import run_lake_abacus

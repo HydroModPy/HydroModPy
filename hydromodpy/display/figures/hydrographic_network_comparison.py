@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.figures.hydrographic_network import _plot_topography_background
+from hydromodpy.display.figures.hydrographic_network import plot_topography_background
 from hydromodpy.display.geo import GeoFigureMixin
 from hydromodpy.display.map_axes import (
     RELATIVE_MAP_LEGEND_SIZE,
@@ -63,8 +63,8 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
             gdf=comparison.reference_gdf,
             color="#123f6d",
             linewidth=1.45,
-            title="BD Topage",
-            subtitle="data.hydrography: BD Topage",
+            title="Reference network",
+            subtitle="data.hydrography",
             length_m=comparison.reference_total_length_m,
         )
         return ax
@@ -103,8 +103,8 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
             gdf=comparison.reference_gdf,
             color="#123f6d",
             linewidth=1.45,
-            title="BD Topage",
-            subtitle="data.hydrography: BD Topage",
+            title="Reference network",
+            subtitle="data.hydrography",
             length_m=comparison.reference_total_length_m,
         )
         self._draw_single_network(
@@ -186,7 +186,7 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
             comparison.reference_gdf,
             color="#123f6d",
             linewidth=1.45,
-            label="BD Topage",
+            label="Reference network",
             alpha=0.95,
         )
         self._plot_lines(
@@ -286,7 +286,7 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
             alpha=0.7,
             target_crs=comparison.crs,
         )
-        _plot_topography_background(ax, sim, alpha=0.72)
+        plot_topography_background(ax, sim, alpha=0.72)
         bounds = _combined_total_bounds(
             comparison.reference_gdf,
             comparison.candidate_gdf,
@@ -655,7 +655,7 @@ def _overlay_legend_handles(tolerance_m: float):
             alpha=0.18,
             label=f"ref tolerance ({tolerance_m:.0f} m)",
         ),
-        Line2D([0], [0], color="#123f6d", linewidth=1.45, label="BD Topage"),
+        Line2D([0], [0], color="#123f6d", linewidth=1.45, label="Reference network"),
         Line2D([0], [0], color="#c2410c", linewidth=1.15, label="DEM-derived"),
     ]
 

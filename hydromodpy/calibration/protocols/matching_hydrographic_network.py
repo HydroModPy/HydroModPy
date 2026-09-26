@@ -22,18 +22,17 @@ conductivity identifiable there.
 from __future__ import annotations
 
 import copy
-import datetime
 from collections.abc import Mapping
 from typing import Any
 
-import pandas as pd
-
-from hydromodpy.calibration.config import MatchingHydrographicNetworkOptions
+from hydromodpy.calibration.config import MatchingHydrographicNetworkOptions, outputs_agree
 from hydromodpy.calibration.protocols.base import Deviation, Reference
 
 STEADY_STAGE = "steady_conductivity"
 TRANSIENT_STAGE = "transient_storage"
 NETWORK_BLOCK = "network_extension"
+HYDROGRAPH_OUTPUT = "hydrograph"
+HYDROGRAPH_BLOCK = "hydrograph"
 
 
 class MatchingHydrographicNetwork:
@@ -183,7 +182,16 @@ class MatchingHydrographicNetwork:
     publication needs to know that the engine was swapped."""
 
     def expand(self, options: Mapping[str, Any], document: Mapping[str, Any]) -> dict[str, Any]:
-        """Return the document with the two stages and their objective block written."""
+        """Return the document with the two stages and their objective block written.
+
+        The transient stage scores itself through a block that reads a point
+        output observing the gauging station, except when that station is not
+        known from the document alone (several loaded, or a source that
+        discovers its stations at load time): then it keeps writing
+        ``variable`` + ``objective``, the single-metric route, which resolves
+        the station once the records are loaded, exactly as before this stage
+        could name a block at all.
+        """
         opts = MatchingHydrographicNetworkOptions.model_validate(
             {"name": self.name, **dict(options)}
         )
@@ -202,17 +210,29 @@ class MatchingHydrographicNetwork:
         if opts.storage is not None:
             _require_parameter(parameters, opts.storage, "storage", opts.storage)
 
-        network_output = _resolve_network_output(calibration.get("outputs") or {}, opts)
-        steady_start, steady_end = _steady_window(expanded, opts)
+        outputs = dict(calibration.get("outputs") or {})
+        network_output = _resolve_network_output(outputs, opts)
 
-        calibration["objective_blocks"] = [
+        objective_blocks = [
             {
                 "name": NETWORK_BLOCK,
                 "metric": opts.steady_metric,
                 "uses_outputs": [network_output],
             }
         ]
-        calibration["phases"] = _phases(opts, steady_start=steady_start, steady_end=steady_end)
+        station = _resolve_observed_station(document, opts) if opts.storage is not None else None
+        if station is not None:
+            _write_hydrograph_output(outputs, opts, station)
+            objective_blocks.append(
+                {
+                    "name": HYDROGRAPH_BLOCK,
+                    "metric": opts.transient_metric,
+                    "uses_outputs": [HYDROGRAPH_OUTPUT],
+                }
+            )
+        calibration["outputs"] = outputs
+        calibration["objective_blocks"] = objective_blocks
+        calibration["phases"] = _phases(opts, scores_a_known_station=station is not None)
         expanded["calibration"] = calibration
         return expanded
 
@@ -263,106 +283,97 @@ def _resolve_network_output(
     return candidates[0]
 
 
-def _canonical_instant(value: Any, source: str) -> str:
-    """Return the one spelling of an instant a TOML file can write three ways.
-
-    ``start_datetime = 2000-01-01`` parses as a date, ``2000-01-01T00:00:00`` as
-    a datetime, and a quoted value stays a string. The stages this protocol
-    writes, and the sentence describing them, must not depend on which spelling
-    a file chose: a run re-read from its own sealed config expands to the stages
-    it ran, not to stages that differ by a rendered midnight.
-
-    The spelling is a function of the instant alone. A naive bound that falls on
-    midnight is written as its date, because a steady window is read in days and
-    that is the half of the span that carries information. A bound carrying an
-    offset keeps its offset: dropping it would move the instant by that much,
-    silently, and two offsets apart would collapse onto the same date.
-
-    Only a date, a datetime or a string is read. A bare number is not a
-    misspelling of an instant, it is a different kind of value, and pandas would
-    take it for nanoseconds since the epoch.
-    """
-    if not isinstance(value, (str, datetime.date, datetime.datetime, pd.Timestamp)):
-        raise ValueError(f"{source} is not an instant this protocol can read: {value!r}.")
-    try:
-        stamp = pd.Timestamp(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{source} is not an instant this protocol can read: {value!r}.") from exc
-    if stamp is pd.NaT:
-        raise ValueError(f"{source} is not an instant this protocol can read: {value!r}.")
-    if stamp.tzinfo is None and stamp == stamp.normalize():
-        return stamp.strftime("%Y-%m-%d")
-    return stamp.isoformat()
-
-
-def _steady_window(
+def _resolve_observed_station(
     document: Mapping[str, Any], opts: MatchingHydrographicNetworkOptions
-) -> tuple[str, str]:
-    if opts.steady_window is not None:
-        window = opts.steady_window
-        missing = [key for key in ("start", "end") if not window.get(key)]
-        if missing:
-            raise ValueError(
-                "[calibration.protocol].steady_window needs both 'start' and 'end'; "
-                f"missing {', '.join(missing)}."
-            )
-        source = "[calibration.protocol].steady_window"
-        return (
-            _canonical_instant(window["start"], f"{source}.start"),
-            _canonical_instant(window["end"], f"{source}.end"),
-        )
+) -> str | None:
+    """Return the one gauging station to observe, or ``None`` when it is not known here.
 
-    time = (document.get("simulation") or {}).get("time") or {}
-    start = time.get("start_datetime")
-    end = time.get("end_datetime")
-    if not start or not end:
+    Named explicitly, ``observed_station_id`` always answers. Otherwise the
+    station is read statically, from the file's own
+    ``[[data.hydrometry.sources]]``: the protocol writes the output before any
+    data is loaded, unlike ``discharge_target``, which resolves the same
+    question at run time from what actually got loaded.
+
+    ``None`` is returned, not raised, for exactly what ``discharge_target``
+    itself has to resolve at run time: a source that discovers its stations
+    at load time (an ``extent`` or a ``mask_path``, no ``station_ids``), or
+    several named across the sources. Guessing wrong here would write a block
+    fitted to the wrong gauge and never say so; the caller falls back to the
+    single-metric route instead, which keeps resolving it as it always has.
+    """
+    if opts.observed_station_id is not None:
+        return opts.observed_station_id
+
+    data = document.get("data")
+    hydrometry = data.get("hydrometry") if isinstance(data, Mapping) else None
+    sources = hydrometry.get("sources") if isinstance(hydrometry, Mapping) else None
+    if not isinstance(sources, list) or not sources:
+        return None
+
+    candidates: set[str] = set()
+    for source in sources:
+        if not isinstance(source, Mapping):
+            return None
+        station_ids = source.get("station_ids")
+        if not station_ids:
+            return None
+        for station_id in station_ids:
+            candidates.add(str(station_id))
+
+    return next(iter(candidates)) if len(candidates) == 1 else None
+
+
+def _write_hydrograph_output(
+    outputs: dict[str, Any], opts: MatchingHydrographicNetworkOptions, station: str
+) -> None:
+    """Write, or check, the point output the transient stage's block reads.
+
+    The output's location is the station's own record, not a coordinate: a
+    'point' output needs neither 'x'/'y' nor 'geometry' once it 'observes' one.
+    A file that already names ``HYDROGRAPH_OUTPUT`` for something else is
+    refused rather than silently overwritten, the same way a name collision on
+    a parameter is. Compared through the output model
+    (:func:`hydromodpy.calibration.config.outputs_agree`), not raw: a sealed
+    run's own dump spells out every default this bare declaration leaves out,
+    and reloading it must not read as a collision with itself.
+    """
+    written = {
+        "variable": opts.discharge_variable,
+        "support": "point",
+        "observes": station,
+    }
+    existing = outputs.get(HYDROGRAPH_OUTPUT)
+    if existing is not None and not outputs_agree(existing, written):
         raise ValueError(
-            "protocol 'matching_hydrographic_network' averages the record over one steady "
-            "period and reads its span from [simulation.time], which declares no "
-            "start_datetime/end_datetime here. Write them, or name the span in "
-            "[calibration.protocol].steady_window."
+            f"[calibration.outputs].{HYDROGRAPH_OUTPUT!r} is reserved for the point "
+            "output the transient stage of protocol 'matching_hydrographic_network' "
+            "writes, and this file declares something else there. Rename it."
         )
-    return (
-        _canonical_instant(start, "simulation.time.start_datetime"),
-        _canonical_instant(end, "simulation.time.end_datetime"),
-    )
+    outputs[HYDROGRAPH_OUTPUT] = written
 
 
 def _phases(
-    opts: MatchingHydrographicNetworkOptions, *, steady_start: str, steady_end: str
+    opts: MatchingHydrographicNetworkOptions, *, scores_a_known_station: bool
 ) -> list[dict[str, Any]]:
-    start, end = pd.Timestamp(steady_start), pd.Timestamp(steady_end)
-    if (start.tzinfo is None) != (end.tzinfo is None):
-        raise ValueError(
-            f"the steady stage spans {steady_start} to {steady_end}, where one bound "
-            "carries a UTC offset and the other does not, so the span is undefined. "
-            "Write both with an offset, or neither."
-        )
-    span_days = (end - start).days + 1
-    if span_days < 1:
-        raise ValueError(
-            f"the steady stage spans {steady_start} to {steady_end}, which is not a forward window."
-        )
-
+    # The regime says steady and runners/phase_regime.py writes what it means:
+    # one period over the window, read from [simulation.time] unless the file
+    # names one. So the stages written here never depend on how a date is spelled.
+    over = "its steady_window" if opts.steady_window is not None else "the record"
     steady: dict[str, Any] = {
         "name": STEADY_STAGE,
         "description": (
             "Match the simulated seepage network to the mapped one by moving "
-            f"{opts.conductivity}, steady state over {steady_start}..{steady_end}."
+            f"{opts.conductivity}, steady state over {over}."
         ),
         "method": opts.steady_method,
         "max_iter": opts.steady_max_iter,
         "parameters": [opts.conductivity],
         "objective_blocks": [NETWORK_BLOCK],
         "freeze_on_success": True,
-        "overrides": {
-            "flow.flow_regime": "steady",
-            "simulation.time.start_datetime": steady_start,
-            "simulation.time.end_datetime": steady_end,
-            "simulation.time.step_unit": "day",
-            "simulation.time.step_value": span_days,
-        },
+        "regime": "steady",
     }
+    if opts.steady_window is not None:
+        steady["steady_window"] = dict(opts.steady_window)
     if opts.steady_tolerance is not None:
         steady["tolerance"] = float(opts.steady_tolerance)
     if opts.steady_engine_options:
@@ -379,23 +390,30 @@ def _phases(
         "method": opts.transient_method,
         "max_iter": opts.transient_max_iter,
         "parameters": [opts.storage],
-        "variable": opts.discharge_variable,
-        "objective": opts.transient_metric,
         "depends_on": STEADY_STAGE,
-        "overrides": {"flow.flow_regime": "transient"},
+        "regime": "transient",
     }
+    if scores_a_known_station:
+        transient["objective_blocks"] = [HYDROGRAPH_BLOCK]
+    else:
+        # observed_station_id is unset here: a set one always resolves a
+        # station (see _resolve_observed_station), so this route is only
+        # reached with several stations loaded, or a source that discovers
+        # its own at load time; discharge_target refuses the former by name.
+        transient["variable"] = opts.discharge_variable
+        transient["objective"] = opts.transient_metric
     if opts.transient_tolerance is not None:
         transient["tolerance"] = float(opts.transient_tolerance)
     if opts.transient_engine_options:
         transient["optimizer_kwargs"] = dict(opts.transient_engine_options)
-    if opts.observed_station_id is not None:
-        transient["observed_station_id"] = opts.observed_station_id
     if opts.scoring_window is not None:
         transient["scoring_window"] = dict(opts.scoring_window)
     return [steady, transient]
 
 
 __all__ = [
+    "HYDROGRAPH_BLOCK",
+    "HYDROGRAPH_OUTPUT",
     "NETWORK_BLOCK",
     "STEADY_STAGE",
     "TRANSIENT_STAGE",

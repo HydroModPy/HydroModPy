@@ -219,6 +219,7 @@ class FakeRunner:
         store_factory=None,
         chain=None,
         start_at=None,
+        interval_width=None,
     ) -> CalibrationReport:
         self.calls.append(
             SimpleNamespace(
@@ -230,6 +231,7 @@ class FakeRunner:
                 chain=chain,
                 start_at=start_at,
                 seed=cfg.seed,
+                interval_width=interval_width,
             )
         )
         best = {name: self.values[name] for name in cfg.parameters}
@@ -640,6 +642,57 @@ def test_restarts_on_an_exhaustive_sweep_are_refused(tmp_path, runner) -> None:
 
     with pytest.raises(ValueError, match="same answer every time"):
         run_staged_calibration(path)
+
+
+def test_a_phase_may_ask_for_restarts_the_section_does_not(tmp_path, runner) -> None:
+    # The uncertainty method is the phase's own over the section's: only the
+    # phase that asks for restarts repeats its search.
+    phases = """
+[[calibration.phases]]
+name = "steady_k"
+method = "scipy_nelder_mead"
+max_iter = 12
+parameters = ["K"]
+objective_blocks = ["q_block"]
+uncertainty = { method = "multistart", restarts = 3 }
+
+[[calibration.phases]]
+name = "transient_sy"
+method = "grid"
+max_iter = 30
+parameters = ["Sy"]
+objective_blocks = ["h_block"]
+depends_on = "steady_k"
+"""
+    report = run_staged_calibration(_write(tmp_path, phases))
+
+    assert runner.phases_run == ["steady_k"] * 3 + ["transient_sy"]
+    assert [len(item.values) for item in report.restart_spreads] == [3]
+
+
+# -- the width each phase reads its interval with ----------------------------
+
+
+def test_each_phase_hands_the_search_its_own_width(tmp_path, runner) -> None:
+    section = """
+[calibration.uncertainty]
+mode = "absolute"
+tolerance = 0.5
+"""
+    phases = TWO_PHASES.replace(
+        'depends_on = "steady_k"',
+        'depends_on = "steady_k"\nuncertainty = { mode = "relative", tolerance = 0.1 }',
+    )
+    path = tmp_path / "calibration.toml"
+    path.write_text(BASE + section + phases, encoding="utf-8")
+
+    run_staged_calibration(path)
+
+    steady, transient = (call.interval_width for call in runner.calls)
+    assert (steady.tolerance, steady.mode, steady.source) == (0.5, "absolute", "section")
+    assert (transient.tolerance, transient.mode, transient.source) == (0.1, "relative", "phase")
+    # The phase configuration carries the same keys, for the session and the report.
+    assert runner.calls[1].cfg.uncertainty.tolerance == 0.1
 
 
 # -- linearized uncertainty ---------------------------------------------------

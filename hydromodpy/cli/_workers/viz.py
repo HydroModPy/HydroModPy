@@ -13,14 +13,16 @@ def render_figure(
     workspace: Any = None,
     output: Any = None,
 ) -> Path:
-    """Render one registered figure for a simulation. Returns the output path.
+    """Render one registered figure for a simulation. Returns the file written.
 
     Without an explicit ``output`` the figure is written inside the run it
-    describes, at ``runs/<run>/figures/<figure>.png``. The index is opened
-    read-only: rendering a figure reads a run, it never rewrites its index.
+    describes, at ``runs/<run>/figures/<figure>.png``; an ``output`` without a
+    suffix is written as ``<output>.png``. The index is opened read-only:
+    rendering a figure reads a run, it never rewrites its index. A figure the
+    run cannot feed raises ``ValueError`` with its reason and writes no PNG.
     """
     from hydromodpy.core.state.paths import resolve_project_root
-    from hydromodpy.display import get as get_figure
+    from hydromodpy.display.runs import render_figure as render_one_figure
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
@@ -35,9 +37,27 @@ def render_figure(
             if output
             else catalog.run_dir_for(sid) / RUN_FIGURES_DIRNAME / f"{figure}.png"
         )
+        if save.suffix == "":
+            save = save.with_suffix(".png")
         save.parent.mkdir(parents=True, exist_ok=True)
-        get_figure(figure).plot(sim, save_path=save)
+        render_one_figure(figure, sim, save=save)
         return save
+
+
+def figure_availability(sim_ref: str, *, workspace: Any = None) -> list[tuple[Any, str | None]]:
+    """Return every registered figure with the reason the run cannot feed it.
+
+    ``None`` marks a figure the run supports. The index is opened read-only.
+    """
+    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.display.runs import figure_availability as availability_of
+    from hydromodpy.results.catalog import Catalog
+
+    workspace_root = resolve_project_root(
+        Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
+    )
+    with Catalog(workspace_root, read_only=True) as catalog:
+        return availability_of(catalog[catalog.resolve(sim_ref)])
 
 
 def render_gallery(

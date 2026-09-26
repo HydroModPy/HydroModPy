@@ -1,0 +1,62 @@
+# Import rules inside hydromodpy/display, described in hydromodpy/display/README.md.
+# Checked by test_package_layouts.py. A part is a root module or a subpackage of
+# hydromodpy/display; it may always import itself. "<init>" is the package facade.
+# Every import counts: module level, in a function, under TYPE_CHECKING.
+# What lies outside hydromodpy/display is the business of layer_matrix.yaml.
+#
+# Rows are written lowest first: a row names only rows written above it, so
+# this table cannot allow a cycle.
+allowed:
+  report_blocks:    []
+  colormaps:        []
+  legend_placement: []
+  map_axes:         []
+  mesh_geometry:    []
+  png_metadata:     []
+  theme:            []
+  renderer:         []
+  scalable:         []
+  banner:           []
+  animation:        []
+  geo:              []
+  ugrid:            [map_axes]
+  transect:         [mesh_geometry]
+  figure:           [png_metadata]
+  figure_registry:  [figure]
+  viz:              [scalable]
+  overlays:         [map_axes, mesh_geometry, ugrid]
+  figures:          [colormaps, figure, figure_registry, geo, legend_placement, map_axes,
+                     mesh_geometry, overlays, transect, ugrid]
+  config:           [figure_registry]
+  "<init>":         [figure, figure_registry]
+  runs:             ["<init>", config, figure, renderer, theme]
+  overview:         [legend_placement, report_blocks]
+  catchment_report: [overview, report_blocks]
+
+# The registry imports hydromodpy.display.figures by name on first lookup, so
+# that importing the registry stays light. Only this file may name a module so.
+text_paths:
+  - hydromodpy/display/figure_registry.py
+
+# What another layer of hydromodpy may import from hydromodpy/display.
+public:
+  - hydromodpy.display
+  - hydromodpy.display.config
+  - hydromodpy.display.figure_registry
+  - hydromodpy.display.runs
+  - hydromodpy.display.viz
+  - hydromodpy.display.banner
+  - hydromodpy.display.map_axes
+  - hydromodpy.display.ugrid
+  - hydromodpy.display.geo
+  - hydromodpy.display.report_blocks
+  - hydromodpy.display.overview
+  - hydromodpy.display.overview.config
+  - hydromodpy.display.catchment_report
+  - hydromodpy.display.catchment_report.pipeline
+  - hydromodpy.display.figures.lake_level_fit
+
+# New compared with data_layout.yaml: layer_matrix.yaml tolerates calibration ->
+# display for one import only. A layer listed here imports only what its line names.
+tolerated:
+  calibration: [hydromodpy.display.report_blocks]

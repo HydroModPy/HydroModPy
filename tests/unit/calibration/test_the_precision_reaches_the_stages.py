@@ -27,6 +27,9 @@ start_datetime = "2000-01-01"
 end_datetime = "2000-12-31"
 step_value = 1
 step_unit = "day"
+
+[[data.hydrometry.sources]]
+station_ids = ["G1"]
 """
 
 _PARAMETERS = """

@@ -356,5 +356,6 @@ Read more
    site_selection
    calibration
    calibration-recipes
+   calibration-uncertainty
    stream-network-calibration
    comparison

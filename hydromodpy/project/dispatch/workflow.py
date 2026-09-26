@@ -7,9 +7,8 @@ it depends on :class:`hydromodpy.project.Project`; the lower
 ``hydromodpy.workflow`` package stays independent from that facade.
 
 It also owns the staged-calibration routing question
-(:func:`declared_calibration_phases`, :func:`calibration_phases_or_raise`,
-:func:`in_memory_staged_refusal`), which every calibration entry point asks
-before choosing a runner.
+(:func:`declared_calibration_phases`, :func:`calibration_phases_or_raise`),
+which every calibration entry point asks before choosing a runner.
 """
 
 from __future__ import annotations
@@ -61,23 +60,6 @@ def calibration_phases_or_raise(config_path: str | Path) -> list[str]:
     except Exception as exc:
         raise ConfigError(f"{target} cannot be read: {exc}") from exc
     return [decl.name for decl in (cfg.phases or [])]
-
-
-def in_memory_staged_refusal(phase_names: Sequence[str]) -> str:
-    """Message refusing a staged calibration that no file backs.
-
-    A staged calibration is driven from the TOML it is declared in: every phase
-    forks a fresh configuration from that file, calibrates its own parameters
-    and freezes them for the next. An in-memory configuration has no file to
-    fork from, so it is refused rather than run as one calibration over the
-    union of every declared parameter.
-    """
-    return (
-        f"this configuration declares [[calibration.phases]] {list(phase_names)}, but it "
-        "was built in memory, so the staged runner has no file to fork each phase from. "
-        "Write it to a TOML and call hmp.calibrate(path), or pass "
-        "Project.calibrate(config_path=...)."
-    )
 
 
 def no_such_phase(source: str, phase: str) -> str:
@@ -298,7 +280,6 @@ __all__ = [
     "calibration_phases_or_raise",
     "declared_calibration_phases",
     "dispatch_workflow",
-    "in_memory_staged_refusal",
     "no_such_phase",
     "run_calibration",
     "run_comparison",

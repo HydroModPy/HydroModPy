@@ -206,7 +206,7 @@ Fields
 
 .. index:: ! overrides
 
-.. container:: hmp-field hmp-field-level-expert
+.. container:: hmp-field hmp-field-level-user
    :name: display-overrides
 
    .. raw:: html
@@ -217,7 +217,7 @@ Fields
         <code class="hmp-field-toml">[display.overrides.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`dict[str, dict]` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L102>`__
+   :bdg-primary:`dict[str, dict]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L102>`__
 
       Per-figure keyword overrides, keyed by figure name (e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``).
 
@@ -244,6 +244,7 @@ Starter TOML snippet
       # cmap = "viridis"
       # figures = ...  # uses factory default
       # on_error = "warn"
+      # [display.overrides.<id>]
 
 Entity-relationship diagram
 ---------------------------

@@ -1642,7 +1642,7 @@
     },
     "CalibPhaseDecl": {
       "additionalProperties": false,
-      "description": "One stage of a calibration that runs in several.\n\nA phase selects, by name, from the parameters, outputs and objective blocks\nthe calibration already declares: nothing is redeclared, so the two stages\nof a method cannot drift apart in a single file. What a phase carries of\nits own is its search: a method, a budget, and which parameters it is\nallowed to move.\n\n``freeze_on_success`` means the parameters this phase calibrated are held\nfixed for the phases that depend on it. It reads \"freeze if the phase\nconverged\", never \"freeze if the result is good\": a validity indicator\nqualifies a result, and a phase that returns a coarse agreement still\nreturns a number. The state of that indicator travels to the dependent\nphase and into the report, so a value calibrated on top of a doubtful one\ncarries the mention all the way out.",
+      "description": "One stage of a calibration that runs in several.\n\nA phase selects, by name, from the parameters, outputs and objective blocks\nthe calibration already declares: nothing is redeclared, so the two stages\nof a method cannot drift apart in a single file. What a phase carries of\nits own is its search: a method, a budget, and which parameters it is\nallowed to move.\n\n``freeze_on_success`` means this phase passes the values it found to the\nphases after it. A later phase holds them fixed, unless it lists the\nparameter: it then moves it again, starting from the passed value when its\nmethod accepts a start point. It reads \"pass on if the phase converged\",\nnever \"pass on if the result is good\": a validity indicator qualifies a\nresult, and a phase that returns a coarse agreement still returns a number.\nThe state of that indicator travels to the later phases and into the\nreport, so a value calibrated on top of a doubtful one carries the mention\nall the way out.",
       "properties": {
         "name": {
           "description": "Phase identifier, unique in the calibration and used in the session directory and in the report.",
@@ -1664,13 +1664,17 @@
           "x-hmp-profile": "user"
         },
         "method": {
-          "default": "grid",
-          "description": "Optimization method for this phase only. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.",
-          "examples": [
-            "grid"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
+          "default": null,
+          "description": "Optimization method for this phase only. Unset, it follows from what the phase scores: 'bisection' when the phase moves one parameter in log space and every one of its blocks is signed (distance_gap), since the answer is then a zero to find; 'scipy_nelder_mead' otherwise, a cost to minimise. hmp calibrate --list-phases prints the method and why. Write it to depart from that choice, and whenever optimizer_kwargs are given. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.",
           "title": "Method",
-          "type": "string",
           "x-hmp-profile": "user"
         },
         "max_iter": {
@@ -1742,12 +1746,24 @@
           "x-hmp-profile": "user"
         },
         "objective_blocks": {
-          "description": "Names of the objective blocks this phase evaluates. Empty means every declared block.",
-          "items": {
-            "type": "string"
-          },
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "additionalProperties": {
+                "description": "Positive floating-point value.",
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Objective blocks this phase evaluates. Empty means every declared block. A list names them and keeps their declared weight. A table gives each named block the phase's own share instead, {block = share}, normalised to sum to one like a block's weight already is; every key must be a declared block, and every share must be positive.",
           "title": "Objective Blocks",
-          "type": "array",
           "x-hmp-profile": "user"
         },
         "variable": {
@@ -1806,14 +1822,53 @@
         },
         "optimizer_kwargs": {
           "additionalProperties": true,
-          "description": "Extra keyword arguments forwarded to this phase's optimizer.",
+          "description": "Extra keyword arguments forwarded to this phase's optimizer. They belong to one engine, so a phase that gives them names its method.",
           "title": "Optimizer Kwargs",
           "type": "object",
           "x-hmp-profile": "dev"
         },
+        "regime": {
+          "anyOf": [
+            {
+              "enum": [
+                "steady",
+                "transient"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Flow regime this phase runs, a property of the model and not of the search. 'steady' is one period over steady_window, by default the extent of [simulation.time]. 'transient' is the project's own time grid. Unset, the phase runs the model as the project and its overrides declare it.",
+          "title": "Regime",
+          "value_docs": {
+            "steady": "One period over steady_window, so the recharge over it averages to its mean. A steady solve carries no storage.",
+            "transient": "The project's time grid, with only the regime restated."
+          },
+          "x-hmp-profile": "user"
+        },
+        "steady_window": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Dates the steady period spans, as {start, end}, when regime = 'steady'. Unset takes the whole [simulation.time] window.",
+          "title": "Steady Window",
+          "x-hmp-profile": "user"
+        },
         "overrides": {
           "additionalProperties": true,
-          "description": "Configuration values this phase runs with, as dotted paths into the project configuration. The two stages of a stream-network calibration are one steady and one transient, which is a property of the model and not of the search, so a phase has to be able to say it.",
+          "description": "Configuration values this phase runs with, as dotted paths into the project configuration. A phase that gives regime may not write here a path regime writes: that would say the same thing twice.",
           "title": "Overrides",
           "type": "object",
           "x-hmp-profile": "user"
@@ -1841,18 +1896,31 @@
             }
           ],
           "default": null,
-          "description": "Name of the phase that must run first. Its frozen parameters enter this one as fixed values.",
+          "description": "Name of the phase that must run first. The values it passes on enter this one fixed, except those this phase lists and moves again.",
           "title": "Depends On",
           "x-hmp-profile": "user"
         },
         "freeze_on_success": {
           "default": true,
-          "description": "Hold the parameters this phase calibrated fixed for the phases that depend on it. Success means the phase converged, not that its validity indicator is good.",
+          "description": "Pass the values this phase found to the phases after it. A later phase holds them fixed, unless it lists the parameter: it then moves it again, starting from the passed value when its method accepts a start point. When two phases pass on the same parameter, the later one wins. Success means the phase converged, not that its validity indicator is good.",
           "examples": [
             true
           ],
           "title": "Freeze On Success",
           "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "uncertainty": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CalibPhaseUncertaintyDecl"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How wide this phase says its answer is, with the keys of [calibration.uncertainty]. A key written here wins for this phase; a key left out takes the section's value, then the default that follows what the phase scores: one mesh cell for a phase scored only by network distances, five per cent of the best cost otherwise. hmp calibrate --list-phases prints the width each phase reads and where it comes from.",
           "x-hmp-profile": "user"
         }
       },
@@ -1861,6 +1929,98 @@
         "parameters"
       ],
       "title": "CalibPhaseDecl",
+      "type": "object"
+    },
+    "CalibPhaseUncertaintyDecl": {
+      "additionalProperties": false,
+      "description": "How wide one phase says its answer is, key by key over ``[calibration.uncertainty]``.\n\nEvery key is optional and has the meaning it has in the section. A key\nwritten here wins for this phase. A key left out takes the section's value,\nthen the default that follows what the phase scores. ``restarts`` and\n``perturbation`` belong to a method: a phase that names another method than\nthe section does not inherit them.",
+      "properties": {
+        "method": {
+          "anyOf": [
+            {
+              "enum": [
+                "cost_profile",
+                "multistart",
+                "linearized"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How this phase's interval is obtained: 'cost_profile', 'multistart' or 'linearized', read as in [calibration.uncertainty] method.",
+          "title": "Method",
+          "x-hmp-profile": "user"
+        },
+        "restarts": {
+          "anyOf": [
+            {
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How many times method='multistart' repeats this phase's search.",
+          "title": "Restarts",
+          "x-hmp-profile": "user"
+        },
+        "perturbation": {
+          "anyOf": [
+            {
+              "description": "Positive floating-point value.",
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Relative step of method='linearized' for this phase, as a fraction of each calibrated value.",
+          "title": "Perturbation",
+          "x-hmp-profile": "user"
+        },
+        "tolerance": {
+          "anyOf": [
+            {
+              "description": "Positive floating-point value.",
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Width of this phase's interval: a fraction of the best cost when mode='relative', a number in the unit of the cost (metres for a network distance) when mode='absolute'. Unset here and in [calibration.uncertainty], one mesh cell for a phase scored only by network distances, five per cent of the best cost otherwise.",
+          "title": "Tolerance",
+          "x-hmp-profile": "user"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "relative",
+                "absolute"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How this phase's tolerance is read. Unset here and in [calibration.uncertainty], 'absolute' for a phase scored only by network distances, 'relative' otherwise.",
+          "title": "Mode",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CalibPhaseUncertaintyDecl",
       "type": "object"
     },
     "CalibScoringWindow": {
@@ -1950,28 +2110,37 @@
           "x-hmp-profile": "user"
         },
         "tolerance": {
-          "default": 0.05,
-          "description": "Width of the interval. A fraction of the best cost when mode='relative' (0.05 = five per cent), and a number in the unit of the cost when mode='absolute'.",
-          "examples": [
-            0.05
+          "anyOf": [
+            {
+              "description": "Positive floating-point value.",
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "exclusiveMinimum": 0.0,
+          "default": null,
+          "description": "Width of the interval. A fraction of the best cost when mode='relative' (0.05 = five per cent), and a number in the unit of the cost when mode='absolute'. Unset, it follows what the search scores: one mesh cell, in metres, for a search scored only by network distances (distance_gap, distance_mean), because a stream cannot move by less than a cell; 0.05 otherwise, five per cent of the best cost. The cell is the median distance between the centres of neighbouring cells, measured by the network criterion on the mesh it scores. A phase may write its own, which wins.",
           "title": "Tolerance",
-          "type": "number",
           "x-hmp-profile": "user"
         },
         "mode": {
-          "default": "relative",
-          "description": "How 'tolerance' is read. 'relative' is a fraction of the best cost and is the usual choice for an efficiency score. A criterion solved at zero, such as the stream-network gap, has no fraction of itself to take: state the width in the unit of the cost with 'absolute', for example 25 metres.",
-          "enum": [
-            "relative",
-            "absolute"
+          "anyOf": [
+            {
+              "enum": [
+                "relative",
+                "absolute"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "examples": [
-            "relative"
-          ],
+          "default": null,
+          "description": "How 'tolerance' is read. 'relative' is a fraction of the best cost and is the usual choice for an efficiency score. A criterion solved at zero, such as the stream-network gap, has no fraction of itself to take: state the width in the unit of the cost with 'absolute', for example 25 metres. Unset, 'absolute' for a search scored only by network distances and 'relative' otherwise. hmp calibrate --check refuses 'relative' on a search scored only by network distances.",
           "title": "Mode",
-          "type": "string",
           "x-hmp-profile": "user"
         }
       },
@@ -1996,13 +2165,17 @@
           "x-hmp-profile": "user"
         },
         "method": {
-          "default": "grid",
-          "description": "Optimization method. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.",
-          "examples": [
-            "grid"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
+          "default": null,
+          "description": "Optimization method. Unset, it follows from what the calibration scores: 'bisection' when it moves one parameter in log space and every one of its blocks is signed (distance_gap), since the answer is then a zero to find; 'scipy_nelder_mead' otherwise, a cost to minimise. Write it to depart from that choice, and whenever optimizer_kwargs are given. A phase of [[calibration.phases]] names its own. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.",
           "title": "Method",
-          "type": "string",
           "x-hmp-profile": "user"
         },
         "evaluator": {
@@ -2256,7 +2429,7 @@
         },
         "optimizer_kwargs": {
           "additionalProperties": true,
-          "description": "Extra keyword arguments forwarded to the optimizer adapter.",
+          "description": "Extra keyword arguments forwarded to the optimizer adapter. They belong to one engine, so a calibration that gives them names its method.",
           "title": "Optimizer Kwargs",
           "type": "object",
           "x-hmp-profile": "dev"
@@ -2382,7 +2555,7 @@
         },
         "uncertainty": {
           "$ref": "#/$defs/CalibUncertaintyDecl",
-          "description": "How wide the search reports its own answer to be. The calibrated value is unaffected; this only decides the interval printed beside it.",
+          "description": "How wide the search reports its own answer to be. The calibrated value is unaffected; this only decides the interval printed beside it. It is the default of every phase, and a phase may write its own keys.",
           "x-hmp-profile": "user"
         },
         "persistence": {
@@ -4909,7 +5082,7 @@
           "description": "Per-figure keyword overrides, keyed by figure name (e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``).",
           "title": "Overrides",
           "type": "object",
-          "x-hmp-profile": "expert"
+          "x-hmp-profile": "user"
         }
       },
       "title": "DisplayConfig",
