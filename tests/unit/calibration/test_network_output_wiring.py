@@ -285,6 +285,15 @@ class TestEndToEnd:
             assert key in diagnostics, key
             assert isinstance(diagnostics[key], float)
 
+    def test_the_trial_measures_one_cell_of_the_mesh_it_scored(
+        self, monkeypatch, bench, stream_file
+    ) -> None:
+        # The default width of an interval on this criterion, read off the
+        # geometry the trial built, so the runner never asks the mesh.
+        _, diagnostics = self._extract(monkeypatch, bench, stream_file, 200.0)
+
+        assert diagnostics["net.cell_spacing_m"] == pytest.approx(CELL_SIZE)
+
     def test_the_residual_changes_sign_across_the_sweep(
         self, monkeypatch, bench, stream_file
     ) -> None:

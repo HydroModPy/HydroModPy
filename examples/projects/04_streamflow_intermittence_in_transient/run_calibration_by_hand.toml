@@ -27,8 +27,8 @@ description = "Nancon, K from the mapped network then Sy from the gauge and the 
 
 [calibration]
 # A file may not both name a protocol and declare its own stages. `__delete`
-# drops the inherited name; the bounds, the network output, the uncertainty
-# tolerance and the seed are kept.
+# drops the inherited name; the bounds, the network output and the seed are
+# kept.
 protocol__delete = true
 
 

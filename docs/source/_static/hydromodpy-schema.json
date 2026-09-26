@@ -1909,6 +1909,19 @@
           "title": "Freeze On Success",
           "type": "boolean",
           "x-hmp-profile": "user"
+        },
+        "uncertainty": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CalibPhaseUncertaintyDecl"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How wide this phase says its answer is, with the keys of [calibration.uncertainty]. A key written here wins for this phase; a key left out takes the section's value, then the default that follows what the phase scores: one mesh cell for a phase scored only by network distances, five per cent of the best cost otherwise. hmp calibrate --list-phases prints the width each phase reads and where it comes from.",
+          "x-hmp-profile": "user"
         }
       },
       "required": [
@@ -1916,6 +1929,98 @@
         "parameters"
       ],
       "title": "CalibPhaseDecl",
+      "type": "object"
+    },
+    "CalibPhaseUncertaintyDecl": {
+      "additionalProperties": false,
+      "description": "How wide one phase says its answer is, key by key over ``[calibration.uncertainty]``.\n\nEvery key is optional and has the meaning it has in the section. A key\nwritten here wins for this phase. A key left out takes the section's value,\nthen the default that follows what the phase scores. ``restarts`` and\n``perturbation`` belong to a method: a phase that names another method than\nthe section does not inherit them.",
+      "properties": {
+        "method": {
+          "anyOf": [
+            {
+              "enum": [
+                "cost_profile",
+                "multistart",
+                "linearized"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How this phase's interval is obtained: 'cost_profile', 'multistart' or 'linearized', read as in [calibration.uncertainty] method.",
+          "title": "Method",
+          "x-hmp-profile": "user"
+        },
+        "restarts": {
+          "anyOf": [
+            {
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How many times method='multistart' repeats this phase's search.",
+          "title": "Restarts",
+          "x-hmp-profile": "user"
+        },
+        "perturbation": {
+          "anyOf": [
+            {
+              "description": "Positive floating-point value.",
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Relative step of method='linearized' for this phase, as a fraction of each calibrated value.",
+          "title": "Perturbation",
+          "x-hmp-profile": "user"
+        },
+        "tolerance": {
+          "anyOf": [
+            {
+              "description": "Positive floating-point value.",
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Width of this phase's interval: a fraction of the best cost when mode='relative', a number in the unit of the cost (metres for a network distance) when mode='absolute'. Unset here and in [calibration.uncertainty], one mesh cell for a phase scored only by network distances, five per cent of the best cost otherwise.",
+          "title": "Tolerance",
+          "x-hmp-profile": "user"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "relative",
+                "absolute"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How this phase's tolerance is read. Unset here and in [calibration.uncertainty], 'absolute' for a phase scored only by network distances, 'relative' otherwise.",
+          "title": "Mode",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CalibPhaseUncertaintyDecl",
       "type": "object"
     },
     "CalibScoringWindow": {
@@ -2005,28 +2110,37 @@
           "x-hmp-profile": "user"
         },
         "tolerance": {
-          "default": 0.05,
-          "description": "Width of the interval. A fraction of the best cost when mode='relative' (0.05 = five per cent), and a number in the unit of the cost when mode='absolute'.",
-          "examples": [
-            0.05
+          "anyOf": [
+            {
+              "description": "Positive floating-point value.",
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "exclusiveMinimum": 0.0,
+          "default": null,
+          "description": "Width of the interval. A fraction of the best cost when mode='relative' (0.05 = five per cent), and a number in the unit of the cost when mode='absolute'. Unset, it follows what the search scores: one mesh cell, in metres, for a search scored only by network distances (distance_gap, distance_mean), because a stream cannot move by less than a cell; 0.05 otherwise, five per cent of the best cost. The cell is the median distance between the centres of neighbouring cells, measured by the network criterion on the mesh it scores. A phase may write its own, which wins.",
           "title": "Tolerance",
-          "type": "number",
           "x-hmp-profile": "user"
         },
         "mode": {
-          "default": "relative",
-          "description": "How 'tolerance' is read. 'relative' is a fraction of the best cost and is the usual choice for an efficiency score. A criterion solved at zero, such as the stream-network gap, has no fraction of itself to take: state the width in the unit of the cost with 'absolute', for example 25 metres.",
-          "enum": [
-            "relative",
-            "absolute"
+          "anyOf": [
+            {
+              "enum": [
+                "relative",
+                "absolute"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "examples": [
-            "relative"
-          ],
+          "default": null,
+          "description": "How 'tolerance' is read. 'relative' is a fraction of the best cost and is the usual choice for an efficiency score. A criterion solved at zero, such as the stream-network gap, has no fraction of itself to take: state the width in the unit of the cost with 'absolute', for example 25 metres. Unset, 'absolute' for a search scored only by network distances and 'relative' otherwise. hmp calibrate --check refuses 'relative' on a search scored only by network distances.",
           "title": "Mode",
-          "type": "string",
           "x-hmp-profile": "user"
         }
       },
@@ -2441,7 +2555,7 @@
         },
         "uncertainty": {
           "$ref": "#/$defs/CalibUncertaintyDecl",
-          "description": "How wide the search reports its own answer to be. The calibrated value is unaffected; this only decides the interval printed beside it.",
+          "description": "How wide the search reports its own answer to be. The calibrated value is unaffected; this only decides the interval printed beside it. It is the default of every phase, and a phase may write its own keys.",
           "x-hmp-profile": "user"
         },
         "persistence": {

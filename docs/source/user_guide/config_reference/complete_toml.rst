@@ -622,7 +622,7 @@ Sub-models are linked back to their per-section page.
       # candidates_root = ...  # default = None
       # How several scored targets become one cost: what made them comparable, how nested gauges are read, and what one unscorable member does.
       # aggregate = ...  # uses factory default
-      # How wide the search reports its own answer to be. The calibrated value is unaffected; this only decides the interval printed beside it.
+      # How wide the search reports its own answer to be. The calibrated value is unaffected; this only decides the interval printed beside it. It is the default of every phase, and a phase may write its own keys.
       # uncertainty = ...  # uses factory default
       # Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for calibration outputs.
       # persistence = ...  # uses factory default

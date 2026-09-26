@@ -14,12 +14,16 @@ search never varied far has a narrow interval because nothing else was tried,
 not because the record constrains it. ``reaches_lower_bound`` and
 ``reaches_upper_bound`` are what separate the two cases, and they are the part
 of this to read first.
+
+The tolerance a file leaves unwritten follows what the search scores
+(:func:`choose_interval_width`): one mesh cell on network distances, five per
+cent of the best cost otherwise.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Literal
 
 import numpy as np
@@ -31,6 +35,77 @@ DEFAULT_TOLERANCE = 0.05
 """Five per cent of the best cost, the default width of the interval."""
 
 ToleranceMode = Literal["relative", "absolute"]
+
+WidthSource = Literal["phase", "section", "default"]
+"""Where a width was written: in the phase, in [calibration.uncertainty], or nowhere."""
+
+ONE_MESH_CELL = "one mesh cell"
+FIVE_PER_CENT = "5 % of the best cost"
+IN_COST_UNITS = "0.05 in the unit of the cost"
+
+
+@dataclass(frozen=True)
+class IntervalWidth:
+    """The tolerance a search reads its interval with, and where it comes from.
+
+    ``tolerance`` is ``None`` for one mesh cell until a trial measured the mesh:
+    the network criterion measures the cell on the geometry it builds, and the
+    run reads it back through :meth:`measured`. ``source`` says where the
+    tolerance was written, ``mode_source`` where the mode was, and ``rule``
+    names the default when nothing wrote the tolerance. ``on_distances`` is
+    true when every block of the search is a network distance left in metres,
+    so an absolute tolerance is in metres.
+    """
+
+    tolerance: float | None
+    mode: ToleranceMode
+    source: WidthSource
+    mode_source: WidthSource
+    on_distances: bool
+    rule: str | None = None
+
+    def measured(self, cell_m: float) -> IntervalWidth:
+        """Return this width with the one mesh cell set to ``cell_m`` metres."""
+        return replace(self, tolerance=float(cell_m))
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-friendly record for a report or a phase listing."""
+        return {
+            "tolerance": self.tolerance,
+            "mode": self.mode,
+            "source": self.source,
+            "mode_source": self.mode_source,
+            "on_distances": self.on_distances,
+            "rule": self.rule,
+        }
+
+
+def choose_interval_width(
+    on_distances: bool,
+    *,
+    tolerance: tuple[float, WidthSource] | None = None,
+    mode: tuple[ToleranceMode, WidthSource] | None = None,
+) -> IntervalWidth:
+    """Return the width a search reads its interval with.
+
+    ``on_distances`` says the search is scored only by network distances
+    (``distance_gap``, ``distance_mean``) left in metres. ``tolerance`` and
+    ``mode`` are what the file wrote, each with where it was written, or
+    ``None``. A written value wins. Left unwritten, both follow what the
+    search scores. A search on network distances takes ``mode="absolute"`` and
+    one mesh cell: a stream cannot move by less than a cell, so two gaps closer
+    than that are not told apart. Any other search takes ``mode="relative"``
+    and five per cent of the best cost. An absolute mode written on any other
+    search keeps the old number, 0.05 in the unit of the cost.
+    """
+    chosen_mode, mode_source = mode or ("absolute" if on_distances else "relative", "default")
+    if tolerance is not None:
+        value, source = tolerance
+        return IntervalWidth(float(value), chosen_mode, source, mode_source, on_distances)
+    if chosen_mode == "absolute" and on_distances:
+        return IntervalWidth(None, chosen_mode, "default", mode_source, on_distances, ONE_MESH_CELL)
+    rule = FIVE_PER_CENT if chosen_mode == "relative" else IN_COST_UNITS
+    return IntervalWidth(DEFAULT_TOLERANCE, chosen_mode, "default", mode_source, on_distances, rule)
 
 
 @dataclass(frozen=True)
@@ -160,4 +235,15 @@ def tolerance_intervals(
     return intervals
 
 
-__all__ = ["DEFAULT_TOLERANCE", "ParameterInterval", "ToleranceMode", "tolerance_intervals"]
+__all__ = [
+    "DEFAULT_TOLERANCE",
+    "FIVE_PER_CENT",
+    "IN_COST_UNITS",
+    "ONE_MESH_CELL",
+    "IntervalWidth",
+    "ParameterInterval",
+    "ToleranceMode",
+    "WidthSource",
+    "choose_interval_width",
+    "tolerance_intervals",
+]

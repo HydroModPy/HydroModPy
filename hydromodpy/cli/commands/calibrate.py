@@ -216,14 +216,17 @@ def _phase_line(index: int, phase: dict[str, Any]) -> str:
     """Return the ``--list-phases`` line of one phase.
 
     A method the phase does not name was chosen from its criteria, and the
-    reason follows it. A column is added only for a phase that moves again what
-    an earlier phase passed on: which parameters, from which phase, and whether
-    the search starts there.
+    reason follows it. After the description, the width the phase reads its
+    interval with and where it comes from. A column is added only for a phase
+    that moves again what an earlier phase passed on: which parameters, from
+    which phase, and whether the search starts there.
     """
     method = phase["method"]
     if phase.get("method_reason"):
         method = f"{method} ({phase['method_reason']})"
     line = f"{index}\t{phase['name']}\t{method}\t{phase['description']}"
+    if phase.get("interval_width"):
+        line = f"{line}\t{_width_text(phase['interval_width'])}"
     reopens = phase.get("reopens")
     if not reopens:
         return line
@@ -234,6 +237,38 @@ def _phase_line(index: int, phase: dict[str, Any]) -> str:
         else f"{phase['method']} takes no start point and keeps its own"
     )
     return f"{line}\tre-opens {moved}, {start}"
+
+
+_WRITTEN_IN = {"phase": "written in the phase", "section": "written in [calibration.uncertainty]"}
+
+
+def _width_text(width: dict[str, Any]) -> str:
+    """Return the width a phase reads its interval with, and where it comes from.
+
+    The origin named is the tolerance's. The mode's is added when it comes from
+    elsewhere, for instance a mode written and a tolerance left to the default.
+    """
+    source = width["source"]
+    if source == "default":
+        value = width["rule"]
+        origin = (
+            "default, measured on the mesh when the phase runs"
+            if width["tolerance"] is None
+            else "default"
+        )
+    else:
+        tolerance = float(width["tolerance"])
+        if width["mode"] == "relative":
+            value = f"{tolerance * 100:g} % of the best cost"
+        elif width["on_distances"]:
+            value = f"{tolerance:g} m"
+        else:
+            value = f"{tolerance:g} in the unit of the cost"
+        origin = _WRITTEN_IN[source]
+    mode_source = width.get("mode_source", source)
+    if mode_source != source:
+        origin += f"; mode {width['mode']} {_WRITTEN_IN.get(mode_source, 'by default')}"
+    return f"width {value} ({origin})"
 
 
 def _format_calibration_result(result: Any) -> list[str]:

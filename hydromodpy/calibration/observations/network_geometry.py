@@ -68,6 +68,73 @@ def dense_face_connectivity(planar_mesh: Any) -> np.ndarray:
     return dense
 
 
+def cell_spacing_m(
+    cell_centroids: np.ndarray,
+    face_node_connectivity: np.ndarray,
+    *,
+    within: np.ndarray | None = None,
+) -> float:
+    """Return the size of one mesh cell: the median distance between neighbouring centres.
+
+    Two cells are neighbours when they share an edge, whatever the descent the
+    criterion routes on. ``within`` keeps the pairs whose two cells both lie in
+    it, the catchment the criterion scores, so the buffer cells of a refined
+    mesh do not set the size. A stream cannot move by less than one cell, which
+    is why this is the default width of an interval read on network distances.
+    ``reference_length`` (square root of the median cell area) normalises the
+    validity ratio; the width uses the centre spacing because a stream moves
+    from one cell centre to the next. The two agree on a square grid.
+    """
+    centres = np.asarray(cell_centroids, dtype=float)
+    rows = np.asarray(face_node_connectivity, dtype=np.int64)
+    if rows.ndim == 1:
+        rows = rows.reshape(1, -1)
+    rows = rows[: centres.shape[0]]
+    present = rows >= 0
+    # Nodes of each face moved to the front in ring order, so the node after
+    # slot j is slot (j + 1) modulo the face arity.
+    ring = np.take_along_axis(rows, np.argsort(~present, axis=1, kind="stable"), axis=1)
+    arity = present.sum(axis=1)
+    slots = np.arange(rows.shape[1])
+    following = np.take_along_axis(
+        ring, np.mod(slots[None, :] + 1, np.maximum(arity, 1)[:, None]), axis=1
+    )
+    drawn = (slots[None, :] < arity[:, None]) & (ring != following)
+    low = np.minimum(ring, following)[drawn]
+    high = np.maximum(ring, following)[drawn]
+    owner = np.broadcast_to(np.arange(rows.shape[0])[:, None], rows.shape)[drawn]
+    key = low * (int(rows.max(initial=0)) + 1) + high
+    order = np.argsort(key, kind="stable")
+    key, owner = key[order], owner[order]
+    shared = key[1:] == key[:-1]
+    first, second = owner[:-1][shared], owner[1:][shared]
+    keep = first != second
+    if within is not None:
+        inside = np.asarray(within, dtype=bool).reshape(-1)
+        keep &= inside[first] & inside[second]
+    delta = centres[first[keep]] - centres[second[keep]]
+    distances = np.hypot(delta[:, 0], delta[:, 1])
+    distances = distances[np.isfinite(distances)]
+    if distances.size == 0:
+        raise ValueError("the mesh holds no two neighbouring cells to measure a cell on.")
+    return float(np.median(distances))
+
+
+def mesh_cell_m(run_ctx: RunContext, geometry: NetworkGeometry) -> float:
+    """Return the size of one cell of the mesh a trial's network criterion scored.
+
+    Read on what :func:`geometry_from_run` already holds: the cell centres the
+    geometry routes on, the connectivity of the same solver mesh, and the
+    catchment it scores. Nothing else of the solver is asked.
+    """
+    planar_mesh = run_ctx.model.solver_mesh.planar_mesh
+    return cell_spacing_m(
+        geometry.metric.centroids,
+        dense_face_connectivity(planar_mesh),
+        within=geometry.catchment,
+    )
+
+
 def geometry_from_run(
     run_ctx: RunContext, output: CalibOutputNetwork
 ) -> tuple[NetworkGeometry, ObservedNetwork]:
@@ -163,7 +230,9 @@ def _accuracy_in_m(output: CalibOutputNetwork) -> float | None:
 
 
 __all__ = (
+    "cell_spacing_m",
     "dense_face_connectivity",
     "geometry_from_run",
     "mean_recharge_m_s",
+    "mesh_cell_m",
 )

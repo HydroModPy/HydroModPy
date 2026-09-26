@@ -244,6 +244,9 @@ def build_cache_context(
         # Turning the reuse on for the resume attempt must not change the hash
         # the reuse is compared against, or the flag would make itself inert.
         "reuse_completed_phases",
+        # How wide the answer is gets read off the trials after the search and
+        # changes no trial's cost, so a new width re-solves nothing.
+        "uncertainty",
     ):
         calibration_payload.pop(runtime_key, None)
 

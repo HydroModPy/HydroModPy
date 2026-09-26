@@ -33,11 +33,16 @@ _AT_ZERO = _trace([(1.0, 40.0), (2.0, 0.0), (3.0, 12.0), (4.0, 30.0)])
 
 class TestTheDeclaration:
     def test_the_default_is_five_per_cent_of_the_best(self) -> None:
-        decl = CalibrationConfig().uncertainty
+        cfg = CalibrationConfig()
+        decl = cfg.uncertainty
 
+        # Unwritten stays unwritten: the width follows what the search scores,
+        # and a search scored on an efficiency takes five per cent of its best.
         assert decl.method == "cost_profile"
-        assert decl.tolerance == 0.05
-        assert decl.mode == "relative"
+        assert decl.tolerance is None
+        assert decl.mode is None
+        width = cfg.interval_width_for()
+        assert (width.tolerance, width.mode, width.source) == (0.05, "relative", "default")
 
     def test_a_file_may_state_a_width_in_the_unit_of_the_cost(self) -> None:
         cfg = CalibrationConfig.model_validate(
@@ -70,7 +75,7 @@ class TestWhatTheRunReports:
     def test_the_declared_width_is_the_one_used(self) -> None:
         decl = CalibrationConfig.model_validate(
             {"parameters": {"K": {"bounds": [1e-8, 1e-2]}}, "uncertainty": {"tolerance": 0.001}}
-        ).uncertainty
+        ).interval_width_for()
 
         (interval,) = _tolerance_intervals_or_none(_SHARP, ["K"], _SPACE, decl)
 
@@ -83,7 +88,7 @@ class TestWhatTheRunReports:
                 "parameters": {"K": {"bounds": [1e-8, 1e-2]}},
                 "uncertainty": {"mode": "absolute", "tolerance": 15.0},
             }
-        ).uncertainty
+        ).interval_width_for()
 
         (interval,) = _tolerance_intervals_or_none(_AT_ZERO, ["K"], _SPACE, decl)
 
@@ -92,7 +97,7 @@ class TestWhatTheRunReports:
         assert interval.upper == 3.0
 
     def test_a_relative_width_on_a_zero_cost_reports_nothing_and_says_why(self, caplog) -> None:
-        decl = CalibrationConfig().uncertainty
+        decl = CalibrationConfig().interval_width_for()
 
         with caplog.at_level("WARNING"):
             assert _tolerance_intervals_or_none(_AT_ZERO, ["K"], _SPACE, decl) == []

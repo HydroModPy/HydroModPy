@@ -49,7 +49,7 @@ from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import Field, TypeAdapter, field_validator, model_validator
+from pydantic import Field, TypeAdapter, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
@@ -973,6 +973,77 @@ _OPTIONS_WITHOUT_AN_ENGINE = (
 )
 
 
+UncertaintyMethod = Literal["cost_profile", "multistart", "linearized"]
+
+
+def _refuse_a_posterior(data: Any, where: str) -> None:
+    """Answer 'posterior' with the reason it is not offered, instead of an enum error."""
+    if isinstance(data, Mapping) and str(data.get("method", "")).strip() == "posterior":
+        raise ValueError(
+            f"{where} method='posterior' is not offered, and the "
+            "reason is worth stating rather than hiding behind a list. A posterior "
+            "is a statement about probability, so it needs a likelihood, and a "
+            "likelihood needs a criterion built from residuals with an error model "
+            "on each observation. An efficiency score is not one: NSE, KGE and "
+            "nse_log are aggregates already stripped of their units, and a "
+            "posterior computed from one would carry a precision nothing "
+            "established. Sampling it also costs thousands of model runs, not the "
+            "one per parameter that 'linearized' costs. Use 'linearized', which "
+            "reports a first-order width and the parameter tradeoffs from "
+            "residuals, or 'multistart', which reports the spread of restarted "
+            "searches, and say in the write-up which of the two the number rests "
+            "on."
+        )
+
+
+class CalibPhaseUncertaintyDecl(HydroModelBase):
+    """How wide one phase says its answer is, key by key over ``[calibration.uncertainty]``.
+
+    Every key is optional and has the meaning it has in the section. A key
+    written here wins for this phase. A key left out takes the section's value,
+    then the default that follows what the phase scores. ``restarts`` and
+    ``perturbation`` belong to a method: a phase that names another method than
+    the section does not inherit them.
+    """
+
+    method: Annotated[UncertaintyMethod | None, Profile.USER] = Field(
+        default=None,
+        description="How this phase's interval is obtained: 'cost_profile', "
+        "'multistart' or 'linearized', read as in [calibration.uncertainty] method.",
+    )
+    restarts: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        ge=2,
+        description="How many times method='multistart' repeats this phase's search.",
+    )
+    perturbation: Annotated[PositiveFloat | None, Profile.USER] = Field(
+        default=None,
+        description="Relative step of method='linearized' for this phase, as a fraction "
+        "of each calibrated value.",
+    )
+    tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
+        default=None,
+        description="Width of this phase's interval: a fraction of the best cost when "
+        "mode='relative', a number in the unit of the cost (metres for a network "
+        "distance) when mode='absolute'. Unset here and in [calibration.uncertainty], "
+        "one mesh cell for a phase scored only by network distances, five per cent of "
+        "the best cost otherwise.",
+    )
+    mode: Annotated[Literal["relative", "absolute"] | None, Profile.USER] = Field(
+        default=None,
+        description="How this phase's tolerance is read. Unset here and in "
+        "[calibration.uncertainty], 'absolute' for a phase scored only by network "
+        "distances, 'relative' otherwise.",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _say_why_a_posterior_is_not_one_of_these(cls, data: Any) -> Any:
+        """Answer 'posterior' the way the section does."""
+        _refuse_a_posterior(data, "a phase's uncertainty")
+        return data
+
+
 class CalibPhaseDecl(HydroModelBase):
     """One stage of a calibration that runs in several.
 
@@ -1128,6 +1199,15 @@ class CalibPhaseDecl(HydroModelBase):
         "phases pass on the same parameter, the later one wins. Success means the phase "
         "converged, not that its validity indicator is good.",
     )
+    uncertainty: Annotated[CalibPhaseUncertaintyDecl | None, Profile.USER] = Field(
+        default=None,
+        description="How wide this phase says its answer is, with the keys of "
+        "[calibration.uncertainty]. A key written here wins for this phase; a key left "
+        "out takes the section's value, then the default that follows what the phase "
+        "scores: one mesh cell for a phase scored only by network distances, five per "
+        "cent of the best cost otherwise. hmp calibrate --list-phases prints the width "
+        "each phase reads and where it comes from.",
+    )
 
     @property
     def is_single_metric(self) -> bool:
@@ -1247,7 +1327,7 @@ class CalibUncertaintyDecl(HydroModelBase):
     trace and not a posterior.
     """
 
-    method: Annotated[Literal["cost_profile", "multistart", "linearized"], Profile.USER] = Field(
+    method: Annotated[UncertaintyMethod, Profile.USER] = Field(
         default="cost_profile",
         description=(
             "How the interval around each calibrated value is obtained. "
@@ -1296,22 +1376,7 @@ class CalibUncertaintyDecl(HydroModelBase):
         the reason it is not offered is a position rather than an omission. Leaving
         them a bare list of three literals sends them looking for a bug.
         """
-        if isinstance(data, Mapping) and str(data.get("method", "")).strip() == "posterior":
-            raise ValueError(
-                "[calibration.uncertainty] method='posterior' is not offered, and the "
-                "reason is worth stating rather than hiding behind a list. A posterior "
-                "is a statement about probability, so it needs a likelihood, and a "
-                "likelihood needs a criterion built from residuals with an error model "
-                "on each observation. An efficiency score is not one: NSE, KGE and "
-                "nse_log are aggregates already stripped of their units, and a "
-                "posterior computed from one would carry a precision nothing "
-                "established. Sampling it also costs thousands of model runs, not the "
-                "one per parameter that 'linearized' costs. Use 'linearized', which "
-                "reports a first-order width and the parameter tradeoffs from "
-                "residuals, or 'multistart', which reports the spread of restarted "
-                "searches, and say in the write-up which of the two the number rests "
-                "on."
-            )
+        _refuse_a_posterior(data, "[calibration.uncertainty]")
         return data
 
     @model_validator(mode="after")
@@ -1342,21 +1407,29 @@ class CalibUncertaintyDecl(HydroModelBase):
             )
         return self
 
-    tolerance: Annotated[PositiveFloat, Profile.USER] = Field(
-        default=0.05,
+    tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
+        default=None,
         description=(
             "Width of the interval. A fraction of the best cost when mode='relative' "
             "(0.05 = five per cent), and a number in the unit of the cost when "
-            "mode='absolute'."
+            "mode='absolute'. Unset, it follows what the search scores: one mesh cell, "
+            "in metres, for a search scored only by network distances (distance_gap, "
+            "distance_mean), because a stream cannot move by less than a cell; 0.05 "
+            "otherwise, five per cent of the best cost. The cell is the median distance "
+            "between the centres of neighbouring cells, measured by the network "
+            "criterion on the mesh it scores. A phase may write its own, which wins."
         ),
     )
-    mode: Annotated[Literal["relative", "absolute"], Profile.USER] = Field(
-        default="relative",
+    mode: Annotated[Literal["relative", "absolute"] | None, Profile.USER] = Field(
+        default=None,
         description=(
             "How 'tolerance' is read. 'relative' is a fraction of the best cost and is "
             "the usual choice for an efficiency score. A criterion solved at zero, such "
             "as the stream-network gap, has no fraction of itself to take: state the "
-            "width in the unit of the cost with 'absolute', for example 25 metres."
+            "width in the unit of the cost with 'absolute', for example 25 metres. "
+            "Unset, 'absolute' for a search scored only by network distances and "
+            "'relative' otherwise. hmp calibrate --check refuses 'relative' on a search "
+            "scored only by network distances."
         ),
     )
 
@@ -1617,7 +1690,8 @@ class CalibrationConfig(HydroModelBase):
     uncertainty: Annotated[CalibUncertaintyDecl, Profile.USER] = Field(
         default_factory=CalibUncertaintyDecl,
         description="How wide the search reports its own answer to be. The calibrated "
-        "value is unaffected; this only decides the interval printed beside it.",
+        "value is unaffected; this only decides the interval printed beside it. It is "
+        "the default of every phase, and a phase may write its own keys.",
     )
     persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
         default_factory=PersistenceConfig,
@@ -1837,6 +1911,64 @@ class CalibrationConfig(HydroModelBase):
         choice = choose_method(transforms, self._criteria_scored_by(phase))
         return choice.method, choice.reason
 
+    def uncertainty_for(self, phase: CalibPhaseDecl | None = None) -> CalibUncertaintyDecl:
+        """Return the uncertainty a search reads: the phase's keys over the section's.
+
+        ``None`` reads the section alone. A phase that names another method than
+        the section does not inherit the section's ``restarts`` or
+        ``perturbation``, which belong to the section's method.
+        """
+        own = None if phase is None else phase.uncertainty
+        if own is None:
+            return self.uncertainty
+        written = own.model_dump(exclude_none=True)
+        merged = self.uncertainty.model_dump()
+        if written.get("method", self.uncertainty.method) != self.uncertainty.method:
+            merged["restarts"] = None
+            merged["perturbation"] = None
+        merged.update(written)
+        return CalibUncertaintyDecl.model_validate(merged)
+
+    def interval_width_for(self, phase: CalibPhaseDecl | None = None) -> Any:
+        """Return the width a search reads its interval with, and where it comes from.
+
+        A tolerance or a mode written in the phase wins, then the one written in
+        ``[calibration.uncertainty]``. Left unwritten, both follow what the search
+        scores, by ``optim.tolerance.choose_interval_width``. ``phase`` reads the
+        blocks that phase scores; ``None`` reads the whole section.
+
+        The answer is an ``optim.tolerance.IntervalWidth``. The signature does not
+        name it because this module imports ``optim`` only inside a function.
+        """
+        from hydromodpy.calibration.optim.tolerance import choose_interval_width
+
+        own = None if phase is None else phase.uncertainty
+
+        def written(key: str) -> tuple[Any, str] | None:
+            if own is not None and getattr(own, key) is not None:
+                return getattr(own, key), "phase"
+            if getattr(self.uncertainty, key) is not None:
+                return getattr(self.uncertainty, key), "section"
+            return None
+
+        return choose_interval_width(
+            self._scored_on_network_distances(phase),
+            tolerance=written("tolerance"),
+            mode=written("mode"),
+        )
+
+    def _blocks_scored_by(self, phase: CalibPhaseDecl | None) -> list[CalibObjectiveBlockDecl]:
+        """Return the blocks a search scores: the phase's, or every declared one.
+
+        A single-metric phase scores no block.
+        """
+        if phase is not None and phase.is_single_metric:
+            return []
+        blocks = self.objective_blocks
+        if phase is not None and phase.objective_blocks:
+            blocks = [block for block in blocks if block.name in phase.objective_blocks]
+        return list(blocks)
+
     def _criteria_scored_by(self, phase: CalibPhaseDecl | None) -> list[str]:
         """Return the criterion of each block a search scores.
 
@@ -1845,10 +1977,29 @@ class CalibrationConfig(HydroModelBase):
         """
         if phase is not None and phase.is_single_metric:
             return [str(phase.objective or self.objective)]
-        blocks = self.objective_blocks
-        if phase is not None and phase.objective_blocks:
-            blocks = [block for block in blocks if block.name in phase.objective_blocks]
+        blocks = self._blocks_scored_by(phase)
         return [str(block.metric) for block in blocks] or [str(self.objective)]
+
+    def _scored_on_network_distances(self, phase: CalibPhaseDecl | None) -> bool:
+        """Whether a search is scored only by network distances left in metres.
+
+        Read as :meth:`_criteria_scored_by` reads the criteria: a single-metric
+        phase scores its own ``objective`` or the section's, and a search with
+        no block scores the section's ``objective``. A block with a transform is
+        no longer in metres. A distance cannot be normalised, so that case does
+        not arise, and the single-metric route has no transform.
+        """
+        from hydromodpy.calibration.criteria.registry import NETWORK_ESTIMATORS
+
+        if phase is not None and phase.is_single_metric:
+            return str(phase.objective or self.objective) in NETWORK_ESTIMATORS
+        blocks = self._blocks_scored_by(phase)
+        if not blocks:
+            return str(self.objective) in NETWORK_ESTIMATORS
+        return all(
+            str(block.metric) in NETWORK_ESTIMATORS and block.transform == "identity"
+            for block in blocks
+        )
 
     @field_validator("candidates_root", mode="before")
     @classmethod
@@ -1948,6 +2099,15 @@ class CalibrationConfig(HydroModelBase):
                     "different routes and only one of them would run. Pick one "
                     "convention."
                 )
+            if phase.uncertainty is not None:
+                try:
+                    self.uncertainty_for(phase)
+                except ValidationError as exc:
+                    reasons = "; ".join(str(item["msg"]) for item in exc.errors())
+                    raise ValueError(
+                        f"phase {phase.name!r} writes an uncertainty that does not hold "
+                        f"once read over [calibration.uncertainty]: {reasons}"
+                    ) from None
         return self
 
     @model_validator(mode="after")

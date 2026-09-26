@@ -271,7 +271,7 @@ def test_under_grid_list_phases_says_the_engine_takes_no_start_point(tmp_path, c
         argparse.Namespace(config=path, check=False, list_phases=True, phase=None, profile=None)
     )
     lines = capsys.readouterr().out.splitlines()
-    assert lines[0].split("\t") == ["0", "k_first", "grid", ""]
+    assert lines[0].split("\t")[:4] == ["0", "k_first", "grid", ""]
     assert lines[2].endswith(
         "\tre-opens K<-k_first, Sy<-sy_second, grid takes no start point and keeps its own"
     )

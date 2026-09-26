@@ -144,9 +144,10 @@ def test_list_phases_names_the_reason(tmp_path, capsys) -> None:
         "k_gap",
         "bisection (one log parameter, signed criterion)",
         "",
+        "width one mesh cell (default, measured on the mesh when the phase runs)",
     ]
     assert lines[2].split("\t")[2] == "scipy_nelder_mead (cost to minimise)"
-    # k_written moves K again, which a column after the description says.
+    # k_written moves K again, which a column after the width says.
     assert lines[5].split("\t")[:4] == ["5", "k_written", "grid", ""]
 
 

@@ -644,6 +644,14 @@ def test_calibrate_object_config_lists_its_phases(monkeypatch) -> None:
             "parameters": ["K"],
             "depends_on": None,
             "freeze_on_success": True,
+            "interval_width": {
+                "tolerance": 0.05,
+                "mode": "relative",
+                "source": "default",
+                "mode_source": "default",
+                "on_distances": False,
+                "rule": "5 % of the best cost",
+            },
         }
     ]
 

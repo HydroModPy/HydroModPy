@@ -30,6 +30,7 @@ covers the standard NSE / KGE / RMSE cases.
 
 from __future__ import annotations
 
+import math
 import time
 import uuid
 from collections.abc import Iterable, Mapping
@@ -52,6 +53,7 @@ from hydromodpy.calibration.optim.optimizer import (
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
 from hydromodpy.calibration.optim.stopping import stopping_kwargs
 from hydromodpy.calibration.optim.tolerance import (
+    IntervalWidth,
     ParameterInterval,
     tolerance_intervals,
 )
@@ -421,23 +423,40 @@ def _tolerance_intervals_or_none(
     trace: list[dict[str, Any]],
     names: list[str],
     space: ParameterSpace,
-    decl: Any,
+    width: IntervalWidth,
 ) -> list[ParameterInterval]:
     """Return the interval around each calibrated value, or nothing.
 
     A criterion solved at zero, such as the stream-network gap, has no fraction
     of itself to take, so a relative tolerance means nothing there. Reporting
     nothing is the honest answer rather than a number under a rule nobody chose,
-    and the run says which line turns it back on.
+    and the run says which line turns it back on. The same holds for one mesh
+    cell no trial measured, and for a relative width on network distances.
     """
+    if width.tolerance is None:
+        logger.warning(
+            "No interval was reported around the calibrated values: the width is one "
+            "mesh cell, and no trial measured the mesh. Write [calibration.uncertainty] "
+            "tolerance in metres to get one."
+        )
+        return []
+    if width.mode == "relative" and width.on_distances:
+        logger.warning(
+            "No interval was reported around the calibrated values: mode = 'relative' "
+            "reads the width as a fraction of the best cost, and this search is scored "
+            "only on network distances, in metres, where a fraction has no meaning. "
+            "Write mode = 'absolute' with a tolerance in metres, or leave both unwritten "
+            "for one mesh cell."
+        )
+        return []
     bounds = {param.name: (param.lower, param.upper) for param in space}
     try:
         return tolerance_intervals(
             trace,
             names,
             bounds=bounds,
-            tolerance=float(decl.tolerance),
-            mode=decl.mode,
+            tolerance=float(width.tolerance),
+            mode=width.mode,
         )
     except ValueError as exc:
         logger.warning(
@@ -447,6 +466,43 @@ def _tolerance_intervals_or_none(
             exc,
         )
         return []
+
+
+def _cell_measured_by_the_criterion(results: Iterable[EvaluationResult | None]) -> float | None:
+    """Return the mesh cell the network criterion measured on a trial, or ``None``.
+
+    Every trial of one search scores the same mesh, so the first finite value
+    is the cell. ``None`` when no trial scored a network output.
+    """
+    for result in results:
+        if result is None:
+            continue
+        for key, value in (result.components or {}).items():
+            if str(key).endswith(".cell_spacing_m") and math.isfinite(float(value)):
+                return float(value)
+    return None
+
+
+def _width_read_off_the_trials(
+    width: IntervalWidth, best: EvaluationResult | None, history: Iterable[EvaluationResult]
+) -> IntervalWidth:
+    """Return ``width`` with its one mesh cell measured, and log the width read."""
+    if width.tolerance is None:
+        cell = _cell_measured_by_the_criterion([best, *history])
+        if cell is not None:
+            width = width.measured(cell)
+    where = {
+        "phase": "written in the phase",
+        "section": "written in [calibration.uncertainty]",
+        "default": f"default, {width.rule}",
+    }[width.source]
+    logger.info(
+        "Interval width: %s %s (%s).",
+        "unmeasured" if width.tolerance is None else f"{width.tolerance:.4g}",
+        width.mode,
+        where,
+    )
+    return width
 
 
 def _log_parameter_interval(interval: ParameterInterval, best: EvaluationResult | None) -> None:
@@ -679,6 +735,7 @@ def run_calibration_core(
     store_factory: CalibrationStoreFactory | None = None,
     chain: SessionChain | None = None,
     start_at: Any | None = None,
+    interval_width: IntervalWidth | None = None,
 ) -> CalibrationReport:
     """Heart of the calibration loop. Caller-agnostic.
 
@@ -686,6 +743,11 @@ def run_calibration_core(
     restart-based uncertainty makes one repetition differ from the next. It is
     handed to the engine only when the engine declares it accepts one; on any
     other engine a new seed is the whole of the difference.
+
+    ``interval_width`` is the width the interval beside each value is read
+    with, as the staged runner resolved it for the phase. Unset, it is resolved
+    from ``cfg``. One mesh cell is measured off the trials, which the network
+    criterion records beside its cost.
 
     The caller is responsible for:
 
@@ -995,7 +1057,12 @@ def run_calibration_core(
     trace = calibration_trace(session.history, values_by_trial)
     names = [param.name for param in space]
     correlated = correlated_parameter_pairs(trace, names)
-    intervals = _tolerance_intervals_or_none(trace, names, space, cfg.uncertainty)
+    width = _width_read_off_the_trials(
+        interval_width if interval_width is not None else cfg.interval_width_for(),
+        best,
+        session.history,
+    )
+    intervals = _tolerance_intervals_or_none(trace, names, space, width)
     if correlated:
         for first, second, coefficient in correlated:
             logger.warning(
@@ -1009,7 +1076,7 @@ def run_calibration_core(
     for interval in intervals:
         _log_parameter_interval(interval, best)
 
-    extra: dict[str, Any] = {}
+    extra: dict[str, Any] = {"interval_width": width.to_dict()}
     if correlated:
         extra["correlated_parameters"] = correlated
     if intervals:

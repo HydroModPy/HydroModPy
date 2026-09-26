@@ -352,9 +352,12 @@ def calibrate(
     list_phases
         Return the declared phases without running anything. Each names the
         method it runs; a phase that names none gets the one its criteria call
-        for, and ``method_reason`` says why. A phase that moves again a
-        parameter an earlier phase passes on also names that phase, and says
-        whether its engine starts from the passed value.
+        for, and ``method_reason`` says why. ``interval_width`` gives the width
+        the phase reads its interval with and where it comes from: written in
+        the phase, in ``[calibration.uncertainty]``, or the default that follows
+        what the phase scores. A phase that moves again a parameter an earlier
+        phase passes on also names that phase, and says whether its engine
+        starts from the passed value.
     expand
         Return the ``[calibration]`` section a protocol unfolds into, instead
         of running anything. Needs ``config`` to be a TOML path. A file naming

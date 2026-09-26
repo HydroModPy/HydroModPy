@@ -150,12 +150,6 @@ sweep_points = 7
 start = "2001-01-01"
 end = "2002-12-31"
 
-# The stage-one cost is a distance in metres solved at zero, so a fraction of
-# it is zero. 75 m is one cell of this mesh. Read the interval on K, not on Sy.
-[calibration.uncertainty]
-mode = "absolute"
-tolerance = 75.0
-
 
 
 [display]

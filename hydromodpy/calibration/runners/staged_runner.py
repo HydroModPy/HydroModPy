@@ -51,6 +51,7 @@ from hydromodpy.calibration.optim.parameters import (
     apply_parameter_to_config,
 )
 from hydromodpy.calibration.optim.prior_sampling import transformed_prior_center
+from hydromodpy.calibration.optim.tolerance import IntervalWidth
 from hydromodpy.calibration.persistence import (
     CalibrationStoreFactory,
     default_store_factory,
@@ -221,7 +222,7 @@ def _seed_of(cfg: CalibrationConfig) -> int:
 
 
 def _declared_restarts(cfg: CalibrationConfig) -> int | None:
-    """Return how many times each phase repeats its search, or None for one pass."""
+    """Return how many times a phase repeats its search, or None for one pass."""
     uncertainty = getattr(cfg, "uncertainty", None)
     if uncertainty is None or getattr(uncertainty, "method", None) != "multistart":
         return None
@@ -263,6 +264,9 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
     payload["batch_size"] = decl.batch_size
     payload["parallel"] = decl.parallel
     payload["optimizer_kwargs"] = dict(decl.optimizer_kwargs)
+    # The phase's own keys over [calibration.uncertainty]: the method, its
+    # restarts or its perturbation, and the width the interval is read with.
+    payload["uncertainty"] = cfg.uncertainty_for(decl).model_dump()
     if decl.variable is not None:
         payload["variable"] = decl.variable
     if decl.objective is not None:
@@ -316,7 +320,8 @@ class _PhasePlan:
     """One selected phase, with the calibration, the space and the model it runs under.
 
     ``overrides`` is what ``prepare_trials(config_overrides=...)`` writes: the
-    paths the phase's regime writes, then the phase's own overrides.
+    paths the phase's regime writes, then the phase's own overrides. ``width``
+    is the width the phase reads its interval with, and where it comes from.
     """
 
     index: int
@@ -324,6 +329,7 @@ class _PhasePlan:
     config: CalibrationConfig
     space: ParameterSpace
     overrides: dict[str, Any]
+    width: IntervalWidth
 
 
 def _phase_plans(
@@ -370,7 +376,14 @@ def _phase_plans(
                 f"phase {decl.name!r} declares a parameter space that cannot be built: {exc}"
             ) from exc
         plans.append(
-            _PhasePlan(index=index, decl=decl, config=phase_cfg, space=space, overrides=overrides)
+            _PhasePlan(
+                index=index,
+                decl=decl,
+                config=phase_cfg,
+                space=space,
+                overrides=overrides,
+                width=cfg.interval_width_for(decl),
+            )
         )
     return plans
 
@@ -543,7 +556,6 @@ _NO_STATION_TO_TAKE_A_WIDTH_FROM = (
 def _attach_linearized_width(
     report: CalibrationReport,
     *,
-    cfg: CalibrationConfig,
     phase_cfg: CalibrationConfig,
     phase_name: str,
     trial_ctx: TrialContext,
@@ -552,10 +564,10 @@ def _attach_linearized_width(
 ) -> CalibrationReport:
     """Attach a linearized width to one phase's report, when the document asks for one.
 
-    ``uncertainty.method`` is declared once for the whole document, so every
-    phase shares it (D234 in the campaign decisions): the width is built at the
-    end of each phase, from the parameters and the outputs THAT PHASE scored --
-    ``phase_cfg``, not ``cfg``.
+    ``uncertainty.method`` is declared in ``[calibration.uncertainty]`` for every
+    phase (D234 in the campaign decisions), and a phase may write its own: the
+    width is built at the end of each phase, from the method, the parameters
+    and the outputs THAT PHASE reads -- ``phase_cfg``, which carries them.
 
     A phase none of whose outputs can name a station cannot structurally carry
     a width. That is refused early, before paying for a call this phase could
@@ -568,7 +580,7 @@ def _attach_linearized_width(
     still left to fail loudly the way it always has, by the un-caught call
     below - that is D231's own exception and it is kept intact.
     """
-    uncertainty = getattr(cfg, "uncertainty", None)
+    uncertainty = getattr(phase_cfg, "uncertainty", None)
     if getattr(uncertainty, "method", None) != "linearized":
         return report
     if not _phase_can_carry_a_linearized_width(phase_cfg):
@@ -800,6 +812,9 @@ def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
 
     ``method`` is the method the phase runs. A phase that names none also
     carries ``method_reason``, why its criteria call for that one.
+    ``interval_width`` is the width the phase reads its interval with and where
+    it comes from (``IntervalWidth.to_dict``); one mesh cell has no number
+    before the mesh exists.
 
     A phase that lists a parameter an earlier phase passes on also carries
     ``reopens``, each such parameter with the phase it comes from, and
@@ -836,6 +851,7 @@ def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
         if reopens:
             row["reopens"] = reopens
             row["starts_from_passed_values"] = engine_traits(method).accepts_a_start_point
+        row["interval_width"] = cfg.interval_width_for(decl).to_dict()
         rows.append(row)
         if decl.freeze_on_success:
             passed_by.update({written_at(name): decl.name for name in decl.parameters})
@@ -978,7 +994,7 @@ def run_staged_calibration(
                 decl.name,
                 session_id,
             )
-            if getattr(getattr(cfg, "uncertainty", None), "method", None) == "linearized":
+            if getattr(phase_cfg.uncertainty, "method", None) == "linearized":
                 if _phase_can_carry_a_linearized_width(phase_cfg):
                     note = (
                         "not attached: this phase was reused from a previous run "
@@ -1026,6 +1042,7 @@ def run_staged_calibration(
                 _space=space,
                 _ws=ws_root,
                 _passed_start=passed_start,
+                _width=plan.width,
             ):
                 # The first restart, or the only search, starts from the passed
                 # values. The other restarts start from their own draws.
@@ -1043,9 +1060,10 @@ def run_staged_calibration(
                     store_factory=store_factory,
                     chain=_chain,
                     start_at=_passed_start if start_at is None else start_at,
+                    interval_width=_width,
                 )
 
-            restarts = _declared_restarts(cfg)
+            restarts = _declared_restarts(phase_cfg)
             if restarts is None:
                 report = _one_search(_seed_of(phase_cfg), None)
                 spread: tuple = ()
@@ -1066,7 +1084,6 @@ def run_staged_calibration(
             restart_spreads.extend(spread)
             report = _attach_linearized_width(
                 report,
-                cfg=cfg,
                 phase_cfg=phase_cfg,
                 phase_name=decl.name,
                 trial_ctx=trial_ctx,
