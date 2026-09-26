@@ -44,6 +44,10 @@ from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.optim.cache import ParamsHashCache
 from hydromodpy.calibration.optim.diagnostics import correlated_parameter_pairs
 from hydromodpy.calibration.optim.engine import CalibrationEngine
+from hydromodpy.calibration.optim.objective import (
+    mean_objective_block_shares,
+    objective_block_shares,
+)
 from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     ParamSuggestion,
@@ -578,6 +582,41 @@ def _network_k_over_r_extra(
     }
 
 
+def _phase_objective_block_shares(
+    cfg: CalibrationConfig,
+    history: list[EvaluationResult],
+    best: EvaluationResult | None,
+) -> dict[str, Any] | None:
+    """Return the ``objective_block_shares`` a finished phase's report carries.
+
+    ``"mean"`` averages each block's share of the cost over the finished
+    trials (``status == "completed"`` and a finite objective, the convention
+    every optimizer adapter reads its own history with); ``"mean_n_trials"``
+    is how many of them entered that average. ``"best"`` reads the share at
+    the trial the search reports. ``None`` for a phase scored through a
+    single metric, with no ``[[calibration.objective_blocks]]`` declared, or
+    when no finished trial gives a computable share.
+    """
+    blocks = [(str(block.name), float(block.weight)) for block in cfg.objective_blocks or []]
+    if not blocks:
+        return None
+    finished = [
+        result
+        for result in history
+        if result.status == "completed" and math.isfinite(result.objective_value)
+    ]
+    mean_result = mean_objective_block_shares(blocks, (result.components for result in finished))
+    if mean_result is None:
+        return None
+    mean_shares, n_trials = mean_result
+    payload: dict[str, Any] = {"mean": mean_shares, "mean_n_trials": n_trials}
+    if best is not None:
+        best_shares = objective_block_shares(best.components, blocks)
+        if best_shares is not None:
+            payload["best"] = best_shares
+    return payload
+
+
 def attach_a_linearized_width(
     report: CalibrationReport,
     *,
@@ -1099,6 +1138,7 @@ def run_calibration_core(
         best_objective=best.objective_value if best else None,
         best_sim_id=best_sim_id,
         best_parameters=values_by_trial.get(best.trial_id) if best else None,
+        objective_block_shares=_phase_objective_block_shares(cfg, session.history, best),
         duration_s=float(session.duration_s if session.duration_s else elapsed),
         save_runs=cfg.save_runs,
         promoted=promotion_count,

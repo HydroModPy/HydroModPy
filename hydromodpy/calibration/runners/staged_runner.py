@@ -44,6 +44,10 @@ from pydantic import ValidationError
 
 from hydromodpy.calibration.config import CalibPhaseDecl, CalibrationConfig
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
+from hydromodpy.calibration.optim.objective import (
+    mean_objective_block_shares,
+    objective_block_shares,
+)
 from hydromodpy.calibration.optim.optimizer import FAILED_EVAL_COST, engine_traits
 from hydromodpy.calibration.optim.parameters import (
     CalibParameter,
@@ -53,6 +57,7 @@ from hydromodpy.calibration.optim.parameters import (
 from hydromodpy.calibration.optim.prior_sampling import transformed_prior_center
 from hydromodpy.calibration.optim.tolerance import IntervalWidth
 from hydromodpy.calibration.persistence import (
+    CalibrationPersistence,
     CalibrationStoreFactory,
     default_store_factory,
 )
@@ -725,6 +730,53 @@ def _require_dependency(decl: CalibPhaseDecl, ran: set[str]) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _reused_phase_objective_block_shares(
+    phase_cfg: CalibrationConfig,
+    catalog: Any,
+    session_id: str,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Return a reused phase's ``objective_block_shares``, or why it has none.
+
+    Same definition as the live path
+    (:func:`hydromodpy.calibration.runners.cli_runner._phase_objective_block_shares`),
+    through the same functions, read from ``session_id``'s persisted
+    iterations instead of an in-memory history: what a live run keeps in
+    memory is exactly what the journal and the index already wrote for this
+    session, read back with :meth:`CalibrationPersistence.load_iterations`.
+
+    A phase with fewer than two declared blocks has nothing to report, same
+    as the live path: returns ``(None, None)``. One with two or more whose
+    persisted trials carry no usable ``<block>.total`` (an older session, or
+    one persisted at ``persist_iteration_detail = "none"``) gets an explicit
+    note instead of a share: the components are simply not on disk to read
+    back, which is a different thing from nothing to report.
+    """
+    blocks = [(str(block.name), float(block.weight)) for block in phase_cfg.objective_blocks or []]
+    if len(blocks) < 2:
+        return None, None
+    rows = CalibrationPersistence(catalog).load_iterations(session_id)
+    finished = [
+        row
+        for row in rows
+        if row.get("status") == "completed"
+        and isinstance(row.get("objective_value"), (int, float))
+        and math.isfinite(row["objective_value"])
+    ]
+    mean_result = mean_objective_block_shares(blocks, (row.get("metrics") for row in finished))
+    if mean_result is None:
+        return None, (
+            "reused from a previous run: its persisted trials carry no cost share "
+            "to read back, so it is not recomputed here"
+        )
+    mean_shares, n_trials = mean_result
+    payload: dict[str, Any] = {"mean": mean_shares, "mean_n_trials": n_trials}
+    best_row = min(finished, key=lambda row: row["objective_value"])
+    best_shares = objective_block_shares(best_row.get("metrics"), blocks)
+    if best_shares is not None:
+        payload["best"] = best_shares
+    return payload, None
+
+
 def _reuse_from_disk(
     *,
     resume_root_session_id: str,
@@ -786,6 +838,13 @@ def _reuse_from_disk(
         if decl.freeze_on_success
         else ()
     )
+    shares, absent_note = _reused_phase_objective_block_shares(phase_cfg, catalog, stage.session_id)
+    extra: dict[str, Any] = {
+        "reused_from_disk": True,
+        "source_root_session_id": resume_root_session_id,
+    }
+    if absent_note is not None:
+        extra["objective_block_shares_absent_note"] = absent_note
     report = CalibrationReport(
         session_id=stage.session_id,
         method=phase_cfg.method,
@@ -796,8 +855,9 @@ def _reuse_from_disk(
         save_runs="none",
         promoted=0,
         best_parameters=dict(stage.parameters),
+        objective_block_shares=shares,
         workspace=workspace,
-        extra={"reused_from_disk": True, "source_root_session_id": resume_root_session_id},
+        extra=extra,
     )
     return report, froze
 

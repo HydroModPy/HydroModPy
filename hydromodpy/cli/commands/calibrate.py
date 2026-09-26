@@ -271,17 +271,27 @@ def _width_text(width: dict[str, Any]) -> str:
     return f"width {value} ({origin})"
 
 
+def _shares_text(shares: dict[str, float]) -> str:
+    """Return one block-per-token rendering of a share mapping, as percentages."""
+    return ", ".join(f"{name} {value * 100:.0f}%" for name, value in shares.items())
+
+
 def _format_calibration_result(result: Any) -> list[str]:
     """Return the lines to print for a finished calibration.
 
     Reads only what :class:`hydromodpy.calibration.report.CalibrationReport`
     already carries: the best value per parameter, the cost it was reached
     at, the interval or width beside a value when the run produced one, a
-    caution when the trials could not tell two parameters apart, and
-    ``k_over_r`` when a network calibration published one in ``extra``.
-    Returns nothing for a result that carries no ``best_parameters`` (a
-    staged calibration's own report object, or a run that evaluated no
-    candidate), so the caller stays silent rather than guessing.
+    caution when the trials could not tell two parameters apart, ``k_over_r``
+    when a network calibration published one in ``extra``, and, when the
+    phase declared two or more objective blocks, the mean share of the cost
+    each one actually took (with how many trials the mean covers) and its
+    share at the best trial. A phase reused from disk that could not
+    recompute a share prints why instead
+    (``extra["objective_block_shares_absent_note"]``). Returns nothing for a
+    result that carries no ``best_parameters`` (a staged calibration's own
+    report object, or a run that evaluated no candidate), so the caller stays
+    silent rather than guessing.
     """
     best_parameters = getattr(result, "best_parameters", None)
     if not best_parameters:
@@ -331,6 +341,41 @@ def _format_calibration_result(result: Any) -> list[str]:
     elif "k_over_r" in extra:
         lines.append(f"  k_over_r = {extra['k_over_r']:.4g}")
 
+    shares = getattr(result, "objective_block_shares", None) or {}
+    mean_shares = shares.get("mean")
+    if mean_shares and len(mean_shares) > 1:
+        n_trials = shares.get("mean_n_trials")
+        mean_label = (
+            f"mean over {n_trials} finished trials"
+            if n_trials is not None
+            else "mean over the finished trials"
+        )
+        lines.append(f"  cost share ({mean_label}): {_shares_text(mean_shares)}")
+        best_shares = shares.get("best")
+        if best_shares:
+            lines.append(f"  cost share (best trial): {_shares_text(best_shares)}")
+    elif "objective_block_shares_absent_note" in extra:
+        lines.append(f"  cost share: {extra['objective_block_shares_absent_note']}")
+
+    return lines
+
+
+def _format_staged_calibration_result(result: Any) -> list[str]:
+    """Return the lines to print for a finished staged calibration.
+
+    A :class:`~hydromodpy.calibration.runners.staged_runner.StagedCalibrationReport`
+    carries no ``best_parameters`` of its own: each phase does, in its own
+    ``report``. Formats each phase's report with :func:`_format_calibration_result`
+    and prefixes it with the phase's name, so a staged run prints as much per
+    phase (cost, interval, cost share) as a single search prints for itself.
+    """
+    lines: list[str] = []
+    for phase_run in getattr(result, "phases", ()):
+        phase_lines = _format_calibration_result(getattr(phase_run, "report", None))
+        if not phase_lines:
+            continue
+        lines.append(f"phase {phase_run.name}:")
+        lines.extend(phase_lines)
     return lines
 
 
@@ -404,5 +449,10 @@ def run(args: argparse.Namespace) -> None:
     print(f"Calibration finished: {target.name}", file=sys.stderr)
     if result is None:
         return
-    for line in _format_calibration_result(result):
+    lines = (
+        _format_staged_calibration_result(result)
+        if getattr(result, "phases", None)
+        else _format_calibration_result(result)
+    )
+    for line in lines:
         print(line, file=sys.stderr)

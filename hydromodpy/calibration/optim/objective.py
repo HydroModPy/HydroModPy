@@ -8,7 +8,7 @@ matching the Protocol is accepted.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
@@ -303,6 +303,78 @@ class CompositeObjective:
         return ObjectiveValue(total=float(total), components=merged_components)
 
 
+def objective_block_shares(
+    components: Mapping[str, float] | None,
+    blocks: Sequence[tuple[str, float]],
+) -> dict[str, float] | None:
+    """Return each block's share of the cost one trial's components actually summed.
+
+    ``blocks`` lists ``(name, weight)`` as declared; the weights are normalised
+    the same way :class:`CompositeObjective` normalises them. The share of
+    block ``i`` is ``w_i * c_i / sum_j(w_j * c_j)``, where ``c_i`` is read from
+    ``components["<name>.total"]``: the per-block cost :class:`CompositeObjective`
+    itself weighted and summed, after the block's own transform and before its
+    weight. Reading it there rather than re-deriving a sign is why a signed
+    criterion such as ``distance_gap`` never turns the share negative: its
+    ``.total`` is already the absolute residual the criterion publishes as a
+    cost, not the raw signed value. A single declared block always takes the
+    whole cost, without needing a ``.total`` key at all (no composite wraps
+    it). Returns ``None`` when the share cannot be told apart: ``components``
+    is missing a block total, or the weighted costs sum to (numerically) zero.
+    """
+    if not blocks:
+        return None
+    if len(blocks) == 1:
+        return {blocks[0][0]: 1.0}
+    if not components:
+        return None
+    raw = np.asarray([weight for _, weight in blocks], dtype=float)
+    total_weight = float(raw.sum())
+    if total_weight <= 0.0:
+        return None
+    normalized = raw / total_weight
+    contributions: list[float] = []
+    for (name, _weight), norm_weight in zip(blocks, normalized, strict=True):
+        key = f"{name}.total"
+        if key not in components:
+            return None
+        contributions.append(float(norm_weight) * float(components[key]))
+    denominator = float(sum(contributions))
+    if not np.isfinite(denominator) or abs(denominator) < 1.0e-15:
+        return None
+    return {
+        name: contribution / denominator
+        for (name, _weight), contribution in zip(blocks, contributions, strict=True)
+    }
+
+
+def mean_objective_block_shares(
+    blocks: Sequence[tuple[str, float]],
+    trial_components: Iterable[Mapping[str, float] | None],
+) -> tuple[dict[str, float], int] | None:
+    """Average each block's share of the cost over several trials.
+
+    Skips a trial whose share :func:`objective_block_shares` cannot compute.
+    Returns ``None`` when ``blocks`` is empty or none of the trials could;
+    otherwise the averaged shares and the count of trials that entered the
+    average, so a caller can say how many trials the mean actually covers.
+    """
+    if not blocks:
+        return None
+    sums: dict[str, float] = {name: 0.0 for name, _weight in blocks}
+    n = 0
+    for components in trial_components:
+        share = objective_block_shares(components, blocks)
+        if share is None:
+            continue
+        for name in sums:
+            sums[name] += share[name]
+        n += 1
+    if n == 0:
+        return None
+    return {name: total / n for name, total in sums.items()}, n
+
+
 def refuse_a_normalisation_that_means_nothing(block: str, metric: str) -> None:
     """Refuse ``normalize_cost`` where dividing by a reference scale says nothing.
 
@@ -593,4 +665,6 @@ __all__ = [
     "TIMELESS_SUPPORTS",
     "refuse_a_normalisation_that_means_nothing",
     "evaluate_objective",
+    "objective_block_shares",
+    "mean_objective_block_shares",
 ]
