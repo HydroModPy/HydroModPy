@@ -1957,6 +1957,26 @@ class CalibrationConfig(HydroModelBase):
             mode=written("mode"),
         )
 
+    def objective_blocks_for(
+        self, phase: CalibPhaseDecl | None = None
+    ) -> list[tuple[CalibObjectiveBlockDecl, float]]:
+        """Return the blocks a phase, or the whole section, scores, each with its weight.
+
+        Selection is :meth:`_blocks_scored_by`, the same a search itself reads.
+        The weight is the phase's own share when it names a table ``{block:
+        share}``, else the block's declared weight -- unnormalised, the same
+        way :class:`optim.objective.CompositeObjective` takes its own weights
+        before dividing by their sum. Empty for a single-metric route
+        (:attr:`CalibPhaseDecl.is_single_metric`, or the section route when it
+        declares no block). ``hmp calibrate --list-phases`` and ``--check``
+        read this to say what each block compares with what.
+        """
+        blocks = self._blocks_scored_by(phase)
+        if phase is not None and isinstance(phase.objective_blocks, dict):
+            shares = phase.objective_blocks
+            return [(block, float(shares[block.name])) for block in blocks if block.name in shares]
+        return [(block, float(block.weight)) for block in blocks]
+
     def _blocks_scored_by(self, phase: CalibPhaseDecl | None) -> list[CalibObjectiveBlockDecl]:
         """Return the blocks a search scores: the phase's, or every declared one.
 

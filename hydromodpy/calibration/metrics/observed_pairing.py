@@ -42,6 +42,9 @@ class PairedOutputs:
     observed: dict[str, list[float]]
     simulated: dict[str, list[float]]
     n_paired: dict[str, int]
+    dates: dict[str, tuple[pd.Timestamp, pd.Timestamp]]
+    """First and last retained date per output, after the scoring window and
+    the overlap have both been applied."""
 
     def dates_scored(self) -> int:
         """Return the smallest number of samples any output contributed."""
@@ -139,6 +142,7 @@ def pair_outputs_with_observations(
     paired_observed: dict[str, list[float]] = {}
     paired_simulated: dict[str, list[float]] = {}
     counts: dict[str, int] = {}
+    dates: dict[str, tuple[pd.Timestamp, pd.Timestamp]] = {}
 
     for name, record in observed.items():
         series = simulated.get(name)
@@ -180,8 +184,14 @@ def pair_outputs_with_observations(
         paired_observed[name] = [float(value) for value in frame["obs"]]
         paired_simulated[name] = [float(value) for value in frame["sim"]]
         counts[name] = len(frame)
+        dates[name] = (frame.index.min(), frame.index.max())
 
-    return PairedOutputs(observed=paired_observed, simulated=paired_simulated, n_paired=counts)
+    return PairedOutputs(
+        observed=paired_observed,
+        simulated=paired_simulated,
+        n_paired=counts,
+        dates=dates,
+    )
 
 
 def _span(series: pd.Series) -> str:

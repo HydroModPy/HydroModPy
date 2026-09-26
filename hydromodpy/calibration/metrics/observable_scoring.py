@@ -280,10 +280,12 @@ class ObservableScorer:
 
         objective = self._composite
         paired_counts: dict[str, int] = {}
+        paired_dates: dict[str, tuple[pd.Timestamp, pd.Timestamp]] = {}
         if self._observed:
             paired = self._align(series, starts)
             simulated.update(paired.simulated)
             paired_counts = dict(paired.n_paired)
+            paired_dates = dict(paired.dates)
             objective = build_objective_from_config(self._cfg, observed_by_output=paired.observed)
         try:
             value = objective.evaluate(simulated)
@@ -297,6 +299,13 @@ class ObservableScorer:
         components.update(
             {f"{name}.n_paired": float(count) for name, count in paired_counts.items()}
         )
+        # Dates are not a float, and components carries only floats, so the
+        # retained span travels as an ordinal day number -- day precision is
+        # all a hydrological record needs, and it survives the round trip
+        # through EvaluationResult.components with no timezone ambiguity.
+        for name, (start, end) in paired_dates.items():
+            components[f"{name}.date_start"] = float(pd.Timestamp(start).toordinal())
+            components[f"{name}.date_end"] = float(pd.Timestamp(end).toordinal())
         return float(value.total), components
 
 

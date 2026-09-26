@@ -403,7 +403,11 @@ def test_list_phases_says_where_the_mode_comes_from_when_the_tolerance_is_defaul
         argparse.Namespace(config=path, check=False, list_phases=True, phase=None, profile=None)
     )
 
-    k_line, sy_line = capsys.readouterr().out.splitlines()
+    # A block the phase compares prints an indented line under its own; keep
+    # only the phase lines, one per phase.
+    k_line, sy_line = (
+        line for line in capsys.readouterr().out.splitlines() if not line.startswith(" ")
+    )
     assert k_line.split("\t")[4] == (
         "width one mesh cell (default, measured on the mesh when the phase runs; "
         "mode absolute written in [calibration.uncertainty])"

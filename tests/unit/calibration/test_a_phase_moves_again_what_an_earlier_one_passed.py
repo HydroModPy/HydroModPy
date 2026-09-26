@@ -270,7 +270,9 @@ def test_under_grid_list_phases_says_the_engine_takes_no_start_point(tmp_path, c
     calibrate_cmd.run(
         argparse.Namespace(config=path, check=False, list_phases=True, phase=None, profile=None)
     )
-    lines = capsys.readouterr().out.splitlines()
+    # A block the phase compares prints an indented line under its own; keep
+    # only the phase lines, one per phase, the way phase_summaries lists them.
+    lines = [line for line in capsys.readouterr().out.splitlines() if not line.startswith(" ")]
     assert lines[0].split("\t")[:4] == ["0", "k_first", "grid", ""]
     assert lines[2].endswith(
         "\tre-opens K<-k_first, Sy<-sy_second, grid takes no start point and keeps its own"

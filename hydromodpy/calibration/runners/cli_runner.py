@@ -35,6 +35,7 @@ import time
 import uuid
 from collections.abc import Iterable, Mapping
 from dataclasses import replace
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -617,6 +618,36 @@ def _phase_objective_block_shares(
     return payload
 
 
+def _first_trial_pairing(history: list[EvaluationResult]) -> dict[str, dict[str, Any]] | None:
+    """Return, per output, the dates and pair count the first trial retained.
+
+    Read from ``history[0]`` rather than recomputed for every trial: the
+    pairing a search follows is set before the first candidate is scored and
+    does not change trial to trial, so the first one already says it for the
+    whole phase (``ObservableScorer.score`` in ``metrics/observable_scoring.py``
+    writes ``<name>.n_paired`` and ``<name>.date_start`` / ``<name>.date_end``
+    into the components of every trial, from ``PairedOutputs``,
+    ``metrics/observed_pairing.py``). ``None`` when no output names a station:
+    nothing was paired.
+    """
+    if not history:
+        return None
+    components = history[0].components or {}
+    names = sorted({key.rsplit(".", 1)[0] for key in components if key.endswith(".n_paired")})
+    if not names:
+        return None
+    pairing: dict[str, dict[str, Any]] = {}
+    for name in names:
+        entry: dict[str, Any] = {"n_paired": int(components[f"{name}.n_paired"])}
+        start = components.get(f"{name}.date_start")
+        end = components.get(f"{name}.date_end")
+        if start is not None and end is not None:
+            entry["start"] = date.fromordinal(int(start)).isoformat()
+            entry["end"] = date.fromordinal(int(end)).isoformat()
+        pairing[name] = entry
+    return pairing
+
+
 def attach_a_linearized_width(
     report: CalibrationReport,
     *,
@@ -1120,6 +1151,17 @@ def run_calibration_core(
         extra["correlated_parameters"] = correlated
     if intervals:
         extra["parameter_intervals"] = [interval.to_dict() for interval in intervals]
+    pairing = _first_trial_pairing(session.history)
+    if pairing:
+        logger.info(
+            "First trial paired: %s",
+            "; ".join(
+                f"{name} {info['n_paired']} pair(s)"
+                + (f" from {info['start']} to {info['end']}" if "start" in info else "")
+                for name, info in pairing.items()
+            ),
+        )
+        extra["first_trial_pairing"] = pairing
     extra.update(
         _network_k_over_r_extra(
             has_network_output=any(

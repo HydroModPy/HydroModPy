@@ -652,6 +652,7 @@ def test_calibrate_object_config_lists_its_phases(monkeypatch) -> None:
                 "on_distances": False,
                 "rule": "5 % of the best cost",
             },
+            "comparisons": [],
         }
     ]
 

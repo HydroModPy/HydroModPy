@@ -42,8 +42,15 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
 
-from hydromodpy.calibration.config import CalibPhaseDecl, CalibrationConfig
+from hydromodpy.calibration.config import (
+    CalibObjectiveBlockDecl,
+    CalibOutputDecl,
+    CalibPhaseDecl,
+    CalibrationConfig,
+)
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
+from hydromodpy.calibration.metrics.observed_pairing import OBSERVED_FAMILY_BY_VARIABLE
+from hydromodpy.calibration.metrics.series import DATA_FAMILY_SECTION
 from hydromodpy.calibration.optim.objective import (
     mean_objective_block_shares,
     objective_block_shares,
@@ -863,6 +870,146 @@ def _reuse_from_disk(
 
 
 # ---------------------------------------------------------------------------
+# Comparisons: what each block, or the single-metric route, compares with what
+# ---------------------------------------------------------------------------
+
+
+def _length_text(value: Any) -> str:
+    """Return a coordinate the way a report reads it: its bare magnitude.
+
+    ``:.10g`` rather than ``str()``: a document written by hand carries a bare
+    TOML number, ``0``, and one written by the Python-mode overlay round-trips
+    it through a pint string, ``0.0``. Both name the same coordinate, and a
+    phase-less comparison table built from either has to read the same either
+    way (``tests/unit/api/test_calibrate.py`` compares the two routes).
+    """
+    if value is None:
+        return "?"
+    magnitude = getattr(value, "magnitude", value)
+    return f"{float(magnitude):.10g}"
+
+
+def _output_where(output: CalibOutputDecl) -> str:
+    """Return where one output reads its simulated value, or '' for a network.
+
+    A network output names no cell of its own: what it is read against is the
+    file or the section its source names, which the caller adds as the
+    observed source instead.
+    """
+    support = str(getattr(output, "support", ""))
+    if support == "point":
+        if getattr(output, "geometry", None) is not None:
+            return "its declared geometry"
+        return f"({_length_text(output.x)}, {_length_text(output.y)})"
+    if support == "boundary":
+        return f"boundary {output.boundary_id!r}"
+    if support == "cell":
+        if getattr(output, "cell_id", None) is not None:
+            return f"cell {output.cell_id}"
+        return f"cell (row {output.row}, col {output.col})"
+    if support == "lake":
+        return f"lake {output.lake_id!r}"
+    return ""
+
+
+def _output_quantity(output: CalibOutputDecl) -> str:
+    """Return the simulated quantity one output reads: variable, support, where."""
+    variable = str(getattr(output, "variable", ""))
+    support = str(getattr(output, "support", ""))
+    where = _output_where(output)
+    return f"{variable} ({support}, {where})" if where else f"{variable} ({support})"
+
+
+def _observed_source(output: CalibOutputDecl) -> str:
+    """Return what one output is compared against.
+
+    A station and its ``[data.<family>]`` section for an output that
+    ``observes`` one; the file or the mapped source for a network output;
+    what ``observed_values`` carries otherwise.
+    """
+    observes = getattr(output, "observes", None)
+    if observes is not None:
+        variable = str(getattr(output, "variable", ""))
+        family = OBSERVED_FAMILY_BY_VARIABLE.get(variable)
+        section = DATA_FAMILY_SECTION.get(family) if family else None
+        return f"station {observes} ([data.{section}])" if section else f"station {observes}"
+    if str(getattr(output, "support", "")) == "network":
+        geometry = getattr(output, "stream_geometry_path", None)
+        if geometry is not None:
+            return str(geometry)
+        network = getattr(output, "observed_network", None)
+        return str(network) if network is not None else "no source declared"
+    values = getattr(output, "observed_values", None)
+    if values is not None:
+        return f"{len(values)} value(s) written in the file"
+    return "nothing declared"
+
+
+def _block_row(
+    outputs: Mapping[str, CalibOutputDecl], block: CalibObjectiveBlockDecl, share: float
+) -> dict[str, Any]:
+    """Return one row for a declared block: its criterion, share, and comparison."""
+    used = [name for name in block.uses_outputs if name in outputs]
+    return {
+        "block": block.name,
+        "metric": str(block.metric),
+        "share": share,
+        "quantity": "; ".join(_output_quantity(outputs[name]) for name in used),
+        "source": "; ".join(_observed_source(outputs[name]) for name in used),
+    }
+
+
+def _single_metric_row(cfg: CalibrationConfig, phase: CalibPhaseDecl | None) -> dict[str, Any]:
+    """Return the one row of the single-metric route: 'variable' scored by 'objective'."""
+    variable = str((phase.variable if phase is not None else None) or cfg.variable)
+    objective = str((phase.objective if phase is not None else None) or cfg.objective)
+    station = (phase.observed_station_id if phase is not None else None) or cfg.observed_station_id
+    family = OBSERVED_FAMILY_BY_VARIABLE.get(variable)
+    section = DATA_FAMILY_SECTION.get(family) if family else None
+    where = f"[data.{section}]" if section else "the loaded records"
+    source = f"station {station} ({where})" if station else f"every loaded station ({where})"
+    return {
+        "block": None,
+        "metric": objective,
+        "share": 1.0,
+        "quantity": f"{variable}, at the station(s) the project loads",
+        "source": source,
+    }
+
+
+def objective_comparison_table(
+    cfg: CalibrationConfig, phase: CalibPhaseDecl | None = None
+) -> list[dict[str, Any]]:
+    """Return, for a phase or the whole section, what each block compares with what.
+
+    One row per declared block, in declaration order: its criterion
+    (``metric``), its normalised share (:meth:`CalibrationConfig.objective_blocks_for`,
+    divided by the sum, as :class:`optim.objective.CompositeObjective`
+    normalises its own weights), the simulated quantity each of its outputs
+    reads, and what it is compared against. A phase that declares no block, or
+    a phase-less calibration with none either, takes the single-metric route
+    instead: one row for 'variable' scored by 'objective'.
+
+    Reads declarations only, no project data: this is what lets
+    ``--list-phases`` build it without the data on disk, and is why
+    ``--check`` can show it for a plain calibration's one search, which
+    ``--list-phases`` has no phase to attach it to.
+    """
+    single_metric = phase.is_single_metric if phase is not None else not cfg.objective_blocks
+    if single_metric:
+        return [_single_metric_row(cfg, phase)]
+    weighted = cfg.objective_blocks_for(phase)
+    if not weighted:
+        return []
+    outputs = cfg.outputs or {}
+    total = sum(weight for _, weight in weighted)
+    return [
+        _block_row(outputs, block, weight / total if total > 0 else 0.0)
+        for block, weight in weighted
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Listing
 # ---------------------------------------------------------------------------
 
@@ -883,6 +1030,9 @@ def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
     latest one before it that declares ``freeze_on_success`` on the same path,
     under any parameter name; at run time it passes its values on only if it
     converges.
+
+    ``comparisons`` is :func:`objective_comparison_table` for that phase: what
+    each of its blocks, or its single metric, compares with what.
     """
     rows: list[dict[str, Any]] = []
     passed_by: dict[str, str] = {}
@@ -912,6 +1062,7 @@ def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
             row["reopens"] = reopens
             row["starts_from_passed_values"] = engine_traits(method).accepts_a_start_point
         row["interval_width"] = cfg.interval_width_for(decl).to_dict()
+        row["comparisons"] = objective_comparison_table(cfg, decl)
         rows.append(row)
         if decl.freeze_on_success:
             passed_by.update({written_at(name): decl.name for name in decl.parameters})
@@ -1228,6 +1379,7 @@ __all__ = [
     "FrozenParameter",
     "PhaseRun",
     "StagedCalibrationReport",
+    "objective_comparison_table",
     "phase_summaries",
     "run_staged_calibration",
 ]

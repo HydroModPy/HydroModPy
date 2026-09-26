@@ -138,7 +138,10 @@ def test_list_phases_names_the_reason(tmp_path, capsys) -> None:
         argparse.Namespace(config=path, check=False, list_phases=True, phase=None, profile=None)
     )
 
-    lines = capsys.readouterr().out.splitlines()
+    # Each phase's own line starts with its index; a block it compares prints
+    # an indented line under it, so filter those out to keep one entry per
+    # phase, the way the file's own dict-based check already reads them.
+    lines = [line for line in capsys.readouterr().out.splitlines() if not line.startswith(" ")]
     assert lines[0].split("\t") == [
         "0",
         "k_gap",

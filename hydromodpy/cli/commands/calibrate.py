@@ -80,6 +80,7 @@ def _check_only(target: Path) -> None:
         findings = [PreflightFinding("error", target.name, f"the file does not load: {exc}")]
     else:
         _announce_the_protocol(cfg)
+        _announce_the_comparisons(cfg, target)
         findings = preflight_calibration(cfg, source=target)
     if not findings:
         print(f"{target.name}: ready to run.", file=sys.stderr)
@@ -155,6 +156,69 @@ def _rendered(value: object) -> str:
     if hasattr(value, "magnitude") and hasattr(value, "units"):
         return f"'{value:~P}'"
     return repr(value)
+
+
+def _announce_the_comparisons(cfg, source: Path) -> None:
+    """Print what each phase, or the whole section, compares with what.
+
+    One block per line: its criterion, its share, the simulated quantity and
+    what it is compared against. A plain calibration with no
+    ``[[calibration.phases]]`` still runs one search, so it gets one table
+    under ``[calibration]``; ``--list-phases`` has no phase line to print it
+    under, but ``--check`` names its one search here.
+
+    ``source`` anchors a relative ``stream_geometry_path`` the same way the
+    run would, so a network output's source reads the same path here as in
+    ``--list-phases``.
+    """
+    from hydromodpy.calibration.runners.cli_runner import resolve_stream_geometry_paths
+    from hydromodpy.calibration.runners.staged_runner import objective_comparison_table
+
+    calibration = getattr(cfg, "calibration", None)
+    if calibration is None:
+        return
+    resolve_stream_geometry_paths(calibration, source)
+    for phase in calibration.phases or [None]:
+        label = phase.name if phase is not None else "[calibration]"
+        table = objective_comparison_table(calibration, phase)
+        if not table:
+            continue
+        print(f"compares ({label}):", file=sys.stderr)
+        for row in table:
+            print(f"  {_comparison_line(row)}", file=sys.stderr)
+
+
+def _comparison_line(row: dict[str, Any]) -> str:
+    """Return one line of what a block, or the single-metric route, compares.
+
+    ``row`` is one entry of
+    :func:`hydromodpy.calibration.runners.staged_runner.objective_comparison_table`.
+    Its ``source`` keeps the absolute path a network output resolved to; here
+    only, formatting shortens it when it sits under the working directory, so
+    the line does not carry one checkout's full path.
+    """
+    label = row["block"] or "single metric"
+    source = _shortened_if_under_cwd(row["source"])
+    return (
+        f"{label}\t{row['metric']}\tshare {row['share'] * 100:.0f}%\t{row['quantity']}\tvs {source}"
+    )
+
+
+def _shortened_if_under_cwd(text: str) -> str:
+    """Return ``text`` relative to the working directory, when it is an absolute path under it.
+
+    ``text`` is usually not a path at all (a station name, a data section, a
+    count of hard-coded values), and those are left untouched: only an
+    absolute path both starts with a root and resolves under the directory
+    the command was run from.
+    """
+    path = Path(text)
+    if not path.is_absolute():
+        return text
+    try:
+        return str(path.relative_to(Path.cwd()))
+    except ValueError:
+        return text
 
 
 def _values_this_file_set(cfg, keys: list[str]) -> dict[str, object]:
@@ -357,6 +421,12 @@ def _format_calibration_result(result: Any) -> list[str]:
     elif "objective_block_shares_absent_note" in extra:
         lines.append(f"  cost share: {extra['objective_block_shares_absent_note']}")
 
+    pairing = extra.get("first_trial_pairing")
+    if pairing:
+        for name, info in pairing.items():
+            span = f" from {info['start']} to {info['end']}" if "start" in info else ""
+            lines.append(f"  {name}: {info['n_paired']} pair(s){span} (first trial)")
+
     return lines
 
 
@@ -427,6 +497,8 @@ def run(args: argparse.Namespace) -> None:
             return
         for index, phase in enumerate(phases):
             print(_phase_line(index, phase))
+            for row in phase.get("comparisons", []):
+                print(f"    {_comparison_line(row)}")
         return
 
     profile_output = resolve_profile_output(profile_arg, target)
