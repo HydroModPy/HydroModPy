@@ -3,8 +3,11 @@ display
 
 ``hydromodpy.display`` is the solver-agnostic figure layer. It wraps
 matplotlib through a registered catalog of named figures consumable
-from ``Run.plot``, ``hmp viz show``, ``hmp viz gallery``, and the
-``[display]`` TOML section.
+from ``hmp.figure``, ``hmp viz show``, ``hmp viz gallery``, and the
+``[display]`` TOML section. Its map, its import rules and where to add
+what are ``hydromodpy/display/README.md``, enforced by
+``tests/unit/architecture/display_layout.yaml`` and
+``tests/unit/architecture/test_package_layouts.py``.
 
 Sub-modules
 -----------
@@ -18,7 +21,10 @@ Sub-modules
   through ``pkgutil.iter_modules`` in
   ``display/figures/__init__.py``.
 - ``display/geo/`` -- shared geographic plotting helpers (scale bar
-  and north arrow on metric axes).
+  and north arrow on metric axes, ``project_gdf_for_metric_operations``).
+- ``display/runs.py`` -- the figures of a run: ``render_figures_for_run``
+  for the ``[display]`` list, ``render_figure`` for one figure,
+  ``figure_availability`` for what a run supports.
 - ``display/overview/`` -- composed overview report rendering used
   by the ``[overview]`` workflow.
 - ``display/report_blocks/`` -- shared static HTML block primitives
@@ -50,76 +56,46 @@ The renderer is currently used by overview reporting, site-selection
 review reports, the catchment report pipeline, and the
 network/transient calibration diagnostic page.
 
-Figure inventory (54 today)
----------------------------
+Figure inventory
+----------------
 
-Grouped by ``FigureSpec.kind``. ``hmp viz list`` prints the live list;
-this page is a reading aid, not the source of truth.
-
-Spatial (9): ``concentration_map``, ``downslope_distance_map``,
-``mesh_map``, ``piezometric_map``, ``recharge_map``, ``seepage_map``,
-``sfr_reach_network``, ``simulated_active_network``,
-``watertable_depth_map``.
-
-Section (1): ``cross_section``.
-
-Time series (13): ``bisection_bracket_trace``,
-``calibration_convergence``, ``calibration_trace``,
-``concentration_boxplot``,
-``downslope_distance_crossing``, ``duration_curve``,
-``hydrograph``, ``parameter_cost_profile``, ``recession``,
-``recession_power_law``, ``seasonal_boxplot``,
-``sfr_longitudinal_profile``, ``sfr_reach_timeseries``.
-
-Balance (3): ``flux_timeseries``, ``mass_balance_error``,
-``water_budget``.
-
-Comparison (27): ``matching_hydrographic_network_card``,
-``calibration_landscape``,
-``calibration_objective_surface``, ``calibration_pairplot``,
-``calibration_posterior``, ``conditioning_impact_map``,
-``difference_map``, ``ensemble_band``, ``hydrograph_sim_obs``,
-``hydrograph_log_nse``, ``hydrographic_network_comparison``,
-``hydrographic_network_generated``,
-``hydrographic_network_generated_extra_only``,
-``hydrographic_network_reference``,
-``hydrographic_network_reference_missing_only``,
-``lake_abacus_comparison``, ``lake_stage_sim_obs``,
-``lake_volume_sim_obs``, ``piezo_timeseries_sim_obs``, ``residuals``,
-``roptim_validity_chart``, ``scatter_one_to_one``,
-``seepage_network_confusion_map``,
-``seepage_network_reference_overlay``, ``side_by_side``,
-``simulated_active_network_reference_overlay``,
-``watershed_id_card``.
-
-Table (3): ``piper_diagram``, ``schoeller_diagram``,
-``stiff_diagram``.
-
-Particles (2): ``particle_tracks``,
-``residence_time_distribution``.
+The inventory is generated from the registry into
+:doc:`/user_guide/figures`, grouped by ``FigureSpec.kind``, with the title
+and the requirements of each figure. ``hmp viz list`` prints the live list,
+and ``hmp viz list --run <sim_id>`` says which figures one run supports and
+why not the others.
 
 Figure contract
 ---------------
 
 .. code-block:: python
 
-   @dataclass(frozen=True)
+   @dataclass(frozen=True, slots=True)
    class FigureSpec:
        name: str
        title: str
-       kind: str                     # "spatial" | "timeseries" | "balance" | "calibration" | ...
-       required_fields: tuple[str, ...]
-       optional_fields: tuple[str, ...]
-       required_tables: tuple[str, ...]
-       default_figsize: tuple[float, float]
+       former_names: tuple[str, ...] = ()
+       kind: FigureKind = "spatial"   # spatial, section, timeseries, balance,
+                                      # particles, table, comparison, animation
+       required_fields: tuple[str, ...] = ()
+       optional_fields: tuple[str, ...] = ()
+       required_tables: tuple[str, ...] = ()
+       required_solvers: tuple[str, ...] = ()
+       default_figsize: tuple[float, float] = (7.0, 5.0)
 
 
    class BaseFigure(ABC):
        """Implements plot() boilerplate (subplots + render + save)."""
-       spec: ClassVar[FigureSpec]
+       spec: FigureSpec
 
        @abstractmethod
        def render(self, sim: Run, ax: Axes, **opts) -> Axes: ...
+
+       def unavailable_reason(self, sim: Run) -> str | None: ...
+
+A figure a run cannot feed is refused by ``unavailable_reason`` with a
+sentence: skipped by ``[display].figures``, refused by ``hmp viz show`` and
+``hmp.figure``, and marked with its reason by ``hmp viz list --run``.
 
 The ``@register`` decorator places the class in the global registry
 keyed by ``spec.name``.
@@ -130,6 +106,8 @@ Key public symbols
 - ``hydromodpy.display.{get, list_figures, names}``
 - ``hydromodpy.display.figure.{FigureSpec, BaseFigure}``
 - ``hydromodpy.display.figure_registry.register``
+- ``hydromodpy.display.runs.{render_figures_for_run, render_figure,
+  figure_availability}``
 - ``hydromodpy.display.config.DisplayConfig``
 - ``hydromodpy.display.report_blocks.{ReportBlock, ReportMetric,
   ReportFigure, ReportTable, ReportLink}``
@@ -156,11 +134,16 @@ Layer-matrix neighbours
 -----------------------
 
 - Allowed targets: ``core``, ``schema``, ``results``, ``display``.
-- Allowed sources: ``analysis``, ``reporting``, ``workflow``,
-  ``project`` and ``cli``.
+- Allowed sources: the root facade (``<root>``), ``config``, ``analysis``,
+  ``reporting``, ``workflow``, ``project`` and ``cli``, each through the
+  modules the ``public`` list of ``display_layout.yaml`` names;
+  ``calibration`` through a tolerance of ``layer_matrix.yaml``, for
+  ``hydromodpy.display.report_blocks`` only.
 - ``display`` must not import ``data``, ``simulation``, ``solver``,
   ``calibration``. Reach data through ``Run`` (``run.field``,
-  ``run.timeseries``, ``run.budget``).
+  ``run.timeseries``, ``run.budget``) or a module function of ``results``.
+- Inside the package, the import rules are
+  ``hydromodpy/display/README.md`` ("Import rules").
 
 See also
 --------

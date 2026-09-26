@@ -6610,7 +6610,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L93>`__
    * - ``display.overrides``
      - ``dict[str, dict]``
-     - expert
+     - user
      - -
      - `display <display.html#display-overrides>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L102>`__

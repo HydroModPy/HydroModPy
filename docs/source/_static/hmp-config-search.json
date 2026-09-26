@@ -13360,7 +13360,7 @@
     "path": "display.overrides",
     "name": "overrides",
     "type": "dict[str, dict]",
-    "profile": "expert",
+    "profile": "user",
     "stability": "stable",
     "section": "display",
     "anchor": "display-overrides",

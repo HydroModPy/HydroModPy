@@ -39,7 +39,7 @@ Mesh- or raster-backed scalar maps of one persisted field.
      - Flow persistence
      - fields ``accumulation_flux``
    * - ``mesh_map``
-     - Solver mesh
+     - Model mesh
      - fields ``topography``
    * - ``parameter_map``
      - Parameter map
@@ -59,6 +59,9 @@ Mesh- or raster-backed scalar maps of one persisted field.
    * - ``simulated_active_network``
      - Simulated active network
      - fields ``accumulation_flux``
+   * - ``watershed_id_card``
+     - Watershed identity card
+     - (no fixed input)
    * - ``watertable_depth_map``
      - Water-table depth
      - fields ``watertable_depth``
@@ -224,7 +227,7 @@ Multi-panel views combining one or several runs, observed data, or calibration t
      - Generated extra-only view
      - (no fixed input)
    * - ``hydrographic_network_reference``
-     - BD Topage hydrographic network
+     - Reference hydrographic network
      - (no fixed input)
    * - ``hydrographic_network_reference_missing_only``
      - Reference missing-only view
@@ -265,9 +268,6 @@ Multi-panel views combining one or several runs, observed data, or calibration t
    * - ``simulated_active_network_reference_overlay``
      - Simulated active network vs reference
      - fields ``accumulation_flux``
-   * - ``watershed_id_card``
-     - Watershed identity card
-     - (no fixed input)
 
 Hydrochemistry diagrams
 ~~~~~~~~~~~~~~~~~~~~~~~

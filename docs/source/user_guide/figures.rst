@@ -31,6 +31,7 @@ From the CLI:
 .. code-block:: bash
 
    hmp viz list
+   hmp viz list --run <sim_id>
    hmp viz show <sim_id> <figure>
    hmp viz gallery project.toml
    hmp run project.toml --no-display
@@ -102,17 +103,29 @@ Applicability rule
 
 Figure names are stable entry points, but every figure depends on what the
 run persisted. Each figure declares its requirements in its ``FigureSpec``
-(``required_fields``, ``required_tables``, ``required_solvers``); the
-display layer checks them before rendering and skips the figure with an
-explicit reason when the run does not satisfy them. A configuration can
-therefore list every figure it may want: a run without particle tracking
-simply does not produce ``particle_tracks``.
+(``required_fields``, ``required_tables``, ``required_solvers``), and checks
+what ``FigureSpec`` cannot say (a network, a DEM raster, hydrochemistry, the
+series of a stream reach, a lake or a piezometer) itself. The display layer
+asks before rendering: ``[display].figures`` skips the figure with an explicit
+reason, and ``hmp viz show`` and ``hmp.figure`` refuse it with the same
+sentence. A configuration can therefore list every figure it may want: a run
+without particle tracking simply does not produce ``particle_tracks``.
+
+``difference_map`` and ``side_by_side`` compare two runs. They are drawn from
+Python, ``hmp.figure(run, "difference_map", reference=other_run)``, and say so
+when ``reference`` is missing.
 
 List the names and their requirements with:
 
 .. code-block:: bash
 
    hmp viz list
+
+Ask what one run supports, and why not the other figures, with:
+
+.. code-block:: bash
+
+   hmp viz list --run <sim_id>
 
 To inspect what a given run actually holds:
 

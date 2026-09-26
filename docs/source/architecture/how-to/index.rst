@@ -60,7 +60,7 @@ Recipes
       :link: add-a-figure
       :link-type: doc
 
-      Publish a named figure consumable by ``Run.plot`` and the
+      Publish a named figure consumable by ``hmp.figure`` and the
       ``[display]`` section.
 
    .. grid-item-card:: Add a block HTML report
