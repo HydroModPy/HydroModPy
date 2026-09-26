@@ -808,6 +808,9 @@ protocol = "matching_hydrographic_network"
 [calibration.outputs.streams]
 support = "network"
 stream_geometry_path = "streams.gpkg"
+
+[[data.hydrometry.sources]]
+station_ids = ["G1"]
 """
 
 _NO_PROTOCOL_TOML = """
@@ -823,12 +826,63 @@ def test_calibrate_expand_returns_only_what_the_protocol_writes(tmp_path: Path) 
 
     result = hmp.calibrate(config, expand=True)
 
-    assert set(result["calibration"]) == {"objective_blocks", "phases"}
+    assert set(result["calibration"]) == {"objective_blocks", "phases", "outputs"}
     phases = result["calibration"]["phases"]
     assert [phase["name"] for phase in phases] == ["steady_conductivity", "transient_storage"]
     assert result["calibration"]["objective_blocks"] == [
-        {"name": "network_extension", "metric": "distance_gap", "uses_outputs": ["streams"]}
+        {"name": "network_extension", "metric": "distance_gap", "uses_outputs": ["streams"]},
+        {"name": "hydrograph", "metric": "nse_log", "uses_outputs": ["hydrograph"]},
     ]
+    # The protocol's own output, not the file's: "streams" already sits in the
+    # file and stays out of what --expand adds.
+    assert set(result["calibration"]["outputs"]) == {"hydrograph"}
+    assert result["calibration"]["outputs"]["hydrograph"] == {
+        "variable": "discharge",
+        "support": "point",
+        "observes": "G1",
+    }
+
+
+_PROTOCOL_TOML_WITH_ITS_OWN_HYDROGRAPH = """
+[calibration]
+protocol = "matching_hydrographic_network"
+
+[calibration.parameters.K]
+
+[calibration.parameters.Sy]
+
+[calibration.outputs.streams]
+support = "network"
+stream_geometry_path = "streams.gpkg"
+
+[calibration.outputs.hydrograph]
+variable = "discharge"
+support = "point"
+observes = "G1"
+time = "all"
+reducer = "none"
+diagonal_neighbors = false
+
+[[data.hydrometry.sources]]
+station_ids = ["G1"]
+"""
+
+
+def test_calibrate_expand_does_not_repeat_an_output_the_file_already_declares(
+    tmp_path: Path,
+) -> None:
+    """A sealed run's own dump of the hydrograph output must not read as new.
+
+    The file spells out every default the protocol's own fresh write leaves
+    out (``time``, ``reducer``, ``diagonal_neighbors``); comparing raw dicts
+    would show it again under ``outputs`` as though the protocol had just
+    added it.
+    """
+    config = _write_toml(tmp_path / "calib.toml", _PROTOCOL_TOML_WITH_ITS_OWN_HYDROGRAPH)
+
+    result = hmp.calibrate(config, expand=True)
+
+    assert set(result["calibration"]) == {"objective_blocks", "phases"}
 
 
 def test_calibrate_expand_names_the_protocol_and_its_first_reference(tmp_path: Path) -> None:

@@ -900,6 +900,10 @@ def _output_where(output: CalibOutputDecl) -> str:
     if support == "point":
         if getattr(output, "geometry", None) is not None:
             return "its declared geometry"
+        if getattr(output, "x", None) is None or getattr(output, "y", None) is None:
+            # The schema requires 'x'/'y', 'geometry' or 'observes': none of the
+            # first two here means the station's own record locates the point.
+            return "its observed station's own cell"
         return f"({_length_text(output.x)}, {_length_text(output.y)})"
     if support == "boundary":
         return f"boundary {output.boundary_id!r}"

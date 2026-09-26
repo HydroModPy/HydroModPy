@@ -132,6 +132,9 @@ _PROTOCOL = textwrap.dedent(
     [calibration.outputs.seepage_network]
     support = "network"
     stream_geometry_path = "streams.gpkg"
+
+    [[data.hydrometry.sources]]
+    station_ids = ["G1"]
     """
 )
 

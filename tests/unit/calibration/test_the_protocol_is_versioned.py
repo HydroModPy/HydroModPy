@@ -42,6 +42,7 @@ def _doc(protocol: object) -> dict[str, object]:
     # xdist distribution that happened to run the poisoning class first.
     return {
         "simulation": copy.deepcopy(_SIMULATION),
+        "data": {"hydrometry": {"sources": [{"station_ids": ["NANCON"]}]}},
         "calibration": {
             "protocol": protocol,
             "parameters": {

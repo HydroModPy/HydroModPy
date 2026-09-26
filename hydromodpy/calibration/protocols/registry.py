@@ -28,9 +28,18 @@ _PROTOCOLS: dict[str, CalibrationProtocol] = {
 }
 
 WRITTEN_SECTIONS = ("objective_blocks", "phases")
-"""The ``[calibration]`` keys a protocol writes. Public so a caller unfolding
-a protocol on its own (``hmp calibrate --expand``) knows which keys of the
-expanded document came from the protocol rather than from the file itself."""
+"""The ``[calibration]`` keys a protocol owns in full: nothing the file
+declares there survives beside what the protocol produces, so a mismatch is a
+contradiction (:func:`expand_calibration_protocol`). Public so a caller
+unfolding a protocol on its own (``hmp calibrate --expand``) knows which keys
+came from the protocol rather than from the file itself.
+
+``outputs`` is deliberately absent: a protocol may add one entry there (the
+point output a block reads) beside outputs the file supplies for its own
+reasons (a network output's geometry), so the section is never protocol-owned
+in full and a whole-section comparison would refuse an ordinary file. What
+``--expand`` shows of it is computed separately, by diffing against what the
+file already declared (``hydromodpy._api._expand_calibration_section``)."""
 
 
 def available_protocols() -> tuple[str, ...]:
@@ -96,11 +105,12 @@ def expand_calibration_protocol(document: Mapping[str, Any]) -> dict[str, Any]:
             "write the stages by hand, or drop the stages to let the protocol write them."
         ) from exc
 
+    folded_calibration = _read_legacy_declaration(calibration, expanded["calibration"])
     contradicted = [
         key
         for key in already_written
         if not _declares_what_the_protocol_writes(
-            key, calibration[key], expanded["calibration"].get(key)
+            key, folded_calibration[key], expanded["calibration"].get(key)
         )
     ]
     if contradicted:
@@ -135,12 +145,10 @@ def _declares_what_the_protocol_writes(section: str, declared: Any, produced: An
     carries every default filled in, the fresh expansion only what the protocol
     spelled out, and nobody wrote the difference.
 
-    A stage sealed before phases said their ``regime`` spells it as overrides
-    and describes its steady window with dates. It is read as the regime it
-    states, and its description is not compared.
+    *declared* is read here as given: every recognized legacy spelling is
+    already folded by :func:`_read_legacy_declaration`, which runs once, on
+    the whole ``[calibration]`` table, before this is called per section.
     """
-    if section == "phases":
-        declared = _read_legacy_regimes(declared, produced)
     adapter = _section_adapter(section)
     try:
         here = adapter.dump_python(adapter.validate_python(declared), mode="json")
@@ -149,29 +157,107 @@ def _declares_what_the_protocol_writes(section: str, declared: Any, produced: An
     return here == adapter.dump_python(adapter.validate_python(produced or []), mode="json")
 
 
-def _read_legacy_regimes(declared: Any, produced: Any) -> Any:
-    """Return *declared* with each stage in the legacy spelling folded, else unchanged.
+def _read_legacy_declaration(
+    calibration: Mapping[str, Any], produced: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Return *calibration* with every recognized pre-migration spelling folded.
 
-    Stages are paired by position with the ones the protocol produced. A folded
-    stage takes the produced description, so the dates the old one embedded do
-    not count as a contradiction. A stage whose regime contradicts the produced
-    one still differs from it, and is still refused.
+    Two folds, paired by phase position with what the protocol produces today.
+
+    Regime: a stage sealed before phases said their own ``regime`` spells it
+    as ``overrides`` and describes its steady window with dates
+    (:func:`fold_a_legacy_regime`). It is read as the regime it states, and
+    its description is not compared.
+
+    Cost: a stage sealed before B11 scored itself with ``variable`` +
+    ``objective`` on the phase, with no block for it in ``objective_blocks``
+    at all -- a spelling that spans two sections of ``[calibration]``, so it
+    is folded jointly, here, rather than per section. The block it is short
+    of is read off the phase's own declared ``objective`` and only accepted
+    when it names the same metric the protocol produces today: a real drift
+    in the criterion still differs from it, and is still refused.
+
+    Neither fold changes what the run replays with: :func:`expand_calibration_protocol`
+    always overwrites both sections with the fresh expansion. This only
+    decides whether the sealed spelling is accepted as that expansion's own,
+    or refused as a contradiction of it.
     """
-    if not isinstance(declared, list) or not isinstance(produced, list):
-        return declared
+    folded = dict(calibration)
+    phases = calibration.get("phases")
+    produced_phases = produced.get("phases")
+    if not isinstance(phases, list) or not isinstance(produced_phases, list):
+        return folded
+
+    blocks_by_name: dict[Any, Mapping[str, Any]] = {
+        block.get("name"): block
+        for block in produced.get("objective_blocks") or []
+        if isinstance(block, Mapping)
+    }
+    declared_blocks = list(calibration.get("objective_blocks") or [])
+    declared_block_names = {
+        block.get("name") for block in declared_blocks if isinstance(block, Mapping)
+    }
+
     read: list[Any] = []
-    for index, phase in enumerate(declared):
-        fresh = produced[index] if index < len(produced) else None
+    for index, phase in enumerate(phases):
+        fresh = produced_phases[index] if index < len(produced_phases) else None
         if not isinstance(phase, Mapping) or not isinstance(fresh, Mapping):
             read.append(phase)
             continue
-        folded = fold_a_legacy_regime(phase, fresh.get("steady_window"))
-        if folded is None:
-            read.append(phase)
-            continue
-        folded["description"] = fresh.get("description", "")
-        read.append(folded)
-    return read
+        current: Mapping[str, Any] = phase
+        regime_folded = fold_a_legacy_regime(current, fresh.get("steady_window"))
+        if regime_folded is not None:
+            regime_folded["description"] = fresh.get("description", "")
+            current = regime_folded
+        metric_folded, implied_block = _fold_a_legacy_single_metric_stage(
+            current, fresh, blocks_by_name
+        )
+        if metric_folded is not None:
+            current = metric_folded
+            if implied_block is not None and implied_block not in declared_block_names:
+                declared_blocks.append(blocks_by_name[implied_block])
+                declared_block_names.add(implied_block)
+        read.append(current)
+
+    folded["phases"] = read
+    if "objective_blocks" in calibration:
+        folded["objective_blocks"] = declared_blocks
+    return folded
+
+
+def _fold_a_legacy_single_metric_stage(
+    phase: Mapping[str, Any],
+    fresh: Mapping[str, Any],
+    blocks_by_name: Mapping[Any, Mapping[str, Any]],
+) -> tuple[dict[str, Any] | None, Any]:
+    """Return a phase read as scoring the block its ``variable``/``objective`` imply.
+
+    Only when the phase carries the pre-B11 single-metric spelling, the phase
+    it pairs with today names exactly one block, and that block's metric is
+    the one the phase's own ``objective`` already names: a phase whose
+    objective differs is a real drift, not this spelling, and is left
+    unfolded so the normal comparison refuses it.
+
+    Returns the folded phase and the name of the block it was found to imply,
+    or ``(None, None)`` when this is not that spelling.
+    """
+    if phase.get("variable") is None and phase.get("objective") is None:
+        return None, None
+    if phase.get("objective_blocks"):
+        return None, None
+    fresh_blocks = fresh.get("objective_blocks")
+    if not isinstance(fresh_blocks, list) or len(fresh_blocks) != 1:
+        return None, None
+    name = fresh_blocks[0]
+    block = blocks_by_name.get(name)
+    if not isinstance(block, Mapping) or str(block.get("metric")) != str(phase.get("objective")):
+        return None, None
+    folded = dict(phase)
+    folded["objective_blocks"] = [name]
+    folded["variable"] = None
+    folded["objective"] = None
+    folded["observed_station_id"] = None
+    return folded, name
 
 
 def protocol_options_away_from_the_recipe(

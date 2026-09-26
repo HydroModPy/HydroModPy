@@ -44,6 +44,9 @@ _TOML = textwrap.dedent(
     [calibration.outputs.seepage_network]
     support = "network"
     stream_geometry_path = "network.gpkg"
+
+    [[data.hydrometry.sources]]
+    station_ids = ["G1"]
     """
 )
 

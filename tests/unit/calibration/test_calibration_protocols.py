@@ -46,6 +46,7 @@ def _doc(**calibration: object) -> dict[str, object]:
     # so the damage showed up as an intermittent red in unrelated tests.
     return {
         "simulation": copy.deepcopy(_SIMULATION),
+        "data": {"hydrometry": {"sources": [{"station_ids": ["NANCON"]}]}},
         "calibration": {
             "protocol": "matching_hydrographic_network",
             "parameters": {
@@ -126,20 +127,117 @@ class TestWhatItWrites:
         transient = expand_calibration_protocol(_doc())["calibration"]["phases"][1]
 
         assert transient["parameters"] == ["Sy"]
-        assert transient["variable"] == "discharge"
-        assert transient["objective"] == "nse_log"
+        assert "variable" not in transient
+        assert "objective" not in transient
+        assert transient["objective_blocks"] == ["hydrograph"]
         assert transient["depends_on"] == "steady_conductivity"
         assert transient["regime"] == "transient"
         assert "overrides" not in transient
+
+    def test_the_second_stage_s_cost_is_a_point_output_that_observes_the_gauge(self) -> None:
+        expanded = expand_calibration_protocol(_doc())["calibration"]
+
+        output = expanded["outputs"]["hydrograph"]
+        assert output["support"] == "point"
+        assert output["variable"] == "discharge"
+        assert output["observes"] == "NANCON"
+
+        block = next(b for b in expanded["objective_blocks"] if b["name"] == "hydrograph")
+        assert block["metric"] == "nse_log"
+        assert block["uses_outputs"] == ["hydrograph"]
+
+    def test_a_sealed_hydrograph_output_with_every_default_filled_in_still_reads_back(
+        self,
+    ) -> None:
+        """A persisted document spells out every default the fresh write leaves out."""
+        from hydromodpy.calibration.config import CalibOutputPoint
+
+        once = expand_calibration_protocol(_doc())["calibration"]
+        dumped = CalibOutputPoint.model_validate(once["outputs"]["hydrograph"]).model_dump(
+            mode="json", exclude_none=True
+        )
+        assert len(dumped) > 3  # more than variable/support/observes: real defaults filled in
+
+        doc = _doc()
+        doc["calibration"]["outputs"]["hydrograph"] = dumped
+
+        expanded = expand_calibration_protocol(doc)["calibration"]
+
+        assert expanded["outputs"]["hydrograph"]["observes"] == "NANCON"
+
+    def test_a_genuinely_different_hydrograph_output_is_still_refused(self) -> None:
+        doc = _doc()
+        doc["calibration"]["outputs"]["hydrograph"] = {
+            "variable": "head",
+            "support": "point",
+            "x": 1.0,
+            "y": 2.0,
+        }
+
+        with pytest.raises(ValueError, match="reserved"):
+            expand_calibration_protocol(doc)
 
     def test_it_wires_the_network_output_into_an_objective_block(self) -> None:
         expanded = expand_calibration_protocol(_doc())["calibration"]
 
         blocks = expanded["objective_blocks"]
-        assert len(blocks) == 1
+        assert len(blocks) == 2
         assert blocks[0]["metric"] == "distance_gap"
         assert blocks[0]["uses_outputs"] == ["seepage_network"]
         assert expanded["phases"][0]["objective_blocks"] == [blocks[0]["name"]]
+
+    def test_no_storage_means_no_hydrograph_output_either(self) -> None:
+        doc = _doc(protocol={"name": "matching_hydrographic_network", "storage": None})
+        del doc["calibration"]["parameters"]["Sy"]
+
+        expanded = expand_calibration_protocol(doc)["calibration"]
+
+        assert "hydrograph" not in (expanded.get("outputs") or {})
+        assert len(expanded["objective_blocks"]) == 1
+
+    def test_an_explicit_station_wins_over_the_loaded_one(self) -> None:
+        doc = _doc(
+            protocol={"name": "matching_hydrographic_network", "observed_station_id": "OTHER"}
+        )
+        doc["data"]["hydrometry"]["sources"][0]["station_ids"] = ["NANCON", "OTHER"]
+
+        expanded = expand_calibration_protocol(doc)["calibration"]
+
+        assert expanded["outputs"]["hydrograph"]["observes"] == "OTHER"
+
+    def test_an_ambiguous_station_falls_back_to_the_single_metric_route(self) -> None:
+        """Several stations named: not B11's to guess, so it keeps the old route."""
+        doc = _doc()
+        doc["data"]["hydrometry"]["sources"][0]["station_ids"] = ["NANCON", "OTHER"]
+
+        transient = expand_calibration_protocol(doc)["calibration"]["phases"][1]
+
+        assert transient["variable"] == "discharge"
+        assert transient["objective"] == "nse_log"
+        assert "objective_blocks" not in transient
+
+    def test_a_source_discovered_at_load_time_falls_back_too(self) -> None:
+        """No 'station_ids' at all (an 'extent' or a 'mask_path'): not knowable here."""
+        doc = _doc()
+        doc["data"]["hydrometry"]["sources"][0] = {"extent": [0, 0, 1, 1]}
+
+        expanded = expand_calibration_protocol(doc)["calibration"]
+
+        transient = expanded["phases"][1]
+        assert transient["variable"] == "discharge"
+        assert "objective_blocks" not in transient
+        assert "hydrograph" not in (expanded.get("outputs") or {})
+
+    def test_no_loaded_station_falls_back_too(self) -> None:
+        doc = _doc()
+        doc["data"] = {}
+
+        expanded = expand_calibration_protocol(doc)["calibration"]
+
+        transient = expanded["phases"][1]
+        assert transient["variable"] == "discharge"
+        assert "objective_blocks" not in transient
+        assert "hydrograph" not in (expanded.get("outputs") or {})
 
     def test_the_published_engine_is_the_default_and_stays_replaceable(self) -> None:
         assert expand_calibration_protocol(_doc())["calibration"]["phases"][0]["method"] == (
@@ -403,6 +501,59 @@ class TestItReadsBackARunSealedBeforeTheRegime:
 
         with pytest.raises(ValueError, match="phases"):
             expand_calibration_protocol(_doc(protocol=protocol, phases=_sealed_before_the_regime()))
+
+    def test_a_transient_stage_scored_by_variable_and_objective_still_reads_back(self) -> None:
+        """Before B11 the transient stage's cost lived in ``variable`` + ``objective``."""
+        sealed = _sealed_before_the_regime()
+        assert sealed[1]["variable"] == "discharge"
+        assert sealed[1]["objective"] == "nse_log"
+
+        expanded = expand_calibration_protocol(_doc(phases=sealed))["calibration"]
+
+        assert expanded["phases"][1]["objective_blocks"] == ["hydrograph"]
+
+    def test_a_transient_objective_that_no_longer_matches_is_refused(self) -> None:
+        """A real drift in the criterion is not this legacy spelling."""
+        sealed = _sealed_before_the_regime()
+        sealed[1]["objective"] = "kge"
+
+        with pytest.raises(ValueError, match="phases"):
+            expand_calibration_protocol(_doc(phases=sealed))
+
+    def test_a_sealed_objective_blocks_list_short_one_block_still_reads_back(self) -> None:
+        """A run sealed before B11 also declares only the network block.
+
+        The cost span two sections: the phase says ``variable``/``objective``, and
+        ``[calibration.objective_blocks]`` never had a hydrograph entry to match.
+        Reading the two back together must not refuse the file as a contradiction.
+        """
+        sealed_blocks = [
+            {
+                "name": "network_extension",
+                "metric": "distance_gap",
+                "uses_outputs": ["seepage_network"],
+            }
+        ]
+
+        expanded = expand_calibration_protocol(
+            _doc(phases=_sealed_before_the_regime(), objective_blocks=sealed_blocks)
+        )["calibration"]
+
+        assert [block["name"] for block in expanded["objective_blocks"]] == [
+            "network_extension",
+            "hydrograph",
+        ]
+
+    def test_a_sealed_stage_still_reads_back_when_the_station_is_still_not_known(self) -> None:
+        """The other legacy spelling: still single-metric today, so nothing to fold."""
+        doc = _doc(phases=_sealed_before_the_regime())
+        doc["data"]["hydrometry"]["sources"][0]["station_ids"] = ["NANCON", "OTHER"]
+
+        expanded = expand_calibration_protocol(doc)["calibration"]
+
+        transient = expanded["phases"][1]
+        assert transient["variable"] == "discharge"
+        assert "objective_blocks" not in transient
 
 
 class TestOneSpellingOfAnInstant:

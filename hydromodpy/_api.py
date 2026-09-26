@@ -485,10 +485,13 @@ def _expand_calibration_section(target: Path) -> dict[str, Any]:
     :func:`hydromodpy.calibration.protocols.expand_calibration_protocol`. A
     file naming no protocol gets its own section back, ``protocol`` key
     aside: nothing was unfolded, so there is nothing else to say. A file
-    naming one gets only :data:`~hydromodpy.calibration.protocols.WRITTEN_SECTIONS`
-    (``objective_blocks``, ``phases``): the rest of the section -- parameters,
-    outputs, seed -- already sits in the file or its ``base_config`` and does
-    not need restating.
+    naming one gets :data:`~hydromodpy.calibration.protocols.WRITTEN_SECTIONS`
+    (``objective_blocks``, ``phases``) in full, plus any output the protocol
+    introduced under ``outputs`` that the file did not already declare (a
+    protocol may add one, such as the point output its transient stage reads,
+    beside the network output the file supplies itself): the rest of the
+    section -- parameters, the file's own outputs, seed -- already sits in
+    the file or its ``base_config`` and does not need restating.
     """
     from hydromodpy.calibration.protocols import (
         WRITTEN_SECTIONS,
@@ -522,6 +525,18 @@ def _expand_calibration_section(target: Path) -> dict[str, Any]:
     section = {
         key: expanded_calibration[key] for key in WRITTEN_SECTIONS if key in expanded_calibration
     }
+    from hydromodpy.calibration.config import outputs_agree
+
+    declared_outputs = calibration.get("outputs") or {}
+    produced_outputs = expanded_calibration.get("outputs") or {}
+    new_outputs = {
+        output_name: decl
+        for output_name, decl in produced_outputs.items()
+        if output_name not in declared_outputs
+        or not outputs_agree(declared_outputs[output_name], decl)
+    }
+    if new_outputs:
+        section["outputs"] = new_outputs
     citation = None
     if protocol.references:
         reference = protocol.references[0]

@@ -42,7 +42,7 @@ def _list_phases(path: Path, capsys) -> str:
     return capsys.readouterr().out
 
 
-def test_the_protocol_file_shows_a_network_row_and_a_single_metric_row(capsys) -> None:
+def test_the_protocol_file_shows_a_network_row_and_a_hydrograph_block_row(capsys) -> None:
     out = _list_phases(EXAMPLE_04 / "run_calibration.toml", capsys)
 
     lines = out.splitlines()
@@ -52,8 +52,8 @@ def test_the_protocol_file_shows_a_network_row_and_a_single_metric_row(capsys) -
     )
     assert lines[2].startswith("1\ttransient_storage\tscipy_nelder_mead\t")
     assert lines[3] == (
-        "    single metric\tnse_log\tshare 100%\tdischarge, at the station(s) the "
-        "project loads\tvs every loaded station ([data.hydrometry])"
+        "    hydrograph\tnse_log\tshare 100%\tdischarge (point, its observed station's "
+        "own cell)\tvs station NANCON ([data.hydrometry])"
     )
     assert len(lines) == 4
 

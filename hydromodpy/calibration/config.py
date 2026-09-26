@@ -394,8 +394,11 @@ class CalibOutputPoint(ScoresAnObservedRecord, HydroModelBase):
 
     @model_validator(mode="after")
     def _check_point_selectors(self) -> CalibOutputPoint:
-        if (self.x is None or self.y is None) and self.geometry is None:
-            raise ValueError("support='point' requires both 'x' and 'y', or 'geometry'.")
+        if self.observes is None and (self.x is None or self.y is None) and self.geometry is None:
+            raise ValueError(
+                "support='point' requires both 'x' and 'y', or 'geometry', unless "
+                "'observes' names a station: its own record locates the point instead."
+            )
         _check_snap_radius(self.snap_radius, self.variable, support="point")
         return self
 
@@ -749,6 +752,27 @@ def validate_calib_output(
 ):
     """Validate one output mapping and return the concrete variant instance."""
     return _CALIB_OUTPUT_ADAPTER.validate_python(payload)
+
+
+def outputs_agree(here: Any, there: Any) -> bool:
+    """Say whether two output declarations describe the same output.
+
+    Compared through the model rather than raw: a persisted document spells
+    out every default (``time``, ``reducer``, ``diagonal_neighbors``, ...)
+    that a freshly written declaration leaves out, and the two describe the
+    same output either way. Returns ``False`` on anything that does not
+    validate as an output, rather than raising.
+    """
+    try:
+        dumped_here = _CALIB_OUTPUT_ADAPTER.dump_python(
+            _CALIB_OUTPUT_ADAPTER.validate_python(here), mode="json"
+        )
+        dumped_there = _CALIB_OUTPUT_ADAPTER.dump_python(
+            _CALIB_OUTPUT_ADAPTER.validate_python(there), mode="json"
+        )
+    except ValidationError:
+        return False
+    return dumped_here == dumped_there
 
 
 class CalibScoringWindow(HydroModelBase):

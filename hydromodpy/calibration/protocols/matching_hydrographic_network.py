@@ -25,12 +25,14 @@ import copy
 from collections.abc import Mapping
 from typing import Any
 
-from hydromodpy.calibration.config import MatchingHydrographicNetworkOptions
+from hydromodpy.calibration.config import MatchingHydrographicNetworkOptions, outputs_agree
 from hydromodpy.calibration.protocols.base import Deviation, Reference
 
 STEADY_STAGE = "steady_conductivity"
 TRANSIENT_STAGE = "transient_storage"
 NETWORK_BLOCK = "network_extension"
+HYDROGRAPH_OUTPUT = "hydrograph"
+HYDROGRAPH_BLOCK = "hydrograph"
 
 
 class MatchingHydrographicNetwork:
@@ -180,7 +182,16 @@ class MatchingHydrographicNetwork:
     publication needs to know that the engine was swapped."""
 
     def expand(self, options: Mapping[str, Any], document: Mapping[str, Any]) -> dict[str, Any]:
-        """Return the document with the two stages and their objective block written."""
+        """Return the document with the two stages and their objective block written.
+
+        The transient stage scores itself through a block that reads a point
+        output observing the gauging station, except when that station is not
+        known from the document alone (several loaded, or a source that
+        discovers its stations at load time): then it keeps writing
+        ``variable`` + ``objective``, the single-metric route, which resolves
+        the station once the records are loaded, exactly as before this stage
+        could name a block at all.
+        """
         opts = MatchingHydrographicNetworkOptions.model_validate(
             {"name": self.name, **dict(options)}
         )
@@ -199,16 +210,29 @@ class MatchingHydrographicNetwork:
         if opts.storage is not None:
             _require_parameter(parameters, opts.storage, "storage", opts.storage)
 
-        network_output = _resolve_network_output(calibration.get("outputs") or {}, opts)
+        outputs = dict(calibration.get("outputs") or {})
+        network_output = _resolve_network_output(outputs, opts)
 
-        calibration["objective_blocks"] = [
+        objective_blocks = [
             {
                 "name": NETWORK_BLOCK,
                 "metric": opts.steady_metric,
                 "uses_outputs": [network_output],
             }
         ]
-        calibration["phases"] = _phases(opts)
+        station = _resolve_observed_station(document, opts) if opts.storage is not None else None
+        if station is not None:
+            _write_hydrograph_output(outputs, opts, station)
+            objective_blocks.append(
+                {
+                    "name": HYDROGRAPH_BLOCK,
+                    "metric": opts.transient_metric,
+                    "uses_outputs": [HYDROGRAPH_OUTPUT],
+                }
+            )
+        calibration["outputs"] = outputs
+        calibration["objective_blocks"] = objective_blocks
+        calibration["phases"] = _phases(opts, scores_a_known_station=station is not None)
         expanded["calibration"] = calibration
         return expanded
 
@@ -259,7 +283,78 @@ def _resolve_network_output(
     return candidates[0]
 
 
-def _phases(opts: MatchingHydrographicNetworkOptions) -> list[dict[str, Any]]:
+def _resolve_observed_station(
+    document: Mapping[str, Any], opts: MatchingHydrographicNetworkOptions
+) -> str | None:
+    """Return the one gauging station to observe, or ``None`` when it is not known here.
+
+    Named explicitly, ``observed_station_id`` always answers. Otherwise the
+    station is read statically, from the file's own
+    ``[[data.hydrometry.sources]]``: the protocol writes the output before any
+    data is loaded, unlike ``discharge_target``, which resolves the same
+    question at run time from what actually got loaded.
+
+    ``None`` is returned, not raised, for exactly what ``discharge_target``
+    itself has to resolve at run time: a source that discovers its stations
+    at load time (an ``extent`` or a ``mask_path``, no ``station_ids``), or
+    several named across the sources. Guessing wrong here would write a block
+    fitted to the wrong gauge and never say so; the caller falls back to the
+    single-metric route instead, which keeps resolving it as it always has.
+    """
+    if opts.observed_station_id is not None:
+        return opts.observed_station_id
+
+    data = document.get("data")
+    hydrometry = data.get("hydrometry") if isinstance(data, Mapping) else None
+    sources = hydrometry.get("sources") if isinstance(hydrometry, Mapping) else None
+    if not isinstance(sources, list) or not sources:
+        return None
+
+    candidates: set[str] = set()
+    for source in sources:
+        if not isinstance(source, Mapping):
+            return None
+        station_ids = source.get("station_ids")
+        if not station_ids:
+            return None
+        for station_id in station_ids:
+            candidates.add(str(station_id))
+
+    return next(iter(candidates)) if len(candidates) == 1 else None
+
+
+def _write_hydrograph_output(
+    outputs: dict[str, Any], opts: MatchingHydrographicNetworkOptions, station: str
+) -> None:
+    """Write, or check, the point output the transient stage's block reads.
+
+    The output's location is the station's own record, not a coordinate: a
+    'point' output needs neither 'x'/'y' nor 'geometry' once it 'observes' one.
+    A file that already names ``HYDROGRAPH_OUTPUT`` for something else is
+    refused rather than silently overwritten, the same way a name collision on
+    a parameter is. Compared through the output model
+    (:func:`hydromodpy.calibration.config.outputs_agree`), not raw: a sealed
+    run's own dump spells out every default this bare declaration leaves out,
+    and reloading it must not read as a collision with itself.
+    """
+    written = {
+        "variable": opts.discharge_variable,
+        "support": "point",
+        "observes": station,
+    }
+    existing = outputs.get(HYDROGRAPH_OUTPUT)
+    if existing is not None and not outputs_agree(existing, written):
+        raise ValueError(
+            f"[calibration.outputs].{HYDROGRAPH_OUTPUT!r} is reserved for the point "
+            "output the transient stage of protocol 'matching_hydrographic_network' "
+            "writes, and this file declares something else there. Rename it."
+        )
+    outputs[HYDROGRAPH_OUTPUT] = written
+
+
+def _phases(
+    opts: MatchingHydrographicNetworkOptions, *, scores_a_known_station: bool
+) -> list[dict[str, Any]]:
     # The regime says steady and runners/phase_regime.py writes what it means:
     # one period over the window, read from [simulation.time] unless the file
     # names one. So the stages written here never depend on how a date is spelled.
@@ -295,23 +390,30 @@ def _phases(opts: MatchingHydrographicNetworkOptions) -> list[dict[str, Any]]:
         "method": opts.transient_method,
         "max_iter": opts.transient_max_iter,
         "parameters": [opts.storage],
-        "variable": opts.discharge_variable,
-        "objective": opts.transient_metric,
         "depends_on": STEADY_STAGE,
         "regime": "transient",
     }
+    if scores_a_known_station:
+        transient["objective_blocks"] = [HYDROGRAPH_BLOCK]
+    else:
+        # observed_station_id is unset here: a set one always resolves a
+        # station (see _resolve_observed_station), so this route is only
+        # reached with several stations loaded, or a source that discovers
+        # its own at load time; discharge_target refuses the former by name.
+        transient["variable"] = opts.discharge_variable
+        transient["objective"] = opts.transient_metric
     if opts.transient_tolerance is not None:
         transient["tolerance"] = float(opts.transient_tolerance)
     if opts.transient_engine_options:
         transient["optimizer_kwargs"] = dict(opts.transient_engine_options)
-    if opts.observed_station_id is not None:
-        transient["observed_station_id"] = opts.observed_station_id
     if opts.scoring_window is not None:
         transient["scoring_window"] = dict(opts.scoring_window)
     return [steady, transient]
 
 
 __all__ = [
+    "HYDROGRAPH_BLOCK",
+    "HYDROGRAPH_OUTPUT",
     "NETWORK_BLOCK",
     "STEADY_STAGE",
     "TRANSIENT_STAGE",
