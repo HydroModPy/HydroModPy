@@ -372,3 +372,24 @@ def test_one_figure_gets_its_dpi_and_lands_in_the_directory_it_is_given(
 
     assert patched_registry["piezometric_map"].calls == [(tmp_path / "piezometric_map.png", 300)]
     assert (tmp_path / "piezometric_map.png").is_file()
+
+
+def test_the_availability_of_a_run_names_each_figure_and_its_reason(
+    monkeypatch, patched_registry, runs_module
+):
+    monkeypatch.setattr(
+        runs_module,
+        "_list_figures",
+        lambda: [
+            FigureSpec(name="piezometric_map", title="piezometric_map"),
+            FigureSpec(name="na_particles", title="na_particles"),
+        ],
+    )
+
+    availability = runs_module.figure_availability(_StubRun())
+
+    assert [(spec.name, reason) for spec, reason in availability] == [
+        ("piezometric_map", None),
+        ("na_particles", "stub is not applicable"),
+    ]
+    assert all(stub.calls == [] for stub in patched_registry.values()), "nothing is drawn"

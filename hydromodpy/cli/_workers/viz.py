@@ -44,6 +44,22 @@ def render_figure(
         return save
 
 
+def figure_availability(sim_ref: str, *, workspace: Any = None) -> list[tuple[Any, str | None]]:
+    """Return every registered figure with the reason the run cannot feed it.
+
+    ``None`` marks a figure the run supports. The index is opened read-only.
+    """
+    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.display.runs import figure_availability as availability_of
+    from hydromodpy.results.catalog import Catalog
+
+    workspace_root = resolve_project_root(
+        Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
+    )
+    with Catalog(workspace_root, read_only=True) as catalog:
+        return availability_of(catalog[catalog.resolve(sim_ref)])
+
+
 def render_gallery(
     config_toml: Any,
     *,

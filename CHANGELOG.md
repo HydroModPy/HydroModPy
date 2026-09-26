@@ -166,6 +166,11 @@ Each release section includes the following standard categories:
 - `hydromodpy.results.run.particles.has_particle_tracks(run, timed=False)`,
   which says whether at least one particle moved (and, with `timed=True`,
   carries a clock) from the first two steps of each particle.
+- `hmp viz list --run <ref>` says, for each figure, whether that run supports
+  it or why not (`--workspace` as for `hmp viz show`, `--kind` still filters).
+  Without `--run` the listing is unchanged. The Python side is
+  `hydromodpy.display.runs.figure_availability(run)`, which returns each figure
+  spec with its reason, `None` for a figure the run supports.
 - `hydromodpy.display.geo.project_gdf_for_metric_operations`, which puts a
   GeoDataFrame in a metric CRS. `reporting` and the network figures imported it
   under a private name from a figure module. The network figures also share

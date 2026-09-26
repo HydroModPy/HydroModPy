@@ -455,3 +455,51 @@ def test_viz_gallery_cli_splits_only_and_maps_missing_run(monkeypatch, tmp_path)
         },
     }
     assert "No run named 'baseline'" in result.stderr
+
+
+def _availability(sim_ref: str, *, workspace: object = None):
+    from hydromodpy.display.figure import FigureSpec
+
+    return [
+        (FigureSpec(name="piezometric_map", title="p", kind="spatial"), None),
+        (
+            FigureSpec(name="particle_tracks", title="t", kind="particles"),
+            "missing result field(s): particles",
+        ),
+    ]
+
+
+def test_viz_list_run_says_which_figures_the_run_supports(monkeypatch) -> None:
+    monkeypatch.setattr("hydromodpy.cli._workers.viz.figure_availability", _availability)
+
+    result = CliRunner().invoke(["viz", "list", "--run", "abc123"])
+
+    assert result.exit_code == 0
+    lines = result.stdout.splitlines()
+    assert lines[0].split() == ["piezometric_map", "spatial", "available"]
+    assert lines[1].split()[:2] == ["particle_tracks", "particles"]
+    assert lines[1].endswith("missing result field(s): particles")
+    assert "2 figure(s), 1 available for abc123" in result.stdout
+
+
+def test_viz_list_run_keeps_the_kind_filter(monkeypatch) -> None:
+    monkeypatch.setattr("hydromodpy.cli._workers.viz.figure_availability", _availability)
+
+    result = CliRunner().invoke(["viz", "list", "--run", "abc123", "--kind", "particles"])
+
+    assert "piezometric_map" not in result.stdout
+    assert "1 figure(s), 0 available for abc123" in result.stdout
+
+
+def test_viz_list_run_maps_an_unknown_run_to_not_found(monkeypatch) -> None:
+    from hydromodpy.results.catalog import SimulationNotFoundError
+
+    def unknown(sim_ref: str, *, workspace: object = None):
+        raise SimulationNotFoundError(f"Reference {sim_ref!r} not found.")
+
+    monkeypatch.setattr("hydromodpy.cli._workers.viz.figure_availability", unknown)
+
+    result = CliRunner().invoke(["viz", "list", "--run", "nope"])
+
+    assert result.exit_code == 10
+    assert "Reference 'nope' not found." in result.stderr

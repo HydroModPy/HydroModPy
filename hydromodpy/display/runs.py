@@ -22,6 +22,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.progress import MILESTONE
 from hydromodpy.core.state.paths import display_path
 from hydromodpy.display import get as _get_figure
+from hydromodpy.display import list_figures as _list_figures
 from hydromodpy.display.renderer import matplotlib_backend
 from hydromodpy.display.theme import apply_theme
 
@@ -29,7 +30,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure as MplFigure
 
     from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.display.figure import BaseFigure
+    from hydromodpy.display.figure import BaseFigure, FigureSpec
     from hydromodpy.results.run import Run
 
 logger = get_logger(__name__)
@@ -211,6 +212,17 @@ def render_figure(
     if dpi is not None:
         opts["dpi"] = dpi
     return fig.plot(sim, save_path=save_path, **opts)
+
+
+def figure_availability(sim: Run) -> list[tuple[FigureSpec, str | None]]:
+    """Return every registered figure with the reason ``sim`` cannot feed it.
+
+    The reason is ``None`` for a figure the run supports. Each figure answers
+    through its own ``unavailable_reason``, the check ``[display].figures`` and
+    ``render_figure`` apply before drawing, so the list says in advance what
+    those would skip or refuse. Nothing is drawn.
+    """
+    return [(spec, _get_figure(spec.name).unavailable_reason(sim)) for spec in _list_figures()]
 
 
 def resolve_run_output_dir(
