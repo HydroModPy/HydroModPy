@@ -2,10 +2,10 @@
 #
 # The same method as the protocol recipe next door, K from the mapped network
 # then Sy from the gauge, but with no `protocol` line: every stage, criterion
-# and regime override is spelled out here. Read this file to see what the
-# protocol does on your behalf, or start from it when the site needs a stage
-# the protocol does not offer, such as scoring the second stage on more than
-# the hydrograph.
+# and regime is spelled out here. Read this file to see what the protocol does
+# on your behalf, or start from it when the site needs a stage the protocol
+# does not offer, such as scoring the second stage on more than the
+# hydrograph.
 #
 # `hmp calibrate --list-phases <this file>` prints the assembly before running it.
 
@@ -89,31 +89,14 @@ observes = "J7branch"
 # blocks to add the hydrograph and the network, so both live here.
 
 [[calibration.objective_blocks]]
-name = "network_extent"
+name = "network_extension"
 metric = "distance_gap"
 uses_outputs = ["seepage_network"]
-# Read this weight beside the one below: it is an exchange rate between metres
-# of network offset and an efficiency score, and nothing in the machinery can
-# set it. `normalize_cost` is refused on both blocks, for opposite reasons:
-# this criterion fits no record and has no spread to divide by, and an NSE is
-# already a pure number.
-#
-# THE NUMBER BELOW IS A PLACEHOLDER UNTIL YOU MEASURE YOUR OWN. The weights
-# are normalized to sum to one, so the trial cost here is
-# 0.1 * |gap in m| + 0.9 * (1 - NSElog): on a mesh where the gap settles at
-# tens of metres, that lets the network decide everything. Take the gaps
-# stage one reports and set the ratio so the two terms land in the same
-# decade. Measured on one 75 m Brittany catchment, a gap of 15 to 24 m
-# against a 1 - NSElog of 0.19 to 0.27 puts them level at 0.01 against 1.0.
-# Both terms are published per trial, as `<block>.total`, so what the weight
-# bought is readable rather than assumed.
-weight = 0.1
 
 [[calibration.objective_blocks]]
 name = "hydrograph"
 metric = "nse_log"
 uses_outputs = ["gauged_discharge"]
-weight = 0.9
 # The first 12 monthly samples, the spin-up year, dropped from this block
 # alone. A `scoring_window` would say the same thing in dates, and it is
 # refused here: it cuts a record on its dates, and the network block scored
@@ -124,32 +107,28 @@ warmup = 12
 # --- Stage one: K against the mapped network, in steady state ---------------
 #
 # Steady is a property of the model, not of the search, so the phase declares
-# it. The whole record becomes one period of 2192 days, 2000-01-01 to
-# 2005-12-31 inclusive, with two leap years in it. A steady solve carries no
-# storage, so this stage is blind to Sy: that is what makes K identifiable
-# here without any discharge record.
+# it. `regime = "steady"` collapses [simulation.time] to one period, here the
+# whole record, 2000-01-01 to 2005-12-31, 2192 days with two leap years in it.
+# A steady solve carries no storage, so this stage is blind to Sy: that is
+# what makes K identifiable here without any discharge record.
 
 [[calibration.phases]]
 name = "steady_conductivity"
 description = "Match the simulated seepage network to the mapped one by moving K, steady state over the record."
 # A root search, not a minimiser: the criterion crosses zero once over the
 # bracket. Bisection refuses a parameter that is not searched in log space and
-# refuses more than one parameter.
+# refuses more than one parameter. Written here because the sweep below is
+# one of its options; unwritten, one log parameter on a signed criterion
+# would choose it all the same.
 method = "bisection"
 max_iter = 20
 tolerance = 0.01
 parameters = ["K"]
-objective_blocks = ["network_extent"]
+objective_blocks = ["network_extension"]
+regime = "steady"
 # What "then freeze the best K" means. Stage two inherits this value and the
 # validity indicator that qualifies it.
 freeze_on_success = true
-
-[calibration.phases.overrides]
-"flow.flow_regime" = "steady"
-"simulation.time.start_datetime" = "2000-01-01"
-"simulation.time.end_datetime" = "2005-12-31"
-"simulation.time.step_unit" = "day"
-"simulation.time.step_value" = 2192
 
 # A coarse logarithmic sweep before the bisection. It checks the monotonicity
 # the method assumes instead of supposing it, and it sees every crossing
@@ -160,20 +139,26 @@ sweep_points = 7
 # --- Stage two: Sy against the hydrograph and the network, transient --------
 #
 # K is frozen, so the only thing left to move is what the steady stage could
-# not see. The time grid is the parent's, monthly over the whole record: only
-# the regime is restated, because stage one changed it.
+# not see. `regime = "transient"` restates only the regime; the time grid
+# stays the parent's, monthly over the whole record.
 
 [[calibration.phases]]
 name = "transient_storage"
 description = "Read Sy from the gauged hydrograph and the network extent, K frozen, monthly transient."
-method = "scipy_nelder_mead"
+# No method: the hydrograph block is not signed, so the stage has a cost to
+# minimise and gets scipy_nelder_mead. --list-phases prints it, and why.
 max_iter = 60
 # Five per cent on Sy. A storage coefficient is not known to one per cent, and
 # each evaluation here is a full multi-year run rather than one steady solve.
 tolerance = 0.05
 parameters = ["Sy"]
-objective_blocks = ["hydrograph", "network_extent"]
+# A share table, not a list: this stage sets its own balance between the two
+# blocks instead of taking their declared weight, an exchange rate between
+# metres of network offset and an efficiency score that nothing in the
+# machinery can set. Normalized to sum to one, so the trial cost is
+# 0.0099 * |gap in m| + 0.990 * (1 - NSElog). Read `network_extension.total`
+# and `hydrograph.total`, published per trial, to see what the ratio bought,
+# and set it from those numbers rather than by halves.
+objective_blocks = { hydrograph = 100, network_extension = 1 }
 depends_on = "steady_conductivity"
-
-[calibration.phases.overrides]
-"flow.flow_regime" = "transient"
+regime = "transient"

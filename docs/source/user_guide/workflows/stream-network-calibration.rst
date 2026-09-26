@@ -124,9 +124,9 @@ skeleton.
 Naming the method
 -----------------
 
-The two stages, their criteria, and the regime and time-grid overrides that make
-one steady and the other transient are the method, not the site. Name it and
-they are written for you:
+The two stages, their criteria, and the regime that makes one steady and the
+other transient are the method, not the site. Name it and they are written
+for you:
 
 .. code-block:: toml
 
@@ -265,8 +265,8 @@ Scoring the second stage on two criteria
 
 The reason to write the long form is the variant the name cannot express. The
 published method scores the storage stage on the hydrograph alone; this scores
-it on the hydrograph and on the extent of the simulated network, as two
-weighted blocks in one phase.
+it on the hydrograph and on the extent of the simulated network, as two blocks
+in one phase, each with its own share of the cost.
 
 .. code-block:: toml
 
@@ -281,26 +281,21 @@ weighted blocks in one phase.
    name         = "network_extension"
    metric       = "distance_gap"
    uses_outputs = ["seepage_network"]
-   weight       = 0.01
 
    [[calibration.objective_blocks]]
    name         = "hydrograph"
    metric       = "nse_log"
    uses_outputs = ["gauged_discharge"]
-   weight       = 1.0
    warmup       = 12
 
    [[calibration.phases]]
    name             = "transient_storage"
-   method           = "scipy_nelder_mead"
    max_iter         = 30
    tolerance        = 0.05
    parameters       = ["Sy"]
-   objective_blocks = ["hydrograph", "network_extension"]
+   objective_blocks = { hydrograph = 100, network_extension = 1 }
    depends_on       = "steady_conductivity"
-
-   [calibration.phases.overrides]
-   "flow.flow_regime" = "transient"
+   regime           = "transient"
 
 Four things in there are not free choices.
 
@@ -367,15 +362,32 @@ The network block, in transient, scores one instant
    is the method of :cite:`abherve2024headwater`, and it needs an intermittence
    record.
 
-``weight`` is the exchange rate, and nothing else sets it
+``objective_blocks`` as a share table, not a list
    The two costs are in different units: ``distance_gap`` is metres and
    ``1 - nse_log`` is a pure number. ``normalize_cost`` is refused on both, for
    opposite reasons, the first fitting no record to take a spread from and the
-   second being already dimensionless. The weights are normalized to sum to
-   one, so the trial cost above is ``0.0099 * |gap| + 0.990 * (1 - NSElog)``.
-   Set it against the magnitudes the first stage published rather than by
-   halves, and read ``network_extension.total`` and ``hydrograph.total``, which
-   every trial reports, to see what it bought.
+   second being already dimensionless. A table, ``{ block = share, ... }``,
+   gives the phase its own balance between the two instead of a weight
+   declared once on the block itself, which would also apply to any other
+   phase that reads it. Shares are normalized to sum to one, so the trial cost
+   above is ``0.0099 * |gap| + 0.990 * (1 - NSElog)``. Set the ratio against
+   the magnitudes the first stage published rather than by halves, and read
+   ``network_extension.total`` and ``hydrograph.total``, which every trial
+   reports, to see what it bought.
+
+``regime = "transient"`` in place of an override
+   The first stage writes ``regime = "steady"``, and this one restates
+   ``regime = "transient"``, which is what "then" means between the two: a
+   phase without ``regime`` runs the project's own time grid, but this stage
+   comes right after one that changed it. Writing ``regime`` instead of
+   ``[calibration.phases.overrides] "flow.flow_regime" = "transient"`` is the
+   same override, produced for the phase instead of typed into it.
+
+No ``method`` on this stage
+   The hydrograph block is not signed, so the phase has a cost to minimise and
+   is handed ``scipy_nelder_mead`` on its own; ``--list-phases`` prints the
+   choice and why. Write ``method`` only to run something else, such as
+   ``"cma_es"`` for a global search.
 
 Measured on the Nancon
 ----------------------

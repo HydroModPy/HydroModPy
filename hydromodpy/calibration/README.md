@@ -87,8 +87,8 @@ hydromodpy/calibration/
   criteria/     base.py (Criterion, requirements)  series.py (METRICS and kernel conventions)
                 hydrographic_network_distance.py  registry.py (criterion_for)
   optim/        parameters.py (ParameterSpace, set_by_path)  prior_sampling.py
-                objective.py  optimizer.py (protocol, EngineTraits, registry)  method_config.py
-                engine.py  stopping.py  cache.py  progress_reporter.py
+                objective.py  optimizer.py (protocol, EngineTraits, registry, choose_method)
+                method_config.py  engine.py  stopping.py  cache.py  progress_reporter.py
                 fosm.py  tolerance.py  diagnostics.py  objective_mapping.py (trace parser for plots)
     adapters/   one module per search method
   evaluation/   port.py  forward.py  registry.py  forward_registry.py
@@ -101,6 +101,7 @@ hydromodpy/calibration/
                 downslope_network.py  scored_forward.py
   runners/      cli_runner.py  staged_runner.py  programmatic_runner.py
                 trial.py  contracts.py  sandbox.py  verdict.py  materialize.py
+                phase_regime.py (steady or transient, as config overrides)
                 pipeline_evaluator.py  promotion.py  restarts.py  resume.py
                 state.py (store and params-hash context)  failure_watch.py
   reporting/    network_transient_html.py  network_transient/
@@ -145,7 +146,8 @@ is read rather than inside the adapter.
    resolved to a config path (`parameter_resolution.resolve_parameter_targets`).
    Validators refuse an unknown criterion, evaluator or forward model here.
    An unknown search method is refused when the run starts
-   (`CalibrationConfig.validate_registry`).
+   (`CalibrationConfig.validate_registry`), which also resolves a method left
+   unwritten, through `method_for` (`optim.optimizer.choose_method`).
 2. **Check.** `hmp calibrate --check` runs `preflight.py`: every check, one
    report, no solve.
 3. **Start.** `runners/cli_runner.py` (one search), `staged_runner.py`
@@ -170,6 +172,181 @@ is read rather than inside the adapter.
    pipeline and links each to its simulation id.
 9. **Report.** `report.py` reads the session back;
    `hydromodpy/reporting/calibration_report.py` (another layer) renders it.
+
+## Protocols and phases
+
+A calibration runs as one or more **phases**. A phase says which parameters it
+moves, in which flow regime, and against which objective blocks with which
+share for each. The search method follows from what is scored: a signed
+criterion (`distance_gap`) on one parameter in log space is a zero to find,
+searched by bisection; anything else is a cost to minimise, by Nelder-Mead.
+That choice applies to a phase and, the same way, to a calibration with no
+phases at all (`optim.optimizer.choose_method`, read through
+`CalibrationConfig.method_for`). `method` is written only to choose otherwise
+(`"cma_es"`, `"optuna"`, `"grid"`, ...). A **protocol** is a named recipe tied
+to a publication: it writes the phases of a published method, cites it, and
+lets the user set its options but not its sequence. Everything a protocol
+does, phases written by hand can say too, and
+`hmp calibrate FILE --expand` prints the phases a protocol writes, as TOML to
+start from.
+
+One rule links the phases, in declaration order:
+
+> A phase moves the parameters it lists. Every other parameter holds the last
+> value an earlier converged phase found for it, or the value of the model
+> file when no phase has calibrated it yet. A phase that lists a parameter an
+> earlier phase calibrated moves it again, starting from that value when its
+> search method accepts a start point.
+
+Blocks are declared once under `[[calibration.objective_blocks]]`. A phase
+lists the ones it scores, or gives each a share. Shares are normalised to sum
+to one, so `{ hydrograph = 70, network = 30 }` reads as 70 % and 30 % of the
+cost. The share of a cost counts the same as an influence only when the costs
+are comparable: an efficiency and a distance in metres are not, so
+normalise the blocks first (`normalize_cost`) or choose
+`[calibration.aggregate] weighting = "error"`.
+
+The declarations the hand-written examples below share (the published
+method writes its own objective blocks):
+
+```toml
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+
+[calibration.parameters.Sy]
+bounds = [5e-3, 0.35]
+
+[calibration.outputs.streams]
+support = "network"
+stream_geometry_path = "nancon_stream_network.gpkg"
+diagonal_neighbors = true
+
+[calibration.outputs.gauge]
+support = "point"
+variable = "discharge"
+observes = "NANCON"
+
+[[calibration.objective_blocks]]
+name = "network"
+metric = "distance_gap"
+uses_outputs = ["streams"]
+
+[[calibration.objective_blocks]]
+name = "hydrograph"
+metric = "nse_log"
+uses_outputs = ["gauge"]
+```
+
+**K first, then Sy with K fixed.** K alone in steady state against the mapped
+network, then Sy alone in transient against the gauge and the network.
+
+```toml
+[[calibration.phases]]
+name = "k_steady"
+parameters = ["K"]
+regime = "steady"              # one period over [simulation.time], or steady_window
+objective_blocks = ["network"]
+max_iter = 18
+
+[[calibration.phases]]
+name = "sy_transient"
+parameters = ["Sy"]            # K holds what k_steady found
+regime = "transient"
+objective_blocks = { hydrograph = 99, network = 1 }   # an efficiency against metres
+max_iter = 30
+```
+
+**Both at once.** One phase, both parameters, one regime. Two parameters and
+a cost to minimise, so Nelder-Mead; write `method = "cma_es"` for a global
+search.
+
+```toml
+[[calibration.phases]]
+name = "k_sy_transient"
+parameters = ["K", "Sy"]
+regime = "transient"
+objective_blocks = ["hydrograph"]
+max_iter = 120
+```
+
+**In stages, then both together.** A third phase after the two stages above
+moves K and Sy again, starting from what they found.
+
+```toml
+[[calibration.phases]]
+name = "k_sy_refine"
+parameters = ["K", "Sy"]       # starts at k_steady's K and sy_transient's Sy
+regime = "transient"
+objective_blocks = ["hydrograph"]
+max_iter = 60
+```
+
+**The published method.** The same first two stages, with the options the
+paper leaves open and its citation recorded in the session.
+
+```toml
+[calibration.protocol]
+name = "matching_hydrographic_network"
+steady_max_iter = 18
+transient_max_iter = 30
+```
+
+The transient stage scores itself through an objective block that reads a
+`support = "point"` output observing the gauging station, added to
+`[calibration.outputs]`, when that station is known from the file alone (one
+source, named by `station_ids` or `observed_station_id`). `--expand` then
+shows that output beside the two stages. A file that loads several stations,
+or one whose source only discovers its station once the data step runs, keeps
+the protocol's older form instead: `variable` and `objective` written on the
+phase, naming no output.
+
+**From Python.** The same keys, as dictionaries. The call writes the document
+it ran into the project's `sessions/` (named `<timestamp>-python-<hex>.toml`),
+so a Python run can be replayed from a file.
+
+```python
+import hydromodpy as hmp
+
+project = hmp.Project("examples/projects/04_streamflow_intermittence_in_transient/project.toml")
+report = project.calibrate(
+    parameters={"K": {"bounds": [1e-7, 1e-3]}, "Sy": {"bounds": [5e-3, 0.35]}},
+    outputs={
+        "streams": {"support": "network", "stream_geometry_path": "nancon_stream_network.gpkg",
+                    "diagonal_neighbors": True},
+        "gauge": {"support": "point", "variable": "discharge", "observes": "NANCON"},
+    },
+    objective_blocks=[
+        {"name": "network", "metric": "distance_gap", "uses_outputs": ["streams"]},
+        {"name": "hydrograph", "metric": "nse_log", "uses_outputs": ["gauge"]},
+    ],
+    phases=[
+        {"name": "k_steady", "parameters": ["K"], "regime": "steady",
+         "objective_blocks": ["network"], "max_iter": 18},
+        {"name": "sy_transient", "parameters": ["Sy"], "regime": "transient",
+         "objective_blocks": {"hydrograph": 99, "network": 1}, "max_iter": 30},
+    ],
+)
+```
+
+Each phase also says how wide its answer is (`uncertainty`, same keys as
+`[calibration.uncertainty]`, which stays the default for every phase). Left
+unwritten, the width follows what the phase scores: a phase scored only by
+network distances takes one mesh cell, in metres (a stream cannot move by
+less); any other phase takes 5 % of its best cost. `hmp calibrate --check`
+refuses `mode = "relative"` on a phase scored only by network distances. The
+interval never moves the calibrated value; it says which values the search
+could not tell apart from it.
+
+`hmp calibrate FILE --list-phases` shows, for each phase, the parameters it
+moves, the ones it re-opens and from which phase (when it moves a parameter
+an earlier phase calibrated, and whether its engine starts from that value),
+which method it runs and why, the width of its interval, and for each block
+what is compared with what: the simulated quantity and the observed source (a
+station of `[data.<family>]`, or a network file). After a phase, the report
+gives the share of the cost each block actually took, which differs from the
+declared share when the blocks have different units.
+`overrides` stays for any other configuration value a phase must change
+(a dotted path into the project configuration).
 
 ## Where to add what
 
@@ -201,9 +378,9 @@ is read rather than inside the adapter.
    `protocols/registry.py`, and its options model in `config.py`.
    `CalibrationProtocolDecl` then becomes a union discriminated on `name`.
 6. **A phase option.** The field on `CalibPhaseDecl` in `config.py`, and its
-   effect in `runners/staged_runner.py` (`_phase_config`). A protocol that
-   needs it writes it into the phases it expands; it never reaches around the
-   phase.
+   effect in `runners/staged_runner.py` (`_phase_config`) or, for a model
+   setting, in `runners/phase_regime.py`. A protocol that needs it writes it
+   into the phases it expands; it never reaches around the phase.
 7. **A `[calibration]` field.** The field on its model in `config.py`, with a
    profile and a description. Then run `python -m tools.doc_config` and commit
    the regenerated reference with the change:
@@ -241,9 +418,13 @@ satisfies `Optimizer` (`optim/optimizer.py`: `name`, `ask`, `tell`,
 - **objective block**: one `[[calibration.objective_blocks]]` entry, an output,
   a criterion and a weight. The objective sums the blocks.
 - **parameter space**: the parameters with their bounds, transform and prior.
-- **phase**: one search of a calibration: its parameters, objective blocks,
-  and method.
+- **phase**: one search of a calibration: its parameters, regime, objective
+  blocks with their shares, and method.
 - **protocol**: a named recipe tied to a publication, which writes phases.
+- **share**: the weight of an objective block within one phase, normalised to
+  sum to one over the blocks of that phase.
+- **re-opened parameter**: one a phase moves again after an earlier phase
+  calibrated it; the search starts from the earlier value when it can.
 - **session**: one calibration run on disk, its journal and its index rows.
 - **params hash**: the key that lets a search skip a point it already ran.
 - **promotion**: replaying a best trial through the full pipeline, so it gets

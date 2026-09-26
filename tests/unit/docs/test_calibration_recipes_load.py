@@ -135,20 +135,25 @@ def test_the_protocol_recipe_expands_into_the_published_two_stages(tmp_path) -> 
 
 
 def test_the_staged_by_hand_recipe_writes_the_same_two_stages(tmp_path) -> None:
-    cfg = _calibration("calibration_staged_by_hand", tmp_path)
+    raw = _document("calibration_staged_by_hand", tmp_path)
+    cfg = CalibrationConfig.model_validate(raw["calibration"])
 
     assert cfg.protocol is None
     assert [phase.name for phase in cfg.phases or []] == [
         "steady_conductivity",
         "transient_storage",
     ]
-    assert cfg.phases[0].objective_blocks == ["network_extent"]
-    assert cfg.phases[1].objective_blocks == ["hydrograph", "network_extent"]
+    assert cfg.phases[0].objective_blocks == ["network_extension"]
+    assert cfg.phases[1].objective_blocks == {"hydrograph": 100, "network_extension": 1}
     assert cfg.phases[1].depends_on == "steady_conductivity"
-    assert cfg.phases[0].overrides["flow.flow_regime"] == "steady"
-    assert cfg.phases[1].overrides["flow.flow_regime"] == "transient"
+    assert cfg.phases[0].regime == "steady"
+    assert cfg.phases[1].regime == "transient"
+    assert phase_overrides(cfg.phases[0], raw)["flow.flow_regime"] == "steady"
+    assert phase_overrides(cfg.phases[1], raw)["flow.flow_regime"] == "transient"
+    assert cfg.phases[0].method == "bisection"
+    assert cfg.phases[1].method is None
 
     blocks = {block.name: block for block in cfg.objective_blocks}
     assert blocks["hydrograph"].metric == "nse_log"
     assert blocks["hydrograph"].warmup == 12
-    assert blocks["network_extent"].metric == "distance_gap"
+    assert blocks["network_extension"].metric == "distance_gap"

@@ -179,6 +179,48 @@ Each release section includes the following standard categories:
   GeoDataFrame in a metric CRS. `reporting` and the network figures imported it
   under a private name from a figure module. The network figures also share
   `plot_topography_background` under a public name.
+- A phase declares `regime = "steady"` or `regime = "transient"` instead of
+  overriding the flow regime and the time grid by hand. Steady collapses
+  `[simulation.time]` to one period, by default its own extent or the phase's
+  `steady_window`; transient restates only the regime and keeps the project's
+  own grid. A phase that also overrides one of the paths its regime writes is
+  refused. `hmp calibrate --check` catches a steady window given the wrong way
+  round, or without both bounds. A protocol now writes `regime` instead of
+  computing the five dotted overrides by hand.
+- A phase's `objective_blocks` accepts a table, `{ block = share, ... }`,
+  instead of a list, giving that phase its own share of each block's cost,
+  normalised to sum to one. The list form keeps the block's own declared
+  weight, unchanged.
+- `[[calibration.phases]]` takes `uncertainty`, with the keys of
+  `[calibration.uncertainty]`. The phase wins key by key, and a phase can run
+  its own `multistart` or `linearized` width. `hmp calibrate --list-phases`
+  prints the width each phase reads and where it comes from, and each phase
+  report records the width it used (`extra.interval_width`). `hmp calibrate
+  --check` refuses `mode = "relative"` on a phase scored only by network
+  distances. The network criterion records one mesh cell per trial
+  (`<output>.cell_spacing_m`).
+- A calibration report gives the share of the cost each objective block
+  actually took (weighted contribution, mean over the finished trials with
+  their count, and at the best trial), `CalibrationReport.objective_block_shares`,
+  printed by `hmp calibrate` for a phase with two or more blocks, per phase of
+  a staged run too (the CLI printed nothing for a staged run before), and
+  recomputed for a reused phase from its persisted trials. On the example 04
+  by-hand session `20260923-143036`, the best trial takes 37 % hydrograph and
+  63 % network for declared shares of 99 % and 1 %.
+- `hmp calibrate --list-phases` and `--check` show, per objective block, its
+  criterion, share, simulated quantity and observed source (or the
+  single-metric route as one row). The first trial of each phase records, per
+  output, the dates and pair count it retained (`report.extra["first_trial_pairing"]`).
+- `Project.calibrate` accepts `phases=[...]` in Python mode, dictionaries with
+  the same keys as `[[calibration.phases]]`, and runs them like a TOML
+  calibration that declares phases. Python mode and an embedded declaration on
+  a project built in memory write the calibration document the staged run
+  reads into the project's `sessions/`, instead of refusing; `hmp calibrate
+  <path>` replays it.
+- `hmp calibrate FILE --expand` and `hmp.calibrate(FILE, expand=True)` print
+  the `[calibration]` section a protocol unfolds into (objective blocks and
+  phases), ready to paste into a hand-written file with
+  `protocol__delete = true`.
 
 ### Changed
 - `hydromodpy/data` is reorganised into sub-packages with one job each; its
@@ -278,6 +320,20 @@ Each release section includes the following standard categories:
   and why when it was chosen. `optimizer_kwargs` without `method` are refused,
   since they belong to an engine the file has to name. No TOML file of the
   repository relied on the old default.
+- `[calibration.uncertainty] tolerance` and `mode` left unwritten follow what
+  the search scores: one mesh cell, absolute, for a phase (or a calibration
+  with no phases) scored only by network distances, five per cent of the best
+  cost otherwise. Example 04's `project.toml` drops `[calibration.uncertainty]`:
+  K keeps its interval, one 75 m cell, and Sy gets a bounded one instead of
+  five per cent of a cost that never reaches the same scale on every project.
+- The interval width no longer enters the params hash. A cache, or a
+  `reuse_completed_phases` chain, built before this change misses once and
+  rebuilds under the new hash.
+- A calibration sealed before `regime` existed carries a phase's flow regime
+  as `overrides`-only, in the five dotted paths a protocol used to compute by
+  hand. Such a session now reloads through `config.fold_a_legacy_regime`,
+  which rewrites that spelling into `regime`; before this, rereading one to
+  resume it refused the session it had itself written.
 
 ### Fixed
 - `Project.simulate(thickness=...)` on a depth model without a thickness raises
@@ -387,6 +443,15 @@ Each release section includes the following standard categories:
   other run. The generated-network context figure it cannot draw is now
   logged with its name and the reason (the missing input at INFO, a failed
   read at WARNING), instead of missing from the report without a word.
+- A phase that lists a parameter an earlier phase already calibrated moved it
+  again from the parameter's search bounds, silently overwrote the frozen
+  value at every trial of the phase, and the report still called the
+  parameter frozen. It now starts the search from the passed value, on the
+  engines that declare `accepts_a_start_point` (`cma_es`, `scipy_nelder_mead`;
+  not `scipy_de`); an engine without one keeps its own start, and
+  `--list-phases` says so. Two phases that freeze the same path no longer
+  refuse each other: the later one wins, and the report and `--list-phases`
+  name both, the later as re-opened.
 
 ---
 
