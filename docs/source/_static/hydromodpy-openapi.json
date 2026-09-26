@@ -1886,13 +1886,17 @@
             "x-hmp-profile": "user"
           },
           "method": {
-            "default": "grid",
-            "description": "Optimization method for this phase only. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.",
-            "examples": [
-              "grid"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
+            "default": null,
+            "description": "Optimization method for this phase only. Unset, it follows from what the phase scores: 'bisection' when the phase moves one parameter in log space and every one of its blocks is signed (distance_gap), since the answer is then a zero to find; 'scipy_nelder_mead' otherwise, a cost to minimise. hmp calibrate --list-phases prints the method and why. Write it to depart from that choice, and whenever optimizer_kwargs are given. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.",
             "title": "Method",
-            "type": "string",
             "x-hmp-profile": "user"
           },
           "max_iter": {
@@ -2040,7 +2044,7 @@
           },
           "optimizer_kwargs": {
             "additionalProperties": true,
-            "description": "Extra keyword arguments forwarded to this phase's optimizer.",
+            "description": "Extra keyword arguments forwarded to this phase's optimizer. They belong to one engine, so a phase that gives them names its method.",
             "title": "Optimizer Kwargs",
             "type": "object",
             "x-hmp-profile": "dev"
@@ -2269,13 +2273,17 @@
             "x-hmp-profile": "user"
           },
           "method": {
-            "default": "grid",
-            "description": "Optimization method. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.",
-            "examples": [
-              "grid"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
+            "default": null,
+            "description": "Optimization method. Unset, it follows from what the calibration scores: 'bisection' when it moves one parameter in log space and every one of its blocks is signed (distance_gap), since the answer is then a zero to find; 'scipy_nelder_mead' otherwise, a cost to minimise. Write it to depart from that choice, and whenever optimizer_kwargs are given. A phase of [[calibration.phases]] names its own. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.",
             "title": "Method",
-            "type": "string",
             "x-hmp-profile": "user"
           },
           "evaluator": {
@@ -2529,7 +2537,7 @@
           },
           "optimizer_kwargs": {
             "additionalProperties": true,
-            "description": "Extra keyword arguments forwarded to the optimizer adapter.",
+            "description": "Extra keyword arguments forwarded to the optimizer adapter. They belong to one engine, so a calibration that gives them names its method.",
             "title": "Optimizer Kwargs",
             "type": "object",
             "x-hmp-profile": "dev"

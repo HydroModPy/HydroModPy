@@ -349,9 +349,11 @@ def calibrate(
         froze, so a phase whose dependency has not run is refused rather than
         calibrated against un-frozen values.
     list_phases
-        Return the declared phases without running anything. A phase that
-        moves again a parameter an earlier phase passes on also names that
-        phase, and says whether its engine starts from the passed value.
+        Return the declared phases without running anything. Each names the
+        method it runs; a phase that names none gets the one its criteria call
+        for, and ``method_reason`` says why. A phase that moves again a
+        parameter an earlier phase passes on also names that phase, and says
+        whether its engine starts from the passed value.
     kwargs
         Options forwarded to the underlying calibration runner. The
         ``headless`` keyword controls the project initialization for the

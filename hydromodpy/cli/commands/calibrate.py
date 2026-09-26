@@ -171,11 +171,15 @@ def _values_this_file_set(cfg, keys: list[str]) -> dict[str, object]:
 def _phase_line(index: int, phase: dict[str, Any]) -> str:
     """Return the ``--list-phases`` line of one phase.
 
-    A column is added only for a phase that moves again what an earlier phase
-    passed on: which parameters, from which phase, and whether the search
-    starts there.
+    A method the phase does not name was chosen from its criteria, and the
+    reason follows it. A column is added only for a phase that moves again what
+    an earlier phase passed on: which parameters, from which phase, and whether
+    the search starts there.
     """
-    line = f"{index}\t{phase['name']}\t{phase['method']}\t{phase['description']}"
+    method = phase["method"]
+    if phase.get("method_reason"):
+        method = f"{method} ({phase['method_reason']})"
+    line = f"{index}\t{phase['name']}\t{method}\t{phase['description']}"
     reopens = phase.get("reopens")
     if not reopens:
         return line

@@ -966,6 +966,13 @@ def _same_instant(a: Any, b: Any) -> bool:
         return False
 
 
+_OPTIONS_WITHOUT_AN_ENGINE = (
+    "{where} gives optimizer_kwargs and no method. They are options of one engine, "
+    "and a search that names no method gets the one its criteria call for. Write "
+    "method beside them, or drop them."
+)
+
+
 class CalibPhaseDecl(HydroModelBase):
     """One stage of a calibration that runs in several.
 
@@ -994,10 +1001,15 @@ class CalibPhaseDecl(HydroModelBase):
         default="",
         description="What this phase calibrates and against what, in one sentence.",
     )
-    method: Annotated[CalibrationMethod, Profile.USER] = Field(
-        default="grid",
+    method: Annotated[CalibrationMethod | None, Profile.USER] = Field(
+        default=None,
         description=(
-            "Optimization method for this phase only. "
+            "Optimization method for this phase only. Unset, it follows from what the "
+            "phase scores: 'bisection' when the phase moves one parameter in log space "
+            "and every one of its blocks is signed (distance_gap), since the answer is "
+            "then a zero to find; 'scipy_nelder_mead' otherwise, a cost to minimise. "
+            "hmp calibrate --list-phases prints the method and why. Write it to "
+            "depart from that choice, and whenever optimizer_kwargs are given. "
             "Built-ins: 'grid' (regular sweep, sized by "
             "optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of "
             "a signed criterion on one parameter, the stream-network stage), 'optuna' "
@@ -1071,7 +1083,8 @@ class CalibPhaseDecl(HydroModelBase):
     )
     optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
         default_factory=dict,
-        description="Extra keyword arguments forwarded to this phase's optimizer.",
+        description="Extra keyword arguments forwarded to this phase's optimizer. They "
+        "belong to one engine, so a phase that gives them names its method.",
     )
     regime: Annotated[Literal["steady", "transient"] | None, Profile.USER] = Field(
         default=None,
@@ -1126,6 +1139,18 @@ class CalibPhaseDecl(HydroModelBase):
         and score it on a criterion it never asked for.
         """
         return self.variable is not None or self.objective is not None
+
+    @model_validator(mode="after")
+    def _name_the_engine_the_options_belong_to(self) -> CalibPhaseDecl:
+        """Refuse optimizer_kwargs on a phase that names no method.
+
+        The options belong to one engine, and a phase that names none gets the
+        one its criteria call for. The options would then reach an engine the
+        file never chose.
+        """
+        if self.optimizer_kwargs and self.method is None:
+            raise ValueError(_OPTIONS_WITHOUT_AN_ENGINE.format(where=f"phase {self.name!r}"))
+        return self
 
     @model_validator(mode="after")
     def _say_the_regime_once(self) -> CalibPhaseDecl:
@@ -1361,10 +1386,15 @@ class CalibrationConfig(HydroModelBase):
             "objective blocks cannot also name a protocol."
         ),
     )
-    method: Annotated[CalibrationMethod, Profile.USER] = Field(
-        default="grid",
+    method: Annotated[CalibrationMethod | None, Profile.USER] = Field(
+        default=None,
         description=(
-            "Optimization method. "
+            "Optimization method. Unset, it follows from what the calibration scores: "
+            "'bisection' when it moves one parameter in log space and every one of its "
+            "blocks is signed (distance_gap), since the answer is then a zero to find; "
+            "'scipy_nelder_mead' otherwise, a cost to minimise. Write it to depart from "
+            "that choice, and whenever optimizer_kwargs are given. A phase of "
+            "[[calibration.phases]] names its own. "
             "Built-ins: 'grid' (regular sweep, sized by "
             "optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of "
             "a signed criterion on one parameter, the stream-network stage), 'optuna' "
@@ -1540,7 +1570,8 @@ class CalibrationConfig(HydroModelBase):
     )
     optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
         default_factory=dict,
-        description="Extra keyword arguments forwarded to the optimizer adapter.",
+        description="Extra keyword arguments forwarded to the optimizer adapter. They "
+        "belong to one engine, so a calibration that gives them names its method.",
     )
     parameters: Annotated[dict[str, CalibParameterDecl], Profile.USER] = Field(
         default_factory=dict,
@@ -1735,6 +1766,17 @@ class CalibrationConfig(HydroModelBase):
         return self
 
     @model_validator(mode="after")
+    def _name_the_engine_the_options_belong_to(self) -> CalibrationConfig:
+        """Refuse optimizer_kwargs on a section that names no method.
+
+        Same reason as on a phase: the options belong to one engine, and the one a
+        section gets when it names none follows from its criteria.
+        """
+        if self.optimizer_kwargs and self.method is None:
+            raise ValueError(_OPTIONS_WITHOUT_AN_ENGINE.format(where="[calibration]"))
+        return self
+
+    @model_validator(mode="after")
     def _check_the_protocol_was_expanded(self) -> CalibrationConfig:
         """Refuse a protocol whose stages nobody wrote.
 
@@ -1755,22 +1797,58 @@ class CalibrationConfig(HydroModelBase):
         return self
 
     def validate_registry(self) -> None:
-        """Verify the selected method is registered and its kwargs validate.
+        """Verify the method this calibration runs is registered and its kwargs validate.
 
         The discriminated union :data:`CalibrationMethodConfig` raises eagerly
         when ``optimizer_kwargs`` carries keys foreign to ``method`` so the
         failure happens at config-load time instead of inside the adapter
-        constructor.
+        constructor. A method left unwritten is checked as :meth:`method_for`
+        chooses it.
         """
         from hydromodpy.calibration.optim.method_config import validate_method_kwargs
         from hydromodpy.calibration.optim.optimizer import available_optimizers
 
+        method, _reason = self.method_for()
         available = available_optimizers()
-        if self.method not in available:
+        if method not in available:
             raise ValueError(
-                f"Unknown calibration method {self.method!r}. Available methods: {available}"
+                f"Unknown calibration method {method!r}. Available methods: {available}"
             )
-        validate_method_kwargs(self.method, self.optimizer_kwargs)
+        validate_method_kwargs(method, self.optimizer_kwargs)
+
+    def method_for(self, phase: CalibPhaseDecl | None = None) -> tuple[str, str | None]:
+        """Return the method this calibration, or one of its phases, runs, and why.
+
+        A method the file writes comes back as written, with no reason. One it
+        leaves unwritten is chosen from what the search scores, by
+        ``optim.optimizer.choose_method``, and the reason says why. ``phase``
+        reads the parameters that phase moves and the blocks it scores, selected
+        as the staged runner selects them; ``None`` reads the whole section.
+        """
+        written = self.method if phase is None else phase.method
+        if written is not None:
+            return written, None
+        from hydromodpy.calibration.optim.optimizer import choose_method
+
+        moved = self.parameters if phase is None else phase.parameters
+        transforms = {
+            name: str(self.parameters[name].transform) for name in moved if name in self.parameters
+        }
+        choice = choose_method(transforms, self._criteria_scored_by(phase))
+        return choice.method, choice.reason
+
+    def _criteria_scored_by(self, phase: CalibPhaseDecl | None) -> list[str]:
+        """Return the criterion of each block a search scores.
+
+        A phase scores its single metric, or the blocks it names, or every
+        declared block. With no block, the section scores ``objective``.
+        """
+        if phase is not None and phase.is_single_metric:
+            return [str(phase.objective or self.objective)]
+        blocks = self.objective_blocks
+        if phase is not None and phase.objective_blocks:
+            blocks = [block for block in blocks if block.name in phase.objective_blocks]
+        return [str(block.metric) for block in blocks] or [str(self.objective)]
 
     @field_validator("candidates_root", mode="before")
     @classmethod

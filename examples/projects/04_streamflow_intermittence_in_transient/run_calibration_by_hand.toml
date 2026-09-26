@@ -80,7 +80,10 @@ name = "steady_conductivity"
 description = "Match the simulated seepage network to the mapped one by moving K, steady state over the record."
 # A root search, not a minimiser: the criterion is a step function that jumps
 # over zero once in the four decades of the bracket. Bisection refuses a
-# parameter that is not searched in log space, and refuses more than one.
+# parameter that is not searched in log space, and refuses more than one. One
+# log parameter on a signed criterion is what calls for it, so unwritten it
+# would be chosen all the same; it is written because the sweep below is one
+# of its options.
 method = "bisection"
 max_iter = 18
 # One per cent on K itself, the paper's precision. On a log-transformed
@@ -128,7 +131,8 @@ sweep_points = 7
 [[calibration.phases]]
 name = "transient_storage"
 description = "Read Sy from the gauged hydrograph and the December network, K frozen, monthly transient."
-method = "scipy_nelder_mead"
+# No method: the hydrograph block is not signed, so the stage has a cost to
+# minimise and gets scipy_nelder_mead. --list-phases prints it, and why.
 max_iter = 30
 # Five per cent on Sy, which is not known to one per cent, and each evaluation
 # here is a full 36-month run.

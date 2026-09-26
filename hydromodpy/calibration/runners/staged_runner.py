@@ -255,7 +255,9 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
     # configuration feeds the params hash, so forwarding one would change the
     # hash of every completed stage and void its cache and its reuse.
     payload = cfg.model_dump()
-    payload["method"] = decl.method
+    # A phase that names no method gets the one its criteria call for, written
+    # here so the session, the params hash and the report all read that name.
+    payload["method"] = cfg.method_for(decl)[0]
     payload["max_iter"] = decl.max_iter
     payload["tolerance"] = decl.tolerance
     payload["batch_size"] = decl.batch_size
@@ -345,6 +347,9 @@ def _phase_plans(
     plans: list[_PhasePlan] = []
     for index, decl in selected:
         phase_cfg = _phase_config(cfg, decl)
+        method, reason = cfg.method_for(decl)
+        if reason is not None:
+            logger.info("Phase %s names no method and runs %s: %s.", decl.name, method, reason)
         try:
             overrides = phase_overrides(decl, document)
         except ValueError as exc:
@@ -793,6 +798,9 @@ def _reuse_from_disk(
 def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
     """Describe the declared phases in declaration order, without running anything.
 
+    ``method`` is the method the phase runs. A phase that names none also
+    carries ``method_reason``, why its criteria call for that one.
+
     A phase that lists a parameter an earlier phase passes on also carries
     ``reopens``, each such parameter with the phase it comes from, and
     ``starts_from_passed_values``, whether its engine takes a start point. A
@@ -809,14 +817,17 @@ def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
         return declared[name].resolve_target() or name
 
     for decl in getattr(cfg, "phases", None) or []:
+        method, reason = cfg.method_for(decl)
         row: dict[str, Any] = {
             "name": decl.name,
             "description": decl.description,
-            "method": decl.method,
+            "method": method,
             "parameters": list(decl.parameters),
             "depends_on": decl.depends_on,
             "freeze_on_success": decl.freeze_on_success,
         }
+        if reason is not None:
+            row["method_reason"] = reason
         reopens = [
             {"parameter": name, "from_phase": passed_by[written_at(name)]}
             for name in decl.parameters
@@ -824,7 +835,7 @@ def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
         ]
         if reopens:
             row["reopens"] = reopens
-            row["starts_from_passed_values"] = engine_traits(decl.method).accepts_a_start_point
+            row["starts_from_passed_values"] = engine_traits(method).accepts_a_start_point
         rows.append(row)
         if decl.freeze_on_success:
             passed_by.update({written_at(name): decl.name for name in decl.parameters})
@@ -1001,7 +1012,7 @@ def run_staged_calibration(
                 index + 1,
                 len(cfg.phases or []),
                 decl.name,
-                decl.method,
+                phase_cfg.method,
                 list(decl.parameters),
             )
             passed_start = _passed_start(decl.name, phase_cfg.method, space, reopened)

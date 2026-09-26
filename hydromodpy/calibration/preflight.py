@@ -484,12 +484,16 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
 
 
 def _declared_precisions(calibration: Any) -> list[tuple[str, str, float | None, dict]]:
-    """Return one entry per search: where it is written, its engine and its precision."""
+    """Return one entry per search: where it is written, its engine and its precision.
+
+    The engine is the one the search runs: a method left unwritten is checked as
+    the run will choose it.
+    """
     if not calibration.phases:
         return [
             (
                 "[calibration]",
-                str(calibration.method),
+                calibration.method_for()[0],
                 calibration.tolerance,
                 dict(calibration.optimizer_kwargs or {}),
             )
@@ -497,7 +501,7 @@ def _declared_precisions(calibration: Any) -> list[tuple[str, str, float | None,
     return [
         (
             f"[[calibration.phases]] {phase.name!r}",
-            str(phase.method),
+            calibration.method_for(phase)[0],
             phase.tolerance,
             dict(phase.optimizer_kwargs or {}),
         )
@@ -556,7 +560,11 @@ def _flow_adapter_for(config: Any) -> Any | None:
 
 
 def _searches(calibration: Any) -> list[tuple[str, str, list[str], set[str], int]]:
-    """Return one entry per search: where it is written, and what it is handed."""
+    """Return one entry per search: where it is written, and what it is handed.
+
+    The engine is the one the search runs: a method left unwritten is faced with
+    its traits as the run will choose it.
+    """
 
     def _metrics_of(selected: list[str], single: str | None) -> set[str]:
         if single:
@@ -573,7 +581,7 @@ def _searches(calibration: Any) -> list[tuple[str, str, list[str], set[str], int
         return [
             (
                 "[calibration]",
-                str(calibration.method),
+                calibration.method_for()[0],
                 sorted(calibration.parameters or {}),
                 _metrics_of([], None if calibration.objective_blocks else calibration.objective),
                 int(calibration.parallel),
@@ -582,7 +590,7 @@ def _searches(calibration: Any) -> list[tuple[str, str, list[str], set[str], int
     return [
         (
             f"[[calibration.phases]] {phase.name!r}",
-            str(phase.method),
+            calibration.method_for(phase)[0],
             list(phase.parameters),
             _metrics_of(list(phase.objective_blocks), phase.objective),
             int(phase.parallel),

@@ -622,6 +622,21 @@ def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: A
     return kwargs
 
 
+def _with_its_method(cfg: CalibrationConfig) -> CalibrationConfig:
+    """Return ``cfg`` with the method it runs written in.
+
+    Itself when the file names one. Otherwise a copy carrying the method its
+    criteria call for (``CalibrationConfig.method_for``), so every reader after
+    this point, the session journal and the params hash included, sees the name
+    that ran.
+    """
+    method, reason = cfg.method_for()
+    if reason is None:
+        return cfg
+    logger.info("The calibration names no method and runs %s: %s.", method, reason)
+    return cfg.model_copy(update={"method": method})
+
+
 def refuse_an_objective_that_is_not_an_entry_point(objective: str | None) -> None:
     """Refuse an ``objective=`` that does not name a Python callable.
 
@@ -697,6 +712,7 @@ def run_calibration_core(
 
     if cfg_path is not None:
         resolve_stream_geometry_paths(cfg, cfg_path)
+    cfg = _with_its_method(cfg)
     # Same refusal for a mono-phase run as for a staged one: an optimizer_kwarg
     # foreign to the declared method used to die as a bare TypeError inside the
     # adapter constructor, after the first solve.
@@ -1064,6 +1080,7 @@ def run_calibration_cli(
     refuse_an_objective_that_is_not_an_entry_point(objective)
     cfg_path = Path(config_path).expanduser().resolve()
     cfg, raw = load_toml_calibration(cfg_path)
+    cfg = _with_its_method(cfg)
     space = space_from_config(cfg)
     paths = resolve_override_paths(cfg)
 

@@ -7,7 +7,7 @@ results (``tell``). Adapters for scipy, optuna, grid-search are found under
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from importlib.metadata import entry_points
 from typing import Literal, Protocol, runtime_checkable
@@ -165,6 +165,95 @@ def engine_traits(name: str) -> EngineTraits:
                 break
     declared = getattr(engine, "traits", None)
     return declared if isinstance(declared, EngineTraits) else DEFAULT_ENGINE_TRAITS
+
+
+@dataclass(frozen=True, slots=True)
+class MethodChoice:
+    """The search method a search that names none runs, and why."""
+
+    method: str
+    reason: str
+
+
+CHOSEN_FROM: tuple[str, ...] = ("bisection", "scipy_nelder_mead")
+"""The engines a search that names no method is given, in the order tried.
+
+The first whose traits the search meets runs it. The root search comes first,
+because its traits are the ones a search can miss. The minimiser declares
+nothing to meet, so every search gets one, and SciPy is installed by default.
+"""
+
+
+def choose_method(transforms: Mapping[str, str], criteria: Iterable[str]) -> MethodChoice:
+    """Return the search method of a search that names none, and why.
+
+    ``transforms`` maps each parameter the search moves to its transform.
+    ``criteria`` names the criterion of each objective block it scores.
+
+    Each engine of :data:`CHOSEN_FROM` is faced with its ``EngineTraits``, as
+    ``hmp calibrate --check`` faces a written method. The root search needs
+    ``max_parameters`` at most, each in ``required_transform``, and, since it
+    ``needs_signed_residual``, a signed criterion on every block
+    (``CriterionRequirements.signed``): only then is the cost the absolute value
+    of the residual its bracket closes on, and the answer is the crossing, not a
+    minimum. One unsigned block makes the cost one to minimise.
+
+    An unknown criterion counts as unsigned. It cannot come from a validated
+    configuration, whose metrics are ``MetricKind`` literals.
+    """
+    from hydromodpy.calibration.criteria.registry import criterion_for
+
+    def is_signed(name: str) -> bool:
+        try:
+            return criterion_for(name).requirements().signed
+        except ValueError:
+            # Defensive: a metric is a MetricKind literal once validated, so every
+            # name a configuration hands here is registered.
+            return False
+
+    names = list(criteria)
+    signed = bool(names) and all(is_signed(name) for name in names)
+    lacking = ""
+    for method in CHOSEN_FROM:
+        traits = engine_traits(method)
+        unmet = _unmet(traits, transforms, signed=signed)
+        if unmet is None:
+            return MethodChoice(method, _why(traits, transforms, lacking=lacking))
+        lacking = lacking or unmet
+    # The last engine declares nothing to meet, so this is reached only when
+    # someone gives it a constraint. Its own refusal then names what is wrong.
+    return MethodChoice(CHOSEN_FROM[-1], _why(DEFAULT_ENGINE_TRAITS, transforms, lacking=lacking))
+
+
+def _unmet(traits: EngineTraits, transforms: Mapping[str, str], *, signed: bool) -> str | None:
+    """Return what a search lacks to meet an engine's traits, or None when it meets them.
+
+    The phrase opens the reason the next engine gives. An unsigned criterion
+    needs none: "cost to minimise" already says it.
+    """
+    if traits.needs_signed_residual and not signed:
+        return ""
+    criterion = "signed criterion" if signed else "criterion"
+    count = len(transforms)
+    if traits.max_parameters is not None and not 0 < count <= traits.max_parameters:
+        return f"{criterion} on {count} parameters"
+    wanted = traits.required_transform
+    other = sorted(
+        name for name, transform in transforms.items() if wanted not in (None, transform)
+    )
+    if other:
+        return f"{criterion}, {', '.join(other)} not in {wanted} space"
+    return None
+
+
+def _why(traits: EngineTraits, transforms: Mapping[str, str], *, lacking: str) -> str:
+    """Return the reason an engine was chosen, in the words ``--list-phases`` prints."""
+    if not traits.needs_signed_residual:
+        return f"{lacking}, cost to minimise" if lacking else "cost to minimise"
+    count = len(transforms)
+    moved = "one" if count == 1 else str(count)
+    where = f" {traits.required_transform}" if traits.required_transform else ""
+    return f"{moved}{where} parameter{'' if count == 1 else 's'}, signed criterion"
 
 
 def build_optimizer(name: str, space, **kwargs) -> Optimizer:

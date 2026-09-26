@@ -508,7 +508,9 @@ class Project:
         objective_blocks
             Python-mode objective block declarations.
         method
-            Optimizer method name.
+            Optimizer method name. Unset, the one the criteria call for: a root
+            search for one log parameter scored on signed criteria only, a
+            minimiser otherwise.
         max_iter
             Maximum number of optimizer iterations.
         save_runs
@@ -636,6 +638,14 @@ class Project:
         )
 
         cfg = CalibrationConfig.model_validate(payload)
+        # Completed from the target each parameter names, as the TOML route does,
+        # so a bare K searches the log space its field declares and gets the
+        # same method as the same file would.
+        project_config = getattr(self, "config", None)
+        if project_config is not None:
+            from hydromodpy.calibration.parameter_resolution import resolve_parameter_targets
+
+            resolve_parameter_targets(cfg, project_config)
         return run_calibration_programmatic(
             cfg,
             project=self,
