@@ -99,7 +99,7 @@ class DisplayConfig(HydroModelBase):
             "a broken figure cannot pass unnoticed."
         ),
     )
-    overrides: Annotated[dict[str, dict], Profile.EXPERT] = Field(
+    overrides: Annotated[dict[str, dict], Profile.USER] = Field(
         default_factory=dict,
         description=(
             "Per-figure keyword overrides, keyed by figure name "

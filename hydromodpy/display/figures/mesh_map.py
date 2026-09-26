@@ -1,4 +1,4 @@
-"""Solver mesh drawn cell by cell, coloured by land-surface elevation.
+"""Model mesh drawn cell by cell, coloured by land-surface elevation.
 
 The "what did the model actually discretize" figure. It works unchanged on
 a structured MODFLOW DIS grid (rectangles), on a MODFLOW 6 DISV Voronoi or
@@ -30,11 +30,11 @@ if TYPE_CHECKING:
 
 @register
 class MeshMap(BaseFigure):
-    """Plan view of the solver mesh with visible cell edges."""
+    """Plan view of the model mesh with visible cell edges."""
 
     spec = FigureSpec(
         name="mesh_map",
-        title="Solver mesh",
+        title="Model mesh",
         kind="spatial",
         required_fields=("topography",),
         default_figsize=(7.0, 5.5),

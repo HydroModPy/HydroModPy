@@ -252,6 +252,15 @@ Each release section includes the following standard categories:
 - `hydromodpy.display.catchment_report.block_specs.FigureSpec`, the place of a
   PNG in a catchment report block, is renamed `BlockFigureSpec`, so that
   `FigureSpec` names only the contract of a registered figure.
+- A figure names what it shows, not a solver or a provider: `mesh_map` is
+  titled "Model mesh" (was "Solver mesh") and `hydrographic_network_reference`
+  "Reference hydrographic network" (was "BD Topage hydrographic network", while
+  the reference may come from `bdtopage`, `euhydro` or `osm`); the network
+  figures draw "Reference network" where they wrote "BD Topage".
+  `watershed_id_card` is of `kind` `spatial` (was `comparison`).
+  `[display].overrides`, the documented way to set a figure option such as the
+  orientation of a section, is a `USER` field (was `EXPERT`), so
+  `hmp config template --profile user` shows it.
 - `method` in `[calibration]` and in a `[[calibration.phases]]` entry no
   longer defaults to `grid`. Unwritten, it follows from what the search
   scores: `bisection` when it moves one parameter in log space and every one

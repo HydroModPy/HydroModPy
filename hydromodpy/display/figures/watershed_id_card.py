@@ -38,7 +38,7 @@ class WatershedIdCardFigure(BaseFigure):
     spec = FigureSpec(
         name="watershed_id_card",
         title="Watershed identity card",
-        kind="comparison",
+        kind="spatial",
         default_figsize=(11.5, 7.5),
     )
 

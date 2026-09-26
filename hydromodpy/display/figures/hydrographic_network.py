@@ -103,14 +103,14 @@ class _HydrographicNetworkRoleFigure(GeoFigureMixin, BaseFigure):
 class HydrographicNetworkReferenceFigure(_HydrographicNetworkRoleFigure):
     spec = FigureSpec(
         name="hydrographic_network_reference",
-        title="BD Topage hydrographic network",
+        title="Reference hydrographic network",
         kind="comparison",
         default_figsize=(7.8, 5.8),
     )
     role = "reference"
     color = "#123f6d"
-    title = "BD Topage"
-    subtitle = "data.hydrography: BD Topage"
+    title = "Reference network"
+    subtitle = "data.hydrography"
 
 
 @register

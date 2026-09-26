@@ -368,7 +368,7 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
                     alpha=active_alpha,
                     label="simulated active",
                 ),
-                Line2D([0], [0], color=reference_color, lw=1.5, label="BD Topage"),
+                Line2D([0], [0], color=reference_color, lw=1.5, label="Reference network"),
             ],
             loc="lower right",
             fontsize=RELATIVE_MAP_LEGEND_SIZE,
