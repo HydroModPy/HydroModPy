@@ -18,6 +18,7 @@ from hydromodpy.results.calibration_trials import calibration_sessions
 from hydromodpy.results.run.array import acting_faces, acting_faces_over_run
 from hydromodpy.results.run.geographic import crs_epsg, geographic_metadata
 from hydromodpy.results.run.particles import (
+    has_particle_tracks,
     particle_time_to_days,
     read_particle_tracks,
     travel_time,
@@ -71,6 +72,36 @@ def test_particle_tracks_drop_the_padding_and_the_particles_that_never_moved() -
     assert [track.shape for track in tracks] == [(3, 4), (2, 4)]
     assert np.isnan(tracks[0][:, 2]).all(), "a store without z gives NaN depths"
     assert [travel_time(track) for track in tracks] == [30.0, 2.0]
+    assert all(store.closed for store in run.opened)
+
+
+_MOVED = np.array([[0.0, 1.0, np.nan], [2.0, np.nan, np.nan]])
+_RELEASED = np.array([[0.0, np.nan, np.nan], [2.0, np.nan, np.nan]])
+_CLOCK = np.array([[0.0, 5.0, np.nan], [0.0, np.nan, np.nan]])
+
+
+@pytest.mark.parametrize(
+    ("root", "timed", "expected"),
+    [
+        ({}, False, False),
+        ({"particles": _Group({})}, False, False),
+        ({"particles": _Group({"x": _MOVED})}, False, False),
+        ({"particles": _Group({"x": _RELEASED, "y": _RELEASED})}, False, False),
+        (
+            {"particles": _Group({"x": np.array([[1.0], [2.0]]), "y": np.array([[1.0], [2.0]])})},
+            False,
+            False,
+        ),
+        ({"particles": _Group({"x": _MOVED, "y": _MOVED})}, False, True),
+        ({"particles": _Group({"x": _MOVED, "y": _MOVED})}, True, False),
+        ({"particles": _Group({"x": _MOVED, "y": _MOVED, "time": _RELEASED})}, True, False),
+        ({"particles": _Group({"x": _MOVED, "y": _MOVED, "time": _CLOCK})}, True, True),
+    ],
+)
+def test_a_run_has_particle_tracks_when_a_particle_moved(root, timed, expected) -> None:
+    run = _run_over(root)
+
+    assert has_particle_tracks(run, timed=timed) is expected
     assert all(store.closed for store in run.opened)
 
 

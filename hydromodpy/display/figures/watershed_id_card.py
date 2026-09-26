@@ -42,6 +42,16 @@ class WatershedIdCardFigure(BaseFigure):
         default_figsize=(11.5, 7.5),
     )
 
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Require a DEM raster of the catchment, which ``spec`` cannot declare."""
+        reason = super().unavailable_reason(sim)
+        if reason is not None:
+            return reason
+        dem, _raster = self._load_dem(sim)
+        if dem is None:
+            return f"run holds no DEM raster ({', '.join(_DEM_RASTER_CANDIDATES)})"
+        return None
+
     def render(
         self,
         sim: Run,
@@ -102,19 +112,7 @@ class WatershedIdCardFigure(BaseFigure):
     def _draw_topography(self, ax: Axes, sim: Run) -> None:
         dem, raster = self._load_dem(sim)
         if dem is None:
-            ax.set_axis_off()
-            ax.text(
-                0.5,
-                0.5,
-                "no DEM ingested for this run",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-                fontsize=10,
-                color="gray",
-            )
-            ax.set_title("Topography")
-            return
+            raise ValueError(f"run holds no DEM raster ({', '.join(_DEM_RASTER_CANDIDATES)})")
 
         extent = _extent_from_transform(raster, dem.shape) if raster else None
         # Mask nodata (stored as very-negative sentinel by HMP) so imshow

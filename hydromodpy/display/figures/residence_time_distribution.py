@@ -23,6 +23,7 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.legend_placement import place_legend
 from hydromodpy.results.run.particles import (
+    has_particle_tracks,
     particle_time_to_days,
     read_particle_tracks,
     travel_time,
@@ -81,6 +82,15 @@ class ResidenceTimeDistribution(BaseFigure):
         required_fields=("particles",),
         default_figsize=(7.0, 5.0),
     )
+
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Require a timed pathline, not only the ``particles`` group."""
+        reason = super().unavailable_reason(sim)
+        if reason is not None:
+            return reason
+        if not has_particle_tracks(sim, timed=True):
+            return "run holds no timed particle pathline"
+        return None
 
     def render(
         self,

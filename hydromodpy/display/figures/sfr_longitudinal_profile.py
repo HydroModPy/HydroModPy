@@ -6,7 +6,11 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.figures.sfr_reach_timeseries import STATE_UNITS, sfr_reach_stations
+from hydromodpy.display.figures.sfr_reach_timeseries import (
+    STATE_UNITS,
+    no_reach_series_reason,
+    sfr_reach_stations,
+)
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -30,6 +34,10 @@ class SfrLongitudinalProfile(BaseFigure):
         required_tables=("timeseries",),
         default_figsize=(8.0, 4.5),
     )
+
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Require the stream-reach series, which ``spec`` cannot declare."""
+        return super().unavailable_reason(sim) or no_reach_series_reason(sim)
 
     def render(
         self,

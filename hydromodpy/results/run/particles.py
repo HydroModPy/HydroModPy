@@ -14,7 +14,7 @@ import numpy as np
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
-__all__ = ["particle_time_to_days", "read_particle_tracks", "travel_time"]
+__all__ = ["has_particle_tracks", "particle_time_to_days", "read_particle_tracks", "travel_time"]
 
 _DAYS_PER_YEAR = 365.25
 # Tracking-time unit written by the extractors on the ``particles`` group,
@@ -31,6 +31,31 @@ _DAYS_PER_UNIT: dict[str, float] = {
     "year": _DAYS_PER_YEAR,
     "years": _DAYS_PER_YEAR,
 }
+
+
+def has_particle_tracks(run: Run, *, timed: bool = False) -> bool:
+    """Return whether at least one particle moved, reading two steps per particle.
+
+    An extractor may leave an empty ``particles`` group behind, which
+    ``Run.has_field("particles")`` counts as present, or record release points
+    only. A pathline needs two positions, and the extractors pad each one with
+    NaN after its last step, so the first two steps tell. ``timed`` also asks
+    for a clock on those two steps, which a travel time is read from.
+    """
+    names = ("x", "y", "time") if timed else ("x", "y")
+    sz = run._catalog.open_zarr(run.sim_id)
+    try:
+        grp = sz.root.get("particles")
+        if grp is None or any(name not in grp for name in names):
+            return False
+        heads = [np.atleast_2d(np.asarray(grp[name][..., :2], dtype="float64")) for name in names]
+    finally:
+        sz.close()
+    n_particles = min(head.shape[0] for head in heads)
+    if n_particles == 0 or min(head.shape[1] for head in heads) < 2:
+        return False
+    finite = np.logical_and.reduce([np.isfinite(head[:n_particles, :2]) for head in heads])
+    return bool(finite.all(axis=1).any())
 
 
 def particle_time_to_days(run: Run) -> float:

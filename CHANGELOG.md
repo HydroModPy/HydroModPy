@@ -163,6 +163,9 @@ Each release section includes the following standard categories:
   `hydromodpy.results.calibration_trials.calibration_sessions`, and
   `hydromodpy.results.run.array.acting_faces_over_run` and `acting_faces`. Each
   takes the run; `Run` keeps its 50 public attributes.
+- `hydromodpy.results.run.particles.has_particle_tracks(run, timed=False)`,
+  which says whether at least one particle moved (and, with `timed=True`,
+  carries a clock) from the first two steps of each particle.
 - `hydromodpy.display.geo.project_gdf_for_metric_operations`, which puts a
   GeoDataFrame in a metric CRS. `reporting` and the network figures imported it
   under a private name from a figure module. The network figures also share
@@ -249,6 +252,14 @@ Each release section includes the following standard categories:
 - `hydromodpy.display.catchment_report.block_specs.FigureSpec`, the place of a
   PNG in a catchment report block, is renamed `BlockFigureSpec`, so that
   `FigureSpec` names only the contract of a registered figure.
+- `method` in `[calibration]` and in a `[[calibration.phases]]` entry no
+  longer defaults to `grid`. Unwritten, it follows from what the search
+  scores: `bisection` when it moves one parameter in log space and every one
+  of its objective blocks is signed (`distance_gap`), `scipy_nelder_mead`
+  otherwise. `hmp calibrate --list-phases` prints the method each phase runs,
+  and why when it was chosen. `optimizer_kwargs` without `method` are refused,
+  since they belong to an engine the file has to name. No TOML file of the
+  repository relied on the old default.
 
 ### Fixed
 - `Project.simulate(thickness=...)` on a depth model without a thickness raises
@@ -341,6 +352,18 @@ Each release section includes the following standard categories:
   `hmp.figure`, `hmp viz show` and the capability gallery of the export step
   render one figure through `hydromodpy.display.runs.render_figure`, which
   takes `dpi` and the figure options and returns the figure.
+- A figure the run cannot feed is refused with a sentence, never by an error
+  from inside its drawing nor by a placeholder PNG. `piper_diagram`,
+  `schoeller_diagram` and `stiff_diagram` need hydrochemistry samples,
+  `lake_abacus_comparison` a lake abacus, `watershed_id_card` a DEM raster,
+  `particle_tracks` and `residence_time_distribution` pathline coordinates
+  (an empty `particles` group or release points alone no longer count),
+  `sfr_*` stream-reach series,
+  `lake_stage_sim_obs` and `lake_volume_sim_obs` a simulated and a gauged lake
+  level, `piezo_timeseries_sim_obs` a simulated head series, and `ensemble_band`
+  a set of runs. `[display].figures` skips them with that reason.
+  `piezo_timeseries_sim_obs` without `station=` names the stations it could
+  draw, and `difference_map` and `side_by_side` without `reference=` say so.
 
 ---
 

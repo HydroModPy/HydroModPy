@@ -21,6 +21,7 @@ from hydromodpy.display.map_axes import (
 )
 from hydromodpy.display.overlays import apply_overlays
 from hydromodpy.results.run.particles import (
+    has_particle_tracks,
     particle_time_to_days,
     read_particle_tracks,
     travel_time,
@@ -45,6 +46,15 @@ class ParticleTracks(BaseFigure):
         required_fields=("particles",),
         default_figsize=(7.0, 5.5),
     )
+
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Require a particle that moved, not only the ``particles`` group."""
+        reason = super().unavailable_reason(sim)
+        if reason is not None:
+            return reason
+        if not has_particle_tracks(sim):
+            return "run holds no particle pathline: no particle moved from its release point"
+        return None
 
     def render(
         self,

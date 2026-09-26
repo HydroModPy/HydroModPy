@@ -6,7 +6,10 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.figures.sfr_reach_timeseries import sfr_reach_stations
+from hydromodpy.display.figures.sfr_reach_timeseries import (
+    no_reach_series_reason,
+    sfr_reach_stations,
+)
 from hydromodpy.display.geo import GeoFigureMixin
 from hydromodpy.display.map_axes import overlay_watershed_contour, style_relative_km_axes
 
@@ -34,6 +37,10 @@ class SfrReachNetwork(GeoFigureMixin, BaseFigure):
         required_tables=("timeseries",),
         default_figsize=(7.0, 6.5),
     )
+
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Require the stream-reach series, which ``spec`` cannot declare."""
+        return super().unavailable_reason(sim) or no_reach_series_reason(sim)
 
     def render(
         self,

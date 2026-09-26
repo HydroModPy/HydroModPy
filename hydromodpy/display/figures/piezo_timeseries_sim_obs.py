@@ -45,17 +45,31 @@ class PiezoTimeseriesSimObs(BaseFigure):
         default_figsize=(8.5, 4.5),
     )
 
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Require a simulated head series at some station."""
+        reason = super().unavailable_reason(sim)
+        if reason is not None:
+            return reason
+        if not sim.stations("head"):
+            return "run holds no simulated head series at a station"
+        return None
+
     def render(
         self,
         sim: Run,
         ax: Axes,
         *,
-        station: str,
+        station: str | None = None,
         variable: str = "head",
         observed_station: str | None = None,
         observed_variable: str | None = None,
         **_,
     ) -> Axes:
+        if station is None:
+            raise ValueError(
+                "piezo_timeseries_sim_obs draws one piezometer: name it with "
+                f"station=<id>, one of {sim.stations(variable)}"
+            )
         obs_station = (
             observed_station
             if observed_station is not None
