@@ -336,9 +336,9 @@ def calibrate(
     A TOML declaring ``[[calibration.phases]]`` **routes** to
     :func:`~hydromodpy.calibration.runners.staged_runner.run_staged_calibration`:
     each phase calibrates its own parameters and freezes them for the next. The
-    same declaration carried by an in-memory config object is **refused**: a
-    phase forks its configuration from the source file, and there is none.
-    Write the config out and pass the path.
+    same declaration carried by an in-memory config object routes there too:
+    :meth:`~hydromodpy.project.Project.calibrate` writes the document a staged
+    run needs next to the project's ``sessions/`` and runs it from there.
 
     Parameters
     ----------
@@ -397,7 +397,7 @@ def calibrate(
         Structured calibration result.
     """
     from hydromodpy.core.exceptions import CalibrationError, ConfigError
-    from hydromodpy.project.dispatch.workflow import in_memory_staged_refusal, no_such_phase
+    from hydromodpy.project.dispatch.workflow import no_such_phase
 
     if isinstance(config, (str, Path)):
         from hydromodpy.calibration.runners.cli_runner import (
@@ -435,14 +435,14 @@ def calibrate(
         from hydromodpy.calibration.runners.staged_runner import phase_summaries
 
         return phase_summaries(calibration)
-    if declared:
-        raise CalibrationError(in_memory_staged_refusal([decl.name for decl in declared]))
-    if phase is not None:
+    if not declared and phase is not None:
         raise CalibrationError(no_such_phase("this configuration", phase))
 
     from hydromodpy.project import Project
 
     headless = bool(kwargs.pop("headless", True))
+    if phase is not None:
+        kwargs["phase"] = phase
     with Project(config, headless=headless) as project:
         return project.calibrate(**kwargs)
 

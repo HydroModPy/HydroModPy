@@ -132,6 +132,109 @@ method = "grid"
 """
 
 
+PHASES_TOML_EQUIVALENT = """\
+[workflow]
+mode = "calibration"
+
+[calibration]
+seed = 42
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+path = "flow.param.K.field.value"
+
+[calibration.parameters.Sy]
+bounds = [5e-3, 0.35]
+path = "flow.param.Sy.field.value"
+
+[calibration.outputs.gauge]
+support = "point"
+variable = "discharge"
+x = 0
+y = 0
+observed_values = [1.0, 2.0, 3.0]
+
+[[calibration.objective_blocks]]
+name = "hydrograph"
+metric = "nse"
+uses_outputs = ["gauge"]
+
+[[calibration.objective_blocks]]
+name = "network"
+metric = "kge"
+uses_outputs = ["gauge"]
+
+[[calibration.phases]]
+name = "k_steady"
+parameters = ["K"]
+regime = "steady"
+objective_blocks = ["hydrograph"]
+max_iter = 18
+
+[[calibration.phases]]
+name = "sy_transient"
+parameters = ["Sy"]
+regime = "transient"
+objective_blocks = { hydrograph = 99, network = 1 }
+max_iter = 30
+"""
+
+PYTHON_MODE_PHASES_KWARGS = {
+    "parameters": {
+        "K": {"bounds": [1e-7, 1e-3], "path": "flow.param.K.field.value"},
+        "Sy": {"bounds": [5e-3, 0.35], "path": "flow.param.Sy.field.value"},
+    },
+    "outputs": {
+        "gauge": {
+            "support": "point",
+            "variable": "discharge",
+            "x": 0,
+            "y": 0,
+            "observed_values": [1.0, 2.0, 3.0],
+        },
+    },
+    "objective_blocks": [
+        {"name": "hydrograph", "metric": "nse", "uses_outputs": ["gauge"]},
+        {"name": "network", "metric": "kge", "uses_outputs": ["gauge"]},
+    ],
+    "phases": [
+        {
+            "name": "k_steady",
+            "parameters": ["K"],
+            "regime": "steady",
+            "objective_blocks": ["hydrograph"],
+            "max_iter": 18,
+        },
+        {
+            "name": "sy_transient",
+            "parameters": ["Sy"],
+            "regime": "transient",
+            "objective_blocks": {"hydrograph": 99, "network": 1},
+            "max_iter": 30,
+        },
+    ],
+    "seed": 42,
+}
+
+
+class _InMemoryPythonProject:
+    """Duck-typed project with no config_path: the pure Python-mode case.
+
+    Exposes only what :func:`run_calibration_programmatic` reads: the
+    workspace root (for ``sessions/``) and a config with a ``model_dump``,
+    since there is no source TOML to reuse.
+    """
+
+    def __init__(self, ws_root: Path) -> None:
+        self._config_path = None
+        workspace = SimpleNamespace(root=ws_root, project_root=ws_root)
+        setup = SimpleNamespace(workspace=workspace)
+        self._ctx = SimpleNamespace(setup=setup)
+        self.config = SimpleNamespace(
+            model_dump=lambda **kwargs: {"workflow": {"mode": "simulation"}}
+        )
+
+
 def _staged_config():
     """A validated ``[calibration]`` section declaring one phase."""
     from hydromodpy.calibration.config import CalibrationConfig
@@ -217,35 +320,309 @@ def test_project_calibrate_embedded_phases_route_to_staged_runner(
     assert calls["staged_phase"] == "steady_k"
 
 
-def test_project_calibrate_in_memory_phases_are_refused(monkeypatch) -> None:
-    """No file to re-read per phase: refuse, naming the phases, never flatten."""
-    from hydromodpy.core.exceptions import CalibrationError
+def test_project_calibrate_in_memory_embedded_phases_route_to_staged_runner(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """No source file to fork each phase from: write one and run it staged.
+
+    Replaces the old refusal (``in_memory_staged_refusal``, removed): an
+    embedded declaration on a project built in memory now reaches the staged
+    runner through the document ``run_calibration_programmatic`` writes.
+    """
     from hydromodpy.project import Project
 
     calls: dict = {}
-    _patch_runners(monkeypatch, calls)
 
-    project = SimpleNamespace(
-        config=SimpleNamespace(calibration=_staged_config()),
-        _config_path=None,
+    def fake_staged(config_path, *, phase=None, **kwargs):
+        calls["doc_path"] = Path(config_path)
+        calls["phase"] = phase
+        return _FakeStagedReport()
+
+    monkeypatch.setattr(
+        "hydromodpy.calibration.runners.staged_runner.run_staged_calibration",
+        fake_staged,
     )
-    with pytest.raises(CalibrationError, match="steady_k"):
-        Project.calibrate(project)
+
+    ws_root = tmp_path / "ws"
+    ws_root.mkdir()
+    project = _InMemoryPythonProject(ws_root)
+    project.config.calibration = _staged_config()
+
+    result = Project.calibrate(project, phase="steady_k")
+
+    assert isinstance(result, _FakeStagedReport)
+    assert calls["phase"] == "steady_k"
+    doc_path = calls["doc_path"]
+    assert doc_path.parent == ws_root / "sessions"
+    assert doc_path.is_file()
 
 
-def test_calibrate_object_config_with_phases_is_refused(monkeypatch) -> None:
-    """``hmp.calibrate(config_object)`` refuses instead of running one stage."""
-    from hydromodpy.core.exceptions import CalibrationError
+def test_calibrate_object_config_with_phases_routes_through_project(monkeypatch) -> None:
+    """``hmp.calibrate(config_object)`` no longer refuses a declared phase.
 
-    class _NoProject:
-        def __init__(self, *args, **kwargs):
-            raise AssertionError("a refused staged calibration must build no Project")
-
-    monkeypatch.setattr("hydromodpy.project.Project", _NoProject)
+    It delegates to ``Project.calibrate``, which knows how to run embedded
+    phases from a project built in memory (see the test above).
+    """
+    captured: dict = {}
+    monkeypatch.setattr(
+        "hydromodpy.project.Project",
+        make_capturing_project(captured, result={"report": "staged"}, verb="calibrate"),
+    )
 
     config = SimpleNamespace(calibration=_staged_config())
-    with pytest.raises(CalibrationError, match="steady_k"):
-        hmp.calibrate(config)
+    result = hmp.calibrate(config, phase="steady_k")
+    assert result == {"report": "staged"}
+    assert captured["verb_kwargs"] == {"phase": "steady_k"}
+
+
+def test_python_mode_phases_and_equivalent_toml_pick_the_same_phases(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Phases declared in Project.calibrate(phases=...) and the equivalent
+    TOML validate to the same phase declarations and the same methods.
+
+    Covers the ``Project.calibrate(..., phases=[...])`` Python mode: the
+    dictionaries use the TOML keys one for one, the call writes a document
+    next to ``sessions/``, and that document is a plain calibration TOML
+    (``hmp calibrate <path>`` replays it, checked separately).
+
+    Compares the parsed configs the two routes produce, not what the staged
+    runner does with them (patched here, like every other test in this
+    file): a launch-level comparison belongs to ``tests/unit/calibration``,
+    against the runner itself.
+    """
+    from hydromodpy.calibration.runners.cli_runner import load_toml_calibration
+    from hydromodpy.calibration.runners.staged_runner import phase_summaries
+    from hydromodpy.project import Project
+
+    toml_path = _write_toml(tmp_path / "phases.toml", PHASES_TOML_EQUIVALENT)
+    cfg_toml, _raw_toml = load_toml_calibration(toml_path)
+
+    calls: dict = {}
+
+    def fake_staged(config_path, *, phase=None, **kwargs):
+        calls["doc_path"] = Path(config_path)
+        return _FakeStagedReport()
+
+    monkeypatch.setattr(
+        "hydromodpy.calibration.runners.staged_runner.run_staged_calibration",
+        fake_staged,
+    )
+
+    ws_root = tmp_path / "ws"
+    ws_root.mkdir()
+    project = _InMemoryPythonProject(ws_root)
+
+    result = Project.calibrate(project, **PYTHON_MODE_PHASES_KWARGS)
+
+    assert isinstance(result, _FakeStagedReport)
+    doc_path = calls["doc_path"]
+    assert doc_path.parent == ws_root / "sessions"
+    cfg_python, _raw_python = load_toml_calibration(doc_path)
+
+    def phase_dump(cfg):
+        return [p.model_dump(mode="json", exclude_none=True) for p in cfg.phases]
+
+    assert phase_dump(cfg_python) == phase_dump(cfg_toml)
+    assert phase_summaries(cfg_python) == phase_summaries(cfg_toml)
+
+
+# ---------------------------------------------------------------------------
+# File-backed Python mode: the document must mean the same thing wherever it
+# is read from, and must never leak what the project's own [calibration]
+# declares. Uses a real, minimal HydroModPyConfig (not the duck-typed double
+# above): the bug these two guard is specific to real path resolution.
+# ---------------------------------------------------------------------------
+
+MINIMAL_REAL_PROJECT_TOML = """\
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+[geographic]
+crs_project = "EPSG:2154"
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "naizin_dem.tif"
+x_outlet = 265611.933
+y_outlet = 6784182.776
+snap_dist = "50 m"
+buff_area = "20%"
+
+[domain]
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "50.0 m"
+
+[data]
+types = []
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = []
+active_bc = ["drainage"]
+param_list = ["K"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+value = "1e-5 m/s"
+
+[simulation]
+name = "minimal"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow_nwt"]
+
+[calibration]
+seed = 7
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+
+[calibration.parameters.Sy]
+bounds = [5e-3, 0.35]
+
+[calibration.outputs.seepage_network]
+support = "network"
+stream_geometry_path = "a_stream_network.gpkg"
+diagonal_neighbors = true
+
+[[calibration.objective_blocks]]
+name = "network"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+
+[display]
+enabled = false
+"""
+
+
+def _write_real_project(tmp_path: Path) -> Path:
+    """A minimal, real, loadable project: relative dem_init_path and
+    project_root = ".", the idiom every example uses. Also declares Sy and
+    a network output the two tests below never mention in their Python
+    call, to prove neither leaks into the written document.
+    """
+    path = tmp_path / "project.toml"
+    path.write_text(MINIMAL_REAL_PROJECT_TOML, encoding="utf-8")
+    return path
+
+
+def _write_document(monkeypatch, calls: dict) -> None:
+    """Patch the staged runner so the write happens but nothing runs."""
+
+    def fake_staged(config_path, *, phase=None, **kwargs):
+        calls["doc_path"] = Path(config_path)
+        return _FakeStagedReport()
+
+    monkeypatch.setattr(
+        "hydromodpy.calibration.runners.staged_runner.run_staged_calibration",
+        fake_staged,
+    )
+
+
+def test_file_backed_python_phases_document_keeps_the_projects_own_paths(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """The written document means the same thing wherever it sits.
+
+    HydroModPyConfig.from_toml resolves a relative path against the file it
+    is given. A document that referenced the project through base_config
+    would re-anchor every relative path the project declares -- project_root
+    included -- on sessions/, not on the project: a bug found and fixed
+    while writing the real replay check for this step. Embedding the
+    project's own already-resolved config (every path already absolute)
+    avoids it.
+    """
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.project import Project
+
+    config_path = _write_real_project(tmp_path)
+    # Where the project resolves a bare relative stream_geometry_path: same
+    # directory as project.toml. Content is never read, only existence.
+    (tmp_path / "k_python_stream_network.gpkg").write_bytes(b"")
+
+    calls: dict = {}
+    _write_document(monkeypatch, calls)
+
+    with Project(config_path, headless=True) as project:
+        # Read here, not from a fresh HydroModPyConfig.from_toml(config_path):
+        # headless=True itself adjusts display, and the document embeds
+        # project.config as Project sees it, not a bare reload of the file.
+        expected = project.config
+        result = project.calibrate(
+            parameters={"K": {"bounds": [1e-7, 1e-3]}},
+            outputs={
+                "streams": {
+                    "support": "network",
+                    "stream_geometry_path": "k_python_stream_network.gpkg",
+                    "diagonal_neighbors": True,
+                }
+            },
+            objective_blocks=[
+                {"name": "network", "metric": "distance_gap", "uses_outputs": ["streams"]}
+            ],
+            phases=[{"name": "k_only", "parameters": ["K"], "max_iter": 5}],
+        )
+
+    assert isinstance(result, _FakeStagedReport)
+    doc_path = calls["doc_path"]
+    assert doc_path.parent == config_path.parent / "sessions"
+
+    written = HydroModPyConfig.from_toml(doc_path)
+    # workflow.mode is deliberately overridden to "calibration" so the
+    # document dispatches as one; every other section is untouched.
+    assert written.workflow.mode == "calibration"
+    excluded = {"calibration", "workflow"}
+    assert written.model_dump(
+        mode="json", exclude=excluded, exclude_none=True
+    ) == expected.model_dump(mode="json", exclude=excluded, exclude_none=True)
+    assert written.workspace.project_root == expected.workspace.project_root
+    assert written.geographic.catchment.dem_init_path == expected.geographic.catchment.dem_init_path
+
+    # The relative stream_geometry_path is meant relative to the project, as
+    # in TOML mode: the document must carry it resolved, not relative to
+    # sessions/, one level short of where the project keeps it.
+    assert written.calibration.outputs["streams"].stream_geometry_path == str(
+        (tmp_path / "k_python_stream_network.gpkg").resolve()
+    )
+
+
+def test_file_backed_python_phases_document_holds_only_what_python_gave(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """[calibration] is a plain overwrite, never a merge with the project's.
+
+    The project declares Sy and a network output; the Python call below
+    names only K and declares no output. Neither Sy nor the network output
+    may appear in the written document, or a phases= call naming only K
+    would silently also carry Sy and an unrelated output along.
+    """
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.project import Project
+
+    config_path = _write_real_project(tmp_path)
+
+    calls: dict = {}
+    _write_document(monkeypatch, calls)
+
+    with Project(config_path, headless=True) as project:
+        project.calibrate(
+            parameters={"K": {"bounds": [1e-7, 1e-3]}},
+            phases=[{"name": "k_only", "parameters": ["K"], "max_iter": 5}],
+        )
+
+    written = HydroModPyConfig.from_toml(calls["doc_path"])
+    assert set(written.calibration.parameters) == {"K"}
+    assert set(written.calibration.outputs) == set()
+    assert written.calibration.protocol is None
 
 
 def test_calibrate_object_config_lists_its_phases(monkeypatch) -> None:

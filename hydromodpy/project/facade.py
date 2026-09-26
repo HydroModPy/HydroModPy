@@ -468,6 +468,7 @@ class Project:
         parameters: dict[str, dict] | None = None,
         outputs: dict[str, dict] | None = None,
         objective_blocks: list[dict] | None = None,
+        phases: list[dict] | None = None,
         method: str | None = None,
         max_iter: int | None = None,
         save_runs: str | None = None,
@@ -492,10 +493,13 @@ class Project:
         A configuration declaring ``[[calibration.phases]]`` **routes** to
         :func:`~hydromodpy.calibration.runners.staged_runner.run_staged_calibration`
         in TOML mode, and in embedded mode when this project was built from a
-        file. An embedded declaration on a project built in memory is
-        **refused**: each phase forks a fresh configuration from the source
-        file, and there is none. Python mode declares its own parameter space,
-        so the phases of the project config do not apply to it.
+        file. Python mode routes there too when ``phases`` is given, and so
+        does an embedded declaration on a project built in memory: both write
+        the calibration document the staged runner needs (next to this
+        project's ``sessions/``) and run it from there, since there is no
+        source file to fork each phase from otherwise. Python mode without
+        ``phases`` declares its own single-stage parameter space, so the
+        phases of the project config do not apply to it.
 
         Parameters
         ----------
@@ -507,6 +511,10 @@ class Project:
             Python-mode output declarations.
         objective_blocks
             Python-mode objective block declarations.
+        phases
+            Python-mode phase declarations, one dict per phase, same keys as
+            ``[[calibration.phases]]``. Runs staged, through the same document
+            and runner as a TOML calibration that declares phases.
         method
             Optimizer method name. Unset, the one the criteria call for: a root
             search for one log parameter scored on signed criteria only, a
@@ -543,7 +551,6 @@ class Project:
         from hydromodpy.project.dispatch.workflow import (
             calibration_phases_or_raise,
             declared_calibration_phases,
-            in_memory_staged_refusal,
             no_such_phase,
         )
 
@@ -585,10 +592,11 @@ class Project:
                     )
 
                     return run_staged_calibration(Path(source).resolve(), phase=phase, **kwargs)
-                if declared:
-                    raise CalibrationError(in_memory_staged_refusal(declared))
-                if phase is not None:
+                if not declared and phase is not None:
                     raise CalibrationError(no_such_phase("this configuration", phase))
+                # A declaration on a project built in memory has no file to fork
+                # each phase from: run_calibration_programmatic writes one next
+                # to this project's sessions/ and runs the staged runner on it.
                 return run_calibration_programmatic(
                     embedded,
                     project=self,
@@ -597,6 +605,7 @@ class Project:
                     metric_fn=kwargs.get("metric_fn"),
                     objective=kwargs.get("objective"),
                     return_report=kwargs.get("return_report", True),
+                    phase=phase,
                 )
             raise ConfigMissingError(
                 "Project.calibrate() requires either config_path=, parameters= "
@@ -604,7 +613,7 @@ class Project:
                 "project config."
             )
 
-        if phase is not None:
+        if phase is not None and not phases:
             raise CalibrationError(no_such_phase("this parameters= declaration", phase))
 
         payload: dict[str, object] = {}
@@ -621,6 +630,8 @@ class Project:
             payload["outputs"] = dict(outputs)
         if objective_blocks is not None:
             payload["objective_blocks"] = list(objective_blocks)
+        if phases is not None:
+            payload["phases"] = list(phases)
         payload.update(
             {
                 key: value
@@ -654,6 +665,7 @@ class Project:
             metric_fn=kwargs.get("metric_fn"),
             objective=kwargs.get("objective"),
             return_report=kwargs.get("return_report", True),
+            phase=phase,
         )
 
     def spinup(
