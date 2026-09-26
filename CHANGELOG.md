@@ -373,6 +373,11 @@ Each release section includes the following standard categories:
   a set of runs. `[display].figures` skips them with that reason.
   `piezo_timeseries_sim_obs` without `station=` names the stations it could
   draw, and `difference_map` and `side_by_side` without `reference=` say so.
+- The catchment report reads the cell count from the simulated run, for every
+  solver. It read `[modflownwt.sgrid.planar]` and left the count empty for any
+  other run. The generated-network context figure it cannot draw is now
+  logged with its name and the reason (the missing input at INFO, a failed
+  read at WARNING), instead of missing from the report without a word.
 
 ---
 

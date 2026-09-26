@@ -65,6 +65,7 @@ def build_context(inputs: CatchmentReportInputs) -> Path:
     with open_simulation_run(inputs) as (catalog, run):
         simulated = read_simulated_discharge(run)
         parquet_dir = simulation_parquet_dir(catalog, run)
+        n_cells = run.n_cells
     observed = (
         _read_series(inputs.observed_discharge_path)
         if inputs.observed_discharge_path is not None and inputs.observed_discharge_path.exists()
@@ -94,7 +95,7 @@ def build_context(inputs: CatchmentReportInputs) -> Path:
         "source_export": _rel(parquet_dir / "timeseries.parquet") if parquet_dir else None,
         "simulation_name": inputs.simulation_name,
         "simulation_parquet": _rel(parquet_dir) if parquet_dir else None,
-        "n_cells": _grid_cell_count(config),
+        "n_cells": n_cells,
         "n_timesteps": int(len(simulated)),
         "runtime_seconds": _read_runtime_seconds(parquet_dir),
         "figure_dir": _rel(inputs.simulation_figures),
@@ -204,15 +205,6 @@ def _configured_station_ids(data: Mapping[str, Any], family: str) -> list[str]:
         if isinstance(source, Mapping):
             ids.extend(str(item) for item in source.get("station_ids", []) or [])
     return ids
-
-
-def _grid_cell_count(config: Mapping[str, Any]) -> int | None:
-    nx = _nested(config, ("modflownwt", "sgrid", "planar", "nx"))
-    ny = _nested(config, ("modflownwt", "sgrid", "planar", "ny"))
-    try:
-        return int(nx) * int(ny)
-    except (TypeError, ValueError):
-        return None
 
 
 def _read_series(path: Path) -> pd.DataFrame:

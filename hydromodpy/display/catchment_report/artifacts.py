@@ -9,11 +9,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.display.catchment_report.resources import (
     GEOLOGY_DATA_ROOT,
     REPO_ROOT,
 )
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -170,6 +173,10 @@ def copy_real_figures(
     return copied
 
 
+_GENERATED_NETWORK_FIGURE = "network_generated"
+"""The block figure the generated-network context map fills."""
+
+
 def generate_generated_network_context_figure(
     copied: dict[str, Path],
     *,
@@ -181,7 +188,22 @@ def generate_generated_network_context_figure(
     network_path = latest_generated_network_parquet(generated_network_root)
     dem_path = context_dem_path(config, geographic_scratch)
     watershed_path = geographic_scratch / "watershed.shp"
-    if network_path is None or not dem_path.exists() or not watershed_path.exists():
+    missing = [
+        label
+        for label, present in (
+            ("the generated network of a run", network_path is not None),
+            (str(dem_path), dem_path.exists()),
+            (str(watershed_path), watershed_path.exists()),
+        )
+        if not present
+    ]
+    if missing:
+        # An optional figure: a project without a generated network is normal.
+        logger.info(
+            "Catchment report: context figure '%s' not drawn, missing %s",
+            _GENERATED_NETWORK_FIGURE,
+            ", ".join(missing),
+        )
         return
     try:
         import geopandas as gpd
@@ -190,7 +212,12 @@ def generate_generated_network_context_figure(
         import rasterio
 
         from hydromodpy.display.overview.panels import render_dem_map
-    except Exception:
+    except Exception as exc:
+        logger.warning(
+            "Catchment report: context figure '%s' skipped, a plotting library failed to load: %s",
+            _GENERATED_NETWORK_FIGURE,
+            exc,
+        )
         return
 
     try:
@@ -199,7 +226,14 @@ def generate_generated_network_context_figure(
             target_crs = src.crs
         if target_crs is not None and streams_gdf.crs is not None:
             streams_gdf = streams_gdf.to_crs(target_crs)
-    except Exception:
+    except Exception as exc:
+        logger.warning(
+            "Catchment report: context figure '%s' skipped, %s or %s could not be read: %s",
+            _GENERATED_NETWORK_FIGURE,
+            network_path,
+            dem_path,
+            exc,
+        )
         return
 
     matplotlib.use("Agg")
@@ -218,7 +252,7 @@ def generate_generated_network_context_figure(
     target = figures_dir / "hydrographic_network_generated_context.png"
     fig.savefig(target, dpi=160)
     plt.close(fig)
-    copied["network_generated"] = target
+    copied[_GENERATED_NETWORK_FIGURE] = target
 
 
 def latest_generated_network_parquet(generated_network_root: Path) -> Path | None:
