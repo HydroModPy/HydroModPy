@@ -325,6 +325,7 @@ def calibrate(
     *,
     phase: str | None = None,
     list_phases: bool = False,
+    expand: bool = False,
     **kwargs: Any,
 ) -> Any:
     """Run a calibration workflow from a TOML file or config object.
@@ -354,6 +355,13 @@ def calibrate(
         for, and ``method_reason`` says why. A phase that moves again a
         parameter an earlier phase passes on also names that phase, and says
         whether its engine starts from the passed value.
+    expand
+        Return the ``[calibration]`` section a protocol unfolds into, instead
+        of running anything. Needs ``config`` to be a TOML path. A file naming
+        a protocol gets only ``objective_blocks`` and ``phases``, the keys the
+        protocol writes; a file naming none gets its own section back
+        unchanged. Refused together with ``phase`` or ``list_phases``: expand
+        answers what would run, it does not run it.
     kwargs
         Options forwarded to the underlying calibration runner. The
         ``headless`` keyword controls the project initialization for the
@@ -364,15 +372,22 @@ def calibrate(
     -------
     Any
         Calibration report or workflow-specific result. A ``list`` of phase
-        descriptions when ``list_phases`` is set.
+        descriptions when ``list_phases`` is set. A ``dict`` with
+        ``"calibration"`` and ``"protocol"`` keys when ``expand`` is set:
+        ``"protocol"`` is ``None`` for a file naming no protocol, else a
+        ``dict`` with ``"name"``, ``"version"`` and ``"citation"`` (the first
+        reference, short form).
 
     Raises
     ------
     FileNotFoundError
         If the calibration TOML path does not exist.
+    ValueError
+        If ``expand`` is combined with ``phase`` or ``list_phases``, or given
+        a config object instead of a TOML path.
     hydromodpy.core.exceptions.ConfigError
         If the configuration cannot be read and the answer depends on reading
-        it (``phase`` or ``list_phases``).
+        it (``phase``, ``list_phases`` or ``expand``).
     hydromodpy.core.exceptions.ConfigMissingError
         If neither ``config_path`` nor ``parameters`` is supplied.
     hydromodpy.core.exceptions.CalibrationError
@@ -396,10 +411,20 @@ def calibrate(
     hydromodpy.calibration.CalibrationReport
         Structured calibration result.
     """
+    if expand and (phase is not None or list_phases):
+        raise ValueError(
+            "calibrate(expand=True) cannot be combined with phase or list_phases: "
+            "expand answers what a protocol writes, it runs nothing."
+        )
+
     from hydromodpy.core.exceptions import CalibrationError, ConfigError
     from hydromodpy.project.dispatch.workflow import no_such_phase
 
     if isinstance(config, (str, Path)):
+        target = Path(config).expanduser().resolve()
+        if expand:
+            return _expand_calibration_section(target)
+
         from hydromodpy.calibration.runners.cli_runner import (
             load_toml_calibration,
             run_calibration_cli,
@@ -410,7 +435,6 @@ def calibrate(
         )
 
         kwargs.pop("headless", None)
-        target = Path(config).expanduser().resolve()
         # Probe the file to decide staged or not. When that decision is all
         # that hangs on the read, a failure is left to the runner, which
         # reports it with its own context. When the answer itself is what the
@@ -429,6 +453,9 @@ def calibrate(
             raise CalibrationError(no_such_phase(target.name, phase))
         return run_calibration_cli(target, **kwargs)
 
+    if expand:
+        raise ValueError("calibrate(expand=True) needs a TOML path, not a config object.")
+
     calibration = getattr(config, "calibration", None)
     declared = getattr(calibration, "phases", None)
     if list_phases:
@@ -445,6 +472,63 @@ def calibrate(
         kwargs["phase"] = phase
     with Project(config, headless=headless) as project:
         return project.calibrate(**kwargs)
+
+
+def _expand_calibration_section(target: Path) -> dict[str, Any]:
+    """Return what a protocol unfolds ``target``'s ``[calibration]`` section into.
+
+    Reads through the same ``base_config`` chain :func:`load_toml_calibration`
+    resolves, then hands the document to
+    :func:`hydromodpy.calibration.protocols.expand_calibration_protocol`. A
+    file naming no protocol gets its own section back, ``protocol`` key
+    aside: nothing was unfolded, so there is nothing else to say. A file
+    naming one gets only :data:`~hydromodpy.calibration.protocols.WRITTEN_SECTIONS`
+    (``objective_blocks``, ``phases``): the rest of the section -- parameters,
+    outputs, seed -- already sits in the file or its ``base_config`` and does
+    not need restating.
+    """
+    from hydromodpy.calibration.protocols import (
+        WRITTEN_SECTIONS,
+        expand_calibration_protocol,
+        get_protocol,
+    )
+    from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+    try:
+        raw = load_toml_with_base_config(target)
+    except Exception as exc:
+        raise ConfigError(f"{target} cannot be read: {exc}") from exc
+    calibration = raw.get("calibration")
+    if not isinstance(calibration, dict):
+        raise ConfigError(f"No [calibration] section in {target}")
+
+    declaration = calibration.get("protocol")
+    if declaration is None:
+        section = {key: value for key, value in calibration.items() if key != "protocol"}
+        return {"calibration": section, "protocol": None}
+
+    try:
+        expanded = expand_calibration_protocol(raw)
+    except ValueError as exc:
+        raise ConfigError(f"{target}: {exc}") from exc
+
+    name = declaration if isinstance(declaration, str) else declaration.get("name")
+    protocol = get_protocol(str(name))
+    expanded_calibration = expanded.get("calibration") or {}
+    section = {
+        key: expanded_calibration[key] for key in WRITTEN_SECTIONS if key in expanded_calibration
+    }
+    citation = None
+    if protocol.references:
+        reference = protocol.references[0]
+        citation = (
+            f"{reference.authors.split(',')[0].strip()} et al. {reference.year}, {reference.doi}"
+        )
+    return {
+        "calibration": section,
+        "protocol": {"name": protocol.name, "version": protocol.version, "citation": citation},
+    }
 
 
 def spinup(config: Any, **kwargs: Any) -> SpinupResult:

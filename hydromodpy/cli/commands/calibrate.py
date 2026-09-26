@@ -19,6 +19,7 @@ from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
+    EXIT_USAGE,
     apply_verbosity,
     profile_arg_from_toml,
     profile_run,
@@ -49,6 +50,13 @@ def register(subparsers) -> argparse.ArgumentParser:
         action="store_true",
         help="Check everything the search needs and exit without solving. Reports every "
         "problem at once rather than the first.",
+    )
+    parser.add_argument(
+        "--expand",
+        action="store_true",
+        help="Print the [calibration] section a protocol writes, as TOML, and exit "
+        "without running anything. A file naming no protocol prints its own section. "
+        "Refused together with --phase, --list-phases or --check.",
     )
     parser.set_defaults(_handler=run)
     return parser
@@ -168,6 +176,42 @@ def _values_this_file_set(cfg, keys: list[str]) -> dict[str, object]:
     return found
 
 
+def _expand_only(target: Path) -> None:
+    """Print the ``[calibration]`` section a protocol writes, as TOML, and exit.
+
+    Formatting only: :func:`hydromodpy.calibrate` does the unfolding and
+    decides what belongs in the section and in the header. A file naming no
+    protocol gets a header saying so instead of a protocol line, and its own
+    section is printed unchanged.
+    """
+    import io
+
+    import hydromodpy as hmp
+    from hydromodpy.core.toml_io.writer import dump
+
+    try:
+        expanded = hmp.calibrate(target, expand=True)
+    except ConfigError as exc:
+        print(f"Config invalid: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+
+    protocol = expanded["protocol"]
+    if protocol is None:
+        print(
+            f"# {target.name} declares no protocol: this is its [calibration] section as declared."
+        )
+    else:
+        print(f"# Expanded from protocol {protocol['name']}, version {protocol['version']}")
+        if protocol["citation"]:
+            print(f"# ({protocol['citation']}).")
+        print("# A file inheriting the protocol from its base_config adds:")
+        print("# protocol__delete = true")
+
+    buffer = io.BytesIO()
+    dump({"calibration": expanded["calibration"]}, buffer)
+    print(buffer.getvalue().decode(), end="")
+
+
 def _phase_line(index: int, phase: dict[str, Any]) -> str:
     """Return the ``--list-phases`` line of one phase.
 
@@ -258,6 +302,15 @@ def _format_calibration_result(result: Any) -> list[str]:
 def run(args: argparse.Namespace) -> None:
     import hydromodpy as hmp
 
+    expand = getattr(args, "expand", False)
+    if expand and (getattr(args, "check", False) or args.list_phases or args.phase is not None):
+        print(
+            "--expand cannot be combined with --check, --list-phases or --phase: it "
+            "prints what a protocol writes, it runs nothing.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_USAGE)
+
     target = Path(args.config).expanduser().resolve()
     if not target.is_file():
         print(f"File not found: {target}", file=sys.stderr)
@@ -279,6 +332,9 @@ def run(args: argparse.Namespace) -> None:
         profile_arg = profile_arg_from_toml(raw_toml) if raw_toml else None
     if getattr(args, "check", False):
         _check_only(target)
+        return
+    if expand:
+        _expand_only(target)
         return
     if args.list_phases:
         try:

@@ -11,6 +11,7 @@ from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     MatchingHydrographicNetwork,
 )
 from hydromodpy.calibration.protocols.registry import (
+    WRITTEN_SECTIONS,
     available_protocols,
     expand_calibration_protocol,
     get_protocol,
@@ -19,6 +20,7 @@ from hydromodpy.calibration.protocols.registry import (
 )
 
 __all__ = [
+    "WRITTEN_SECTIONS",
     "CalibrationProtocol",
     "MatchingHydrographicNetwork",
     "Reference",

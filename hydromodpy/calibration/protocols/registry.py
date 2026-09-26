@@ -27,7 +27,10 @@ _PROTOCOLS: dict[str, CalibrationProtocol] = {
     protocol.name: protocol for protocol in (MatchingHydrographicNetwork(),)
 }
 
-_WRITTEN_SECTIONS = ("phases", "objective_blocks")
+WRITTEN_SECTIONS = ("objective_blocks", "phases")
+"""The ``[calibration]`` keys a protocol writes. Public so a caller unfolding
+a protocol on its own (``hmp calibrate --expand``) knows which keys of the
+expanded document came from the protocol rather than from the file itself."""
 
 
 def available_protocols() -> tuple[str, ...]:
@@ -79,7 +82,7 @@ def expand_calibration_protocol(document: Mapping[str, Any]) -> dict[str, Any]:
             f"got {type(declaration).__name__}."
         )
 
-    already_written = [key for key in _WRITTEN_SECTIONS if calibration.get(key)]
+    already_written = [key for key in WRITTEN_SECTIONS if calibration.get(key)]
     try:
         expanded = get_protocol(name).expand(options, document)
     except ValueError as exc:
@@ -232,6 +235,7 @@ def protocol_record(name: str, declared: object | None = None) -> dict[str, Any]
 
 
 __all__ = [
+    "WRITTEN_SECTIONS",
     "available_protocols",
     "expand_calibration_protocol",
     "get_protocol",
