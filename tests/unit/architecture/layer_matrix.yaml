@@ -51,7 +51,7 @@ tolerances:
   - {src: analysis,    tgt: reporting, reason: "comparison experiment_launcher writes the HTML report at the end of the orchestration (candidate to move into workflow/)"}
   - {src: physics,     tgt: spatial,  reason: "FlowConfig embeds spatial FieldSection discriminated union"}
   - {src: spatial,     tgt: data,     reason: "site-selection BD Topage outlet snapping delegates the optional hydrography fetch to data managers through a narrow helper"}
-  - {src: calibration, tgt: display,  reason: "network-transient calibration diagnostics reuse the shared static HTML report-block renderer"}
+  - {src: calibration, tgt: display,  reason: "network-transient calibration diagnostics reuse the shared static HTML report-block renderer; hydromodpy.display.report_blocks only (tolerated in display_layout.yaml)"}
 
 # Files exempt from the layer rule. Bootstrap shims that wire forward refs,
 # plus *.cases.run_*case.py CLI entrypoints that load HydroModPyConfig from a

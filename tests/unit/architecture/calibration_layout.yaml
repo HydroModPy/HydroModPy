@@ -1,6 +1,6 @@
 # Import rules inside hydromodpy/calibration, described in
 # hydromodpy/calibration/README.md ("Import rules").
-# Checked by test_calibration_layout.py.
+# Checked by test_package_layouts.py.
 
 # Each part of hydromodpy/calibration lists the parts of hydromodpy/calibration
 # it may import. A part may always import itself. "<init>" is the package
@@ -11,8 +11,7 @@
 # layer_matrix.yaml lets calibration reach inside solver.
 #
 # Rows are written lowest first: a row names only rows written above it, so
-# this table cannot allow a cycle (checked by
-# test_a_row_names_only_rows_above_it).
+# this table cannot allow a cycle.
 allowed:
   targets: []
   lumped: []

@@ -1,12 +1,14 @@
 # Import rules inside hydromodpy/data, described in hydromodpy/data/README.md.
-# Checked by test_data_layout.py.
+# Checked by test_package_layouts.py.
 
 # Each subpackage of hydromodpy/data lists the subpackages of hydromodpy/data it
 # may import. A subpackage may always import itself. "<init>" is the package
 # facade, hydromodpy/data/__init__.py. What lies outside hydromodpy/data
 # (core, spatial, schema) is the business of layer_matrix.yaml.
+#
+# Rows are written lowest first: a row names only rows written above it, so
+# this table cannot allow a cycle.
 allowed:
-  "<init>":   [loading, request]
   contracts:  []
   schemas:    []
   source:     [contracts]
@@ -19,6 +21,7 @@ allowed:
   loading:    [contracts, schemas, source, common, ingest, provenance, registry, managers, variables]
   workspace:  [schemas, common, ingest, provenance, registry]
   request:    [contracts, schemas, source, common, ingest, provenance, registry, managers, variables, loading, workspace]
+  "<init>":   [loading, request]
   cases:      [contracts, schemas, source, common, ingest, provenance, registry, managers, variables, loading, workspace, request]
 
 # Rule 6: the source registry names the built-in source classes by a dotted

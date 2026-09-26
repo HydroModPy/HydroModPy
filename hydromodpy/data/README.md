@@ -42,7 +42,7 @@ In dependency order, lowest first.
 
 A subpackage imports only the subpackages its row of
 `tests/unit/architecture/data_layout.yaml` allows, and
-`tests/unit/architecture/test_data_layout.py` checks every import: at module
+`tests/unit/architecture/test_package_layouts.py` checks every import: at module
 level, inside a function, under `TYPE_CHECKING`, or as a dotted path in a
 lazy-attribute table. Every subpackage may import `core`. Six more rules:
 

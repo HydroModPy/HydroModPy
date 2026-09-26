@@ -179,7 +179,7 @@ Each release section includes the following standard categories:
 ### Changed
 - `hydromodpy/data` is reorganised into sub-packages with one job each; its
   map and import rules are `hydromodpy/data/README.md`, enforced by
-  `tests/unit/architecture/test_data_layout.py`. What a TOML says does not
+  `tests/unit/architecture/test_package_layouts.py`. What a TOML says does not
   change; `hydromodpy.data` gains `DataStore`, `DataRequest` and
   `run_request` and loses `DataManagers`. The modules that moved:
 
@@ -232,7 +232,7 @@ Each release section includes the following standard categories:
   registry, its runners and its metrics: six modules and a handful of symbols
   move next to what they serve. Its map and import rules are
   `hydromodpy/calibration/README.md`, enforced by
-  `tests/unit/architecture/test_calibration_layout.py`. The `[calibration]`
+  `tests/unit/architecture/test_package_layouts.py`. The `[calibration]`
   TOML schema does not change, and logger names follow the new paths. The
   modules and names that moved:
 

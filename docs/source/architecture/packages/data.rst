@@ -42,7 +42,7 @@ In dependency order, lowest first.
 
 ``tests/unit/architecture/data_layout.yaml`` says which sub-package may import
 which, and which modules another layer may import;
-``tests/unit/architecture/test_data_layout.py`` checks every import against it.
+``tests/unit/architecture/test_package_layouts.py`` checks every import against it.
 
 Variable inventory
 ------------------
