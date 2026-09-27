@@ -24,7 +24,7 @@ from hydromodpy.core.progress import MILESTONE
 from hydromodpy.core.state.paths import display_path
 from hydromodpy.display import get as _get_figure
 from hydromodpy.display import list_figures as _list_figures
-from hydromodpy.display.theme import apply_theme
+from hydromodpy.display.style import apply_theme
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure as MplFigure

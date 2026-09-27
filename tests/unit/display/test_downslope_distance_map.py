@@ -12,13 +12,13 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
 from hydromodpy.display.figures.downslope_distance_map import (
     DISTANCE_CLASS_EDGES_M,
     DownslopeDistanceMap,
     class_colors,
     class_labels,
 )
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 
 from ._network_comparison_run import (
     AXIS_COLUMN,

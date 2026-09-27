@@ -32,7 +32,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
@@ -41,7 +40,7 @@ from hydromodpy.display.figures._stream_comparison import (
     class_label,
 )
 from hydromodpy.display.figures._trial_diagnostics import TrialTable, trial_table
-from hydromodpy.display.legend_placement import place_legend
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, place_legend
 from hydromodpy.results.calibration_trials import calibration_sessions, calibration_trials
 
 if TYPE_CHECKING:

@@ -20,8 +20,8 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.legend_placement import place_legend
 from hydromodpy.display.maps.transect import build_transect, layer_interfaces
+from hydromodpy.display.style import place_legend
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

@@ -27,7 +27,6 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
@@ -45,6 +44,7 @@ from hydromodpy.display.figures._stream_comparison import (
 from hydromodpy.display.maps.axes import style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_centroids, face_polygons
 from hydromodpy.display.maps.overlays import apply_overlays
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 from hydromodpy.results.derive.stream_network import unavailable_reason_for_comparison
 
 if TYPE_CHECKING:

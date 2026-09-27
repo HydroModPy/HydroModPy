@@ -35,7 +35,6 @@ from hydromodpy.core.topographic_distance import (
     build_downslope_metric,
     downslope_distance_to_mask,
 )
-from hydromodpy.display.colormaps import get_cmap
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._routing_surface import (
@@ -46,6 +45,7 @@ from hydromodpy.display.figures._routing_surface import (
 from hydromodpy.display.figures._stream_comparison import cell_count, map_legend
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_polygons
+from hydromodpy.display.style import get_cmap
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

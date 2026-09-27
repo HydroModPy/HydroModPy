@@ -14,10 +14,10 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
 from hydromodpy.display.figures.matching_hydrographic_network_card import (
     MatchingHydrographicNetworkCard,
 )
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 
 from ._render_helpers import relative_luminance
 

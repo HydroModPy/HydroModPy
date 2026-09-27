@@ -14,7 +14,7 @@ from pathlib import Path
 import pandas as pd
 
 from hydromodpy.core.metrics import bias, correlation, mae, nse, rmse
-from hydromodpy.display.legend_placement import place_legend
+from hydromodpy.display.style import place_legend
 from hydromodpy.results.derive.time_alignment import (
     align_observed_simulated,
     normalize_datetime_series,

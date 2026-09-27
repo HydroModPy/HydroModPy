@@ -26,8 +26,8 @@ from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
-from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
 from hydromodpy.display.figures._memo import RunMemo
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 from hydromodpy.results.derive.stream_network import (
     AGREEMENT_EXCESS,
     AGREEMENT_MISSING,

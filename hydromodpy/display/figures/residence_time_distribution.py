@@ -21,7 +21,7 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.legend_placement import place_legend
+from hydromodpy.display.style import place_legend
 from hydromodpy.results.run.particles import (
     has_particle_tracks,
     particle_time_to_days,

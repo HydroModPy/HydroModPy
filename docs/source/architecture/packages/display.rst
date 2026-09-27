@@ -38,7 +38,8 @@ Sub-modules
   ``display/report_blocks``.
 - ``display/config.py`` -- ``DisplayConfig`` Pydantic model for
   the ``[display]`` TOML section.
-- ``display/theme.py`` -- shared style / colormap selection.
+- ``display/style.py`` -- how every figure looks: themes, banned and
+  preferred colormaps, legend placement.
 
 Block HTML Reports
 ------------------

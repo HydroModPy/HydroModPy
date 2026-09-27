@@ -8,21 +8,19 @@
 # this table cannot allow a cycle.
 allowed:
   report_blocks:    []
-  colormaps:        []
-  legend_placement: []
+  style:            []
   maps:             []
   png_metadata:     []
-  theme:            []
   scalable:         []
   animation:        []
   figure:           [png_metadata]
   figure_registry:  [figure]
   viz:              [scalable]
-  figures:          [colormaps, figure, figure_registry, legend_placement, maps]
+  figures:          [figure, figure_registry, maps, style]
   config:           [figure_registry]
   "<init>":         [figure, figure_registry]
-  runs:             ["<init>", config, figure, theme]
-  overview:         [legend_placement, report_blocks]
+  runs:             ["<init>", config, figure, style]
+  overview:         [report_blocks, style]
   catchment_report: [overview, report_blocks]
 
 # The registry imports hydromodpy.display.figures by name on first lookup, so

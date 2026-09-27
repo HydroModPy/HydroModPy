@@ -17,7 +17,8 @@ It holds three things of unequal weight:
 2. two reports: `overview/` (data before any simulation) and `catchment_report/`
    (catchment report, `hmp report catchment`), which share the HTML engine
    `report_blocks/`;
-3. shared plotting tools: `maps/` (map axes, mesh, overlays, sections), colours, theme.
+3. shared plotting tools: `maps/` (map axes, mesh, overlays, sections) and
+   `style.py` (theme, colormaps, legend placement).
 
 ## What a user can rely on
 
@@ -60,15 +61,15 @@ never in a figure.
 
 | unit | may import inside `display` |
 |---|---|
-| `report_blocks`, `colormaps`, `legend_placement`, `maps`, `png_metadata`, `theme`, `scalable`, `animation` | nothing |
+| `report_blocks`, `style`, `maps`, `png_metadata`, `scalable`, `animation` | nothing |
 | `figure` | `png_metadata` |
 | `figure_registry` | `figure`; and `figures` by its name written as text, on first lookup (the one exception, which keeps `import hydromodpy.display` light) |
-| `figures` | `colormaps`, `figure`, `figure_registry`, `legend_placement`, `maps` |
+| `figures` | `figure`, `figure_registry`, `maps`, `style` |
 | `config` | `figure_registry` |
 | `<init>` (the `__init__.py` facade) | `figure`, `figure_registry` |
-| `runs` | `<init>`, `config`, `figure`, `theme` |
+| `runs` | `<init>`, `config`, `figure`, `style` |
 | `viz` | `scalable` |
-| `overview` | `legend_placement`, `report_blocks` |
+| `overview` | `report_blocks`, `style` |
 | `catchment_report` | `overview`, `report_blocks` |
 
 Every import counts: module level, inside a function, under `TYPE_CHECKING`.
@@ -98,9 +99,11 @@ hydromodpy/display/
 ├── runs.py                render_figures_for_run (a run, the [display] list), render_figure (one figure),
 │                          figure_availability (what a run supports, and why not the rest),
 │                          matplotlib_backend (Agg or interactive for the length of a render)
-├── theme.py               default, print and dark presets (apply_theme)
 ├── png_metadata.py        provenance written into each PNG (sim_id, field, step, EPSG, version)
 │
+│   shared tools
+├── style.py               how every figure looks: default, print and dark themes (apply_theme),
+│                          banned and preferred colormaps (get_cmap), legend placement (place_legend)
 ├── maps/                  map tools, used by the figures; none imports a figure
 │   ├── axes.py                axes in metres or relative km, catchment outline, date axis of time series
 │   ├── mesh_geometry.py       face polygons, centroids and areas
@@ -109,10 +112,6 @@ hydromodpy/display/
 │   ├── transect.py            a field sampled along a line (sections)
 │   └── geo/                   vector layers: GeoFigureMixin (scale bar, north arrow),
 │                              project_gdf_for_metric_operations (metric projection of a GeoDataFrame)
-│
-│   shared tools
-├── colormaps.py           banned and preferred colormaps
-├── legend_placement.py    legend placement
 │
 │   reports
 ├── report_blocks/         HTML engine with no domain: blocks, figures, tables, detail levels
@@ -171,12 +170,11 @@ the base first and returns a sentence (model: `figures/lake_abacus_comparison.py
 | `figures/` | how is figure `<name>` drawn? |
 | `config.py` | what does the `[display]` section of the project ask for? |
 | `runs.py` | which figures does this run support, which to render, where to write them, which were skipped and why, under which matplotlib backend? |
-| `theme.py` | which style? |
 | `png_metadata.py` | where does this PNG come from? |
 | `maps/axes.py`, `maps/mesh_geometry.py`, `maps/ugrid.py`, `maps/transect.py` | how to draw a field on the mesh, a map, a section? |
 | `maps/overlays.py` | which named layer to draw on this map? |
 | `maps/geo/` | how to dress a vector map and project it to metres? |
-| `colormaps.py`, `legend_placement.py` | which colour, where does the legend go? |
+| `style.py` | which theme, which colour, where does the legend go? |
 | `report_blocks/` | how to assemble blocks, figures and tables into one HTML page? |
 | `overview/` | what does the catchment look like before any simulation? |
 | `catchment_report/` | which catchment report to build from a report TOML? |

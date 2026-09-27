@@ -16,10 +16,10 @@ from typing import TYPE_CHECKING, ClassVar
 import numpy as np
 
 from hydromodpy.display.figure import BaseFigure
-from hydromodpy.display.legend_placement import place_legend
 from hydromodpy.display.maps.axes import style_relative_km_axes
 from hydromodpy.display.maps.overlays import apply_overlays
 from hydromodpy.display.maps.ugrid import last_timestep, render_face_field
+from hydromodpy.display.style import place_legend
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

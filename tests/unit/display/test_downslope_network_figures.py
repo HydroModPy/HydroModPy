@@ -832,12 +832,12 @@ class TestTheLegendDoesNotSearchOnADenseMap:
         return ax
 
     def test_a_collection_counts_for_its_paths_and_not_for_one(self) -> None:
-        from hydromodpy.display.legend_placement import axes_element_count
+        from hydromodpy.display.style import axes_element_count
 
         assert axes_element_count(self._axes(500)) >= 500
 
     def test_a_light_axes_still_gets_the_placed_legend(self) -> None:
-        from hydromodpy.display.legend_placement import LEGEND_PLACEMENT, place_legend
+        from hydromodpy.display.style import LEGEND_PLACEMENT, place_legend
 
         ax = self._axes(10)
         assert len(ax.collections[0].get_paths()) < LEGEND_PLACEMENT.best_placement_limit
@@ -846,7 +846,7 @@ class TestTheLegendDoesNotSearchOnADenseMap:
         assert legend._loc == 0  # matplotlib's code for "best"
 
     def test_a_dense_axes_gets_a_pinned_legend(self) -> None:
-        from hydromodpy.display.legend_placement import LEGEND_PLACEMENT, place_legend
+        from hydromodpy.display.style import LEGEND_PLACEMENT, place_legend
 
         ax = self._axes(LEGEND_PLACEMENT.best_placement_limit + 1)
         legend = place_legend(ax)
@@ -857,13 +857,13 @@ class TestTheLegendDoesNotSearchOnADenseMap:
         import matplotlib
         from matplotlib.figure import Figure
 
-        from hydromodpy.display.legend_placement import place_legend
+        from hydromodpy.display.style import place_legend
 
         matplotlib.use("Agg")
         assert place_legend(Figure().subplots()) is None
 
     def test_an_explicit_location_is_never_overridden(self) -> None:
-        from hydromodpy.display.legend_placement import LEGEND_PLACEMENT, place_legend
+        from hydromodpy.display.style import LEGEND_PLACEMENT, place_legend
 
         ax = self._axes(LEGEND_PLACEMENT.best_placement_limit + 1)
         legend = place_legend(ax, loc="lower left")

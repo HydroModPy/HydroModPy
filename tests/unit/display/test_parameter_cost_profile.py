@@ -13,11 +13,11 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
 from hydromodpy.display.figures.parameter_cost_profile import (
     ParameterCostProfileFigure,
     _tolerance_interval,
 )
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 
 
 @pytest.fixture

@@ -30,10 +30,10 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.units.labels import AXIS_LABELS, axis_label
-from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.axes import style_date_axis
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 from hydromodpy.results.derive.time_alignment import (
     normalize_datetime_series,
     observed_on_simulation_index,

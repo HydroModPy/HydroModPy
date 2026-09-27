@@ -22,7 +22,6 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET, PREFERRED_CMAPS, get_cmap
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
@@ -44,6 +43,7 @@ from hydromodpy.display.maps.axes import (
 from hydromodpy.display.maps.geo import project_gdf_for_metric_operations
 from hydromodpy.display.maps.mesh_geometry import face_polygons
 from hydromodpy.display.maps.ugrid import render_face_field
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, PREFERRED_CMAPS, get_cmap
 from hydromodpy.results.derive import views
 from hydromodpy.results.derive.views import CellFieldActiveMode
 

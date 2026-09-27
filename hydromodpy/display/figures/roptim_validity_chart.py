@@ -28,9 +28,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hydromodpy.core.units.labels import axis_label
-from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

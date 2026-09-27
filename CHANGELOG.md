@@ -317,6 +317,9 @@ Each release section includes the following standard categories:
   | `hydromodpy.display.overlays` | `hydromodpy.display.maps.overlays` |
   | `hydromodpy.display.transect` | `hydromodpy.display.maps.transect` |
   | `hydromodpy.display.geo` | `hydromodpy.display.maps.geo` |
+  | `hydromodpy.display.theme` | `hydromodpy.display.style` |
+  | `hydromodpy.display.colormaps` | `hydromodpy.display.style` |
+  | `hydromodpy.display.legend_placement` | `hydromodpy.display.style` |
 - A figure names what it shows, not a solver or a provider: `mesh_map` is
   titled "Model mesh" (was "Solver mesh") and `hydrographic_network_reference`
   "Reference hydrographic network" (was "BD Topage hydrographic network", while
