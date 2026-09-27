@@ -5,6 +5,8 @@ from typing import Annotated, Literal, TypeAlias
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.calibrable import Calibrable
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import LengthMeters
 
@@ -31,6 +33,19 @@ class ConstantThicknessDepthModel(HydroModelBase):
             "Constant aquifer thickness applied below topography (canonical metres). "
             "Accepts inline units, e.g. '0.2 km'."
         ),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(
+                # No bounds: the range a thickness may take is a property of the
+                # site, so the file states it, and the registry refuses a bound
+                # past 0 .. 10 km. Log space because the thickness enters the
+                # transmissivity T = K * d as a factor, like K itself, and a search
+                # between 5 and 300 m covers almost two decades.
+                transform="log",
+                prior="log_uniform",
+                units="m",
+                description="Aquifer thickness below the topography, one value everywhere.",
+            )
+        ),
     )
 
 
@@ -56,6 +71,18 @@ class FlatSubstratumDepthModel(HydroModelBase):
             "Accepts inline units, e.g. '40 m'. This is an ABSOLUTE elevation, not a "
             "depth below topography: where the land surface drops under it, no aquifer "
             "is left. Use 'constant_thickness' to follow the relief instead."
+        ),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(
+                # No bounds: an elevation range belongs to the site, and the
+                # registry refuses a bound past -500 .. 9000 m. Linear space and a
+                # uniform prior because an elevation has no natural zero: it can be
+                # negative, and a metre matters as much at 10 m as at 100 m.
+                transform="identity",
+                prior="uniform",
+                units="m",
+                description="Elevation of the flat substratum, one value everywhere.",
+            )
         ),
     )
 

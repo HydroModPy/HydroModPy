@@ -38,12 +38,35 @@ from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.spatial.field.core.physical_bounds import PHYSICAL_BOUNDS
 
-WALKED_SECTIONS: tuple[str, ...] = ("flow",)
+WALKED_SECTIONS: tuple[str, ...] = ("flow", "domain.depth_model")
 """Configuration sections the catalogue walks.
 
 Flow carries the hydraulic properties, the boundaries and the sinks and sources,
-which is what a groundwater calibration moves. Transport joins this list the day
-its solutes are calibrated the same way.
+which is what a groundwater calibration moves. The depth model carries the
+aquifer geometry: the thickness of a ``constant_thickness`` model, the elevation
+of a ``flat_substratum`` one. Only the model the project declares is walked, so
+only its own field is listed. A raster depth model declares nothing searchable:
+it is a map, not one number. Transport joins this list the day its solutes are
+calibrated the same way.
+"""
+
+NAMED_BY_THEIR_FIELD: tuple[str, ...] = ("domain.depth_model",)
+"""Sections whose targets are named by their field alone.
+
+A project has one depth model, and its fields already say the quantity:
+``thickness`` reads better than ``depth_model.thickness`` and cannot mean
+anything else. A collision with another target still falls back to the long
+form, like any other shared spelling.
+"""
+
+_REGISTRY_ID_BY_PATH: dict[str, str] = {
+    "domain.depth_model.substratum_elevation": "elevation",
+}
+"""Targets whose physical range is read under a key their path does not spell.
+
+The registry knows an ``elevation``, and the field is named after what it is
+the elevation of. Stated here rather than guessed from a suffix, which would
+hand ``hydchr_unit`` whatever ``unit`` might one day mean.
 """
 
 
@@ -109,7 +132,7 @@ def calibration_targets(config: Any) -> list[CalibrationTarget]:
     """Return every value ``config`` exposes to a calibration, in path order."""
     found: list[_Found] = []
     for section in WALKED_SECTIONS:
-        node = getattr(config, section, None)
+        node = _section(config, section)
         if node is None:
             continue
         _walk(node, prefix=section, instances=(), units=None, found=found)
@@ -129,6 +152,16 @@ def targets_by_name(targets: list[CalibrationTarget]) -> dict[str, CalibrationTa
     given to neither, and both fall back to a longer one.
     """
     return {target.name: target for target in targets}
+
+
+def _section(config: Any, dotted: str) -> Any:
+    """Return the node at ``dotted`` under ``config``, or None when a link is missing."""
+    node = config
+    for part in dotted.split("."):
+        node = getattr(node, part, None)
+        if node is None:
+            return None
+    return node
 
 
 @dataclass(frozen=True)
@@ -209,6 +242,8 @@ def declared_calibrable(field_info: Any) -> Calibrable | None:
 def _base_name(item: _Found) -> str:
     """Return the spelling this target asks for, before collisions are settled."""
     leaf = item.path.rsplit(".", 1)[-1]
+    if any(item.path.startswith(f"{section}.") for section in NAMED_BY_THEIR_FIELD):
+        return leaf
     if not item.instances:
         # Nothing declared it by name, so the field and what holds it say it:
         # 'flow.sinks_sources.recharge.values' reads 'recharge.values'.
@@ -241,10 +276,12 @@ def _named(found: list[_Found]) -> list[CalibrationTarget]:
             current=item.current,
             units=item.units or (item.calibrable.units if item.calibrable else None),
             physical_bounds=_physical_bounds_for(
+                item.path,
                 item.instances[0] if item.instances else None,
                 item.path.rsplit(".", 1)[-1],
             ),
             registry_id=_registry_id_for(
+                item.path,
                 item.instances[0] if item.instances else None,
                 item.path.rsplit(".", 1)[-1],
             ),
@@ -270,8 +307,11 @@ def _declared_units(node: BaseModel) -> str | None:
     return None
 
 
-def _registry_id_for(instance: str | None, leaf: str) -> str | None:
+def _registry_id_for(path: str, instance: str | None, leaf: str) -> str | None:
     """Return the registry key this value is known under: its entry, else its leaf."""
+    stated = _REGISTRY_ID_BY_PATH.get(path)
+    if stated is not None:
+        return stated
     for candidate in (instance, leaf):
         if not candidate:
             continue
@@ -280,8 +320,8 @@ def _registry_id_for(instance: str | None, leaf: str) -> str | None:
     return None
 
 
-def _physical_bounds_for(instance: str | None, leaf: str) -> tuple[float, float] | None:
-    key = _registry_id_for(instance, leaf)
+def _physical_bounds_for(path: str, instance: str | None, leaf: str) -> tuple[float, float] | None:
+    key = _registry_id_for(path, instance, leaf)
     if key is None:
         return None
     bound = PHYSICAL_BOUNDS[key]
@@ -289,6 +329,7 @@ def _physical_bounds_for(instance: str | None, leaf: str) -> tuple[float, float]
 
 
 __all__ = [
+    "NAMED_BY_THEIR_FIELD",
     "WALKED_SECTIONS",
     "CalibrationTarget",
     "calibration_targets",

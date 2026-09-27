@@ -78,8 +78,9 @@ def step_persist_params(
                     )
 
     if domain is not None:
-        depth_model = getattr(domain, "depth_model", None)
-        thickness = getattr(depth_model, "thickness", None) if depth_model else None
+        # Only a constant-thickness depth model carries one number for the
+        # whole aquifer; a raster or a flat substratum has no scalar to write.
+        thickness = getattr(domain.config.depth_model, "thickness", None)
         if thickness is not None:
             params.append(
                 {

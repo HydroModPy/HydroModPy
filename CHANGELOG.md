@@ -108,6 +108,12 @@ Each release section includes the following standard categories:
   Python for the context alone.
 
 ### Added
+- The aquifer geometry can be calibrated. `[calibration.parameters.thickness]` searches the
+  thickness of a `constant_thickness` depth model (log space) and
+  `[calibration.parameters.substratum_elevation]` the elevation of a `flat_substratum` one
+  (linear space); `hmp config targets` lists whichever the declared depth model carries. The
+  file states the bounds. A parameter that reaches a raster depth model, or a field the
+  declared kind does not expose, is refused and the error names the kind.
 - A stream-network trial publishes the paper's `dsat` as `<output>.d_sat_m`:
   the saturated thickness averaged by area over the catchment, at the state the
   network is read from. Beside it, `d_aquifer_m`, `d_sat_over_d` and
@@ -366,6 +372,10 @@ Each release section includes the following standard categories:
   resume it refused the session it had itself written.
 
 ### Fixed
+- A calibration trial that moves the depth model solves the geometry it moved: the substratum
+  of the domain the trials share is rebuilt instead of reused from the prefix.
+- A run writes the constant aquifer thickness into its parameters table. It read
+  `domain.depth_model` instead of `domain.config.depth_model`.
 - `k_over_r` reaches the calibration report. It read `R_mean_m_s` without the
   output prefix every network diagnostic carries, so it never appeared, and it
   divided whatever single parameter the search moved, a thickness or a
