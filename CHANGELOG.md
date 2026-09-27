@@ -111,9 +111,11 @@ Each release section includes the following standard categories:
 ### Added
 - BD Topage reaches carry a canonical `permanence` column (`permanent`, `intermittent`,
   `ephemeral`, `dry`, `unknown`, vocabulary in `hydromodpy/data/source/permanence.py`) beside
-  `PersistanceTH`. The hydrography loader writes the permanent reaches to `streams_permanent.shp`
-  next to `streams.shp`, and a run keeps them as the `reference_permanent` hydrographic network.
-  A network that says nothing about permanence has no permanent part.
+  `PersistanceTH`. The download writes its permanent reaches to
+  `hydrography_bdtopage_permanent_<hash>.gpkg` beside `hydrography_bdtopage_<hash>.gpkg`, the run
+  clips them to `streams_permanent.shp` beside `streams.shp` and keeps them as the
+  `reference_permanent` hydrographic network. A network that says nothing about permanence has no
+  permanent part.
 - `CatchmentDomainProducts` and the geographic cache manifest record `buffer_rule`,
   `buffer_declared` and `buffer_area_increase`, so a domain says how its margin was drawn.
 - A MODFLOW 6 twin validation case for the stream-network criterion. A planar hillslope run at
@@ -275,10 +277,16 @@ Each release section includes the following standard categories:
 
 ### Changed
 - `[[data.hydrography.sources]] source = "bdtopage"` downloads `TronconHydrographique_FXX_Topage2026`,
-  every reach, instead of `CoursEau_FXX_Topage2025`, the named rivers (441 of 694 km over the upper
-  Ille). It asks the Sandre over a Lambert-93 box with `SRSNAME`, in GeoPackage pages of 50 000.
-  Site selection keeps snapping stations onto the named rivers, now of 2026. An overseas layer is
-  refused.
+  every reach, the hydrographic extent. `CoursEau`, the named rivers it read before, left out most
+  of the intermittent network (441 of 694 km over the upper Ille). The layer is fixed: `typename`
+  is retired, accepted with a warning and ignored so sealed runs replay. The Sandre is asked over a
+  Lambert-93 box with `SRSNAME`, in GeoPackage pages of 50 000. Site selection reads the same
+  layer.
+- A fetched hydrography network is named as every variable names what it fetched,
+  `hydrography_<source>_<box hash>.gpkg` (was `<source>_<bbox>.gpkg`), and kept in the CRS the
+  source answered in; the stream burn's download is `hydrography_<source>_burn_<box hash>.gpkg`
+  (was `burn_<source>_<bbox>.gpkg`). A BD Topage download made before, which holds the named
+  rivers, is never served again, and each burn download is fetched once more.
 - A bisection counts its budget before the first solve. `max_iter` and the protocol's
   `steady_max_iter` default to `"auto"`, the worst-case count from the bounds, the sweep points,
   `rel_tol` and the bracket expansions (23 on the Nancon, 15 when the root lies inside the
@@ -459,8 +467,8 @@ Each release section includes the following standard categories:
   pages over index candidates, so such a page is not the last one, and a box holding more than one
   page lost the rest. Pages are counted against the announced total, and a shortfall or a repeated
   feature raises.
-- The hydrography cache no longer serves one BD Topage layer for another over the same box: an
-  entry records the layer it was fetched for.
+- The hydrography cache no longer serves an answer fetched for another question over the same box
+  (another BD Topage vintage, other OSM waterway types): an entry records what it was fetched for.
 - A stream comparison redrawn from a run sets its seepage threshold with the mean recharge over
   the run, as the criterion does, instead of the recharge of the last timestep.
 - The delineation summary shows `buff_area` as declared, with its distance and area increase,

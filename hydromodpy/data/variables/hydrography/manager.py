@@ -28,7 +28,6 @@ are the manager's, because a source knows nothing of DuckDB and must not.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import warnings
 from pathlib import Path
@@ -41,6 +40,7 @@ import rasterio
 import xarray as xr
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.data.common.geo_helpers import bbox_hash
 from hydromodpy.data.common.source_extent import mask_extent_in, mask_geometry
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
@@ -327,10 +327,10 @@ class HydrographyManager(SourceTable):
         frames never compare their boxes to each other.
 
         *question* is what the source reports it was asked (the BD Topage
-        layer, the OSM waterway types). An entry recorded with another answer
-        is a miss: without it, asking BD Topage for its reaches over a box
-        where its named rivers were cached served the named rivers. An entry
-        recorded before the question was is taken as before.
+        layer and vintage, the OSM waterway types). An entry recorded with
+        another answer is a miss: without it, a new BD Topage vintage over a
+        cached box would serve the old one. An entry recorded before the
+        question was is taken as before.
         """
         if self._catalog is None:
             return None
@@ -348,7 +348,10 @@ class HydrographyManager(SourceTable):
         if not cached_path.exists():
             return None
         logger.debug("Cache hit for hydrography/%s: %s", source, cached_path)
-        return gpd.read_file(cached_path)
+        cached = gpd.read_file(cached_path)
+        # A download cached before the permanent copy existed gets it now.
+        _write_permanent_copy(cached, cached_path, overwrite=False)
+        return cached
 
     def _persist_and_register(
         self,
@@ -357,29 +360,31 @@ class HydrographyManager(SourceTable):
         bbox: tuple[float, float, float, float],
         question: dict[str, object] | None = None,
     ) -> None:
-        """Save raw API result (EPSG:4326) and register in catalog."""
+        """Save the answer as ``hydrography_<source>_<bbox hash>.gpkg`` and register it.
+
+        Named as every variable names what it fetched (``geology_brgm_1m_<hash>``,
+        ``dem_ign_geoplateforme_bdalti_25m_<hash>``), and kept in the CRS the
+        source answered in. When the answer says which reaches are permanent,
+        they go beside it as ``hydrography_<source>_permanent_<bbox hash>.gpkg``.
+        That copy is not registered: the catalogue serves the full answer, and a
+        permanent copy whose full answer was subsumed is removed with it.
+        """
         if self._catalog is None or self._data_dir is None:
             return
         self._data_dir.mkdir(parents=True, exist_ok=True)
-
-        stem = f"{source}_{_question_digest(question)}" if question else source
-        fname = f"{stem}_{bbox[0]:.4f}_{bbox[1]:.4f}_{bbox[2]:.4f}_{bbox[3]:.4f}.gpkg"
-        out_path = self._data_dir / fname
-
-        # Ensure EPSG:4326 before persisting
-        if gdf.crs is not None and str(gdf.crs) != "EPSG:4326":
-            gdf = gdf.to_crs("EPSG:4326")
-        elif gdf.crs is None:
+        out_path = self._data_dir / _cache_file_name(source, bbox)
+        if gdf.crs is None:
             gdf = gdf.set_crs("EPSG:4326")
 
         gdf.to_file(out_path, driver="GPKG")
+        _write_permanent_copy(gdf, out_path, overwrite=True)
 
         entry_id = self._catalog.register(
             variable=self.VARIABLE_NAME,
             source=source,
             file_path=str(out_path),
             bbox=bbox,
-            crs="EPSG:4326",
+            crs=str(gdf.crs),
             is_custom=False,
             fetch_metadata=question or None,
         )
@@ -391,6 +396,7 @@ class HydrographyManager(SourceTable):
             date_end=None,
             exclude_id=entry_id,
         )
+        _remove_orphan_permanent_copies(self._data_dir)
 
     # ------------------------------------------------------------------
     # Rasterise / read helpers
@@ -508,10 +514,43 @@ def _entry_answers(entry: object, question: dict[str, object] | None) -> bool:
     return recorded == (question or {})
 
 
-def _question_digest(question: dict[str, object]) -> str:
-    """Eight hex digits naming *question* in a cache file name."""
-    text = json.dumps(question, sort_keys=True, default=str)
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:8]
+_CACHE_PREFIX = "hydrography"
+_PERMANENT_PRODUCT = "permanent"
+
+
+def _cache_file_name(source: str, bbox: tuple[float, float, float, float]) -> str:
+    """``hydrography_<source>_<bbox hash>.gpkg``, the data naming of a fetched file."""
+    return f"{_CACHE_PREFIX}_{source}_{bbox_hash(bbox)}.gpkg"
+
+
+def _permanent_copy_path(cache_path: Path) -> Path:
+    """``hydrography_<source>_permanent_<hash>.gpkg`` beside ``hydrography_<source>_<hash>``."""
+    source_and_hash = cache_path.name.removeprefix(f"{_CACHE_PREFIX}_")
+    source, _, token = source_and_hash.rpartition("_")
+    return cache_path.with_name(f"{_CACHE_PREFIX}_{source}_{_PERMANENT_PRODUCT}_{token}")
+
+
+def _write_permanent_copy(frame: gpd.GeoDataFrame, cache_path: Path, *, overwrite: bool) -> None:
+    """Write the permanent reaches of a cached answer beside it, when it says which."""
+    if not cache_path.name.startswith(f"{_CACHE_PREFIX}_"):
+        return
+    path = _permanent_copy_path(cache_path)
+    if path.exists() and not overwrite:
+        return
+    path.unlink(missing_ok=True)
+    if PERMANENCE_COLUMN not in frame.columns:
+        return
+    permanent = frame[frame[PERMANENCE_COLUMN] == PERMANENT]
+    if not permanent.empty:
+        permanent.to_file(path, driver="GPKG")
+
+
+def _remove_orphan_permanent_copies(data_dir: Path) -> None:
+    """Delete the permanent copies whose full answer the catalogue removed."""
+    for path in data_dir.glob(f"{_CACHE_PREFIX}_*_{_PERMANENT_PRODUCT}_*.gpkg"):
+        full = path.with_name(path.name.replace(f"_{_PERMANENT_PRODUCT}_", "_", 1))
+        if not full.exists():
+            path.unlink(missing_ok=True)
 
 
 def _write_shapefile(frame: gpd.GeoDataFrame, path: Path) -> None:

@@ -166,18 +166,15 @@ def test_sources_answering_in_two_crs_are_concatenated(
 
 
 # --------------------------------------------------------------------------- #
-# The cache answers the layer it was asked for
+# What a fetch leaves in the data folder, and what the cache serves back
 # --------------------------------------------------------------------------- #
 
 
-def _cached_manager(tmp_path: Path, catalog, typename: str):
+def _cached_manager(tmp_path: Path, catalog, source: dict):
     from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
     inputs = _fake_inputs(tmp_path)
-    cfg = HydrographyConfig(
-        sources=[{"source": "bdtopage", "typename": typename}],
-        mask_path=inputs.mask_path,
-    )
+    cfg = HydrographyConfig(sources=[source], mask_path=inputs.mask_path)
     return HydrographyManager(
         config=cfg,
         out_path=tmp_path,
@@ -187,28 +184,66 @@ def _cached_manager(tmp_path: Path, catalog, typename: str):
     )
 
 
-@patch("hydromodpy.data.variables.hydrography.apis.bdtopage.fetch_projected")
-@patch(_BACKEND)
-def test_the_cache_serves_the_layer_it_was_asked_for_and_no_other(
-    backend_factory, fetch, tmp_path: Path
-) -> None:
+def _catalog():
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
+    return DataCatalogDuckDB(db_path=None)
+
+
+@patch("hydromodpy.data.variables.hydrography.apis.bdtopage.fetch_projected")
+@patch(_BACKEND)
+def test_a_fetch_is_named_as_every_variable_names_what_it_fetched(
+    backend_factory, fetch, tmp_path: Path
+) -> None:
+    """``hydrography_bdtopage_<hash>``, as ``geology_brgm_1m_<hash>``, and its permanent copy."""
+    backend_factory.return_value = WhiteboxStubBackend()
+    fetch.return_value = _reaches(["permanent", "intermittent", "permanent"])
+    catalog = _catalog()
+
+    _cached_manager(tmp_path, catalog, {"source": "bdtopage"}).load()
+
+    names = sorted(path.name for path in (tmp_path / "cache").glob("*.gpkg"))
+    assert len(names) == 2
+    full_name, permanent_name = names
+    token = full_name.removeprefix("hydrography_bdtopage_").removesuffix(".gpkg")
+    assert len(token) == 8 and all(c in "0123456789abcdef" for c in token)
+    assert permanent_name == f"hydrography_bdtopage_permanent_{token}.gpkg"
+    full = gpd.read_file(tmp_path / "cache" / full_name)
+    permanent = gpd.read_file(tmp_path / "cache" / permanent_name)
+    assert len(full) == 3 and full.crs.to_epsg() == 2154, "kept in the CRS it came in"
+    assert sorted(permanent["gid"]) == [0, 2]
+    entry = catalog.find_cached(variable="hydrography", source="bdtopage")
+    assert entry is not None and entry.crs == "EPSG:2154"
+
+
+@patch("hydromodpy.data.variables.hydrography.apis.bdtopage.fetch_projected")
+@patch(_BACKEND)
+def test_the_same_box_is_served_from_disk(backend_factory, fetch, tmp_path: Path) -> None:
     backend_factory.return_value = WhiteboxStubBackend()
     fetch.return_value = _reaches(["permanent"])
-    catalog = DataCatalogDuckDB(db_path=None)
-    reaches = "sa:TronconHydrographique_FXX_Topage2026"
-    rivers = "sa:CoursEau_FXX_Topage2026"
+    catalog = _catalog()
 
-    _cached_manager(tmp_path, catalog, reaches).load()
-    _cached_manager(tmp_path, catalog, reaches).load()
-    assert fetch.call_count == 1, "the same layer over the same box is served from disk"
+    _cached_manager(tmp_path, catalog, {"source": "bdtopage"}).load()
+    _cached_manager(tmp_path, catalog, {"source": "bdtopage"}).load()
 
-    _cached_manager(tmp_path, catalog, rivers).load()
-    assert fetch.call_count == 2, "another layer over the same box is not the cached one"
-    assert [call.args[0] for call in fetch.call_args_list] == [reaches, rivers]
-    names = sorted(path.name for path in (tmp_path / "cache").glob("*.gpkg"))
-    assert all(name.startswith("bdtopage_") for name in names), "the gitignore prefix holds"
+    assert fetch.call_count == 1
+
+
+@patch("hydromodpy.data.variables.hydrography.apis.osm.fetch")
+@patch(_BACKEND)
+def test_an_entry_fetched_for_another_question_is_a_miss(
+    backend_factory, fetch, tmp_path: Path
+) -> None:
+    backend_factory.return_value = WhiteboxStubBackend()
+    fetch.return_value = _reaches(None).to_crs("EPSG:4326")
+    catalog = _catalog()
+
+    _cached_manager(tmp_path, catalog, {"source": "osm", "waterway_types": ["river"]}).load()
+    _cached_manager(tmp_path, catalog, {"source": "osm", "waterway_types": ["river"]}).load()
+    assert fetch.call_count == 1
+    _cached_manager(tmp_path, catalog, {"source": "osm", "waterway_types": ["canal"]}).load()
+
+    assert fetch.call_count == 2, "other waterway types over the same box are not the cached ones"
 
 
 @patch("hydromodpy.data.variables.hydrography.apis.bdtopage.fetch_projected")
@@ -216,10 +251,8 @@ def test_the_cache_serves_the_layer_it_was_asked_for_and_no_other(
 def test_an_entry_recorded_before_the_question_was_is_still_served(
     backend_factory, fetch, tmp_path: Path
 ) -> None:
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-
     backend_factory.return_value = WhiteboxStubBackend()
-    catalog = DataCatalogDuckDB(db_path=None)
+    catalog = _catalog()
     old = tmp_path / "cache" / "bdtopage_old.gpkg"
     old.parent.mkdir(parents=True)
     _reaches(["permanent"]).to_crs("EPSG:4326").to_file(old, driver="GPKG")
@@ -232,6 +265,42 @@ def test_an_entry_recorded_before_the_question_was_is_still_served(
         is_custom=False,
     )
 
-    _cached_manager(tmp_path, catalog, "sa:TronconHydrographique_FXX_Topage2026").load()
+    _cached_manager(tmp_path, catalog, {"source": "bdtopage"}).load()
 
     assert fetch.call_count == 0
+
+
+@patch("hydromodpy.data.variables.hydrography.apis.bdtopage.fetch_projected")
+@patch(_BACKEND)
+def test_a_cached_answer_without_its_permanent_copy_gets_one(
+    backend_factory, fetch, tmp_path: Path
+) -> None:
+    backend_factory.return_value = WhiteboxStubBackend()
+    fetch.return_value = _reaches(["permanent", "intermittent"])
+    catalog = _catalog()
+    _cached_manager(tmp_path, catalog, {"source": "bdtopage"}).load()
+    (permanent,) = (tmp_path / "cache").glob("hydrography_bdtopage_permanent_*.gpkg")
+    permanent.unlink()
+
+    _cached_manager(tmp_path, catalog, {"source": "bdtopage"}).load()
+
+    assert fetch.call_count == 1
+    assert permanent.exists()
+
+
+@patch("hydromodpy.data.variables.hydrography.apis.bdtopage.fetch_projected")
+@patch(_BACKEND)
+def test_a_permanent_copy_whose_full_answer_is_gone_is_removed(
+    backend_factory, fetch, tmp_path: Path
+) -> None:
+    """The catalogue unlinks a subsumed answer; its permanent copy goes with it."""
+    backend_factory.return_value = WhiteboxStubBackend()
+    fetch.return_value = _reaches(["permanent"])
+    orphan = tmp_path / "cache" / "hydrography_bdtopage_permanent_0badf00d.gpkg"
+    orphan.parent.mkdir(parents=True)
+    _reaches(["permanent"]).to_file(orphan, driver="GPKG")
+
+    _cached_manager(tmp_path, _catalog(), {"source": "bdtopage"}).load()
+
+    assert not orphan.exists()
+    assert len(list((tmp_path / "cache").glob("hydrography_bdtopage_permanent_*.gpkg"))) == 1

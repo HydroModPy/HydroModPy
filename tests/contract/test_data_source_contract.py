@@ -240,7 +240,7 @@ BUILTIN_CASES: tuple[SourceCase, ...] = (
         build=BdTopageSource,
         provider_module="hydromodpy.data.variables.hydrography.apis.bdtopage",
         provider_attr="fetch_projected",
-        read_bbox=lambda args, kwargs: args[1] if len(args) > 1 else kwargs.get("bbox"),
+        read_bbox=lambda args, kwargs: args[0] if args else kwargs.get("bbox"),
         canned=_empty_frame,
     ),
     SourceCase(
@@ -978,12 +978,7 @@ def test_a_numpy_scalar_is_a_coordinate() -> None:
 
 def test_the_bdtopage_defaults_match_the_config_they_replace() -> None:
     """Two copies of a default drift; this is the gate that says when."""
-    from hydromodpy.data.variables.hydrography.apis.bdtopage import (
-        DEFAULT_PAGE_SIZE,
-        DEFAULT_TYPENAME,
-    )
+    from hydromodpy.data.variables.hydrography.apis.bdtopage import DEFAULT_PAGE_SIZE
     from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
-    declared = HydrographySourceConfig(source="bdtopage")
-    assert DEFAULT_TYPENAME == declared.typename
-    assert DEFAULT_PAGE_SIZE == declared.page_size
+    assert DEFAULT_PAGE_SIZE == HydrographySourceConfig(source="bdtopage").page_size

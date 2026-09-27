@@ -160,8 +160,8 @@ examples/data/dem/departments_bdalti/
 examples/data/geology/departments_50k/
 examples/data/geology/geology_brgm_50k_*.gpkg
 examples/data/hydrography/bdtopage_*.gpkg
-examples/data/hydrography/euhydro_*.gpkg
-examples/data/hydrography/osm_*.gpkg
+examples/data/hydrography/*euhydro_*.gpkg
+examples/data/hydrography/*osm_*.gpkg
 examples/data/hydrometry/hydrometry_hubeau_*.csv
 examples/data/intermittency/intermittency_hubeau_*.csv
 examples/data/piezometry/piezometry_hubeau_*.csv

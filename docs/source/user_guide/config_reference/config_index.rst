@@ -811,25 +811,19 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-hydrography-sources-source>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L36>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L45>`__
    * - ``data.hydrography.sources.path``
      - ``Path | None``
      - user
      - -
      - `data <data.html#data-hydrography-sources-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L56>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L65>`__
    * - ``data.hydrography.sources.rasterize_field``
      - ``str``
      - user
      - -
      - `data <data.html#data-hydrography-sources-rasterize-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L64>`__
-   * - ``data.hydrography.sources.typename``
-     - ``str``
-     - dev
-     - -
-     - `data <data.html#data-hydrography-sources-typename>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L70>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L73>`__
    * - ``data.hydrography.sources.page_size``
      - ``int``
      - dev

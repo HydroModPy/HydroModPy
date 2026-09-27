@@ -157,13 +157,13 @@ def _bootstrap_api_source(
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     source_kind = str(source_cfg.source).strip()
-    # "burn_" prefix, because HydrographyManager writes its own watershed-bbox
-    # download in this directory under the bare "<source>_<bbox>.gpkg" name. The
-    # two boxes differ, so the names normally differ too, but a tight DEM can
+    # "burn" product token, because HydrographyManager writes its own
+    # watershed-bbox download in this directory as "hydrography_<source>_<hash>".
+    # The two boxes differ, so the hashes normally differ too, but a tight DEM can
     # round them onto each other and the manager would then overwrite this file.
-    out_path = output_dir / (
-        f"burn_{source_kind}_{bbox[0]:.4f}_{bbox[1]:.4f}_{bbox[2]:.4f}_{bbox[3]:.4f}.gpkg"
-    )
+    from hydromodpy.data.common.geo_helpers import bbox_hash
+
+    out_path = output_dir / f"hydrography_{source_kind}_burn_{bbox_hash(bbox)}.gpkg"
     if out_path.exists() and not bool(getattr(source_cfg, "force_refresh", False)):
         logger.info("Stream burn network already downloaded for this box: %s", out_path)
         return out_path

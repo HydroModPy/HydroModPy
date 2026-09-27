@@ -1,9 +1,9 @@
 """BD Topage adapter of the hydrography variable (client stubbed).
 
-What the adapter adds to the Sandre client: the default layer, the canonical
-``permanence`` column read off the Sandre vocabulary, and the WGS84 entry
-point site selection calls. The client's own paging and refusals are covered
-by ``tests/unit/data/test_sandre_topage_client.py``.
+What the adapter adds to the Sandre client: its one layer, every reach of
+metropolitan France, the canonical ``permanence`` column read off the Sandre
+vocabulary, and the WGS84 entry point site selection calls. The client's own
+paging and refusals are covered by ``tests/unit/data/test_sandre_topage_client.py``.
 """
 
 from __future__ import annotations
@@ -15,11 +15,13 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import LineString
 
-from hydromodpy.core.exceptions import DataRequestError
+from hydromodpy.core.exceptions import DataRequestError, DataSourceError
 from hydromodpy.data.common.clients import sandre_topage
 from hydromodpy.data.source.permanence import PERMANENCE_COLUMN
 from hydromodpy.data.variables.hydrography.apis import bdtopage
 from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
+
+pytestmark = pytest.mark.fast
 
 
 def _reaches(**columns: Sequence[object]) -> gpd.GeoDataFrame:
@@ -44,13 +46,11 @@ def asked(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
     return questions
 
 
-@pytest.mark.fast
-def test_the_default_layer_is_every_reach_with_its_persistence() -> None:
-    assert bdtopage.DEFAULT_TYPENAME == "sa:TronconHydrographique_FXX_Topage2026"
-    assert HydrographySourceConfig(source="bdtopage").typename == bdtopage.DEFAULT_TYPENAME
+def test_the_one_layer_is_every_reach_of_metropolitan_france() -> None:
+    assert bdtopage.LAYER == "sa:TronconHydrographique_FXX_Topage2026"
+    assert bdtopage.BdTopageSource().metadata() == {"typename": bdtopage.LAYER}
 
 
-@pytest.mark.fast
 def test_the_sandre_vocabulary_maps_onto_the_canonical_one() -> None:
     native = ["permanent", "intermittent", "éphémère", "sec", "inconnue"]
     frame = bdtopage.with_permanence(_reaches(PersistanceTH=native))
@@ -65,7 +65,6 @@ def test_the_sandre_vocabulary_maps_onto_the_canonical_one() -> None:
     assert frame["PersistanceTH"].tolist() == native, "the native attribute stays as it came"
 
 
-@pytest.mark.fast
 def test_a_value_the_sandre_never_wrote_is_unknown_and_named(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -76,45 +75,36 @@ def test_a_value_the_sandre_never_wrote_is_unknown_and_named(
     assert "saisonnier" in caplog.text
 
 
-@pytest.mark.fast
-def test_water_surfaces_read_their_own_attribute() -> None:
-    frame = bdtopage.with_permanence(_reaches(PersistanceSE=["intermittent"]))
-
-    assert frame[PERMANENCE_COLUMN].tolist() == ["intermittent"]
+def test_reaches_without_their_persistence_mean_the_layer_changed() -> None:
+    with pytest.raises(DataSourceError, match="PersistanceTH"):
+        bdtopage.with_permanence(_reaches(TopoOH=["le Val"]))
 
 
-@pytest.mark.fast
-def test_a_layer_that_says_nothing_gets_no_column() -> None:
-    """``CoursEau`` has no persistence: no column, never a guessed one."""
-    frame = bdtopage.with_permanence(_reaches(TopoOH=["le Val"]))
+def test_no_reach_is_not_an_error() -> None:
+    empty = gpd.GeoDataFrame(geometry=[], crs="EPSG:2154")
 
-    assert PERMANENCE_COLUMN not in frame.columns
+    assert bdtopage.with_permanence(empty).empty
 
 
-@pytest.mark.fast
 def test_the_source_asks_its_layer_over_the_lambert93_box(asked: list[dict]) -> None:
     box = (346361.0, 6797325.0, 363915.0, 6821726.0)
     frame = bdtopage.BdTopageSource(page_size=17).download(box)
 
-    assert asked == [{"typename": bdtopage.DEFAULT_TYPENAME, "bbox": box, "page_size": 17}]
+    assert asked == [{"typename": bdtopage.LAYER, "bbox": box, "page_size": 17}]
     assert frame[PERMANENCE_COLUMN].tolist() == ["permanent", "intermittent", "permanent"]
     assert bdtopage.BdTopageSource.extent_crs == "EPSG:2154"
 
 
-@pytest.mark.fast
 def test_a_wgs84_caller_gets_degrees_back_and_asks_a_box_that_holds_its_own(
     asked: list[dict],
 ) -> None:
     from pyproj import Transformer
 
-    wgs84 = (-1.8, 48.1, -1.5, 48.4)
-    cfg = HydrographySourceConfig(source="bdtopage", typename=bdtopage.NAMED_RIVERS_TYPENAME)
-
-    frame = bdtopage.fetch(cfg, wgs84)
+    frame = bdtopage.fetch(HydrographySourceConfig(source="bdtopage"), (-1.8, 48.1, -1.5, 48.4))
 
     assert str(frame.crs) == "EPSG:4326"
     (question,) = asked
-    assert question["typename"] == "sa:CoursEau_FXX_Topage2026"
+    assert question["typename"] == bdtopage.LAYER
     to_l93 = Transformer.from_crs("EPSG:4326", "EPSG:2154", always_xy=True)
     xmin, ymin, xmax, ymax = question["bbox"]
     for lon, lat in [(-1.8, 48.1), (-1.8, 48.4), (-1.5, 48.1), (-1.5, 48.4)]:
@@ -122,13 +112,6 @@ def test_a_wgs84_caller_gets_degrees_back_and_asks_a_box_that_holds_its_own(
         assert xmin <= x <= xmax and ymin <= y <= ymax
 
 
-@pytest.mark.fast
-def test_an_overseas_layer_is_refused_when_the_source_is_built() -> None:
-    with pytest.raises(DataRequestError, match="MYT"):
-        bdtopage.BdTopageSource(typename="sa:TronconHydrographique_MYT_Topage2026")
-
-
-@pytest.mark.fast
 @pytest.mark.parametrize("page_size", [0, -1, True, 2.5])
 def test_a_page_size_that_never_advances_is_refused(page_size: object) -> None:
     with pytest.raises(DataRequestError, match="page_size"):

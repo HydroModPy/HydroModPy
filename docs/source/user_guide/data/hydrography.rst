@@ -135,43 +135,47 @@ Minimal example
 Permanent and intermittent reaches
 """"""""""""""""""""""""""""""""""
 
-The default layer is ``sa:TronconHydrographique_FXX_Topage2026``: every reach
-of metropolitan France, named or not. Each reach carries ``PersistanceTH`` as
-the Sandre writes it, and the canonical ``permanence`` column the loader reads:
-``permanent``, ``intermittent``, ``ephemeral``, ``dry`` or ``unknown``. The
-full network is the hydrographic extent at high water; its permanent reaches
-are the network that still flows at low water.
+BD Topage is read from one layer, ``sa:TronconHydrographique_FXX_Topage2026``:
+every reach of metropolitan France, named or not. That is the hydrographic
+extent; its permanent reaches are the network that still flows at low water.
+Each reach carries ``PersistanceTH`` as the Sandre writes it, and the canonical
+``permanence`` column the loader reads: ``permanent``, ``intermittent``,
+``ephemeral``, ``dry`` or ``unknown``.
 
-The loader writes both in the hydrography preprocessing folder:
+The download lands in the data folder of the workspace
+(``<workspace>/data/hydrography/``) under the name every variable gives what it
+fetched, ``<variable>_<source>[_<product>]_<box hash>``, as
+``geology_brgm_1m_<hash>.gpkg`` does:
 
 .. list-table::
    :header-rows: 1
-   :widths: 30 70
+   :widths: 45 55
 
    * - File
      - Content
-   * - ``streams.shp``
-     - Every reach, clipped to the mask, with its ``permanence``. This is the
-       reference network, the one ``observed_network = "data.hydrography"``
-       reads; the stream burn downloads the same layer around the outlet.
-   * - ``streams_permanent.shp``
-     - The reaches whose ``permanence`` is ``permanent``. A run keeps it as
-       the ``reference_permanent`` network, beside ``reference``.
+   * - ``hydrography_bdtopage_<hash>.gpkg``
+     - Every reach touching the box, with its attributes and ``permanence``,
+       in Lambert-93. The catalogue serves it back for any box it contains.
+   * - ``hydrography_bdtopage_permanent_<hash>.gpkg``
+     - The permanent reaches of the same box.
+   * - ``hydrography_bdtopage_burn_<hash>.gpkg``
+     - The reaches around the outlet that the stream burn downloads before
+       the catchment exists.
 
-A network that says nothing about permanence, such as ``CoursEau`` or a
-``custom`` file without the column, has no permanent part: no
-``streams_permanent.shp`` is written, and one left by an earlier run is
-removed. Reaches from such a source concatenated with BD Topage ones are
-``unknown``, never permanent by default.
+A run then clips the network to its catchment. The clipped copies sit in the
+preprocessing scratch of the project, under the names the geographic pipeline
+reads, ``streams.shp`` and ``streams_permanent.shp``, and the run keeps them as
+its ``reference`` and ``reference_permanent`` networks. ``observed_network =
+"data.hydrography"`` reads ``reference``.
 
-The former default, ``sa:CoursEau_FXX_Topage2025``, is the named rivers only.
-Over the upper Ille (``04B0000002150459212``, 232.6 km²) it holds 441 of the
-694 km of reaches in the box: 253 of the 260 permanent kilometres, 185 of the
-434 intermittent ones. Name it through ``typename`` to keep it.
+A network that says nothing about permanence, a ``custom`` file without the
+column or an OSM download, has no permanent part: no permanent file is written,
+and one left by an earlier run is removed. Reaches from such a source
+concatenated with BD Topage ones are ``unknown``, never permanent by default.
 
 The Sandre is asked over a Lambert-93 box, and the pages are counted against
 the total the server announces: a page shorter than requested is not the last
-one. An overseas layer (``_GLP_``, ``_MTQ_``, ``_MYT_``, ``_REU_``) is refused.
+one.
 
 Operational checks
 """"""""""""""""""

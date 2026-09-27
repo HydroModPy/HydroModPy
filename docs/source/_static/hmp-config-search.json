@@ -1593,7 +1593,7 @@
     "section": "data",
     "anchor": "data-hydrography-sources-source",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L36",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L45",
     "description": "Data provider. Any source id this installation resolves and that serves river linework is accepted, so a third-party source registered on the 'hydromodpy.data.source' entry-point group is named here by its id.",
     "examples": [
       "\"custom\""
@@ -1608,7 +1608,7 @@
     "section": "data",
     "anchor": "data-hydrography-sources-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L56",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L65",
     "description": "Path to a vector file (SHP/GPKG/GeoJSON), raster (TIF/TIFF), or directory containing one."
   },
   {
@@ -1620,20 +1620,8 @@
     "section": "data",
     "anchor": "data-hydrography-sources-rasterize-field",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L64",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L73",
     "description": "Attribute field used when rasterising the vector layer."
-  },
-  {
-    "path": "data.hydrography.sources.typename",
-    "name": "typename",
-    "type": "str",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "data",
-    "anchor": "data-hydrography-sources-typename",
-    "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L70",
-    "description": "WFS typename for BD Topage. The default, every reach of metropolitan France, says for each one whether it flows all year (permanence column), and the permanent network is written beside the full one. 'sa:CoursEau_FXX_Topage2026' keeps only "
   },
   {
     "path": "data.hydrography.sources.page_size",

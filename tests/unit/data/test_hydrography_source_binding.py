@@ -29,7 +29,7 @@ from hydromodpy.data.variables.hydrography.config import (
 )
 
 BOUND_FIELDS: dict[str, tuple[str, ...]] = {
-    "bdtopage": ("typename", "page_size"),
+    "bdtopage": ("page_size",),
     "euhydro": ("group_name", "euhydro_page_size"),
     "osm": ("waterway_types",),
 }
@@ -71,15 +71,10 @@ def test_no_source_takes_a_field_the_manager_owns() -> None:
 
 
 def test_a_section_hands_over_the_values_it_declares() -> None:
-    section = HydrographySourceConfig(
-        source="bdtopage",
-        typename="sa:Other_Topage",
-        page_size=17,
-    )
+    section = HydrographySourceConfig(source="bdtopage", page_size=17)
     source = source_from_section(section)
 
     assert source.source_id == "bdtopage"
-    assert source.typename == "sa:Other_Topage"
     assert source.page_size == 17
 
 
@@ -100,7 +95,7 @@ def test_osm_takes_its_waterway_types_and_nothing_else() -> None:
     source = source_from_section(section)
 
     assert source.waterway_types == ("canal",)
-    assert not hasattr(source, "typename")
+    assert not hasattr(source, "page_size")
 
 
 def test_a_source_the_section_says_nothing_about_gets_its_own_defaults() -> None:

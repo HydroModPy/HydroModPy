@@ -58,16 +58,17 @@ class TestSourceConfigValidation:
     # -- BD Topage --
     def test_bdtopage_defaults(self):
         cfg = HydrographySourceConfig(source="bdtopage")
-        assert cfg.typename == "sa:TronconHydrographique_FXX_Topage2026"
         assert cfg.page_size == 50_000
 
-    def test_bdtopage_custom_typename(self):
-        cfg = HydrographySourceConfig(
-            source="bdtopage",
-            typename="sa:CoursEau_FXX_Topage2019",
-            page_size=500,
-        )
-        assert cfg.typename == "sa:CoursEau_FXX_Topage2019"
+    def test_a_sealed_typename_loads_and_is_ignored(self):
+        """The layer is fixed; runs sealed while ``typename`` existed still replay."""
+        with pytest.warns(DeprecationWarning, match="typename"):
+            cfg = HydrographySourceConfig(
+                source="bdtopage",
+                typename="sa:CoursEau_FXX_Topage2025",
+                page_size=500,
+            )
+        assert "typename" not in type(cfg).model_fields
         assert cfg.page_size == 500
 
     # -- EU-Hydro --
@@ -131,7 +132,6 @@ class TestSourceConfigParamLevels:
             ("path", "user"),
             ("rasterize_field", "user"),
             ("force_refresh", "dev"),
-            ("typename", "dev"),
             ("page_size", "dev"),
             ("group_name", "dev"),
             ("euhydro_page_size", "dev"),
@@ -309,7 +309,7 @@ class TestTomlFormatAcceptance:
             "hydrography": {"sources": [{"source": "bdtopage"}]},
         }
         cfg = DataManagersConfig.from_toml_section(section, base_dir=Path("/tmp"))
-        assert cfg.hydrography.sources[0].typename == "sa:TronconHydrographique_FXX_Topage2026"
+        assert cfg.hydrography.sources[0].page_size == 50_000
 
     def test_minimal_euhydro(self):
         from hydromodpy.data.loading.config_schema import DataManagersConfig
@@ -330,11 +330,7 @@ class TestTomlFormatAcceptance:
                 "sources": [
                     {"source": "custom", "path": str(tmp_path / "local.shp")},
                     {"source": "osm", "waterway_types": ["canal"]},
-                    {
-                        "source": "bdtopage",
-                        "typename": "sa:CoursEau_FXX_Topage2019",
-                        "page_size": 100,
-                    },
+                    {"source": "bdtopage", "page_size": 100},
                     {
                         "source": "euhydro",
                         "group_name": "River_Net_lines",

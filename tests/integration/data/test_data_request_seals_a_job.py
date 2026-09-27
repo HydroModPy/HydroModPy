@@ -100,8 +100,8 @@ def stub_bdtopage(monkeypatch):
     calls: list[dict] = []
     payload = {"frame": _network()}
 
-    def _record(typename, bbox, *, page_size):
-        calls.append({"typename": typename, "bbox": bbox, "page_size": page_size})
+    def _record(bbox, *, page_size):
+        calls.append({"bbox": bbox, "page_size": page_size})
         return payload["frame"]
 
     monkeypatch.setattr(provider, "fetch_projected", _record)
@@ -451,7 +451,7 @@ _STUB_PROVIDER = (
     "import hydromodpy.data.variables.hydrography.apis.bdtopage as provider\n"
     "import geopandas as gpd\n"
     "from shapely.geometry import LineString\n"
-    "provider.fetch_projected = lambda typename, bbox, *, page_size: gpd.GeoDataFrame(\n"
+    "provider.fetch_projected = lambda bbox, *, page_size: gpd.GeoDataFrame(\n"
     "    {'name': ['a']},\n"
     "    geometry=[LineString([(-1.8, 48.1), (-1.7, 48.2)])],\n"
     "    crs='EPSG:4326',\n"

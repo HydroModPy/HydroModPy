@@ -734,7 +734,7 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L36>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L45>`__
 
                   Data provider. Any source id this installation resolves and that serves river linework is accepted, so a third-party source registered on the 'hydromodpy.data.source' entry-point group is named here by its id.
 
@@ -749,7 +749,7 @@ Fields
                   Downloads waterway geometries from OpenStreetMap.
 
                ``"bdtopage"``
-                  Downloads the French BD Topage reference network from the Sandre WFS, every reach with its permanence, and writes the permanent network too.
+                  Downloads every reach of the French BD Topage network from the Sandre WFS, each with its permanence, and writes the permanent network too.
 
                ``"euhydro"``
                   Downloads the EEA EU-Hydro continental-scale river network.
@@ -766,7 +766,7 @@ Fields
                     <code class="hmp-field-name">path</code>
                   </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L56>`__
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L65>`__
 
                   Path to a vector file (SHP/GPKG/GeoJSON), raster (TIF/TIFF), or directory containing one.
 
@@ -782,25 +782,9 @@ Fields
                     <code class="hmp-field-name">rasterize_field</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "FID"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L64>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "FID"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L73>`__
 
                   Attribute field used when rasterising the vector layer.
-
-
-            .. index:: ! typename
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-hydrography-sources-typename
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.hydrography.sources.typename">
-                    <code class="hmp-field-name">typename</code>
-                  </div>
-
-               :bdg-primary:`str` :bdg-secondary:`default = "sa:TronconHydrographique_FXX_Topage2026"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L70>`__
-
-                  WFS typename for BD Topage. The default, every reach of metropolitan France, says for each one whether it flows all year (permanence column), and the permanent network is written beside the full one. 'sa:CoursEau_FXX_Topage2026' keeps only the named rivers and carries no permanence.
 
 
             .. index:: ! page_size
