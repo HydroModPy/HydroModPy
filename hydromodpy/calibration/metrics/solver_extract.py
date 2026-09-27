@@ -404,17 +404,86 @@ def require_release_flux_unit(units: str, *, name: str) -> None:
         )
 
 
+def _last_state(values: Any) -> np.ndarray:
+    """Return the last timestep of a per-cell field, as the network reads it."""
+    field = np.asarray(values, dtype=float)
+    return field[-1, :] if field.ndim == 2 else field.reshape(-1)
+
+
+def _area_mean(values: np.ndarray, cells: np.ndarray, areas: np.ndarray) -> float:
+    """Area-weighted mean of ``values`` over ``cells``, finite values only."""
+    kept = cells & np.isfinite(values) & np.isfinite(areas)
+    weight = float(areas[kept].sum())
+    return float((values[kept] * areas[kept]).sum() / weight) if weight > 0.0 else float("nan")
+
+
+def catchment_saturation(
+    run_ctx: RunContext,
+    geometry: Any,
+    saturated_thickness: ObservableResult | None,
+) -> dict[str, float]:
+    """Return ``d_sat_m``, ``d_aquifer_m`` and their ratio over the catchment.
+
+    ``d_sat_m`` is the paper's ``dsat``: the saturated thickness the model
+    computes, averaged by area over the catchment, at the state the network is
+    read from. It turns ``K/R`` into ``T/R``. ``d_aquifer_m`` is the imposed
+    thickness over the same cells. ``T/R`` stops being independent of it when
+    the aquifer runs nearly full, so the ratio is published beside it.
+
+    Empty when the backend serves no saturated thickness, and when it serves
+    one on another cell count: these values never enter the scored pair, so a
+    mismatch warns and leaves the trial scored.
+    """
+    if saturated_thickness is None:
+        return {}
+    cells = np.asarray(geometry.catchment, dtype=bool).reshape(-1)
+    areas = np.asarray(geometry.cell_area_m2, dtype=float).reshape(-1)
+    thickness = _last_state(saturated_thickness.values)
+    if thickness.size != cells.size:
+        logger.warning(
+            "No d_sat_m: the saturated thickness holds %d cells, the mesh holds %d.",
+            thickness.size,
+            cells.size,
+        )
+        return {}
+    d_sat = _area_mean(thickness, cells, areas)
+    unset = cells & ~np.isfinite(thickness)
+    catchment_area = float(areas[cells].sum())
+    out = {
+        "d_sat_m": d_sat,
+        "d_sat_unset_fraction": (
+            float(areas[unset].sum() / catchment_area) if catchment_area > 0.0 else float("nan")
+        ),
+    }
+    mesh = run_ctx.model.solver_mesh
+    botm = getattr(mesh, "botm", None)
+    if botm is not None:
+        base = np.asarray(botm, dtype=float)
+        base = base.reshape(-1) if base.ndim == 1 else base[-1].reshape(-1)
+        top = np.asarray(mesh.top, dtype=float).reshape(-1)
+        if base.size == cells.size and top.size == cells.size:
+            d_aquifer = _area_mean(top - base, cells, areas)
+            out["d_aquifer_m"] = d_aquifer
+            out["d_sat_over_d"] = d_sat / d_aquifer if d_aquifer > 0.0 else float("nan")
+    return out
+
+
 def score_network_output(
     run_ctx: RunContext,
     name: str,
     output: CalibOutputNetwork,
     result: ObservableResult,
+    *,
+    saturated_thickness: ObservableResult | None = None,
 ) -> tuple[list[float], dict[str, float]]:
     """Turn one per-cell release field into the pair ``(D_so, D_os)``.
 
     The pair is what a block scores; every other number the criterion produces
     travels beside it as a diagnostic, which is how a session records thirty
     quantities per trial without promoting a single run.
+
+    ``saturated_thickness`` is the per-cell field of the same run. It feeds
+    :func:`catchment_saturation` only and never enters the pair.
 
     The static geometry is rebuilt here at every trial. It is one graph build
     and three ``O(n_cells)`` passes, measured under a second on a seven
@@ -493,6 +562,7 @@ def score_network_output(
             **scored.components,
             **geometry.diagnostics,
             **network_provenance,
+            **catchment_saturation(run_ctx, geometry, saturated_thickness),
             # One cell of the mesh scored here, the default width of the interval
             # a search on this criterion reports. Measured with the geometry, so
             # the runner reads it off the trial and asks the mesh nothing.
@@ -520,6 +590,32 @@ class ExtractedOutputs:
     values: dict[str, list[float]]
     series: dict[str, pd.Series]
     diagnostics: dict[str, float]
+
+
+def _saturated_thickness_or_none(
+    adapter: Any,
+    run_ctx: RunContext,
+    name: str,
+    output: CalibOutputNetwork,
+    time_index: Any,
+) -> ObservableResult | None:
+    """Ask for the saturated thickness beside a network output, or None.
+
+    A call of its own: a backend that serves no such field loses ``d_sat_m``
+    and keeps the criterion.
+    """
+    request = ObservableRequest(
+        id=f"_saturated_thickness:{name}",
+        name="saturated_thickness",
+        support="cells",
+        times=_request_times(output.time),
+    )
+    try:
+        served = adapter.extract_observables(run_ctx, None, [request], time_index=time_index)
+    except ObservableNotAvailableError as exc:
+        logger.info("Output %s: no saturated thickness from this backend (%s).", name, exc)
+        return None
+    return served.get(request.id)
 
 
 def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> ExtractedOutputs:
@@ -591,9 +687,8 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
     # The time grid is passed so a dated output comes back dated. An output
     # scored against a loaded record has to align on those timestamps, and the
     # ones scored positionally read the values and ignore the index.
-    results = adapter.extract_observables(
-        run_ctx, None, requests, time_index=resolve_time_index(ctx, n_timesteps=0)
-    )
+    time_index = resolve_time_index(ctx, n_timesteps=0)
+    results = adapter.extract_observables(run_ctx, None, requests, time_index=time_index)
 
     observables: dict[str, ObservableResult] = {}
     simulated: dict[str, list[float]] = {}
@@ -604,7 +699,10 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
         if result is None or np.asarray(result.values).size == 0:
             raise NotImplementedError(f"Solver returned no calibration values for output {name!r}")
         if output.support == "network":
-            simulated[name], scored = score_network_output(run_ctx, name, output, result)
+            thickness = _saturated_thickness_or_none(adapter, run_ctx, name, output, time_index)
+            simulated[name], scored = score_network_output(
+                run_ctx, name, output, result, saturated_thickness=thickness
+            )
             diagnostics.update(scored)
             continue
         values = result.values

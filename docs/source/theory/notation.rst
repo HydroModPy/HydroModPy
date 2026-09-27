@@ -216,11 +216,17 @@ Time and calibration
      - Measures the agreement between the routing surface and the mapped
        network. Below 0.90, the distances read a dataset disagreement rather
        than hydrogeology.
-   * - ``T/R``
-     - Transmissivity over recharge
+   * - ``dsat``
+     - Saturated thickness averaged by area over the catchment
      - m
-     - The output to publish. ``K`` inherits the recharge series entirely,
-       measured at plus or minus 25 per cent between reanalyses.
+     - Published per trial as ``d_sat_m``. Turns ``K/R`` into ``T/R``.
+   * - ``T/R``
+     - Transmissivity over recharge, ``(K/R) dsat``
+     - m
+     - The output to publish, as ``t_over_r_m`` beside ``k_over_r`` and
+       ``t_optim_m2_s`` when the search moved ``K`` alone. ``K`` inherits the
+       recharge series entirely, measured at plus or minus 25 per cent between
+       reanalyses.
 
 Conventions
 -----------

@@ -571,6 +571,14 @@ to look at first:
    ``K/R`` rather than a ``K``, and comparing it across the trials of a session
    is how you check the first stage really held the recharge still.
 
+``d_sat_m``, ``d_aquifer_m`` and ``d_sat_over_d``
+   The paper's ``dsat``: the saturated thickness the model computes, averaged
+   by area over the catchment at the state the network is read from, then the
+   imposed thickness over the same cells and their ratio.
+   ``d_sat_unset_fraction`` is the share of the catchment area with no
+   thickness, dry or inactive cells. A backend that serves no saturated
+   thickness publishes none of the four and still scores the network.
+
 ``alpha_obs_closure`` and ``frac_reachable_obs_raw``
    How much of the criterion's own measurement is a top-versus-map
    disagreement, and how much of the mapped support has a descent that reaches
@@ -708,14 +716,18 @@ not through ``render(sim, ax)``.
 What to publish
 ---------------
 
-Publish the ratio, not the conductivity. That advice stands, and it is work you
-have to do yourself: the calibration returns the calibrated conductivity raw, in
-``best_parameters`` of the report, and it publishes no ratio at all. There is no
-``t_over_r``, no ``k_over_r`` and no ``k_optim`` anywhere in the output. Divide
-by ``R_mean_m_s``, which every trial publishes, and state the recharge series it
-came from beside the number: the conductivity inherits it entirely, and changing
-reanalysis moved it by +3, +25 and -28 per cent on the three catchments the
-theory page reports.
+Publish the ratio, not the conductivity. When the search moves the homogeneous
+conductivity alone, ``flow.param.K.field.value`` written as a value, the report
+carries the derived values of Table 1 of the paper in its ``extra`` and the CLI
+prints them on one line: ``k_over_r``, ``k_optim_m_s``, and, when the backend
+serves a saturated thickness, ``d_sat_m``, ``t_over_r_m`` (``T/R``, a length) and
+``t_optim_m2_s``. A search on any other parameter gets none of them, because the
+network criterion drives any parameter and a thickness divided by ``R`` is not
+``K/R``. The note warns when ``d_sat_over_d`` exceeds one half: an aquifer that
+runs nearly full makes ``T/R`` depend on the imposed thickness. State the
+recharge series beside the number: the conductivity inherits it entirely, and
+changing reanalysis moved it by +3, +25 and -28 per cent on the three catchments
+the theory page reports.
 
 What the code does publish, and what belongs in the paper beside the value, is
 the diagnostic set above: ``D_so`` and ``D_os``, the cost ``J`` with its signed

@@ -108,6 +108,16 @@ Each release section includes the following standard categories:
   Python for the context alone.
 
 ### Added
+- A stream-network trial publishes the paper's `dsat` as `<output>.d_sat_m`:
+  the saturated thickness averaged by area over the catchment, at the state the
+  network is read from. Beside it, `d_aquifer_m`, `d_sat_over_d` and
+  `d_sat_unset_fraction`. A backend that serves no saturated thickness
+  publishes none of them and still scores the network.
+- A calibration whose one moved parameter is `flow.param.K.field.value`,
+  written as a value and scored on a network output, reports the derived
+  values of Table 1 of Abherve et al. (2023): `k_over_r`, `k_optim_m_s`,
+  `d_sat_m`, `t_over_r_m` and `t_optim_m2_s`, printed on one line by
+  `hmp calibrate`. A search on any other parameter gets none of them.
 - A raster substratum: two depth models read the bottom of the aquifer from
   the new `[data.substratum]` variable, one user raster in metres.
   `kind = "raster_substratum"` takes its values as the substratum elevation,
@@ -356,6 +366,10 @@ Each release section includes the following standard categories:
   resume it refused the session it had itself written.
 
 ### Fixed
+- `k_over_r` reaches the calibration report. It read `R_mean_m_s` without the
+  output prefix every network diagnostic carries, so it never appeared, and it
+  divided whatever single parameter the search moved, a thickness or a
+  multiplier included. The conductivity is now converted from its field unit.
 - `Project.simulate(thickness=...)` on a depth model without a thickness raises
   a `ConfigError` naming the kind instead of a raw Pydantic error.
 - A custom lake-bathymetry raster without a CRS loads in its `default_crs`, as

@@ -95,7 +95,7 @@ from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.optim.engine import CalibrationSession
-    from hydromodpy.calibration.optim.parameters import ParameterSpace
+    from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
     from hydromodpy.calibration.report import CalibrationReport
     from hydromodpy.calibration.runners.trial import TrialContext
 
@@ -548,39 +548,105 @@ def _log_parameter_interval(interval: ParameterInterval, best: EvaluationResult 
     )
 
 
-def _network_k_over_r_extra(
+CONDUCTIVITY_PATH = "flow.param.K.field.value"
+"""The homogeneous conductivity, the one parameter the paper's ratios divide."""
+
+
+def _non_negative(value: Any) -> float | None:
+    """Return ``value`` as a float when it is finite and not negative, else None."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) and number >= 0.0 else None
+
+
+def _conductivity_unit(trial_ctx: Any, param: CalibParameter) -> str:
+    """Return the unit the model reads the conductivity value in.
+
+    The sample is written as-is into ``flow.param.K.field.value``, so the field's
+    own unit rules. The declaration's ``units`` comes next, then ``m/s``.
+    """
+    flow = getattr(getattr(trial_ctx, "base_cfg", None), "flow", None)
+    entry = (getattr(flow, "param", None) or {}).get("K")
+    unit = getattr(getattr(entry, "field", None), "unit", None)
+    for candidate in (unit, param.units):
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate
+    return "m/s"
+
+
+def _network_ratios_extra(
     *,
-    has_network_output: bool,
+    network_outputs: Iterable[str],
     components: Mapping[str, float] | None,
     best_parameters: Mapping[str, float] | None,
+    space: ParameterSpace,
+    trial_ctx: Any = None,
 ) -> dict[str, Any]:
-    """Return the ``k_over_r`` entries for ``CalibrationReport.extra``, or nothing.
+    """Return the derived values of Abherve et al. (2023), Table 1, or nothing.
 
-    A network criterion keeps the drain conductance proportional to the
-    conductivity (see ``_assert_network_conductance_proportional``), so it only
-    ever identifies the ratio K/R: any (K, R) pair with the same ratio scores
-    identically. ``best_parameters`` carries the raw value a bisection network
-    stage moved, which means nothing without the R it was measured against
-    (``R_mean_m_s``, see ``hydromodpy.core.stream_geometry.NetworkGeometry``).
+    The network criterion compares two networks and drives any parameter. The
+    paper's ratios exist only when the one parameter the search moved is the
+    homogeneous conductivity written as a value. A thickness, a zone or a
+    multiplier divided by R names nothing, so every other search gets none.
 
-    Empty when the run has no network output, no ``R_mean_m_s`` diagnostic, or
-    more than one calibrated parameter: the ratio is only defined for the
-    one-parameter root search the protocol runs.
+    - ``k_over_r``: K/R, what the criterion identifies at fixed geometry.
+    - ``k_optim_m_s``: K in m/s, the calibrated value against that recharge.
+    - ``d_sat_m``: dsat, the saturated thickness averaged over the catchment.
+    - ``t_over_r_m``: T/R = (K/R) dsat, a length.
+    - ``t_optim_m2_s``: Toptim = K dsat.
+
+    R and dsat are read off the best trial, ``<output>.R_mean_m_s`` and
+    ``<output>.d_sat_m``, on the first network output by name, which the note
+    names. The run is already saved when this runs, so a conductivity unit that
+    is not one logs a warning and publishes nothing rather than raise.
     """
-    if not has_network_output or not best_parameters or len(best_parameters) != 1:
+    outputs = sorted(network_outputs)
+    if not outputs or not best_parameters or len(best_parameters) != 1:
         return {}
-    recharge = (components or {}).get("R_mean_m_s")
+    ((name, value),) = best_parameters.items()
+    param = next((p for p in space if p.name == name), None)
+    if param is None or param.effective_path != CONDUCTIVITY_PATH or param.mode != "replace":
+        return {}
+    from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+
+    unit = _conductivity_unit(trial_ctx, param)
+    try:
+        conductivity = float(value) * factor_to_m_per_s(unit)
+    except ValueError as exc:
+        logger.warning("No K/R in the report: %s", exc)
+        return {}
+    found = components or {}
+    output = outputs[0]
+    recharge = _non_negative(found.get(f"{output}.R_mean_m_s"))
     if not recharge:
         return {}
-    (value,) = best_parameters.values()
-    k_over_r = float(value) / float(recharge)
-    return {
-        "k_over_r": k_over_r,
-        "k_over_r_note": (
-            f"k_over_r = {k_over_r:.4g}, against R_mean_m_s = {float(recharge):.4g} m/s: "
-            "the ratio is not a conductivity."
-        ),
-    }
+    k_over_r = conductivity / recharge
+    extra: dict[str, Any] = {"k_over_r": k_over_r, "k_optim_m_s": conductivity}
+    note = (
+        f"k_over_r = {k_over_r:.4g} against R_mean_m_s = {recharge:.4g} m/s on output "
+        f"{output!r}, k_optim = {conductivity:.4g} m/s"
+    )
+    d_sat = _non_negative(found.get(f"{output}.d_sat_m"))
+    if d_sat is not None:
+        extra["d_sat_m"] = d_sat
+        extra["t_over_r_m"] = k_over_r * d_sat
+        extra["t_optim_m2_s"] = conductivity * d_sat
+        note += (
+            f", d_sat = {d_sat:.4g} m, t_over_r = {k_over_r * d_sat:.4g} m, "
+            f"t_optim = {conductivity * d_sat:.4g} m2/s"
+        )
+        ratio = _non_negative(found.get(f"{output}.d_sat_over_d"))
+        if ratio is not None:
+            extra["d_sat_over_d"] = ratio
+            if ratio > 0.5:
+                note += (
+                    f". The aquifer runs {ratio:.0%} full: T/R depends on the imposed "
+                    "thickness there"
+                )
+    extra["k_over_r_note"] = note + "."
+    return extra
 
 
 def _phase_objective_block_shares(
@@ -1163,12 +1229,14 @@ def run_calibration_core(
         )
         extra["first_trial_pairing"] = pairing
     extra.update(
-        _network_k_over_r_extra(
-            has_network_output=any(
-                output.support == "network" for output in (cfg.outputs or {}).values()
-            ),
+        _network_ratios_extra(
+            network_outputs=[
+                name for name, output in (cfg.outputs or {}).items() if output.support == "network"
+            ],
             components=best.components if best is not None else None,
             best_parameters=values_by_trial.get(best.trial_id) if best is not None else None,
+            space=space,
+            trial_ctx=trial_ctx,
         )
     )
 
