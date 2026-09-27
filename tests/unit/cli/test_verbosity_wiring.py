@@ -205,7 +205,7 @@ def test_dev_run_script_respects_quiet(monkeypatch, tmp_path) -> None:
     from hydromodpy.cli.commands.dev import run_script
 
     calls: list[None] = []
-    monkeypatch.setattr("hydromodpy.display.banner.print_hydromodpy", lambda: calls.append(None))
+    monkeypatch.setattr("hydromodpy.cli.banner.print_hydromodpy", lambda: calls.append(None))
     script = tmp_path / "proto.py"
     script.write_text("pass\n")
 

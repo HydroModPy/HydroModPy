@@ -22,8 +22,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display.map_axes import overlay_watershed_contour
-from hydromodpy.display.mesh_geometry import face_centroids, face_polygons
+from hydromodpy.display.maps.axes import overlay_watershed_contour
+from hydromodpy.display.maps.mesh_geometry import face_centroids, face_polygons
 from hydromodpy.results.run.particles import read_particle_tracks
 
 if TYPE_CHECKING:
@@ -37,7 +37,7 @@ class OverlayUnavailable(RuntimeError):
 
 
 def _resolve_timestep(sim: Run, timestep: int | None) -> int:
-    from hydromodpy.display.ugrid import last_timestep
+    from hydromodpy.display.maps.ugrid import last_timestep
 
     return last_timestep(sim) if timestep is None else timestep
 

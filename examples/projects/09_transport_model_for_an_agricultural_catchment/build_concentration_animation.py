@@ -16,7 +16,7 @@ Nothing is hand-drawn: every frame is ``concentration_map`` with a different
 from pathlib import Path
 
 import hydromodpy as hmp
-from hydromodpy.display.animation import build_gif, build_plotly_slider
+from hydromodpy.display.quicklook.animation import build_gif, build_plotly_slider
 
 HERE = Path(__file__).resolve().parent
 

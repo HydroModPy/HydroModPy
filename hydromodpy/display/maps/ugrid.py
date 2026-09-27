@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display.map_axes import (
+from hydromodpy.display.maps.axes import (
     RELATIVE_MAP_COLORBAR_LABEL_SIZE,
     RELATIVE_MAP_COLORBAR_TICK_SIZE,
 )

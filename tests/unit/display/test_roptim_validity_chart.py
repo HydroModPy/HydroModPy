@@ -12,11 +12,11 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
 from hydromodpy.display.figures.roptim_validity_chart import (
     RoptimValidityChart,
     SiteAgreement,
 )
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 
 from ._render_helpers import relative_luminance
 

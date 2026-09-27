@@ -8,7 +8,7 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.ugrid import last_timestep, render_face_field
+from hydromodpy.display.maps.ugrid import last_timestep, render_face_field
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

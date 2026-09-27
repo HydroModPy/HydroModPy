@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.display import viz
+from hydromodpy.display.quicklook import viz
 
 
 @pytest.fixture

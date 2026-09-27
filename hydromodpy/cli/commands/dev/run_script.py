@@ -27,7 +27,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.display.banner import print_hydromodpy
+    from hydromodpy.cli.banner import print_hydromodpy
 
     script_path = Path(args.script).expanduser().resolve()
     if not script_path.is_file():

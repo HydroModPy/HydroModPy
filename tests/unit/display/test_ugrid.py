@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.display.ugrid import render_face_field
+from hydromodpy.display.maps.ugrid import render_face_field
 
 
 def _mesh_run(connectivity: np.ndarray) -> SimpleNamespace:

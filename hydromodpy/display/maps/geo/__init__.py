@@ -8,7 +8,7 @@ metric CRS.
 
 from __future__ import annotations
 
-from hydromodpy.display.geo.mixin import GeoFigureMixin
-from hydromodpy.display.geo.projection import project_gdf_for_metric_operations
+from hydromodpy.display.maps.geo.mixin import GeoFigureMixin
+from hydromodpy.display.maps.geo.projection import project_gdf_for_metric_operations
 
 __all__ = ["GeoFigureMixin", "project_gdf_for_metric_operations"]

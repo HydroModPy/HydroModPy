@@ -15,9 +15,9 @@ import numpy as np
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures.parameter_section import LOG_SCALE_DECADES, PARAMETER_FIELDS
-from hydromodpy.display.map_axes import style_relative_km_axes
-from hydromodpy.display.overlays import apply_overlays
-from hydromodpy.display.ugrid import render_face_field
+from hydromodpy.display.maps.axes import style_relative_km_axes
+from hydromodpy.display.maps.overlays import apply_overlays
+from hydromodpy.display.maps.ugrid import render_face_field
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

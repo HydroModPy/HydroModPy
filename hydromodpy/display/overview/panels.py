@@ -14,8 +14,8 @@ import numpy as np
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-from hydromodpy.display.legend_placement import place_legend
 from hydromodpy.display.overview.summary import OverviewSummary
+from hydromodpy.display.style import place_legend
 
 _FONT_SCALE = 1.25
 

@@ -12,7 +12,7 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.map_axes import (
+from hydromodpy.display.maps.axes import (
     overlay_watershed_contour,
     style_map_axes,
 )

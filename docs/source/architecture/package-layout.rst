@@ -93,7 +93,7 @@ Subpackages
      - Solver-agnostic figures registered through
        ``display/figure_registry.py``, one module per figure under
        ``display/figures/`` (inventory in :doc:`/user_guide/figures`),
-       plus geographic helpers (``display/geo``) and overview rendering
+       plus map tools (``display/maps``) and overview rendering
        (``display/overview``). See :doc:`packages/display`.
    * - ``physics/``
      - Process layer. ``physics/base/`` defines ``ProcessSpatial``,

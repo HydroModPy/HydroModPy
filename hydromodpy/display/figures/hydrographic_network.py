@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.geo import GeoFigureMixin, project_gdf_for_metric_operations
-from hydromodpy.display.map_axes import overlay_watershed_contour, style_relative_km_axes
+from hydromodpy.display.maps.axes import overlay_watershed_contour, style_relative_km_axes
+from hydromodpy.display.maps.geo import GeoFigureMixin, project_gdf_for_metric_operations
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

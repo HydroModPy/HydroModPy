@@ -24,10 +24,10 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._trial_diagnostics import trial_table
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 
 if TYPE_CHECKING:
     import pandas as pd

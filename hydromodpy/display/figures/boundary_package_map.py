@@ -48,10 +48,10 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.map_axes import overlay_watershed_contour, style_relative_km_axes
-from hydromodpy.display.mesh_geometry import face_polygons
-from hydromodpy.display.overlays import apply_overlays
-from hydromodpy.display.ugrid import last_timestep
+from hydromodpy.display.maps.axes import overlay_watershed_contour, style_relative_km_axes
+from hydromodpy.display.maps.mesh_geometry import face_polygons
+from hydromodpy.display.maps.overlays import apply_overlays
+from hydromodpy.display.maps.ugrid import last_timestep
 from hydromodpy.results.derive.config_flags import enable_options_hint, missing_field_options
 from hydromodpy.results.run.array import acting_faces, acting_faces_over_run
 

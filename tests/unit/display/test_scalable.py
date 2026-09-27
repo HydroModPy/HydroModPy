@@ -1,6 +1,6 @@
 """Unit tests for the scalable rasterization helpers.
 
-Covers ``hydromodpy.display.scalable``:
+Covers ``hydromodpy.display.quicklook.scalable``:
 - threshold detection (``should_rasterize``)
 - datashader availability probe
 - 2D xr.DataArray rasterization to a target pixel resolution
@@ -13,7 +13,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.display import scalable
+from hydromodpy.display.quicklook import scalable
 
 
 def test_should_rasterize_threshold_returns_true_above_default() -> None:

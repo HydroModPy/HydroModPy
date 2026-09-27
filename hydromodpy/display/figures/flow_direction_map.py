@@ -37,8 +37,8 @@ from hydromodpy.display.figures._routing_surface import (
     unavailable_reason_for_routing,
 )
 from hydromodpy.display.figures._stream_comparison import annotate_note, cell_count
-from hydromodpy.display.map_axes import overlay_watershed_contour, style_map_axes
-from hydromodpy.display.mesh_geometry import face_polygons
+from hydromodpy.display.maps.axes import overlay_watershed_contour, style_map_axes
+from hydromodpy.display.maps.mesh_geometry import face_polygons
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

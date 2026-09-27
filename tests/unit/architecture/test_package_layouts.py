@@ -48,7 +48,7 @@ TEXT_KINDS = frozenset({"import_module", "lazy_map"})
 SEEN_PARTS = {
     "data": {"contracts", "managers", "variables", "loading", "registry"},
     "calibration": {"optim", "runners", "config", "criteria", "metrics"},
-    "display": {"figures", "figure", "figure_registry", "overlays", "runs", "catchment_report"},
+    "display": {"figures", "figure", "figure_registry", "maps", "runs", "catchment_report"},
 }
 
 _BUILD_GRAPH_PATH = REPO_ROOT / "tools" / "audit" / "build_graph.py"

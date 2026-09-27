@@ -10,7 +10,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from hydromodpy.display.colormaps import BANNED_CMAPS
+from hydromodpy.display.style import BANNED_CMAPS
 
 
 def _figure_files() -> list[Path]:
@@ -26,8 +26,8 @@ def test_no_banned_cmap_literal() -> None:
         for node in ast.walk(tree):
             if isinstance(node, ast.Constant) and isinstance(node.value, str):
                 if node.value in BANNED_CMAPS:
-                    # The colormaps.py module itself is allowed to list them.
-                    if path.name == "colormaps.py":
+                    # style.py declares the banned list itself.
+                    if path.relative_to(repo_root).as_posix() == "hydromodpy/display/style.py":
                         continue
                     offending.append(
                         (path.relative_to(repo_root).as_posix(), node.lineno, node.value)

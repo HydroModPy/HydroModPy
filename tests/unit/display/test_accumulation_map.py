@@ -234,7 +234,7 @@ def test_the_light_end_is_the_one_that_is_cut_whichever_end_it_is() -> None:
     pytest.importorskip("matplotlib")
     from matplotlib.colors import to_hex
 
-    from hydromodpy.display.colormaps import get_cmap
+    from hydromodpy.display.style import get_cmap
 
     base = get_cmap("viridis")
     palette = truncated_palette("viridis", PALETTE_FLOOR)

@@ -130,7 +130,7 @@ def context_topography_layers(run, watershed_path: Path | None):
 def project_for_plot(gdf, fallback_crs=None):
     if gdf is None or gdf.empty:
         return gdf
-    from hydromodpy.display.geo import project_gdf_for_metric_operations
+    from hydromodpy.display.maps.geo import project_gdf_for_metric_operations
 
     return project_gdf_for_metric_operations(gdf, fallback_crs=fallback_crs)
 
@@ -149,7 +149,7 @@ def plot_watershed_context(
     config_watershed_path: Path | None,
     watershed_cache: dict[str, object],
 ) -> str:
-    from hydromodpy.display.map_axes import overlay_watershed_contour
+    from hydromodpy.display.maps.axes import overlay_watershed_contour
 
     context_watershed = context_watershed_gdf(config_watershed_path, watershed_cache)
     if context_watershed is not None and not context_watershed.empty:
@@ -243,8 +243,8 @@ def render_log_flux_figure(
     import numpy as np
     from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 
-    from hydromodpy.display.map_axes import style_map_axes
-    from hydromodpy.display.ugrid import render_face_field
+    from hydromodpy.display.maps.axes import style_map_axes
+    from hydromodpy.display.maps.ugrid import render_face_field
 
     values = log10_positive(mean_positive_flux(run, variable))
     finite = values[np.isfinite(values)]
@@ -428,7 +428,7 @@ def render_topographic_context_figure(
     import numpy as np
     from matplotlib.lines import Line2D
 
-    from hydromodpy.display.map_axes import style_map_axes
+    from hydromodpy.display.maps.axes import style_map_axes
 
     layers = context_topography_layers(run, config_watershed_path)
     finite_values = [dem[np.isfinite(dem)] for dem, _extent in layers if dem[np.isfinite(dem)].size]

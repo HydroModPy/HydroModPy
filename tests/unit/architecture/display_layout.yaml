@@ -8,29 +8,17 @@
 # this table cannot allow a cycle.
 allowed:
   report_blocks:    []
-  colormaps:        []
-  legend_placement: []
-  map_axes:         []
-  mesh_geometry:    []
+  style:            []
+  maps:             []
   png_metadata:     []
-  theme:            []
-  renderer:         []
-  scalable:         []
-  banner:           []
-  animation:        []
-  geo:              []
-  ugrid:            [map_axes]
-  transect:         [mesh_geometry]
+  quicklook:        []
   figure:           [png_metadata]
   figure_registry:  [figure]
-  viz:              [scalable]
-  overlays:         [map_axes, mesh_geometry, ugrid]
-  figures:          [colormaps, figure, figure_registry, geo, legend_placement, map_axes,
-                     mesh_geometry, overlays, transect, ugrid]
+  figures:          [figure, figure_registry, maps, style]
   config:           [figure_registry]
   "<init>":         [figure, figure_registry]
-  runs:             ["<init>", config, figure, renderer, theme]
-  overview:         [legend_placement, report_blocks]
+  runs:             ["<init>", config, figure, style]
+  overview:         [report_blocks, style]
   catchment_report: [overview, report_blocks]
 
 # The registry imports hydromodpy.display.figures by name on first lookup, so
@@ -44,11 +32,10 @@ public:
   - hydromodpy.display.config
   - hydromodpy.display.figure_registry
   - hydromodpy.display.runs
-  - hydromodpy.display.viz
-  - hydromodpy.display.banner
-  - hydromodpy.display.map_axes
-  - hydromodpy.display.ugrid
-  - hydromodpy.display.geo
+  - hydromodpy.display.quicklook.viz
+  - hydromodpy.display.maps.axes
+  - hydromodpy.display.maps.ugrid
+  - hydromodpy.display.maps.geo
   - hydromodpy.display.report_blocks
   - hydromodpy.display.overview
   - hydromodpy.display.overview.config
