@@ -56,7 +56,7 @@ from hydromodpy.calibration.optim.optimizer import (
     engine_traits,
 )
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
-from hydromodpy.calibration.optim.stopping import stopping_kwargs
+from hydromodpy.calibration.optim.stopping import resolve_budget, stopping_kwargs
 from hydromodpy.calibration.optim.tolerance import (
     IntervalWidth,
     ParameterInterval,
@@ -1360,11 +1360,14 @@ def run_calibration_core(
             error=str((result.metadata or {}).get("error") or ""),
         )
 
+    # "auto" becomes the count the engine publishes, so the log and the progress
+    # bar show what the run will spend.
+    budget = resolve_budget(optimizer, cfg.max_iter)
     logger.info(
         "Calibration session %s | method=%s max_iter=%d save_runs=%s",
         session_id,
         cfg.method,
-        cfg.max_iter,
+        budget,
         cfg.save_runs,
     )
 
@@ -1372,12 +1375,12 @@ def run_calibration_core(
         space=space,
         optimizer=optimizer,
         evaluator=wrapped_evaluator,
-        max_iter=cfg.max_iter,
+        max_iter=budget,
         batch_size=cfg.batch_size,
         parallel=cfg.parallel,
         cache=engine_cache,
         cache_context=cache_context,
-        progress=ConsoleProgressReporter(cfg.method, cfg.max_iter),
+        progress=ConsoleProgressReporter(cfg.method, budget),
         session_id=session_id,
         on_iteration=on_iteration,
     )

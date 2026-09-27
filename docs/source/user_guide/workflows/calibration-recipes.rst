@@ -407,13 +407,26 @@ built-in engine (``random_search``, ``optuna``, ``cma_es``, ``grid``,
 ``gp_mapping``, ``scipy_de``, ``da_mh_gp``) declares no tolerance option, so
 spending its budget is its own rule and it is always reported as converged.
 
-When ``max_iter`` runs out before a judged engine's rule is met, the search
-warns and grants one extension of ``ceil(max_iter / 2)`` further evaluations
--- 48 gives 24 more -- once per phase. If the rule is still not met after the
-extension, ``report.extra["search"]["converged"]`` is ``False``, the phase
-freezes nothing, and a phase declaring ``depends_on`` on it is refused rather
-than run against an unfrozen value. The fix is to raise ``max_iter`` or
-loosen the tolerance, not to read the last trial as the answer.
+The budget of a ``bisection`` is known before the first solve, so its
+``max_iter`` defaults to ``"auto"``. With ``d`` the declared interval in
+decades, ``t = log10(1 + rel_tol)``, ``S`` sweep points (two when
+``sweep_points`` is zero), ``s = d / (S - 1)`` and ``E = bracket_expand``, a
+root inside the bounds costs ``S + ceil(log2(s / t))`` evaluations and one
+found after ``e`` expansions ``S + 2e + ceil(log2(1 / t))``; ``"auto"`` budgets
+the largest. On ``[1e-7, 1e-3]`` with seven sweep points and one per cent that
+is 15 inside the bounds and 23 at worst. A declared number below the nominal
+count is refused by ``hmp calibrate --check`` and again before the first solve;
+one below the worst case is announced with the number of expansions it covers.
+If the budget still runs out, the search is granted exactly the halvings its
+bracket still needs, once, with a warning, provided they fit in half the budget.
+
+Every other engine cannot count what it needs: ``"auto"`` gives it 100, and it
+gets no extension. When ``max_iter`` runs out before a judged engine's rule is
+met, ``report.extra["search"]["converged"]`` is ``False``, the session closes
+as ``partial``, the phase freezes nothing, and a phase declaring
+``depends_on`` on it is refused rather than run against an unfrozen value. The
+fix is to raise ``max_iter`` or loosen the tolerance, not to read the last
+trial as the answer; a re-run replays the trials already solved from the cache.
 
 Every run through the ordinary path carries in its report:
 

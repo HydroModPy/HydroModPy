@@ -388,7 +388,7 @@ class TestItReadsBackWhatItWrote:
     def test_a_stage_that_is_not_the_one_it_writes_is_still_refused(self) -> None:
         once = expand_calibration_protocol(_doc())
         tampered = copy.deepcopy(once["calibration"]["phases"])
-        tampered[0]["max_iter"] = tampered[0]["max_iter"] + 1
+        tampered[0]["max_iter"] = 21
 
         with pytest.raises(ValueError, match="phases"):
             expand_calibration_protocol(_doc(phases=tampered))
@@ -454,6 +454,17 @@ def _sealed_before_the_regime(start: str = "1995-01-01", end: str = "2020-12-31"
     ]
 
 
+def _sealed_doc(**calibration: object) -> dict[str, object]:
+    """``_doc()`` as a run sealed then dumps it: the protocol table carries its defaults.
+
+    Only the one that has moved since matters here: ``steady_max_iter`` was 20
+    when these stages were sealed, and a dumped file says so.
+    """
+    declared = calibration.pop("protocol", {"name": "matching_hydrographic_network"})
+    protocol = {"steady_max_iter": 20, **dict(declared)}
+    return _doc(protocol=protocol, **calibration)
+
+
 class TestItReadsBackARunSealedBeforeTheRegime:
     """A run sealed before phases said their regime has to stay replayable.
 
@@ -463,7 +474,7 @@ class TestItReadsBackARunSealedBeforeTheRegime:
     """
 
     def test_its_stages_are_read_as_the_regimes_they_state(self) -> None:
-        expanded = expand_calibration_protocol(_doc(phases=_sealed_before_the_regime()))
+        expanded = expand_calibration_protocol(_sealed_doc(phases=_sealed_before_the_regime()))
 
         steady, transient = expanded["calibration"]["phases"]
         assert steady["regime"] == "steady"
@@ -477,7 +488,7 @@ class TestItReadsBackARunSealedBeforeTheRegime:
             for phase in _sealed_before_the_regime()
         ]
 
-        expanded = expand_calibration_protocol(_doc(phases=dumped))
+        expanded = expand_calibration_protocol(_sealed_doc(phases=dumped))
 
         assert [phase["regime"] for phase in expanded["calibration"]["phases"]] == [
             "steady",
@@ -489,18 +500,20 @@ class TestItReadsBackARunSealedBeforeTheRegime:
         sealed[0]["overrides"] = {"flow.flow_regime": "transient"}
 
         with pytest.raises(ValueError, match="phases"):
-            expand_calibration_protocol(_doc(phases=sealed))
+            expand_calibration_protocol(_sealed_doc(phases=sealed))
 
     def test_a_window_the_protocol_names_has_to_be_the_sealed_one(self) -> None:
         window = {"start": "2001-01-01", "end": "2001-12-31"}
         protocol = {"name": "matching_hydrographic_network", "steady_window": window}
 
         same = _sealed_before_the_regime("2001-01-01", "2001-12-31", 365)
-        expanded = expand_calibration_protocol(_doc(protocol=protocol, phases=same))
+        expanded = expand_calibration_protocol(_sealed_doc(protocol=protocol, phases=same))
         assert expanded["calibration"]["phases"][0]["steady_window"] == window
 
         with pytest.raises(ValueError, match="phases"):
-            expand_calibration_protocol(_doc(protocol=protocol, phases=_sealed_before_the_regime()))
+            expand_calibration_protocol(
+                _sealed_doc(protocol=protocol, phases=_sealed_before_the_regime())
+            )
 
     def test_a_transient_stage_scored_by_variable_and_objective_still_reads_back(self) -> None:
         """Before B11 the transient stage's cost lived in ``variable`` + ``objective``."""
@@ -508,7 +521,7 @@ class TestItReadsBackARunSealedBeforeTheRegime:
         assert sealed[1]["variable"] == "discharge"
         assert sealed[1]["objective"] == "nse_log"
 
-        expanded = expand_calibration_protocol(_doc(phases=sealed))["calibration"]
+        expanded = expand_calibration_protocol(_sealed_doc(phases=sealed))["calibration"]
 
         assert expanded["phases"][1]["objective_blocks"] == ["hydrograph"]
 
@@ -518,7 +531,7 @@ class TestItReadsBackARunSealedBeforeTheRegime:
         sealed[1]["objective"] = "kge"
 
         with pytest.raises(ValueError, match="phases"):
-            expand_calibration_protocol(_doc(phases=sealed))
+            expand_calibration_protocol(_sealed_doc(phases=sealed))
 
     def test_a_sealed_objective_blocks_list_short_one_block_still_reads_back(self) -> None:
         """A run sealed before B11 also declares only the network block.
@@ -536,7 +549,7 @@ class TestItReadsBackARunSealedBeforeTheRegime:
         ]
 
         expanded = expand_calibration_protocol(
-            _doc(phases=_sealed_before_the_regime(), objective_blocks=sealed_blocks)
+            _sealed_doc(phases=_sealed_before_the_regime(), objective_blocks=sealed_blocks)
         )["calibration"]
 
         assert [block["name"] for block in expanded["objective_blocks"]] == [
@@ -546,7 +559,7 @@ class TestItReadsBackARunSealedBeforeTheRegime:
 
     def test_a_sealed_stage_still_reads_back_when_the_station_is_still_not_known(self) -> None:
         """The other legacy spelling: still single-metric today, so nothing to fold."""
-        doc = _doc(phases=_sealed_before_the_regime())
+        doc = _sealed_doc(phases=_sealed_before_the_regime())
         doc["data"]["hydrometry"]["sources"][0]["station_ids"] = ["NANCON", "OTHER"]
 
         expanded = expand_calibration_protocol(doc)["calibration"]

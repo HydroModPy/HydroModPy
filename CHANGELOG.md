@@ -269,6 +269,15 @@ Each release section includes the following standard categories:
   `protocol__delete = true`.
 
 ### Changed
+- A bisection counts its budget before the first solve. `max_iter` and the protocol's
+  `steady_max_iter` default to `"auto"`, the worst-case count from the bounds, the sweep points,
+  `rel_tol` and the bracket expansions (23 on the Nancon, 15 when the root lies inside the
+  bounds). A declared number below the nominal count is refused by `hmp calibrate --check` and
+  before the first solve; below the worst case it warns. If the budget still runs out, the search
+  gets exactly the halvings it lacks, once. Other engines get no extension: a search stopped by its
+  budget before its own rule is not converged and freezes nothing.
+- A network calibration output reads one state, `time = "last"` or `"first"`. `"all"` and date
+  lists, which were accepted and then ignored for the last stress period, are refused at load.
 - The stream-network criterion reads one surface. It fills the model top on the mesh graph with a
   priority flood seeded on the border of the domain, snaps the outlet on that graph within two
   cells to the most accumulated cell, and scores the cells upstream of it. The raster polygon only

@@ -57,7 +57,7 @@ class TestCalibrationConfigMinimalPayload:
         cfg = CalibrationConfig.model_validate({})
         # Unwritten, the method follows from the criteria when the run starts.
         assert cfg.method is None
-        assert cfg.max_iter == 100
+        assert cfg.max_iter == "auto"
         assert cfg.save_runs == "none"
         assert cfg.save_best_n == 10
         assert cfg.use_cache is True

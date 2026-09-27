@@ -532,8 +532,9 @@ def _converged(report: CalibrationReport) -> bool:
 
     Convergence, not quality: a coarse agreement still returns a number. What
     disqualifies a phase is having no best candidate at all, a best cost that
-    is the failed-evaluation sentinel, or a search that spent its budget, the
-    one-time extension included, before its own stopping rule was met. That
+    is the failed-evaluation sentinel, or a search that spent its budget before
+    its own stopping rule was met. A root search may have been granted, once,
+    the exact halvings it still needed; no other engine gets an extension. That
     last candidate is wherever the budget ended, and freezing it would hand
     the next phase a value the search never settled on.
     """
@@ -570,7 +571,7 @@ def _why_not_converged(report: CalibrationReport) -> str:
         f"(max_iter = {search.get('max_iter')}, plus {search.get('extension')} granted once) "
         f"before its stopping rule ({search.get('stopping_rule')}) was met, so its best "
         "candidate is where the budget ended, not a converged value. Raise max_iter or "
-        "loosen the tolerance"
+        "loosen the tolerance; a re-run replays the trials already solved from the cache"
     )
 
 

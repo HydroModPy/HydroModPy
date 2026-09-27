@@ -89,7 +89,10 @@ storage = "Sy"
 # balance the paper solves for.
 steady_metric = "distance_gap"
 steady_method = "bisection"
-steady_max_iter = 20
+# "auto": the bisection counts its own worst case from the bounds, the sweep, the
+# tolerance and its four bracket expansions, 23 on [1e-7, 1e-3]. A number below
+# the count for a root inside the bounds (15 there) is refused before any solve.
+steady_max_iter = "auto"
 # How precisely each stage has to pin its parameter before it stops, as a
 # relative precision on that parameter: the paper's one per cent on the
 # conductivity, five on the storage. One number per stage, whatever engine walks
