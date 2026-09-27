@@ -78,7 +78,7 @@ from hydromodpy.calibration.runners.cli_runner import (
     refuse_an_objective_that_is_not_an_entry_point,
     run_calibration_core,
 )
-from hydromodpy.calibration.runners.phase_regime import phase_overrides
+from hydromodpy.calibration.runners.phase_regime import phase_overrides, regime_overrides
 from hydromodpy.calibration.runners.restarts import RestartSpread, run_restarts
 from hydromodpy.calibration.runners.resume import fingerprint_matches, reusable_stage
 from hydromodpy.calibration.runners.state import (
@@ -206,6 +206,14 @@ class StagedCalibrationReport:
     ``resume_root_session_id`` was given: what it reused is a session whose
     fingerprint matched this run's own model, mesh and input files."""
 
+    steady_window: dict[str, Any] | None = None
+    """The span a ``regime = "steady"`` phase actually averaged its recharge
+    over: ``start``, ``end``, ``days``, and ``mean_recharge_m_s`` when the
+    steady phase's calibrated conductivity is known. ``None`` when no phase
+    declares a steady regime. Read back from the same translation the run
+    itself used (:func:`hydromodpy.calibration.runners.phase_regime.regime_overrides`),
+    never recomputed by a second reading of the file that could drift from it."""
+
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly summary for the CLI."""
         summary: dict[str, Any] = {
@@ -221,6 +229,8 @@ class StagedCalibrationReport:
             summary["reused_from_disk"] = list(self.reused_from_disk)
         if self.restart_spreads:
             summary["restart_spreads"] = [item.to_dict() for item in self.restart_spreads]
+        if self.steady_window is not None:
+            summary["steady_window"] = dict(self.steady_window)
         return summary
 
 
@@ -521,12 +531,47 @@ def _converged(report: CalibrationReport) -> bool:
     """Whether a phase produced a candidate the next phases can build on.
 
     Convergence, not quality: a coarse agreement still returns a number. What
-    disqualifies a phase is having no best candidate at all, or a best cost
-    that is the failed-evaluation sentinel.
+    disqualifies a phase is having no best candidate at all, a best cost that
+    is the failed-evaluation sentinel, or a search that spent its budget, the
+    one-time extension included, before its own stopping rule was met. That
+    last candidate is wherever the budget ended, and freezing it would hand
+    the next phase a value the search never settled on.
     """
     if report.best_parameters is None or report.best_objective is None:
         return False
+    if _unconverged_search(report) is not None:
+        return False
     return math.isfinite(report.best_objective) and report.best_objective < FAILED_EVAL_COST
+
+
+def _unconverged_search(report: CalibrationReport) -> Mapping[str, Any] | None:
+    """Return the report's search record when it says the rule was not met, else None.
+
+    The record is ``extra["search"]``, written by the runner that solved the
+    phase. A report without one (a phase reused from disk) is judged on its
+    best candidate alone.
+    """
+    search = report.extra.get("search")
+    if isinstance(search, Mapping) and search.get("converged") is False:
+        return search
+    return None
+
+
+def _why_not_converged(report: CalibrationReport) -> str:
+    """Say why a phase produced nothing to freeze, in the terms a user can act on."""
+    search = _unconverged_search(report)
+    if search is None:
+        return (
+            f"its session {report.session_id} produced no result over {report.n_iterations} "
+            "trial(s): no best candidate, or a best cost at the failed-evaluation sentinel"
+        )
+    return (
+        f"its session {report.session_id} spent {report.n_iterations} trial(s) "
+        f"(max_iter = {search.get('max_iter')}, plus {search.get('extension')} granted once) "
+        f"before its stopping rule ({search.get('stopping_rule')}) was met, so its best "
+        "candidate is where the budget ended, not a converged value. Raise max_iter or "
+        "loosen the tolerance"
+    )
 
 
 def _frozen_by(
@@ -539,8 +584,9 @@ def _frozen_by(
         return ()
     if not _converged(report):
         logger.warning(
-            "Phase %s did not converge; its parameters stay free for the next phases.",
+            "Phase %s did not converge (%s); its parameters stay free for the next phases.",
             decl.name,
+            _why_not_converged(report),
         )
         return ()
     values = report.best_parameters or {}
@@ -678,12 +724,10 @@ def _require_result_for_dependents(
     if not dependents:
         return
     raise CalibrationError(
-        f"phase {decl.name!r} freezes what {dependents} calibrate on top of, but its "
-        f"session {report.session_id} produced no result over {report.n_iterations} "
-        "trial(s): no best candidate, or a best cost at the failed-evaluation "
-        f"sentinel. Running {dependents} now would calibrate them against the values "
-        f"the TOML declares. Make {decl.name!r} produce a candidate, then run the "
-        "staged calibration again."
+        f"phase {decl.name!r} freezes what {dependents} calibrate on top of, but "
+        f"{_why_not_converged(report)}. Running {dependents} now would calibrate them "
+        f"against the values the TOML declares. Make {decl.name!r} converge, then run "
+        "the staged calibration again."
     )
 
 
@@ -1324,6 +1368,7 @@ def run_staged_calibration(
         parent_session_id = session_id
         ran.add(decl.name)
 
+    steady_window = _steady_window_summary(cfg, runs, raw)
     staged = StagedCalibrationReport(
         phases=tuple(runs),
         frozen=tuple(frozen),
@@ -1332,18 +1377,96 @@ def run_staged_calibration(
             protocol_record(cfg.protocol.name, cfg.protocol) if cfg.protocol is not None else None
         ),
         methods_paragraph=(
-            _methods_paragraph_for(cfg, runs, frozen) if cfg.protocol is not None else None
+            _methods_paragraph_for(
+                cfg, runs, frozen, backend=_backend_name(raw), steady_window=steady_window
+            )
+            if cfg.protocol is not None
+            else None
         ),
         restart_spreads=tuple(restart_spreads),
         reused_from_disk=tuple(reused_from_disk),
+        steady_window=steady_window,
     )
     return staged if return_report else staged.to_dict()
+
+
+def _backend_name(document: Mapping[str, Any]) -> str | None:
+    """Return the flow backend's tag from the raw document, or ``None`` if unset.
+
+    Read before validation, from ``[solver]``: the discriminated union accepts
+    both the bare tag (``backend = "modflow6"``) and the explicit table
+    (``backend = { backend = "modflow6" }``), and the Methods paragraph names
+    whichever backend actually ran without this module importing the solver
+    layer to ask an already-loaded ``SolverConfig``.
+    """
+    solver = document.get("solver")
+    if not isinstance(solver, Mapping):
+        return None
+    backend = solver.get("backend")
+    if isinstance(backend, Mapping):
+        backend = backend.get("backend")
+    return str(backend) if backend else None
+
+
+def _steady_window_summary(
+    cfg: CalibrationConfig,
+    runs: list[PhaseRun],
+    document: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """Return the steady window the first ``regime = "steady"`` phase averaged over.
+
+    Read back from :func:`hydromodpy.calibration.runners.phase_regime.regime_overrides`,
+    the same translation ``_phase_plans`` already used to run that phase's
+    trials: this reports the window the model actually ran with, not a second
+    reading of the file that could drift from it. ``None`` when no phase
+    declares a steady regime, or when the window cannot be resolved (the same
+    case ``_phase_plans`` would have refused before the first solve).
+
+    The mean recharge is reconstructed from ``k_optim_m_s / k_over_r`` on that
+    phase's own report, the two values the network criterion already publishes
+    there when the phase moved a homogeneous conductivity alone; it is left out
+    when either is absent rather than recomputed from the model, which this
+    module does not hold onto after the phase returns.
+    """
+    if not cfg.phases:
+        return None
+    steady = next((phase for phase in cfg.phases if phase.regime == "steady"), None)
+    if steady is None:
+        return None
+    try:
+        overrides = regime_overrides(steady, document)
+    except ValueError:
+        return None
+    start = overrides["simulation.time.start_datetime"]
+    end = overrides["simulation.time.end_datetime"]
+    days = int(overrides["simulation.time.step_value"])
+    if days < 365:
+        logger.warning(
+            "Phase %s averages recharge over a steady window of %d day(s), %s to %s, "
+            "under a year: a partial year biases the mean recharge toward whichever "
+            "season it covers.",
+            steady.name,
+            days,
+            start,
+            end,
+        )
+    window: dict[str, Any] = {"start": start, "end": end, "days": days}
+    run = next((run for run in runs if run.name == steady.name), None)
+    if run is not None:
+        k_over_r = run.report.extra.get("k_over_r")
+        k_optim = run.report.extra.get("k_optim_m_s")
+        if k_over_r and k_optim is not None:
+            window["mean_recharge_m_s"] = float(k_optim) / float(k_over_r)
+    return window
 
 
 def _methods_paragraph_for(
     cfg: CalibrationConfig,
     runs: list[PhaseRun],
     frozen: list[FrozenParameter],
+    *,
+    backend: str | None = None,
+    steady_window: Mapping[str, Any] | None = None,
 ) -> str | None:
     """Return the Methods prose for the stages that actually completed."""
     from hydromodpy.calibration.protocols.boilerplate import methods_paragraph
@@ -1352,9 +1475,20 @@ def _methods_paragraph_for(
         return None
     completed = [run.name for run in runs if _converged(run.report)]
     calibrated = {item.name: float(item.value) for item in frozen}
+    # Read on the network outputs only: a gauge declares its own
+    # diagonal_neighbors, false by default, and is not the criterion the
+    # deviations describe.
     chosen: dict[str, object] = {}
     for output in (cfg.outputs or {}).values():
-        for key in ("tau_specific_ratio", "observed_position_accuracy", "weighting"):
+        if getattr(output, "support", None) != "network":
+            continue
+        for key in (
+            "tau_specific_ratio",
+            "observed_position_accuracy",
+            "weighting",
+            "diagonal_neighbors",
+            "observed_rasterization",
+        ):
             value = getattr(output, key, None)
             if value is not None:
                 chosen.setdefault(key, value)
@@ -1376,6 +1510,8 @@ def _methods_paragraph_for(
         options=protocol_options_away_from_the_recipe(cfg.protocol.name, cfg.protocol) or None,
         conditional_widths=conditional_widths or None,
         absent_widths=absent_widths or None,
+        backend=backend,
+        steady_window=steady_window,
     )
 
 

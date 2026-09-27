@@ -60,6 +60,7 @@ dem_init_path = "DEM_nancon_25m.tif"
 x_outlet = 389285.91
 y_outlet = 6816518.749
 snap_dist = "150 m"
+# "10%" is an area increase: the buffered domain covers 10 % more area than the catchment.
 buff_area = "10%"
 
 # Le burn est celui de la reference DRN, donc la delineation est la meme
@@ -369,7 +370,7 @@ uses_outputs = ["seepage_network"]
 # critere de reseau retrouve l'invariance K/R sur laquelle il repose.
 
 [[calibration.phases]]
-name = "steady_k"
+name = "steady_conductivity"
 description = "Zero de l'ecart signe D_so - D_os en drain pur, biefs eteints."
 method = "bisection"
 max_iter = 20
@@ -399,7 +400,7 @@ sweep_points = 7
 # plus lent.
 
 [[calibration.phases]]
-name = "transient_sy"
+name = "transient_storage"
 description = "NSE des logarithmes du debit journalier 2001, reseau route."
 # Nelder-Mead et non plus une grille. La grille du 8 septembre a rendu un
 # optimum INTERIEUR, Sy = 0,01957 pour un cout nse_log de 0,17075, avec des
@@ -420,7 +421,7 @@ parallel = 1
 parameters = ["Sy"]
 variable = "discharge"
 objective = "nse_log"
-depends_on = "steady_k"
+depends_on = "steady_conductivity"
 
 [calibration.phases.optimizer_kwargs]
 # Le budget est la vraie contrainte : chaque essai est un transitoire SFR de

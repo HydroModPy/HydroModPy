@@ -74,6 +74,8 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     findings.extend(_check_the_precision_can_be_honoured(calibration))
     findings.extend(_check_the_interval_widths(calibration))
     findings.extend(_check_the_backend_can_serve_the_outputs(config, calibration))
+    findings.extend(_check_the_network_criterion_is_not_asked_to_pick_a_ridge(calibration))
+    findings.extend(_check_the_network_search_can_trust_its_release_packages(calibration, config))
     return findings
 
 
@@ -703,6 +705,139 @@ def _linearized_scored_outputs(
             outputs = {name: value for name, value in outputs.items() if name in read}
         result.append((where, outputs, blocks, False))
     return result
+
+
+def _search_candidates(calibration: Any) -> list[tuple[Any | None, str, list[str]]]:
+    """Return ``(phase, where, moved-parameter names)`` for every search this file declares.
+
+    ``phase`` is ``None`` for a mono-phase document, which is what
+    :func:`_outputs_scored_by_search` reads to tell a whole-file search from a
+    phase's own.
+    """
+    if not calibration.phases:
+        return [(None, "[calibration]", sorted(calibration.parameters or {}))]
+    return [
+        (phase, f"[[calibration.phases]] {phase.name!r}", list(phase.parameters))
+        for phase in calibration.phases
+    ]
+
+
+def _outputs_scored_by_search(calibration: Any, phase: Any | None) -> dict[str, Any]:
+    """Return the outputs one search scores, keyed by name.
+
+    Generalises the selection :func:`_linearized_scored_outputs` builds for a
+    linearized width to every search: naming no block reads every declared
+    output, naming no output reads what the blocks read. A single-metric
+    phase (its own ``variable``/``objective`` instead of blocks) never turns
+    its ``variable`` into a per-phase ``objective_blocks`` entry the way the
+    whole-file ``(objective, variable)`` pair does, so it is resolved here
+    against ``calibration.outputs`` directly: the phase's own ``variable``,
+    falling back to the section's when the phase declares none, the same
+    inheritance :func:`hydromodpy.calibration.runners.staged_runner._phase_config`
+    applies when it narrows the phase's own configuration. Reading this
+    calibration's full declared outputs matters: at runtime that narrowed
+    configuration has its ``outputs`` emptied for exactly this route (nothing
+    there is meant to be extracted twice), so a network-ridge or a
+    release-package check that read ``cfg.outputs`` instead of this
+    calibration-level dict would stay blind to a single-metric phase scoring
+    a network output.
+    """
+    outputs = dict(calibration.outputs or {})
+    if phase is not None:
+        if phase.is_single_metric:
+            variable = phase.variable if phase.variable is not None else calibration.variable
+            output = outputs.get(variable)
+            return {variable: output} if output is not None else {}
+        blocks = _phase_named_blocks(calibration, list(phase.objective_blocks))
+        if phase.outputs:
+            return {name: outputs[name] for name in phase.outputs if name in outputs}
+        read = {name for block in blocks for name in block.uses_outputs}
+        return {name: value for name, value in outputs.items() if name in read}
+    blocks = list(calibration.objective_blocks or [])
+    if not blocks:
+        return {}
+    read = {name for block in blocks for name in block.uses_outputs}
+    return {name: value for name, value in outputs.items() if name in read}
+
+
+def _resolved_paths(calibration: Any, names: Iterable[str]) -> list[str | None]:
+    """Return the effective target path of every named declared parameter."""
+    parameters = calibration.parameters or {}
+    return [parameters[name].resolve_target() for name in names if name in parameters]
+
+
+def _check_the_network_criterion_is_not_asked_to_pick_a_ridge(
+    calibration: Any,
+) -> list[PreflightFinding]:
+    """Warn when an objective scored only on network output(s) moves more than one parameter.
+
+    The network criterion constrains a transmissivity-like combination (T/R).
+    Two parameters that both act on it -- K and the aquifer thickness, for
+    instance -- form a ridge in that cost, and the search returns one point of
+    the ridge rather than an identifiable pair. Not an error: a staged
+    protocol may freeze every other parameter first and mean exactly this.
+    """
+    findings: list[PreflightFinding] = []
+    for phase, where, names in _search_candidates(calibration):
+        if len(names) <= 1:
+            continue
+        outputs = _outputs_scored_by_search(calibration, phase)
+        if not outputs:
+            continue
+        if not all(output.support == "network" for output in outputs.values()):
+            continue
+        findings.append(
+            PreflightFinding(
+                "warning",
+                where,
+                f"scores only network output(s) {', '.join(sorted(outputs))} and moves "
+                f"{len(names)} parameters at once ({', '.join(names)}). The network "
+                "criterion constrains a transmissivity-like combination (T/R): two "
+                "parameters that both act on it form a ridge, and the search returns one "
+                "point of that ridge, not an identifiable pair. Freeze every parameter "
+                "but one, or score an output this search does not share the ridge on.",
+            )
+        )
+    return findings
+
+
+def _check_the_network_search_can_trust_its_release_packages(
+    calibration: Any, project_config: Any
+) -> list[PreflightFinding]:
+    """Refuse a K-moving network search next to an SFR or LAK with a fixed conductance.
+
+    Checked against the project's base ``flow.active_bc``. A phase that turns a
+    package off through its own ``overrides`` (as ``auto_sfr_drn.toml`` does by
+    hand) is not replayed here: this preflight reads the declared file, not a
+    resolved run, so a false positive is possible on such a phase and the
+    runner guard right before the first solve, which sees the actual flow that
+    phase built, has the last word.
+    """
+    from hydromodpy.calibration.runners.cli_runner import (
+        moves_a_hydraulic_conductivity,
+        network_outputs_scored,
+        release_package_conductance_conflict,
+    )
+
+    flow = getattr(project_config, "flow", None)
+    findings: list[PreflightFinding] = []
+    for phase, where, names in _search_candidates(calibration):
+        outputs = _outputs_scored_by_search(calibration, phase)
+        if phase is not None and phase.is_single_metric:
+            network = network_outputs_scored(
+                outputs,
+                variable=phase.variable if phase.variable is not None else calibration.variable,
+                objective=phase.objective if phase.objective is not None else calibration.objective,
+            )
+        else:
+            network = network_outputs_scored(outputs)
+        if not network:
+            continue
+        moves_k = moves_a_hydraulic_conductivity(_resolved_paths(calibration, names))
+        message = release_package_conductance_conflict(network, flow, moves_k=moves_k)
+        if message is not None:
+            findings.append(PreflightFinding("error", where, message))
+    return findings
 
 
 def _missing(

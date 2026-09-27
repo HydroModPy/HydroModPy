@@ -53,7 +53,12 @@ class Deviation:
     """
 
     key: str
-    """The configuration key that carries the departure."""
+    """The configuration key that carries the departure, when one exists.
+
+    Some departures have no adjustable knob at all (a hardcoded default such as
+    sealing the outlet into a target): the key then names the concept for a
+    reader, and no file value is ever compared against it.
+    """
 
     paper: str
     """What the publication does."""
@@ -63,6 +68,18 @@ class Deviation:
 
     why: str
     """Why the departure is defended, in one sentence."""
+
+    paper_value: Any = None
+    """The value that reproduces the publication, when ``key`` names a real option.
+
+    Compared against a file's own value to decide whether a run actually left
+    the publication: a file that pins ``key`` to ``paper_value`` matches it and
+    must not be reported as a departure, which is what the Methods paragraph
+    (:mod:`hydromodpy.calibration.protocols.boilerplate`) checks this against.
+    ``None`` is a valid publication value (an unset option) as much as it is
+    the default for a departure with no comparable option at all; ``key`` says
+    which case applies.
+    """
 
 
 @runtime_checkable
@@ -102,9 +119,6 @@ class CalibrationProtocol(Protocol):
 
     deviations: tuple[Deviation, ...]
     """Where this implementation departs from the publication, and why."""
-
-    reference_values: Mapping[str, str]
-    """The figures the publication itself reports, for a reader comparing to it."""
 
     adjustable: frozenset[str]
     """Which options a file may change and still be running this protocol.

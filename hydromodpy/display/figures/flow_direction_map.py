@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._routing_surface import (
@@ -127,7 +128,7 @@ class FlowDirectionMap(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        diagonal_neighbors: bool = False,
+        diagonal_neighbors: bool = STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
         arrow_bins: int = DEFAULT_ARROW_BINS,
         **_,
     ) -> Axes:

@@ -8,6 +8,7 @@ runs under, where a frozen value lands, and the chain of sessions.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -997,3 +998,108 @@ depends_on = "steady_k"
     assert "reused from a previous run" not in note
     assert "can name a station" in note
     assert "no residual vector" in note
+
+
+class TestBackendName:
+    """The Methods paragraph names the solver that ran, read off ``[solver]``."""
+
+    def test_a_bare_tag_is_read(self) -> None:
+        assert staged_runner._backend_name({"solver": {"backend": "modflow6"}}) == "modflow6"
+
+    def test_the_table_form_is_unwrapped(self) -> None:
+        document = {"solver": {"backend": {"backend": "modflow_nwt"}}}
+        assert staged_runner._backend_name(document) == "modflow_nwt"
+
+    def test_no_solver_section_is_none(self) -> None:
+        assert staged_runner._backend_name({}) is None
+
+
+def _steady_phase(**overrides):
+    from hydromodpy.calibration.config import CalibPhaseDecl
+
+    payload = {"name": "steady_conductivity", "regime": "steady", "parameters": ["K"]}
+    payload.update(overrides)
+    return CalibPhaseDecl.model_validate(payload)
+
+
+def _phase_run(name: str, extra: dict) -> staged_runner.PhaseRun:
+    report = CalibrationReport(
+        session_id="s",
+        method="bisection",
+        n_iterations=1,
+        best_objective=0.1,
+        best_sim_id=None,
+        duration_s=1.0,
+        save_runs="none",
+        promoted=0,
+        extra=extra,
+    )
+    return staged_runner.PhaseRun(
+        name=name,
+        index=0,
+        session_id="s",
+        root_session_id="s",
+        parent_session_id=None,
+        report=report,
+        frozen=(),
+    )
+
+
+_DOCUMENT = {"simulation": {"time": {"start_datetime": "1995-01-01", "end_datetime": "2020-12-31"}}}
+
+
+class TestSteadyWindowSummary:
+    """The window a staged report publishes is the one the model actually ran with."""
+
+    def test_no_steady_phase_is_none(self) -> None:
+        cfg = SimpleNamespace(phases=[_steady_phase(regime="transient")])
+        assert staged_runner._steady_window_summary(cfg, [], _DOCUMENT) is None
+
+    def test_no_phases_at_all_is_none(self) -> None:
+        cfg = SimpleNamespace(phases=None)
+        assert staged_runner._steady_window_summary(cfg, [], _DOCUMENT) is None
+
+    def test_an_unresolvable_window_is_none(self) -> None:
+        cfg = SimpleNamespace(phases=[_steady_phase()])
+        assert staged_runner._steady_window_summary(cfg, [], {}) is None
+
+    def test_the_window_reads_back_from_regime_overrides(self) -> None:
+        cfg = SimpleNamespace(phases=[_steady_phase()])
+        window = staged_runner._steady_window_summary(cfg, [], _DOCUMENT)
+
+        assert window["start"] == "1995-01-01"
+        assert window["end"] == "2020-12-31"
+        assert window["days"] == 9497
+
+    def test_recharge_is_reconstructed_from_k_over_r_and_k_optim(self) -> None:
+        cfg = SimpleNamespace(phases=[_steady_phase()])
+        run = _phase_run("steady_conductivity", {"k_over_r": 15110.0, "k_optim_m_s": 2.1034e-4})
+        window = staged_runner._steady_window_summary(cfg, [run], _DOCUMENT)
+
+        assert window["mean_recharge_m_s"] == pytest.approx(2.1034e-4 / 15110.0)
+
+    def test_recharge_is_absent_without_k_over_r(self) -> None:
+        cfg = SimpleNamespace(phases=[_steady_phase()])
+        run = _phase_run("steady_conductivity", {})
+        window = staged_runner._steady_window_summary(cfg, [run], _DOCUMENT)
+
+        assert "mean_recharge_m_s" not in window
+
+    def test_a_window_under_a_year_warns(self, caplog) -> None:
+        document = {
+            "simulation": {"time": {"start_datetime": "2000-01-01", "end_datetime": "2000-03-01"}}
+        }
+        cfg = SimpleNamespace(phases=[_steady_phase()])
+        with caplog.at_level(logging.WARNING):
+            window = staged_runner._steady_window_summary(cfg, [], document)
+
+        assert window["days"] < 365
+        assert any("under a year" in record.message for record in caplog.records)
+
+    def test_a_window_of_a_year_or_more_does_not_warn(self, caplog) -> None:
+        cfg = SimpleNamespace(phases=[_steady_phase()])
+        with caplog.at_level(logging.WARNING):
+            window = staged_runner._steady_window_summary(cfg, [], _DOCUMENT)
+
+        assert window["days"] >= 365
+        assert not any("under a year" in record.message for record in caplog.records)

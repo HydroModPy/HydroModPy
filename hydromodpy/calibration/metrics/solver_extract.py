@@ -29,7 +29,11 @@ from hydromodpy.calibration.metrics.series import (
     add_runoff_to_discharge,
     resolve_time_index,
 )
-from hydromodpy.calibration.observations.network_geometry import geometry_from_run, mesh_cell_m
+from hydromodpy.calibration.observations.network_geometry import (
+    aquifer_extent,
+    geometry_from_run,
+    mesh_cell_m,
+)
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
     ObservableResult,
@@ -430,6 +434,17 @@ def catchment_saturation(
     thickness over the same cells. ``T/R`` stops being independent of it when
     the aquifer runs nearly full, so the ratio is published beside it.
 
+    A cell with no finite thickness is left out of ``d_sat_m``, and the share
+    of catchment area left out is published. MODFLOW writes one sentinel for a
+    dry cell (HDRY) and another for a cell it never computed (HNOFLO), and the
+    extractor maps both to NaN, so the thickness alone cannot tell them apart.
+    The mesh can: its inactive mask is what became IDOMAIN = 0. When it has
+    one, the share splits into ``d_sat_dry_fraction`` (active, no water table:
+    a physical state that biases ``d_sat_m`` upward) and
+    ``d_sat_inactive_fraction`` (outside the solved domain, a lake footprint
+    for one: a modelling choice, not a state). A mesh without the mask keeps
+    the single ``d_sat_unset_fraction``.
+
     Empty when the backend serves no saturated thickness, and when it serves
     one on another cell count: these values never enter the scored pair, so a
     mismatch warns and leaves the trial scored.
@@ -449,22 +464,21 @@ def catchment_saturation(
     d_sat = _area_mean(thickness, cells, areas)
     unset = cells & ~np.isfinite(thickness)
     catchment_area = float(areas[cells].sum())
-    out = {
-        "d_sat_m": d_sat,
-        "d_sat_unset_fraction": (
-            float(areas[unset].sum() / catchment_area) if catchment_area > 0.0 else float("nan")
-        ),
-    }
-    mesh = run_ctx.model.solver_mesh
-    botm = getattr(mesh, "botm", None)
-    if botm is not None:
-        base = np.asarray(botm, dtype=float)
-        base = base.reshape(-1) if base.ndim == 1 else base[-1].reshape(-1)
-        top = np.asarray(mesh.top, dtype=float).reshape(-1)
-        if base.size == cells.size and top.size == cells.size:
-            d_aquifer = _area_mean(top - base, cells, areas)
-            out["d_aquifer_m"] = d_aquifer
-            out["d_sat_over_d"] = d_sat / d_aquifer if d_aquifer > 0.0 else float("nan")
+
+    def share(selected: np.ndarray) -> float:
+        return float(areas[selected].sum() / catchment_area) if catchment_area > 0.0 else np.nan
+
+    out = {"d_sat_m": d_sat}
+    imposed, inactive = aquifer_extent(run_ctx, cells.size)
+    if inactive is None:
+        out["d_sat_unset_fraction"] = share(unset)
+    else:
+        out["d_sat_dry_fraction"] = share(unset & ~inactive)
+        out["d_sat_inactive_fraction"] = share(unset & inactive)
+    if imposed is not None:
+        d_aquifer = _area_mean(imposed, cells, areas)
+        out["d_aquifer_m"] = d_aquifer
+        out["d_sat_over_d"] = d_sat / d_aquifer if d_aquifer > 0.0 else float("nan")
     return out
 
 
@@ -492,7 +506,7 @@ def score_network_output(
     gain.
     """
     require_release_flux_unit(result.units, name=name)
-    geometry, observed_network = geometry_from_run(run_ctx, output)
+    geometry, observed_network, projection = geometry_from_run(run_ctx, output)
     simulated = build_simulated_network(
         result.values,
         threshold_m3_s=geometry.threshold_m3_s,
@@ -530,17 +544,10 @@ def score_network_output(
             "retracts at the high end of its bracket."
         )
 
-    roptim = scored.components["roptim"]
-    if np.isfinite(roptim) and roptim > float(output.roptim_max):
-        message = (
-            f"Output {name!r}: roptim = {roptim:.2f} exceeds the validity bound "
-            f"{output.roptim_max:.2f}. The agreement between the two networks is coarser "
-            "than the mesh, which qualifies the result; it does not say the calibrated "
-            "value is wrong."
-        )
-        if output.on_roptim_violation == "error":
-            raise ObjectiveError(message)
-        logger.warning(message)
+    # Eq. 4 is not read here. The paper reads it at the optimum, and a search
+    # crosses trials far from it on the way: testing every trial warned on
+    # most of them and, in strict mode, refused a whole bracket before it
+    # closed. The runner reads roptim once, on the trial it returns.
 
     logger.info("Output %s scored with distance method %s.", name, DISTANCE_METHOD)
 
@@ -555,6 +562,10 @@ def score_network_output(
     network_provenance = {
         "observed_network_clipped": 1.0 if observed_network.clipped else 0.0,
         "observed_network_is_dem_derived": 1.0 if observed_network.dem_derived else 0.0,
+        # What the output's observed_rasterization drew: every cell the map
+        # holds on the mesh, and the reaches kept at their midpoint cell.
+        "n_observed_cells": float(int(projection.mask.sum())),
+        "n_observed_features_fallback": float(projection.n_fallback_parts),
     }
     diagnostics = {
         f"{name}.{key}": float(value)

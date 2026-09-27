@@ -50,7 +50,7 @@ def test_a_swapped_estimator_and_engine_are_both_reported() -> None:
 
 def test_the_pinned_version_is_not_an_option_that_moved() -> None:
     # A pin is a replayability guarantee, not a departure from the method.
-    assert protocol_options_away_from_the_recipe(NAME, _declared(version="1.0")) == ()
+    assert protocol_options_away_from_the_recipe(NAME, _declared(version="1.1")) == ()
 
 
 def test_the_record_carries_the_departures_only_when_a_file_is_given() -> None:
@@ -76,23 +76,40 @@ def test_the_prose_stays_silent_when_nothing_moved() -> None:
     assert "moved off the recipe" not in prose
 
 
-def test_the_descent_rule_is_declared_as_a_departure_from_the_paper() -> None:
-    """The paper's own tool traces D8; HydroModPy descends D4 by default.
+def test_the_descent_rule_is_declared_as_an_offered_departure() -> None:
+    """The paper's own tool traces D8, and so does HydroModPy by default.
 
-    That is a deviation from the publication the protocol cites, not a setting, so
-    it belongs in the table that exists for exactly that and is printed before every
-    run. The default has not been moved, because moving it changes every result
-    obtained without it; what has been removed is the silence.
+    D4 stays offered, and choosing it departs from the publication the protocol
+    cites, so the entry names both and pins the paper's value: the Methods
+    paragraph reports the key only when a file moved it off that value.
     """
     record = protocol_record(NAME)
     deviations = {item["key"]: item for item in record["deviations"]}
     assert "diagonal_neighbors" in deviations
     assert "D8" in deviations["diagonal_neighbors"]["paper"]
+    assert "true by default" in deviations["diagonal_neighbors"]["here"]
     assert "D4" in deviations["diagonal_neighbors"]["here"]
+    assert deviations["diagonal_neighbors"]["paper_value"] is True
     # The why carries both measurements, so a reader does not have to find them.
     why = deviations["diagonal_neighbors"]["why"]
     assert "6.6 per cent" in why
     assert "64.631" in why
+
+
+def test_the_rasterisation_deviation_names_crossing_as_the_paper_match() -> None:
+    """observed_network.py's own default is 'crossing', not 'touch'.
+
+    The Deviation entry has to agree with that module, not restate a default it
+    no longer carries: 'crossing' is WhiteboxTools' own rule and reproduces the
+    paper, 'touch' is the departure kept to replay an old session.
+    """
+    record = protocol_record(NAME)
+    deviations = {item["key"]: item for item in record["deviations"]}
+    entry = deviations["observed_rasterization"]
+    assert "'crossing' by default, matching the paper" in entry["here"]
+    assert "'touch'" in entry["here"]
+    assert "departs" in entry["here"]
+    assert entry["paper_value"] == "crossing"
 
 
 def test_the_value_a_file_actually_set_is_reported_even_when_it_is_false() -> None:
@@ -101,6 +118,24 @@ def test_the_value_a_file_actually_set_is_reported_even_when_it_is_false() -> No
     from hydromodpy.cli.commands.calibrate import _values_this_file_set
 
     cfg = SimpleNamespace(
-        calibration=SimpleNamespace(outputs={"net": SimpleNamespace(diagonal_neighbors=False)})
+        calibration=SimpleNamespace(
+            outputs={"net": SimpleNamespace(support="network", diagonal_neighbors=False)}
+        )
     )
     assert _values_this_file_set(cfg, ["diagonal_neighbors"]) == {"diagonal_neighbors": False}
+
+
+def test_a_gauge_s_own_diagonal_neighbors_is_not_read_as_the_network_s() -> None:
+    # A point output defaults to false and a network output to true: reading
+    # the gauge first would report a departure the criterion never made.
+    from hydromodpy.cli.commands.calibrate import _values_this_file_set
+
+    cfg = SimpleNamespace(
+        calibration=SimpleNamespace(
+            outputs={
+                "gauge": SimpleNamespace(support="point", diagonal_neighbors=False),
+                "net": SimpleNamespace(support="network", diagonal_neighbors=True),
+            }
+        )
+    )
+    assert _values_this_file_set(cfg, ["diagonal_neighbors"]) == {"diagonal_neighbors": True}

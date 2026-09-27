@@ -45,9 +45,9 @@ def loaded(tmp_path: Path):
 
 def test_the_documented_configuration_validates(loaded) -> None:
     cfg, raw = loaded
-    assert [phase.name for phase in cfg.phases] == ["steady_k_over_r", "transient_sy"]
+    assert [phase.name for phase in cfg.phases] == ["steady_conductivity", "transient_storage"]
     assert [phase.method for phase in cfg.phases] == ["bisection", "grid"]
-    assert cfg.phases[1].depends_on == "steady_k_over_r"
+    assert cfg.phases[1].depends_on == "steady_conductivity"
 
 
 def test_the_base_configuration_is_resolved(loaded) -> None:

@@ -445,7 +445,9 @@ def test_the_default_map_paints_the_depression_and_not_the_other_basin(mpl) -> N
     # be painted as raised, on a map titled "depressions", and it holds none.
     fig, ax = mpl.subplots()
 
-    DepressionMap().render(basin_run(topography=pitted_topography()), ax)
+    # The spill heights are written for the four-neighbour graph: under D8 the
+    # pit spills over a diagonal saddle, lower than its cardinal one.
+    DepressionMap().render(basin_run(topography=pitted_topography()), ax, diagonal_neighbors=False)
 
     try:
         raised = _labelled(ax, READINGS[DEPRESSIONS].raised_label)
@@ -584,7 +586,7 @@ def test_the_note_carries_both_counts_whichever_reading_is_drawn(
 def test_the_depression_note_sends_the_reader_to_the_other_reading(mpl) -> None:
     fig, ax = mpl.subplots()
 
-    DepressionMap().render(basin_run(topography=pitted_topography()), ax)
+    DepressionMap().render(basin_run(topography=pitted_topography()), ax, diagonal_neighbors=False)
 
     try:
         note = legend_note(ax)
@@ -680,7 +682,12 @@ def test_the_unreachable_scale_is_set_by_the_fills_inside_the_catchment(mpl) -> 
     """
     fig, ax = mpl.subplots()
 
-    DepressionMap().render(basin_run(topography=pitted_topography()), ax, shows=UNREACHABLE)
+    DepressionMap().render(
+        basin_run(topography=pitted_topography()),
+        ax,
+        shows=UNREACHABLE,
+        diagonal_neighbors=False,
+    )
 
     try:
         raised = _labelled(ax, READINGS[UNREACHABLE].raised_label)

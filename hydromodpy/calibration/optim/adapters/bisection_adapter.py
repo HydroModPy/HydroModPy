@@ -25,12 +25,20 @@ A bracket that never changes sign is a result, not an accident to paper over.
 Returning the better of the two ends would be a minimised mean distance in
 disguise, which is exactly the drift this whole criterion exists to correct, so
 the adapter raises and prints both residuals.
+
+The budget is known before the first solve. The sweep costs its points, and each
+bisection step halves one sweep interval, so the evaluations needed to close the
+bracket follow from the bounds, the sweep and the tolerance alone
+(:func:`evaluations_to_close_the_bracket`). The engine reads it to warn at the
+start of a session whose ``max_iter`` falls short, rather than after the last
+solve.
 """
 
 from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
+from typing import Any
 
 from hydromodpy.calibration.optim.optimizer import (
     EngineTraits,
@@ -49,6 +57,53 @@ LOG10_ONE_PERCENT = 4.32137e-3
 in the log variable the search actually walks."""
 
 _DEFAULT_SIGNED_COMPONENT = "J_signed"
+
+
+def _same_cost(first: float, second: float) -> bool:
+    """Two costs a float round-off apart are one cost."""
+    return math.isclose(first, second, rel_tol=1e-9, abs_tol=1e-12)
+
+
+def _evaluations_in_log_space(width: float, tolerance: float, sweep_points: int) -> int:
+    """Count sweep points plus halvings for an interval *width* decades wide."""
+    points = 2 if sweep_points <= 0 else max(2, int(sweep_points))
+    step = float(width) / (points - 1)
+    if step <= tolerance:
+        return points
+    return points + math.ceil(math.log2(step / tolerance))
+
+
+def evaluations_to_close_the_bracket(
+    lower: float,
+    upper: float,
+    *,
+    rel_tol: float = 0.01,
+    sweep_points: int = 7,
+) -> int:
+    """Return how many evaluations the root search needs to close its bracket.
+
+    ``lower`` and ``upper`` are the declared bounds in physical units. The sweep
+    spends ``sweep_points`` evaluations (the two bounds when it is zero) and
+    leaves a bracket one sweep interval wide; each bisection step halves it, and
+    the search stops once it is no wider than ``log10(1 + rel_tol)`` decades.
+
+    It is a lower bound in one case only: a root outside the declared bounds
+    costs two evaluations per decade of expansion, plus the halvings of a wider
+    bracket. On the Nancon, [1e-7, 1e-3] with seven sweep points and one per
+    cent gives 7 + 8 = 15, the count the session recorded.
+    """
+    low, high = float(lower), float(upper)
+    if not (0.0 < low < high):
+        raise ValueError(
+            f"a root search on a log parameter needs 0 < lower < upper, got [{low}, {high}]."
+        )
+    if float(rel_tol) <= 0.0:
+        raise ValueError(f"rel_tol must be strictly positive, got {rel_tol}.")
+    return _evaluations_in_log_space(
+        math.log10(high) - math.log10(low),
+        math.log10(1.0 + float(rel_tol)),
+        int(sweep_points),
+    )
 
 
 def signed_residual(
@@ -291,19 +346,65 @@ class BisectionAdapter:
         self._plan_after_batch()
 
     def best(self) -> EvaluationResult | None:
-        """Return the evaluated trial closest to the root.
+        """Return the evaluated trial closest to the root, inside the bracket.
 
         The cost carries ``abs`` of the residual, so the lowest cost is the
         trial nearest zero. What is returned is a point that was really
         evaluated, never the middle of the last interval: every quantity the
         method publishes beside the value has to come from a real solve.
+
+        The bracket is where the root is, so the answer is taken inside it.
+        The residual steps rather than slides, so two trials often share one
+        ``abs(J)`` to the last digit, and ``min`` then returned the first one
+        evaluated, which can sit outside the final bracket: on the Nancon,
+        trial 13 tied with trial 15 and was returned 0.6 % outside
+        [2.0783e-4, 2.0908e-4]. Among trials inside the bracket the lowest cost
+        wins, and a tie goes to the trial nearest its middle, the best estimate
+        of the root the search holds. A trial outside is returned only when no
+        completed trial lies inside, which happens when a rejected trial set an
+        end, and that says so.
         """
         valid = [result for result in self._history if result.status == "completed"]
         if not valid:
             return None
-        winner = min(valid, key=lambda result: result.objective_value)
+        winner = self._pick(valid)
         self._warn_if_outside_the_declared_bounds(winner)
         return winner
+
+    def _pick(self, valid: list[EvaluationResult]) -> EvaluationResult:
+        """Choose among completed trials, preferring those inside the bracket."""
+        inside = [result for result in valid if self._inside_bracket(result.trial_id)]
+        pool = inside or valid
+        lowest = min(result.objective_value for result in pool)
+        tied = [result for result in pool if _same_cost(result.objective_value, lowest)]
+        if self._bracket is None:
+            return tied[0]
+        middle = 0.5 * (self._bracket[0] + self._bracket[1])
+        winner = min(
+            tied, key=lambda result: abs(self._points.get(result.trial_id, middle) - middle)
+        )
+        if not inside:
+            low, high = self._bracket
+            logger.warning(
+                "No completed trial lies inside the final bracket [%.4g, %.4g] of %s: its "
+                "ends come from rejected trials. Trial %d, outside it, is returned.",
+                self._parameter.to_physical(low),
+                self._parameter.to_physical(high),
+                self._parameter.name,
+                winner.trial_id,
+            )
+        return winner
+
+    def _inside_bracket(self, trial_id: int) -> bool:
+        """Whether a trial was evaluated inside the current bracket, ends included."""
+        if self._bracket is None:
+            return False
+        x = self._points.get(trial_id)
+        if x is None:
+            return False
+        low, high = self._bracket
+        slack = 1e-12 * max(1.0, abs(low), abs(high))
+        return low - slack <= x <= high + slack
 
     def _warn_if_outside_the_declared_bounds(self, winner: EvaluationResult) -> None:
         """Say it when the root only exists outside the interval that was declared.
@@ -343,12 +444,58 @@ class BisectionAdapter:
         )
 
     def converged(self) -> bool:
-        return self._done
+        """Whether the bracket is closed: no wider than the tolerance.
+
+        ``_done`` alone is not enough. A refusal also sets it before raising, with
+        no bracket ever found, and a caller that catches that error must not read
+        the search as converged.
+        """
+        return self._bracket is not None and self._done
+
+    @property
+    def evaluations_needed(self) -> int:
+        """Evaluations the declared bounds, sweep and tolerance need to close the bracket.
+
+        Read by the engine at the start of a session, to warn when ``max_iter``
+        falls short. See :func:`evaluations_to_close_the_bracket`.
+        """
+        low, high = self._declared
+        return _evaluations_in_log_space(high - low, self._tolerance, self._sweep_points)
 
     @property
     def bracket(self) -> tuple[float, float] | None:
-        """The closed bracket in the transformed variable, once it is closed."""
+        """The latest bracket in the transformed variable, closed or not.
+
+        Set as soon as a sign change is found and narrowed by each step;
+        :meth:`converged` says whether it reached the tolerance.
+        """
         return self._bracket
 
+    def bracket_record(self) -> dict[str, Any] | None:
+        """Return the final bracket for the report, or None before a sign change.
 
-__all__ = ["BisectionAdapter", "LOG10_ONE_PERCENT", "signed_residual"]
+        ``low`` and ``high`` are in the parameter's physical units and
+        ``relative_width`` is ``high / low - 1``, the number ``rel_tol`` is read
+        against. ``closed`` is False when the budget ran out first: the root is
+        still inside, only less precisely than asked. The paper publishes no
+        such interval; it is what the search itself proved, which the tolerance
+        interval on the trials does not.
+        """
+        if self._bracket is None:
+            return None
+        low, high = self._bracket
+        return {
+            "parameter": self._parameter.name,
+            "low": float(self._parameter.to_physical(low)),
+            "high": float(self._parameter.to_physical(high)),
+            "relative_width": float(10.0 ** (high - low) - 1.0),
+            "closed": self.converged(),
+        }
+
+
+__all__ = [
+    "BisectionAdapter",
+    "LOG10_ONE_PERCENT",
+    "evaluations_to_close_the_bracket",
+    "signed_residual",
+]

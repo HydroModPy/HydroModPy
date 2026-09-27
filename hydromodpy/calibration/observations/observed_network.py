@@ -5,28 +5,65 @@ a quantity the method corrects: the paper poses it as "a selected stream
 network independent of the DEM". What gets pre-treated when the two disagree is
 the routing surface, not the data.
 
-One projection serves both directions of the criterion. A cell belongs to the
-network when the geometry intersects its polygon, never when it contains its
-centroid: on a Voronoi mesh a line one cell wide loses about half its cells to
-the centroid rule, and a half-cell bias on a single side of a criterion whose
-zero is the equality of two terms moves the root.
+One projection serves both directions of the criterion, and it must draw the
+map as thin as the model draws its own network. The simulated network is a
+chain of the descent graph, one cell wide; the criterion's zero is the equality
+of two mean distances, so a map drawn thicker than that chain moves the root
+with no hydrogeological reason.
+
+The default rule, ``"crossing"``, keeps the cell holding each point where a
+line crosses the segment joining two edge-sharing cell centres. On a
+structured grid it is WhiteboxTools ``VectorLinesToRaster``, the tool of
+Abherve et al. (2023), and a model that reproduces the map exactly scores
+J = 0 in D8 as in D4. ``"touch"`` keeps every cell the line intersects,
+corners included: each diagonal step of the map gains the two cells sharing
+the corner, D_os grows while D_so stays at zero, and the search pulls K down on
+a perfect match. It is kept to replay a session recorded before 2026-09.
+
+Neither rule is the centroid rule, which on a Voronoi mesh drops about half the
+cells of a line one cell wide.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons, vector_cell_mask
+from hydromodpy.core.stream_criterion_defaults import (
+    STREAM_CRITERION_DEFAULTS,
+    ObservedRasterization,
+)
+from hydromodpy.spatial.mesh.ops.vector_cell_mask import (
+    cell_polygons,
+    line_crossing_cell_mask,
+    vector_cell_mask,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.observations.network_source import ObservedNetwork
     from hydromodpy.simulation.planning.plan import RunContext
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class ObservedNetworkMask:
+    """The mapped network drawn on the mesh cells, and what the drawing cost.
+
+    ``n_fallback_parts`` counts the reaches that crossed no centre segment and
+    were kept at the cell holding their midpoint; ``n_outside_parts`` the
+    reaches that entered no mesh cell and were left out. Both are zero under
+    the touch rule, which has no such case.
+    """
+
+    mask: np.ndarray
+    rasterization: ObservedRasterization
+    n_fallback_parts: int = 0
+    n_outside_parts: int = 0
 
 
 def _declared_crs(run_ctx: RunContext) -> str | None:
@@ -41,7 +78,10 @@ def observed_network_mask(
     observed: ObservedNetwork,
     planar_mesh: Any,
     face_node_connectivity: np.ndarray,
-) -> np.ndarray:
+    *,
+    rasterization: ObservedRasterization = STREAM_CRITERION_DEFAULTS.observed_rasterization,
+    cell_centres: np.ndarray | None = None,
+) -> ObservedNetworkMask:
     """Project the resolved stream geometry onto the mesh cells.
 
     ``observed`` is a fully resolved :class:`ObservedNetwork`, from any of the
@@ -50,7 +90,16 @@ def observed_network_mask(
     required and the failure is loud: a silent mismatch produces a mask that
     is empty or plausible-but-wrong, and every distance downstream is reported
     in metres.
+
+    ``rasterization`` picks the rule of the module docstring. The crossing
+    rule joins the points the criterion samples the top at: ``cell_centres``
+    when given, else the solver mesh's ``cell_centroids()``, the generator
+    seeds on a Voronoi mesh.
     """
+    if rasterization not in ("crossing", "touch"):
+        raise ValueError(
+            f"observed_rasterization must be 'crossing' or 'touch', got {rasterization!r}."
+        )
     frame = observed.geometry
     if frame is None or len(frame) == 0:
         raise ValueError(f"the {observed.source} network holds no feature.")
@@ -66,25 +115,77 @@ def observed_network_mask(
             "on the mesh. Set [geographic] crs_project."
         )
 
-    polygons = cell_polygons(np.asarray(planar_mesh.vertices, dtype=float), face_node_connectivity)
-    mask = np.asarray(
-        vector_cell_mask(
+    vertices = np.asarray(planar_mesh.vertices, dtype=float)
+    polygons = cell_polygons(vertices, face_node_connectivity)
+    n_fallback = 0
+    n_outside = 0
+    if rasterization == "touch":
+        mask = np.asarray(
+            vector_cell_mask(
+                polygons,
+                list(frame.geometry),
+                mesh_crs=mesh_crs,
+                geometry_crs=observed.crs,
+            ),
+            dtype=bool,
+        )
+    else:
+        crossed = line_crossing_cell_mask(
             polygons,
+            vertices,
+            face_node_connectivity,
+            _criterion_centres(run_ctx, cell_centres),
             list(frame.geometry),
             mesh_crs=mesh_crs,
             geometry_crs=observed.crs,
-        ),
-        dtype=bool,
-    )
+        )
+        mask = np.asarray(crossed.mask, dtype=bool)
+        n_fallback = crossed.n_fallback_parts
+        n_outside = crossed.n_outside_parts
+        if n_outside:
+            logger.warning(
+                "Mapped stream network (%s): %d reach(es) cross no centre segment and enter "
+                "no mesh cell, so no cell holds them and the criterion leaves them out. "
+                "They lie off the mesh, often in the sliver between the clip polygon and "
+                "the cells.",
+                observed.source,
+                n_outside,
+            )
     logger.info(
-        "Mapped stream network (%s%s): %d feature(s) projected onto %d mesh cell(s)%s.",
+        "Mapped stream network (%s%s): %d feature(s) projected onto %d mesh cell(s) by the "
+        "%s rule%s%s.",
         observed.source,
         ", clipped" if observed.clipped else "",
         len(frame),
         int(mask.sum()),
+        rasterization,
+        (
+            f", {n_fallback} reach(es) crossing no centre segment kept at their midpoint cell"
+            if n_fallback
+            else ""
+        ),
         f", from {observed.path}" if observed.path else "",
     )
-    return mask
+    return ObservedNetworkMask(
+        mask=mask,
+        rasterization=rasterization,
+        n_fallback_parts=int(n_fallback),
+        n_outside_parts=int(n_outside),
+    )
+
+
+def _criterion_centres(run_ctx: RunContext, cell_centres: np.ndarray | None) -> np.ndarray:
+    """Return the points the criterion samples the top at, one per cell."""
+    if cell_centres is not None:
+        return np.asarray(cell_centres, dtype=float)
+    solver_mesh = getattr(getattr(run_ctx, "model", None), "solver_mesh", None)
+    centroids = getattr(solver_mesh, "cell_centroids", None)
+    if not callable(centroids):
+        raise ValueError(
+            "the crossing rule joins the cell centres the solver mesh sampled its top at, "
+            "and the run's solver mesh exposes no 'cell_centroids' method."
+        )
+    return np.asarray(centroids(), dtype=float)
 
 
 def water_body_mask(model: Any, *, n_cells: int) -> np.ndarray | None:
@@ -167,4 +268,9 @@ def delineated_catchment_mask(
     )
 
 
-__all__ = ("delineated_catchment_mask", "observed_network_mask", "water_body_mask")
+__all__ = (
+    "ObservedNetworkMask",
+    "delineated_catchment_mask",
+    "observed_network_mask",
+    "water_body_mask",
+)

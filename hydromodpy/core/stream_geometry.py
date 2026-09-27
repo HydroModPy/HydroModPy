@@ -37,6 +37,7 @@ from hydromodpy.core.topographic_distance import (
     build_downslope_metric,
     downslope_distance_to_mask,
     longest_descent_length,
+    resolve_diagonal_neighbors,
     shared_node_adjacency,
 )
 
@@ -170,7 +171,7 @@ def build_network_geometry(
     inactive_mask: np.ndarray | None = None,
     excluded: np.ndarray | None = None,
     delineated_catchment: np.ndarray | None = None,
-    diagonal_neighbors: bool = False,
+    diagonal_neighbors: bool = STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
     observed_position_accuracy_m: float | None = None,
     alpha_warning_threshold: float = STREAM_CRITERION_DEFAULTS.alpha_warning_threshold,
     clipping_warning_share: float = STREAM_CRITERION_DEFAULTS.clipping_warning_share,
@@ -195,8 +196,16 @@ def build_network_geometry(
     defaults come from :data:`STREAM_CRITERION_DEFAULTS`, the one Pydantic
     object the calibration output and the redrawn figures also read, so a
     threshold is never written twice.
+
+    ``diagonal_neighbors`` defaults to the D8 descent of the paper. It is
+    resolved against the mesh once, here, and the one neighbour graph that
+    comes out feeds the depression flood, the receiver graph, the downstream
+    closure of both networks and the saturation cap alike.
     """
     surface = np.asarray(topography, dtype=float).reshape(-1)
+    diagonal_neighbors = resolve_diagonal_neighbors(
+        face_node_connectivity, n_cells=surface.size, requested=bool(diagonal_neighbors)
+    )
     inactive = (
         ~active_surface_mask(surface)
         if inactive_mask is None

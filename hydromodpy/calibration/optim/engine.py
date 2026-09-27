@@ -10,6 +10,15 @@ ask/tell loop until the optimizer converges or ``max_iter`` is reached.
 - ``"best_n"``: after the loop, promote the top ``save_best_n`` iterations
                 into full simulations (caller-supplied promoter callable).
 - ``"all"``:   each iteration is already a full simulation.
+
+Running out of budget is not converging. An engine that declares a stopping
+option (:func:`hydromodpy.calibration.optim.stopping.stopping_rule`) and
+reaches ``max_iter`` before meeting it gets one extension of half the budget,
+with a warning, because a root search a few halvings short of its tolerance is
+the common case and the cheapest one to finish. If the rule is still not met,
+the session says so in ``converged`` and the caller decides what that means:
+a staged calibration freezes nothing from it. An engine whose only rule is its
+budget converges when the budget is spent.
 """
 
 from __future__ import annotations
@@ -30,6 +39,10 @@ from hydromodpy.calibration.optim.optimizer import (
     ParamSuggestion,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
+from hydromodpy.calibration.optim.stopping import BUDGET_RULE, budget_extension, stopping_rule
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 EvaluatorFn = Callable[[ParamSuggestion], EvaluationResult]
 
@@ -59,6 +72,18 @@ class CalibrationSession:
     history: list[EvaluationResult] = field(default_factory=list)
     started_at: float = 0.0
     finished_at: float | None = None
+    stopping_rule: str = BUDGET_RULE
+    """The rule the engine stops on: its stopping option, or ``"budget"``."""
+    converged: bool = False
+    """Whether the search met ``stopping_rule`` before its budget ran out.
+
+    Set once the loop ends. A budget-only engine converges when it spends its
+    budget; any other engine only when its own rule says so.
+    """
+    max_iter: int = 0
+    """The budget the engine was declared with, before any extension."""
+    extension: int = 0
+    """Evaluations granted beyond ``max_iter``: zero, or half of it, once."""
 
     @property
     def best(self) -> EvaluationResult | None:
@@ -110,24 +135,45 @@ class CalibrationEngine:
             optimizer=self.optimizer,
             space=self.space,
             started_at=time.time(),
+            stopping_rule=stopping_rule(self.optimizer),
+            max_iter=int(self.max_iter),
         )
+        judged = session.stopping_rule != BUDGET_RULE
+        if judged:
+            self._warn_if_the_budget_is_short()
         try:
+            budget = int(self.max_iter)
             n_done = 0
-            while n_done < self.max_iter:
-                take = min(self.batch_size, self.max_iter - n_done)
-                suggestions = self.optimizer.ask(n=take)
-                if not suggestions:
+            while True:
+                ran_dry = self._run_until(budget, n_done, session, reporter)
+                n_done = len(session.history)
+                if not judged or ran_dry or self.optimizer.converged() or session.extension:
                     break
-                results = self._evaluate_batch(suggestions)
-                for sugg, result in zip(suggestions, results, strict=True):
-                    session.history.append(result)
-                    reporter.update(sugg.trial_id, result)
-                    if self.on_iteration is not None:
-                        self.on_iteration(sugg, result)
-                self.optimizer.tell(results)
-                n_done += len(results)
-                if self.optimizer.converged():
+                extension = budget_extension(self.max_iter)
+                if extension <= 0:
                     break
+                logger.warning(
+                    "The search spent its budget of %d evaluations before its stopping "
+                    "rule (%s) was met. Granting %d more, once. If that is not enough the "
+                    "phase is reported as not converged and nothing is frozen from it.",
+                    self.max_iter,
+                    session.stopping_rule,
+                    extension,
+                )
+                session.extension = extension
+                budget += extension
+            session.converged = (not judged) or bool(self.optimizer.converged())
+            if not session.converged:
+                logger.warning(
+                    "The search did NOT converge: %d evaluations (%d declared + %d "
+                    "extension) did not meet its stopping rule (%s). Its best trial is "
+                    "where the budget ended, not an answer. Raise max_iter or loosen "
+                    "the tolerance.",
+                    n_done,
+                    self.max_iter,
+                    session.extension,
+                    session.stopping_rule,
+                )
         finally:
             session.finished_at = time.time()
             reporter.close()
@@ -135,6 +181,61 @@ class CalibrationEngine:
             if callable(close_optimizer):
                 close_optimizer()
         return session
+
+    def _run_until(
+        self,
+        budget: int,
+        n_done: int,
+        session: CalibrationSession,
+        reporter: ProgressReporter | _NoopProgress,
+    ) -> bool:
+        """Ask and tell until *budget* is spent or the optimizer stops.
+
+        Returns True when the optimizer ran out of suggestions: more budget
+        would buy nothing, so no extension is granted then.
+        """
+        while n_done < budget:
+            take = min(self.batch_size, budget - n_done)
+            suggestions = self.optimizer.ask(n=take)
+            if not suggestions:
+                return True
+            results = self._evaluate_batch(suggestions)
+            for sugg, result in zip(suggestions, results, strict=True):
+                session.history.append(result)
+                reporter.update(sugg.trial_id, result)
+                if self.on_iteration is not None:
+                    self.on_iteration(sugg, result)
+            self.optimizer.tell(results)
+            n_done += len(results)
+            if self.optimizer.converged():
+                return False
+        return False
+
+    def _warn_if_the_budget_is_short(self) -> None:
+        """Say at the start when the declared budget cannot reach the rule.
+
+        Only an engine that can count its own evaluations up front publishes
+        ``evaluations_needed``; the root search can, from its bounds, sweep and
+        tolerance. Warning now costs nothing, warning after the last solve costs
+        the whole budget.
+        """
+        needed = getattr(self.optimizer, "evaluations_needed", None)
+        if not isinstance(needed, int) or needed <= self.max_iter:
+            return
+        extended = self.max_iter + budget_extension(self.max_iter)
+        logger.warning(
+            "max_iter = %d is below the %d evaluations this search needs to meet its "
+            "stopping rule. %s Set max_iter to at least %d, or loosen the tolerance.",
+            self.max_iter,
+            needed,
+            (
+                f"The one-time extension to {extended} should cover it."
+                if needed <= extended
+                else f"Even the one-time extension to {extended} will not, so the "
+                "phase will be reported as not converged."
+            ),
+            needed,
+        )
 
     def _evaluate_batch(
         self,

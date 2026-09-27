@@ -43,7 +43,11 @@ from hydromodpy.core.field_routing import (
     domain_edge_cells,
 )
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.topographic_distance import shared_node_adjacency
+from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
+from hydromodpy.core.topographic_distance import (
+    resolve_diagonal_neighbors,
+    shared_node_adjacency,
+)
 from hydromodpy.display.figures._memo import RunMemo
 
 if TYPE_CHECKING:
@@ -100,6 +104,7 @@ class RoutingSurface:
     """The cell water leaves through: the low point of the support above."""
 
     diagonal_neighbors: bool
+    """Whether ``adjacency`` holds the diagonals: the knob, resolved on the mesh."""
 
     @property
     def n_cells(self) -> int:
@@ -194,12 +199,15 @@ def unavailable_reason_for_routing(sim: Run) -> str | None:
 _SURFACE_MEMO = RunMemo()
 
 
-def routing_surface_from_run(sim: Run, *, diagonal_neighbors: bool = False) -> RoutingSurface:
+def routing_surface_from_run(
+    sim: Run, *, diagonal_neighbors: bool = STREAM_CRITERION_DEFAULTS.diagonal_neighbors
+) -> RoutingSurface:
     """Build the routing surface of one run from its own mesh.
 
-    ``diagonal_neighbors`` picks the neighbour graph, the same knob the stream
-    criterion carries: shared edges by default, shared nodes to recover the
-    diagonal descents of a structured grid.
+    ``diagonal_neighbors`` picks the neighbour graph, the same knob and the
+    same default as the stream criterion: shared nodes, the D8 descent of the
+    paper on a quad mesh; shared edges when false, or when the mesh has faces
+    that are not quadrilaterals and so no diagonal.
 
     The result is memoised on the run object and the neighbour knob. Four
     figures of one gallery ask for the same surface and each rebuild walks the
@@ -228,6 +236,9 @@ def _build_routing_surface(sim: Run, diagonal_neighbors: bool) -> RoutingSurface
         )
     vertices = np.asarray(mesh.vertices, dtype=float)
     centroids = cell_centroids_from_mesh(vertices, connectivity)
+    diagonal_neighbors = resolve_diagonal_neighbors(
+        connectivity, n_cells=n_cells, requested=bool(diagonal_neighbors)
+    )
     adjacency = (
         shared_node_adjacency(connectivity, n_cells=n_cells)
         if diagonal_neighbors

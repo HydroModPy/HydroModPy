@@ -33,7 +33,7 @@ from __future__ import annotations
 import math
 import time
 import uuid
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import replace
 from datetime import date
 from pathlib import Path
@@ -278,20 +278,91 @@ def _assert_bounds_valid(trial_ctx: Any, space: ParameterSpace) -> None:
                 ) from exc
 
 
-def _assert_network_conductance_proportional(cfg: CalibrationConfig, trial_ctx: Any) -> None:
-    """Refuse a stream-network criterion whose drain conductance is fixed.
+_CONDUCTIVITY_PARAM_IDS: tuple[str, ...] = ("K", "Kx", "Ky", "Kz")
 
-    The criterion calibrates the ratio K/R, and that only holds while the drain
-    conductance follows the conductivity: ``C = K * cell_area / top_thickness``
-    on both MODFLOW backends, ``C = K * cell_area`` on Boussinesq. All three
-    apply it as a fallback, and only when the configured conductance is not
-    strictly positive. A fixed value breaks the invariance from a factor 1.05
-    onwards, and the run still completes and returns a number, so it has to be
-    refused before the first solve.
+
+def moves_a_hydraulic_conductivity(paths: Iterable[str | None]) -> bool:
+    """True when one of ``paths`` addresses a hydraulic conductivity field.
+
+    Matches ``flow.param.K``, ``Kx``, ``Ky`` or ``Kz`` at any depth under it
+    (a per-zone value included) and nothing else: ``flow.param.Ss`` shares the
+    ``flow.param`` prefix but not the id. Shared by the two guards below and by
+    :mod:`hydromodpy.calibration.preflight`, which faces the same declared
+    parameters before a project config resolves into a live ``ParameterSpace``.
     """
-    network_outputs = sorted(
-        name for name, output in cfg.outputs.items() if output.support == "network"
+    for path in paths:
+        if path is None:
+            continue
+        parts = str(path).split(".")
+        if len(parts) >= 3 and parts[0] == "flow" and parts[1] == "param":
+            if parts[2] in _CONDUCTIVITY_PARAM_IDS:
+                return True
+    return False
+
+
+def network_outputs_scored(
+    outputs: Mapping[str, Any],
+    *,
+    variable: str | None = None,
+    objective: str | None = None,
+) -> list[str]:
+    """Return the names of the network outputs one search scores.
+
+    ``outputs`` are the outputs the search reads. A single-metric search, its
+    own ``variable`` and ``objective`` instead of blocks, passes both: the
+    staged runner empties its ``outputs`` (``_phase_config`` in
+    ``staged_runner.py``), so its ``variable`` is the output, and only a
+    network estimator (``NETWORK_ESTIMATORS``) scores a network output. The
+    runner guards and :mod:`hydromodpy.calibration.preflight` both resolve a
+    search through this, so a check made before the run and the one made at
+    the first solve read the same outputs.
+    """
+    names = sorted(
+        name for name, output in outputs.items() if getattr(output, "support", None) == "network"
     )
+    if names or not variable:
+        return names
+    from hydromodpy.calibration.criteria.registry import NETWORK_ESTIMATORS
+
+    return [variable] if str(objective) in NETWORK_ESTIMATORS else []
+
+
+def _network_outputs_of(cfg: CalibrationConfig) -> list[str]:
+    """Return the network outputs the search ``cfg`` describes scores, by name.
+
+    A configuration with no block is a single-metric search, whether the
+    whole-file route or a phase narrowed by the staged runner.
+    """
+    if cfg.objective_blocks:
+        return network_outputs_scored(cfg.outputs)
+    return network_outputs_scored(cfg.outputs, variable=cfg.variable, objective=cfg.objective)
+
+
+def _assert_network_conductance_proportional(
+    cfg: CalibrationConfig, trial_ctx: Any, space: ParameterSpace
+) -> None:
+    """Face a fixed drain conductance with what a K-moving network criterion needs.
+
+    The criterion calibrates the ratio K/R, and that only holds, while a search
+    moves K, if the drain conductance follows the conductivity:
+    ``C = K * cell_area / drain_bed_thickness_m`` on both MODFLOW backends (the
+    fallback in ``drain_conductance.hk_fallback_drain_conductance``),
+    ``C = K * cell_area`` on Boussinesq. All three apply it only when the
+    configured conductance is not strictly positive. A fixed value breaks the
+    invariance from a factor 1.05 onwards, and the run still completes and
+    returns a number, so a K-moving search is refused before the first solve.
+
+    A search that drives some other parameter with the conductance fixed is a
+    different question: the network criterion can be pointed at any parameter,
+    and nothing here can say whether that search means something, so it gets a
+    warning instead of a refusal, naming that its result depends on the chosen
+    conductance.
+
+    The outputs are resolved by :func:`network_outputs_scored`, so a phase
+    scored through its own ``variable``/``objective`` is seen even though the
+    staged runner empties its ``cfg.outputs``.
+    """
+    network_outputs = _network_outputs_of(cfg)
     if not network_outputs:
         return
     flow = getattr(getattr(trial_ctx, "base_cfg", None), "flow", None)
@@ -301,15 +372,118 @@ def _assert_network_conductance_proportional(cfg: CalibrationConfig, trial_ctx: 
     if boundary is None or boundary.value is None or float(boundary.value) <= 0.0:
         return
     names = ", ".join(repr(name) for name in network_outputs)
-    raise ObjectiveError(
-        f"Network calibration output(s) {names}: flow.bc.drainage.value is "
-        f"{float(boundary.value):g} {boundary.units}, a fixed drain conductance. The criterion "
-        "calibrates the ratio K/R, which holds only while the conductance follows the "
-        "conductivity (C = K * cell_area / top_thickness, the fallback applied when the "
-        "configured value is not strictly positive). A fixed conductance leaves that "
-        "invariance from a factor 1.05 onwards, so the calibrated ratio would mean nothing. "
-        "Set the value to zero."
+    detail = (
+        f"flow.bc.drainage.value is {float(boundary.value):g} {boundary.units}, a fixed "
+        "drain conductance (the fallback, C = K * cell_area / drain_bed_thickness_m in "
+        "hydromodpy/solver/modflow_common/drain_conductance.py, only applies when the "
+        "configured value is not strictly positive)."
     )
+    if moves_a_hydraulic_conductivity(param.effective_path for param in space):
+        raise ObjectiveError(
+            f"Network calibration output(s) {names}: {detail} The criterion calibrates "
+            "the ratio K/R, which holds only while the conductance follows the K this "
+            "search moves. A fixed conductance leaves that invariance from a factor 1.05 "
+            "onwards, so the calibrated ratio would mean nothing. Set the value to zero."
+        )
+    logger.warning(
+        "Network calibration output(s) %s: %s This search does not move a hydraulic "
+        "conductivity, so the K/R invariance is not at stake, but the result still "
+        "depends on the conductance chosen.",
+        names,
+        detail,
+    )
+
+
+_ADVANCED_PACKAGE_LABEL: Mapping[str, str] = {
+    "sfr": "SFR (routed stream reaches)",
+    "lake": "LAK",
+    "reservoir": "LAK",
+}
+"""Display label for the active_bc ids the registry declares 'advanced_package'.
+
+RIV and GHB would join this table -- neither ties its conductance to K by
+construction -- but neither is a constructible ``flow.active_bc`` id today:
+``FLOW_BOUNDARY_DEFINITIONS`` (``boundary_condition_registry.py``) declares no
+'riv' and no 'ghb' entry, so ``flow.active_bc = ["riv"]`` is refused at config
+load, before a calibration ever reaches this guard.
+"""
+
+
+def _active_advanced_packages(flow: Any) -> list[str]:
+    """Return the active ``flow.active_bc`` ids in the 'advanced_package' family.
+
+    That family is exactly the boundaries whose conductance a package builds
+    from its own data, never derived from K: SFR and LAK today.
+
+    DRN is not in it: its family is 'head_dependent_exchange', and its
+    conductance falls back to ``K * cell_area / drain_bed_thickness_m``
+    whenever none is configured (``drain_conductance.py``), so it already
+    follows K.
+
+    CHD is not in it either: its family is 'dirichlet', fixing a head rather
+    than a conductance. Dividing the steady-state flow equation by K leaves a
+    fixed head unchanged, so K/R stays intact under any CHD whatever K does.
+    """
+    from hydromodpy.physics.flow.boundary_condition_registry import boundary_definition
+
+    offenders: list[str] = []
+    for bc_id in getattr(flow, "active_bc", None) or ():
+        definition = boundary_definition(bc_id)
+        if definition is not None and definition.family == "advanced_package":
+            offenders.append(bc_id)
+    return offenders
+
+
+def release_package_conductance_conflict(
+    network_outputs: Sequence[str], flow: Any, *, moves_k: bool
+) -> str | None:
+    """Return the refusal message for a K-moving network search over a fixed
+    release-package conductance, or ``None`` when the search can trust it.
+
+    ``network_outputs`` are the names :func:`network_outputs_scored` resolves
+    for the search. Shared by the runner guard, which raises this as an
+    :class:`ObjectiveError`, and by :mod:`hydromodpy.calibration.preflight`,
+    which reports the same text as an error finding for ``hmp calibrate
+    --check`` before any solve pays for the mistake.
+    """
+    if not moves_k or flow is None:
+        return None
+    if not network_outputs:
+        return None
+    offending_ids = _active_advanced_packages(flow)
+    if not offending_ids:
+        return None
+    labels = sorted({_ADVANCED_PACKAGE_LABEL.get(bc_id, bc_id.upper()) for bc_id in offending_ids})
+    named = " and ".join(labels)
+    names = ", ".join(repr(name) for name in network_outputs)
+    return (
+        f"Network calibration output(s) {names} move a hydraulic conductivity while "
+        f"{named} is active. DRN's conductance follows K, through the "
+        "K * cell_area / drain_bed_thickness_m fallback; CHD fixes a head, so dividing "
+        f"the flow equation by K leaves it unchanged. {named} builds its own conductance "
+        "from its own package data instead, so the K/R this search calibrates would not "
+        f"mean what the criterion assumes. A K-proportional conductance for {named} is "
+        "future work."
+    )
+
+
+def _assert_active_release_packages_follow_k(
+    cfg: CalibrationConfig, trial_ctx: Any, space: ParameterSpace
+) -> None:
+    """Refuse a K-moving network search next to an SFR or LAK with a fixed conductance.
+
+    Checked before the first solve, same as
+    :func:`_assert_network_conductance_proportional`, and on the outputs the
+    same resolution reads: a single-metric phase scoring a network output
+    through its own ``variable`` is seen here too. A run with one of these
+    packages active still completes and still returns a K/R that does not
+    mean what the criterion assumes.
+    """
+    flow = getattr(getattr(trial_ctx, "base_cfg", None), "flow", None)
+    moves_k = moves_a_hydraulic_conductivity(param.effective_path for param in space)
+    message = release_package_conductance_conflict(_network_outputs_of(cfg), flow, moves_k=moves_k)
+    if message is not None:
+        raise ObjectiveError(message)
 
 
 def _search_space_payload(space: ParameterSpace) -> dict[str, Any]:
@@ -576,6 +750,66 @@ def _conductivity_unit(trial_ctx: Any, param: CalibParameter) -> str:
     return "m/s"
 
 
+def _roptim_verdict_extra(
+    outputs: Mapping[str, Any] | None,
+    components: Mapping[str, float] | None,
+) -> dict[str, Any]:
+    """Read Eq. 4 on the trial the search returns, once per network output.
+
+    The paper reads ``roptim <= 2`` at the optimum ("At this point", HESS
+    27, p. 3225), and so does this: a trial on the way to the root is not the
+    result, and bounding it refused whole brackets. Each trial still carries
+    ``<output>.roptim`` and ``<output>.roptim_valid`` as components.
+
+    Returns ``{"roptim_verdict": {output: {value, bound, L_ref, Doptim,
+    valid}}}``, or nothing when no network output published a ``roptim``. A
+    value above its bound warns once. With ``on_roptim_violation = "error"``
+    it raises :class:`CalibrationError`; the caller has already saved the
+    session, and a staged calibration stops there, before freezing anything.
+    A ``roptim`` that is not a number, an empty network at the returned
+    trial, is not qualified and counts as a violation.
+    """
+    found = components or {}
+    verdicts: dict[str, dict[str, Any]] = {}
+    fatal: list[str] = []
+    for name, output in sorted((outputs or {}).items()):
+        if output.support != "network" or f"{name}.roptim" not in found:
+            continue
+        value = float(found[f"{name}.roptim"])
+        bound = float(output.roptim_max)
+        length = float(found.get(f"{name}.L_ref", float("nan")))
+        optimal = float(found.get(f"{name}.Doptim", float("nan")))
+        valid = math.isfinite(value) and value <= bound
+        verdicts[name] = {
+            "value": value if math.isfinite(value) else None,
+            "bound": bound,
+            "L_ref": length if math.isfinite(length) else None,
+            "Doptim": optimal if math.isfinite(optimal) else None,
+            "valid": valid,
+        }
+        if valid:
+            continue
+        if math.isfinite(value):
+            message = (
+                f"Output {name!r}: roptim = {value:.3g} exceeds the bound {bound:.3g}: the "
+                f"mean mismatch Doptim = {optimal:.4g} m is more than {bound:.3g} times "
+                f"L_ref = {length:.4g} m. L_ref is the cell size, floored by "
+                "observed_position_accuracy when the output declares one. It qualifies the "
+                "calibrated value; it does not say the value is wrong."
+            )
+        else:
+            message = (
+                f"Output {name!r}: roptim is not a number at the returned trial, so the "
+                f"bound {bound:.3g} cannot qualify it: the simulated network is empty there."
+            )
+        logger.warning(message)
+        if output.on_roptim_violation == "error":
+            fatal.append(message)
+    if fatal:
+        raise CalibrationError(" ".join(fatal))
+    return {"roptim_verdict": verdicts} if verdicts else {}
+
+
 def _network_ratios_extra(
     *,
     network_outputs: Iterable[str],
@@ -647,6 +881,54 @@ def _network_ratios_extra(
                 )
     extra["k_over_r_note"] = note + "."
     return extra
+
+
+def _search_outcome_extra(session: CalibrationSession) -> dict[str, Any]:
+    """Return how the search stopped, and the root search's final bracket.
+
+    ``search`` records whether the engine met its own stopping rule, the
+    declared budget and the extension granted once. A staged calibration reads
+    ``search["converged"]`` and freezes nothing from a phase that did not.
+    ``bracket`` exists only for the root search: the interval whose two ends
+    change sign, in physical units, which is what the search proved about the
+    root beyond the trial it returns.
+    """
+    from hydromodpy.calibration.optim.adapters.bisection_adapter import BisectionAdapter
+
+    extra: dict[str, Any] = {
+        "search": {
+            "converged": bool(session.converged),
+            "stopping_rule": session.stopping_rule,
+            "max_iter": int(session.max_iter),
+            "extension": int(session.extension),
+            "n_evaluations": len(session.history),
+        }
+    }
+    if isinstance(session.optimizer, BisectionAdapter):
+        bracket = session.optimizer.bracket_record()
+        if bracket is not None:
+            extra["bracket"] = bracket
+    return extra
+
+
+def _status_of_the_search(
+    session: CalibrationSession, status: str, error: str | None
+) -> tuple[str, str | None]:
+    """Return the session status to persist, ``partial`` when the rule was not met.
+
+    ``extra["search"]`` lives on the in-memory report only. A resumed staged
+    chain reads the catalog instead, and reuses a phase whose session closed as
+    ``completed``. A search that spent its budget before its stopping rule was
+    met must not close as ``completed``, or a resume would freeze the value the
+    live run refused to freeze. ``partial`` already means "trials ran, the stage
+    did not finish", which is what the resume reader skips.
+    """
+    if status != "completed" or session.converged:
+        return status, error
+    return "partial", (
+        f"stopping rule ({session.stopping_rule}) not met after {len(session.history)} "
+        f"evaluations (max_iter = {session.max_iter}, extension = {session.extension})"
+    )
 
 
 def _phase_objective_block_shares(
@@ -944,7 +1226,8 @@ def run_calibration_core(
     # return early and look like a check that passed.
     if trial_ctx is not None:
         _assert_bounds_valid(trial_ctx, space)
-        _assert_network_conductance_proportional(cfg, trial_ctx)
+        _assert_network_conductance_proportional(cfg, trial_ctx, space)
+        _assert_active_release_packages_follow_k(cfg, trial_ctx, space)
 
     # The evaluator is resolved by the name the document wrote, and built with
     # only the options its class names. Before the session row, because an
@@ -1157,6 +1440,7 @@ def run_calibration_core(
         if promotion_failures:
             final_status = "partial" if promotion_count > 0 else "failed"
             final_error = "; ".join(promotion_failures)
+        final_status, final_error = _status_of_the_search(session, final_status, final_error)
     except TerminationRequested:
         final_status = "aborted"
         final_error = "SIGTERM"
@@ -1239,6 +1523,8 @@ def run_calibration_core(
             trial_ctx=trial_ctx,
         )
     )
+    extra.update(_search_outcome_extra(session))
+    extra.update(_roptim_verdict_extra(cfg.outputs, best.components if best else None))
 
     return CalibrationReport(
         session_id=session_id,

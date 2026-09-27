@@ -482,6 +482,18 @@ agreement qualifies that number, it does not replace it with nothing. Setting
 ``on_roptim_violation = "error"`` turns that warning into a raise, which is an
 explicit choice to be handed nothing rather than a qualified value.
 
+A companion absolute threshold, :math:`D_{optim} < 300` m, appears in Gauvain,
+Abherve, Boivin, Roques et al., EGUsphere preprint 2026-868 (a HydroModPy
+technical note, section 3.2), justified there as four pixels of a 75 m DEM,
+so resolution-dependent rather than a fixed physical bound; ``roptim_max = 2``
+already generalises it to any cell size through :math:`L_{ref}`. The same
+note gives ``NSElog > 0.75`` as the transient stage's own acceptance
+threshold, on ten values of :math:`S_y` explored over a fixed grid rather than
+by dichotomy. Both are stated for context; neither is enforced here, and
+neither is the :math:`0.65` figure WRR 2025 states for the same stage (§10 of
+the audit, ``D7-14``): the two published applications of stage two do not
+share a threshold.
+
 Why the criterion has a root, and why the search brackets it
 -------------------------------------------------------------
 
@@ -500,6 +512,21 @@ the paper's criterion read literally. On any other transform that width would re
 as an absolute one, and the adapter refuses a parameter that does not declare
 ``transform = "log"`` rather than reporting convergence on a bracket orders of
 magnitude wide.
+
+**The zero is a plateau, not a point, and its width sets the true precision.**
+:math:`J` is piecewise constant in :math:`K` because the masks are discrete: on
+a synthetic hillslope built to a known :math:`K_{true}`, the network holds the
+same 222 cells from :math:`K = 6.00 \times 10^{-6}` to :math:`6.027 \times
+10^{-6}` m/s, a step of about 0.56 per cent of :math:`K`, one cell over the
+unsaturated slope length. A one per cent stopping width therefore bounds the
+recovered :math:`K` only when the grid is fine enough that a cell is smaller
+than the tolerance asks for; on a coarser grid the plateau is wider than one
+per cent, and it is the plateau, not the bisection's ``rel_tol``, that sets
+how precisely :math:`K` is known. The twin recovers :math:`K` to 0.45 per
+cent of :math:`K_{true}` this way
+(``tests/validation/calibration/test_twin_matching_stream_network_modflow6.py``),
+which the grid was sized to make possible, not something the tolerance alone
+bought.
 
 **Monotonicity is not proven.** The paper establishes the direction of
 variation on three points and generalises it over twenty-four catchments. A
@@ -580,6 +607,26 @@ sibling package budget sitting next to the model one, raises and names the
 package. That is also what catches the next package the same way, without
 naming it in advance.
 
+**A fixed drain conductance is refused only while the search moves a
+conductivity.** The K/R invariance the previous section derives needs the
+conductance to follow K; a search driving some other parameter with the
+conductance fixed is a different question the criterion can still answer, so
+it gets a warning naming that the result depends on the chosen conductance,
+not a refusal. Setting ``flow.bc.cauchy.drainage.value`` to zero (or leaving
+it out) always keeps the fallback and sidesteps the question.
+
+**SFR and LAK build their own conductance from their own package data, never
+from K, so a K-moving network search next to either is refused** before the
+first solve, the same way a fixed DRN conductance is: DRN's own fallback
+follows K, and CHD fixes a head, so dividing the flow equation by K leaves it
+unchanged, but SFR and LAK do neither.
+``examples/projects/21_nancon_network_calibration/auto_sfr_drn.toml`` switches
+SFR reaches off for its K stage and back on for the storage stage to work
+around exactly this. RIV and GHB would join the same guard -- neither
+ties its conductance to K by construction -- but neither is a constructible
+``flow.active_bc`` id in this codebase today, so the guard's message for them
+is future-facing only and cannot fire yet.
+
 What the criterion reproduces, and how far that goes
 ----------------------------------------------------
 
@@ -599,6 +646,96 @@ reproducibility of the criterion across a change of solver, of grid and of
 discretisation. It is not the accuracy of the calibrated conductivity, which
 the biases below bound far more loosely, and it says nothing about whether
 either number is right.
+
+Declared deviations from the paper and from the authors' own code
+-------------------------------------------------------------------
+
+``MatchingHydrographicNetwork.deviations`` (version 1.1) declares each of
+these departures in code, with the same key, paper value and reasoning as
+below; this section restates them so a reader is not sent to the code for a
+one-line answer. Where the key is a real option and its default is the
+paper's (``diagonal_neighbors``, ``weighting``, ``observed_position_accuracy``,
+``observed_rasterization``), the entry is an offered departure: the Methods
+paragraph a run writes names it only when the file moves it off the paper's
+value. Three departures already
+have their own section above because the reasoning does not fit in one line:
+:math:`\tau_{ratio}` under "What counts as a seepage cell", ``weighting`` and
+``observed_position_accuracy`` under "Weighting, and the reference length".
+The rest:
+
+Descent, D8 or D4
+   True (D8) is the paper: the authors trace their distances with
+   ``wbt.downslope_distance_to_stream`` on a filled DEM, and the delineation
+   that produces the catchment already uses a D8 pointer. False departs to a
+   D4 descent over shared edges only, and on a synthetic diagonal valley
+   under-collects one accumulated cell to 6.6 per cent of the domain against
+   100 per cent under D8. True has been the default since version 1.1; on a
+   mesh whose faces are not all quadrilaterals no cell has a diagonal, so the
+   descent walks shared edges either way, and on a Voronoi mesh the two
+   graphs coincide.
+
+The outlet cell, sealed into :math:`D_{so}`'s target
+   Not addressed by the paper. Every simulated flowpath ends at the outlet by
+   construction, so without sealing it into the target beside the mapped
+   network, the outlet cell would count as unmatched seepage for the sole
+   reason that it is the basin's exit, never because the two networks
+   disagree.
+
+Unreached cells, capped rather than dropped
+   The authors' own code drops a cell whose descent never meets its target
+   silently before averaging. Here it is capped at :math:`L_{cap}`, the
+   longest descent to the outlet, and the run is refused when more than five
+   per cent of :math:`D_{so}`'s support (``max_unreachable_fraction``) never
+   reaches the mapped network: a support that has silently shrunk cannot mean
+   what an unqualified average implies.
+
+The bisection variable and its sweep
+   The paper does not state the search variable or its scale; the authors'
+   own code bisects linearly in :math:`K/R` over ``[1, 10000]``. Here the
+   search bisects :math:`\log_{10} K`, preceded by a seven-point log-spaced
+   sweep that locates a sign change before bisecting, because :math:`K/R`
+   spans decades on a real catchment and a linear midpoint search would spend
+   almost every step at the wrong end of the interval.
+
+:math:`D_{os}`'s support, raw or closed downslope
+   The printed text (HESS p. 3225) leaves :math:`D_{os}`'s support as each
+   pixel of the observed streams, unmodified. The authors' own published code
+   (Zenodo 8311547, ``objective_function.py:157-164``) instead traces every
+   mapped pixel downslope with the same D8 tracing it uses for the simulated
+   network, closing the observed network exactly as it closes the simulated
+   one. HydroModPy follows the printed text, not the authors' code: closing
+   the observed network the way the code does would build the observation out
+   of the DEM's own descent, which erases the very signal Equation 4 exists to
+   detect. Tested on a synthetic V-valley
+   (``tests/unit/core/test_v_valley_support_bench.py``), closing the observed
+   target instead moves :math:`r_{optim}`'s root by more than a factor of ten.
+
+Depression handling, breach or fill
+   The paper's tool is ``FillDepressions``, which raises every depression to
+   its pour point. The default here is ``dem_correc_type = "breach"``, which
+   carves a channel through the barrier at the depression's own minimal
+   elevation change: breaching moves far fewer cells and leaves hillslope
+   elevations closer to the DEM the criterion measures distances against.
+   Setting ``dem_correc_type = "fill"`` reproduces the paper's own tool.
+
+The mapped network's rasterisation
+   The paper rasterises the mapped network onto the model grid with
+   WhiteboxTools' ``VectorLinesToRaster``, whose own assignment rule the text
+   does not restate. The default here, ``observed_rasterization = "crossing"``,
+   is that rule restated on any mesh: a cell belongs to the network when it
+   holds a point where the line crosses the segment joining two edge-sharing
+   cell centres. On a structured grid those segments are the cell medians,
+   which is what ``VectorLinesToRaster`` tests. The map comes out one cell
+   wide, like the simulated network, so a model that reproduces the map
+   scores :math:`J = 0`. One departure from the tool is kept: a reach that
+   crosses no segment marks the cell holding its midpoint instead of being
+   dropped, counted per trial as ``n_observed_features_fallback``. Measured on
+   the Nancon (75 m grid): 490 cells here against 489 for a port of the tool,
+   the gap coming from ties on a cell edge, which mark both cells. The older
+   ``"touch"`` rule, every cell the line intersects, corners included, stays
+   available to replay a session recorded before 2026-09. It thickens every
+   diagonal step (730 cells on the same grid), grows :math:`D_{os}` on a
+   perfect match and departs from the paper.
 
 Known biases, and how to read the output
 -----------------------------------------

@@ -9,10 +9,15 @@ values it departs on are gated, not commented.
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import pytest
 
+from hydromodpy.calibration.optim.adapters.scipy_adapter import ScipyNelderMead
+from hydromodpy.calibration.optim.engine import CalibrationEngine
+from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.protocols import protocol_options_away_from_the_recipe
 from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     HYDROGRAPH_BLOCK,
@@ -43,7 +48,7 @@ def test_the_two_stages_come_from_the_named_protocol(calibration) -> None:
     assert calibration.protocol is not None
     assert calibration.protocol.name == "matching_hydrographic_network"
     # Pinned, so the comparison cannot silently move with the recipe.
-    assert calibration.protocol.version == "1.0"
+    assert calibration.protocol.version == "1.1"
     assert [phase.name for phase in calibration.phases] == [STEADY_STAGE, TRANSIENT_STAGE]
     assert [block.name for block in calibration.objective_blocks] == [
         NETWORK_BLOCK,
@@ -62,6 +67,50 @@ def test_stage_one_keeps_the_scripts_mean_offset_and_nelder_mead(calibration) ->
         "xatol": 0.30,
         "fatol": 0.05,
     }
+
+
+# The steady trace of a Nancon session run with these options on 2026-09-08:
+# log10 K against the mean offset, in metres. Nine solves, one of them a repeat.
+_NANCON_STEADY_TRACE = {
+    -5.0: 287.3839080695424,
+    -4.4: 186.641131046373,
+    -3.8: 300.1191516816517,
+    -4.55: 214.26321839924782,
+    -4.25: 185.7234104098768,
+    -3.95: 232.09030552780553,
+    -4.1: 208.383141357349,
+    -4.2875: 192.34474990832632,
+}
+
+
+def _replay(sugg: ParamSuggestion) -> EvaluationResult:
+    point = round(math.log10(float(sugg.values["K"])), 6)
+    return EvaluationResult(
+        trial_id=sugg.trial_id,
+        sim_id=None,
+        objective_value=_NANCON_STEADY_TRACE[point],
+        status="completed",
+    )
+
+
+def test_stage_one_meets_its_own_tolerance_well_inside_scipys_cap(calibration) -> None:
+    # SciPy's maxiter = 30 sits below the phase's max_iter = 60, and a simplex
+    # that SciPy stops on that cap reports not converged. On the recorded
+    # Nancon trace the simplex meets xatol and fatol after 9 solves, so the
+    # steady stage converges and freezes K for the transient one.
+    steady = calibration.phases[0]
+    lower, upper = calibration.parameters["K"].bounds
+    space = ParameterSpace([CalibParameter(name="K", lower=lower, upper=upper, transform="log")])
+    optimizer = ScipyNelderMead(space, **steady.optimizer_kwargs)
+    engine = CalibrationEngine(
+        space=space, optimizer=optimizer, evaluator=_replay, max_iter=steady.max_iter
+    )
+
+    session = engine.run()
+
+    assert session.converged
+    assert session.extension == 0
+    assert len(session.history) == 9
 
 
 def test_stage_one_collapses_the_record_into_one_steady_period(calibration) -> None:

@@ -55,7 +55,10 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr, NonNegativeInt, PositiveFloat
-from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
+from hydromodpy.core.stream_criterion_defaults import (
+    STREAM_CRITERION_DEFAULTS,
+    ObservedRasterization,
+)
 from hydromodpy.core.units import Length
 
 SaveRunsMode = Literal["none", "best_n", "all"]
@@ -375,9 +378,10 @@ class CalibOutputPoint(ScoresAnObservedRecord, HydroModelBase):
         description="Route this cell's discharge, and the area it drains, over shared "
         "nodes rather than shared edges, which recovers a talweg that runs diagonally "
         "across a square grid. Only reaches 'variable' = 'discharge'; a head or a lake "
-        "state read at this point ignores it. The same knob as the network output's own "
-        "'diagonal_neighbors', declared here too because a point output belongs to no "
-        "network block.",
+        "state read at this point ignores it. The same routing choice as the network "
+        "output's 'diagonal_neighbors', declared here because a point output belongs to "
+        "no network block, with its own default: false (shared edges) here, true (D8) "
+        "on the network output.",
     )
     snap_radius: Annotated[Length | None, Profile.USER] = Field(
         default=None,
@@ -486,8 +490,10 @@ class CalibOutputCell(ScoresAnObservedRecord, HydroModelBase):
         description="Route this cell's discharge, and the area it drains, over shared "
         "nodes rather than shared edges, which recovers a talweg that runs diagonally "
         "across a square grid. Only reaches 'variable' = 'discharge'; a head read at this "
-        "cell ignores it. The same knob as the network output's own 'diagonal_neighbors', "
-        "declared here too because a cell output belongs to no network block.",
+        "cell ignores it. The same routing choice as the network output's "
+        "'diagonal_neighbors', declared here because a cell output belongs to no network "
+        "block, with its own default: false (shared edges) here, true (D8) on the "
+        "network output.",
     )
     snap_radius: Annotated[Length | None, Profile.USER] = Field(
         default=None,
@@ -557,12 +563,17 @@ class CalibOutputLake(ScoresAnObservedRecord, HydroModelBase):
 class CalibOutputNetwork(HydroModelBase):
     """The mapped stream network as a calibration target.
 
-    The model is compared to a hydrographic network rather than to a gauge:
-    for every cell where it releases water to the surface, the descent to the
-    mapped network is measured, and reciprocally. The output produces the pair
-    ``(D_so, D_os)``; the metric on top of it is ``distance_gap``, their signed
-    difference in absolute value, whose zero is the balance between an excess
-    of simulated stream and a missing one.
+    The criterion compares a simulated stream network to a mapped one. For
+    every cell of the simulated network the descent to the mapped network is
+    measured, and reciprocally. The output produces the pair ``(D_so, D_os)``;
+    the metric on top of it is ``distance_gap``, their signed difference in
+    absolute value, whose zero is the balance between an excess of simulated
+    stream and a missing one.
+
+    It can drive any parameter that moves where the water table meets the
+    surface. What it identifies depends on what moves: with the homogeneous
+    conductivity alone, at fixed geometry and recharge, it identifies ``K/R``,
+    the ratio of Abherve et al. (2023), and not ``K`` itself.
 
     There is no ``observed_values`` here and there cannot be: the criterion
     balances two simulated quantities against each other, so nothing in it is
@@ -656,15 +667,27 @@ class CalibOutputNetwork(HydroModelBase):
         "streams, where cell density is highest exactly where distances are smallest.",
     )
     diagonal_neighbors: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description="Route over shared nodes rather than shared edges, which recovers "
-        "the diagonal descents of a D8 grid. Only meaningful on a structured quad mesh. "
-        "The default is the literal reading of the paper and it is not a second-decimal "
-        "choice: on a synthetic valley whose talweg runs along the grid diagonal, the "
-        "most accumulated cell collects 6.6 per cent of the domain over shared edges and "
-        "100 per cent over shared nodes, and the delineation that produced the catchment "
-        "itself uses a D8 pointer. Set it to true wherever the talwegs are not "
-        "axis-aligned, which on real topography is most of them.",
+        default=STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
+        description="Descend over shared nodes, the eight D8 neighbours of a quad mesh. "
+        "True is the paper: its distances are traced by WhiteboxTools on a D8 pointer, "
+        "and the delineation that produced the catchment uses one too. False descends "
+        "over shared edges only, four neighbours (D4), and departs from the paper. It is "
+        "not a second-decimal choice: on a synthetic valley whose talweg runs along the "
+        "grid diagonal, the most accumulated cell collects 100 per cent of the domain "
+        "over shared nodes and 6.6 per cent over shared edges. On a mesh whose faces are "
+        "not all quadrilaterals no cell has a diagonal and the descent walks shared "
+        "edges either way; on a Voronoi mesh the two graphs are the same one.",
+    )
+    observed_rasterization: Annotated[ObservedRasterization, Profile.USER] = Field(
+        default=STREAM_CRITERION_DEFAULTS.observed_rasterization,
+        description="How the mapped network is drawn on the mesh cells. 'crossing' "
+        "keeps the cell holding each point where a line crosses the segment joining two "
+        "edge-sharing cell centres. On a structured grid it reproduces WhiteboxTools "
+        "VectorLinesToRaster, the paper's tool, and draws the map one cell wide like "
+        "the simulated network, so a model that matches the map scores J = 0. 'touch' "
+        "keeps every cell the line touches, corners included, and replays a session "
+        "made before 2026-09; it thickens every diagonal step of the map and departs "
+        "from the paper.",
     )
     observed_position_accuracy: Annotated[Length | None, Profile.USER] = Field(
         default=None,
@@ -681,8 +704,12 @@ class CalibOutputNetwork(HydroModelBase):
     )
     on_roptim_violation: Annotated[Literal["warn", "error"], Profile.USER] = Field(
         default="warn",
-        description="What a violation of the validity bound does. Default warns and "
-        "returns the value, because a calibration is asked for a number.",
+        description="What a violation of the validity bound does. The bound is read once, "
+        "on the trial the search returns, as the paper reads it at the optimum; every "
+        "trial still records 'roptim' and 'roptim_valid'. 'warn' logs it and returns the "
+        "value, because a calibration is asked for a number. 'error' raises after the "
+        "session is saved, so a staged calibration freezes nothing and runs no phase that "
+        "depends on this one.",
     )
     max_unreachable_fraction: Annotated[float, Profile.USER] = Field(
         default=0.05,

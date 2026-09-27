@@ -219,6 +219,14 @@ What it cannot see it does not pretend to: an observed record is loaded by the
 data step, which needs a delineated catchment, so preflight checks the names a
 file declares against each other and leaves the loading to the run.
 
+It also warns, rather than refuses, when an objective scored only on a network
+output moves more than one parameter, such as ``K`` and the aquifer thickness
+together: the two act on the criterion only through their product
+:math:`T = K \cdot d`, so they form a ridge in that cost and the search returns
+one point of the ridge, not an identifiable pair. Freeze every parameter on
+that objective but one, or add an output this search does not share the ridge
+on, such as the hydrograph.
+
 Finding what a project can calibrate
 ------------------------------------
 
@@ -244,6 +252,60 @@ The three columns are what a bound is written from: where the value sits today,
 in what unit, and the range the physical registry will refuse outside of. A
 range shown as ``-`` means the registry does not know this identifier, so
 nothing will check the bounds for you.
+
+The aquifer geometry itself is calibrable on the two scalar depth models, and
+the catalogue shows only the field the project's own ``domain.depth_model``
+kind exposes, under its short name:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 22 15 15 30
+
+   * - kind
+     - name
+     - space
+     - prior
+     - registry range
+   * - ``constant_thickness``
+     - ``thickness``
+     - log
+     - ``log_uniform``
+     - 0 to 10 000 m
+   * - ``flat_substratum``
+     - ``substratum_elevation``
+     - linear
+     - ``uniform``
+     - -500 to 9000 m
+
+.. code-block:: toml
+
+   [calibration.parameters.thickness]
+   bounds = [5.0, 300.0]
+
+``thickness`` is searched in log space because it enters :math:`T = K \cdot d`
+as a factor, exactly like :math:`K`, and the sensitivity range of
+:cite:`abherve2023` spans nearly two decades, 5 to 300 m.
+``substratum_elevation`` is searched in linear space instead, because an
+elevation can be negative and has no natural zero. Neither field defaults its
+search bounds from the registry range shown above: the range only guards a
+declared bound, it is not a box to search blindly, so ``bounds`` is required
+in the file for both, the same rule ``K`` already follows. The raster depth
+models, ``raster_substratum`` and ``raster_thickness``, are not searchable and
+list nothing: their raster is a map of the site, not a scalar, so compare one
+run per raster instead of calibrating one.
+
+Moving the thickness changes :math:`T = K \cdot d` exactly as moving :math:`K`
+does. On the stream-network criterion, searching :math:`K` alone at a fixed
+thickness identifies :math:`T/R`, the quantity :doc:`stream-network-calibration`
+describes; searching the thickness alone at a fixed :math:`K` identifies the
+same ratio from the other factor. Searching both together on that criterion
+alone is equifinal, because the criterion only ever sees their product: it
+takes another observation, such as the hydrograph, to separate them.
+
+A thickness search re-runs the pipeline from ``setup_process`` for every
+trial, because the domain the mesh is built on depends on the depth model; it
+never rebuilds the mesh itself, so a raster or a grid change still needs a new
+run rather than a calibration.
 
 Add ``--json`` for the same catalogue as machine-readable records.
 
@@ -334,6 +396,53 @@ pairs that moved together across the whole search to hold the same cost. Such a
 pair was not identified: the search stopped somewhere on a ridge and reported
 that point as a minimum. The sign is kept, because it says which way the
 trade-off ran.
+
+Convergence and budget
+-----------------------
+
+Converging means meeting the engine's own stopping rule, not spending the
+budget. ``bisection`` stops on the bracket width, ``log10(1 + rel_tol)``
+in the searched variable, and ``scipy_nelder_mead`` on ``xatol``. Every other
+built-in engine (``random_search``, ``optuna``, ``cma_es``, ``grid``,
+``gp_mapping``, ``scipy_de``, ``da_mh_gp``) declares no tolerance option, so
+spending its budget is its own rule and it is always reported as converged.
+
+When ``max_iter`` runs out before a judged engine's rule is met, the search
+warns and grants one extension of ``ceil(max_iter / 2)`` further evaluations
+-- 48 gives 24 more -- once per phase. If the rule is still not met after the
+extension, ``report.extra["search"]["converged"]`` is ``False``, the phase
+freezes nothing, and a phase declaring ``depends_on`` on it is refused rather
+than run against an unfrozen value. The fix is to raise ``max_iter`` or
+loosen the tolerance, not to read the last trial as the answer.
+
+Every run through the ordinary path carries in its report:
+
+``extra["search"]``
+   ``{converged, stopping_rule, max_iter, extension, n_evaluations}``, on
+   every calibration, whichever engine ran.
+
+``extra["bracket"]``
+   ``{parameter, low, high, relative_width, closed}``, in physical units,
+   once a bisection has found a sign change. It is what the search proved
+   about the root, and it is distinct from ``parameter_intervals`` above,
+   which reads a tolerance on the trials after the fact rather than the
+   search's own bracket.
+
+A bisection's evaluation budget is the sweep points (two, when
+``sweep_points = 0``) plus ``ceil(log2(sweep step in decades / log10(1 + rel_tol)))``.
+On bounds of ``[1e-7, 1e-3]`` with seven sweep points and ``rel_tol = 0.01``
+that is 15 evaluations. A root outside the declared bounds costs two more
+evaluations per decade of expansion, plus the halvings a wider bracket then
+needs.
+
+The trial a bisection returns is the lowest-cost **completed trial inside the
+final bracket**, ends included; a rejected trial that set a bracket end can
+still be the closest to zero without being returned, because it lies outside
+what the bracket closed on. Costs within a tight float tolerance count as a
+tie, and a tie goes to the trial nearest the middle of the bracket. A trial
+outside the bracket is returned only when no completed trial lies inside it,
+which happens when a rejected trial set the bracket's own ends, and a warning
+says so.
 
 Why the mesh is not a parameter
 -------------------------------
