@@ -13,7 +13,8 @@ the batch summary always names every requested figure that produced nothing.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -23,7 +24,6 @@ from hydromodpy.core.progress import MILESTONE
 from hydromodpy.core.state.paths import display_path
 from hydromodpy.display import get as _get_figure
 from hydromodpy.display import list_figures as _list_figures
-from hydromodpy.display.renderer import matplotlib_backend
 from hydromodpy.display.theme import apply_theme
 
 if TYPE_CHECKING:
@@ -96,6 +96,36 @@ def log_render_summary(
         logger.warning("%s", report.summary(destination=destination))
     else:
         logger.info("%s", report.summary(destination=destination), extra=MILESTONE)
+
+
+@contextmanager
+def matplotlib_backend(*, interactive: bool = False, dpi: int = 150) -> Iterator[None]:
+    """Scope the matplotlib backend and its cleanup to a ``with`` block.
+
+    ``Agg`` unless ``interactive``; the previous backend comes back and every
+    figure is closed on the way out.
+    """
+    import matplotlib
+
+    previous_backend = matplotlib.get_backend()
+    target = previous_backend if interactive else "Agg"
+    if target.lower() != previous_backend.lower():
+        matplotlib.use(target, force=True)
+    rc_context = matplotlib.rc_context()
+    try:
+        with rc_context:
+            matplotlib.rcParams["figure.dpi"] = dpi
+            yield
+    finally:
+        import matplotlib.pyplot as plt
+
+        plt.close("all")
+        current = matplotlib.get_backend()
+        if current.lower() != previous_backend.lower():
+            try:
+                matplotlib.use(previous_backend, force=True)
+            except Exception:  # an interactive backend may not load headless; the render is done
+                pass
 
 
 def _backend_is_interactive(display_cfg: DisplayConfig) -> bool:

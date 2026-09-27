@@ -60,7 +60,7 @@ never in a figure.
 
 | unit | may import inside `display` |
 |---|---|
-| `report_blocks`, `colormaps`, `legend_placement`, `map_axes`, `mesh_geometry`, `png_metadata`, `theme`, `renderer`, `scalable`, `animation`, `geo` | nothing |
+| `report_blocks`, `colormaps`, `legend_placement`, `map_axes`, `mesh_geometry`, `png_metadata`, `theme`, `scalable`, `animation`, `geo` | nothing |
 | `ugrid` | `map_axes` |
 | `transect` | `mesh_geometry` |
 | `overlays` | `map_axes`, `mesh_geometry`, `ugrid` |
@@ -69,7 +69,7 @@ never in a figure.
 | `figures` | `colormaps`, `figure`, `figure_registry`, `geo`, `legend_placement`, `map_axes`, `mesh_geometry`, `overlays`, `transect`, `ugrid` |
 | `config` | `figure_registry` |
 | `<init>` (the `__init__.py` facade) | `figure`, `figure_registry` |
-| `runs` | `<init>`, `config`, `figure`, `renderer`, `theme` |
+| `runs` | `<init>`, `config`, `figure`, `theme` |
 | `viz` | `scalable` |
 | `overview` | `legend_placement`, `report_blocks` |
 | `catchment_report` | `overview`, `report_blocks` |
@@ -99,8 +99,8 @@ hydromodpy/display/
 │   rendering the figures of a run ([display])
 ├── config.py              DisplayConfig, the [display] TOML section
 ├── runs.py                render_figures_for_run (a run, the [display] list), render_figure (one figure),
-│                          figure_availability (what a run supports, and why not the rest)
-├── renderer.py            matplotlib_backend: Agg or interactive backend for the length of a render
+│                          figure_availability (what a run supports, and why not the rest),
+│                          matplotlib_backend (Agg or interactive for the length of a render)
 ├── theme.py               default, print and dark presets (apply_theme)
 ├── png_metadata.py        provenance written into each PNG (sim_id, field, step, EPSG, version)
 │
@@ -173,8 +173,8 @@ the base first and returns a sentence (model: `figures/lake_abacus_comparison.py
 | `figure_registry.py` | which class carries this figure name (or this former name)? |
 | `figures/` | how is figure `<name>` drawn? |
 | `config.py` | what does the `[display]` section of the project ask for? |
-| `runs.py` | which figures does this run support, which to render, where to write them, which were skipped and why? |
-| `renderer.py`, `theme.py` | which matplotlib backend and style? |
+| `runs.py` | which figures does this run support, which to render, where to write them, which were skipped and why, under which matplotlib backend? |
+| `theme.py` | which style? |
 | `png_metadata.py` | where does this PNG come from? |
 | `map_axes.py`, `mesh_geometry.py`, `ugrid.py`, `transect.py` | how to draw a field on the mesh, a map, a section? |
 | `overlays.py` | which named layer to draw on this map? |

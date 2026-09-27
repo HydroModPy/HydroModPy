@@ -14,7 +14,6 @@ allowed:
   mesh_geometry:    []
   png_metadata:     []
   theme:            []
-  renderer:         []
   scalable:         []
   animation:        []
   geo:              []
@@ -28,7 +27,7 @@ allowed:
                      mesh_geometry, overlays, transect, ugrid]
   config:           [figure_registry]
   "<init>":         [figure, figure_registry]
-  runs:             ["<init>", config, figure, renderer, theme]
+  runs:             ["<init>", config, figure, theme]
   overview:         [legend_placement, report_blocks]
   catchment_report: [overview, report_blocks]
 

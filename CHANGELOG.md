@@ -310,6 +310,7 @@ Each release section includes the following standard categories:
   | old path | new path |
   |---|---|
   | `hydromodpy.display.banner` | `hydromodpy.cli.banner` |
+  | `hydromodpy.display.renderer.matplotlib_backend` | `hydromodpy.display.runs.matplotlib_backend` |
 - A figure names what it shows, not a solver or a provider: `mesh_map` is
   titled "Model mesh" (was "Solver mesh") and `hydrographic_network_reference`
   "Reference hydrographic network" (was "BD Topage hydrographic network", while
