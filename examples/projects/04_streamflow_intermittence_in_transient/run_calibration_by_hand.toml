@@ -32,13 +32,12 @@ description = "Nancon, K from the mapped network then Sy from the gauge and the 
 protocol__delete = true
 
 
-# The gauge as an output. The protocol scores stage two through the
-# single-metric route, which names a variable and a station and declares no
-# output; two criteria cannot use that route. `support = "point"` with
-# `observes` reads what that route reads, which keeps the two costs
-# comparable: the station's cell with the runoff over the area it drains, or
-# the whole-catchment series when no cell was matched, which is this project.
-# x and y are never read once `observes` is set.
+# The gauge as an output, the one the protocol declares for itself under the
+# name `hydrograph`. A point output that `observes` a station reads the
+# station's cell with the runoff over the area it drains, or the
+# whole-catchment series when no cell was matched, which is this project.
+# x and y are not needed once `observes` is set: --list-phases prints them,
+# the scoring never reads them.
 [calibration.outputs.gauged_discharge]
 support = "point"
 variable = "discharge"
@@ -125,9 +124,10 @@ sweep_points = 7
 # criterion. The warning guards the ratio K/R while K is calibrated, which is
 # stage one; here K is frozen.
 #
-# It produced K = 9.763e-05 m/s at a 2.7 m gap, then Sy = 0.083 at a December
-# gap of 15.2 m and NSElog = 0.810. Without the network block, which is what
-# the protocol runs, the same K and Sy = 0.055 at NSElog 0.841.
+# On 2026-09-23 it produced K = 9.763e-05 m/s at a 2.7 m gap, then
+# Sy = 0.063 at a December gap of 17.3 m and NSElog = 0.898. Without the
+# network block, which is what the protocol runs, the same K and Sy = 0.047
+# at NSElog 0.921.
 [[calibration.phases]]
 name = "transient_storage"
 description = "Read Sy from the gauged hydrograph and the December network, K frozen, monthly transient."
@@ -142,25 +142,21 @@ parameters = ["Sy"]
 # blocks instead of taking their declared weight. An exchange rate between
 # metres and an efficiency, which nothing in the machinery can set. Normalized
 # to sum to one, so the trial cost is 0.0099 * |gap in m| + 0.990 * (1 -
-# NSElog); over the sixteen trials of stage two the two terms weighed about
-# the same, which is the intent. Both are reported per trial, as
-# `network_extension.total` and `hydrograph.total`.
+# NSElog). The two terms then weigh the same order: at the best trial of the
+# run above, 63 % of the cost came from the network and 37 % from the
+# hydrograph. The run summary prints that split for every stage with two
+# blocks, and each trial keeps `network_extension.total` and
+# `hydrograph.total`.
 objective_blocks = { hydrograph = 100, network_extension = 1 }
 depends_on = "steady_conductivity"
 regime = "transient"
 
 
-# Back to the published method: replace the `objective_blocks` line of
-# `transient_storage` with the single-metric route, which declares no output
-# and needs no station named, one gauge being loaded.
+# Back to the published method: score `transient_storage` on the hydrograph
+# alone, which is what the protocol writes (`hmp calibrate
+# run_calibration.toml --expand` prints its stages).
 #
-#   variable  = "discharge"
-#   objective = "nse_log"
+#   objective_blocks = ["hydrograph"]
 #
-#   [calibration.phases.scoring_window]
-#   start = "2001-01-01"
-#   end   = "2002-12-31"
-#
-# A window is legal there: the stage scores one record and no dateless block is
-# left in it. [calibration.outputs.gauged_discharge], the `hydrograph` block
-# and its `warmup` then have nobody left to read them.
+# The `warmup` of that block drops 2000 as the protocol's scoring_window does,
+# and the `network_extension` block is then read by stage one only.

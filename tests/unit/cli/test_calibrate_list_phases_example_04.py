@@ -76,3 +76,10 @@ def test_the_by_hand_file_shows_a_point_row_that_observes_a_station(capsys) -> N
         "\tvs station NANCON ([data.hydrometry])"
     )
     assert len(lines) == 5
+
+
+def test_the_protocol_written_by_hand_lists_what_the_protocol_lists(capsys) -> None:
+    protocol = _list_phases(EXAMPLE_04 / "run_calibration.toml", capsys)
+    by_hand = _list_phases(EXAMPLE_04 / "run_calibration_protocol_by_hand.toml", capsys)
+
+    assert by_hand == protocol

@@ -1,0 +1,112 @@
+# Nancon, the protocol of project.toml without its name: the same two stages,
+# orchestrated by hand, with nothing added. It runs what run_calibration.toml
+# runs, trial for trial; only the citation a protocol run records is lost.
+# run_calibration_by_hand.toml starts from the same stages and deviates once.
+#
+#   1. K alone, one steady period over the record, moved until the simulated
+#      seepage network matches the mapped one. No discharge record enters it.
+#   2. Sy alone, monthly transient, K frozen at what stage one found, scored on
+#      the gauged hydrograph alone.
+#
+# Abherve et al. (2023), 10.5194/hess-27-3221-2023.
+#
+#   hmp calibrate .../run_calibration_protocol_by_hand.toml --list-phases   same lines as run_calibration.toml
+#   hmp calibrate .../run_calibration_protocol_by_hand.toml --check         every problem at once, no solve
+#   hmp calibrate .../run_calibration_protocol_by_hand.toml                 both stages, in order
+#   hmp run       .../run_calibration_protocol_by_hand.toml                 the same, dispatched by mode
+
+base_config = "project.toml"
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "nancon_intermittence_mf6_protocol_by_hand"
+description = "Nancon, the published two-stage method written as phases: K from the mapped network, then Sy from the gauge."
+
+
+[calibration]
+# A file may not both name a protocol and declare its own stages. `__delete`
+# drops the inherited name; the seed, the bounds of K and Sy and the network
+# output of project.toml are kept.
+protocol__delete = true
+
+
+# The gauge, which the protocol declares for itself. A point output that
+# `observes` a station reads the station's cell with the runoff over the area it
+# drains, or the whole-catchment series when no cell was matched, which is this
+# project. No x or y: the station places it.
+[calibration.outputs.hydrograph]
+support = "point"
+variable = "discharge"
+observes = "NANCON"
+
+# Stage one's criterion: the signed difference of Eq. 1, cost |D_so - D_os| in
+# metres, zero when the simulated network extends as far as the mapped one.
+[[calibration.objective_blocks]]
+name = "network_extension"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+
+# Stage two's criterion: NSE on the logarithms, which weights the recessions
+# where storage shows.
+[[calibration.objective_blocks]]
+name = "hydrograph"
+metric = "nse_log"
+uses_outputs = ["hydrograph"]
+
+
+# Stage one. `regime = "steady"` makes [simulation.time] one period, 1096 days
+# here, 2000 being a leap year; the recharge over it averages to the mean the
+# criterion is defined at, and a steady solve carries no storage, so K is
+# identifiable without a discharge record.
+[[calibration.phases]]
+name = "steady_conductivity"
+description = "Match the simulated seepage network to the mapped one by moving K, steady state over the record."
+parameters = ["K"]
+regime = "steady"
+objective_blocks = ["network_extension"]
+# One log parameter on a signed criterion calls for a root search, so bisection
+# would be chosen unwritten; it is written because the sweep below is one of its
+# options, and options need their engine named.
+method = "bisection"
+max_iter = 18
+# The precision at which the stage stops: one per cent on K, the paper's.
+tolerance = 0.01
+# Stage two inherits this K and may not move it.
+freeze_on_success = true
+# The width of the interval reported around K is left to its default, as the
+# protocol run leaves it: one mesh cell of network gap, 75 m on this grid.
+# Around Sy, stage two takes 5 % of its best cost. A stage that knows better
+# says so here, for example on a coarser map:
+#
+#   uncertainty = { mode = "absolute", tolerance = 150 }   # two cells
+
+# A coarse log sweep before the bisection, to check the monotonicity the method
+# assumes. 0 gives the pure bisection of the paper.
+[calibration.phases.optimizer_kwargs]
+sweep_points = 7
+
+
+# Stage two. The time grid is the parent's; only the regime is restated.
+[[calibration.phases]]
+name = "transient_storage"
+description = "Read Sy from the observed hydrograph, K frozen, transient."
+parameters = ["Sy"]
+regime = "transient"
+objective_blocks = ["hydrograph"]
+# The paper's engine, and the one a cost to minimise gets unwritten.
+method = "scipy_nelder_mead"
+max_iter = 30
+# Five per cent on Sy, which is not known to one per cent, and each evaluation
+# here is a full 36-month run.
+tolerance = 0.05
+# "Then": this stage starts once stage one has converged and frozen K.
+depends_on = "steady_conductivity"
+
+# 2000 is simulated and not scored. A window is legal here: the stage scores one
+# dated record and no dateless block.
+[calibration.phases.scoring_window]
+start = "2001-01-01"
+end = "2002-12-31"
+
