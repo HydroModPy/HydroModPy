@@ -109,6 +109,11 @@ Each release section includes the following standard categories:
   Python for the context alone.
 
 ### Added
+- A MODFLOW 6 twin validation case for the stream-network criterion. A planar hillslope run at
+  a known K draws the mapped network, and a network-only bisection recovers that K within 1 per
+  cent, with J at zero and consistent K/R, dsat, T/R and Toptim in the report
+  (`tests/validation/calibration/test_twin_matching_stream_network_modflow6.py`, tolerances rows
+  76 to 79).
 - `observed_rasterization` on a network calibration output. `"crossing"`, the default, keeps a
   cell where a mapped line crosses the segment joining two edge-sharing cell centres: on a grid
   this is WhiteboxTools VectorLinesToRaster, the paper's tool, so a model that reproduces the map

@@ -1,7 +1,7 @@
 """Guard the single-source tolerance policy.
 
 ``tests/TOLERANCES.md`` is the one source of truth for numerical tolerances.
-``tests/_helpers/tolerances.py::tol`` loads the 44 single-scalar rows from that
+``tests/_helpers/tolerances.py::tol`` loads the 47 single-scalar rows from that
 table. This test prevents two kinds of drift:
 
 1. A ``tol("...")`` call that points at a typo / dangling key (it would resolve
@@ -9,7 +9,7 @@ table. This test prevents two kinds of drift:
 2. An INLINE row whose value is hard-coded at its assertion site again, so the
    row could diverge from the table without anyone noticing.
 
-The 44 loadable rows split into three enforcement classes (W5 classification):
+The 47 loadable rows split into three enforcement classes (W5 classification):
 
 * INLINE  - the value is asserted at a validation/regression call site; the
             literal was replaced by ``tol(<slug>)``. Every INLINE row MUST be
@@ -47,7 +47,7 @@ _SCAN_EXCLUDE: frozenset[str] = frozenset(
 )
 
 # --------------------------------------------------------------------------- #
-# W5 classification of the 44 loadable TOLERANCES.md rows.
+# W5 classification of the 47 loadable TOLERANCES.md rows.
 # --------------------------------------------------------------------------- #
 
 # INLINE: literal replaced by tol(); must be referenced by >= 1 tol() call.
@@ -92,6 +92,14 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "double_execution_comparator_float_arrays__atol",
         "double_execution_comparator_signature_fallback__rtol",
         "double_execution_comparator_manifest_scalars__rtol",
+        # Twin stream-network calibration on MODFLOW 6, asserted in
+        # tests/validation/calibration/test_twin_matching_stream_network_modflow6.py.
+        # Row 77 is not loadable: its band is the run's own cell spacing.
+        "twin_stream_network_calibration_mf6_planar_hillslope_400_cells_of_2_m__"
+        "k_k_true_k_true_at_the_returned_trial_and_the_same_on_k_over_r_against_k_true_r",
+        "twin_stream_network_calibration_mf6__d_sat_m_at_the_returned_trial_against_the_truth_run",
+        "twin_stream_network_calibration_mf6__k_optim_m_s_k_over_r_t_over_r_m_t_optim_m2_s_"
+        "against_k_r_mean_m_s_and_d_sat_m_of_the_returned_trial",
     }
 )
 
@@ -192,7 +200,7 @@ def test_classification_partitions_all_loadable_rows() -> None:
     """INLINE, CASE_TOML and UNUSED partition exactly the loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 44, sorted(loadable)
+    assert len(loadable) == 47, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"
