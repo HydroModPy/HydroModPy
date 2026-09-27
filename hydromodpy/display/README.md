@@ -61,14 +61,13 @@ never in a figure.
 
 | unit | may import inside `display` |
 |---|---|
-| `report_blocks`, `style`, `maps`, `png_metadata`, `scalable`, `animation` | nothing |
+| `report_blocks`, `style`, `maps`, `png_metadata`, `quicklook` | nothing |
 | `figure` | `png_metadata` |
 | `figure_registry` | `figure`; and `figures` by its name written as text, on first lookup (the one exception, which keeps `import hydromodpy.display` light) |
 | `figures` | `figure`, `figure_registry`, `maps`, `style` |
 | `config` | `figure_registry` |
 | `<init>` (the `__init__.py` facade) | `figure`, `figure_registry` |
 | `runs` | `<init>`, `config`, `figure`, `style` |
-| `viz` | `scalable` |
 | `overview` | `report_blocks`, `style` |
 | `catchment_report` | `overview`, `report_blocks` |
 
@@ -118,10 +117,10 @@ hydromodpy/display/
 ├── overview/              report on the data before any simulation ([overview])
 ├── catchment_report/      catchment report (hmp report catchment <toml>)
 │
-│   outside the catalogue
-├── viz.py                 hmp.viz.show(data): quick look at an array; unrelated to `hmp viz`
-├── scalable.py            datashader rasterisation for viz.py
-└── animation.py           GIF, MP4 or plotly slider from PNG already rendered
+└── quicklook/             a quick look at data, outside the catalogue; unrelated to `hmp viz`
+    ├── viz.py                 hmp.viz.show(data): an xarray array, a series or a GeoDataFrame
+    ├── scalable.py            datashader rasterisation for viz.py
+    └── animation.py           GIF, MP4 or plotly slider from PNG already rendered
 ```
 
 ## Template of a figure
@@ -178,8 +177,8 @@ the base first and returns a sentence (model: `figures/lake_abacus_comparison.py
 | `report_blocks/` | how to assemble blocks, figures and tables into one HTML page? |
 | `overview/` | what does the catchment look like before any simulation? |
 | `catchment_report/` | which catchment report to build from a report TOML? |
-| `viz.py`, `scalable.py` | how to look quickly at an xarray array, a series or a GeoDataFrame? |
-| `animation.py` | how to chain PNG into an animation? |
+| `quicklook/viz.py`, `quicklook/scalable.py` | how to look quickly at an xarray array, a series or a GeoDataFrame? |
+| `quicklook/animation.py` | how to chain PNG into an animation? |
 
 ## How data flows
 
@@ -260,7 +259,7 @@ Another package of `hydromodpy/` imports only these modules (the `public` list o
 | `hydromodpy.display.config` | `DisplayConfig` |
 | `hydromodpy.display.figure_registry` | `get`, `resolve`, `names` |
 | `hydromodpy.display.runs` | rendering the figures of a run, and their availability |
-| `hydromodpy.display.viz` | `hmp.viz` |
+| `hydromodpy.display.quicklook.viz` | `hmp.viz` |
 | `hydromodpy.display.maps.axes`, `hydromodpy.display.maps.ugrid`, `hydromodpy.display.maps.geo` | map tools reused by `reporting` |
 | `hydromodpy.display.report_blocks` | HTML engine (`reporting`, and `calibration` through a tolerance) |
 | `hydromodpy.display.overview`, `hydromodpy.display.overview.config` | overview and `OverviewConfig` |

@@ -320,6 +320,9 @@ Each release section includes the following standard categories:
   | `hydromodpy.display.theme` | `hydromodpy.display.style` |
   | `hydromodpy.display.colormaps` | `hydromodpy.display.style` |
   | `hydromodpy.display.legend_placement` | `hydromodpy.display.style` |
+  | `hydromodpy.display.viz` | `hydromodpy.display.quicklook.viz` |
+  | `hydromodpy.display.scalable` | `hydromodpy.display.quicklook.scalable` |
+  | `hydromodpy.display.animation` | `hydromodpy.display.quicklook.animation` |
 - A figure names what it shows, not a solver or a provider: `mesh_map` is
   titled "Model mesh" (was "Solver mesh") and `hydrographic_network_reference`
   "Reference hydrographic network" (was "BD Topage hydrographic network", while

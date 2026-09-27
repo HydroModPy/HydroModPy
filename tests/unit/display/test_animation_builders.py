@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.display.animation import build_gif, build_mp4, build_plotly_slider
+from hydromodpy.display.quicklook.animation import build_gif, build_mp4, build_plotly_slider
 
 
 def _write_png(path: Path, color: tuple[int, int, int]) -> None:

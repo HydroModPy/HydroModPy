@@ -40,6 +40,10 @@ Sub-modules
   the ``[display]`` TOML section.
 - ``display/style.py`` -- how every figure looks: themes, banned and
   preferred colormaps, legend placement.
+- ``display/quicklook/`` -- a quick look at data outside the figure
+  catalogue: ``hmp.viz.show`` (``viz.py``, with datashader in
+  ``scalable.py``) and animations of PNG already rendered
+  (``animation.py``). ``hmp viz`` does not use them.
 
 Block HTML Reports
 ------------------

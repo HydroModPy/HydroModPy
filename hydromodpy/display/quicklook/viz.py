@@ -103,7 +103,7 @@ def _show_array(
 ) -> MplFigure:
     import matplotlib.pyplot as plt
 
-    from hydromodpy.display.scalable import (
+    from hydromodpy.display.quicklook.scalable import (
         DEFAULT_CELL_THRESHOLD,
         is_datashader_available,
         rasterize_field,

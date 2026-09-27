@@ -11,11 +11,9 @@ allowed:
   style:            []
   maps:             []
   png_metadata:     []
-  scalable:         []
-  animation:        []
+  quicklook:        []
   figure:           [png_metadata]
   figure_registry:  [figure]
-  viz:              [scalable]
   figures:          [figure, figure_registry, maps, style]
   config:           [figure_registry]
   "<init>":         [figure, figure_registry]
@@ -34,7 +32,7 @@ public:
   - hydromodpy.display.config
   - hydromodpy.display.figure_registry
   - hydromodpy.display.runs
-  - hydromodpy.display.viz
+  - hydromodpy.display.quicklook.viz
   - hydromodpy.display.maps.axes
   - hydromodpy.display.maps.ugrid
   - hydromodpy.display.maps.geo
