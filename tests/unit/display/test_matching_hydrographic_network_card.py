@@ -81,6 +81,7 @@ def _criterion_diagnostics(mean_recharge: float) -> dict[str, float]:
         observed=np.array([True, False]),
         outlet=0,
         catchment=np.array([True, True]),
+        catchment_mismatch=0.0,
         distance_to_observed=np.zeros(2),
         distance_to_observed_raw=np.zeros(2),
         cell_area_m2=np.ones(2),

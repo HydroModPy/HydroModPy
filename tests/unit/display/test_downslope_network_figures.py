@@ -480,15 +480,17 @@ def test_the_ground_is_counted_on_what_the_frame_shows(mpl) -> None:
 
     try:
         # The frame holds the three middle columns, nine cells, four of which
-        # the criterion classifies.
+        # the criterion classifies. The criterion scores the catchment of its
+        # own graph, the whole valley here, so the excess cell of column 4
+        # counts in the class and not in the ground of the frame.
         assert legend_labels(ax) == [
             "valid: simulated and mapped (2 cells)",
-            "excess: simulated only (1 cell)",
+            "excess: simulated only (2 cells)",
             "missing: mapped only (1 cell)",
             "no stream (5 cells)",
         ]
         ground = _class_collection(ax, AGREEMENT_NEITHER)
-        assert len(ground.get_paths()) == NX * NY - 4, (
+        assert len(ground.get_paths()) == NX * NY - 5, (
             "the ground is still drawn over the whole mesh, only counted on the frame"
         )
     finally:
@@ -508,12 +510,17 @@ def test_a_caller_may_ask_for_the_whole_mesh(mpl) -> None:
 
 
 def test_the_catchment_frame_hides_no_class(mpl) -> None:
-    # The criterion scores nothing outside the delineated catchment, so the
-    # default frame can drop no cell the legend counts. The note says nothing
-    # rather than warning about a loss that cannot happen here.
+    # The criterion scores nothing outside its catchment, here the south-west
+    # corner the two western columns close on, so the default frame can drop
+    # no cell the legend counts. The note says nothing rather than warning
+    # about a loss that cannot happen here. The seepage in that corner is what
+    # gives the catchment a class to draw.
     fig, ax = mpl.subplots()
+    run = comparison_run(
+        seepage_cells=[cell(0, 0), cell(AXIS_COLUMN, 1), cell(4, 0)], catchment_columns=[0, 1]
+    )
 
-    SeepageNetworkConfusionMap().render(_partition_run(catchment_columns=[0, 1]), ax)
+    SeepageNetworkConfusionMap().render(run, ax)
 
     try:
         xmin, xmax = ax.get_xlim()

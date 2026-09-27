@@ -7,6 +7,13 @@ saturation cap. A trial recomputes only the distance towards the network it just
 simulated, which is one ``O(n_cells)`` pass. That asymmetry is what makes the
 comparison affordable, and geometry does not move when ``K`` does.
 
+One surface carries all of it. The model top is conditioned on the mesh graph
+by a priority flood seeded on the border of the active domain, the standard
+form of Barnes et al. (2014). The outlet and the scored catchment are read on
+that same graph: the catchment is every cell whose descent reaches the outlet.
+The raster polygon of the geographic step only builds the domain and places
+the outlet, and its gap to the graph catchment is published.
+
 It lives in ``core`` because four layers need the SAME construction: the
 calibration criterion scores it, the results layer rebuilds it to draw a run
 after the fact, and neither may import the other. Two derivations of one
@@ -24,6 +31,7 @@ from hydromodpy.core.field_routing import (
     accumulate_on_downhill_graph,
     active_surface_mask,
     cell_adjacency_from_face_connectivity,
+    domain_edge_cells,
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
@@ -43,15 +51,32 @@ from hydromodpy.core.topographic_distance import (
 
 logger = get_logger(__name__)
 
+#: Rings of neighbours the delineated outlet may move across to reach the most
+#: accumulated cell of the criterion graph. Two cells is the ``SnapPourPoints``
+#: distance of the paper (twice the resolution): on a quad mesh descended D8
+#: the two rings are its five-by-five window.
+OUTLET_SNAP_RINGS = 2
+
+#: Share of the delineated polygon's area the graph catchment may differ by
+#: before the gap is logged as a warning. It decides what is LOGGED only.
+CATCHMENT_MISMATCH_WARNING_SHARE = 0.05
+
 
 @dataclass(frozen=True, slots=True)
 class NetworkGeometry:
-    """Everything the cost needs that does not change from trial to trial."""
+    """Everything the cost needs that does not change from trial to trial.
+
+    ``catchment`` is the scored support: the cells whose descent on the
+    conditioned graph reaches ``outlet``. ``catchment_mismatch`` is the area of
+    the symmetric difference between it and the delineated raster polygon,
+    divided by the polygon's area; NaN when no polygon was given.
+    """
 
     metric: DownslopeMetric
     observed: np.ndarray
     outlet: int
     catchment: np.ndarray
+    catchment_mismatch: float
     distance_to_observed: np.ndarray
     distance_to_observed_raw: np.ndarray
     cell_area_m2: np.ndarray
@@ -74,16 +99,21 @@ class NetworkGeometry:
         moving mid-session readable in ``trials.jsonl`` afterwards.
 
         ``alpha_obs_closure`` and ``alpha_obs_closure_catchment`` are the same
-        ratio on two supports, the whole mesh and the delineated catchment.
-        They part company exactly when the mapped linework is wider than the
+        ratio on two supports, the whole mesh and the scored catchment. They
+        part company exactly when the mapped linework is wider than the
         catchment, which ``frac_obs_outside_catchment`` says outright, so the
         gap between them is attributable rather than mysterious.
+
+        ``catchment_mismatch`` says how far the scored catchment, read on the
+        criterion graph, sits from the polygon the geographic step delineated
+        on its raster.
         """
         return {
             "alpha_obs_closure": self.alpha_obs_closure,
             "alpha_obs_closure_catchment": self.alpha_obs_closure_catchment,
             "frac_obs_outside_catchment": self.frac_obs_outside_catchment,
             "frac_reachable_obs_raw": self.frac_reachable_obs_raw,
+            "catchment_mismatch": self.catchment_mismatch,
             "n_outlet_sealed": float(0.0 if self.observed[self.outlet] else 1.0),
             "R_mean_m_s": self.mean_recharge_m_s,
         }
@@ -136,26 +166,81 @@ def reference_length(cell_area_m2: np.ndarray, support: np.ndarray) -> float:
     return float(np.sqrt(np.median(kept)))
 
 
-def resolve_outlet(metric: DownslopeMetric, *, within: np.ndarray | None = None) -> int:
-    """Return the cell every path ends in: the largest drained area.
+def _rings_around(start: int, adjacency: list[set[int]], rings: int) -> np.ndarray:
+    """Return ``start`` and every cell at most ``rings`` neighbour steps from it."""
+    reached = {int(start)}
+    frontier = {int(start)}
+    for _ in range(int(rings)):
+        frontier = {int(n) for cell in frontier for n in adjacency[cell]} - reached
+        reached |= frontier
+    return np.fromiter(sorted(reached), dtype=int)
+
+
+def resolve_outlet(
+    metric: DownslopeMetric,
+    *,
+    within: np.ndarray | None = None,
+    near: tuple[float, float] | None = None,
+    adjacency: list[set[int]] | None = None,
+    rings: int = OUTLET_SNAP_RINGS,
+    cell_area_m2: np.ndarray | None = None,
+) -> int:
+    """Return the closing cell of the catchment: the largest drained area.
 
     The outlet is not a product of the DEM, it is the closing point of the
     catchment, usually the gauging station. Writing that it belongs to the
     stream network is true by definition, which is what makes sealing it into
     the target legitimate rather than a fudge.
 
-    ``within`` restricts the search to a catchment. Without it the accumulation
-    is read over the whole mesh, and on an unconditioned surface the maximum
-    sits in the largest internal depression rather than at the gauge.
+    ``near`` is the outlet the geographic step delineated from, in the mesh
+    CRS. The search then starts at the active cell whose centre is nearest to
+    it and keeps the most accumulated cell within ``rings`` neighbour steps on
+    ``adjacency``, the graph the metric descends: the ``SnapPourPoints`` rule
+    of the paper, read on the mesh. Without ``near``, ``within`` restricts the
+    search to a catchment; without either, the largest basin of the mesh wins.
+
+    ``cell_area_m2`` weighs the accumulation into a drained area, which a mesh
+    of unequal cells needs; the cell count is used without it.
     """
-    active = metric.graph.active
-    if within is not None:
-        active = active & np.asarray(within, dtype=bool).reshape(-1)
-    accumulated = accumulate_on_downhill_graph(metric.graph, np.ones(active.size))
-    scored = np.where(active & np.isfinite(accumulated), accumulated, -np.inf)
-    if not np.any(np.isfinite(scored)):
+    graph = metric.graph
+    active = graph.active
+    weights = (
+        np.ones(active.size)
+        if cell_area_m2 is None
+        else np.asarray(cell_area_m2, dtype=float).reshape(-1)
+    )
+    accumulated = accumulate_on_downhill_graph(graph, weights)
+    candidates = active & np.isfinite(accumulated)
+    if not np.any(candidates):
         raise ValueError("the mesh holds no active cell to close the catchment on.")
+    if near is not None:
+        if adjacency is None:
+            raise ValueError("snapping the outlet needs the adjacency the metric descends.")
+        point = np.asarray(near, dtype=float).reshape(2)
+        offset = metric.centroids - point[None, :]
+        gap = np.where(candidates, np.hypot(offset[:, 0], offset[:, 1]), np.inf)
+        window = np.zeros(active.size, dtype=bool)
+        window[_rings_around(int(np.argmin(gap)), adjacency, rings)] = True
+        candidates &= window
+    elif within is not None:
+        candidates &= np.asarray(within, dtype=bool).reshape(-1)
+        if not np.any(candidates):
+            raise ValueError("the catchment holds no active cell to close on.")
+    scored = np.where(candidates, accumulated, -np.inf)
     return int(np.argmax(scored))
+
+
+def _catchment_mismatch(
+    polygon: np.ndarray | None, catchment: np.ndarray, areas: np.ndarray
+) -> float:
+    """Return ``area(polygon XOR catchment) / area(polygon)``, NaN without a polygon."""
+    if polygon is None:
+        return float("nan")
+    weights = np.where(np.isfinite(areas), areas, 0.0)
+    polygon_area = float(weights[polygon].sum())
+    if polygon_area <= 0.0:
+        return float("nan")
+    return float(weights[polygon ^ catchment].sum()) / polygon_area
 
 
 def build_network_geometry(
@@ -171,13 +256,27 @@ def build_network_geometry(
     inactive_mask: np.ndarray | None = None,
     excluded: np.ndarray | None = None,
     delineated_catchment: np.ndarray | None = None,
+    delineated_outlet_xy: tuple[float, float] | None = None,
     diagonal_neighbors: bool = STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
     observed_position_accuracy_m: float | None = None,
     alpha_warning_threshold: float = STREAM_CRITERION_DEFAULTS.alpha_warning_threshold,
     clipping_warning_share: float = STREAM_CRITERION_DEFAULTS.clipping_warning_share,
     clipping_warning_gap: float = STREAM_CRITERION_DEFAULTS.clipping_warning_gap,
+    catchment_mismatch_warning_share: float = CATCHMENT_MISMATCH_WARNING_SHARE,
 ) -> NetworkGeometry:
     """Assemble the static geometry of the criterion from mesh primitives.
+
+    The surface, the outlet and the catchment all come from one graph: the
+    model top conditioned by a priority flood seeded on the border of the
+    active domain. ``delineated_outlet_xy`` is the outlet the geographic step
+    delineated from (its snapped pour point, in the mesh CRS); the outlet is
+    the most accumulated cell within :data:`OUTLET_SNAP_RINGS` of it. Without
+    it, the most accumulated cell of ``delineated_catchment`` closes the
+    catchment, and without either the largest basin of the mesh does. The
+    catchment scored is every cell whose descent reaches that outlet.
+    ``delineated_catchment``, the raster polygon projected on the cells, is
+    only compared to it: ``catchment_mismatch`` publishes the gap, and a gap
+    above ``catchment_mismatch_warning_share`` is logged as a warning.
 
     ``excluded`` holds the cells whose surface-water extent is an input rather
     than an output: a lake, an ocean-role boundary, a mapped wetland. They stay
@@ -211,63 +310,42 @@ def build_network_geometry(
         if inactive_mask is None
         else np.asarray(inactive_mask, dtype=bool).reshape(-1)
     )
-    fill_report = None
-    catchment_outlet: int | None = None
-    adjacency: list[set[int]] | None = None
-    if delineated_catchment is None:
-        # Never silent: without the delineated catchment the criterion falls back
-        # to descending the raw model top to its own largest basin, which on a
-        # real surface is an internal depression holding a few per cent of the
-        # mesh. A synthetic domain legitimately has no watershed; a real run that
-        # lost it (a concurrent run cleaning the preparation directory, for one)
-        # produces a plausible number from the wrong support.
-        logger.warning(
-            "Network criterion: no delineated catchment for this run. Falling back to "
-            "the largest basin of the raw model top, whose depressions are not "
-            "resolved. Check that the geographic step ran and that its preparation "
-            "directory was not removed while the trial was scoring."
-        )
-    if delineated_catchment is not None:
-        # Condition the surface ON THIS GRAPH before measuring lengths along it.
-        # A raster conditioned before delineation is pit-free on its own grid
-        # only; sampled onto the mesh it grows new pits, and the descent then
-        # stops in depressions that do not exist hydrologically. Measured on the
-        # Nancon: 13.6 per cent of the seepage support never reached its target
-        # before the flood, 0.0 per cent after, and the outlet moved from an
-        # internal depression at 130.3 m to the true low point at 106.4 m.
-        catchment_seed = np.asarray(delineated_catchment, dtype=bool).reshape(-1)
-        candidates = np.where(catchment_seed & ~inactive, surface, np.inf)
-        # The flood and the criterion must seal the SAME cell. After the flood
-        # every path in the catchment ends at this one by construction, so
-        # resolving a different outlet afterwards leaves the cells that drain
-        # here unable to reach the sealed target.
-        catchment_outlet = int(np.argmin(candidates))
-        outlets = np.zeros(surface.size, dtype=bool)
-        outlets[catchment_outlet] = True
-        # THE SAME neighbour graph the metric will descend. The flood only
-        # guarantees a strictly lower neighbour among the cells it walked: fed
-        # the eight-neighbour graph while the metric reads the four-neighbour
-        # one, it leaves every filled cell spilling over a diagonal the metric
-        # cannot take, and 99.8 per cent of the catchment stops reaching the
-        # outlet instead of 0.
-        adjacency = (
-            shared_node_adjacency(face_node_connectivity, n_cells=surface.size)
-            if diagonal_neighbors
-            else cell_adjacency_from_face_connectivity(face_node_connectivity, n_cells=surface.size)
-        )
-        fill_report = fill_depressions_on_graph(
-            np.where(inactive, np.nan, surface), adjacency, outlets
-        )
-        surface = fill_report.surface
-        logger.info(
-            "Network criterion: %d cell(s) raised so every cell reaches the sealed "
-            "outlet, up to %.2f m.",
-            fill_report.n_filled,
-            fill_report.max_fill,
-        )
+    # THE SAME neighbour graph the metric will descend. The flood only
+    # guarantees a strictly lower neighbour among the cells it walked: fed the
+    # eight-neighbour graph while the metric reads the four-neighbour one, it
+    # leaves every filled cell spilling over a diagonal the metric cannot take,
+    # and 99.8 per cent of the catchment stops reaching the outlet instead of 0.
+    adjacency = (
+        shared_node_adjacency(face_node_connectivity, n_cells=surface.size)
+        if diagonal_neighbors
+        else cell_adjacency_from_face_connectivity(face_node_connectivity, n_cells=surface.size)
+    )
+    # Condition the surface ON THIS GRAPH before measuring lengths along it. A
+    # raster conditioned before delineation is pit-free on its own grid only;
+    # sampled onto the mesh it grows new pits, and the descent then stops in
+    # depressions that do not exist hydrologically (13.6 per cent of the
+    # seepage support on the Nancon before any flood).
+    #
+    # The flood is seeded on the border of the active domain, where water
+    # leaves the model, and not on the catchment outlet alone. Sealing one
+    # outlet declares the whole domain endorheic towards it: a buffer valley
+    # draining off the domain is filled up to a col of the divide, and its
+    # seepage then crosses into the catchment down hillslopes that do not
+    # seep. Measured on the Nancon proxy: +16 per cent of network cells near
+    # the root, and the root shifted by 24 per cent.
+    edges = domain_edge_cells(face_node_connectivity, ~inactive & np.isfinite(surface))
+    if not np.any(edges):
+        raise ValueError("the mesh holds no active cell to condition the criterion surface on.")
+    fill_report = fill_depressions_on_graph(np.where(inactive, np.nan, surface), adjacency, edges)
+    logger.info(
+        "Network criterion: %d cell(s) raised so every cell drains to the domain border, "
+        "up to %.2f m.",
+        fill_report.n_filled,
+        fill_report.max_fill,
+    )
 
     metric = build_downslope_metric(
-        surface,
+        fill_report.surface,
         face_node_connectivity,
         vertices=vertices,
         centroids=cell_centroids,
@@ -284,38 +362,59 @@ def build_network_geometry(
             "and that both its CRS and the mesh CRS are declared."
         )
 
+    polygon: np.ndarray | None = None
     if delineated_catchment is not None:
-        # The catchment the geographic pipeline closed on the declared gauge,
-        # delineated on the conditioned routing surface. The model top is never
-        # conditioned, so descending it to its own largest basin picks an
-        # internal depression instead: measured on the Nancon, 2.3 per cent of
-        # the mesh and not one cell of the mapped network.
-        catchment = np.asarray(delineated_catchment, dtype=bool).reshape(-1) & active
-        if not np.any(catchment):
+        polygon = np.asarray(delineated_catchment, dtype=bool).reshape(-1) & active
+        if not np.any(polygon):
             raise ValueError(
                 "the delineated catchment projects onto no active cell of the mesh: "
                 "check the CRS of the watershed the geographic step wrote."
             )
-        outlet = catchment_outlet
-    else:
-        outlet = resolve_outlet(metric)
-        seed = np.zeros(active.size, dtype=bool)
-        seed[outlet] = True
-        catchment = np.isfinite(downslope_distance_to_mask(metric, seed)) & active
+    elif delineated_outlet_xy is None:
+        # Never silent. A synthetic domain legitimately has no watershed; a real
+        # run that lost it (a concurrent run cleaning the preparation
+        # directory, for one) closes on the largest basin of its domain, which
+        # need not be the gauged one, and produces a plausible number from the
+        # wrong support.
+        logger.warning(
+            "Network criterion: no delineated catchment and no outlet for this run. "
+            "Closing on the largest basin of the conditioned model top instead. Check "
+            "that the geographic step ran and that its preparation directory was not "
+            "removed while the trial was scoring."
+        )
 
+    areas = np.asarray(cell_area_m2, dtype=float).reshape(-1)
+    outlet = resolve_outlet(
+        metric,
+        within=polygon,
+        near=delineated_outlet_xy,
+        adjacency=adjacency,
+        cell_area_m2=np.where(np.isfinite(areas), areas, 0.0),
+    )
     outlet_mask = np.zeros(active.size, dtype=bool)
     outlet_mask[outlet] = True
-
-    if fill_report is not None:
-        # After the flood every catchment cell must reach the sealed outlet.
-        # Anything else means the surface the flood conditioned is not the one
-        # the metric descends.
-        to_outlet = downslope_distance_to_mask(metric, outlet_mask)
-        stranded = float(np.mean(~np.isfinite(to_outlet[catchment])))
+    # The scored catchment is closed upstream on the graph the distances use:
+    # no descent from outside enters it, and every cell of it reaches the
+    # outlet without being raised towards it.
+    catchment = np.isfinite(downslope_distance_to_mask(metric, outlet_mask)) & active
+    mismatch = _catchment_mismatch(polygon, catchment, areas)
+    if np.isfinite(mismatch) and mismatch > float(catchment_mismatch_warning_share):
+        logger.warning(
+            "Network criterion: the catchment read on the criterion graph differs from the "
+            "delineated polygon by %.1f%% of its area (%d cells against %d). The criterion "
+            "scores the graph catchment. A large gap usually means an outlet placed on "
+            "another branch, or a mesh much coarser than the DEM the polygon came from.",
+            100.0 * mismatch,
+            int(catchment.sum()),
+            int(polygon.sum()) if polygon is not None else 0,
+        )
+    else:
         logger.info(
-            "Network criterion: %.2f%% of the catchment does not reach the sealed outlet "
-            "after conditioning.",
-            100.0 * stranded,
+            "Network criterion: graph catchment of %d cell(s) closed on cell %d; gap to the "
+            "delineated polygon %.2f%% of its area.",
+            int(catchment.sum()),
+            outlet,
+            100.0 * mismatch if np.isfinite(mismatch) else float("nan"),
         )
 
     excluded_mask = (
@@ -340,8 +439,11 @@ def build_network_geometry(
     # that is not an agreement defect: outside the catchment the mesh is a
     # buffer, nothing there is required to descend into the network, and the
     # trace of those reaches inflates the closure alone. Measured on the
-    # Nancon, the raw linework puts 1362 of its 2479 mapped cells outside the
-    # catchment and reads 0.306 on the mesh against 0.693 on the catchment.
+    # Nancon when one outlet sealed the whole mesh, the raw linework put 1362
+    # of its 2479 mapped cells outside the catchment and read 0.306 on the mesh
+    # against 0.693 on the catchment. With the flood seeded on the domain
+    # border, buffer reaches drain off the domain instead of across the divide,
+    # and the two ratios come close (0.81 against 0.77 on the study proxy).
     outside = float(np.mean(~catchment[observed_mask])) if observed_mask.any() else float("nan")
     closure_in = closure & catchment
     alpha_catchment = (
@@ -350,12 +452,14 @@ def build_network_geometry(
         else float("nan")
     )
     # Measured on the MAPPED network alone even when water bodies joined the
-    # target: the diagnostic answers "how much of the surface descends into the
-    # linework", and a reservoir absorbing paths would flatter it.
+    # target: the diagnostic answers "how much of the catchment descends into
+    # the linework without the sealed outlet", and a reservoir absorbing paths
+    # would flatter it. On the catchment, not the mesh: buffer cells drain off
+    # the domain border and are not required to meet the network.
     reach_from = (
         distance_raw if excluded_mask is None else downslope_distance_to_mask(metric, observed_mask)
     )
-    reachable = float(np.mean(np.isfinite(reach_from[active]))) if active.any() else float("nan")
+    reachable = float(np.mean(np.isfinite(reach_from[catchment])))
     gap = abs(alpha_catchment - alpha)
     # Only when the clipping MOVES the number. A linework spilling out of the
     # catchment over ground that routes the same way leaves the two ratios
@@ -366,7 +470,7 @@ def build_network_geometry(
         and gap > float(clipping_warning_gap)
     ):
         logger.warning(
-            "%.0f%% of the mapped stream cells sit outside the delineated catchment, and "
+            "%.0f%% of the mapped stream cells sit outside the scored catchment, and "
             "that alone moves the ratio by %.3f: alpha_obs_closure = %.3f on the mesh "
             "against alpha_obs_closure_catchment = %.3f on the support the criterion "
             "scores. Those reaches trace through the buffer, where no cell is required to "
@@ -390,7 +494,6 @@ def build_network_geometry(
             float(alpha_warning_threshold),
         )
 
-    areas = np.asarray(cell_area_m2, dtype=float).reshape(-1)
     length_scale = reference_length(areas, catchment)
     if observed_position_accuracy_m:
         # The error floor is set by the positional accuracy of the mapped
@@ -406,6 +509,7 @@ def build_network_geometry(
         observed=observed_mask,
         outlet=outlet,
         catchment=catchment,
+        catchment_mismatch=mismatch,
         distance_to_observed=distance_sealed,
         distance_to_observed_raw=distance_raw,
         cell_area_m2=areas,

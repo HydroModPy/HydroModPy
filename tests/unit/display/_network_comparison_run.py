@@ -121,11 +121,22 @@ def comparison_run(
     if with_relief:
         fields["topography"] = surface if relief is None else np.asarray(relief, dtype=float)
 
+    # The snapped pour point the geographic step persists, which the criterion
+    # places its outlet from. A catchment narrowed to some columns stands for
+    # a polygon drawn by hand, which carries no pour point: the criterion then
+    # closes on the most accumulated cell of the polygon.
+    snapped = (
+        {"x_outlet_snapped": str(axis_x), "y_outlet_snapped": str(0.5 * cell_m)}
+        if catchment_columns is None
+        else {}
+    )
     return SimpleNamespace(
         sim_id="sim-network",
         name=name,
         mesh=mesh,
+        n_timesteps=1,
         outlet=(axis_x, 0.5 * cell_m),
+        _catalog=SimpleNamespace(read_geographic_metadata=lambda sim_id: dict(snapped)),
         has_field=lambda variable, **_: variable in fields,
         field=lambda variable, **_: fields[variable],
         has_hydrographic_network=lambda role="generated": role == "reference",

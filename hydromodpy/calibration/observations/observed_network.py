@@ -222,6 +222,26 @@ def water_body_mask(model: Any, *, n_cells: int) -> np.ndarray | None:
     return mask
 
 
+def delineated_outlet_xy(run_ctx: RunContext) -> tuple[float, float] | None:
+    """Return the outlet the geographic step delineated from, in the project CRS.
+
+    That is the snapped pour point, not the declared one: the snap moved the
+    declared outlet onto the strongest accumulation of the routing DEM, and the
+    catchment was closed there. The criterion moves it once more, within two
+    cells, onto the most accumulated cell of its own graph.
+
+    Returns ``None`` when the catchment came from a drawn polygon rather than
+    from a point, or when the run carries no geographic step.
+    """
+    geographic = getattr(run_ctx.state.setup, "geographic", None)
+    x = getattr(geographic, "x_outlet_snapped", None)
+    y = getattr(geographic, "y_outlet_snapped", None)
+    if x is None or y is None:
+        return None
+    point = (float(x), float(y))
+    return point if np.all(np.isfinite(point)) else None
+
+
 def delineated_catchment_mask(
     run_ctx: RunContext,
     planar_mesh: Any,
@@ -229,14 +249,13 @@ def delineated_catchment_mask(
 ) -> np.ndarray | None:
     """Project the catchment the geographic pipeline delineated onto the cells.
 
-    That catchment is closed on the gauge the user declared and is delineated on
-    the CONDITIONED routing surface. Re-deriving one by descending the model top
-    instead gives the largest internal depression of an unconditioned surface: on
-    a real basin it holds a few per cent of the mesh and none of the mapped
-    network, and every trial then fails on an empty support.
+    The criterion does not score this polygon. It scores the cells upstream of
+    the outlet on its own conditioned graph, and reads this projection only to
+    close on it when no outlet point exists and to publish how far the two
+    differ (``catchment_mismatch``).
 
     Returns ``None`` when the run declares no watershed, which is the case for a
-    synthetic domain; the caller then falls back to descending to its own outlet.
+    synthetic domain; the caller then closes on the largest basin of its graph.
     """
     import geopandas as gpd
 
@@ -257,8 +276,8 @@ def delineated_catchment_mask(
     polygons = cell_polygons(np.asarray(planar_mesh.vertices, dtype=float), face_node_connectivity)
     # A catchment is areal, so a cell belongs to it when its CENTRE is inside.
     # The touch rule of the linework would add one exterior ring of cells that
-    # lie mostly outside the divide, and that ring is averaged into both D_so
-    # and D_os and sets L_ref through reference_length.
+    # lie mostly outside the divide, and that ring would read as a mismatch
+    # against the graph catchment that is not one.
     return vector_cell_mask(
         polygons,
         list(frame.geometry),
@@ -271,6 +290,7 @@ def delineated_catchment_mask(
 __all__ = (
     "ObservedNetworkMask",
     "delineated_catchment_mask",
+    "delineated_outlet_xy",
     "observed_network_mask",
     "water_body_mask",
 )

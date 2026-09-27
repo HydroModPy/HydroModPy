@@ -63,9 +63,12 @@ def fill_depressions_on_graph(
     adjacency
         Neighbour indices per cell, the same graph the distances are measured on.
     outlets
-        Boolean mask of the cells water may leave through. Seeding it with the
-        low point of the catchment is enough; seeding it with nothing raises
-        every cell of the surface, which is why an empty mask is refused.
+        Boolean mask of the cells water may leave through. The standard form
+        seeds the whole border of the domain (``domain_edge_cells``), where
+        water leaves the model. Seeding a single interior cell instead declares
+        the domain endorheic towards it, and a valley that drains off the
+        domain is raised until it spills across a divide. Seeding nothing
+        raises every cell of the surface, which is why an empty mask is refused.
     epsilon
         Slope added per step inside a filled depression.
 

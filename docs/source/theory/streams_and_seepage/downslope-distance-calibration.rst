@@ -82,23 +82,44 @@ criterion therefore floods the mesh itself, by the priority flood of Barnes,
 Lehman and Mulla (2014) written over an explicit neighbour list instead of over
 a raster, so that it applies to cells of any arity
 (``hydromodpy/core/depression_filling.py``). Water is walked inwards from the
-outlet through the lowest reachable rim, anything below that rim is raised onto
-it, and one millimetre is added per step so the filled floor drains instead of
-lying flat, which a steepest-descent graph needs in order to leave it at all.
+border of the active domain through the lowest reachable rim, anything below
+that rim is raised onto it, and one millimetre is added per step so the filled
+floor drains instead of lying flat, which a steepest-descent graph needs in
+order to leave it at all.
 
-Two objects have to be shared with the metric or the flood repairs nothing.
-The neighbour graph is the first: fed the eight-neighbour graph while the
-metric descends the four-neighbour one, every filled cell spills over a
-diagonal the metric cannot take, and 99.8 per cent of the catchment stops
-reaching the outlet instead of none of it. The outlet is the second: the flood
-only guarantees a path to the cell it was seeded on, so the criterion seals
-that same cell into the target rather than resolving an outlet of its own
-afterwards.
+The neighbour graph has to be shared with the metric or the flood repairs
+nothing: fed the eight-neighbour graph while the metric descends the
+four-neighbour one, every filled cell spills over a diagonal the metric cannot
+take, and 99.8 per cent of the catchment stops reaching the outlet instead of
+none of it.
 
-Measured on the Nancon, a 60 395-cell MODFLOW-NWT mesh at 50 m: **17 166 cells
-raised, by up to 48.7 m**; the unreachable share of the simulated support fell
-from **13.6 per cent to 0.0**; and the outlet moved from an internal depression
-at 130.3 m to the true low point of the catchment at 106.4 m.
+**The flood is seeded on the border of the domain, the standard form, and not
+on the catchment outlet alone.** The border is where water leaves the model.
+Sealing one outlet instead declares the whole domain endorheic towards it: a
+valley of the buffer that drains to the neighbouring basin is filled up to a
+col of the divide, and its seepage then crosses into the catchment and runs
+down a hillslope that does not seep. The downstream closure counts that path
+as simulated network. On the Nancon, with the simulated network stood in by
+the cells draining more than a threshold area, that leak added **16 per cent
+of network cells** near the root and moved the root by **24 per cent**
+(2.169 km2 against 1.751 km2). The code of the authors avoids it by cutting the
+seepage to the catchment before tracing it; the border seed avoids it by
+construction, on any mesh.
+
+**One graph then carries the outlet and the catchment.** The outlet is the
+most accumulated cell within two cells of the pour point the geographic step
+snapped and delineated from, the ``SnapPourPoints`` rule of the paper read on
+the mesh; without a pour point it is the most accumulated cell of the
+delineated polygon. The catchment the criterion scores is every cell whose
+descent on the conditioned graph reaches that outlet. No descent from outside
+enters it, and every cell of it reaches the outlet without being raised
+towards it.
+
+Measured on the Nancon, a 60 395-cell MODFLOW-NWT mesh at 50 m, with the older
+flood seeded on the outlet alone: **17 166 cells raised, by up to 48.7 m**; the
+unreachable share of the simulated support fell from **13.6 per cent to 0.0**;
+and the outlet moved from an internal depression at 130.3 m to the true low
+point of the catchment at 106.4 m.
 
 The two mean distances and the criterion
 ----------------------------------------
@@ -386,20 +407,24 @@ and accepts; the correct reading returns :math:`9.44` and rejects.
 mapped linework stops short of it, the distance is infinite downstream of the
 last reach, and since the simulated network retreats towards exactly that reach
 as the ratio grows, the criterion loses its sign change at the high end of the
-bracket and there is no root left to close. That cell is the low point of the
-catchment the geographic step closed on the declared gauge, and it is the cell
-the flood was seeded on, so writing that it belongs to the stream network is
-true by definition rather than a fudge.
+bracket and there is no root left to close. That cell closes the catchment
+the criterion scores, placed from the gauge the geographic step snapped, so
+writing that it belongs to the stream network is true by definition rather
+than a fudge.
 
-**Both supports are intersected with the catchment the geographic step
-delineated.** Re-deriving one instead, by descending the model top to its own
-largest basin, fails for the reason given in the section above: the model top
-is never conditioned, so that descent ends in whichever internal depression is
-biggest. Measured on the Nancon, the re-derived catchment held 1 368 cells of
-the 60 395 in the mesh and **not one cell of the mapped network**, so every
-trial refused; the delineated catchment holds 26 907 cells and 1 119 of the
-mapped network. A run reaching the criterion without a delineated catchment
-falls back to the re-derived one and says so with a warning: a synthetic domain
+**Both supports are intersected with the catchment of that outlet on the
+criterion graph**, not with the raster polygon. The polygon was delineated on
+another surface and another grid; it builds the model domain and places the
+outlet, and its gap to the scored catchment is published per trial as
+``catchment_mismatch``, the area of their symmetric difference over the area of
+the polygon. A gap above five per cent is logged as a warning: it usually
+means an outlet placed on another branch, or a mesh much coarser than the
+DEM. On the Nancon grid at 75 m the gap is 26 cells, 0.2 per cent. On the
+unconditioned model top, descending to its own largest basin ended in an
+internal depression instead: measured on the Nancon, 1 368 cells of the
+60 395 in the mesh and **not one cell of the mapped network**. A run reaching
+the criterion with neither a pour point nor a polygon closes on the largest
+basin of the conditioned top and says so with a warning: a synthetic domain
 legitimately has no watershed, while a real run that lost one would otherwise
 produce a plausible number from the wrong support.
 
@@ -675,8 +700,9 @@ Descent, D8 or D4
    graphs coincide.
 
 The outlet cell, sealed into :math:`D_{so}`'s target
-   Not addressed by the paper. Every simulated flowpath ends at the outlet by
-   construction, so without sealing it into the target beside the mapped
+   Not addressed by the paper. The scored catchment is every cell whose
+   descent reaches the outlet, so every simulated flowpath in it ends there by
+   construction, and without sealing it into the target beside the mapped
    network, the outlet cell would count as unmatched seepage for the sole
    reason that it is the basin's exit, never because the two networks
    disagree.
@@ -712,10 +738,14 @@ The bisection variable and its sweep
 
 Depression handling, breach or fill
    The paper's tool is ``FillDepressions``, which raises every depression to
-   its pour point. The default here is ``dem_correc_type = "breach"``, which
-   carves a channel through the barrier at the depression's own minimal
-   elevation change: breaching moves far fewer cells and leaves hillslope
-   elevations closer to the DEM the criterion measures distances against.
+   its pour point, and the filled DEM serves both the delineation and the
+   distances. The default here is ``dem_correc_type = "breach"`` for the
+   raster delineation, which carves a channel through the barrier at the
+   depression's own minimal elevation change and moves far fewer cells. The
+   criterion does not descend that raster: it fills the model top on the mesh
+   graph, seeded on the domain border, which is the paper's fill, and reads
+   its catchment there. The departure reaches the criterion only through the
+   domain and the outlet, and ``catchment_mismatch`` measures it per trial.
    Setting ``dem_correc_type = "fill"`` reproduces the paper's own tool.
 
 The mapped network's rasterisation
@@ -839,16 +869,19 @@ logged with a warning below 0.90. A run declaring no network there measures
 nothing. A calibration declaring a network output recomputes the same ratio on
 the solver mesh and publishes it per trial as ``alpha_obs_closure``, together
 with ``alpha_obs_closure_catchment``, the same ratio restricted to the
-delineated catchment.
+scored catchment.
 
 The restriction is not cosmetic. Outside the catchment the mesh is a buffer, so
 no cell there is required to descend into the mapped network, and every reach
 of the linework lying beyond the basin adds to the closure without adding to
-the numerator. A whole-mesh :math:`lpha` therefore drops with the extent of
+the numerator. A whole-mesh :math:`\alpha` therefore drops with the extent of
 the dataset that was loaded, not with the quality of its registration. On the
-Nancon, 1362 of the 2479 mapped cells sit outside the catchment and the two
-ratios read 0.306 and 0.693. **The agreement is judged on the catchment one**,
-which is the support the supports of the criterion live on.
+Nancon, 1362 of the 2479 mapped cells sit outside the catchment, and while one
+outlet sealed the whole mesh the two ratios read 0.306 and 0.693: every buffer
+reach was traced across the divide to that outlet. With the flood seeded on
+the domain border, buffer reaches leave through the border and the two ratios
+come close (0.81 and 0.77 on the 75 m proxy). **The agreement is judged on the
+catchment one**, which is the support the supports of the criterion live on.
 
 Burning and flooding are two different repairs, and neither replaces the other.
 Burning fixes the registration between two datasets, once, on the routing

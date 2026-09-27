@@ -269,6 +269,13 @@ Each release section includes the following standard categories:
   `protocol__delete = true`.
 
 ### Changed
+- The stream-network criterion reads one surface. It fills the model top on the mesh graph with a
+  priority flood seeded on the border of the domain, snaps the outlet on that graph within two
+  cells to the most accumulated cell, and scores the cells upstream of it. The raster polygon only
+  builds the domain and places the outlet; each trial publishes `catchment_mismatch`, the share of
+  the polygon that differs, and warns above 5 %. Sealing one outlet used to let the seepage of the
+  buffer drain into the scored catchment: on a 75 m proxy of the Nancon, 16 % more network cells
+  and a root shifted by 24 %.
 - `geographic.catchment.buff_area = "N%"` enlarges the catchment area by N per cent, as
   Abherve et al. (2023) describe the domain. The buffer distance is solved on the real polygon,
   then snapped to the DEM grid. On the Nancon the margin falls from 825 m to 150 m and the box
@@ -429,6 +436,8 @@ Each release section includes the following standard categories:
   resume it refused the session it had itself written.
 
 ### Fixed
+- A stream comparison redrawn from a run sets its seepage threshold with the mean recharge over
+  the run, as the criterion does, instead of the recharge of the last timestep.
 - The delineation summary shows `buff_area` as declared, with its distance and area increase,
   instead of a value labelled m2. The reference catchment-delineation case accepts `"20%"` and
   distance strings.
