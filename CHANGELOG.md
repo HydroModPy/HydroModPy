@@ -175,7 +175,7 @@ Each release section includes the following standard categories:
   Without `--run` the listing is unchanged. The Python side is
   `hydromodpy.display.runs.figure_availability(run)`, which returns each figure
   spec with its reason, `None` for a figure the run supports.
-- `hydromodpy.display.geo.project_gdf_for_metric_operations`, which puts a
+- `hydromodpy.display.maps.geo.project_gdf_for_metric_operations`, which puts a
   GeoDataFrame in a metric CRS. `reporting` and the network figures imported it
   under a private name from a figure module. The network figures also share
   `plot_topography_background` under a public name.
@@ -311,6 +311,12 @@ Each release section includes the following standard categories:
   |---|---|
   | `hydromodpy.display.banner` | `hydromodpy.cli.banner` |
   | `hydromodpy.display.renderer.matplotlib_backend` | `hydromodpy.display.runs.matplotlib_backend` |
+  | `hydromodpy.display.map_axes` | `hydromodpy.display.maps.axes` |
+  | `hydromodpy.display.mesh_geometry` | `hydromodpy.display.maps.mesh_geometry` |
+  | `hydromodpy.display.ugrid` | `hydromodpy.display.maps.ugrid` |
+  | `hydromodpy.display.overlays` | `hydromodpy.display.maps.overlays` |
+  | `hydromodpy.display.transect` | `hydromodpy.display.maps.transect` |
+  | `hydromodpy.display.geo` | `hydromodpy.display.maps.geo` |
 - A figure names what it shows, not a solver or a provider: `mesh_map` is
   titled "Model mesh" (was "Solver mesh") and `hydrographic_network_reference`
   "Reference hydrographic network" (was "BD Topage hydrographic network", while

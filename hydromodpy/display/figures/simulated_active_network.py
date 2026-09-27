@@ -35,15 +35,15 @@ from hydromodpy.display.figures._stream_comparison import (
     map_legend,
     select_cells,
 )
-from hydromodpy.display.geo import project_gdf_for_metric_operations
-from hydromodpy.display.map_axes import (
+from hydromodpy.display.maps.axes import (
     RELATIVE_MAP_LEGEND_SIZE,
     overlay_watershed_contour,
     style_map_axes,
     style_relative_km_axes,
 )
-from hydromodpy.display.mesh_geometry import face_polygons
-from hydromodpy.display.ugrid import render_face_field
+from hydromodpy.display.maps.geo import project_gdf_for_metric_operations
+from hydromodpy.display.maps.mesh_geometry import face_polygons
+from hydromodpy.display.maps.ugrid import render_face_field
 from hydromodpy.results.derive import views
 from hydromodpy.results.derive.views import CellFieldActiveMode
 

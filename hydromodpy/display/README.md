@@ -17,7 +17,7 @@ It holds three things of unequal weight:
 2. two reports: `overview/` (data before any simulation) and `catchment_report/`
    (catchment report, `hmp report catchment`), which share the HTML engine
    `report_blocks/`;
-3. shared plotting tools (map axes, mesh, overlays, colours, theme).
+3. shared plotting tools: `maps/` (map axes, mesh, overlays, sections), colours, theme.
 
 ## What a user can rely on
 
@@ -60,13 +60,10 @@ never in a figure.
 
 | unit | may import inside `display` |
 |---|---|
-| `report_blocks`, `colormaps`, `legend_placement`, `map_axes`, `mesh_geometry`, `png_metadata`, `theme`, `scalable`, `animation`, `geo` | nothing |
-| `ugrid` | `map_axes` |
-| `transect` | `mesh_geometry` |
-| `overlays` | `map_axes`, `mesh_geometry`, `ugrid` |
+| `report_blocks`, `colormaps`, `legend_placement`, `maps`, `png_metadata`, `theme`, `scalable`, `animation` | nothing |
 | `figure` | `png_metadata` |
 | `figure_registry` | `figure`; and `figures` by its name written as text, on first lookup (the one exception, which keeps `import hydromodpy.display` light) |
-| `figures` | `colormaps`, `figure`, `figure_registry`, `geo`, `legend_placement`, `map_axes`, `mesh_geometry`, `overlays`, `transect`, `ugrid` |
+| `figures` | `colormaps`, `figure`, `figure_registry`, `legend_placement`, `maps` |
 | `config` | `figure_registry` |
 | `<init>` (the `__init__.py` facade) | `figure`, `figure_registry` |
 | `runs` | `<init>`, `config`, `figure`, `theme` |
@@ -104,14 +101,14 @@ hydromodpy/display/
 ├── theme.py               default, print and dark presets (apply_theme)
 ├── png_metadata.py        provenance written into each PNG (sim_id, field, step, EPSG, version)
 │
-│   map tools
-├── map_axes.py            axes in metres or relative km, catchment outline, date axis of time series
-├── mesh_geometry.py       face polygons, centroids and areas
-├── ugrid.py               render_face_field: one value per face; last_timestep
-├── overlays.py            named layers drawn on a map: watershed, seepage, particles, network, wells, outlet
-├── transect.py            a field sampled along a line (sections)
-├── geo/                   vector layers: GeoFigureMixin (scale bar, north arrow),
-│                          project_gdf_for_metric_operations (metric projection of a GeoDataFrame)
+├── maps/                  map tools, used by the figures; none imports a figure
+│   ├── axes.py                axes in metres or relative km, catchment outline, date axis of time series
+│   ├── mesh_geometry.py       face polygons, centroids and areas
+│   ├── ugrid.py               render_face_field: one value per face; last_timestep
+│   ├── overlays.py            named layers drawn on a map: watershed, seepage, particles, network, wells, outlet
+│   ├── transect.py            a field sampled along a line (sections)
+│   └── geo/                   vector layers: GeoFigureMixin (scale bar, north arrow),
+│                              project_gdf_for_metric_operations (metric projection of a GeoDataFrame)
 │
 │   shared tools
 ├── colormaps.py           banned and preferred colormaps
@@ -145,8 +142,8 @@ from hydromodpy.display.figures._scalar_face_map import ScalarFaceMap
 @register
 class PiezometricMap(ScalarFaceMap):
     spec = FigureSpec(
-        name="piezometric_map",               # the name written in [display].figures
-        title="Water-table elevation",        # a quantity, never a solver or a provider
+        name="piezometric_map",  # the name written in [display].figures
+        title="Water-table elevation",  # a quantity, never a solver or a provider
         kind="spatial",
         required_fields=("watertable_elevation",),
     )
@@ -176,9 +173,9 @@ the base first and returns a sentence (model: `figures/lake_abacus_comparison.py
 | `runs.py` | which figures does this run support, which to render, where to write them, which were skipped and why, under which matplotlib backend? |
 | `theme.py` | which style? |
 | `png_metadata.py` | where does this PNG come from? |
-| `map_axes.py`, `mesh_geometry.py`, `ugrid.py`, `transect.py` | how to draw a field on the mesh, a map, a section? |
-| `overlays.py` | which named layer to draw on this map? |
-| `geo/` | how to dress a vector map and project it to metres? |
+| `maps/axes.py`, `maps/mesh_geometry.py`, `maps/ugrid.py`, `maps/transect.py` | how to draw a field on the mesh, a map, a section? |
+| `maps/overlays.py` | which named layer to draw on this map? |
+| `maps/geo/` | how to dress a vector map and project it to metres? |
 | `colormaps.py`, `legend_placement.py` | which colour, where does the legend go? |
 | `report_blocks/` | how to assemble blocks, figures and tables into one HTML page? |
 | `overview/` | what does the catchment look like before any simulation? |
@@ -224,7 +221,7 @@ context figure that cannot be drawn is logged with its reason.
    `required_fields`): the test refuses a figure missing from that table.
 2. **A time series or a chart.** Create `figures/<name>.py` on the model of
    `hydrograph.py`: `@register`, `spec`, `render`. Dates on the x axis:
-   `map_axes.style_date_axis`. Same line in `REGISTRY_CONTRACT`. If the figure
+   `maps.axes.style_date_axis`. Same line in `REGISTRY_CONTRACT`. If the figure
    needs something `spec` cannot declare, override `unavailable_reason`;
    `tests/unit/display/test_every_figure_refuses_an_empty_run.py` fails otherwise.
 3. **Rename a figure.** Change `spec.name`, put the old name in
@@ -234,7 +231,7 @@ context figure that cannot be drawn is logged with its reason.
    shared tool or another layer needs it too, it does not belong in `figures/`: a
    root tool if it draws, `results` if it reads or computes.
 5. **A layer drawn on maps.** A function `draw_<name>(ax, sim, *, timestep)` and a
-   key in `overlays.OVERLAYS`. Raise `OverlayUnavailable` when the run lacks the
+   key in `maps.overlays.OVERLAYS`. Raise `OverlayUnavailable` when the run lacks the
    data: the layer is skipped, not the map.
 6. **A panel of the overview.** A boolean in `OverviewPanelsConfig`
    (`overview/config.py`), the drawing function in `overview/panels.py`, its
@@ -266,7 +263,7 @@ Another package of `hydromodpy/` imports only these modules (the `public` list o
 | `hydromodpy.display.figure_registry` | `get`, `resolve`, `names` |
 | `hydromodpy.display.runs` | rendering the figures of a run, and their availability |
 | `hydromodpy.display.viz` | `hmp.viz` |
-| `hydromodpy.display.map_axes`, `hydromodpy.display.ugrid`, `hydromodpy.display.geo` | map tools reused by `reporting` |
+| `hydromodpy.display.maps.axes`, `hydromodpy.display.maps.ugrid`, `hydromodpy.display.maps.geo` | map tools reused by `reporting` |
 | `hydromodpy.display.report_blocks` | HTML engine (`reporting`, and `calibration` through a tolerance) |
 | `hydromodpy.display.overview`, `hydromodpy.display.overview.config` | overview and `OverviewConfig` |
 | `hydromodpy.display.catchment_report`, `...catchment_report.pipeline` | catchment report |

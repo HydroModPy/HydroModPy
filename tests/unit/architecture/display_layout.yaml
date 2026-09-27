@@ -10,21 +10,15 @@ allowed:
   report_blocks:    []
   colormaps:        []
   legend_placement: []
-  map_axes:         []
-  mesh_geometry:    []
+  maps:             []
   png_metadata:     []
   theme:            []
   scalable:         []
   animation:        []
-  geo:              []
-  ugrid:            [map_axes]
-  transect:         [mesh_geometry]
   figure:           [png_metadata]
   figure_registry:  [figure]
   viz:              [scalable]
-  overlays:         [map_axes, mesh_geometry, ugrid]
-  figures:          [colormaps, figure, figure_registry, geo, legend_placement, map_axes,
-                     mesh_geometry, overlays, transect, ugrid]
+  figures:          [colormaps, figure, figure_registry, legend_placement, maps]
   config:           [figure_registry]
   "<init>":         [figure, figure_registry]
   runs:             ["<init>", config, figure, theme]
@@ -43,9 +37,9 @@ public:
   - hydromodpy.display.figure_registry
   - hydromodpy.display.runs
   - hydromodpy.display.viz
-  - hydromodpy.display.map_axes
-  - hydromodpy.display.ugrid
-  - hydromodpy.display.geo
+  - hydromodpy.display.maps.axes
+  - hydromodpy.display.maps.ugrid
+  - hydromodpy.display.maps.geo
   - hydromodpy.display.report_blocks
   - hydromodpy.display.overview
   - hydromodpy.display.overview.config

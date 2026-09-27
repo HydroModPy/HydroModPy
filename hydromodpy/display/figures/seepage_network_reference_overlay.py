@@ -42,9 +42,9 @@ from hydromodpy.display.figures._stream_comparison import (
     select_cells,
     threshold_note,
 )
-from hydromodpy.display.map_axes import style_map_axes
-from hydromodpy.display.mesh_geometry import face_centroids, face_polygons
-from hydromodpy.display.overlays import apply_overlays
+from hydromodpy.display.maps.axes import style_map_axes
+from hydromodpy.display.maps.mesh_geometry import face_centroids, face_polygons
+from hydromodpy.display.maps.overlays import apply_overlays
 from hydromodpy.results.derive.stream_network import unavailable_reason_for_comparison
 
 if TYPE_CHECKING:

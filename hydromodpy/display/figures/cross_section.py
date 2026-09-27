@@ -21,7 +21,7 @@ import numpy as np
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.legend_placement import place_legend
-from hydromodpy.display.transect import build_transect, layer_interfaces
+from hydromodpy.display.maps.transect import build_transect, layer_interfaces
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -66,7 +66,7 @@ class CrossSection(BaseFigure):
         n_samples: int | None = None,
         **_,
     ) -> Axes:
-        from hydromodpy.display.ugrid import last_timestep
+        from hydromodpy.display.maps.ugrid import last_timestep
 
         step = last_timestep(sim) if timestep is None else timestep
         transect = build_transect(

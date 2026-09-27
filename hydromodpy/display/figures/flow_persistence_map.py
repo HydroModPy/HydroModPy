@@ -31,9 +31,9 @@ from hydromodpy.display.figures.accumulation_map import (
     truncated_palette,
 )
 from hydromodpy.display.legend_placement import place_legend
-from hydromodpy.display.map_axes import style_relative_km_axes
-from hydromodpy.display.overlays import apply_overlays
-from hydromodpy.display.ugrid import render_face_field
+from hydromodpy.display.maps.axes import style_relative_km_axes
+from hydromodpy.display.maps.overlays import apply_overlays
+from hydromodpy.display.maps.ugrid import render_face_field
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

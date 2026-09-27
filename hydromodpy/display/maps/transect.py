@@ -79,7 +79,7 @@ def default_line(
         try:
             through = sim.outlet
         except Exception:
-            from hydromodpy.display.mesh_geometry import face_centroids
+            from hydromodpy.display.maps.mesh_geometry import face_centroids
 
             # The centroid nearest the bounding-box centre. Using a real cell
             # centroid (not the box centre or the median, which on an even grid

@@ -20,8 +20,10 @@ Sub-modules
 - ``display/figures/`` -- one module per named figure. Auto-discovery
   through ``pkgutil.iter_modules`` in
   ``display/figures/__init__.py``.
-- ``display/geo/`` -- shared geographic plotting helpers (scale bar
-  and north arrow on metric axes, ``project_gdf_for_metric_operations``).
+- ``display/maps/`` -- the map tools the figures share: map axes, mesh
+  geometry, one value per face, named overlays, sections, and ``geo/``
+  (scale bar and north arrow on metric axes,
+  ``project_gdf_for_metric_operations``).
 - ``display/runs.py`` -- the figures of a run: ``render_figures_for_run``
   for the ``[display]`` list, ``render_figure`` for one figure,
   ``figure_availability`` for what a run supports.

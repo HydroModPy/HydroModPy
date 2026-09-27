@@ -19,7 +19,7 @@ import pandas as pd
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.map_axes import style_date_axis
+from hydromodpy.display.maps.axes import style_date_axis
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -178,7 +178,7 @@ def _scaling(sim: Run, units: str, index: pd.Index) -> tuple[float, str]:
         return 1.0, "Flux (m3/s)"
     if token not in ("mm/period", "mm"):
         raise ValueError(f"flux_timeseries: unsupported units '{units}' (m3/s or mm/period)")
-    from hydromodpy.display.mesh_geometry import domain_area_m2
+    from hydromodpy.display.maps.mesh_geometry import domain_area_m2
 
     # The budget is a domain balance, so the depth equivalent must divide by
     # the ACTIVE domain area. Using the catchment area would inflate every

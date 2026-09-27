@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures.hydrographic_network import plot_topography_background
-from hydromodpy.display.geo import GeoFigureMixin
-from hydromodpy.display.map_axes import (
+from hydromodpy.display.maps.axes import (
     RELATIVE_MAP_LEGEND_SIZE,
     overlay_watershed_contour,
     style_relative_km_axes,
 )
+from hydromodpy.display.maps.geo import GeoFigureMixin
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
