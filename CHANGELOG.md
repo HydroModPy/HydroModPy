@@ -109,6 +109,8 @@ Each release section includes the following standard categories:
   Python for the context alone.
 
 ### Added
+- `CatchmentDomainProducts` and the geographic cache manifest record `buffer_rule`,
+  `buffer_declared` and `buffer_area_increase`, so a domain says how its margin was drawn.
 - A MODFLOW 6 twin validation case for the stream-network criterion. A planar hillslope run at
   a known K draws the mapped network, and a network-only bisection recovers that K within 1 per
   cent, with J at zero and consistent K/R, dsat, T/R and Toptim in the report
@@ -267,6 +269,13 @@ Each release section includes the following standard categories:
   `protocol__delete = true`.
 
 ### Changed
+- `geographic.catchment.buff_area = "N%"` enlarges the catchment area by N per cent, as
+  Abherve et al. (2023) describe the domain. The buffer distance is solved on the real polygon,
+  then snapped to the DEM grid. On the Nancon the margin falls from 825 m to 150 m and the box
+  domain from 151.9 to 120.4 km2. A bare number keeps the v1 rule (N per cent of the square root
+  of the area in km2, in km) with a warning, so sealed runs replay their domain. A distance is
+  normalised as `"150.0 m"` and a percentage as `"10%"`; `GeographicConfig.from_outlet` and
+  `from_polygon` default to `"10%"`.
 - The stream-network criterion descends D8 by default (`diagonal_neighbors = true`), the
   paper's reading. On a mesh whose faces are not all quadrilaterals it walks shared edges. The
   comparison, flow-direction and depression figures use the same default.
@@ -420,6 +429,9 @@ Each release section includes the following standard categories:
   resume it refused the session it had itself written.
 
 ### Fixed
+- The delineation summary shows `buff_area` as declared, with its distance and area increase,
+  instead of a value labelled m2. The reference catchment-delineation case accepts `"20%"` and
+  distance strings.
 - The bisection returns a trial inside its final bracket; a trial tied on cost outside it is no
   longer returned.
 - The guards and preflight see a phase that scores a network output through its own

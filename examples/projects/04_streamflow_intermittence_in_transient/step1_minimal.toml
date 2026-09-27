@@ -38,6 +38,7 @@ dem_init_path = "DEM_armorican_massif.tif"
 x_outlet = 389285.910
 y_outlet = 6816518.749
 snap_dist = "150 m"
+# "10%" is an area increase: the buffered domain covers 10 % more area than the catchment.
 buff_area = "10%"
 
 # Armorican regolith and fissured bedrock, against the 50 m default.

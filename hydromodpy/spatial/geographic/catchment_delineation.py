@@ -318,6 +318,19 @@ class CatchmentDelineation:
         for attr_name, value in self._dem_metadata.runtime_attributes().items():
             setattr(self, attr_name, value)
 
+    def _buffer_label(self) -> str:
+        """Return the declared margin, the distance it drew and the area it added."""
+        if self.buff_area is None:
+            return "&mdash;"
+        drawn: list[str] = []
+        distance = getattr(self, "buffer_distance_m", None)
+        if distance is not None:
+            drawn.append(f"{float(distance):g} m")
+        increase = getattr(self, "buffer_area_increase", None)
+        if increase is not None:
+            drawn.append(f"+{float(increase):.1%} area")
+        return f"{self.buff_area} ({', '.join(drawn)})" if drawn else str(self.buff_area)
+
     def _repr_html_(self) -> str:
         rows: list[tuple[str, str]] = [
             ("catch_def", str(self.catch_def or "&mdash;")),
@@ -331,10 +344,7 @@ class CatchmentDelineation:
                 "snap_dist",
                 f"{self.snap_dist} m" if self.snap_dist is not None else "&mdash;",
             ),
-            (
-                "buff_area",
-                f"{self.buff_area} m²" if self.buff_area is not None else "&mdash;",
-            ),
+            ("buff_area", self._buffer_label()),
             (
                 "polygon",
                 f"<code>{self.polyg_shp_path}</code>"

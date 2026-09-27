@@ -14,13 +14,20 @@ from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicCo
 
 
 def _normalize_buff_area(value):
-    """Return a percentage as a number and a declared distance as metres in a string.
+    """Return ``buff_area`` in the one form that says which rule it selects.
 
-    The distance goes back out as a bare number in a string, which is what tells
-    a distance from a percentage further down, so this validator has to be able
-    to read what it just wrote: a run re-read from its own sealed config passes
-    through here a second time. A dimensionless quantity is metres, the same rule
-    ``catchment_domain._parse_length_meters`` applies on the consuming side.
+    The form, not the type or the magnitude, carries the meaning downstream
+    (``catchment_domain.buffer_rule_of``):
+
+    - ``"10%"`` or ``"10 %"`` becomes the string ``"10%"``: the buffered
+      catchment covers 10 per cent more area than the catchment;
+    - ``"150 m"``, ``"0.15 km"`` or ``"150"`` becomes ``"150.0 m"``: an explicit
+      distance, a string with no unit being metres;
+    - a bare number stays a float: the legacy v1 rule, which a sealed run
+      still carries and must replay.
+
+    A run is re-read from its own sealed config, so this validator reads what
+    it wrote: ``normalize(normalize(x)) == normalize(x)``.
     """
     if value is None:
         return None
@@ -32,7 +39,7 @@ def _normalize_buff_area(value):
             pct = float(token[:-1].strip())
             if pct <= 0.0:
                 raise ValueError("geographic.buff_area percent must be > 0.")
-            return pct
+            return f"{int(pct)}%" if pct.is_integer() else f"{pct!r}%"
         quantity = UREG(token)
         if not hasattr(quantity, "magnitude"):
             dist_m = float(quantity)
@@ -42,11 +49,22 @@ def _normalize_buff_area(value):
             dist_m = float(quantity.to("m").magnitude)
         if dist_m <= 0.0:
             raise ValueError("geographic.buff_area distance must be > 0.")
-        return f"{dist_m}"
+        return f"{dist_m!r} m"
     pct = float(value)
     if pct <= 0.0:
         raise ValueError("geographic.buff_area percent must be > 0.")
     return pct
+
+
+_BUFF_AREA_DESCRIPTION = (
+    "Margin around the watershed polygon. A percentage ('10%') enlarges the "
+    "catchment AREA by that share, the rule of Abherve et al. (2023): the "
+    "distance is solved on the real polygon, then snapped to the DEM grid. A "
+    "length ('500 m', '2 km') is an explicit distance. A bare number (10) keeps "
+    "the legacy v1 rule, 10 per cent of sqrt(area in km2) km, about 50 per cent "
+    "more area on a real catchment, and warns: it lets a sealed run replay its "
+    "domain."
+)
 
 
 class _CatchDefBase(HydroModelBase):
@@ -112,13 +130,7 @@ class OutletCatchDef(_CatchDefBase):
             "Accepts inline units (e.g. 50, '50 m', '0.05 km')."
         ),
     )
-    buff_area: Annotated[str | float, Profile.USER] = Field(
-        description=(
-            "Buffer around the watershed polygon. Numeric values are interpreted as a "
-            "percentage of sqrt(area [km^2]). String values are interpreted as explicit "
-            "distances (for example '500 m', '2 km')."
-        ),
-    )
+    buff_area: Annotated[str | float, Profile.USER] = Field(description=_BUFF_AREA_DESCRIPTION)
 
     @field_validator("buff_area", mode="before")
     @classmethod
@@ -140,13 +152,7 @@ class PolygonCatchDef(_CatchDefBase):
     ] = Field(
         description="Path to the watershed polygon shapefile.",
     )
-    buff_area: Annotated[str | float, Profile.USER] = Field(
-        description=(
-            "Buffer around the watershed polygon. Numeric values are interpreted as a "
-            "percentage of sqrt(area [km^2]). String values are interpreted as explicit "
-            "distances (for example '500 m', '2 km')."
-        ),
-    )
+    buff_area: Annotated[str | float, Profile.USER] = Field(description=_BUFF_AREA_DESCRIPTION)
 
     @field_validator("buff_area", mode="before")
     @classmethod
@@ -714,7 +720,7 @@ class GeographicConfig(HydroModelBase):
         y: float,
         dem: str | Path,
         snap_dist: float | str = 150.0,
-        buff_area: float | str = 10.0,
+        buff_area: float | str = "10%",
         crs_project: str | None = None,
         **overrides,
     ) -> GeographicConfig:
@@ -755,7 +761,7 @@ class GeographicConfig(HydroModelBase):
         polygon: str | Path,
         *,
         dem: str | Path,
-        buff_area: float | str = 10.0,
+        buff_area: float | str = "10%",
         crs_project: str | None = None,
         **overrides,
     ) -> GeographicConfig:
