@@ -3,7 +3,8 @@
 # expand and contract.
 #
 #   hmp run       <this file>    simulate at the values below
-#   hmp calibrate <this file>    K from the mapped network, Sy from the gauge
+#   hmp calibrate <this file>    K from the mapped network, Sy from the gauge,
+#                                [calibration] below says how
 
 [workflow]
 mode = "simulation"
@@ -112,20 +113,36 @@ value = 1e-5
 kind = "cauchy"
 
 # K from the extent of the mapped network in steady state, then Sy from the
-# gauged hydrograph with K frozen. Abherve et al. 2023, 10.5194/hess-27-3221-2023.
+# gauged hydrograph with K frozen: the protocol of Abherve et al. (2023),
+# 10.5194/hess-27-3221-2023. run_calibration.toml runs it as is;
+# run_calibration_by_hand.toml writes the same two stages out and deviates once.
+#
+#   hmp calibrate <this file> --list-phases   each stage: method, width, what it compares
+#   hmp calibrate <this file> --expand        the stages the protocol writes, as TOML
+#   hmp calibrate <this file> --check         every problem at once, no solve
 [calibration]
 seed = 42
+# The best trial of each stage is replayed as a full simulation, with its
+# outputs, beside the assumed-values run.
 save_runs = "best_n"
 save_best_n = 1
 rerun_best_with_outputs = true
+# Every trial keeps the cost of each block, raw and normalised, not only the
+# totals.
 persist_iteration_detail = "full"
 
+# The bounds are all this file adds: K and Sy are both searched in log space,
+# the default of their catalogue entries.
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
 
 [calibration.parameters.Sy]
 bounds = [5e-3, 0.35]
 
+# The mapped network stage one is scored on. The gauge is not declared here:
+# the protocol adds it as `hydrograph`, a point output that observes NANCON,
+# the one station [[data.hydrometry.sources]] lists. With several stations,
+# name the one to score with `observed_station_id`.
 [calibration.outputs.seepage_network]
 support = "network"
 stream_geometry_path = "nancon_stream_network.gpkg"
@@ -133,9 +150,17 @@ stream_geometry_path = "nancon_stream_network.gpkg"
 # the grid, which on this topography most of them do.
 diagonal_neighbors = true
 
+# Stage one moves K alone over one steady period, the whole of
+# [simulation.time], by bisection on the signed network gap, and freezes it.
+# Stage two moves Sy alone in monthly transient, by Nelder-Mead on the NSE of
+# the log discharge at the gauge. The paper fixes both methods; the options
+# below set budgets and precisions only.
 [calibration.protocol]
 name = "matching_hydrographic_network"
 steady_max_iter = 18
+# The precision at which a stage stops, relative to its parameter: one per cent
+# on K, the paper's, five on Sy, each evaluation being a 36-month run. Not the
+# width of the reported interval.
 steady_tolerance = 0.01
 transient_max_iter = 30
 transient_tolerance = 0.05
@@ -150,6 +175,10 @@ sweep_points = 7
 start = "2001-01-01"
 end = "2002-12-31"
 
+# No [calibration.uncertainty]: each stage reports the width its criterion
+# calls for. Around K, the values within one mesh cell of network gap (75 m on
+# this grid); around Sy, those within 5 % of the best cost. The interval never
+# moves the calibrated value.
 
 
 [display]
