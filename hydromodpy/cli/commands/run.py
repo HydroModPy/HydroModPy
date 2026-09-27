@@ -251,7 +251,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     the CLI exits with ``EXIT_CONFIG``. No implicit detection from sections.
     """
     import hydromodpy as hmp
-    from hydromodpy.display.banner import print_hydromodpy
+    from hydromodpy.cli.banner import print_hydromodpy
     from hydromodpy.project.dispatch.workflow import dispatch_workflow
     from hydromodpy.workflow.dispatch import (
         WorkflowError,

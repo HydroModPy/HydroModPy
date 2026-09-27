@@ -60,7 +60,7 @@ never in a figure.
 
 | unit | may import inside `display` |
 |---|---|
-| `report_blocks`, `colormaps`, `legend_placement`, `map_axes`, `mesh_geometry`, `png_metadata`, `theme`, `renderer`, `scalable`, `banner`, `animation`, `geo` | nothing |
+| `report_blocks`, `colormaps`, `legend_placement`, `map_axes`, `mesh_geometry`, `png_metadata`, `theme`, `renderer`, `scalable`, `animation`, `geo` | nothing |
 | `ugrid` | `map_axes` |
 | `transect` | `mesh_geometry` |
 | `overlays` | `map_axes`, `mesh_geometry`, `ugrid` |
@@ -125,8 +125,7 @@ hydromodpy/display/
 │   outside the catalogue
 ├── viz.py                 hmp.viz.show(data): quick look at an array; unrelated to `hmp viz`
 ├── scalable.py            datashader rasterisation for viz.py
-├── animation.py           GIF, MP4 or plotly slider from PNG already rendered
-└── banner.py              ASCII banner of the CLI
+└── animation.py           GIF, MP4 or plotly slider from PNG already rendered
 ```
 
 ## Template of a figure
@@ -267,7 +266,6 @@ Another package of `hydromodpy/` imports only these modules (the `public` list o
 | `hydromodpy.display.figure_registry` | `get`, `resolve`, `names` |
 | `hydromodpy.display.runs` | rendering the figures of a run, and their availability |
 | `hydromodpy.display.viz` | `hmp.viz` |
-| `hydromodpy.display.banner` | CLI banner |
 | `hydromodpy.display.map_axes`, `hydromodpy.display.ugrid`, `hydromodpy.display.geo` | map tools reused by `reporting` |
 | `hydromodpy.display.report_blocks` | HTML engine (`reporting`, and `calibration` through a tolerance) |
 | `hydromodpy.display.overview`, `hydromodpy.display.overview.config` | overview and `OverviewConfig` |

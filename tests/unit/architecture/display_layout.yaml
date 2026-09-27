@@ -16,7 +16,6 @@ allowed:
   theme:            []
   renderer:         []
   scalable:         []
-  banner:           []
   animation:        []
   geo:              []
   ugrid:            [map_axes]
@@ -45,7 +44,6 @@ public:
   - hydromodpy.display.figure_registry
   - hydromodpy.display.runs
   - hydromodpy.display.viz
-  - hydromodpy.display.banner
   - hydromodpy.display.map_axes
   - hydromodpy.display.ugrid
   - hydromodpy.display.geo

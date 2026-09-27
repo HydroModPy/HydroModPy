@@ -303,6 +303,13 @@ Each release section includes the following standard categories:
 - `hydromodpy.display.catchment_report.block_specs.FigureSpec`, the place of a
   PNG in a catchment report block, is renamed `BlockFigureSpec`, so that
   `FigureSpec` names only the contract of a registered figure.
+- The modules of `hydromodpy/display` are grouped by role, so that the tree
+  says who does what (`hydromodpy/display/README.md`). What a TOML says and
+  `hmp.viz` do not change. The modules that moved:
+
+  | old path | new path |
+  |---|---|
+  | `hydromodpy.display.banner` | `hydromodpy.cli.banner` |
 - A figure names what it shows, not a solver or a provider: `mesh_map` is
   titled "Model mesh" (was "Solver mesh") and `hydrographic_network_reference`
   "Reference hydrographic network" (was "BD Topage hydrographic network", while
