@@ -1,124 +1,135 @@
-"""BD Topage WFS API tests for the hydrography variable manager (mocked HTTP).
+"""BD Topage adapter of the hydrography variable (client stubbed).
 
-Covers WFS hits + feature retrieval, empty bbox, pagination, and custom
-typename.
+What the adapter adds to the Sandre client: the default layer, the canonical
+``permanence`` column read off the Sandre vocabulary, and the WGS84 entry
+point site selection calls. The client's own paging and refusals are covered
+by ``tests/unit/data/test_sandre_topage_client.py``.
 """
 
 from __future__ import annotations
 
-import textwrap
-from unittest.mock import MagicMock, patch
+import logging
+from collections.abc import Sequence
 
+import geopandas as gpd
 import pytest
+from shapely.geometry import LineString
 
+from hydromodpy.core.exceptions import DataRequestError
+from hydromodpy.data.common.clients import sandre_topage
+from hydromodpy.data.source.permanence import PERMANENCE_COLUMN
+from hydromodpy.data.variables.hydrography.apis import bdtopage
 from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
-# =====================================================================
-# 8. BD Topage API (mocked HTTP)
-# =====================================================================
+
+def _reaches(**columns: Sequence[object]) -> gpd.GeoDataFrame:
+    n = len(next(iter(columns.values()))) if columns else 1
+    return gpd.GeoDataFrame(
+        {"gid": list(range(n)), **columns},
+        geometry=[LineString([(350000.0 + i, 6800000.0), (350010.0, 6800010.0)]) for i in range(n)],
+        crs="EPSG:2154",
+    )
+
+
+@pytest.fixture
+def asked(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
+    """Stub the client: record each question and answer with three reaches."""
+    questions: list[dict] = []
+
+    def _get_features(typename: str, bbox: tuple, *, page_size: int) -> gpd.GeoDataFrame:
+        questions.append({"typename": typename, "bbox": bbox, "page_size": page_size})
+        return _reaches(PersistanceTH=["permanent", "intermittent", "permanent"])
+
+    monkeypatch.setattr(sandre_topage, "get_features", _get_features)
+    return questions
 
 
 @pytest.mark.fast
-class TestBdTopageApi:
-    BBOX = (-2.5, 47.5, -2.0, 48.0)
+def test_the_default_layer_is_every_reach_with_its_persistence() -> None:
+    assert bdtopage.DEFAULT_TYPENAME == "sa:TronconHydrographique_FXX_Topage2026"
+    assert HydrographySourceConfig(source="bdtopage").typename == bdtopage.DEFAULT_TYPENAME
 
-    def _hits_xml(self, n):
-        return textwrap.dedent(f"""\
-            <?xml version="1.0" encoding="UTF-8"?>
-            <wfs:FeatureCollection numberMatched="{n}"
-              xmlns:wfs="http://www.opengis.net/wfs/2.0"/>
-        """).encode()
 
-    def _features_json(self, n):
-        features = []
-        for i in range(n):
-            features.append(
-                {
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "LineString",
-                        "coordinates": [[-2.3 + i * 0.01, 47.6], [-2.2 + i * 0.01, 47.7]],
-                    },
-                    "properties": {"gid": i, "CdOH": f"R{i:04d}"},
-                }
-            )
-        return {"type": "FeatureCollection", "features": features}
+@pytest.mark.fast
+def test_the_sandre_vocabulary_maps_onto_the_canonical_one() -> None:
+    native = ["permanent", "intermittent", "éphémère", "sec", "inconnue"]
+    frame = bdtopage.with_permanence(_reaches(PersistanceTH=native))
 
-    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
-    def test_fetch_with_features(self, mock_get):
-        from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
+    assert frame[PERMANENCE_COLUMN].tolist() == [
+        "permanent",
+        "intermittent",
+        "ephemeral",
+        "dry",
+        "unknown",
+    ]
+    assert frame["PersistanceTH"].tolist() == native, "the native attribute stays as it came"
 
-        hits_resp = MagicMock()
-        hits_resp.content = self._hits_xml(3)
-        hits_resp.raise_for_status = MagicMock()
 
-        data_resp = MagicMock()
-        data_resp.json.return_value = self._features_json(3)
-        data_resp.raise_for_status = MagicMock()
+@pytest.mark.fast
+def test_a_value_the_sandre_never_wrote_is_unknown_and_named(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.WARNING)
+    frame = bdtopage.with_permanence(_reaches(PersistanceTH=["saisonnier", None]))
 
-        mock_get.side_effect = [hits_resp, data_resp]
+    assert frame[PERMANENCE_COLUMN].tolist() == ["unknown", "unknown"]
+    assert "saisonnier" in caplog.text
 
-        cfg = HydrographySourceConfig(source="bdtopage")
-        gdf = fetch(cfg, self.BBOX)
-        assert len(gdf) == 3
-        assert str(gdf.crs) == "EPSG:4326"
-        assert "gid" in gdf.columns
 
-    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
-    def test_fetch_zero_hits(self, mock_get):
-        from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
+@pytest.mark.fast
+def test_water_surfaces_read_their_own_attribute() -> None:
+    frame = bdtopage.with_permanence(_reaches(PersistanceSE=["intermittent"]))
 
-        resp = MagicMock()
-        resp.content = self._hits_xml(0)
-        resp.raise_for_status = MagicMock()
-        mock_get.return_value = resp
+    assert frame[PERMANENCE_COLUMN].tolist() == ["intermittent"]
 
-        cfg = HydrographySourceConfig(source="bdtopage")
-        gdf = fetch(cfg, self.BBOX)
-        assert gdf.empty
 
-    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
-    def test_pagination(self, mock_get):
-        from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
+@pytest.mark.fast
+def test_a_layer_that_says_nothing_gets_no_column() -> None:
+    """``CoursEau`` has no persistence: no column, never a guessed one."""
+    frame = bdtopage.with_permanence(_reaches(TopoOH=["le Val"]))
 
-        hits_resp = MagicMock()
-        hits_resp.content = self._hits_xml(5)
-        hits_resp.raise_for_status = MagicMock()
+    assert PERMANENCE_COLUMN not in frame.columns
 
-        page1_resp = MagicMock()
-        page1_resp.json.return_value = self._features_json(2)
-        page1_resp.raise_for_status = MagicMock()
 
-        page2_resp = MagicMock()
-        page2_resp.json.return_value = self._features_json(1)  # < page_size → stop
-        page2_resp.raise_for_status = MagicMock()
+@pytest.mark.fast
+def test_the_source_asks_its_layer_over_the_lambert93_box(asked: list[dict]) -> None:
+    box = (346361.0, 6797325.0, 363915.0, 6821726.0)
+    frame = bdtopage.BdTopageSource(page_size=17).download(box)
 
-        mock_get.side_effect = [hits_resp, page1_resp, page2_resp]
+    assert asked == [{"typename": bdtopage.DEFAULT_TYPENAME, "bbox": box, "page_size": 17}]
+    assert frame[PERMANENCE_COLUMN].tolist() == ["permanent", "intermittent", "permanent"]
+    assert bdtopage.BdTopageSource.extent_crs == "EPSG:2154"
 
-        cfg = HydrographySourceConfig(source="bdtopage", page_size=2)
-        gdf = fetch(cfg, self.BBOX)
-        assert len(gdf) == 3  # 2 + 1
-        assert mock_get.call_count == 3  # hits + 2 pages
 
-    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
-    def test_custom_typename(self, mock_get):
-        from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
+@pytest.mark.fast
+def test_a_wgs84_caller_gets_degrees_back_and_asks_a_box_that_holds_its_own(
+    asked: list[dict],
+) -> None:
+    from pyproj import Transformer
 
-        hits_resp = MagicMock()
-        hits_resp.content = self._hits_xml(1)
-        hits_resp.raise_for_status = MagicMock()
+    wgs84 = (-1.8, 48.1, -1.5, 48.4)
+    cfg = HydrographySourceConfig(source="bdtopage", typename=bdtopage.NAMED_RIVERS_TYPENAME)
 
-        data_resp = MagicMock()
-        data_resp.json.return_value = self._features_json(1)
-        data_resp.raise_for_status = MagicMock()
+    frame = bdtopage.fetch(cfg, wgs84)
 
-        mock_get.side_effect = [hits_resp, data_resp]
+    assert str(frame.crs) == "EPSG:4326"
+    (question,) = asked
+    assert question["typename"] == "sa:CoursEau_FXX_Topage2026"
+    to_l93 = Transformer.from_crs("EPSG:4326", "EPSG:2154", always_xy=True)
+    xmin, ymin, xmax, ymax = question["bbox"]
+    for lon, lat in [(-1.8, 48.1), (-1.8, 48.4), (-1.5, 48.1), (-1.5, 48.4)]:
+        x, y = to_l93.transform(lon, lat)
+        assert xmin <= x <= xmax and ymin <= y <= ymax
 
-        cfg = HydrographySourceConfig(source="bdtopage", typename="sa:CoursEau_FXX_Topage2019")
-        fetch(cfg, self.BBOX)
 
-        # Verify typename was used in both calls
-        for call in mock_get.call_args_list:
-            params = call[1].get("params", call[0][1] if len(call[0]) > 1 else {})
-            if "typeNames" in params:
-                assert params["typeNames"] == "sa:CoursEau_FXX_Topage2019"
+@pytest.mark.fast
+def test_an_overseas_layer_is_refused_when_the_source_is_built() -> None:
+    with pytest.raises(DataRequestError, match="MYT"):
+        bdtopage.BdTopageSource(typename="sa:TronconHydrographique_MYT_Topage2026")
+
+
+@pytest.mark.fast
+@pytest.mark.parametrize("page_size", [0, -1, True, 2.5])
+def test_a_page_size_that_never_advances_is_refused(page_size: object) -> None:
+    with pytest.raises(DataRequestError, match="page_size"):
+        bdtopage.BdTopageSource(page_size=page_size)  # type: ignore[arg-type]

@@ -58,8 +58,8 @@ class TestSourceConfigValidation:
     # -- BD Topage --
     def test_bdtopage_defaults(self):
         cfg = HydrographySourceConfig(source="bdtopage")
-        assert cfg.typename == "sa:CoursEau_FXX_Topage2025"
-        assert cfg.page_size == 2000
+        assert cfg.typename == "sa:TronconHydrographique_FXX_Topage2026"
+        assert cfg.page_size == 50_000
 
     def test_bdtopage_custom_typename(self):
         cfg = HydrographySourceConfig(
@@ -309,7 +309,7 @@ class TestTomlFormatAcceptance:
             "hydrography": {"sources": [{"source": "bdtopage"}]},
         }
         cfg = DataManagersConfig.from_toml_section(section, base_dir=Path("/tmp"))
-        assert cfg.hydrography.sources[0].typename == "sa:CoursEau_FXX_Topage2025"
+        assert cfg.hydrography.sources[0].typename == "sa:TronconHydrographique_FXX_Topage2026"
 
     def test_minimal_euhydro(self):
         from hydromodpy.data.loading.config_schema import DataManagersConfig

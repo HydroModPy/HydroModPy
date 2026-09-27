@@ -1581,7 +1581,7 @@
     "section": "data",
     "anchor": "data-hydrography-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L150",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L156",
     "description": "At least one hydrography data source."
   },
   {
@@ -1608,7 +1608,7 @@
     "section": "data",
     "anchor": "data-hydrography-sources-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L55",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L56",
     "description": "Path to a vector file (SHP/GPKG/GeoJSON), raster (TIF/TIFF), or directory containing one."
   },
   {
@@ -1620,7 +1620,7 @@
     "section": "data",
     "anchor": "data-hydrography-sources-rasterize-field",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L63",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L64",
     "description": "Attribute field used when rasterising the vector layer."
   },
   {
@@ -1632,8 +1632,8 @@
     "section": "data",
     "anchor": "data-hydrography-sources-typename",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L69",
-    "description": "WFS typename for BD Topage."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L70",
+    "description": "WFS typename for BD Topage. The default, every reach of metropolitan France, says for each one whether it flows all year (permanence column), and the permanent network is written beside the full one. 'sa:CoursEau_FXX_Topage2026' keeps only "
   },
   {
     "path": "data.hydrography.sources.page_size",
@@ -1644,8 +1644,8 @@
     "section": "data",
     "anchor": "data-hydrography-sources-page-size",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L73",
-    "description": "WFS pagination page size (BD Topage)."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L79",
+    "description": "WFS pagination page size (BD Topage), in features."
   },
   {
     "path": "data.hydrography.sources.group_name",
@@ -1656,7 +1656,7 @@
     "section": "data",
     "anchor": "data-hydrography-sources-group-name",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L79",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L85",
     "description": "MapServer group name for EU-Hydro layer discovery."
   },
   {
@@ -1668,7 +1668,7 @@
     "section": "data",
     "anchor": "data-hydrography-sources-euhydro-page-size",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L83",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L89",
     "description": "Pagination page size for EU-Hydro REST queries."
   },
   {
@@ -1680,7 +1680,7 @@
     "section": "data",
     "anchor": "data-hydrography-sources-force-refresh",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L89",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L95",
     "description": "Bypass API cache and re-download data."
   },
   {
@@ -1692,7 +1692,7 @@
     "section": "data",
     "anchor": "data-hydrography-sources-waterway-types",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L95",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L101",
     "description": "OSM waterway tag values to fetch."
   },
   {
@@ -1704,7 +1704,7 @@
     "section": "data",
     "anchor": "data-hydrography-mask-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L155",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L161",
     "description": "SHP/GPKG/GeoJSON/TIF whose shape the network is clipped to and whose bounds are the box the API sources are asked over. A project run has it filled in from the delineated watershed; a standalone call names it."
   },
   {

@@ -132,6 +132,47 @@ Minimal example
    [[data.hydrography.sources]]
    source = "bdtopage"
 
+Permanent and intermittent reaches
+""""""""""""""""""""""""""""""""""
+
+The default layer is ``sa:TronconHydrographique_FXX_Topage2026``: every reach
+of metropolitan France, named or not. Each reach carries ``PersistanceTH`` as
+the Sandre writes it, and the canonical ``permanence`` column the loader reads:
+``permanent``, ``intermittent``, ``ephemeral``, ``dry`` or ``unknown``. The
+full network is the hydrographic extent at high water; its permanent reaches
+are the network that still flows at low water.
+
+The loader writes both in the hydrography preprocessing folder:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - File
+     - Content
+   * - ``streams.shp``
+     - Every reach, clipped to the mask, with its ``permanence``. This is the
+       reference network, the one ``observed_network = "data.hydrography"``
+       reads; the stream burn downloads the same layer around the outlet.
+   * - ``streams_permanent.shp``
+     - The reaches whose ``permanence`` is ``permanent``. A run keeps it as
+       the ``reference_permanent`` network, beside ``reference``.
+
+A network that says nothing about permanence, such as ``CoursEau`` or a
+``custom`` file without the column, has no permanent part: no
+``streams_permanent.shp`` is written, and one left by an earlier run is
+removed. Reaches from such a source concatenated with BD Topage ones are
+``unknown``, never permanent by default.
+
+The former default, ``sa:CoursEau_FXX_Topage2025``, is the named rivers only.
+Over the upper Ille (``04B0000002150459212``, 232.6 km²) it holds 441 of the
+694 km of reaches in the box: 253 of the 260 permanent kilometres, 185 of the
+434 intermittent ones. Name it through ``typename`` to keep it.
+
+The Sandre is asked over a Lambert-93 box, and the pages are counted against
+the total the server announces: a page shorter than requested is not the last
+one. An overseas layer (``_GLP_``, ``_MTQ_``, ``_MYT_``, ``_REU_``) is refused.
+
 Operational checks
 """"""""""""""""""
 

@@ -109,6 +109,11 @@ Each release section includes the following standard categories:
   Python for the context alone.
 
 ### Added
+- BD Topage reaches carry a canonical `permanence` column (`permanent`, `intermittent`,
+  `ephemeral`, `dry`, `unknown`, vocabulary in `hydromodpy/data/source/permanence.py`) beside
+  `PersistanceTH`. The hydrography loader writes the permanent reaches to `streams_permanent.shp`
+  next to `streams.shp`, and a run keeps them as the `reference_permanent` hydrographic network.
+  A network that says nothing about permanence has no permanent part.
 - `CatchmentDomainProducts` and the geographic cache manifest record `buffer_rule`,
   `buffer_declared` and `buffer_area_increase`, so a domain says how its margin was drawn.
 - A MODFLOW 6 twin validation case for the stream-network criterion. A planar hillslope run at
@@ -269,6 +274,11 @@ Each release section includes the following standard categories:
   `protocol__delete = true`.
 
 ### Changed
+- `[[data.hydrography.sources]] source = "bdtopage"` downloads `TronconHydrographique_FXX_Topage2026`,
+  every reach, instead of `CoursEau_FXX_Topage2025`, the named rivers (441 of 694 km over the upper
+  Ille). It asks the Sandre over a Lambert-93 box with `SRSNAME`, in GeoPackage pages of 50 000.
+  Site selection keeps snapping stations onto the named rivers, now of 2026. An overseas layer is
+  refused.
 - A bisection counts its budget before the first solve. `max_iter` and the protocol's
   `steady_max_iter` default to `"auto"`, the worst-case count from the bounds, the sweep points,
   `rel_tol` and the bracket expansions (23 on the Nancon, 15 when the root lies inside the
@@ -445,6 +455,12 @@ Each release section includes the following standard categories:
   resume it refused the session it had itself written.
 
 ### Fixed
+- The BD Topage download no longer stops at the first page shorter than requested: the Sandre
+  pages over index candidates, so such a page is not the last one, and a box holding more than one
+  page lost the rest. Pages are counted against the announced total, and a shortfall or a repeated
+  feature raises.
+- The hydrography cache no longer serves one BD Topage layer for another over the same box: an
+  entry records the layer it was fetched for.
 - A stream comparison redrawn from a run sets its seepage threshold with the mean recharge over
   the run, as the criterion does, instead of the recharge of the last timestep.
 - The delineation summary shows `buff_area` as declared, with its distance and area increase,

@@ -188,6 +188,9 @@ def _load_bdtopage_reference_network(
 ) -> tuple[Any, ReferenceNetworkBundle]:
     import geopandas as gpd
 
+    from hydromodpy.data.variables.hydrography.apis.bdtopage import (
+        NAMED_RIVERS_TYPENAME,
+    )
     from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch as fetch_bdtopage
     from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
@@ -205,7 +208,11 @@ def _load_bdtopage_reference_network(
     if destination.is_file() and not force_refresh:
         network = gpd.read_file(destination)
     else:
-        cfg = HydrographySourceConfig(source="bdtopage", page_size=int(page_size))
+        # A station sits on a named river: the unnamed reaches the hydrography
+        # default now carries would only offer it a wrong neighbour.
+        cfg = HydrographySourceConfig(
+            source="bdtopage", typename=NAMED_RIVERS_TYPENAME, page_size=int(page_size)
+        )
         fetch = fetcher or fetch_bdtopage
         network = fetch(cfg, bbox_wgs84)
         if network.empty:

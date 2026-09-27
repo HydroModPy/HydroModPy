@@ -8,7 +8,7 @@ plugin sources an ``installed`` request may name:
 ============== ============ ============= ========= ==============
 source         payload kind extent CRS    period    writes out_dir
 ============== ============ ============= ========= ==============
-bdtopage       ``features`` EPSG:4326     refused   no
+bdtopage       ``features`` **EPSG:2154** refused   no
 double-gauge   ``points``   EPSG:4326     required  no
 double-grid    ``fields``   **EPSG:2154** required  no
 double-tiles   ``files``    **EPSG:2154** refused   **yes**
@@ -239,8 +239,8 @@ BUILTIN_CASES: tuple[SourceCase, ...] = (
         name="bdtopage",
         build=BdTopageSource,
         provider_module="hydromodpy.data.variables.hydrography.apis.bdtopage",
-        provider_attr="fetch",
-        read_bbox=lambda args, kwargs: args[1] if len(args) > 1 else kwargs.get("bbox_wgs84"),
+        provider_attr="fetch_projected",
+        read_bbox=lambda args, kwargs: args[1] if len(args) > 1 else kwargs.get("bbox"),
         canned=_empty_frame,
     ),
     SourceCase(
@@ -682,11 +682,12 @@ def test_the_bbox_on_the_bdtopage_wire_is_the_reprojected_one(tmp_path: Path, wi
     assert [call["url"] for call in wire.calls] == [
         "https://services.sandre.eaufrance.fr/geo/sandre"
     ], "a host outside the declaration was contacted"
-    sent = wire.calls[0]["params"]["bbox"]
-    lon_min, lat_min, lon_max, lat_max, urn = sent.split(",")
+    params = wire.calls[0]["params"]
+    xmin, ymin, xmax, ymax, urn = params["BBOX"].split(",")
     expected = _expected_bbox(CALLER_EXTENT, source.extent_crs)
-    assert urn == "urn:ogc:def:crs:OGC:1.3:CRS84"
-    assert (float(lon_min), float(lat_min), float(lon_max), float(lat_max)) == pytest.approx(
+    assert urn == "urn:ogc:def:crs:EPSG::2154"
+    assert params["SRSNAME"] == urn, "a box without SRSNAME is widened to its WGS84 envelope"
+    assert (float(xmin), float(ymin), float(xmax), float(ymax)) == pytest.approx(
         expected, rel=0, abs=1e-6
     )
     assert result.is_empty

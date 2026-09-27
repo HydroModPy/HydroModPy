@@ -11151,7 +11151,7 @@
           "title": "Source",
           "type": "string",
           "value_docs": {
-            "bdtopage": "Downloads the French BD Topage reference network from the Sandre WFS.",
+            "bdtopage": "Downloads the French BD Topage reference network from the Sandre WFS, every reach with its permanence, and writes the permanent network too.",
             "custom": "Loads a river network from a local vector or raster file you provide.",
             "euhydro": "Downloads the EEA EU-Hydro continental-scale river network.",
             "osm": "Downloads waterway geometries from OpenStreetMap."
@@ -11184,20 +11184,20 @@
           "x-hmp-profile": "user"
         },
         "typename": {
-          "default": "sa:CoursEau_FXX_Topage2025",
-          "description": "WFS typename for BD Topage.",
+          "default": "sa:TronconHydrographique_FXX_Topage2026",
+          "description": "WFS typename for BD Topage. The default, every reach of metropolitan France, says for each one whether it flows all year (permanence column), and the permanent network is written beside the full one. 'sa:CoursEau_FXX_Topage2026' keeps only the named rivers and carries no permanence.",
           "examples": [
-            "sa:CoursEau_FXX_Topage2025"
+            "sa:TronconHydrographique_FXX_Topage2026"
           ],
           "title": "Typename",
           "type": "string",
           "x-hmp-profile": "dev"
         },
         "page_size": {
-          "default": 2000,
-          "description": "WFS pagination page size (BD Topage).",
+          "default": 50000,
+          "description": "WFS pagination page size (BD Topage), in features.",
           "examples": [
-            2000
+            50000
           ],
           "title": "Page Size",
           "type": "integer",

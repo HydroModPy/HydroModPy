@@ -100,11 +100,11 @@ def stub_bdtopage(monkeypatch):
     calls: list[dict] = []
     payload = {"frame": _network()}
 
-    def _record(config, bbox):
-        calls.append({"config": config, "bbox": bbox})
+    def _record(typename, bbox, *, page_size):
+        calls.append({"typename": typename, "bbox": bbox, "page_size": page_size})
         return payload["frame"]
 
-    monkeypatch.setattr(provider, "fetch", _record)
+    monkeypatch.setattr(provider, "fetch_projected", _record)
     return calls, payload
 
 
@@ -302,7 +302,9 @@ def test_a_mask_is_the_extent_and_reaches_the_provider_reprojected(tmp_path, stu
 
     assert outcome.status == "successful", outcome.errors
     xmin, ymin, xmax, ymax = calls[0]["bbox"]
-    assert -2.0 < xmin < xmax < -1.0 and 47.5 < ymin < ymax < 48.5
+    assert 250_000 < xmin < xmax < 450_000 and 6_700_000 < ymin < ymax < 6_900_000, (
+        "BD Topage is asked in Lambert-93"
+    )
 
 
 def test_the_input_set_records_the_mask_by_its_digest(tmp_path, stub_bdtopage):
@@ -449,7 +451,7 @@ _STUB_PROVIDER = (
     "import hydromodpy.data.variables.hydrography.apis.bdtopage as provider\n"
     "import geopandas as gpd\n"
     "from shapely.geometry import LineString\n"
-    "provider.fetch = lambda config, bbox: gpd.GeoDataFrame(\n"
+    "provider.fetch_projected = lambda typename, bbox, *, page_size: gpd.GeoDataFrame(\n"
     "    {'name': ['a']},\n"
     "    geometry=[LineString([(-1.8, 48.1), (-1.7, 48.2)])],\n"
     "    crs='EPSG:4326',\n"

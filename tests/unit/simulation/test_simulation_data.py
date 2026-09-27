@@ -10,6 +10,7 @@ from hydromodpy.results.run import Run
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME,
 )
 
 from ._test_simulation_api_builders import _populate, _register, catalog
@@ -90,6 +91,23 @@ class TestSimulationData:
         contract = sim.hydrographic_network_naming("reference")
         assert contract["canonical_feature_name"] == HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME
         assert contract["default_vector_filename"] == "streams.shp"
+
+    def test_the_permanent_network_is_read_back_by_its_role(self, catalog):
+        sid = _register(catalog)
+        gdf = gpd.GeoDataFrame(
+            {"permanence": ["permanent"]},
+            geometry=[LineString([(0.0, 0.0), (1.0, 0.0)])],
+            crs="EPSG:2154",
+        )
+        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, gdf)
+        catalog.write_geographic_feature(
+            sid, HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME, gdf
+        )
+
+        sim = Run(sid, catalog)
+
+        assert sim.available_hydrographic_network_roles() == ["reference", "reference_permanent"]
+        assert len(sim.hydrographic_network("reference_permanent")) == 1
 
     def test_hydrographic_network_missing_role_reports_available_roles(self, catalog):
         sid = _register(catalog)

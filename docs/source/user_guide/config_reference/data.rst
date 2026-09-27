@@ -715,7 +715,7 @@ Fields
               <code class="hmp-field-toml">[[data.hydrography.sources]]</code>
             </div>
 
-         :bdg-primary:`list[HydrographySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L150>`__
+         :bdg-primary:`list[HydrographySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L156>`__
 
             At least one hydrography data source.
 
@@ -749,7 +749,7 @@ Fields
                   Downloads waterway geometries from OpenStreetMap.
 
                ``"bdtopage"``
-                  Downloads the French BD Topage reference network from the Sandre WFS.
+                  Downloads the French BD Topage reference network from the Sandre WFS, every reach with its permanence, and writes the permanent network too.
 
                ``"euhydro"``
                   Downloads the EEA EU-Hydro continental-scale river network.
@@ -766,7 +766,7 @@ Fields
                     <code class="hmp-field-name">path</code>
                   </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L55>`__
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L56>`__
 
                   Path to a vector file (SHP/GPKG/GeoJSON), raster (TIF/TIFF), or directory containing one.
 
@@ -782,7 +782,7 @@ Fields
                     <code class="hmp-field-name">rasterize_field</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "FID"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L63>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "FID"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L64>`__
 
                   Attribute field used when rasterising the vector layer.
 
@@ -798,9 +798,9 @@ Fields
                     <code class="hmp-field-name">typename</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "sa:CoursEau_FXX_Topage2025"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L69>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "sa:TronconHydrographique_FXX_Topage2026"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L70>`__
 
-                  WFS typename for BD Topage.
+                  WFS typename for BD Topage. The default, every reach of metropolitan France, says for each one whether it flows all year (permanence column), and the permanent network is written beside the full one. 'sa:CoursEau_FXX_Topage2026' keeps only the named rivers and carries no permanence.
 
 
             .. index:: ! page_size
@@ -814,9 +814,9 @@ Fields
                     <code class="hmp-field-name">page_size</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 2000` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L73>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 50000` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L79>`__
 
-                  WFS pagination page size (BD Topage).
+                  WFS pagination page size (BD Topage), in features.
 
 
             .. index:: ! group_name
@@ -830,7 +830,7 @@ Fields
                     <code class="hmp-field-name">group_name</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "River_Net_lines"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L79>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "River_Net_lines"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L85>`__
 
                   MapServer group name for EU-Hydro layer discovery.
 
@@ -846,7 +846,7 @@ Fields
                     <code class="hmp-field-name">euhydro_page_size</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 1000` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L83>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 1000` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L89>`__
 
                   Pagination page size for EU-Hydro REST queries.
 
@@ -860,7 +860,7 @@ Fields
                     <code class="hmp-field-name">force_refresh</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L89>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L95>`__
 
                   Bypass API cache and re-download data.
 
@@ -876,7 +876,7 @@ Fields
                     <code class="hmp-field-name">waterway_types</code>
                   </div>
 
-               :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L95>`__
+               :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L101>`__
 
                   OSM waterway tag values to fetch.
 
@@ -892,7 +892,7 @@ Fields
               <code class="hmp-field-name">mask_path</code>
             </div>
 
-         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L155>`__
+         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrography/config.py#L161>`__
 
             SHP/GPKG/GeoJSON/TIF whose shape the network is clipped to and whose bounds are the box the API sources are asked over. A project run has it filled in from the delineated watershed; a standalone call names it.
 

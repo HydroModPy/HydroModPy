@@ -28,6 +28,8 @@ are the manager's, because a source knows nothing of DuckDB and must not.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -44,6 +46,7 @@ from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.managers.base_manager_common import SourceTable
 from hydromodpy.data.source import registry
+from hydromodpy.data.source.permanence import PERMANENCE_COLUMN, PERMANENT, UNKNOWN
 from hydromodpy.data.variables.hydrography.api_source import (
     NETWORK_PAYLOAD_KIND,
     fetch_network,
@@ -57,6 +60,7 @@ from hydromodpy.data.variables.hydrography.config import (
     HydrographySourceConfig,
 )
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
+    HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_VECTOR_FILENAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FILENAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME,
@@ -121,21 +125,23 @@ class HydrographyManager(SourceTable):
         if not vector_gdfs:
             raise ValueError("All hydrography sources returned empty results.")
 
-        combined = gpd.GeoDataFrame(pd.concat(vector_gdfs, ignore_index=True))
-        if combined.crs is None:
-            combined = combined.set_crs("EPSG:4326")
-
-        # 2. Reproject into the frame the mask is in, then clip to its shape
+        # 2. Reproject each source into the frame the mask is in, then clip to its shape.
+        # Per source, before the concat: BD Topage answers in Lambert-93, OSM and
+        # EU-Hydro in WGS84, and frames in two CRS do not concatenate.
         mask_shape, mask_crs = mask_geometry(self._require_mask_path())
-        if str(combined.crs) != str(mask_crs):
-            combined = combined.to_crs(mask_crs)
+        combined = gpd.GeoDataFrame(
+            pd.concat([_in_crs(gdf, mask_crs) for gdf in vector_gdfs], ignore_index=True),
+            crs=mask_crs,
+        )
+        if PERMANENCE_COLUMN in combined.columns:
+            # A source that did not say is unknown, never permanent by default.
+            combined[PERMANENCE_COLUMN] = combined[PERMANENCE_COLUMN].fillna(UNKNOWN)
         clipped = gpd.clip(combined, mask_shape)
 
-        # 3. Save clipped vector
+        # 3. Save clipped vector, and its permanent part when the network says which
         streams_path = self._data_folder / HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message="Column names longer than 10 characters")
-            clipped.to_file(streams_path)
+        _write_shapefile(clipped, streams_path)
+        permanent_path = self._write_permanent_network(clipped)
 
         # 4. Rasterise
         rasterize_field = self.config.sources[0].rasterize_field
@@ -148,7 +154,33 @@ class HydrographyManager(SourceTable):
             raster_values,
             raster_path=tif_out,
             vector_path=streams_path,
+            permanent_vector_path=permanent_path,
         )
+
+    def _write_permanent_network(self, network: gpd.GeoDataFrame) -> Path | None:
+        """Write the reaches that flow all year, or remove a stale copy and return None.
+
+        Written only when the network carries the ``permanence`` column. A
+        network that does not say which reaches are permanent has no permanent
+        part, and a file left by an earlier run on another source would be read
+        as if it did.
+        """
+        path = self._data_folder / HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_VECTOR_FILENAME
+        _remove_shapefile(path)
+        if PERMANENCE_COLUMN not in network.columns:
+            return None
+        lengths_km = network.geometry.length / 1000.0
+        by_class = lengths_km.groupby(network[PERMANENCE_COLUMN]).sum().round(1).to_dict()
+        logger.info("Hydrography: network length by permanence (km, in the mask CRS): %s", by_class)
+        permanent = network[network[PERMANENCE_COLUMN] == PERMANENT]
+        if permanent.empty:
+            logger.warning(
+                "Hydrography: the network says which reaches are permanent and none is; "
+                "no permanent network is written."
+            )
+            return None
+        _write_shapefile(permanent, path)
+        return path
 
     # ------------------------------------------------------------------
     # TIF pipeline
@@ -204,6 +236,7 @@ class HydrographyManager(SourceTable):
         *,
         raster_path: Path,
         vector_path: Path | None,
+        permanent_vector_path: Path | None = None,
     ) -> LoadResult:
         """Build the standard hydrography load result."""
         bbox, crs = self._raster_bbox_crs(raster_path)
@@ -225,6 +258,9 @@ class HydrographyManager(SourceTable):
             metadata={
                 "raster_path": str(raster_path),
                 "vector_path": str(vector_path) if vector_path is not None else None,
+                "permanent_vector_path": (
+                    str(permanent_vector_path) if permanent_vector_path is not None else None
+                ),
                 "array_name": HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
             },
         )
@@ -261,13 +297,15 @@ class HydrographyManager(SourceTable):
         source = source_from_section(source_cfg)
         extent = mask_extent_in(self._require_mask_path(), source.extent_crs)
 
+        question = _fetch_question(source)
+
         if not source_cfg.force_refresh:
-            cached = self._try_load_cached(source_cfg.source, extent.bbox)
+            cached = self._try_load_cached(source_cfg.source, extent.bbox, question)
             if cached is not None:
                 return cached
 
         gdf = fetch_network(source, extent)
-        self._persist_and_register(gdf, source_cfg.source, extent.bbox)
+        self._persist_and_register(gdf, source_cfg.source, extent.bbox, question)
 
         return gdf
 
@@ -279,6 +317,7 @@ class HydrographyManager(SourceTable):
         self,
         source: str,
         bbox: tuple[float, float, float, float],
+        question: dict[str, object] | None = None,
     ) -> gpd.GeoDataFrame | None:
         """Return cached GeoDataFrame if the catalog has a superset entry.
 
@@ -286,6 +325,12 @@ class HydrographyManager(SourceTable):
         column carries no CRS of its own. The lookup is keyed on the source as
         well, so one source's entries are all in one frame; two sources in two
         frames never compare their boxes to each other.
+
+        *question* is what the source reports it was asked (the BD Topage
+        layer, the OSM waterway types). An entry recorded with another answer
+        is a miss: without it, asking BD Topage for its reaches over a box
+        where its named rivers were cached served the named rivers. An entry
+        recorded before the question was is taken as before.
         """
         if self._catalog is None:
             return None
@@ -295,6 +340,9 @@ class HydrographyManager(SourceTable):
             bbox=bbox,
         )
         if entry is None:
+            return None
+        if not _entry_answers(entry, question):
+            logger.debug("Cache entry for hydrography/%s answers another question", source)
             return None
         cached_path = self._catalog.resolve_path(entry.file_path, variable=self.VARIABLE_NAME)
         if not cached_path.exists():
@@ -307,13 +355,15 @@ class HydrographyManager(SourceTable):
         gdf: gpd.GeoDataFrame,
         source: str,
         bbox: tuple[float, float, float, float],
+        question: dict[str, object] | None = None,
     ) -> None:
         """Save raw API result (EPSG:4326) and register in catalog."""
         if self._catalog is None or self._data_dir is None:
             return
         self._data_dir.mkdir(parents=True, exist_ok=True)
 
-        fname = f"{source}_{bbox[0]:.4f}_{bbox[1]:.4f}_{bbox[2]:.4f}_{bbox[3]:.4f}.gpkg"
+        stem = f"{source}_{_question_digest(question)}" if question else source
+        fname = f"{stem}_{bbox[0]:.4f}_{bbox[1]:.4f}_{bbox[2]:.4f}_{bbox[3]:.4f}.gpkg"
         out_path = self._data_dir / fname
 
         # Ensure EPSG:4326 before persisting
@@ -331,6 +381,7 @@ class HydrographyManager(SourceTable):
             bbox=bbox,
             crs="EPSG:4326",
             is_custom=False,
+            fetch_metadata=question or None,
         )
         self._catalog.subsume_entries(
             variable=self.VARIABLE_NAME,
@@ -363,7 +414,7 @@ class HydrographyManager(SourceTable):
                 shp_base[field] = pd.to_numeric(shp_base[field])
             except (ValueError, KeyError):
                 pass
-        shp_base.to_file(streams_path)
+        _write_shapefile(shp_base, streams_path)
 
         if self._base_raster is None:
             raise ValueError(
@@ -423,3 +474,60 @@ class HydrographyManager(SourceTable):
                 "same box; set data.hydrography.mask_path to a SHP/GPKG/GeoJSON/TIF."
             )
         return Path(mask_path)
+
+
+_SHAPEFILE_SIDECARS = (".shp", ".shx", ".dbf", ".prj", ".cpg")
+
+
+def _in_crs(frame: gpd.GeoDataFrame, crs: object) -> gpd.GeoDataFrame:
+    """*frame* in *crs*; a frame that declares none is taken as WGS84."""
+    if frame.crs is None:
+        frame = frame.set_crs("EPSG:4326")
+    if str(frame.crs) != str(crs):
+        frame = frame.to_crs(crs)
+    return frame
+
+
+def _fetch_question(source: object) -> dict[str, object]:
+    """What *source* reports it was asked, in the shape the catalogue stores it."""
+    metadata = getattr(source, "metadata", None)
+    reported = metadata() if callable(metadata) else {}
+    return json.loads(json.dumps(reported or {}, sort_keys=True, default=str))
+
+
+def _entry_answers(entry: object, question: dict[str, object] | None) -> bool:
+    """Whether a cached *entry* was fetched for the same *question*."""
+    recorded = getattr(entry, "fetch_metadata", None)
+    if recorded in (None, "", {}):
+        return True
+    if isinstance(recorded, str):
+        try:
+            recorded = json.loads(recorded)
+        except ValueError:
+            return False
+    return recorded == (question or {})
+
+
+def _question_digest(question: dict[str, object]) -> str:
+    """Eight hex digits naming *question* in a cache file name."""
+    text = json.dumps(question, sort_keys=True, default=str)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:8]
+
+
+def _write_shapefile(frame: gpd.GeoDataFrame, path: Path) -> None:
+    """Write *frame* as a shapefile, quiet about the names cut to ten letters.
+
+    BD Topage names run to 33 letters and its dates carry a time; the cut to
+    ten letters and the dates stored as text are the shapefile's, and expected.
+    """
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="Column names longer than 10 characters")
+        warnings.filterwarnings("ignore", message="Normalized/laundered field name")
+        warnings.filterwarnings("ignore", message=".*created as String field")
+        frame.to_file(path)
+
+
+def _remove_shapefile(path: Path) -> None:
+    """Delete the shapefile at *path* and every sidecar written with it."""
+    for suffix in _SHAPEFILE_SIDECARS:
+        path.with_suffix(suffix).unlink(missing_ok=True)
