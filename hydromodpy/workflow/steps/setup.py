@@ -701,6 +701,40 @@ class BuildGeographicStep:
         )
 
 
+def rebuild_substratum_if_depth_model_moved(run_state: WorkflowContext) -> bool:
+    """Rebuild the domain when the run's depth model is not the one it was built on.
+
+    A calibration trial writes the thickness of a ``constant_thickness`` model,
+    or the elevation of a ``flat_substratum`` one, into its own copy of the
+    configuration. The domain it forks from was built once by the shared prefix
+    and is the same object for every trial. Without this rebuild each trial
+    solves the geometry of the prefix and reports a thickness it never used.
+
+    Only the vertical extent follows the depth model. The top and the lateral
+    zones are carried over as they are, so nothing here reads a shapefile or
+    delineates a catchment again, and concurrent trials stay independent.
+
+    Returns True when a rebuild happened.
+    """
+    setup_state = run_state.setup
+    domain = setup_state.domain
+    if domain is None:
+        return False
+    declared = run_state.cfg.domain.depth_model
+    if domain.config.depth_model == declared:
+        return False
+    rebuilt = build_domain(
+        domain.config.model_copy(update={"depth_model": declared.model_copy(deep=True)}),
+        surface_topo=domain.surface_topo,
+        zone_ids=tuple(domain.config.zone_ids),
+        substratum_source=read_substratum_source(declared, getattr(run_state.cfg, "data", None)),
+    )
+    for zone_id, zone in domain.zones.items():
+        rebuilt.set_zone(zone_id, zone)
+    setup_state.domain = rebuilt
+    return True
+
+
 class SetupProcessStep:
     """Instantiate flow / transport process objects bound to the domain."""
 
@@ -722,6 +756,9 @@ class SetupProcessStep:
             raise ConfigError("SetupProcessStep requires 'ctx' in state.data")
 
         if getattr(ctx.setup, "domain", None) is not None:
+            # This step owns domain.depth_model, so a trial that moves it starts
+            # here and must find the geometry it asked for.
+            rebuild_substratum_if_depth_model_moved(ctx)
             flow_cfg = getattr(ctx.cfg, "flow", None)
             if flow_cfg is not None:
                 ensure_flow(ctx)

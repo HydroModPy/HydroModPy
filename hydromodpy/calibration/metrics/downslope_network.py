@@ -21,6 +21,10 @@ closed downslope, the mapped one is taken raw, and one single cell is added to
 the target of ``D_so``: the outlet. Closing the mapped network instead would
 build observation out of the DEM, and it erases the very signal Eq. 4 exists to
 detect, turning a misregistered network from rejected into accepted.
+
+Secondary diagnostics travel in the components and never reach the cost, see
+:func:`secondary_diagnostics`: the ratio ``D_so / D_os`` and the overlap indices
+of the authors' published code.
 """
 
 from __future__ import annotations
@@ -30,7 +34,7 @@ from typing import Literal
 
 import numpy as np
 
-from hydromodpy.core.stream_geometry import criterion_supports
+from hydromodpy.core.stream_geometry import CriterionSupports, criterion_supports
 from hydromodpy.core.stream_network import SimulatedNetwork
 from hydromodpy.core.topographic_distance import (
     DownslopeMetric,
@@ -95,6 +99,75 @@ def _support_statistics(
         "zero_fraction": float(np.mean(values == 0.0)),
         "n_support": float(summary.n_support),
         "n_unreachable": float(summary.n_unreachable),
+    }
+
+
+def _ratio(numerator: float, denominator: float) -> float:
+    """Return ``numerator / denominator``, NaN when either is not a usable number."""
+    if not (np.isfinite(numerator) and np.isfinite(denominator)) or denominator == 0.0:
+        return float("nan")
+    return float(numerator / denominator)
+
+
+def secondary_diagnostics(
+    *,
+    d_so: float,
+    d_os: float,
+    supports: CriterionSupports,
+    cell_area_m2: np.ndarray,
+) -> dict[str, float]:
+    """Return the diagnostics other codes of the method recorded, never the cost.
+
+    ``D_so_over_D_os`` is the ratio the v1 example 10 recorded as ``DSO/DOS``
+    and the authors' dichotomy branched on as ``Sflow/Oflow`` (Zenodo 8311547,
+    ``launch_dichotomy.py``). Its crossing of one is the zero of ``J_signed``,
+    so it adds no information to the bracket, only a scale-free reading.
+
+    The rest reproduces ``store_dataframe.fuzzy`` and ``total_length`` of the
+    same code (``objective_function.py``), which classify the cells of the
+    basin into four classes and score them:
+
+    - ``n_neither``: ``Nc``, neither simulated nor mapped. ``Sc``, ``Si``,
+      ``Ni``, ``So``, ``Sm`` are already published as ``n_valid``,
+      ``n_excess``, ``n_missing``, ``n_network_obs`` and ``n_network_sim``.
+    - ``overlap_Ea = 1 - |Sm - So| / So``: agreement of the network sizes.
+    - ``overlap_Sa = 1 - Si / So``: excess of simulated stream, relative to
+      the mapped size.
+    - ``overlap_Na = 1 - Ni / No``: missing stream, relative to the cells the
+      map leaves without one, ``No = Sc + Si + Ni + Nc - So``.
+    - ``overlap_E = Ea * Sa * Na``.
+    - ``L_sim_m``, ``L_obs_m``: the length of each network.
+
+    Departures from the raster version. The cells are the criterion's own
+    supports, inside the catchment and without the water bodies, where the
+    published code counted every pixel of the basin. The mapped side is the
+    raw network, as ``D_os`` reads it; the published code counted the mapped
+    network after tracing it downslope. A length is the sum of the cell sizes,
+    ``sqrt(area)``, over the network, where the published code summed the
+    polylines WhiteboxTools vectorised through pixel centres and dropped the
+    stubs of at most two cells and 110 m: a diagonal reach therefore reads
+    ``sqrt(2)`` shorter here, on both networks alike, and the stubs stay in.
+    """
+    keep = supports.keep
+    so = float(supports.support_os.sum())
+    sm = float(supports.support_so.sum())
+    si = float(supports.excess.sum())
+    ni = float(supports.missing.sum())
+    nc = float((keep & ~supports.support_so & ~supports.support_os).sum())
+    no = float(keep.sum()) - so
+    ea = 1.0 - _ratio(abs(sm - so), so)
+    sa = 1.0 - _ratio(si, so)
+    na = 1.0 - _ratio(ni, no)
+    size = np.sqrt(np.asarray(cell_area_m2, dtype=float).reshape(-1))
+    return {
+        "D_so_over_D_os": _ratio(d_so, d_os),
+        "n_neither": nc,
+        "overlap_Ea": ea,
+        "overlap_Sa": sa,
+        "overlap_Na": na,
+        "overlap_E": ea * sa * na,
+        "L_sim_m": float(size[supports.support_so].sum()),
+        "L_obs_m": float(size[supports.support_os].sum()),
     }
 
 
@@ -277,6 +350,7 @@ def seepage_distance_cost(
         "zero_fraction_os": os_["zero_fraction"],
         "frac_outlet_terminated": frac_outlet,
         "n_outlet_sealed": float(0.0 if observed_mask[outlet] else 1.0),
+        **secondary_diagnostics(d_so=d_so, d_os=d_os, supports=supports, cell_area_m2=cell_area_m2),
     }
     return SeepageDistanceResult(
         signed_gap=signed_gap,
@@ -289,5 +363,6 @@ __all__ = (
     "DISTANCE_METHOD",
     "SeepageDistanceResult",
     "Weighting",
+    "secondary_diagnostics",
     "seepage_distance_cost",
 )

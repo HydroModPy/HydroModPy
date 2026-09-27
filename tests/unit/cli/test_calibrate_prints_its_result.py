@@ -291,3 +291,82 @@ def test_a_staged_result_with_no_evaluated_phase_prints_nothing() -> None:
     staged = SimpleNamespace(phases=[phase])
 
     assert _format_staged_calibration_result(staged) == []
+
+
+def test_the_eq4_verdict_the_bracket_and_the_search_are_printed() -> None:
+    report = _report(
+        best_parameters={"K": 6.4e-5},
+        extra={
+            "roptim_verdict": {
+                "net": {"value": 0.42, "bound": 2.0, "L_ref": 75.0, "Doptim": 31.5, "valid": True}
+            },
+            "bracket": {
+                "parameter": "K",
+                "low": 6.3e-5,
+                "high": 6.36e-5,
+                "relative_width": 0.0095,
+                "closed": True,
+            },
+            "search": {
+                "converged": True,
+                "stopping_rule": "rel_tol",
+                "max_iter": 15,
+                "extension": 0,
+                "n_evaluations": 15,
+            },
+        },
+    )
+
+    lines = _format_calibration_result(report)
+
+    assert "  roptim (net) = 0.42 <= 2, Eq. 4 holds" in lines
+    assert "  bracket on K: [6.3e-05, 6.36e-05], width 0.95% (closed)" in lines
+    assert "  search: converged on its rule (rel_tol), 15 evaluation(s) of 15 declared" in lines
+
+
+def test_a_failed_verdict_an_open_bracket_and_an_unconverged_search_say_so() -> None:
+    report = _report(
+        best_parameters={"K": 6.4e-5},
+        extra={
+            "roptim_verdict": {
+                "net": {"value": 3.1, "bound": 2.0, "L_ref": 75.0, "Doptim": 232.5, "valid": False},
+                "empty": {
+                    "value": None,
+                    "bound": 2.0,
+                    "L_ref": None,
+                    "Doptim": None,
+                    "valid": False,
+                },
+            },
+            "bracket": {
+                "parameter": "K",
+                "low": 5e-5,
+                "high": 8e-5,
+                "relative_width": 0.6,
+                "closed": False,
+            },
+            "search": {
+                "converged": False,
+                "stopping_rule": "rel_tol",
+                "max_iter": 10,
+                "extension": 5,
+                "n_evaluations": 15,
+            },
+        },
+    )
+
+    text = "\n".join(_format_calibration_result(report))
+
+    assert "roptim (net) = 3.1 > 2, Eq. 4 fails" in text
+    assert "roptim (empty): not a number" in text
+    assert "(open, the budget ran out first)" in text
+    assert "search: did NOT converge on its rule (rel_tol), 15 evaluation(s) of 10 declared" in text
+    assert "+ 5 extension" in text
+
+
+def test_a_report_without_these_records_prints_none_of_them() -> None:
+    text = "\n".join(_format_calibration_result(_report(best_parameters={"K": 6.4e-5})))
+
+    assert "roptim" not in text
+    assert "bracket" not in text
+    assert "search:" not in text

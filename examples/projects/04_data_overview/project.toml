@@ -22,6 +22,7 @@ dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 x_outlet = 127348.427
 y_outlet = 6835802.564
 snap_dist = "150 m"
+# "20%" is an area increase: the buffered domain covers 20 % more area than the catchment.
 buff_area = "20%"
 
 [domain]

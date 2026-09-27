@@ -43,6 +43,7 @@ dem_init_path = "regional_dem_lasset.tif"
 x_outlet = 601020.0
 y_outlet = 6193860.0
 snap_dist = "200 m"
+# "50%" is an area increase: the buffered domain covers 50 % more area than the catchment.
 buff_area = "50%"
 
 

@@ -28,6 +28,7 @@ from typing import Any
 from hydromodpy.calibration.targets import (
     CalibrationTarget,
     calibration_targets,
+    declared_calibrable,
     targets_by_name,
     targets_by_path,
 )
@@ -74,7 +75,7 @@ def unresolved_parameter_names(calibration: Any, project_config: Any) -> dict[st
     refused: dict[str, str] = {}
     for name, _decl in pending:
         try:
-            _target_for(name, by_name, catalogue)
+            _target_for(name, by_name, catalogue, project_config)
         except UnresolvedParameterName as exc:
             refused[name] = str(exc)
     return refused
@@ -110,7 +111,7 @@ def resolve_parameter_targets(
         path = decl.resolve_target()
         if path is None:
             try:
-                target = _target_for(name, by_name, catalogue)
+                target = _target_for(name, by_name, catalogue, project_config)
             except UnresolvedParameterName:
                 if strict:
                     raise
@@ -122,6 +123,7 @@ def resolve_parameter_targets(
             _refuse_a_name_that_contradicts_its_path(name, path, by_name)
             target = by_path.get(path)
             if target is None:
+                _refuse_a_depth_model_path_the_catalogue_does_not_carry(name, path, project_config)
                 # A path the catalogue does not carry is the documented way out,
                 # and the space and the preflight judge it on their own terms.
                 continue
@@ -159,11 +161,24 @@ def _target_for(
     name: str,
     index: dict[str, CalibrationTarget],
     catalogue: list[CalibrationTarget],
+    project_config: Any,
 ) -> CalibrationTarget:
     """Return the one target ``name`` designates, or refuse by naming why."""
     exact = index.get(name)
     if exact is not None:
         return exact
+    if name.startswith("depth_model."):
+        # The long spelling of a depth-model target, which is what a file
+        # writes when it wants the section in the name.
+        spelled = [target for target in catalogue if target.path == f"domain.{name}"]
+        if spelled:
+            return spelled[0]
+    if _names_a_depth_model_field(name):
+        # The generic refusal below would list what the project carries and
+        # leave the reader wondering why the thickness is not among them.
+        why = _why_the_depth_model_is_not_searchable(project_config)
+        if why is not None:
+            raise UnresolvedParameterName(f"[calibration.parameters.{name}] {why}")
     ending = [target for target in catalogue if target.name.endswith(f".{name}")]
     if len(ending) == 1:
         return ending[0]
@@ -180,6 +195,113 @@ def _target_for(
         f"holds {known}. `hmp config targets` prints them with their current value, "
         "and 'path' still reaches anything the catalogue does not."
     )
+
+
+_DEPTH_MODEL = "domain.depth_model"
+
+
+def _depth_model_kinds() -> dict[str, tuple[str, ...]]:
+    """Return, per depth-model kind, its fields and which of them are searchable.
+
+    Read off the schema rather than typed here: the fields a kind declares
+    calibrable are the ones the catalogue lists, and a message that named
+    another list would drift from it.
+    """
+    from hydromodpy.spatial.domain.depth_model_config import (
+        ConstantThicknessDepthModel,
+        FlatSubstratumDepthModel,
+        RasterSubstratumDepthModel,
+        RasterThicknessDepthModel,
+    )
+
+    kinds: dict[str, tuple[str, ...]] = {}
+    for model in (
+        ConstantThicknessDepthModel,
+        FlatSubstratumDepthModel,
+        RasterSubstratumDepthModel,
+        RasterThicknessDepthModel,
+    ):
+        kind = str(model.model_fields["kind"].default)
+        kinds[kind] = tuple(
+            field_name
+            for field_name, info in model.model_fields.items()
+            if declared_calibrable(info) is not None
+        )
+    return kinds
+
+
+def _names_a_depth_model_field(name: str) -> bool:
+    """Return whether ``name`` spells a depth-model field, bare or under its section."""
+    from hydromodpy.spatial.domain.depth_model_config import (
+        ConstantThicknessDepthModel,
+        FlatSubstratumDepthModel,
+        RasterSubstratumDepthModel,
+        RasterThicknessDepthModel,
+    )
+
+    leaf = name.removeprefix("depth_model.")
+    if leaf == "kind":
+        return True
+    return any(
+        leaf in model.model_fields
+        for model in (
+            ConstantThicknessDepthModel,
+            FlatSubstratumDepthModel,
+            RasterSubstratumDepthModel,
+            RasterThicknessDepthModel,
+        )
+    )
+
+
+def _why_the_depth_model_is_not_searchable(project_config: Any) -> str | None:
+    """Say why the active depth model does not offer what was asked, or None.
+
+    Only ``constant_thickness`` and ``flat_substratum`` hold their geometry in one
+    number, and only that number is searchable. A raster depth model is a map of
+    the site: a scalar written into it would shift or scale the whole map, which
+    is not the question its raster answers, so none of its fields is declared
+    calibrable.
+    """
+    domain = getattr(project_config, "domain", None)
+    depth_model = getattr(domain, "depth_model", None)
+    kind = getattr(depth_model, "kind", None)
+    if kind is None:
+        return None
+    kinds = _depth_model_kinds()
+    exposed = kinds.get(str(kind), ())
+    offered = (
+        f"which exposes {', '.join(repr(field) for field in exposed)} and nothing else"
+        if exposed
+        else "which exposes nothing to a search"
+    )
+    searchable = ", ".join(
+        f"{fields[0]!r} under kind = {name!r}" for name, fields in kinds.items() if fields
+    )
+    return (
+        f"reaches the depth model, and this project declares [domain.depth_model] "
+        f"kind = {kind!r}, {offered}. The geometry is searched as one number: "
+        f"{searchable}. A raster depth model is a map of the site and is not "
+        "searched; compare one run per raster instead."
+    )
+
+
+def _refuse_a_depth_model_path_the_catalogue_does_not_carry(
+    name: str, path: str, project_config: Any
+) -> None:
+    """Refuse a path into the depth model that the active kind does not expose.
+
+    Anything else a path reaches outside the catalogue is the documented way
+    out. The depth model is not: its tag decides which field exists, and a
+    path to the thickness of a flat substratum, or to the offset of a raster,
+    either fails at the first trial or moves a map the search cannot describe.
+    Refusing at load says so before a single solve.
+    """
+    if path != _DEPTH_MODEL and not path.startswith(f"{_DEPTH_MODEL}."):
+        return
+    why = _why_the_depth_model_is_not_searchable(project_config)
+    if why is None:
+        return
+    raise UnresolvedParameterName(f"[calibration.parameters.{name}] path = {path!r} {why}")
 
 
 def _refuse_bounds_the_registry_rules_out(name: str, decl: Any, target: CalibrationTarget) -> None:

@@ -104,6 +104,46 @@ def test_geographic_cache_loads_matching_complete_artifacts(tmp_path: Path) -> N
     assert cached.flow_products.direc.endswith("dem_direc.tif")
 
 
+def test_a_cache_hit_keeps_how_the_buffer_was_chosen(tmp_path: Path) -> None:
+    """A restored domain says which rule drew its margin, as a fresh one does."""
+    config = _cached_config(tmp_path)
+    paths = build_geographic_paths(tmp_path / "project")
+    raster_products = _raster_products_from_paths(paths)
+    for path in _required_geographic_cache_artifacts(
+        config=config,
+        paths=paths,
+        raster_products=raster_products,
+    ):
+        _touch_artifact(path)
+    _write_geographic_cache_manifest(
+        config=config,
+        paths=paths,
+        domain_products=CatchmentDomainProducts(
+            catchment_area_km2=12.0,
+            buffer_distance_m=150.0,
+            watershed_buff_shp=str(Path(paths.geographic_path) / "watershed_buff.shp"),
+            watershed_box_shp=paths.watershed_box_shp,
+            watershed_box_buff_shp=paths.box_buff,
+            buffer_rule="area_percent",
+            buffer_declared="10%",
+            buffer_area_increase=0.106,
+        ),
+        catchment_area_km2=12.0,
+        catchment_products=None,
+    )
+
+    cached = _load_cached_geographic_products(
+        config=config,
+        paths=paths,
+        crs_project="EPSG:2154",
+    )
+
+    assert cached is not None
+    assert cached.domain_products.buffer_rule == "area_percent"
+    assert cached.domain_products.buffer_declared == "10%"
+    assert cached.domain_products.buffer_area_increase == 0.106
+
+
 def test_geographic_cache_rejects_changed_fingerprint(tmp_path: Path) -> None:
     config = _cached_config(tmp_path)
     paths = build_geographic_paths(tmp_path / "project")

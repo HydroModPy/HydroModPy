@@ -65,11 +65,11 @@ class TestTheVersion:
             assert get_protocol(name).version
 
     def test_the_record_carries_it(self) -> None:
-        assert protocol_record("matching_hydrographic_network")["version"] == "1.0"
+        assert protocol_record("matching_hydrographic_network")["version"] == "1.1"
 
     def test_a_matching_pin_runs(self) -> None:
         expanded = expand_calibration_protocol(
-            _doc({"name": "matching_hydrographic_network", "version": "1.0"})
+            _doc({"name": "matching_hydrographic_network", "version": "1.1"})
         )
 
         assert expanded["calibration"]["phases"]
@@ -118,12 +118,6 @@ class TestTheDeviations:
             assert item["paper"].strip(), item["key"]
             assert item["here"].strip(), item["key"]
             assert item["why"].strip(), item["key"]
-
-    def test_the_reference_values_quote_the_publication(self) -> None:
-        values = protocol_record("matching_hydrographic_network")["reference_values"]
-
-        assert "roptim_max" in values
-        assert "Eq. 4" in values["roptim_max"]
 
 
 class TestWhatMayBeAdjusted:

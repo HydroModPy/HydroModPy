@@ -8,8 +8,22 @@
 #
 #   hmp calibrate examples/projects/10_coupling_with_land_surface_model_pyhelp/run_calibration_k.toml
 #
-# This is the v2 form of the legacy dichotomy loop: the same objective, run by
-# the calibration engine instead of by a hand-written while loop.
+# This is the v2 form of the legacy dichotomy loop (ex10, v1.0.0): the same
+# root, K/R at the zero of the signed gap, run by the calibration engine
+# instead of by a hand-written while loop. It is not a bit-for-bit replica,
+# and the settings below depart from it on purpose:
+#   - weighting = "area" is NOT the legacy script's rule. ex10 and the v1
+#     `MatchingStreams` class both average one point per pixel (one cell, one
+#     vote); "area" over-weights nothing there and is this file's own choice,
+#     recommended once the mesh is refined along the streams.
+#   - tau_specific_ratio = 1e-4 has no equivalent in ex10, which uses a purely
+#     geometric seepage test (dem - head < 0), tau = 0.
+#   - observed_position_accuracy = "50 m" floors L_ref; ex10 hard-codes
+#     GRID_RES = 75 m into roptim's Table 1 analogue and never floors it.
+#   - bounds are on K itself, [1e-7, 1e-4] m/s, not on K/R as ex10 declares
+#     them (K/R in [1, 1000], KRmin/KRmax, ex10:643-648): the two are only the
+#     same search once R is known, and R is read back from the model, not
+#     fixed in the file.
 
 base_config = "project.toml"
 
@@ -45,7 +59,7 @@ metric = "distance_gap"
 uses_outputs = ["seepage_network"]
 
 [[calibration.phases]]
-name = "steady_k"
+name = "steady_conductivity"
 method = "bisection"
 max_iter = 20
 parameters = ["K"]

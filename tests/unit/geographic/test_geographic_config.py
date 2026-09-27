@@ -98,11 +98,11 @@ def test_hydromodpy_config_accepts_synthetic_geographic(
     [("10 m", 10.0), ("0.5 km", 500.0), ("200m", 200.0)],
 )
 def test_a_declared_buffer_distance_survives_being_read_twice(declared, metres) -> None:
-    """The validator normalises a distance to a bare number and must read it back.
+    """The validator normalises a distance to metres and must read it back.
 
     A run seals its own configuration and is re-read from it, so every validator
-    on that path sees its own output a second time. This one turned '10 m' into
-    '10.0' and then refused '10.0' as dimensionless.
+    on that path sees its own output a second time. This one once turned '10 m'
+    into '10.0' and then refused '10.0' as dimensionless.
     """
 
     def buffer_of(value):
@@ -121,12 +121,12 @@ def test_a_declared_buffer_distance_survives_being_read_twice(declared, metres) 
 
     once = buffer_of(declared)
 
-    assert float(once) == pytest.approx(metres)
+    assert once == f"{metres!r} m"
     assert buffer_of(once) == once
 
 
-def test_a_buffer_percentage_stays_a_number_and_a_distance_stays_a_string() -> None:
-    """What tells the two apart downstream is the type, not the magnitude."""
+def test_a_buffer_percentage_keeps_its_sign_and_a_bare_number_stays_a_number() -> None:
+    """What tells the three rules apart downstream is the form, not the magnitude."""
 
     def buffer_of(value):
         return GeographicConfig.model_validate(
@@ -142,6 +142,6 @@ def test_a_buffer_percentage_stays_a_number_and_a_distance_stays_a_string() -> N
             }
         ).buff_area
 
-    assert buffer_of("2%") == 2.0
+    assert buffer_of("2%") == "2%"
     assert buffer_of(2.0) == 2.0
-    assert buffer_of("2 m") == "2.0"
+    assert buffer_of("2 m") == "2.0 m"

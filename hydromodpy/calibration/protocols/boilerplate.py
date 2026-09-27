@@ -30,15 +30,23 @@ def methods_paragraph(
     backend: str | None = None,
     conditional_widths: Mapping[str, str] | None = None,
     absent_widths: Mapping[str, str] | None = None,
+    steady_window: Mapping[str, object] | None = None,
 ) -> str:
     """Return the Methods prose for one calibration that ran.
 
     ``stages_that_ran`` names the stages that completed, so the sentence
     describes the run rather than the plan. ``calibrated`` carries the values the
-    search returned, ``chosen`` the settings this file set on keys the protocol
-    departs from its publication on, ``options`` the protocol options it moved off
-    the recipe, and ``backend`` the solver, whose support status is stated when it
-    is not one this repository tests.
+    search returned, ``chosen`` the settings this file actually set on keys the
+    protocol declares a departure on -- only the ones whose value differs from
+    ``Deviation.paper_value`` are reported, so a file that merely restates the
+    publication's own default is not read as having left it. ``options`` is the
+    protocol options moved off the recipe, and ``backend`` the solver, whose
+    support status is stated when it is not one this repository tests.
+
+    ``steady_window`` carries the span stage one actually averaged its recharge
+    over -- ``start``, ``end``, ``days``, and ``mean_recharge_m_s`` when it is
+    known -- so a reader can tell a multi-decade normal from the three years a
+    project happened to load, without reading the model that ran.
 
     ``conditional_widths`` names, per stage, a parameter uncertainty that WAS
     reported but is conditional rather than absolute -- typically frozen
@@ -82,6 +90,18 @@ def methods_paragraph(
             "calibrated keeps the value it entered the calibration with."
         )
 
+    if steady_window:
+        start = steady_window.get("start")
+        end = steady_window.get("end")
+        days = steady_window.get("days")
+        piece = f"Stage one averaged recharge over its steady window, {start} to {end}"
+        if days is not None:
+            piece += f" ({days} day(s))"
+        recharge = steady_window.get("mean_recharge_m_s")
+        if recharge is not None:
+            piece += f", mean recharge {float(recharge):.4g} m/s"
+        parts.append(piece + ".")
+
     if calibrated:
         rendered = ", ".join(f"{key} = {value:.4g}" for key, value in sorted(calibrated.items()))
         parts.append(f"The calibration returned {rendered}.")
@@ -89,7 +109,9 @@ def methods_paragraph(
     departures = [
         deviation
         for deviation in protocol.deviations
-        if chosen is not None and deviation.key in chosen
+        if chosen is not None
+        and deviation.key in chosen
+        and chosen[deviation.key] != deviation.paper_value
     ]
     if departures:
         listed = "; ".join(

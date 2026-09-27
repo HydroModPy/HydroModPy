@@ -49,33 +49,42 @@ diagnostics.
      - ``run.cell_field_network_distance_metrics()``
      - Intermediate: it measures planar cell-centroid distances and is
        explicitly not the downslope DEM-routing metric from the article.
-   * - Legacy matching streams
-     - observed stream raster versus simulated seepage raster, in both
-       directions
-     - historically implemented as ``MatchingStreams``; the module was
-       removed and has no replacement in the current tree
-     - Closest conceptual match: it created downslope-distance rasters and
-       point samples needed to compute the bidirectional criterion.
+   * - Downslope-distance criterion
+     - simulated seepage network versus the observed ``reference`` network, in
+       both directions, along the steepest-descent receiver graph
+     - :mod:`hydromodpy.calibration.metrics.downslope_network`, reached
+       through the ``matching_hydrographic_network`` protocol
+     - Implemented: :math:`D_{so}`, :math:`D_{os}`, :math:`J`,
+       :math:`D_{optim}` and :math:`r_{optim}` (Eq. 1-4) are computed and
+       published per trial. Declared deviations from the paper and from the
+       authors' own published code are listed on
+       :doc:`downslope-distance-calibration` and in
+       ``MatchingHydrographicNetwork.deviations``.
 
-The legacy ``MatchingStreams`` code did not persist a clean scalar CSV with
-``D_so``, ``D_os`` and ``D_optim``. It produced the artifacts needed to derive
-them:
+The legacy ``MatchingStreams`` script (v1, retired) is the ancestor of this
+criterion: it produced the same family of rasters without persisting a clean
+scalar CSV of ``D_so``, ``D_os`` and ``D_optim``.
 
 - ``obs.tif`` and ``sim.tif``: observed and simulated stream supports.
 - ``obsflow.tif`` and ``simflow.tif``: traced downslope flowpaths.
 - ``dist_dem_obs.tif`` and ``dist_dem_sim.tif``: downslope-distance rasters.
 - sampled point layers such as ``sim_pt.shp`` and ``obs_pt.shp``.
 
-To make it fully compatible with :cite:`abherve2023`, HydroModPy should
-modernize that logic into a result view and CSV export that computes at least:
+The current criterion computes the same four quantities directly from the
+mesh, with no intermediate raster or point-sample step, and reports them for
+every trial of a calibration:
 
-- :math:`D^{down}_{s\to o}`: average simulated-to-observed downslope
-  distance.
-- :math:`D^{down}_{o\to s}`: average observed-to-simulated downslope
-  distance.
-- :math:`D_{optim}`: combined downslope-distance criterion.
-- :math:`r_{optim}`: :math:`D_{optim}` normalized by the DEM or analysis
-  resolution.
+- ``D_so``: average simulated-to-observed downslope distance.
+- ``D_os``: average observed-to-simulated downslope distance.
+- ``Doptim``: :math:`(D_{so} + D_{os}) / 2`, the paper's diagnostic, never the
+  search cost.
+- ``roptim``: ``Doptim`` normalized by the reference length ``L_ref`` (the
+  mesh resolution on a regular grid).
+
+Read :doc:`downslope-distance-calibration` for what each of those means and
+which of its known biases apply, and
+:doc:`../../user_guide/workflows/stream-network-calibration` for how to run
+it.
 
 Current Extreme Sweep
 ---------------------

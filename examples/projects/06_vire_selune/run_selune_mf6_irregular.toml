@@ -20,6 +20,7 @@ coverage_policy = "warn"
 [geographic.catchment]
 x_outlet = 379541.3716
 y_outlet = 6845659.878
+# "20%" is an area increase: the buffered domain covers 20 % more area than the catchment.
 buff_area = "20%"
 
 [flow]

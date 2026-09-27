@@ -918,7 +918,7 @@
         },
         "diagonal_neighbors": {
           "default": false,
-          "description": "Route this cell's discharge, and the area it drains, over shared nodes rather than shared edges, which recovers a talweg that runs diagonally across a square grid. Only reaches 'variable' = 'discharge'; a head read at this cell ignores it. The same knob as the network output's own 'diagonal_neighbors', declared here too because a cell output belongs to no network block.",
+          "description": "Route this cell's discharge, and the area it drains, over shared nodes rather than shared edges, which recovers a talweg that runs diagonally across a square grid. Only reaches 'variable' = 'discharge'; a head read at this cell ignores it. The same routing choice as the network output's 'diagonal_neighbors', declared here because a cell output belongs to no network block, with its own default: false (shared edges) here, true (D8) on the network output.",
           "examples": [
             false
           ],
@@ -1083,7 +1083,7 @@
     },
     "CalibOutputNetwork": {
       "additionalProperties": false,
-      "description": "The mapped stream network as a calibration target.\n\nThe model is compared to a hydrographic network rather than to a gauge:\nfor every cell where it releases water to the surface, the descent to the\nmapped network is measured, and reciprocally. The output produces the pair\n``(D_so, D_os)``; the metric on top of it is ``distance_gap``, their signed\ndifference in absolute value, whose zero is the balance between an excess\nof simulated stream and a missing one.\n\nThere is no ``observed_values`` here and there cannot be: the criterion\nbalances two simulated quantities against each other, so nothing in it is\nfitted to a record. The mapped network enters as a geometry, not as a\nseries, and exactly one of ``observed_network`` and\n``stream_geometry_path`` names where it comes from.",
+      "description": "The mapped stream network as a calibration target.\n\nThe criterion compares a simulated stream network to a mapped one. For\nevery cell of the simulated network the descent to the mapped network is\nmeasured, and reciprocally. The output produces the pair ``(D_so, D_os)``;\nthe metric on top of it is ``distance_gap``, their signed difference in\nabsolute value, whose zero is the balance between an excess of simulated\nstream and a missing one.\n\nIt can drive any parameter that moves where the water table meets the\nsurface. What it identifies depends on what moves: with the homogeneous\nconductivity alone, at fixed geometry and recharge, it identifies ``K/R``,\nthe ratio of Abherve et al. (2023), and not ``K`` itself.\n\nThere is no ``observed_values`` here and there cannot be: the criterion\nbalances two simulated quantities against each other, so nothing in it is\nfitted to a record. The mapped network enters as a geometry, not as a\nseries, and exactly one of ``observed_network`` and\n``stream_geometry_path`` names where it comes from.",
       "properties": {
         "variable": {
           "default": "release_flux",
@@ -1168,13 +1168,27 @@
           "x-hmp-profile": "user"
         },
         "diagonal_neighbors": {
-          "default": false,
-          "description": "Route over shared nodes rather than shared edges, which recovers the diagonal descents of a D8 grid. Only meaningful on a structured quad mesh. The default is the literal reading of the paper and it is not a second-decimal choice: on a synthetic valley whose talweg runs along the grid diagonal, the most accumulated cell collects 6.6 per cent of the domain over shared edges and 100 per cent over shared nodes, and the delineation that produced the catchment itself uses a D8 pointer. Set it to true wherever the talwegs are not axis-aligned, which on real topography is most of them.",
+          "default": true,
+          "description": "Descend over shared nodes, the eight D8 neighbours of a quad mesh. True is the paper: its distances are traced by WhiteboxTools on a D8 pointer, and the delineation that produced the catchment uses one too. False descends over shared edges only, four neighbours (D4), and departs from the paper. It is not a second-decimal choice: on a synthetic valley whose talweg runs along the grid diagonal, the most accumulated cell collects 100 per cent of the domain over shared nodes and 6.6 per cent over shared edges. On a mesh whose faces are not all quadrilaterals no cell has a diagonal and the descent walks shared edges either way; on a Voronoi mesh the two graphs are the same one.",
           "examples": [
-            false
+            true
           ],
           "title": "Diagonal Neighbors",
           "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "observed_rasterization": {
+          "default": "crossing",
+          "description": "How the mapped network is drawn on the mesh cells. 'crossing' keeps the cell holding each point where a line crosses the segment joining two edge-sharing cell centres. On a structured grid it reproduces WhiteboxTools VectorLinesToRaster, the paper's tool, and draws the map one cell wide like the simulated network, so a model that matches the map scores J = 0. 'touch' keeps every cell the line touches, corners included, and replays a session made before 2026-09; it thickens every diagonal step of the map and departs from the paper.",
+          "enum": [
+            "crossing",
+            "touch"
+          ],
+          "examples": [
+            "crossing"
+          ],
+          "title": "Observed Rasterization",
+          "type": "string",
           "x-hmp-profile": "user"
         },
         "observed_position_accuracy": {
@@ -1220,7 +1234,7 @@
         },
         "on_roptim_violation": {
           "default": "warn",
-          "description": "What a violation of the validity bound does. Default warns and returns the value, because a calibration is asked for a number.",
+          "description": "What a violation of the validity bound does. The bound is read once, on the trial the search returns, as the paper reads it at the optimum; every trial still records 'roptim' and 'roptim_valid'. 'warn' logs it and returns the value, because a calibration is asked for a number. 'error' raises after the session is saved, so a staged calibration freezes nothing and runs no phase that depends on this one.",
           "enum": [
             "warn",
             "error"
@@ -1482,7 +1496,7 @@
         },
         "diagonal_neighbors": {
           "default": false,
-          "description": "Route this cell's discharge, and the area it drains, over shared nodes rather than shared edges, which recovers a talweg that runs diagonally across a square grid. Only reaches 'variable' = 'discharge'; a head or a lake state read at this point ignores it. The same knob as the network output's own 'diagonal_neighbors', declared here too because a point output belongs to no network block.",
+          "description": "Route this cell's discharge, and the area it drains, over shared nodes rather than shared edges, which recovers a talweg that runs diagonally across a square grid. Only reaches 'variable' = 'discharge'; a head or a lake state read at this point ignores it. The same routing choice as the network output's 'diagonal_neighbors', declared here because a point output belongs to no network block, with its own default: false (shared edges) here, true (D8) on the network output.",
           "examples": [
             false
           ],
@@ -3670,6 +3684,14 @@
           "x-hmp-profile": "user"
         },
         "thickness": {
+          "calibrable": {
+            "bounds": null,
+            "description": "Aquifer thickness below the topography, one value everywhere.",
+            "is_the_value_of_its_instance": false,
+            "prior": "log_uniform",
+            "transform": "log",
+            "units": "m"
+          },
           "default": 50.0,
           "description": "Constant aquifer thickness applied below topography (canonical metres). Accepts inline units, e.g. '0.2 km'.",
           "examples": [
@@ -6136,6 +6158,14 @@
           "x-hmp-profile": "user"
         },
         "substratum_elevation": {
+          "calibrable": {
+            "bounds": null,
+            "description": "Elevation of the flat substratum, one value everywhere.",
+            "is_the_value_of_its_instance": false,
+            "prior": "uniform",
+            "transform": "identity",
+            "units": "m"
+          },
           "default": 0.0,
           "description": "Flat substratum elevation applied over the full domain (canonical metres). Accepts inline units, e.g. '40 m'. This is an ABSOLUTE elevation, not a depth below topography: where the land surface drops under it, no aquifer is left. Use 'constant_thickness' to follow the relief instead.",
           "examples": [
@@ -16474,7 +16504,7 @@
               "type": "number"
             }
           ],
-          "description": "Buffer around the watershed polygon. Numeric values are interpreted as a percentage of sqrt(area [km^2]). String values are interpreted as explicit distances (for example '500 m', '2 km').",
+          "description": "Margin around the watershed polygon. A percentage ('10%') enlarges the catchment AREA by that share, the rule of Abherve et al. (2023): the distance is solved on the real polygon, then snapped to the DEM grid. A length ('500 m', '2 km') is an explicit distance. A bare number (10) keeps the legacy v1 rule, 10 per cent of sqrt(area in km2) km, about 50 per cent more area on a real catchment, and warns: it lets a sealed run replay its domain.",
           "title": "Buff Area",
           "x-hmp-profile": "user"
         }
@@ -17545,7 +17575,7 @@
               "type": "number"
             }
           ],
-          "description": "Buffer around the watershed polygon. Numeric values are interpreted as a percentage of sqrt(area [km^2]). String values are interpreted as explicit distances (for example '500 m', '2 km').",
+          "description": "Margin around the watershed polygon. A percentage ('10%') enlarges the catchment AREA by that share, the rule of Abherve et al. (2023): the distance is solved on the real polygon, then snapped to the DEM grid. A length ('500 m', '2 km') is an explicit distance. A bare number (10) keeps the legacy v1 rule, 10 per cent of sqrt(area in km2) km, about 50 per cent more area on a real catchment, and warns: it lets a sealed run replay its domain.",
           "title": "Buff Area",
           "x-hmp-profile": "user"
         }

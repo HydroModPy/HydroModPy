@@ -12,6 +12,12 @@ in its traits which of its own options that writes and in which units. An engine
 whose stopping rule is a budget and not a precision declares nothing, and a
 precision handed to it is refused rather than dropped: silently ignoring it would
 report a search that honoured a request it never read.
+
+The same declaration tells the engine loop what "converged" means. An engine
+that names a stopping option can run out of budget before meeting it, and that
+search did not converge: its answer is wherever the budget happened to end. An
+engine that names none stops on its budget by design, so spending it is its
+rule and not a failure.
 """
 
 from __future__ import annotations
@@ -20,10 +26,35 @@ import math
 from collections.abc import Mapping
 from typing import Any
 
-from hydromodpy.calibration.optim.optimizer import engine_traits
+from hydromodpy.calibration.optim.optimizer import EngineTraits, engine_traits
 
 TOLERANCE_FIELD = "calibration.tolerance"
 """Where the precision is declared, for the message an engine refusal prints."""
+
+BUDGET_RULE = "budget"
+"""The rule of an engine that declares no stopping option: it stops on max_iter."""
+
+
+def stopping_rule(optimizer: Any) -> str:
+    """Name the rule *optimizer* stops on: its stopping option, or ``"budget"``.
+
+    Read on the instance, from the traits its class declares, because the engine
+    loop holds an optimizer and not the name it was built from.
+    """
+    traits = getattr(optimizer, "traits", None)
+    if isinstance(traits, EngineTraits) and traits.tolerance_option is not None:
+        return traits.tolerance_option
+    return BUDGET_RULE
+
+
+def budget_extension(max_iter: int) -> int:
+    """Return the evaluations granted once when the budget ends before the rule.
+
+    Half the initial budget, rounded up, so 48 buys 24 more. One extension and
+    not a loop: a search that needs more than one and a half times what was
+    declared is a configuration to fix, not a budget to stretch in silence.
+    """
+    return max(0, math.ceil(int(max_iter) / 2))
 
 
 def stopping_kwargs(
@@ -117,4 +148,12 @@ def search_width(parameter: Any, tolerance: float) -> float:
     return float(tolerance) * abs(high - low)
 
 
-__all__ = ["TOLERANCE_FIELD", "engine_stopping_value", "search_width", "stopping_kwargs"]
+__all__ = [
+    "BUDGET_RULE",
+    "TOLERANCE_FIELD",
+    "budget_extension",
+    "engine_stopping_value",
+    "search_width",
+    "stopping_kwargs",
+    "stopping_rule",
+]

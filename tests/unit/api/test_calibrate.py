@@ -893,7 +893,7 @@ def test_calibrate_expand_names_the_protocol_and_its_first_reference(tmp_path: P
 
     assert result["protocol"] == {
         "name": "matching_hydrographic_network",
-        "version": "1.0",
+        "version": "1.1",
         "citation": "Abherve et al. 2023, 10.5194/hess-27-3221-2023",
     }
 

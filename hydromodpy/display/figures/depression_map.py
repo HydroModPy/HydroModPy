@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hydromodpy.core.depression_filling import DEFAULT_EPSILON_M, fill_depressions_on_graph
+from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.core.topographic_distance import (
     build_downslope_metric,
     downslope_distance_to_mask,
@@ -284,7 +285,7 @@ class DepressionMap(BaseFigure):
         ax: Axes,
         *,
         shows: str = DEPRESSIONS,
-        diagonal_neighbors: bool = False,
+        diagonal_neighbors: bool = STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
         clip_percentile: float = DEFAULT_CLIP_PERCENTILE,
         cmap: str | None = None,
         **_,

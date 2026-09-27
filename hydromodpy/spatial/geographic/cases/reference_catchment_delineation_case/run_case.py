@@ -63,7 +63,9 @@ def _load_river_network_summary(geographic) -> tuple[str | None, dict[str, Any] 
 def _build_case_specs(cfg: HydroModPyConfig) -> dict[str, dict[str, Any]]:
     """Build default run specifications for all supported geographic demo cases."""
     default_snap = int(cfg.geographic.snap_dist) if cfg.geographic.snap_dist is not None else 50
-    default_buff = float(cfg.geographic.buff_area) if cfg.geographic.buff_area is not None else 20.0
+    # Passed on as declared: "20%" is an area increase, "150.0 m" a distance
+    # and a bare number the legacy rule, and float() would read none of them.
+    default_buff = cfg.geographic.buff_area if cfg.geographic.buff_area is not None else "20%"
     canut_shp = REPO_ROOT / "examples" / "data" / "masks" / "canut.shp"
     wide_brittany_dem = REPO_ROOT / "examples" / "data" / "dem" / "DEM_armorican_massif.tif"
 

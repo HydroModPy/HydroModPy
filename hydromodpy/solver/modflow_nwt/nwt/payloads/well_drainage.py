@@ -46,8 +46,10 @@ def build_drainage_spd(
 
     Conductance policy:
     - If drainage BC value > 0: use this explicit conductance.
-    - Otherwise: derive conductance from ``hk * cell_area / top_layer_thickness``
-      (m2/s), shared with the MODFLOW 6 backend.
+    - Otherwise: derive conductance from ``hk * cell_area / drain_bed_thickness_m``
+      (m2/s), shared with the MODFLOW 6 backend. ``drain_bed_thickness_m`` is the
+      clogging-layer thickness (decimetres to a metre), not the model layer
+      thickness.
     - With ``sink_fill=True``: cells in a closed depression receive zero
       conductance, so the ponded water they hold has no invented outlet.
 

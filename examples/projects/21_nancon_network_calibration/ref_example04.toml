@@ -7,13 +7,28 @@
 # dossier ont regles depuis.
 #
 # La methode est le protocole nomme `matching_hydrographic_network` (Abherve
-# et al., 2023 ; 2024 ; 2025), ramene par options aux choix du script :
-# `distance_mean` (eq. 2) au lieu de `distance_gap` (eq. 1), Nelder-Mead au
-# lieu de la dichotomie, ponderation surfacique au lieu d'une voix par
-# maille. `hmp calibrate --check` imprime les trois.
+# et al., 2023 ; 2024 ; 2025), ramene par options aux deux choix du script qui
+# ont un equivalent direct : `distance_mean` (eq. 2) au lieu de `distance_gap`
+# (eq. 1), Nelder-Mead au lieu de la dichotomie. `hmp calibrate --check`
+# imprime les deux.
 #
-# Cinq ecarts au script. Les quatre premiers sont mesures, le cinquieme est
-# lu dans le script et son ampleur ici n'est PAS mesuree :
+# Trois options ci-dessous n'ont PAS d'equivalent dans le script et ne sont
+# donc PAS des replicas ; ce sont des choix propres a ce fichier, a ne pas lire
+# comme "ce que fait le script" :
+#   - `weighting = "area"` : le script moyenne un point par pixel
+#     (`mean_simf_to_obsf`, `mean_obsf_to_simf`, example_04_calibration.py
+#     1108-1109), donc une voix par maille, ce que HydroModPy nomme
+#     `weighting = "cell"`. Ce fichier pese par aire a la place ; cela ne
+#     reproduit rien du script.
+#   - `tau_specific_ratio = 1e-4` : le script teste une condition purement
+#     geometrique, `dem - head < 0`, sans seuil (equivalent `tau = 0`).
+#   - `observed_position_accuracy = "50 m"` : sans equivalent, le script
+#     n'a pas de `roptim` et code en dur `GRID_RES = 75` sans jamais
+#     l'utiliser pour plancher quoi que ce soit.
+#
+# Cinq ecarts au script sur le reste du montage. Les quatre premiers sont
+# mesures, le cinquieme est lu dans le script et son ampleur ici n'est PAS
+# mesuree :
 #
 #   1. 1995-2020 et non 1995-2024 : la recharge et le ruissellement REA du
 #      Nancon s'arretent au 31/12/2020. 9497 jours. Le debit observe couvre
@@ -39,26 +54,29 @@
 #      64,614 avec. Il est garde pour que la delimitation coincide avec les
 #      autres fichiers du dossier.
 #
-#   5. DESCENTE D4 CONTRE D8, ecart LU et non mesure ici. La reference
-#      calcule ses distances avec `wbt.downslope_distance_to_stream` sur le
-#      MNT rempli (lignes 928, 932, 954, 957 du script), donc le long de
-#      chemins D8. Le critere de HydroModPy descend son propre graphe sur le
-#      maillage et `diagonal_neighbors` vaut false par defaut, donc D4, les
-#      aretes partagees seulement.
+#   5. DESCENTE D4 CONTRE D8. La reference calcule ses distances avec
+#      `wbt.downslope_distance_to_stream` sur le MNT rempli (lignes 928, 932,
+#      954, 957 du script), donc le long de chemins D8. `diagonal_neighbors`
+#      valait false par defaut quand les neuf essais et le `best_objective
+#      185.7234104098768` ci-dessus ont ete mesures, donc D4, les aretes
+#      partagees seulement : un ecart au script, non corrige alors pour ne
+#      pas changer les nombres mesures en silence.
+#
+#      Depuis la version 1.1 du protocole, le defaut est passe a true (D8),
+#      qui EST maintenant la lecture du papier et du script. Ce fichier fixe
+#      `diagonal_neighbors = false` explicitement ci-dessous pour que les
+#      neuf essais et le `best_objective` mesures restent reproductibles ;
+#      sans cette ligne le defaut aurait silencieusement bascule le montage
+#      en D8 et change ces nombres. L'ecart au script reste donc entier, mais
+#      il est maintenant explicite plutot qu'herite d'un defaut.
 #
 #      Une descente D4 ne peut pas suivre un talweg diagonal sur une grille
 #      carree. Mesure sur une vallee synthetique dont le talweg suit la
 #      diagonale : la maille la plus accumulee collecte 6,6 % du domaine en
 #      D4 contre 100 % en D8
 #      (`tests/unit/core/test_a_diagonal_talweg_needs_diagonal_neighbours.py`).
-#
-#      Ce que ce chiffre ne dit PAS : de combien le cout de CE montage bouge
-#      entre les deux. Le declarer a true changerait les neuf essais et le
-#      `best_objective 185.7234104098768` de l'ecart 4, obtenus en D4. Le
-#      fichier le laisse donc tel quel et nomme l'ecart au lieu de le
-#      corriger en silence. Chaque run imprime desormais ce que son graphe
-#      peut drainer contre l'aire du bassin, donc le symptome se lit sans
-#      relire ce commentaire.
+#      Chaque run imprime ce que son graphe peut drainer contre l'aire du
+#      bassin, donc le symptome se lit sans relire ce commentaire.
 # ======================================================================
 
 [workflow]
@@ -87,6 +105,7 @@ dem_init_path = "DEM_armorican_massif.tif"
 x_outlet = 389358.0
 y_outlet = 6816630.0
 snap_dist = "150 m"
+# "10%" is an area increase: the buffered domain covers 10 % more area than the catchment.
 buff_area = "10%"
 
 [geographic.enforce_streams]
@@ -245,6 +264,10 @@ tau_specific_ratio = 1.0e-4
 roptim_max = 2.0
 time = "last"
 observed_position_accuracy = "50 m"
+# Explicite depuis la version 1.1 du protocole (le defaut est passe a true) :
+# voir l'ecart 5 ci-dessus. Preserve les neuf essais et le `best_objective`
+# mesures en D4.
+diagonal_neighbors = false
 
 # Le protocole ecrit les deux etages, leur bloc d'objectif et les regimes
 # qu'ils imposent : permanent sur une periode unique de 9497 jours a recharge
@@ -256,10 +279,13 @@ observed_position_accuracy = "50 m"
 # rien ne place le minimum interieur sur le zero de l'ecart signe.
 #
 # Version epinglee : un point de comparaison qui glisse avec les versions
-# n'en est plus un.
+# n'en est plus un. Passee a 1.1 (D8 par defaut, Eq. 4 lue au point rendu
+# seulement) : un pin sur "1.0" est refuse par le protocole depuis ce bump,
+# et `diagonal_neighbors = false` ci-dessus tient a lui seul la difference de
+# comportement qui comptait pour ce montage.
 [calibration.protocol]
 name = "matching_hydrographic_network"
-version = "1.0"
+version = "1.1"
 steady_metric = "distance_mean"
 steady_method = "scipy_nelder_mead"
 steady_max_iter = 60

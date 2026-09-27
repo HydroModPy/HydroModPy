@@ -4,6 +4,10 @@ A calibration can score the mapped network (``"reference"``) or the one the
 DEM was thresholded into (``"generated"``). The redraw must follow whichever
 one a trial actually used, or a map disagrees with the counts it publishes.
 The default stays ``"reference"`` so every existing caller is unaffected.
+
+The redraw also draws the mapped network by the trial's rule, with the same
+default, the crossing one: a map drawn thicker than the trial scored it would
+show cells the criterion never counted.
 """
 
 from __future__ import annotations
@@ -76,3 +80,26 @@ def test_unavailable_reason_follows_the_requested_role() -> None:
 
     assert reason is not None
     assert "generated" in reason
+
+
+def _run_with_a_diagonal_reference():
+    """A run whose 'reference' network runs through three centres on a diagonal."""
+    run = comparison_run(seepage_cells=[cell(AXIS_COLUMN, row) for row in range(NY)])
+    centres = [((k + 0.5) * CELL_M, (k + 0.5) * CELL_M) for k in range(NY)]
+    diagonal = gpd.GeoDataFrame(geometry=[LineString(centres)], crs=run.mesh.crs)
+    run.hydrographic_network = lambda role="generated": diagonal
+    return run
+
+
+def test_the_default_rule_draws_the_mapped_network_one_cell_per_step() -> None:
+    comparison = network_comparison_from_run(_run_with_a_diagonal_reference())
+
+    assert _mapped_cells(comparison) == [cell(k, k) for k in range(NY)]
+
+
+def test_touch_replays_the_corner_cells_of_each_diagonal_step() -> None:
+    comparison = network_comparison_from_run(
+        _run_with_a_diagonal_reference(), observed_rasterization="touch"
+    )
+
+    assert len(_mapped_cells(comparison)) == NY + 2 * (NY - 1)

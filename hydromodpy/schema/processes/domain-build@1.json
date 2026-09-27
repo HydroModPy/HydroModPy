@@ -153,6 +153,14 @@
                 "x-hmp-profile": "user"
               },
               "thickness": {
+                "calibrable": {
+                  "bounds": null,
+                  "description": "Aquifer thickness below the topography, one value everywhere.",
+                  "is_the_value_of_its_instance": false,
+                  "prior": "log_uniform",
+                  "transform": "log",
+                  "units": "m"
+                },
                 "default": 50.0,
                 "description": "Constant aquifer thickness applied below topography (canonical metres). Accepts inline units, e.g. '0.2 km'.",
                 "examples": [
@@ -183,6 +191,14 @@
                 "x-hmp-profile": "user"
               },
               "substratum_elevation": {
+                "calibrable": {
+                  "bounds": null,
+                  "description": "Elevation of the flat substratum, one value everywhere.",
+                  "is_the_value_of_its_instance": false,
+                  "prior": "uniform",
+                  "transform": "identity",
+                  "units": "m"
+                },
                 "default": 0.0,
                 "description": "Flat substratum elevation applied over the full domain (canonical metres). Accepts inline units, e.g. '40 m'. This is an ABSOLUTE elevation, not a depth below topography: where the land surface drops under it, no aquifer is left. Use 'constant_thickness' to follow the relief instead.",
                 "examples": [

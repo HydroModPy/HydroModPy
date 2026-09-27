@@ -94,6 +94,15 @@ class _AskTellBridge:
     def finished(self) -> bool:
         return self._done.is_set()
 
+    def succeeded(self) -> bool:
+        """Whether SciPy ended and says its own stopping rule was met.
+
+        ``OptimizeResult.success`` is False when SciPy stopped on its own
+        ``maxiter`` or ``maxfev``: the thread ended, the search did not converge.
+        A bridge closed from outside carries no result and has not succeeded.
+        """
+        return self._done.is_set() and bool(getattr(self._result, "success", False))
+
     def close(self) -> None:
         self._done.set()
         self._in_q.put(_SENTINEL)
@@ -173,7 +182,8 @@ class _ScipyAdapterBase:
         return min(valid, key=lambda r: r.objective_value)
 
     def converged(self) -> bool:
-        return self._bridge.finished() and not self._pending
+        """Whether SciPy ended on its own tolerance, not on its own evaluation cap."""
+        return self._bridge.succeeded() and not self._pending
 
     def close(self) -> None:
         self._bridge.close()

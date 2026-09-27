@@ -120,6 +120,11 @@ class GeographicRuntimeContext:
 
     y_outlet_snapped: float | None = None
     outlet_snap_distance_m: float | None = None
+    buffer_distance_m: float | None = None
+    """Margin drawn around the catchment, in metres, after rounding to the DEM."""
+
+    buffer_area_increase: float | None = None
+    """Relative area the margin added to the catchment; None when not recorded."""
 
     def runtime_attributes(self) -> dict[str, object]:
         """Return the public attribute payload expected from ``CatchmentDelineation``."""
@@ -139,6 +144,8 @@ class GeographicRuntimeContext:
                 "x_outlet_snapped": self.x_outlet_snapped,
                 "y_outlet_snapped": self.y_outlet_snapped,
                 "outlet_snap_distance_m": self.outlet_snap_distance_m,
+                "buffer_distance_m": self.buffer_distance_m,
+                "buffer_area_increase": self.buffer_area_increase,
                 "_paths": self.paths,
                 "_dem_metadata": self.dem_metadata,
                 "_river_network_products": self.river_network_products,
@@ -444,6 +451,11 @@ def _load_cached_geographic_products(
         watershed_buff_shp=str(Path(paths.geographic_path) / "watershed_buff.shp"),
         watershed_box_shp=paths.watershed_box_shp,
         watershed_box_buff_shp=paths.box_buff,
+        # A manifest written before the buffer rules were recorded has none of
+        # these three, and the products then say so with None.
+        buffer_rule=manifest.get("buffer_rule"),
+        buffer_declared=manifest.get("buffer_declared"),
+        buffer_area_increase=_optional_float(manifest.get("buffer_area_increase")),
     )
     return _CachedGeographicProducts(
         flow_products=flow_products,
@@ -483,6 +495,9 @@ def _write_geographic_cache_manifest(
         "fingerprint": _geographic_cache_fingerprint(config),
         "catchment_area_km2": float(catchment_area_km2),
         "buffer_distance_m": float(domain_products.buffer_distance_m),
+        "buffer_rule": domain_products.buffer_rule,
+        "buffer_declared": domain_products.buffer_declared,
+        "buffer_area_increase": domain_products.buffer_area_increase,
         "x_outlet_snapped": getattr(catchment_products, "x_outlet_snapped", None),
         "y_outlet_snapped": getattr(catchment_products, "y_outlet_snapped", None),
         "outlet_snap_distance_m": getattr(catchment_products, "snap_distance_m", None),
@@ -762,4 +777,6 @@ def build_geographic_runtime_context(
             if cached_products is not None
             else getattr(catchment_products, "snap_distance_m", None)
         ),
+        buffer_distance_m=float(domain_products.buffer_distance_m),
+        buffer_area_increase=domain_products.buffer_area_increase,
     )

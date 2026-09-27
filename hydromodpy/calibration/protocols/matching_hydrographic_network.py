@@ -4,19 +4,25 @@ Where a gauge gives one series at one point, the mapped stream network gives a
 spatial constraint over the whole catchment: the extent of the network the
 aquifer keeps flowing is set by how much water the medium transmits, so the
 agreement between the simulated seepage network and the mapped one identifies
-the hydraulic conductivity without any discharge record at all. The storage
-coefficient it cannot see is then read from the hydrograph, at a conductivity
+K/R, the ratio of conductivity to recharge, without any discharge record at
+all; the conductivity itself follows once R is fixed. The storage coefficient
+neither network can see is then read from the hydrograph, at that conductivity
 held fixed.
 
-Published in :cite:`abherve2023` and used again in :cite:`abherve2024headwater`
-and :cite:`abherve2025climate`.
+Stage one is :cite:`abherve2023`. Stage two, reading the specific yield from
+the observed hydrograph with the conductivity frozen, is
+:cite:`abherve2025climate`'s application of the method. :cite:`abherve2024headwater`
+also calibrates against streamflow intermittence, but its own abstract
+describes a simultaneous K-and-porosity calibration validated against ONDE,
+not this sequential two-stage method, so it is not cited here as a second
+application of stage two.
 
 Stage one is steady: one period over the record, the mean recharge, and the
 conductivity moved until the simulated network matches the mapped one. Stage two
-is transient at the daily step, the conductivity frozen, and the storage moved
+is transient at the forcing step, the conductivity frozen, and the storage moved
 against the observed hydrograph. The order is not a convenience. A steady solve
 carries no storage, so stage one is blind to it, which is exactly what makes the
-conductivity identifiable there.
+ratio identifiable there.
 """
 
 from __future__ import annotations
@@ -39,14 +45,21 @@ class MatchingHydrographicNetwork:
     """Conductivity from the mapped stream network, storage from the hydrograph."""
 
     name = "matching_hydrographic_network"
-    version = "1.0"
+    version = "1.1"
+    """Bumped from 1.0: the descent used to build the criterion now defaults to
+    D8, and the validity bound of Eq. 4 is read only at the point the search
+    returns rather than at every trial. Both change results for a file that ran
+    under 1.0, so a pin on that version is refused rather than silently upgraded.
+    """
     title = "Matching the hydrographic network"
     summary = (
-        "Two stages. The mapped stream network constrains the hydraulic conductivity "
-        "in steady state, by balancing the descent from the simulated seepage network "
-        "to the mapped one against its reciprocal. The specific yield, to which a "
-        "steady solve is blind, is then read from the observed hydrograph with the "
-        "conductivity frozen. The first stage needs no discharge record."
+        "Two stages. The mapped stream network constrains K/R, the ratio of "
+        "hydraulic conductivity to recharge, in steady state (Abherve et al., "
+        "2023), by balancing the descent from the simulated seepage network to "
+        "the mapped one against its reciprocal. The specific yield, to which a "
+        "steady solve is blind, is then read from the observed hydrograph with "
+        "the conductivity frozen (Abherve et al., 2025). The first stage needs "
+        "no discharge record."
     )
     stages = (
         "Steady state, mean recharge over the record: move the conductivity until the "
@@ -109,6 +122,7 @@ class MatchingHydrographicNetwork:
                 "trickle, which on a fine mesh inflates the simulated network; the "
                 "paper's own value reproduces the publication exactly."
             ),
+            paper_value=0.0,
         ),
         Deviation(
             key="observed_position_accuracy",
@@ -119,23 +133,26 @@ class MatchingHydrographicNetwork:
                 "because the mesh is refined, so without a floor the validity ratio "
                 "follows the mesh; declaring it is a departure and is left to the file."
             ),
+            paper_value=None,
         ),
         Deviation(
             key="diagonal_neighbors",
             paper="the descent follows a D8 flowpath, which is what "
             "wbt.downslope_distance_to_stream traces",
-            here="false by default, a descent over shared edges only, which is D4",
+            here="true by default, matching the paper; false departs to a D4 descent "
+            "over shared edges only",
             why=(
                 "a D4 descent cannot follow a talweg that runs diagonally across a "
                 "square grid, and the delineation that produces the catchment uses a D8 "
-                "pointer, so the criterion and the basin it is masked to do not descend "
-                "the same way. Measured on a synthetic diagonal valley, the most "
-                "accumulated cell collects 6.6 per cent of the domain under shared edges "
-                "and 100 per cent under shared nodes; measured on Nancon, the cell at the "
-                "basin outlet drains 0.107 of 64.631 km2. Setting it true returns to the "
-                "publication and changes every result obtained without it, which is why "
-                "the default has not been moved."
+                "pointer, so a criterion left at D4 would not descend the basin the way "
+                "its own catchment was cut. Measured on a synthetic diagonal valley, the "
+                "most accumulated cell collects 6.6 per cent of the domain under shared "
+                "edges and 100 per cent under shared nodes; measured on Nancon, the cell "
+                "at the basin outlet drains 0.107 of 64.631 km2 under shared edges. "
+                "Setting it false returns to that D4 approximation and every result "
+                "obtained under the old default."
             ),
+            paper_value=True,
         ),
         Deviation(
             key="weighting",
@@ -146,15 +163,106 @@ class MatchingHydrographicNetwork:
                 "cell density exactly where distances are smallest, so one vote per cell "
                 "over-weights the refined reaches. Choosing it leaves the publication."
             ),
+            paper_value="cell",
+        ),
+        Deviation(
+            key="outlet_sealed_into_d_so_target",
+            paper="not addressed: the outlet is not treated specially in D_so's target",
+            here="the catchment's own outlet cell is sealed into the target of D_so, "
+            "beside the mapped network and any water body",
+            why=(
+                "every simulated flowpath ends at the outlet by construction, so "
+                "without sealing it in, the outlet cell would count as unmatched "
+                "seepage for the sole reason that it is the basin's exit, not because "
+                "the network disagrees with the map."
+            ),
+        ),
+        Deviation(
+            key="max_unreachable_fraction",
+            paper="not addressed: the authors' own code drops an unreached cell "
+            "silently before averaging (objective_function.py)",
+            here="an unreached distance is capped at L_cap (the longest descent to "
+            "the outlet, not dropped) rather than left out of the mean, and the run "
+            "is refused when more than 5 per cent of D_so's support never reaches "
+            "the mapped network",
+            why=(
+                "silently dropping unreached cells lets an ill-conditioned run report "
+                "a favourable D_so from a support that has quietly shrunk; capping "
+                "counts every cell as a large but finite penalty instead, and the "
+                "5 per cent guard catches the case where too much of the support is "
+                "gone for the average to mean anything."
+            ),
+        ),
+        Deviation(
+            key="bisection_variable_and_sweep",
+            paper="a dichotomy, its variable and scale not stated in the text; the "
+            "authors' own code bisects linearly in K/R over [1, 10000]",
+            here="bisection in log10 K, preceded by a 7-point log-spaced sweep of the "
+            "bounds to locate a sign change before bisecting",
+            why=(
+                "K/R spans decades on a real catchment, so a linear midpoint search "
+                "spends almost every step on the wrong end of the interval; the sweep "
+                "exists because a plain midpoint search is not guaranteed to bracket a "
+                "sign change on its own, and the criterion is refused rather than run "
+                "past a bracket that never finds one."
+            ),
+        ),
+        Deviation(
+            key="d_os_support",
+            paper="the printed text (HESS p. 3225) leaves D_os's support as each "
+            "pixel of the observed streams, unmodified; the authors' own published "
+            "code (Zenodo, objective_function.py:157-164) instead traces every "
+            "mapped pixel downslope with the same D8 flow-tracing it uses for the "
+            "simulated network, closing the observed network exactly as it closes "
+            "the simulated one",
+            here="raw mapped-network pixels, never closed downslope: this follows "
+            "the printed text, not the authors' code",
+            why=(
+                "closing the observed network the way the code does would build the "
+                "observation out of the DEM's own descent, which erases the very "
+                "signal Eq. 4 exists to detect: a misregistered or truncated mapped "
+                "network would then read as well matched simply because the "
+                "topography closes the gap for it. Tested on a synthetic V-valley "
+                "(tests/unit/core/test_v_valley_support_bench.py), where closing the "
+                "observed target instead moves roptim's root by more than a factor "
+                "of ten."
+            ),
+        ),
+        Deviation(
+            key="dem_correc_type",
+            paper="FillDepressions: every depression is raised to its pour point",
+            here="'breach' by default: a channel is carved through the barrier at "
+            "the depression's own minimal elevation change",
+            why=(
+                "breaching moves far fewer cells than filling and leaves hillslope "
+                "elevations closer to the DEM the criterion measures distances "
+                "against; WhiteboxTools documents it as the preferred remedy for "
+                "exactly this reason. 'fill' reproduces the paper's own tool."
+            ),
+        ),
+        Deviation(
+            key="observed_rasterization",
+            paper="the mapped network is rasterised onto the model grid by "
+            "WhiteboxTools' VectorLinesToRaster, whose own assignment rule is not "
+            "restated in the text",
+            here="'crossing' by default, matching the paper: a cell belongs to the "
+            "network when the line crosses the segment joining two edge-sharing "
+            "cell centres, WhiteboxTools' own rule on a structured grid, except "
+            "that a reach crossing no such segment keeps the cell holding its "
+            "midpoint where WhiteboxTools drops it (counted per trial as "
+            "n_observed_features_fallback); 'touch' is offered and departs, keeping "
+            "every cell the line geometry intersects, corners included",
+            why=(
+                "crossing draws the map one cell wide, like the simulated network, so "
+                "a model that matches the map scores J = 0; touch grows D_os on every "
+                "diagonal step of the map and pulls the search off that zero even on a "
+                "perfect match. 'touch' is kept to replay a session recorded before "
+                "2026-09. Choosing it leaves the publication. The midpoint fallback "
+                "keeps every mapped reach on the mesh, so none disappears silently."
+            ),
+            paper_value="crossing",
         ),
     )
-
-    reference_values: Mapping[str, str] = {
-        "roptim_max": "2, the validity bound of Eq. 4",
-        "criterion": "J = D_so - D_os, Eq. 1, whose zero is the balance",
-        "r_optim": "D_optim / L_ref, Eq. 3",
-        "catchments": "Abherve et al. (2023) report the method on 45 Brittany catchments",
-    }
 
     adjustable = frozenset(
         {

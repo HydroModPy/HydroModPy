@@ -301,27 +301,55 @@ class TestEndToEnd:
         high = self._extract(monkeypatch, bench, stream_file, 900.0)[1]["net.J_signed"]
         assert low > 0.0 > high
 
-    def test_a_violation_of_the_validity_bound_can_be_made_fatal(
-        self, monkeypatch, bench, stream_file
-    ) -> None:
-        with pytest.raises(ObjectiveError, match="exceeds the validity bound"):
-            self._extract(
-                monkeypatch,
-                bench,
-                stream_file,
-                200.0,
-                roptim_max=1e-6,
-                on_roptim_violation="error",
-            )
-
-    def test_a_violation_only_warns_by_default(
+    def test_a_trial_past_the_validity_bound_is_scored_even_in_strict_mode(
         self, monkeypatch, bench, stream_file, caplog
     ) -> None:
-        # A calibration is asked for a number: a coarse agreement qualifies the
-        # result, it does not withhold it.
-        simulated, _ = self._extract(monkeypatch, bench, stream_file, 200.0, roptim_max=1e-6)
+        # Eq. 4 is read at the optimum, once, by the runner. A trial on the way
+        # to the root is not the result, so it neither raises nor warns.
+        simulated, _ = self._extract(
+            monkeypatch,
+            bench,
+            stream_file,
+            200.0,
+            roptim_max=1e-6,
+            on_roptim_violation="error",
+        )
         assert np.isfinite(simulated["net"][0])
-        assert "validity bound" in caplog.text
+        assert "roptim" not in caplog.text
+
+    def test_each_trial_still_records_the_ratio_and_its_verdict(
+        self, monkeypatch, bench, stream_file
+    ) -> None:
+        _, diagnostics = self._extract(monkeypatch, bench, stream_file, 200.0, roptim_max=1e-6)
+        assert diagnostics["net.roptim"] > 1e-6
+        assert diagnostics["net.roptim_valid"] == 0.0
+
+    def test_the_secondary_diagnostics_travel_beside_the_pair(
+        self, monkeypatch, bench, stream_file
+    ) -> None:
+        _, diagnostics = self._extract(monkeypatch, bench, stream_file, 200.0)
+        for key in (
+            "net.D_so_over_D_os",
+            "net.n_neither",
+            "net.overlap_Ea",
+            "net.overlap_Sa",
+            "net.overlap_Na",
+            "net.overlap_E",
+            "net.L_sim_m",
+            "net.L_obs_m",
+        ):
+            assert key in diagnostics, key
+        assert diagnostics["net.D_so_over_D_os"] == pytest.approx(
+            diagnostics["net.D_so"] / diagnostics["net.D_os"]
+        )
+
+    def test_a_mesh_with_an_inactive_mask_splits_the_unset_thickness(
+        self, monkeypatch, bench, stream_file
+    ) -> None:
+        _, diagnostics = self._extract(monkeypatch, bench, stream_file, 200.0)
+        assert "net.d_sat_dry_fraction" in diagnostics
+        assert "net.d_sat_inactive_fraction" in diagnostics
+        assert "net.d_sat_unset_fraction" not in diagnostics
 
 
 class TestTheRefusalOfAnUnreachableSupport:

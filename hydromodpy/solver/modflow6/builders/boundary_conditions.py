@@ -377,7 +377,10 @@ def build_drain_stress_period_data(
     """Build DRN stress-period data with a dimensionally-correct hk fallback.
 
     When no conductance is configured, the fallback conductance is
-    ``C = hk * cell_area / top_layer_thickness`` (m2/s), shared with NWT.
+    ``C = hk * cell_area / drain_bed_thickness_m`` (m2/s), shared with NWT.
+    ``drain_bed_thickness_m`` is the clogging-layer thickness (decimetres to a
+    metre), not the model layer thickness: see
+    :func:`hydromodpy.solver.modflow_common.drain_conductance.hk_fallback_drain_conductance`.
 
     With ``sink_fill=True``, a cell in a closed depression keeps its row and
     gets zero conductance, the same rule the NWT backend applies: the ponded

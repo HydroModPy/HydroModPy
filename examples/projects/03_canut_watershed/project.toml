@@ -119,6 +119,7 @@ snap_dist = "150 m"
 # String values are interpreted as explicit distances (for example '500 m', '2 km').
 # Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
 # Type: UnionType[str, float, NoneType] | Optional
+# "10%" is an area increase: the buffered domain covers 10 % more area than the catchment.
 buff_area = "10%"
 
 [geographic.synthetic]

@@ -19,6 +19,7 @@ from hydromodpy.core.stream_geometry import NetworkGeometry, build_network_geome
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibOutputNetwork
     from hydromodpy.calibration.observations.network_source import ObservedNetwork
+    from hydromodpy.calibration.observations.observed_network import ObservedNetworkMask
     from hydromodpy.simulation.planning.plan import RunContext
 
 logger = get_logger(__name__)
@@ -120,6 +121,34 @@ def cell_spacing_m(
     return float(np.median(distances))
 
 
+def aquifer_extent(
+    run_ctx: RunContext, n_cells: int
+) -> tuple[np.ndarray | None, np.ndarray | None]:
+    """Return the imposed aquifer thickness and the top-layer inactive cells, per cell.
+
+    Both are read on the mesh the model was built from. The thickness is the
+    top minus the base of the lowest layer. ``inactive_mask`` is what became
+    IDOMAIN = 0, lake cells included. Each is None when the mesh does not carry
+    it, or carries it on another cell count.
+    """
+    mesh = run_ctx.model.solver_mesh
+    thickness = None
+    botm = getattr(mesh, "botm", None)
+    if botm is not None:
+        base = np.asarray(botm, dtype=float)
+        base = base.reshape(-1) if base.ndim == 1 else base[-1].reshape(-1)
+        top = np.asarray(mesh.top, dtype=float).reshape(-1)
+        if base.size == n_cells and top.size == n_cells:
+            thickness = top - base
+    inactive = None
+    mask = getattr(mesh, "inactive_mask", None)
+    if mask is not None:
+        layers = np.asarray(mask, dtype=bool)
+        first = layers.reshape(-1) if layers.ndim == 1 else layers[0].reshape(-1)
+        inactive = first if first.size == n_cells else None
+    return thickness, inactive
+
+
 def mesh_cell_m(run_ctx: RunContext, geometry: NetworkGeometry) -> float:
     """Return the size of one cell of the mesh a trial's network criterion scored.
 
@@ -137,7 +166,7 @@ def mesh_cell_m(run_ctx: RunContext, geometry: NetworkGeometry) -> float:
 
 def geometry_from_run(
     run_ctx: RunContext, output: CalibOutputNetwork
-) -> tuple[NetworkGeometry, ObservedNetwork]:
+) -> tuple[NetworkGeometry, ObservedNetwork, ObservedNetworkMask]:
     """Build the static geometry from the model a trial just ran.
 
     The observed network is resolved exactly ONCE here, from whichever of the
@@ -145,7 +174,9 @@ def geometry_from_run(
     neither this function nor its caller re-resolves it. The resolution is
     returned alongside the geometry because its provenance (clipped,
     DEM-derived) is a trial diagnostic that ``NetworkGeometry`` itself does not
-    carry.
+    carry. The projection is returned for the same reason: how many cells the
+    output's ``observed_rasterization`` drew, and how many reaches it kept at
+    their midpoint cell.
 
     Every attribute read here is named in the error it raises when missing, so
     a backend that does not expose one says which one rather than failing deep
@@ -175,6 +206,10 @@ def geometry_from_run(
         )
     planar_mesh = solver_mesh.planar_mesh
     connectivity = dense_face_connectivity(planar_mesh)
+    # The centres MODFLOW 6 itself sees: on a Voronoi grid these are the
+    # generator seeds written to the DISV file, which is where the mesh
+    # sampled the top the criterion routes on. The crossing rule joins them.
+    centres = np.asarray(solver_mesh.cell_centroids(), dtype=float)
     # Resolved once per trial. Neither the mask projection below nor the
     # caller in metrics/solver_extract.py re-resolves it.
     resolved = resolve_observed_network(run_ctx, output)
@@ -186,6 +221,14 @@ def geometry_from_run(
     # than at a stream. The domain restricts what the SOLVER computes; the
     # supports are restricted by the catchment, below.
     inactive = ~np.isfinite(np.asarray(solver_mesh.top, dtype=float).reshape(-1))
+    projection = observed_network_mask(
+        run_ctx,
+        resolved,
+        planar_mesh,
+        connectivity,
+        rasterization=output.observed_rasterization,
+        cell_centres=centres,
+    )
 
     # The model top, conditioned on the mesh graph by build_network_geometry.
     # Sampling the raster the geographic step conditioned is NOT equivalent:
@@ -198,12 +241,9 @@ def geometry_from_run(
         topography=np.asarray(solver_mesh.top, dtype=float).reshape(-1),
         face_node_connectivity=connectivity,
         vertices=np.asarray(planar_mesh.vertices, dtype=float),
-        observed=observed_network_mask(run_ctx, resolved, planar_mesh, connectivity),
+        observed=projection.mask,
         cell_area_m2=np.asarray(solver_mesh.cell_areas(), dtype=float).reshape(-1),
-        # The centres MODFLOW 6 itself sees: on a Voronoi grid these are the
-        # generator seeds written to the DISV file, which is where the mesh
-        # sampled the top the criterion routes on.
-        cell_centroids=np.asarray(solver_mesh.cell_centroids(), dtype=float),
+        cell_centroids=centres,
         mean_recharge_m_s=mean_recharge_m_s(model),
         tau_specific_ratio=float(output.tau_specific_ratio),
         inactive_mask=inactive,
@@ -215,7 +255,7 @@ def geometry_from_run(
         clipping_warning_share=float(output.clipping_warning_share),
         clipping_warning_gap=float(output.clipping_warning_gap),
     )
-    return geometry, resolved
+    return geometry, resolved, projection
 
 
 def _accuracy_in_m(output: CalibOutputNetwork) -> float | None:
@@ -230,6 +270,7 @@ def _accuracy_in_m(output: CalibOutputNetwork) -> float | None:
 
 
 __all__ = (
+    "aquifer_extent",
     "cell_spacing_m",
     "dense_face_connectivity",
     "geometry_from_run",

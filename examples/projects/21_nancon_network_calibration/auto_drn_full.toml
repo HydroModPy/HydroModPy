@@ -56,6 +56,7 @@ dem_init_path = "DEM_nancon_25m.tif"
 x_outlet = 389285.91
 y_outlet = 6816518.749
 snap_dist = "150 m"
+# "10%" is an area increase: the buffered domain covers 10 % more area than the catchment.
 buff_area = "10%"
 
 # CONDITION DE VALIDITE DU CRITERE, pas une option de confort. Le critere
@@ -254,12 +255,14 @@ seed = 42
 save_runs = "best_n"
 save_best_n = 1
 persist_iteration_detail = "full"
-# Volontairement a false. La cle de cache tient les PARAMETRES et un contexte
-# de configuration, jamais la version du code : un run rejoue apres un
-# correctif de solveur ressert donc les anciens nombres sans le dire. Pour un
-# fichier d'exemple dont l'objet est justement d'etre rejoue et verifie, c'est
-# le mauvais defaut. Le passer a true fait gagner des heures sur une reprise
-# apres interruption, quand le code n'a pas bouge.
+# Volontairement a false. La cle de cache tient les PARAMETRES, un contexte
+# de configuration ET code_version (calibration/runners/state.py), mais
+# code_version est la version DU PAQUET, pas le commit : un correctif de
+# solveur qui ne bouge pas cette version ressert donc les anciens nombres
+# sans le dire. Pour un fichier d'exemple dont l'objet est justement d'etre
+# rejoue et verifie, c'est le mauvais defaut. Le passer a true fait gagner
+# des heures sur une reprise apres interruption, quand le paquet n'a pas
+# change de version.
 use_cache = false
 
 # C'est cette ligne qui fait du meilleur essai un run complet : il est
@@ -311,7 +314,7 @@ uses_outputs = ["seepage_network"]
 # --- Etage 1 : K par dichotomie sur le critere de reseau ---
 
 [[calibration.phases]]
-name = "steady_k"
+name = "steady_conductivity"
 description = "Zero de l'ecart signe D_so - D_os, par dichotomie sur K."
 method = "bisection"
 max_iter = 20
@@ -337,7 +340,7 @@ sweep_points = 7
 # a batch_size = 1 les workers n'ont rien a se partager.
 
 [[calibration.phases]]
-name = "transient_sy"
+name = "transient_storage"
 description = "NSE des logarithmes du debit journalier 2001-2002, K gele."
 method = "grid"
 max_iter = 6
@@ -346,7 +349,7 @@ parallel = 6
 parameters = ["Sy"]
 variable = "discharge"
 objective = "nse_log"
-depends_on = "steady_k"
+depends_on = "steady_conductivity"
 
 [calibration.phases.optimizer_kwargs]
 points_per_dim = 6

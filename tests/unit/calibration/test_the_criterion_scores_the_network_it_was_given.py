@@ -23,6 +23,7 @@ from hydromodpy.calibration.config import validate_calib_output
 from hydromodpy.calibration.metrics import solver_extract as _solver_extract
 from hydromodpy.calibration.metrics.solver_extract import extract_outputs
 from hydromodpy.calibration.observations import network_source
+from hydromodpy.calibration.observations import observed_network as observed_module
 from hydromodpy.calibration.observations.network_geometry import geometry_from_run
 from hydromodpy.calibration.observations.network_source import (
     ObservedNetwork,
@@ -132,7 +133,7 @@ class TestTheMaskIsBuiltFromTheHandedGeometry:
         run_ctx = _fake_run_ctx(bench)
         planar_mesh = SimpleNamespace(vertices=vertices)
 
-        mask = observed_network_mask(run_ctx, resolved, planar_mesh, connectivity)
+        mask = observed_network_mask(run_ctx, resolved, planar_mesh, connectivity).mask
 
         assert mask.dtype == bool
         assert mask.sum() > 0
@@ -187,7 +188,7 @@ class TestGeometryFromRunResolvesOncePerTrial:
 
         monkeypatch.setattr(network_source, "resolve_observed_network", spy)
 
-        geometry, resolved = geometry_from_run(run_ctx, output)
+        geometry, resolved, _projection = geometry_from_run(run_ctx, output)
 
         assert len(calls) == 1
         assert resolved.source == "data.hydrography"
@@ -201,7 +202,7 @@ class TestGeometryFromRunResolvesOncePerTrial:
         run_ctx = _fake_run_ctx(bench, generated=network)
         output = _network_output(observed_network="geographic.river_network")
 
-        _geometry, resolved = geometry_from_run(run_ctx, output)
+        _geometry, resolved, _projection = geometry_from_run(run_ctx, output)
 
         assert resolved.source == "geographic.river_network"
         assert resolved.clipped is True
@@ -213,7 +214,7 @@ class TestGeometryFromRunResolvesOncePerTrial:
         run_ctx = _fake_run_ctx(bench)
         output = _network_output(stream_geometry_path=str(path))
 
-        _geometry, resolved = geometry_from_run(run_ctx, output)
+        _geometry, resolved, _projection = geometry_from_run(run_ctx, output)
 
         assert resolved.source == "path"
         assert resolved.clipped is False
@@ -279,6 +280,47 @@ class TestTheTwoFlagsReachTheTrialDiagnostics:
 
         assert diagnostics["net.observed_network_clipped"] == 0.0
         assert diagnostics["net.observed_network_is_dem_derived"] == 0.0
+
+
+class TestTheRasterizationReachesTheTrial:
+    def test_the_output_rule_and_the_solver_centres_reach_the_projection(
+        self, bench, monkeypatch
+    ) -> None:
+        network = _fake_hydrographic_network(_lines_gdf())
+        run_ctx = _fake_run_ctx(bench, reference=network)
+        output = _network_output(
+            observed_network="data.hydrography", observed_rasterization="touch"
+        )
+        seen: dict[str, object] = {}
+        real = observed_module.observed_network_mask
+
+        def spy(*args, **kwargs):
+            seen.update(kwargs)
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(observed_module, "observed_network_mask", spy)
+
+        _geometry, _resolved, projection = geometry_from_run(run_ctx, output)
+
+        assert seen["rasterization"] == "touch"
+        assert projection.rasterization == "touch"
+        centres = np.asarray(seen["cell_centres"])
+        np.testing.assert_array_equal(centres, run_ctx.model.solver_mesh.cell_centroids())
+
+    def test_the_default_rule_is_crossing(self) -> None:
+        assert _network_output(stream_geometry_path="map.gpkg").observed_rasterization == (
+            "crossing"
+        )
+
+    def test_the_trial_publishes_what_the_rule_drew(self, bench, monkeypatch) -> None:
+        network = _fake_hydrographic_network(_lines_gdf())
+        run_ctx = _fake_run_ctx(bench, reference=network)
+        output = _network_output(observed_network="data.hydrography")
+
+        diagnostics = _extract_diagnostics(monkeypatch, run_ctx, output)
+
+        assert diagnostics["net.n_observed_cells"] == float(N_ROWS - FIRST_OBSERVED_ROW)
+        assert diagnostics["net.n_observed_features_fallback"] == 0.0
 
 
 class TestTheDemDerivedWarningFiresOnceAndOnlyThere:

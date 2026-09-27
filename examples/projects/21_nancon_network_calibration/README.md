@@ -35,7 +35,7 @@ $ hmp calibrate auto_drn_full.toml   # drain pur
 $ hmp calibrate auto_sfr_drn.toml    # SFR + drain
 
 $ hmp calibrate auto_sfr_drn.toml --list-phases
-$ hmp calibrate auto_sfr_drn.toml --phase steady_k
+$ hmp calibrate auto_sfr_drn.toml --phase steady_conductivity
 ```
 
 Le second étage ne peut pas être lancé seul : il dépend des valeurs que le

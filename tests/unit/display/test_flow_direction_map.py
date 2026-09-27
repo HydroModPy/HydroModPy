@@ -190,7 +190,9 @@ def test_the_outlet_is_marked_on_the_lowest_cell(mpl) -> None:
 def test_no_diagonal_bearing_appears_without_a_diagonal_graph(mpl) -> None:
     fig, ax = mpl.subplots()
 
-    FlowDirectionMap().render(comparison_run(topography=tilted_plane()), ax)
+    FlowDirectionMap().render(
+        comparison_run(topography=tilted_plane()), ax, diagonal_neighbors=False
+    )
 
     try:
         for name in ("NE", "NW", "SE", "SW"):
@@ -217,6 +219,21 @@ def test_the_diagonal_descent_is_taken_once_the_graph_carries_it(mpl) -> None:
         assert _octant_cells(ax, "W") == [cell(column, 0) for column in range(1, NX)]
         assert _octant_cells(ax, "S") == [cell(0, row) for row in (1, 2)]
         assert _octant_cells(ax, NO_RECEIVER_LABEL) == [cell(0, 0)]
+        assert "including the diagonals" in ax.texts[0].get_text()
+    finally:
+        mpl.close(fig)
+
+
+def test_the_map_draws_the_graph_the_criterion_descends_by_default(mpl) -> None:
+    # The stream criterion descends D8 by default, as the paper does. A map
+    # of the directions drawn on another graph would contradict it.
+    fig, ax = mpl.subplots()
+
+    FlowDirectionMap().render(comparison_run(topography=tilted_plane()), ax)
+
+    try:
+        interior = [cell(column, row) for row in (1, 2) for column in range(1, NX)]
+        assert _octant_cells(ax, "SW") == sorted(interior)
         assert "including the diagonals" in ax.texts[0].get_text()
     finally:
         mpl.close(fig)

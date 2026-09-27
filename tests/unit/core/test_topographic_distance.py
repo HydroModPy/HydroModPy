@@ -12,6 +12,8 @@ from hydromodpy.core.topographic_distance import (
     downslope_distance_to_mask,
     longest_descent_length,
     mean_downslope_distance,
+    resolve_diagonal_neighbors,
+    shared_node_adjacency,
 )
 from tests._helpers.tolerances import tol
 from tests._helpers.ugrid_meshes import quad_mesh
@@ -110,7 +112,9 @@ def test_structured_grid_diagonal_descent_length() -> None:
     target = np.zeros(size * size, dtype=bool)
     target[-1] = True  # the south-east corner
 
-    shared_edge = build_downslope_metric(reference, connectivity, vertices=vertices)
+    shared_edge = build_downslope_metric(
+        reference, connectivity, vertices=vertices, diagonal_neighbors=False
+    )
     shared_node = build_downslope_metric(
         reference, connectivity, vertices=vertices, diagonal_neighbors=True
     )
@@ -122,17 +126,54 @@ def test_structured_grid_diagonal_descent_length() -> None:
     assert d4[0] / d8[0] == pytest.approx(D4_OVER_D8, rel=1e-5)
 
 
-def test_diagonal_neighbors_rejects_a_non_quad_mesh() -> None:
+def _two_triangles() -> tuple[np.ndarray, np.ndarray]:
     vertices = np.array(
         [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]],
         dtype="float64",
     )
-    triangles = np.array([[0, 1, 2], [0, 2, 3]], dtype=int)
+    return vertices, np.array([[0, 1, 2], [0, 2, 3]], dtype=int)
+
+
+def test_the_shared_node_graph_itself_refuses_a_non_quad_mesh() -> None:
+    _, triangles = _two_triangles()
 
     with pytest.raises(ValueError, match="structured quad mesh"):
-        build_downslope_metric(
-            np.array([2.0, 1.0]), triangles, vertices=vertices, diagonal_neighbors=True
-        )
+        shared_node_adjacency(triangles, n_cells=2)
+
+
+def test_the_descent_is_d8_by_default_as_in_the_paper() -> None:
+    size = 6
+    vertices, connectivity = quad_mesh(size, size, cell_size=RESOLUTION)
+    target = np.zeros(size * size, dtype=bool)
+    target[-1] = True
+
+    metric = build_downslope_metric(_diagonal_plane(size), connectivity, vertices=vertices)
+
+    assert metric.diagonal_neighbors is True
+    distance = downslope_distance_to_mask(metric, target)
+    assert distance[0] == pytest.approx(math.sqrt(2.0) * RESOLUTION * (size - 1), rel=1e-12)
+
+
+def test_a_mesh_without_quadrilaterals_falls_back_to_shared_edges() -> None:
+    # No face has a diagonal to take, so D8 is asked for and D4 is what the
+    # graph records, rather than a Voronoi run failing on a knob it never set.
+    vertices, triangles = _two_triangles()
+
+    metric = build_downslope_metric(
+        np.array([2.0, 1.0]), triangles, vertices=vertices, diagonal_neighbors=True
+    )
+
+    assert metric.diagonal_neighbors is False
+    assert int(metric.graph.downstream[0]) == 1
+
+
+def test_the_resolution_keeps_d8_on_quads_and_d4_when_asked() -> None:
+    _, quads = quad_mesh(2, 2, cell_size=RESOLUTION)
+    _, triangles = _two_triangles()
+
+    assert resolve_diagonal_neighbors(quads, n_cells=4, requested=True) is True
+    assert resolve_diagonal_neighbors(quads, n_cells=4, requested=False) is False
+    assert resolve_diagonal_neighbors(triangles, n_cells=2, requested=True) is False
 
 
 def test_target_cells_have_zero_distance() -> None:
@@ -269,12 +310,22 @@ def test_non_positive_weight_is_rejected() -> None:
 def test_longest_descent_length_is_the_catchment_cap() -> None:
     size = 6
     vertices, connectivity = quad_mesh(size, size, cell_size=RESOLUTION)
-    metric = build_downslope_metric(_diagonal_plane(size), connectivity, vertices=vertices)
     outlet = np.zeros(size * size, dtype=bool)
     outlet[-1] = True
+    d4 = build_downslope_metric(
+        _diagonal_plane(size), connectivity, vertices=vertices, diagonal_neighbors=False
+    )
+    d8 = build_downslope_metric(
+        _diagonal_plane(size), connectivity, vertices=vertices, diagonal_neighbors=True
+    )
 
-    assert longest_descent_length(metric, outlet) == pytest.approx(
+    assert longest_descent_length(d4, outlet) == pytest.approx(
         2.0 * RESOLUTION * (size - 1), rel=1e-12
+    )
+    # Under D8 the longest descent is the diagonal, sqrt(2) cells per step:
+    # the cap shortens with the graph, so it stays the longest finite path.
+    assert longest_descent_length(d8, outlet) == pytest.approx(
+        math.sqrt(2.0) * RESOLUTION * (size - 1), rel=1e-12
     )
 
 

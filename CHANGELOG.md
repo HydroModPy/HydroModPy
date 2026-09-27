@@ -34,6 +34,7 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Removed
+- `reference_values` from calibration protocols and from `protocol_record`.
 - The `hydromodpy.optimizer` entry-point group. A method it listed was refused
   anyway by the closed union of `optim/method_config.py`. Search methods ship
   with HydroModPy; a search of one's own runs from Python, as an object that
@@ -108,6 +109,41 @@ Each release section includes the following standard categories:
   Python for the context alone.
 
 ### Added
+- `CatchmentDomainProducts` and the geographic cache manifest record `buffer_rule`,
+  `buffer_declared` and `buffer_area_increase`, so a domain says how its margin was drawn.
+- A MODFLOW 6 twin validation case for the stream-network criterion. A planar hillslope run at
+  a known K draws the mapped network, and a network-only bisection recovers that K within 1 per
+  cent, with J at zero and consistent K/R, dsat, T/R and Toptim in the report
+  (`tests/validation/calibration/test_twin_matching_stream_network_modflow6.py`, tolerances rows
+  76 to 79).
+- `observed_rasterization` on a network calibration output. `"crossing"`, the default, keeps a
+  cell where a mapped line crosses the segment joining two edge-sharing cell centres: on a grid
+  this is WhiteboxTools VectorLinesToRaster, the paper's tool, so a model that reproduces the map
+  scores J = 0. `"touch"` replays sessions made before. `line_crossing_cell_mask` serves DIS,
+  DISV and Voronoi meshes. The redrawn comparison figures read the same rule, and each trial
+  publishes `n_observed_cells` and `n_observed_features_fallback`.
+- Secondary network diagnostics, outside the cost: `D_so_over_D_os` and the overlap indices of
+  the authors' published code (`overlap_Ea`, `overlap_Sa`, `overlap_Na`, `overlap_E`,
+  `n_neither`, `L_sim_m`, `L_obs_m`).
+- The calibration report records the Eq. 4 verdict of the returned trial (`roptim_verdict`), the
+  final bracket of a bisection (`bracket`) and whether the search met its stopping rule
+  (`search`); `hmp calibrate` prints each on one line. The bisection warns at start when
+  `max_iter` is below what its bracket needs.
+- `hmp calibrate --check` warns when an objective scored only on network outputs moves more
+  than one parameter, a T/R ridge. A network search that moves K is refused, at preflight and
+  before the first solve, next to an active SFR or LAK, whose conductance does not follow K.
+- The staged report and the Methods paragraph publish the steady window stage one averaged the
+  recharge over; a window shorter than 365 days warns.
+- `matching_hydrographic_network` declares six more departures: the outlet sealed into the
+  target of D_so, the `L_cap` saturation and its 5 % guard, the log10 K bisection and its sweep,
+  the support of D_os against the authors' published code, `breach` by default and the
+  rasterisation rule.
+- The aquifer geometry can be calibrated. `[calibration.parameters.thickness]` searches the
+  thickness of a `constant_thickness` depth model (log space) and
+  `[calibration.parameters.substratum_elevation]` the elevation of a `flat_substratum` one
+  (linear space); `hmp config targets` lists whichever the declared depth model carries. The
+  file states the bounds. A parameter that reaches a raster depth model, or a field the
+  declared kind does not expose, is refused and the error names the kind.
 - A stream-network trial publishes the paper's `dsat` as `<output>.d_sat_m`:
   the saturated thickness averaged by area over the catchment, at the state the
   network is read from. Beside it, `d_aquifer_m`, `d_sat_over_d` and
@@ -233,6 +269,33 @@ Each release section includes the following standard categories:
   `protocol__delete = true`.
 
 ### Changed
+- `geographic.catchment.buff_area = "N%"` enlarges the catchment area by N per cent, as
+  Abherve et al. (2023) describe the domain. The buffer distance is solved on the real polygon,
+  then snapped to the DEM grid. On the Nancon the margin falls from 825 m to 150 m and the box
+  domain from 151.9 to 120.4 km2. A bare number keeps the v1 rule (N per cent of the square root
+  of the area in km2, in km) with a warning, so sealed runs replay their domain. A distance is
+  normalised as `"150.0 m"` and a percentage as `"10%"`; `GeographicConfig.from_outlet` and
+  `from_polygon` default to `"10%"`.
+- The stream-network criterion descends D8 by default (`diagonal_neighbors = true`), the
+  paper's reading. On a mesh whose faces are not all quadrilaterals it walks shared edges. The
+  comparison, flow-direction and depression figures use the same default.
+- Eq. 4 is read once, on the trial the search returns. Trials keep `roptim` and
+  `roptim_valid` without warning, and `on_roptim_violation = "error"` raises after the session
+  is saved, so a staged calibration freezes nothing.
+- A search that reaches `max_iter` before its stopping rule (bisection, SciPy Nelder-Mead)
+  gets one extension of half its budget, with a warning. Still open, it is reported not
+  converged, its session closes as partial, it freezes nothing and a phase depending on it is
+  refused. A SciPy search stopped by SciPy's own `maxiter` or `maxfev` is not converged.
+- The fixed-drain-conductance guard refuses only a network search that moves a hydraulic
+  conductivity; any other one gets a warning. The criterion compares two networks and can drive
+  any parameter, and the docs and messages say so.
+- `matching_hydrographic_network` is version 1.1. It says it identifies K/R, attributes stage
+  two to Abherve et al. (2025, WRR), and its Methods paragraph lists only the settings that
+  differ from the paper, with the solver backend.
+- The two protocol stages are named `steady_conductivity` and `transient_storage` across the
+  docs, the recipes and examples 10 and 21.
+- `d_sat_unset_fraction` splits into `d_sat_dry_fraction` and `d_sat_inactive_fraction` when
+  the mesh says which cells are inactive.
 - `hydromodpy/data` is reorganised into sub-packages with one job each; its
   map and import rules are `hydromodpy/data/README.md`, enforced by
   `tests/unit/architecture/test_package_layouts.py`. What a TOML says does not
@@ -366,6 +429,21 @@ Each release section includes the following standard categories:
   resume it refused the session it had itself written.
 
 ### Fixed
+- The delineation summary shows `buff_area` as declared, with its distance and area increase,
+  instead of a value labelled m2. The reference catchment-delineation case accepts `"20%"` and
+  distance strings.
+- The bisection returns a trial inside its final bracket; a trial tied on cost outside it is no
+  longer returned.
+- The guards and preflight see a phase that scores a network output through its own
+  `variable`.
+- The drain-conductance fallback reads `C = K * cell_area / drain_bed_thickness_m` in messages,
+  comments and docs; the theory pages agree that the criterion is implemented.
+- `ref_example04.toml` and `run_calibration_k.toml` declare their departures from the v1 script,
+  and the cache-key comment of `auto_drn_full.toml` says the key holds the package version.
+- A calibration trial that moves the depth model solves the geometry it moved: the substratum
+  of the domain the trials share is rebuilt instead of reused from the prefix.
+- A run writes the constant aquifer thickness into its parameters table. It read
+  `domain.depth_model` instead of `domain.config.depth_model`.
 - `k_over_r` reaches the calibration report. It read `R_mean_m_s` without the
   output prefix every network diagnostic carries, so it never appeared, and it
   divided whatever single parameter the search moved, a thickness or a

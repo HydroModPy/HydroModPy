@@ -52,6 +52,16 @@ Current Supported Contract
      - A stable Nancon MODFLOW-NWT basin page exists and is the best legacy
        baseline for reading order and figure interpretation.
      - :doc:`/capability_gallery/cases/nancon_transient_nwt`
+   * - Calibration-grade stream-network metric
+     - The full bidirectional downslope-distance criterion of
+       :cite:`abherve2023` (:math:`D_{so}`, :math:`D_{os}`, :math:`J`,
+       :math:`D_{optim}`, :math:`r_{optim}`) is implemented and calibrable
+       through the ``matching_hydrographic_network`` protocol. It supersedes
+       the cell-overlap diagnostics as the metric to cite against the paper;
+       those diagnostics remain useful for a different question, described in
+       :doc:`network-metrics-and-extreme-k-sweep`.
+     - :doc:`downslope-distance-calibration`,
+       :doc:`../../user_guide/workflows/stream-network-calibration`
 
 What Is Demonstrated By The Examples
 ------------------------------------
@@ -98,16 +108,6 @@ Full surface-water routing
    The current stream/seepage sketches do not represent channel storage, water
    depth, backwater effects, or routed river hydraulics. A river is drawn as a
    support for exchange, not as a finite-thickness water body.
-
-Calibration-grade stream-network metric
-   Current active-network overlap metrics are cell-overlap diagnostics. They
-   are useful, but they are not yet the full bidirectional downslope-distance
-   metric used by :cite:`abherve2023`.
-
-K-only Nancon calibration protocol
-   The committed Nancon sweep is a development and reading case. A clean
-   calibration protocol should freeze the support across simulations, declare the
-   objective metric, and rerun the parameter search under that protocol.
 
 Recommended Acceptance Checks
 -----------------------------

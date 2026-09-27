@@ -87,8 +87,10 @@ is never a reason to burn deeper.
 
 **The drain conductance must stay proportional to the conductivity.** Leave
 ``[flow.bc.cauchy.drainage] value`` at zero, or at anything not strictly
-positive, so the fallback applies: ``C = K * cell_area / top_thickness`` on both
-MODFLOW backends, ``C = K * cell_area`` on Boussinesq. That proportionality is
+positive, so the fallback applies: ``C = K * cell_area / solver.drain_bed_thickness_m``
+on both MODFLOW backends (the clogging-layer thickness of a watercourse,
+decimetres to a metre, not the model layer thickness), ``C = K * cell_area`` on
+Boussinesq. That proportionality is
 what makes the ratio the calibrated quantity; a fixed conductance breaks the
 invariance from a factor 1.05 onwards.
 
@@ -156,6 +158,16 @@ how a run re-read from its own sealed configuration replays. A child
 inheriting a parent that names a protocol drops the name with
 ``protocol__delete = true`` under ``[calibration]``.
 
+``storage`` names the parameter stage two moves, and defaults to ``Sy``, not
+to network-only: the network stage alone is a method in its own right, HESS
+2023 with no discharge record, but TOML has no null to ask for it with
+``[calibration.protocol] storage = ...``. From a file, get the same result by
+not naming the protocol at all and writing the single steady stage by hand,
+the first half of "Declaring the two stages by hand" below, with no second
+``[[calibration.phases]]`` table. From Python, ``storage=None`` in the options
+dict still expands through the named protocol, with its citation, version pin
+and declared deviations.
+
 Declaring the two stages by hand
 --------------------------------
 
@@ -194,7 +206,7 @@ The long form, for a variant the protocol does not cover.
    uses_outputs = ["seepage_network"]
 
    [[calibration.phases]]
-   name              = "steady_k_over_r"
+   name              = "steady_conductivity"
    description       = "Zero of the signed gap D_so - D_os, by bisection on K."
    method            = "bisection"
    max_iter          = 18
@@ -214,14 +226,14 @@ The long form, for a variant the protocol does not cover.
    "simulation.time.step_value"      = 1
 
    [[calibration.phases]]
-   name       = "transient_sy"
+   name       = "transient_storage"
    method     = "grid"
    max_iter   = 9
    parallel   = 4
    parameters = ["Sy"]
    variable   = "discharge"
    objective  = "nse_log"
-   depends_on = "steady_k_over_r"
+   depends_on = "steady_conductivity"
 
    [calibration.phases.scoring_window]
    start = "2012-01-01"
@@ -483,8 +495,9 @@ What each choice buys you
    inert as defined: a cell that releases at all carries the drainage it
    collects from everything upslope, a hundred to a thousand times its own
    recharge, so a fraction of that recharge never excludes anything. Measured on
-   the Nancon at the calibrated conductivity, over the 380 cells releasing inside the catchment, not one
-   had a flux below the threshold, and raising the ratio to 100 still kept 28.
+   the Nancon at the calibrated conductivity, over the 380 cells releasing
+   inside the catchment, not one had a flux below the threshold, and raising
+   the ratio to 100 still kept 28.
 
    Thresholding the total release instead was tried and is worse: at
    ``1e-4`` of ``R * A`` the cut lands at 4.9e-4 m3/s, above the many small
@@ -493,6 +506,19 @@ What each choice buys you
    GROWS with the conductivity instead of retracting, the residual loses its
    monotonicity, and the root moves three decades. What the threshold should be
    a fraction of is an open question; neither answer tried so far is right.
+
+``observed_rasterization``
+   How the mapped network becomes cells. ``"crossing"``, the default, keeps the
+   cell holding each point where a line crosses the segment joining two
+   edge-sharing cell centres: on a structured grid it is WhiteboxTools
+   ``VectorLinesToRaster``, the paper's tool, and it draws the map one cell
+   wide like the simulated network, so a model that reproduces the map scores
+   zero. ``"touch"`` keeps every cell the line touches, corners included, and
+   replays a session made before 2026-09. On the Nancon at 75 m it draws 730
+   cells against 490, and the root moves by about ten per cent. Each trial
+   records ``n_observed_cells`` and ``n_observed_features_fallback``, the
+   reaches that crossed no segment and were kept at their midpoint cell. The
+   figures redrawn from a run use the same rule and default.
 
 ``objective = "nse_log"`` in the second stage
    The Nash-Sutcliffe efficiency on log-transformed series, which weights the
@@ -518,7 +544,7 @@ Running it
 
    $ hmp calibrate calibration.toml
    $ hmp calibrate calibration.toml --list-phases
-   $ hmp calibrate calibration.toml --phase steady_k_over_r
+   $ hmp calibrate calibration.toml --phase steady_conductivity
 
 The first form is the one to use. It runs the phases in declaration order and
 is the only form that produces the two-stage result the page describes.
@@ -527,9 +553,9 @@ is the only form that produces the two-stage result the page describes.
 anything.
 
 ``--phase`` selects a single phase, and it only accepts one that does not
-depend on another. On the configuration above that means ``steady_k_over_r``,
-and nothing else: ``--phase transient_sy`` is refused, because
-``transient_sy`` declares ``depends_on = "steady_k_over_r"`` and a phase whose
+depend on another. On the configuration above that means ``steady_conductivity``,
+and nothing else: ``--phase transient_storage`` is refused, because
+``transient_storage`` declares ``depends_on = "steady_conductivity"`` and a phase whose
 dependency did not run in the same invocation is missing the values that
 dependency freezes. The runner refuses rather than running it against the
 baseline the TOML declares, which would be a different calibration with nothing
@@ -560,11 +586,22 @@ to look at first:
 
 ``roptim`` and ``roptim_valid``
    The validity indicator of Equation 4, against the ``roptim_max`` bound (two
-   by default). It **qualifies** the result and does not withhold it: a
-   violation warns and the value comes back, unless you set
+   by default), recorded on every trial. It **qualifies** the result and does
+   not withhold it: a violation warns and the value comes back, unless you set
    ``on_roptim_violation = "error"``, which raises instead. And it measures
    agreement, not correctness, so do not read it as a quality score of the
    model.
+
+``roptim_verdict``
+   The bound of Equation 4, read once, on the trial the search returns, the
+   way the paper reads it: "At this point" (HESS p. 3225), not on the way
+   there. A report entry per network output,
+   ``{value, bound, L_ref, Doptim, valid}``; a ``roptim`` that is not a
+   number, an empty simulated network at the returned trial, counts as a
+   violation. With ``on_roptim_violation = "error"`` the raise happens after
+   the session is saved, so every trial is still on disk, and a staged
+   calibration stops there rather than freezing an unqualified value into a
+   dependent phase.
 
 ``R_mean_m_s``
    The denominator of the calibrated ratio. It is what makes the result a
@@ -574,10 +611,20 @@ to look at first:
 ``d_sat_m``, ``d_aquifer_m`` and ``d_sat_over_d``
    The paper's ``dsat``: the saturated thickness the model computes, averaged
    by area over the catchment at the state the network is read from, then the
-   imposed thickness over the same cells and their ratio.
-   ``d_sat_unset_fraction`` is the share of the catchment area with no
-   thickness, dry or inactive cells. A backend that serves no saturated
-   thickness publishes none of the four and still scores the network.
+   imposed thickness over the same cells and their ratio. A backend that
+   serves no saturated thickness publishes none of these and still scores the
+   network.
+
+``d_sat_dry_fraction``, ``d_sat_inactive_fraction`` or ``d_sat_unset_fraction``
+   The share of catchment area left out of ``d_sat_m`` because its thickness
+   is not finite. MODFLOW writes one sentinel for a dry cell (HDRY) and
+   another for a cell it never solved (HNOFLO), and the thickness alone
+   cannot tell them apart. When the mesh carries an inactive mask (IDOMAIN,
+   lake footprints included) the share splits: ``d_sat_dry_fraction`` is an
+   active cell with no water table, a physical state that biases ``d_sat_m``
+   upward, and ``d_sat_inactive_fraction`` is outside the solved domain, a
+   modelling choice rather than a state. A mesh without that mask publishes
+   the single ``d_sat_unset_fraction`` instead.
 
 ``alpha_obs_closure`` and ``frac_reachable_obs_raw``
    How much of the criterion's own measurement is a top-versus-map
@@ -625,19 +672,44 @@ to look at first:
    The three-class counts. The criterion balances the last two against each
    other, which is what the confusion map draws.
 
+``D_so_over_D_os``, the four ``overlap_*`` indices, ``n_neither``, ``L_sim_m``, ``L_obs_m``
+   Secondary diagnostics, never scored, that follow the ``fuzzy`` and
+   ``total_length`` outputs of the authors' own published code (Zenodo
+   8311547). ``D_so_over_D_os`` is the ratio it branches its dichotomy on;
+   its crossing of one is the zero of ``J_signed``, so it adds a scale-free
+   reading and no new information. ``n_neither`` counts a cell neither
+   simulated nor mapped, ``overlap_Ea`` reads the agreement between the two
+   network sizes, ``overlap_Sa`` the excess relative to the mapped size,
+   ``overlap_Na`` the missing share relative to what the map leaves without a
+   stream, and ``overlap_E`` their product. ``L_sim_m`` and ``L_obs_m`` are
+   each network's length, the sum of ``sqrt(cell area)`` over its cells.
+   Three departures from that published code: the counts use the criterion's
+   own supports, the catchment without water bodies, where the published code
+   counts every basin pixel; the mapped side is the raw network, as ``D_os``
+   reads it, where the published code counts it closed downslope; and a
+   length sums cell sizes rather than the WhiteboxTools polylines the
+   published code vectorises, so it drops no stub and never applies the
+   published two-cell, 110 m filter.
+
 What it looks like on a real catchment
 --------------------------------------
 
 ``examples/projects/21_nancon_network_calibration`` runs the configuration
-above on the Nancon at Fougeres, 64.68 km2 in Brittany, and its ``README.md``
-carries the measured numbers. In short: fifteen trials, a seven-point sweep
-across four decades with exactly one sign change, and a root at
-:math:`K = 2.103 \times 10^{-4}` m/s where the criterion balances 550 cells of
-excess against 517 missing. ``roptim`` comes out at 4.58, above its bound, so
-the value is returned qualified. The second stage then pins ``Sy`` on its lower
-bound at an ``nse_log`` of -0.001, which is what a stage that identifies
+above on the Nancon at Fougeres, 64.64 km2 in Brittany, in two variants: a
+Cauchy drain over the whole surface (``auto_drn_full.toml``) and the main
+reaches routed in SFR (``auto_sfr_drn.toml``). Its ``README.md`` carries the
+measured numbers and their date, and is the one to read for the current
+figure: the SFR bed elevation was corrected on 2026-09-06, every session
+committed before that date calibrated the wrong geometry, and the README
+says so rather than letting a stale number stand unlabelled. At last
+measurement ``roptim`` ran from 3.93 to 12.01 over the sweep, above its bound
+of two, so every trial is returned qualified rather than withheld; the two
+known departures the README also carries are a one-layer model against the
+paper's six, and a mapped drainage density 2.1 times looser than Table 1
+because the linework is filtered to the perennial network. A stage two
+pinning ``Sy`` on a search bound is what a stage that identifies
 :math:`S_y/T` does when it is handed a biased :math:`T`: it saturates instead
-of absorbing.
+of absorbing, rather than a sign that the search failed.
 
 Two things that example shows and this page cannot: the same catchment
 calibrated under both MODFLOW backends, eleven per cent apart on the root; and

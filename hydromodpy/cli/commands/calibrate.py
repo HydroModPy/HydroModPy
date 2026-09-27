@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -226,13 +227,18 @@ def _values_this_file_set(cfg, keys: list[str]) -> dict[str, object]:
 
     The deviation table describes the recipe's defaults. What a reader comparing
     to the publication needs is the value in front of them, which may be the
-    paper's or may be the departure.
+    paper's or may be the departure. Only the network outputs are read: a gauge
+    declares its own ``diagonal_neighbors``, false by default, and is not the
+    criterion the deviations describe.
     """
     calibration = getattr(cfg, "calibration", None)
     outputs = getattr(calibration, "outputs", None) or {}
+    networks = [
+        output for output in outputs.values() if getattr(output, "support", None) == "network"
+    ]
     found: dict[str, object] = {}
     for key in keys:
-        for output in outputs.values():
+        for output in networks:
             value = getattr(output, key, None)
             if value is not None:
                 found[key] = value
@@ -405,6 +411,13 @@ def _format_calibration_result(result: Any) -> list[str]:
     elif "k_over_r" in extra:
         lines.append(f"  k_over_r = {extra['k_over_r']:.4g}")
 
+    for name, verdict in sorted((extra.get("roptim_verdict") or {}).items()):
+        lines.append(f"  {_roptim_line(name, verdict)}")
+    if extra.get("bracket"):
+        lines.append(f"  {_bracket_line(extra['bracket'])}")
+    if extra.get("search"):
+        lines.append(f"  {_search_line(extra['search'])}")
+
     shares = getattr(result, "objective_block_shares", None) or {}
     mean_shares = shares.get("mean")
     if mean_shares and len(mean_shares) > 1:
@@ -428,6 +441,39 @@ def _format_calibration_result(result: Any) -> list[str]:
             lines.append(f"  {name}: {info['n_paired']} pair(s){span} (first trial)")
 
     return lines
+
+
+def _roptim_line(name: str, verdict: Mapping[str, Any]) -> str:
+    """Return the Eq. 4 verdict of one network output, read at the returned trial."""
+    value = verdict.get("value")
+    bound = float(verdict["bound"])
+    if value is None:
+        return (
+            f"roptim ({name}): not a number, the simulated network is empty at the "
+            f"returned trial (bound {bound:.3g})"
+        )
+    if verdict.get("valid"):
+        return f"roptim ({name}) = {float(value):.3g} <= {bound:.3g}, Eq. 4 holds"
+    return f"roptim ({name}) = {float(value):.3g} > {bound:.3g}, Eq. 4 fails: coarse agreement"
+
+
+def _bracket_line(bracket: Mapping[str, Any]) -> str:
+    """Return the root search's final bracket, in the parameter's own units."""
+    state = "closed" if bracket.get("closed") else "open, the budget ran out first"
+    return (
+        f"bracket on {bracket['parameter']}: [{float(bracket['low']):.6g}, "
+        f"{float(bracket['high']):.6g}], width {float(bracket['relative_width']):.2%} ({state})"
+    )
+
+
+def _search_line(search: Mapping[str, Any]) -> str:
+    """Return whether the search met its stopping rule, and what it spent."""
+    spent = f"{search.get('n_evaluations')} evaluation(s) of {search.get('max_iter')} declared"
+    extension = int(search.get("extension") or 0)
+    if extension:
+        spent += f" + {extension} extension"
+    verdict = "converged" if search.get("converged") else "did NOT converge"
+    return f"search: {verdict} on its rule ({search.get('stopping_rule')}), {spent}"
 
 
 def _format_staged_calibration_result(result: Any) -> list[str]:

@@ -308,10 +308,10 @@ def protocol_record(name: str, declared: object | None = None) -> dict[str, Any]
                 "paper": deviation.paper,
                 "here": deviation.here,
                 "why": deviation.why,
+                "paper_value": deviation.paper_value,
             }
             for deviation in protocol.deviations
         ],
-        "reference_values": dict(protocol.reference_values),
     }
     if declared is not None:
         record["options_away_from_the_recipe"] = [

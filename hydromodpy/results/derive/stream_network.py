@@ -23,8 +23,12 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.core.field_routing import cell_centroids_from_mesh
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
+from hydromodpy.core.stream_criterion_defaults import (
+    STREAM_CRITERION_DEFAULTS,
+    ObservedRasterization,
+)
 from hydromodpy.core.stream_geometry import (
     CriterionSupports,
     NetworkGeometry,
@@ -138,7 +142,10 @@ def network_comparison_from_run(
     *,
     role: str = _REFERENCE_ROLE,
     tau_specific_ratio: float = STREAM_CRITERION_DEFAULTS.tau_specific_ratio,
-    diagonal_neighbors: bool = False,
+    diagonal_neighbors: bool = STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
+    observed_rasterization: ObservedRasterization = (
+        STREAM_CRITERION_DEFAULTS.observed_rasterization
+    ),
     timestep: int = -1,
     observed_position_accuracy_m: float | None = None,
     alpha_warning_threshold: float = STREAM_CRITERION_DEFAULTS.alpha_warning_threshold,
@@ -159,6 +166,17 @@ def network_comparison_from_run(
     and needs no recharge; any other value needs the run to carry its recharge
     budget, and the run is refused by name when it does not.
 
+    ``diagonal_neighbors`` is the neighbour graph of the descent, and its
+    default is the calibration output's: the D8 descent of the paper on a
+    quad mesh. A figure redrawn on another graph than the trial scored would
+    show a partition the reported numbers were never computed on.
+
+    ``observed_rasterization`` draws the mapped network on the cells by the
+    rule the calibration output uses, with the same default: ``"crossing"``,
+    the thin line of WhiteboxTools VectorLinesToRaster, or ``"touch"``. A map
+    drawn by another rule than the trial would show a mapped network the
+    criterion never scored.
+
     One number does NOT reproduce the trial: ``alpha_obs_closure``. The
     criterion reads the mapped network from the file the calibration output
     declares, whole; a run persists its ``reference`` network CLIPPED to the
@@ -170,15 +188,21 @@ def network_comparison_from_run(
 
     The centres used here are the polygon centroids of the faces, because a
     persisted mesh stores no other. On a Voronoi dual the solver sampled its top
-    at the generator seeds instead, so a comparison redrawn from the store can
-    route marginally differently from the one a trial scored. It is exact on any
-    mesh whose cells are parallelograms, which every structured grid is.
+    at the generator seeds instead, and a trial joins those seeds too when it
+    draws the mapped network by ``"crossing"``. So a comparison redrawn from the
+    store can route, and mark the mapped cells, marginally differently from the
+    one a trial scored, and its D_so, D_os and J can differ with it. It is exact
+    on any mesh whose cells are parallelograms, which every structured grid is.
     """
     reason = unavailable_reason_for_comparison(sim, role=role)
     if reason is not None:
         raise ValueError(f"stream comparison unavailable for {sim.sim_id}: {reason}")
 
-    from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons, vector_cell_mask
+    from hydromodpy.spatial.mesh.ops.vector_cell_mask import (
+        cell_polygons,
+        line_crossing_cell_mask,
+        vector_cell_mask,
+    )
 
     mesh = sim.mesh
     vertices = np.asarray(mesh.vertices, dtype=float)
@@ -194,15 +218,35 @@ def network_comparison_from_run(
     network = sim.hydrographic_network(role)
     if network is None or network.empty:
         raise ValueError(f"the {role!r} hydrographic network of {sim.sim_id} holds no feature.")
-    observed = np.asarray(
-        vector_cell_mask(
-            polygons,
-            list(network.geometry),
-            mesh_crs=mesh.crs,
-            geometry_crs=network.crs,
-        ),
-        dtype=bool,
-    )
+    if observed_rasterization == "touch":
+        observed = np.asarray(
+            vector_cell_mask(
+                polygons,
+                list(network.geometry),
+                mesh_crs=mesh.crs,
+                geometry_crs=network.crs,
+            ),
+            dtype=bool,
+        )
+    elif observed_rasterization == "crossing":
+        # The persisted mesh stores no other centres than its vertices give,
+        # the same ones the descent below routes on.
+        observed = np.asarray(
+            line_crossing_cell_mask(
+                polygons,
+                vertices,
+                connectivity,
+                cell_centroids_from_mesh(vertices, connectivity),
+                list(network.geometry),
+                mesh_crs=mesh.crs,
+                geometry_crs=network.crs,
+            ).mask,
+            dtype=bool,
+        )
+    else:
+        raise ValueError(
+            f"observed_rasterization must be 'crossing' or 'touch', got {observed_rasterization!r}."
+        )
 
     geometry = build_network_geometry(
         topography=topography,

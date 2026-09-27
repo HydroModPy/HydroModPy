@@ -650,3 +650,301 @@ objective_blocks = ["b1"]
         findings = _preflight(_write(tmp_path, self._DOC))
 
         assert "[[calibration.phases]] 'p2'" not in {item.where for item in findings}
+
+
+class TestTheNetworkCriterionIsNotAskedToPickARidge:
+    """A network-only objective that moves two parameters returns one point of a ridge."""
+
+    _TWO_PARAMS = """
+    [calibration]
+    method = "grid"
+
+    [calibration.parameters.K]
+    bounds = [1e-7, 1e-3]
+    path = "flow.param.K.field.value"
+
+    [calibration.parameters.Sy]
+    bounds = [1e-3, 0.35]
+    path = "flow.param.Sy.field.value"
+    units = "-"
+
+    [calibration.outputs.net]
+    support = "network"
+    stream_geometry_path = "streams.gpkg"
+
+    [[calibration.objective_blocks]]
+    name = "gap"
+    metric = "distance_gap"
+    uses_outputs = ["net"]
+    """
+
+    def test_two_parameters_on_a_network_only_objective_is_a_warning(self, tmp_path) -> None:
+        findings = _preflight(_write(tmp_path, self._TWO_PARAMS))
+
+        ridge = [item for item in findings if "ridge" in item.detail]
+        assert len(ridge) == 1
+        assert ridge[0].severity == "warning"
+        assert ridge[0].where == "[calibration]"
+
+    def test_one_parameter_on_a_network_only_objective_is_not_named(self, tmp_path) -> None:
+        doc = """
+        [calibration]
+        method = "grid"
+
+        [calibration.parameters.K]
+        bounds = [1e-7, 1e-3]
+        path = "flow.param.K.field.value"
+
+        [calibration.outputs.net]
+        support = "network"
+        stream_geometry_path = "streams.gpkg"
+
+        [[calibration.objective_blocks]]
+        name = "gap"
+        metric = "distance_gap"
+        uses_outputs = ["net"]
+        """
+        findings = _preflight(_write(tmp_path, doc))
+
+        assert "ridge" not in _messages(findings)
+
+    def test_two_parameters_on_a_mixed_objective_is_not_named(self, tmp_path) -> None:
+        doc = """
+        [calibration]
+        method = "grid"
+
+        [calibration.parameters.K]
+        bounds = [1e-7, 1e-3]
+        path = "flow.param.K.field.value"
+
+        [calibration.parameters.Sy]
+        bounds = [1e-3, 0.35]
+        path = "flow.param.Sy.field.value"
+        units = "-"
+
+        [calibration.outputs.net]
+        support = "network"
+        stream_geometry_path = "streams.gpkg"
+
+        [calibration.outputs.gauge]
+        variable = "discharge"
+        support = "boundary"
+        boundary_id = "outlet"
+        observes = "NANCON"
+
+        [[calibration.objective_blocks]]
+        name = "gap"
+        metric = "distance_gap"
+        uses_outputs = ["net", "gauge"]
+        """
+        findings = _preflight(_write(tmp_path, doc))
+
+        assert "ridge" not in _messages(findings)
+
+    def test_a_phase_that_freezes_down_to_one_parameter_is_not_named(self, tmp_path) -> None:
+        doc = """
+        [calibration]
+        method = "grid"
+
+        [calibration.parameters.K]
+        bounds = [1e-7, 1e-3]
+        path = "flow.param.K.field.value"
+
+        [calibration.parameters.Sy]
+        bounds = [1e-3, 0.35]
+        path = "flow.param.Sy.field.value"
+        units = "-"
+
+        [calibration.outputs.net]
+        support = "network"
+        stream_geometry_path = "streams.gpkg"
+
+        [[calibration.objective_blocks]]
+        name = "gap"
+        metric = "distance_gap"
+        uses_outputs = ["net"]
+
+        [[calibration.phases]]
+        name = "one"
+        method = "grid"
+        parameters = ["K"]
+        objective_blocks = ["gap"]
+        """
+        findings = _preflight(_write(tmp_path, doc))
+
+        assert "ridge" not in _messages(findings)
+
+
+class TestTheNetworkSearchCanTrustItsReleasePackages:
+    """SFR and LAK build their own conductance, never derived from K."""
+
+    _SFR = """
+    [flow]
+    active_bc = ["sfr"]
+
+    [calibration]
+    method = "grid"
+
+    [calibration.parameters.K]
+    bounds = [1e-7, 1e-3]
+    path = "flow.param.K.field.value"
+
+    [calibration.outputs.net]
+    support = "network"
+    stream_geometry_path = "streams.gpkg"
+
+    [[calibration.objective_blocks]]
+    name = "gap"
+    metric = "distance_gap"
+    uses_outputs = ["net"]
+    """
+
+    def test_an_active_sfr_moving_k_is_named(self, tmp_path) -> None:
+        findings = _preflight(_write(tmp_path, self._SFR))
+
+        named = [item for item in findings if "SFR" in item.detail]
+        assert len(named) == 1
+        assert named[0].severity == "error"
+        assert named[0].where == "[calibration]"
+        assert "future work" in named[0].detail
+
+    def test_sfr_alongside_a_parameter_that_is_not_k_passes(self, tmp_path) -> None:
+        doc = """
+        [flow]
+        active_bc = ["sfr"]
+
+        [calibration]
+        method = "grid"
+
+        [calibration.parameters.Sy]
+        bounds = [1e-3, 0.35]
+        path = "flow.param.Sy.field.value"
+        units = "-"
+
+        [calibration.outputs.net]
+        support = "network"
+        stream_geometry_path = "streams.gpkg"
+
+        [[calibration.objective_blocks]]
+        name = "gap"
+        metric = "distance_gap"
+        uses_outputs = ["net"]
+        """
+        findings = _preflight(_write(tmp_path, doc))
+
+        assert "SFR" not in _messages(findings)
+
+    def test_an_active_lake_moving_k_is_named(self, tmp_path) -> None:
+        doc = self._SFR.replace('active_bc = ["sfr"]', 'active_bc = ["lake"]')
+        findings = _preflight(_write(tmp_path, doc))
+
+        assert "LAK" in _messages(findings)
+
+    def test_drainage_alone_passes(self, tmp_path) -> None:
+        doc = self._SFR.replace('active_bc = ["sfr"]', 'active_bc = ["drainage"]')
+        findings = _preflight(_write(tmp_path, doc))
+
+        assert "SFR" not in _messages(findings)
+        assert "LAK" not in _messages(findings)
+
+    def test_a_k_search_on_a_non_network_output_passes(self, tmp_path) -> None:
+        doc = """
+        [flow]
+        active_bc = ["sfr"]
+
+        [calibration]
+        method = "grid"
+
+        [calibration.parameters.K]
+        bounds = [1e-7, 1e-3]
+        path = "flow.param.K.field.value"
+
+        [calibration.outputs.gauge]
+        variable = "discharge"
+        support = "boundary"
+        boundary_id = "outlet"
+        observes = "NANCON"
+
+        [[calibration.objective_blocks]]
+        name = "gap"
+        metric = "rmse"
+        uses_outputs = ["gauge"]
+        """
+        findings = _preflight(_write(tmp_path, doc))
+
+        assert "SFR" not in _messages(findings)
+
+
+class TestASingleMetricPhaseScoringANetworkOutput:
+    """A phase naming its own ``variable``/``objective`` never becomes an
+    ``objective_blocks`` entry, but it still scores whatever output that
+    ``variable`` names, and both checks above must read it there too.
+    """
+
+    def test_two_parameters_on_a_single_metric_network_phase_is_a_ridge_warning(
+        self, tmp_path
+    ) -> None:
+        doc = """
+        [calibration]
+        method = "grid"
+        variable = "net"
+        objective = "distance_gap"
+
+        [calibration.parameters.K]
+        bounds = [1e-7, 1e-3]
+        path = "flow.param.K.field.value"
+
+        [calibration.parameters.Sy]
+        bounds = [1e-3, 0.35]
+        path = "flow.param.Sy.field.value"
+        units = "-"
+
+        [calibration.outputs.net]
+        support = "network"
+        stream_geometry_path = "streams.gpkg"
+
+        [[calibration.phases]]
+        name = "one"
+        method = "grid"
+        parameters = ["K", "Sy"]
+        variable = "net"
+        objective = "distance_gap"
+        """
+        findings = _preflight(_write(tmp_path, doc))
+
+        ridge = [item for item in findings if "ridge" in item.detail]
+        assert len(ridge) == 1
+        assert ridge[0].severity == "warning"
+        assert ridge[0].where == "[[calibration.phases]] 'one'"
+
+    def test_a_single_metric_network_phase_next_to_an_active_sfr_is_named(self, tmp_path) -> None:
+        doc = """
+        [flow]
+        active_bc = ["sfr"]
+
+        [calibration]
+        method = "grid"
+        variable = "net"
+        objective = "distance_gap"
+
+        [calibration.parameters.K]
+        bounds = [1e-7, 1e-3]
+        path = "flow.param.K.field.value"
+
+        [calibration.outputs.net]
+        support = "network"
+        stream_geometry_path = "streams.gpkg"
+
+        [[calibration.phases]]
+        name = "one"
+        method = "grid"
+        parameters = ["K"]
+        variable = "net"
+        objective = "distance_gap"
+        """
+        findings = _preflight(_write(tmp_path, doc))
+
+        named = [item for item in findings if "SFR" in item.detail]
+        assert len(named) == 1
+        assert named[0].severity == "error"
+        assert named[0].where == "[[calibration.phases]] 'one'"

@@ -22,11 +22,20 @@ from hydromodpy.core.field_routing import (
     build_downhill_graph,
     cell_centroids_from_mesh,
 )
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
 class DownslopeMetric:
-    """Static receiver graph plus the length of every receiver link."""
+    """Static receiver graph plus the length of every receiver link.
+
+    ``diagonal_neighbors`` is the neighbourhood the graph was actually built
+    on, which :func:`resolve_diagonal_neighbors` may have narrowed from the
+    one asked for.
+    """
 
     graph: DownhillGraph
     edge_length: np.ndarray
@@ -97,6 +106,49 @@ def shared_node_adjacency(
     return adjacency
 
 
+def faces_are_all_quadrilaterals(face_node_connectivity: Any, *, n_cells: int) -> bool:
+    """Return whether every face of the mesh has exactly four nodes."""
+    connectivity = np.asarray(face_node_connectivity, dtype=int)
+    if connectivity.ndim == 1:
+        connectivity = connectivity.reshape(1, -1)
+    rows = connectivity[:n_cells]
+    return bool(rows.size) and bool(np.all((rows >= 0).sum(axis=1) == 4))
+
+
+def resolve_diagonal_neighbors(
+    face_node_connectivity: Any,
+    *,
+    n_cells: int,
+    requested: bool,
+) -> bool:
+    """Return the neighbourhood a descent can use on this mesh.
+
+    ``True`` asks for the D8 descent of the paper: on a quad mesh the cells
+    sharing a node are the eight neighbours, the four across an edge and the
+    four across a corner. It holds on every mesh whose faces all have four
+    nodes, the structured DIS grid and an unstructured quad mesh alike.
+
+    Elsewhere a diagonal means nothing, so ``True`` falls back to shared
+    edges. On a Voronoi dual a vertex is generically shared by three cells,
+    which already pair across edges, so the two graphs are the same one. On a
+    triangle mesh a node is shared by about six triangles, and pairing them
+    by node gives about twelve neighbours with no grid direction to call
+    diagonal: that is not the paper's D8 either. The fallback is logged, not
+    refused, because ``True`` is the default and a Voronoi run must not fail
+    on a knob it never set.
+    """
+    if not requested:
+        return False
+    if faces_are_all_quadrilaterals(face_node_connectivity, n_cells=n_cells):
+        return True
+    logger.info(
+        "diagonal_neighbors = true asks for a D8 descent, but the mesh has faces that are "
+        "not quadrilaterals, where no cell has a diagonal. The descent walks shared "
+        "edges, which on a Voronoi dual is the same graph."
+    )
+    return False
+
+
 def build_downslope_metric(
     reference_values: Any,
     face_node_connectivity: Any,
@@ -104,14 +156,21 @@ def build_downslope_metric(
     vertices: Any,
     centroids: Any | None = None,
     inactive_mask: Any | None = None,
-    diagonal_neighbors: bool = False,
+    diagonal_neighbors: bool = STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
     adjacency: list[set[int]] | None = None,
 ) -> DownslopeMetric:
     """Build the receiver graph and its edge lengths for a static surface.
 
     ``vertices`` is required: an edge length is a centroid-to-centroid
     distance, which is the D8 convention of the paper on an isotropic grid and
-    is exact by construction on an unstructured mesh.
+    is exact by construction on an unstructured mesh. A diagonal step on a
+    square grid is therefore ``sqrt(2)`` cells long, and the receiver is the
+    steepest drop per metre, so a diagonal does not win on its length alone.
+
+    ``diagonal_neighbors`` defaults to the D8 descent of the paper and is
+    resolved against the mesh by :func:`resolve_diagonal_neighbors`. A caller
+    passing its own ``adjacency`` has already chosen, and the flag is then
+    recorded as given.
 
     ``centroids`` names the points ``reference_values`` were sampled at. Pass
     them whenever the mesh carries explicit cell centres: on a Voronoi dual the
@@ -139,8 +198,12 @@ def build_downslope_metric(
             f"the mesh carries {centroids.shape[0]} centres but the surface has {n_cells} values."
         )
 
-    if adjacency is None and diagonal_neighbors:
-        adjacency = shared_node_adjacency(face_node_connectivity, n_cells=n_cells)
+    if adjacency is None:
+        diagonal_neighbors = resolve_diagonal_neighbors(
+            face_node_connectivity, n_cells=n_cells, requested=bool(diagonal_neighbors)
+        )
+        if diagonal_neighbors:
+            adjacency = shared_node_adjacency(face_node_connectivity, n_cells=n_cells)
 
     graph = build_downhill_graph(
         reference,
@@ -307,6 +370,9 @@ __all__ = [
     "DownslopeMetric",
     "build_downslope_metric",
     "downslope_distance_to_mask",
+    "faces_are_all_quadrilaterals",
     "longest_descent_length",
     "mean_downslope_distance",
+    "resolve_diagonal_neighbors",
+    "shared_node_adjacency",
 ]
