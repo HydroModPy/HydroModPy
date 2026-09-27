@@ -115,7 +115,8 @@ kind = "cauchy"
 # K from the extent of the mapped network in steady state, then Sy from the
 # gauged hydrograph with K frozen: the protocol of Abherve et al. (2023),
 # 10.5194/hess-27-3221-2023. run_calibration.toml runs it as is;
-# run_calibration_by_hand.toml writes the same two stages out and deviates once.
+# run_calibration_protocol_by_hand.toml writes the same two stages out;
+# run_calibration_by_hand.toml writes them out and deviates once.
 #
 #   hmp calibrate <this file> --list-phases   each stage: method, width, what it compares
 #   hmp calibrate <this file> --expand        the stages the protocol writes, as TOML
