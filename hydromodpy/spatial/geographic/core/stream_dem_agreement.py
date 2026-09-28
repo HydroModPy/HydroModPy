@@ -12,6 +12,10 @@ the DEM needs the stream burn of
 :mod:`~hydromodpy.spatial.geographic.core.stream_enforcement`, and whether the
 depth used was enough. It runs on any project that declares a network, with or
 without burning, and needs no calibration.
+
+With ``[geographic.snap_streams] mode = "apply"`` the burn follows the snapped
+map, so the agreement is measured against that map, read from the raster snap
+the burn published (:mod:`~hydromodpy.spatial.geographic.core.raster_stream_snap`).
 """
 
 from __future__ import annotations
@@ -25,6 +29,10 @@ import rasterio
 from rasterio.features import rasterize
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.geographic.core.raster_stream_snap import (
+    read_raster_snap_manifest,
+    read_raster_snapped_mask,
+)
 from hydromodpy.spatial.geographic.core.stream_enforcement import streams_from_config
 from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
 
@@ -39,6 +47,8 @@ class NetworkDemAgreement:
     n_closure_cells: int
     alpha: float
     burned: bool
+    snapped: bool = False
+    """True when the network measured is the snapped map, not the raw lines."""
 
 
 def measure_network_dem_agreement(
@@ -47,8 +57,13 @@ def measure_network_dem_agreement(
     watershed_shp: str | Path,
     stream_lines: list,
     burned: bool = False,
+    network_mask: np.ndarray | None = None,
 ) -> NetworkDemAgreement:
-    """Measure the agreement between one D8 pointer raster and a mapped network."""
+    """Measure the agreement between one D8 pointer raster and a mapped network.
+
+    ``network_mask`` replaces the rasterised ``stream_lines`` when given: the
+    snapped map, on the grid of the pointer.
+    """
     import geopandas as gpd
 
     with rasterio.open(str(d8_pointer_path)) as src:
@@ -56,17 +71,25 @@ def measure_network_dem_agreement(
         transform = src.transform
         shape = codes.shape
 
-    lines = [g for g in stream_lines if g is not None and not g.is_empty]
-    if not lines:
-        raise ValueError("measure_network_dem_agreement: no stream geometry to measure.")
-    network = rasterize(
-        ((g, 1) for g in lines),
-        out_shape=shape,
-        transform=transform,
-        fill=0,
-        all_touched=True,
-        dtype="uint8",
-    ).astype(bool)
+    if network_mask is not None:
+        network = np.asarray(network_mask, dtype=bool)
+        if network.shape != shape:
+            raise ValueError(
+                f"measure_network_dem_agreement: the network lies on a {network.shape} grid, "
+                f"the D8 pointer on {shape}."
+            )
+    else:
+        lines = [g for g in stream_lines if g is not None and not g.is_empty]
+        if not lines:
+            raise ValueError("measure_network_dem_agreement: no stream geometry to measure.")
+        network = rasterize(
+            ((g, 1) for g in lines),
+            out_shape=shape,
+            transform=transform,
+            fill=0,
+            all_touched=True,
+            dtype="uint8",
+        ).astype(bool)
 
     catchment = gpd.read_file(str(watershed_shp))
     core = rasterize(
@@ -92,6 +115,7 @@ def measure_network_dem_agreement(
         n_closure_cells=n_closure,
         alpha=float(seeds.size) / float(n_closure) if n_closure else float("nan"),
         burned=bool(burned),
+        snapped=network_mask is not None,
     )
 
 
@@ -112,20 +136,33 @@ def report_network_dem_agreement(
         return None
 
     burned = bool(getattr(enforce, "enabled", False))
+    network_mask = None
+    snap = getattr(config, "snap_streams", None)
+    if snap is not None and getattr(snap, "mode", "off") == "apply":
+        manifest = read_raster_snap_manifest(setup.paths.geographic_path)
+        mapped = Path(enforce.stream_geometry_path).expanduser().resolve()
+        if (
+            manifest is not None
+            and manifest.get("mode") == "apply"
+            and Path(str(manifest.get("source_path", ""))) == mapped
+        ):
+            network_mask = read_raster_snapped_mask(manifest)
     agreement = measure_network_dem_agreement(
         d8_pointer_path=d8_pointer_path,
         watershed_shp=setup.paths.watershed_shp,
         stream_lines=streams_from_config(enforce, setup),
         burned=burned,
+        network_mask=network_mask,
     )
     summary_path = Path(setup.paths.geographic_path) / "stream_dem_agreement.json"
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     summary_path.write_text(json.dumps(asdict(agreement), indent=1), encoding="utf-8")
 
     logger.info(
-        "Stream/DEM agreement: %d mapped cells generate a downstream closure of %d "
+        "Stream/DEM agreement: %d %s cells generate a downstream closure of %d "
         "(alpha %.3f, burning %s).",
         agreement.n_network_cells,
+        "snapped" if agreement.snapped else "mapped",
         agreement.n_closure_cells,
         agreement.alpha,
         "on" if burned else "off",

@@ -204,6 +204,7 @@ def _register_root_config_contracts() -> None:
     from pathlib import Path
     from typing import Any
 
+    from hydromodpy.config.config_migration import migrate_config_doc_on_load
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.config_kit import root_config_protocol
 
@@ -219,6 +220,11 @@ def _register_root_config_contracts() -> None:
 
         def from_dict(self, payload: dict[str, Any]) -> HydroModPyConfig:
             return HydroModPyConfig.from_dict(payload)
+
+        def migrate_on_load(
+            self, payload: dict[str, Any], *, source: str | Path | None = None
+        ) -> list[str]:
+            return migrate_config_doc_on_load(payload, source=source)
 
     root_config_protocol.set_root_config_provider(_RootConfigProvider())
 

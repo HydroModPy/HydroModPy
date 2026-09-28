@@ -17,6 +17,7 @@ from hydromodpy.calibration.observations.network_source import (
     ObservedNetwork,
     UnresolvedObservedNetwork,
     resolve_observed_network,
+    unresolved_minimal_observed_networks,
     unresolved_observed_networks,
 )
 
@@ -218,6 +219,57 @@ class TestTheReportingTwin:
         project = self._project()
 
         assert unresolved_observed_networks(calibration, project) == {}
+
+
+class TestTheMinimalMapsReportingTwin:
+    """Same static check, for ``minimal_observed_network`` rather than ``observed_network``.
+
+    A run's ``reference_permanent`` role can only be known once the geographic
+    pipeline has read the source, so the reporting twin here still cannot see a
+    source that declares no permanence column (a custom file, OSM): it only
+    catches a ``minimal_observed_network = "data.hydrography"`` with no
+    ``[[data.hydrography.sources]]`` at all, the same parity
+    ``unresolved_observed_networks`` gives the maximal map.
+    """
+
+    def _calibration(self, **outputs):
+        return SimpleNamespace(outputs=outputs)
+
+    def _project(self, *, hydrography_sources=None):
+        hydrography = None
+        if hydrography_sources is not None:
+            hydrography = SimpleNamespace(sources=hydrography_sources)
+        return SimpleNamespace(data=SimpleNamespace(hydrography=hydrography))
+
+    def test_a_declared_minimal_source_the_project_carries_is_left_alone(self) -> None:
+        calibration = self._calibration(
+            net=_output(
+                observed_network="data.hydrography", minimal_observed_network="data.hydrography"
+            )
+        )
+        project = self._project(hydrography_sources=[SimpleNamespace(source="bdtopage")])
+
+        assert unresolved_minimal_observed_networks(calibration, project) == {}
+
+    def test_minimal_data_hydrography_named_with_no_section_is_reported(self) -> None:
+        calibration = self._calibration(
+            net=_output(
+                observed_network="data.hydrography", minimal_observed_network="data.hydrography"
+            )
+        )
+        project = self._project(hydrography_sources=None)
+
+        refused = unresolved_minimal_observed_networks(calibration, project)
+
+        assert set(refused) == {"net"}
+        assert "minimal_observed_network" in refused["net"]
+        assert "data.hydrography.sources" in refused["net"]
+
+    def test_an_output_with_no_minimal_map_is_not_this_functions_concern(self) -> None:
+        calibration = self._calibration(net=_output(observed_network="data.hydrography"))
+        project = self._project(hydrography_sources=None)
+
+        assert unresolved_minimal_observed_networks(calibration, project) == {}
 
     def test_a_calibration_with_no_output_at_all_reports_nothing(self) -> None:
         assert unresolved_observed_networks(self._calibration(), self._project()) == {}

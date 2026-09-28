@@ -17,7 +17,9 @@ calibration: the input is described locally by
 from __future__ import annotations
 
 import html
+import inspect
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
@@ -31,6 +33,7 @@ from hydromodpy.results.derive.time_alignment import (
     observed_on_simulation_index,
     time_method_for,
 )
+from hydromodpy.results.session_journal import read_root_search
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -134,6 +137,7 @@ def render_session(
         iterations=session_data.iterations,
         figure_names=requested,
         figures_dir=figures_dir,
+        roots=_two_roots(session_data),
     )
     written.extend(path for _, path in rendered)
 
@@ -215,12 +219,32 @@ def _float_or_nan(value: Any) -> float:
         return float("nan")
 
 
+def _two_roots(session_data: SessionReportPayload) -> Mapping[str, Any] | None:
+    """Return the two roots the session's chain journalled, or None.
+
+    Only ``session.json`` holds them: the trials carry each bound's bracket,
+    not ``Delta`` nor the combined value.
+    """
+    record = read_root_search(session_data.workspace_root, session_data.session_id)
+    roots = (record or {}).get("roots")
+    return roots if isinstance(roots, Mapping) else None
+
+
+def _takes_roots(figure: Any) -> bool:
+    """Whether a figure's ``plot`` declares a ``roots`` argument."""
+    try:
+        return "roots" in inspect.signature(figure.plot).parameters
+    except (TypeError, ValueError):
+        return False
+
+
 def _render_figures(
     *,
     session_id: str,
     iterations: list[dict],
     figure_names: tuple[str, ...],
     figures_dir: Path,
+    roots: Mapping[str, Any] | None = None,
 ) -> list[tuple[str, Path]]:
     import matplotlib
 
@@ -238,7 +262,10 @@ def _render_figures(
         out_path = figures_dir / f"{figure_name}.png"
         try:
             fig_cls = _get_figure(figure_name)
-            fig_cls.plot(cast("Run", run_stub), save_path=out_path, session_id=session_id)
+            options: dict[str, Any] = {"session_id": session_id}
+            if roots is not None and _takes_roots(fig_cls):
+                options["roots"] = roots
+            fig_cls.plot(cast("Run", run_stub), save_path=out_path, **options)
         except Exception as exc:
             failures.append(f"{figure_name}: {exc}")
             plt.close("all")

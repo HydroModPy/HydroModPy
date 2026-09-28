@@ -17,7 +17,7 @@ Each session owns ``sessions/<name>/`` at the project root:
 
     sessions/20260726-014233-optuna-3f2a1b7c/
         session.json     identity, project, search space, objective, dates,
-                         best trial
+                         best trial, root search outcome
         trials.jsonl     one JSON object per evaluated trial, appended live
 
 The journal is written **as the calibration goes**: the descriptor before
@@ -42,6 +42,15 @@ chain. They are written to ``session.json`` and not only to the index,
 because a rebuild reads the disk and would otherwise flatten every chain
 into unrelated sessions without a single error.
 
+Root search
+-----------
+A root search proves more than its best trial: the final bracket around
+the root, or, on two bounds, one root per bound, their spread ``Delta``
+and the combined value. The calibration report carries them in memory as
+``extra["bracket"]`` and ``extra["roots"]``. ``root_search`` keeps the same
+two keys in ``session.json``, so a card or a report drawn later from the
+disk shows what the live run printed. Any other search leaves it empty.
+
 Format
 ------
 .. code-block:: json
@@ -57,6 +66,7 @@ Format
       "root_session_id": "8a2b5c6d7e8f90123f2a1b7c9d0e4f11",
       "phase_name": "refine",
       "phase_index": 1,
+      "root_search": null,
       "started_at": "2026-07-26T01:42:33+00:00",
       "ended_at": "2026-07-26T01:44:02+00:00",
       "duration_s": 88.6,
@@ -86,6 +96,7 @@ from __future__ import annotations
 import json
 import os
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -97,10 +108,11 @@ from hydromodpy.results.storage.contract import (
     SESSION_TRIALS_FILENAME,
 )
 
-SESSION_JOURNAL_VERSION = 2
+SESSION_JOURNAL_VERSION = 3
 """Schema version of the session journal.
 
-Version 2 adds the phase chaining keys. Nothing validates the number on
+Version 2 adds the phase chaining keys, version 3 the root search outcome.
+Nothing validates the number on
 read: :func:`read_descriptor` accepts a descriptor written by any version
 and defaults the keys it does not find. The bump is provenance, not a gate.
 """
@@ -126,6 +138,8 @@ class SessionDescriptor:
     """Identity, search space, outcome and phase chain of one session.
 
     A session that starts no chain leaves the four chaining fields empty.
+    ``root_search`` holds ``bracket`` or ``roots``, the records a root search
+    closes with, and stays empty for any other search.
     """
 
     session_id: str
@@ -146,6 +160,7 @@ class SessionDescriptor:
     root_session_id: str | None = None
     phase_name: str | None = None
     phase_index: int | None = None
+    root_search: dict[str, Any] | None = None
 
 
 def sessions_dir_for(project_root: Path | str) -> Path:
@@ -262,11 +277,13 @@ class SessionJournal:
         best_objective: float | None = None,
         best_sim_id: str | None = None,
         error_message: str | None = None,
+        root_search: Mapping[str, Any] | None = None,
     ) -> None:
         """Rewrite the descriptor with the outcome of the session.
 
         ``ended_at``, like ``started_at``, is read once by the caller and
-        shared with the index.
+        shared with the index. ``root_search`` is the root search's final
+        bracket or two roots, None for any other search.
         """
         self._descriptor = replace(
             self._descriptor,
@@ -277,6 +294,7 @@ class SessionJournal:
             best_objective=None if best_objective is None else float(best_objective),
             best_sim_id=None if best_sim_id is None else str(best_sim_id),
             error_message=error_message,
+            root_search=None if not root_search else dict(root_search),
         )
         self._write_descriptor()
 
@@ -333,7 +351,48 @@ def read_descriptor(session_dir: Path | str) -> SessionDescriptor:
         root_session_id=_text_or_none(payload.get("root_session_id")),
         phase_name=_text_or_none(payload.get("phase_name")),
         phase_index=_int_or_none(payload.get("phase_index")),
+        root_search=_dict_or_none(payload.get("root_search")),
     )
+
+
+def find_session_dir(project_root: Path | str, session_id: str) -> Path | None:
+    """Return the directory of one session, found by its id, or None.
+
+    The id is compared without dashes, the form the journal writes. The
+    directory name ends with the first eight characters of the id, so only
+    the descriptors of matching names are read.
+    """
+    wanted = _bare_id(session_id)
+    for directory in session_dirs_for(project_root):
+        if not directory.name.endswith(f"-{wanted[:8]}"):
+            continue
+        try:
+            descriptor = read_descriptor(directory)
+        except (OSError, ValueError):
+            continue
+        if _bare_id(descriptor.session_id) == wanted:
+            return directory
+    return None
+
+
+def read_root_search(project_root: Path | str, session_id: str) -> dict[str, Any] | None:
+    """Return the root search outcome of a session's chain, or None.
+
+    The session's own record comes first. A later phase searches no root
+    itself, so it reads the record of the first phase of its chain, which
+    the card of that chain draws. None when no descriptor on disk holds one.
+    """
+    directory = find_session_dir(project_root, session_id)
+    if directory is None:
+        return None
+    descriptor = read_descriptor(directory)
+    if descriptor.root_search:
+        return descriptor.root_search
+    root = descriptor.root_session_id
+    if root is None or _bare_id(root) == _bare_id(descriptor.session_id):
+        return None
+    first = find_session_dir(project_root, root)
+    return None if first is None else read_descriptor(first).root_search
 
 
 def read_trials(session_dir: Path | str) -> tuple[SessionTrial, ...]:
@@ -386,6 +445,7 @@ def _descriptor_payload(descriptor: SessionDescriptor) -> dict[str, Any]:
         "root_session_id": descriptor.root_session_id,
         "phase_name": descriptor.phase_name,
         "phase_index": descriptor.phase_index,
+        "root_search": descriptor.root_search,
         "search_space": descriptor.search_space,
         "config": descriptor.config,
     }
@@ -411,6 +471,16 @@ def _text_or_none(value: Any) -> str | None:
     return None if value is None else str(value)
 
 
+def _dict_or_none(value: Any) -> dict[str, Any] | None:
+    """Return ``value`` as a dict, or ``None`` when it is absent or empty."""
+    return dict(value) if isinstance(value, Mapping) and value else None
+
+
+def _bare_id(session_id: Any) -> str:
+    """Return a session id as the bare lowercase hex the journal writes."""
+    return str(session_id).replace("-", "").lower()
+
+
 def _float_or_none(value: Any) -> float | None:
     """Return ``value`` as a float, or ``None`` when it is absent."""
     return None if value is None else float(value)
@@ -426,7 +496,9 @@ __all__ = [
     "SessionDescriptor",
     "SessionJournal",
     "SessionTrial",
+    "find_session_dir",
     "read_descriptor",
+    "read_root_search",
     "read_trials",
     "session_dir_name",
     "session_dirs_for",

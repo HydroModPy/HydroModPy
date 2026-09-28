@@ -92,7 +92,9 @@ class TestTheCaptureAndTheCostReadTheSamePairing:
         """The reference is the reader this replaced, not the one that replaced it."""
         simulated = [1.5, 2.5, 3.5, 4.5]
         extracted = _extracted(simulated)
-        monkeypatch.setattr(composite, "extract_outputs", lambda ctx, outputs: extracted)
+        monkeypatch.setattr(
+            composite, "extract_outputs", lambda ctx, outputs, scoring_window=None: extracted
+        )
         capture_fn, captured = build_paired_vector_capture(
             _outputs(), ctx=_ctx(), objective_blocks=[_block()]
         )
@@ -126,7 +128,9 @@ class TestTheCaptureAndTheCostReadTheSamePairing:
             )
         }
         extracted = _extracted([1.5, 2.5, 3.5, 4.5], time="last")
-        monkeypatch.setattr(composite, "extract_outputs", lambda ctx, outputs_: extracted)
+        monkeypatch.setattr(
+            composite, "extract_outputs", lambda ctx, outputs_, scoring_window=None: extracted
+        )
         capture_fn, captured = build_paired_vector_capture(
             outputs, ctx=_ctx(), objective_blocks=[_block()]
         )
@@ -149,7 +153,9 @@ class TestTheCaptureAndTheCostReadTheSamePairing:
         """One reader: what the search scored is what the derivatives are taken on."""
         simulated = [1.5, 2.5, 3.5, 4.5]
         monkeypatch.setattr(
-            composite, "extract_outputs", lambda ctx, outputs: _extracted(simulated)
+            composite,
+            "extract_outputs",
+            lambda ctx, outputs, scoring_window=None: _extracted(simulated),
         )
         capture_fn, captured = build_paired_vector_capture(
             _outputs(), ctx=_ctx(), objective_blocks=[_block()]
@@ -168,7 +174,9 @@ class TestTheCaptureAndTheCostReadTheSamePairing:
 
     def test_the_window_the_search_used_cuts_the_residuals_too(self, monkeypatch) -> None:
         monkeypatch.setattr(
-            composite, "extract_outputs", lambda ctx, outputs: _extracted([1.5, 2.5, 3.5, 4.5])
+            composite,
+            "extract_outputs",
+            lambda ctx, outputs, scoring_window=None: _extracted([1.5, 2.5, 3.5, 4.5]),
         )
         capture_fn, captured = build_paired_vector_capture(
             _outputs(),
@@ -183,7 +191,9 @@ class TestTheCaptureAndTheCostReadTheSamePairing:
 
     def test_a_shorter_overlap_than_the_document_asks_for_is_refused(self, monkeypatch) -> None:
         monkeypatch.setattr(
-            composite, "extract_outputs", lambda ctx, outputs: _extracted([1.5, 2.5])
+            composite,
+            "extract_outputs",
+            lambda ctx, outputs, scoring_window=None: _extracted([1.5, 2.5]),
         )
         capture_fn, _ = build_paired_vector_capture(
             _outputs(), ctx=_ctx(), objective_blocks=[_block()], min_samples=3
@@ -284,7 +294,9 @@ class TestABurnInHasNoResidualVector:
 
     def test_a_block_that_switches_it_off_is_not_refused(self, monkeypatch) -> None:
         monkeypatch.setattr(
-            composite, "extract_outputs", lambda ctx, outputs: _extracted([1.5, 2.5, 3.5, 4.5])
+            composite,
+            "extract_outputs",
+            lambda ctx, outputs, scoring_window=None: _extracted([1.5, 2.5, 3.5, 4.5]),
         )
         capture_fn, captured = build_paired_vector_capture(
             _outputs(),

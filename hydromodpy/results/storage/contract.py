@@ -15,7 +15,8 @@ per calibration session::
         trash.json                       present while the run sits in the trash
         figures/                         figures of this run
     <project>/sessions/<name>/           one calibration session
-        session.json                     identity, search space, best trial
+        session.json                     identity, search space, best trial,
+                                         root search outcome
         trials.jsonl                     one line per evaluated trial
 
 The run directory name is the human run name (with its ``.vN`` version
@@ -108,7 +109,7 @@ the machine that ran it, not the run.
 """
 
 SESSION_DESCRIPTOR_FILENAME = "session.json"
-"""Identity, search space, objective and best trial of one calibration session."""
+"""Identity, search space, objective, best trial and root search of one session."""
 
 SESSION_TRIALS_FILENAME = "trials.jsonl"
 """Trial journal of one session, appended one JSON object per line as it runs."""

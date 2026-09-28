@@ -1,55 +1,167 @@
-"""How often each cell carried accumulated drainage over a transient run.
+"""How often each cell flowed over a transient run, as the network criterion says.
 
 Both persistence figures ask the same question of the same field: at how many
-timesteps did a cell carry flow. They differ only in what they do with the
-count, so the counting lives here and each figure keeps its own map.
+timesteps did a cell flow. They differ only in what they do with the count, so
+the counting lives here and each figure keeps its own map.
+
+"Flowing" is the definition the network criterion scores, and no other
+(:func:`hydromodpy.core.stream_extent.flowing_cells`): a cell flows when it lies
+in the downstream closure of the cells releasing above ``tau * R * A`` on the
+criterion graph and, unless the visible flow is ``"0 L/s"``, when the routed
+release reaching it is at least the visible flow. The counts are rebuilt by
+:mod:`hydromodpy.results.derive.stream_extent`, per calendar year, and kept per
+run so the two maps of one gallery read the stack once.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
+from hydromodpy.core.stream_extent import DEFAULT_VISIBLE_FLOW, VisibleFlow, parse_visible_flow
+from hydromodpy.display.figures._memo import RunMemo
+from hydromodpy.results.derive.stream_extent import (
+    FLOW_FIELD,
+    block_flow_counts,
+    flow_geometry_from_run,
+    run_step_edges,
+    unavailable_reason_for_flow,
+)
+
 if TYPE_CHECKING:
     import pandas as pd
 
+    from hydromodpy.core.stream_geometry import NetworkGeometry
     from hydromodpy.results.run import Run
 
-
-FLOW_FIELD = "accumulation_flux"
-"""Drain outflow accumulated downslope: positive means the cell carries flow."""
+__all__ = (
+    "FLOW_FIELD",
+    "WHOLE_RUN_LABEL",
+    "CycleFlow",
+    "cycle_flow",
+    "cycles",
+    "definition_note",
+    "flow_geometry",
+    "flow_unavailable_reason",
+    "resolve_cycle",
+    "span_label",
+    "step_midpoints",
+)
 
 WHOLE_RUN_LABEL = "the whole run"
 """Name of the single cycle used when the run carries no usable time axis."""
 
+_GEOMETRY_MEMO = RunMemo()
+_FLOW_MEMO = RunMemo()
 
-def flowing_stack(sim: Run, *, threshold: float = 0.0) -> np.ndarray:
-    """Return the ``(n_timesteps, n_cells)`` boolean record of who carried flow.
 
-    A cell is flowing when its accumulated drain outflow is above
-    ``threshold``. The default keeps the legacy criterion, strictly positive,
-    which on this field means at least one upslope release reached the cell.
+@dataclass(frozen=True, slots=True)
+class CycleFlow:
+    """The flowing counts of a run, one row per cycle, and how they were cut.
+
+    ``flowing[i]`` counts, per cell, the timesteps of ``labels[i]`` it flowed;
+    ``steps[i]`` are those timesteps. The cycles cover every timestep once.
+    """
+
+    labels: tuple[str, ...]
+    steps: tuple[np.ndarray, ...]
+    flowing: np.ndarray
+    visible_flow: VisibleFlow
+    tau_specific_ratio: float
+
+    @property
+    def n_timesteps(self) -> int:
+        """Timesteps counted over all cycles."""
+        return int(sum(block.size for block in self.steps))
+
+    def block(self, label: str) -> tuple[np.ndarray, np.ndarray]:
+        """Return the timesteps of one cycle and the per-cell flowing count."""
+        row = self.labels.index(label)
+        return self.steps[row], self.flowing[row]
+
+    def total(self) -> np.ndarray:
+        """Return the per-cell flowing count over the whole record."""
+        return self.flowing.sum(axis=0)
+
+
+def flow_unavailable_reason(sim: Run) -> str | None:
+    """Return why the flowing cells of this run cannot be counted, or None."""
+    return unavailable_reason_for_flow(sim)
+
+
+def flow_geometry(
+    sim: Run,
+    *,
+    tau_specific_ratio: float | None = None,
+    diagonal_neighbors: bool | None = None,
+) -> NetworkGeometry:
+    """Return the criterion geometry of a run, memoised on the run and the knobs."""
+    tau = _tau(tau_specific_ratio)
+    diagonal = (
+        STREAM_CRITERION_DEFAULTS.diagonal_neighbors
+        if diagonal_neighbors is None
+        else bool(diagonal_neighbors)
+    )
+    return _GEOMETRY_MEMO.get_or_build(
+        sim,
+        (tau, diagonal),
+        lambda: flow_geometry_from_run(sim, tau_specific_ratio=tau, diagonal_neighbors=diagonal),
+    )
+
+
+def cycle_flow(
+    sim: Run,
+    *,
+    visible_flow: str | None = None,
+    tau_specific_ratio: float | None = None,
+    diagonal_neighbors: bool | None = None,
+) -> CycleFlow:
+    """Return how many timesteps each cell flowed in each cycle of the run.
+
+    ``visible_flow`` defaults to
+    :data:`hydromodpy.core.stream_extent.DEFAULT_VISIBLE_FLOW`, the threshold
+    the two-bound mode of the criterion reads a transient run with.
     """
     n_steps = int(sim.n_timesteps or 0)
     if n_steps == 0:
         raise ValueError(f"no timestep recorded for sim {sim.sim_id}")
-    rows = [
-        np.nan_to_num(np.asarray(sim.field(FLOW_FIELD, timestep=index), dtype="float64")).ravel()
-        > float(threshold)
-        for index in range(n_steps)
-    ]
-    return np.vstack(rows)
+    visible = parse_visible_flow(DEFAULT_VISIBLE_FLOW if visible_flow is None else visible_flow)
+    tau = _tau(tau_specific_ratio)
+
+    def build() -> CycleFlow:
+        geometry = flow_geometry(sim, tau_specific_ratio=tau, diagonal_neighbors=diagonal_neighbors)
+        blocks = cycles(sim, n_steps)
+        counts = block_flow_counts(sim, geometry, list(blocks.values()), visible_flow=visible)
+        return CycleFlow(
+            labels=tuple(blocks),
+            steps=tuple(blocks.values()),
+            flowing=counts.flowing,
+            visible_flow=visible,
+            tau_specific_ratio=tau,
+        )
+
+    return _FLOW_MEMO.get_or_build(sim, (visible, tau, diagonal_neighbors), build)
+
+
+def definition_note(flow: CycleFlow) -> str:
+    """Return how "flowing" was cut, for the title of a persistence map."""
+    visible = (
+        "no visible-flow threshold"
+        if flow.visible_flow.geometric
+        else f"visible flow {flow.visible_flow.label()}"
+    )
+    return f"flowing: seepage closure, tau = {flow.tau_specific_ratio:g}, {visible}"
 
 
 def cycles(sim: Run, n_steps: int) -> dict[str, np.ndarray]:
     """Return the timestep indices of each calendar year in the run.
 
-    The legacy code cut the record into fixed blocks of twelve, which is a
-    year only when the steps are months. Reading the time axis instead makes
-    the classification mean the same thing at any timestep length. A run whose
-    time axis cannot be built keeps one block over everything, and its label
-    says so.
+    A timestep belongs to the calendar year its middle falls in, the rule the
+    network criterion sorts its years by. A run whose time axis cannot be
+    built keeps one block over everything, and its label says so.
     """
     steps = np.arange(n_steps)
     years = cycle_years(sim, n_steps)
@@ -72,23 +184,17 @@ def step_midpoints(sim: Run, n_steps: int) -> pd.DatetimeIndex | None:
     A run stamps a timestep with the END of its stress period, so a monthly
     January can be stamped either 31 January or 1 February, and reading the
     year off that stamp puts December of a run ending on a period boundary
-    into the following year: a thirteenth month, and a cycle one step long.
-    The middle of the step falls inside the step under either spelling, which
-    is what makes the calendar year it lands in the one the step belongs to.
+    into the following year. The middle of the step falls inside the step
+    under either spelling, which is what makes the calendar year it lands in
+    the one the step belongs to.
     """
     import pandas as pd
 
-    try:
-        index = sim.time_index
-    except RuntimeError:
+    edges = run_step_edges(sim)
+    if edges is None or edges.size < n_steps + 1:
         return None
-    if index is None or len(index) < n_steps:
-        return None
-    stamps = pd.DatetimeIndex(index[:n_steps])
-    if len(stamps) < 2:
-        return stamps
-    spans = (stamps[1:] - stamps[:-1]).to_numpy()
-    return stamps - np.concatenate([spans[:1], spans]) / 2
+    bounds = edges[: n_steps + 1]
+    return pd.DatetimeIndex(bounds[:-1] + (bounds[1:] - bounds[:-1]) / 2)
 
 
 def span_label(sim: Run, steps: np.ndarray) -> str:
@@ -124,3 +230,8 @@ def resolve_cycle(blocks: dict[str, np.ndarray], cycle: str | None, *, figure: s
     longest = max(len(blocks[name]) for name in labels)
     complete = [name for name in labels if len(blocks[name]) == longest]
     return complete[-1]
+
+
+def _tau(value: float | None) -> float:
+    """Return the seepage threshold ratio, the criterion's default when None."""
+    return float(STREAM_CRITERION_DEFAULTS.tau_specific_ratio if value is None else value)

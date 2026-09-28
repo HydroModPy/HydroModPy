@@ -65,11 +65,11 @@ class TestTheVersion:
             assert get_protocol(name).version
 
     def test_the_record_carries_it(self) -> None:
-        assert protocol_record("matching_hydrographic_network")["version"] == "1.1"
+        assert protocol_record("matching_hydrographic_network")["version"] == "1.2"
 
     def test_a_matching_pin_runs(self) -> None:
         expanded = expand_calibration_protocol(
-            _doc({"name": "matching_hydrographic_network", "version": "1.1"})
+            _doc({"name": "matching_hydrographic_network", "version": "1.2"})
         )
 
         assert expanded["calibration"]["phases"]
@@ -78,6 +78,13 @@ class TestTheVersion:
         with pytest.raises(ValueError, match="replayable"):
             expand_calibration_protocol(
                 _doc({"name": "matching_hydrographic_network", "version": "0.9"})
+            )
+
+    def test_the_released_1_1_is_refused_now_that_its_defaults_moved(self) -> None:
+        """v2.0.0a1 shipped 1.1; the fill, the spin-up year and the length bound moved since."""
+        with pytest.raises(ValueError, match="replayable"):
+            expand_calibration_protocol(
+                _doc({"name": "matching_hydrographic_network", "version": "1.1"})
             )
 
     def test_no_pin_runs_what_is_installed(self) -> None:

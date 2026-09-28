@@ -106,7 +106,9 @@ class BisectionMethodConfig(BaseModel):
     signed_component: str = Field(
         default="J_signed",
         description="Name of the component carrying the signed residual whose sign "
-        "the search brackets.",
+        "the search brackets. Left at 'J_signed', a network output scored on two bounds "
+        "is searched on J_signed_minimal and J_signed_maximal, one root each, and the "
+        "value returned is their weighted geometric mean. Any other name is one root.",
     )
     sweep_points: int = Field(
         default=7,

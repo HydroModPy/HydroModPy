@@ -65,7 +65,9 @@ stream_geometry_path = "streams.gpkg"
 # streams, where cell density is highest exactly where distances are smallest.
 weighting = "area"
 tau_specific_ratio = 1.0e-4
-roptim_max = 2.0
+# Eq. 4 is a length: valid when Doptim <= validity_length. "auto" is two
+# cells, the paper's bound, or a length such as "150 m" replaces it.
+validity_length = "auto"
 # The positional accuracy of the linework does not improve because the mesh
 # does. Without this floor, the validity length would follow the mesh.
 observed_position_accuracy = "50 m"

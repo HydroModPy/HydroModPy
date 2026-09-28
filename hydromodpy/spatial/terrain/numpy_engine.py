@@ -51,7 +51,7 @@ from hydromodpy.spatial.terrain.artifacts import (
     MASK_NODATA,
     boundary_area_m2,
     mask_cell_count,
-    raster_max,
+    raster_max_near,
 )
 from hydromodpy.spatial.terrain.port import (
     D8_WBT_OFFSETS,
@@ -253,11 +253,15 @@ class NumpyTerrainEngine:
         require_rank_preserving(accumulation, member="delineate")
         require_batch(outlets, snap_distance_m=snap_distance_m, layout=layout)
         if accumulation.transform != "none":
-            # One pass over the raster, and only when the values are transformed:
-            # what is stored is what the snap compares.
+            # Only when the values are transformed, and only where the snap reads:
+            # the search window of each outlet is all the snap compares.
             require_resolvable_counts(
                 accumulation,
-                max_stored_value=raster_max(accumulation.path),
+                max_stored_value=raster_max_near(
+                    accumulation.path,
+                    [(outlet.x, outlet.y) for outlet in outlets],
+                    snap_distance_m,
+                ),
                 member="delineate",
             )
 

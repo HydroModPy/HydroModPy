@@ -245,7 +245,7 @@ class TestBlockRouteBurnIn:
         monkeypatch.setattr(
             composite,
             "extract_outputs",
-            lambda ctx, outputs: ExtractedOutputs(
+            lambda ctx, outputs, scoring_window=None: ExtractedOutputs(
                 observables={"q": ObservableResult("q", np.asarray([0.0, 0.0, 1.0, 1.0]), "m3/s")},
                 values={"q": [0.0, 0.0, 1.0, 1.0]},
                 series={},
@@ -269,7 +269,7 @@ class TestBlockRouteBurnIn:
         monkeypatch.setattr(
             composite,
             "extract_outputs",
-            lambda ctx, outputs: ExtractedOutputs(
+            lambda ctx, outputs, scoring_window=None: ExtractedOutputs(
                 observables={"q": ObservableResult("q", np.asarray([0.0, 0.0, 1.0, 1.0]), "m3/s")},
                 values={"q": [0.0, 0.0, 1.0, 1.0]},
                 series={},

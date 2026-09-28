@@ -125,18 +125,25 @@ def refuse_window_without_dates(
     """Refuse a window on the blocks whose outputs carry no dates to cut on.
 
     An output that names a station is aligned on the simulated timestamps, so a
-    window applies to it exactly. One scored positionally has no date to compare
-    a bound against: honouring the window is impossible, and dropping it would
-    report a cost over the whole run under the name of a windowed one.
+    window applies to it exactly. A network output with an extent table is
+    scored by calendar year, and the window picks those years at extraction.
+    One scored positionally has no date to compare a bound against: honouring
+    the window is impossible, and dropping it would report a cost over the
+    whole run under the name of a windowed one.
     """
     if scoring_window is None or not any(bound is not None for bound in scoring_window):
         return
+    dated = set(observing) | {
+        str(name)
+        for name, output in outputs.items()
+        if output.support == "network" and getattr(output, "extent", None) is not None
+    }
     dateless_by_block: dict[str, list[str]] = {}
     for block in objective_blocks:
         dateless = sorted(
             str(name)
             for name in block.uses_outputs
-            if str(name) in outputs and str(name) not in observing
+            if str(name) in outputs and str(name) not in dated
         )
         if dateless:
             dateless_by_block[str(block.name)] = dateless

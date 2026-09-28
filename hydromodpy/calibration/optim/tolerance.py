@@ -18,6 +18,13 @@ of this to read first.
 The tolerance a file leaves unwritten follows what the search scores
 (:func:`choose_interval_width`): one mesh cell on network distances, five per
 cent of the best cost otherwise.
+
+"One mesh cell" is ``h_obs``: the median distance between neighbouring cell
+centres over the mapped cells of the catchment, the length ``roptim`` is also
+divided by. On a mesh refined along the streams it is the fine cell the
+distances start from, not the median cell of the catchment; on a regular grid
+it is the cell size. The criterion measures it and publishes it per trial as
+``<output>.cell_spacing_m``.
 """
 
 from __future__ import annotations
@@ -49,8 +56,8 @@ class IntervalWidth:
     """The tolerance a search reads its interval with, and where it comes from.
 
     ``tolerance`` is ``None`` for one mesh cell until a trial measured the mesh:
-    the network criterion measures the cell on the geometry it builds, and the
-    run reads it back through :meth:`measured`. ``source`` says where the
+    the network criterion measures the cell, ``h_obs``, on the geometry it
+    builds, and the run reads it back through :meth:`measured`. ``source`` says where the
     tolerance was written, ``mode_source`` where the mode was, and ``rule``
     names the default when nothing wrote the tolerance. ``on_distances`` is
     true when every block of the search is a network distance left in metres,
@@ -93,8 +100,8 @@ def choose_interval_width(
     ``mode`` are what the file wrote, each with where it was written, or
     ``None``. A written value wins. Left unwritten, both follow what the
     search scores. A search on network distances takes ``mode="absolute"`` and
-    one mesh cell: a stream cannot move by less than a cell, so two gaps closer
-    than that are not told apart. Any other search takes ``mode="relative"``
+    one mesh cell, ``h_obs``: a stream cannot move by less than a cell, so two
+    gaps closer than that are not told apart. Any other search takes ``mode="relative"``
     and five per cent of the best cost. An absolute mode written on any other
     search keeps the old number, 0.05 in the unit of the cost.
     """

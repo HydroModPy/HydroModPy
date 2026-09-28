@@ -153,7 +153,9 @@ def _register_completed_run(
     return config_path, sim_id
 
 
-def _register_completed_active_network_run(workspace_root: Path) -> tuple[Path, str]:
+def _register_completed_active_network_run(
+    workspace_root: Path, *, config_snapshot: dict | None = None
+) -> tuple[Path, str]:
     config_path = workspace_root.parent / f"run_{uuid.uuid4().hex[:8]}.toml"
     _write_simulation_config(config_path, workspace_root)
 
@@ -167,6 +169,7 @@ def _register_completed_active_network_run(workspace_root: Path) -> tuple[Path, 
         n_cells=3,
         n_layers=1,
         n_timesteps=2,
+        config_snapshot=config_snapshot,
     )
     if reg.zarr is not None:
         reg.zarr.close()

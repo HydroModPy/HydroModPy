@@ -63,9 +63,10 @@ uses_outputs = ["seepage_network"]
 name = "hydrograph"
 metric = "nse_log"
 uses_outputs = ["gauged_discharge"]
-# The year 2000, dropped from this block alone. A scoring_window would say the
-# same in dates and is refused here: it cuts a record on its dates, and the
-# network block of the same stage is scored on distances that carry none.
+# The year 2000, the spin-up, dropped from this block alone; the network block
+# of stage two reads December 2002 and no other month. A scoring_window would
+# say the same in dates and is refused here: it cuts a record on its dates, and
+# a network block reading one state is scored on distances that carry none.
 warmup = 12
 
 
@@ -84,7 +85,9 @@ description = "Match the simulated seepage network to the mapped one by moving K
 # would be chosen all the same; it is written because the sweep below is one
 # of its options.
 method = "bisection"
-max_iter = 18
+# No max_iter: "auto" lets the bisection count its budget before the first
+# solve, 15 trials for a root inside the bounds and 23 for one up to four
+# decades outside them. A smaller number is flagged by --check.
 # One per cent on K itself, the paper's precision. On a log-transformed
 # parameter that is a ratio, which is how a conductivity is known.
 tolerance = 0.01
@@ -112,22 +115,25 @@ sweep_points = 7
 # grid is the parent's; only the regime is restated.
 #
 # The deviation: the published method scores this stage on the hydrograph
-# alone. A network output in a transient run is read at the last stress period
-# whatever its `time` says, so the block compares the December 2002 network
-# with the mapped one. December is a month of refilling, which a small Sy
-# refills at once and a large one still holds retracted, so the term is
-# sensitive to the storage without averaging the 36 months. Scoring the
-# seasonal extension properly needs an intermittence record, Abherve et al.
-# (2024), doi:10.1002/hyp.15167, and the ONDE series here starts in 2012.
+# alone. A network output reads one state, `time = "last"` by default, so the
+# block compares the December 2002 network with the mapped one; "first" would
+# read January 2000, the spin-up. December is a month of refilling, which a
+# small Sy refills at once and a large one still holds retracted, so the term
+# is sensitive to the storage without averaging the 36 months. The map holds
+# the permanent reaches of BD TOPO only, so the term favours a Sy that keeps
+# the December network near that permanent extent.
 #
 # The stage warns that the mean recharge moved between two builds of the
 # criterion. The warning guards the ratio K/R while K is calibrated, which is
 # stage one; here K is frozen.
 #
-# On 2026-09-23 it produced K = 9.763e-05 m/s at a 2.7 m gap, then
-# Sy = 0.063 at a December gap of 17.3 m and NSElog = 0.898. Without the
-# network block, which is what the protocol runs, the same K and Sy = 0.047
-# at NSElog 0.921.
+# On 2026-09-23 it produced K = 9.763e-05 m/s at a 2.7 m gap, then Sy = 0.063
+# at a December gap of 17.3 m and NSElog = 0.898. Without the network block,
+# which is what the protocol runs, the same K and Sy = 0.047 at NSElog 0.921.
+# Those numbers predate protocol 1.2 and the criterion it runs (the map drawn
+# with the "crossing" rule, the surface flooded from the domain border, the
+# buffer read as an area, the DEM filled rather than breached): run it again
+# before quoting them.
 [[calibration.phases]]
 name = "transient_storage"
 description = "Read Sy from the gauged hydrograph and the December network, K frozen, monthly transient."
@@ -160,3 +166,22 @@ regime = "transient"
 #
 # The `warmup` of that block drops 2000 as the protocol's scoring_window does,
 # and the `network_extension` block is then read by stage one only.
+#
+# Or score the seasonal extent instead of one December. An `extent` table
+# makes a network output read every month and score yearly masks: the cells
+# dry one month at most against a permanent map, those flowing one month at
+# least against a complete one. It needs the complete map, Permanent and
+# Intermittent reaches, which this example does not ship, and an output of its
+# own, since the steady stage cannot read an extent:
+#
+#   [calibration.outputs.seasonal_network]
+#   support = "network"
+#   stream_geometry_path = "<every mapped reach>.gpkg"
+#   minimal_stream_geometry_path = "nancon_stream_network.gpkg"
+#
+#   [calibration.outputs.seasonal_network.extent]
+#
+# A block on `seasonal_network` then replaces `network_extension` in the share
+# table above. Its years are dated, so a [calibration.phases.scoring_window]
+# starting 2001-01-01 replaces the `warmup` and drops 2000 from both blocks;
+# two scored years remain, which the run warns is thin.

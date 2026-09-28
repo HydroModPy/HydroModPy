@@ -28,6 +28,7 @@ import numpy as np
 
 from hydromodpy.display.figures._memo import RunMemo
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
+from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
 from hydromodpy.results.derive.stream_network import (
     AGREEMENT_EXCESS,
     AGREEMENT_MISSING,
@@ -134,29 +135,40 @@ def comparison_from_run(
     tau_specific_ratio: float | None = None,
     diagonal_neighbors: bool | None = None,
     timestep: int | None = None,
+    output: str | None = None,
 ) -> NetworkComparison:
-    """Rebuild the stream comparison of one run, at the knobs a caller named.
+    """Rebuild the stream comparison of one run, with the settings it was scored by.
 
-    A knob left as None keeps the default of the criterion rather than
-    repeating it here: a threshold declared twice is a map that drifts from the
-    numbers it illustrates.
+    The run's sealed network output (:func:`network_criterion_settings`, the
+    one named by ``output`` when the run sealed several) gives the seepage
+    threshold, the neighbour graph, the rasterisation of the map, the
+    weighting, the positional accuracy and the state read; a run that sealed
+    none takes the criterion's defaults, never a copy of them written here.
+    The snap is the run's ``[geographic.snap_streams]``. A knob a caller names
+    wins over the run's.
 
-    The result is memoised on the run object and the knobs. Four figures of one
-    gallery ask for the same comparison, and each rebuild runs a priority flood
-    plus two distance passes over the whole mesh: on the Nancon at 25 m that is
-    345 260 cells flooded four times for one identical answer.
+    The result is memoised on the run object and the settings. Four figures of
+    one gallery ask for the same comparison, and each rebuild runs a priority
+    flood plus two distance passes over the whole mesh: on the Nancon at 25 m
+    that is 345 260 cells flooded four times for one identical answer.
     """
-    named = {
-        "tau_specific_ratio": tau_specific_ratio,
-        "diagonal_neighbors": diagonal_neighbors,
-        "timestep": timestep,
+    settings = network_criterion_settings(sim, output=output)
+    knobs = {
+        "tau_specific_ratio": float(
+            settings.tau_specific_ratio if tau_specific_ratio is None else tau_specific_ratio
+        ),
+        "diagonal_neighbors": bool(
+            settings.diagonal_neighbors if diagonal_neighbors is None else diagonal_neighbors
+        ),
+        "timestep": int(settings.timestep if timestep is None else timestep),
+        "observed_rasterization": settings.observed_rasterization,
+        "weighting": settings.weighting,
+        "observed_position_accuracy_m": settings.observed_position_accuracy_m,
     }
     return _COMPARISON_MEMO.get_or_build(
         sim,
-        (tau_specific_ratio, diagonal_neighbors, timestep),
-        lambda: network_comparison_from_run(
-            sim, **{key: value for key, value in named.items() if value is not None}
-        ),
+        tuple(sorted(knobs.items())),
+        lambda: network_comparison_from_run(sim, **knobs),
     )
 
 

@@ -12,11 +12,14 @@ read the same facts from the same files.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
 import rasterio
+import rasterio.errors
+import rasterio.windows
 
 from hydromodpy.core.exceptions import TerrainProductError
 from hydromodpy.spatial.terrain.port import MASK_INSIDE, MASK_NODATA
@@ -37,18 +40,40 @@ def boundary_area_m2(path: str | Path) -> float:
     return float(frame.geometry.area.sum())
 
 
-def raster_max(path: str | Path) -> float:
-    """Return the largest value a raster carries, ignoring its nodata.
+def raster_max_near(
+    path: str | Path, points: Sequence[tuple[float, float]], radius_m: float
+) -> float:
+    """Return the largest value a raster carries within ``radius_m`` of any point.
 
-    Read rather than remembered: a product describes the file on disk, and the
-    bound that decides whether its values still order the cells underneath them
-    is a property of what was stored, not of what was computed.
+    Snapping an outlet ranks the cells of its search window and nothing else, so
+    that window is where stored values must still order. A regional raster whose
+    main river carries more cells than float32 can tell apart does not stop an
+    outlet whose window holds far fewer. The window is the square the snap reads,
+    one cell wider on each side. NaN when no point falls on the raster.
     """
     with rasterio.open(str(path)) as src:
-        data = src.read(1, masked=True)
-    if data.count() == 0:
-        raise TerrainProductError(f"Raster holds no valid cell: {path}")
-    return float(data.max())
+        pad = max(abs(src.res[0]), abs(src.res[1]))
+        best = float("nan")
+        for x, y in points:
+            window = rasterio.windows.from_bounds(
+                x - radius_m - pad,
+                y - radius_m - pad,
+                x + radius_m + pad,
+                y + radius_m + pad,
+                transform=src.transform,
+            )
+            window = window.round_offsets().round_lengths()
+            try:
+                window = window.intersection(rasterio.windows.Window(0, 0, src.width, src.height))
+            except rasterio.errors.WindowError:
+                # The point lies off the raster: the snap has nothing to rank here.
+                continue
+            data = src.read(1, window=window, masked=True)
+            if data.count() == 0:
+                continue
+            local = float(data.max())
+            best = local if not np.isfinite(best) else max(best, local)
+    return best
 
 
 def raster_crs(path: str | Path) -> str:
@@ -75,6 +100,6 @@ __all__ = [
     "boundary_area_m2",
     "mask_cell_count",
     "raster_crs",
-    "raster_max",
+    "raster_max_near",
     "raster_nodata",
 ]

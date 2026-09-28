@@ -24,7 +24,12 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core import progress
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.period_aggregation import period_end_stamps
+from hydromodpy.results.derive.snapped_network import (
+    snap_settings_of_run,
+    stored_snapped_network,
+)
 from hydromodpy.results.derive.time_alignment import solver_time_index
 
 if TYPE_CHECKING:
@@ -32,6 +37,8 @@ if TYPE_CHECKING:
 
     from hydromodpy.results.run import Run
     from hydromodpy.results.run.contracts import Mesh
+
+logger = get_logger(__name__)
 
 CellFieldActiveMode = Literal[
     "last",
@@ -244,6 +251,43 @@ def _network_geometries(network_gdf, *, buffer_m: float = 0.0) -> list[BaseGeome
     if buffer_m > 0.0:
         geometries = geometries.buffer(float(buffer_m))
     return _flatten_geometries(geometries)
+
+
+def _snap_mode_of_run(sim: Run) -> str:
+    """Return the ``[geographic.snap_streams]`` mode the run sealed."""
+    settings = snap_settings_of_run(sim)
+    return "off" if settings is None else str(settings.mode)
+
+
+def _network_of_role(sim: Run, network_role: str) -> tuple[object, str, str]:
+    """Return the network a metric reads for one role, which map it is, and the snap mode.
+
+    ``[geographic.snap_streams]`` applies to every consumer of the mapped
+    network. In ``apply`` the ``reference`` and ``reference_permanent`` roles
+    read the snapped map the run stored (:mod:`~hydromodpy.results.derive.snapped_network`),
+    one point per mapped cell of the catchment at the centre of the cell it
+    moved onto. In ``diagnose`` and ``off`` the raw map is read. A run in
+    ``apply`` that stored no snapped map reads the raw one and says so.
+    """
+    # Imported here: it pulls the criterion geometry, which no other view needs.
+    from hydromodpy.results.derive.stream_extent import MAXIMAL_ROLE, MINIMAL_ROLE
+
+    network_gdf = sim.hydrographic_network(network_role)
+    snap_mode = _snap_mode_of_run(sim)
+    map_role = {MAXIMAL_ROLE: "maximal", MINIMAL_ROLE: "minimal"}.get(network_role)
+    if map_role is None or snap_mode != "apply":
+        return network_gdf, "raw", snap_mode
+    snapped = stored_snapped_network(sim, map_role=map_role)
+    if snapped is None:
+        logger.warning(
+            "Run %s: [geographic.snap_streams] mode = 'apply', but the run stored no snapped "
+            "%s map. The %s network metrics read the raw map.",
+            getattr(sim, "sim_id", "?"),
+            map_role,
+            network_role,
+        )
+        return network_gdf, "raw", snap_mode
+    return snapped, "snapped", snap_mode
 
 
 def _nearest_distances(
@@ -593,7 +637,11 @@ def cell_field_network_overlap_metrics(
     timestep: int | None = None,
     buffer_m: float = 0.0,
 ) -> dict[str, float | int | str]:
-    """Compare active cells from any scalar field with a vector network role."""
+    """Compare active cells from any scalar field with a vector network role.
+
+    Under ``[geographic.snap_streams] mode = "apply"`` the mapped roles read
+    the snapped map the run stored; ``network_map`` says which map was read.
+    """
     resolved_mode, values, valid, active = _cell_field_active_state(
         sim,
         variable=variable,
@@ -603,7 +651,7 @@ def cell_field_network_overlap_metrics(
         timestep=timestep,
     )
 
-    network_gdf = sim.hydrographic_network(network_role)
+    network_gdf, network_map, snap_mode = _network_of_role(sim, network_role)
     mesh, polygons = _mesh_cell_polygons(sim)
     network_cells = _network_cells(
         mesh,
@@ -649,6 +697,8 @@ def cell_field_network_overlap_metrics(
         "active_precision_ratio": precision,
         "cell_f1_ratio": float(f1),
         "cell_jaccard_ratio": _safe_ratio(overlap_count, union_count),
+        "network_map": network_map,
+        "snap_mode": snap_mode,
     }
 
 
@@ -675,7 +725,9 @@ def cell_field_network_distance_metrics(
       the selected vector network to the union of active cell polygons.
 
     ``network_gdf`` overrides the persisted role with a caller-supplied layer,
-    for a reference network that lives outside the run.
+    for a reference network that lives outside the run. Without it, under
+    ``[geographic.snap_streams] mode = "apply"`` the mapped roles read the
+    snapped map the run stored; ``network_map`` says which map was read.
 
     This is a lazy result view: it reads persisted fields and vector features
     from ``sim`` and does not mutate the catalog.
@@ -697,7 +749,9 @@ def cell_field_network_distance_metrics(
         )
 
     if network_gdf is None:
-        network_gdf = sim.hydrographic_network(network_role)
+        network_gdf, network_map, snap_mode = _network_of_role(sim, network_role)
+    else:
+        network_map, snap_mode = "supplied", _snap_mode_of_run(sim)
     network_geometries = _network_geometries(
         network_gdf,
         buffer_m=float(network_buffer_m),
@@ -763,6 +817,8 @@ def cell_field_network_distance_metrics(
         "timestep": int(timestep) if timestep is not None else -1,
         "network_buffer_m": float(network_buffer_m),
         "distance_method": distance_method,
+        "network_map": network_map,
+        "snap_mode": snap_mode,
         "catchment_cell_count": int(valid.sum()),
         "active_cell_count": int(active.sum()),
         "network_cell_count": int(network_cells.sum()),

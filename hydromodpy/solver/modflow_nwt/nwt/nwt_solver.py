@@ -317,10 +317,14 @@ class ModflowNwt:
         if self.grid_ctx is None:
             raise ValueError("grid_ctx must exist before building solver routing products")
 
+        from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+
+        # A geographic object without the key conditions the DEM as the config would.
+        default = GeographicConfig.model_fields["dem_correc_type"].default
         self.routing_ctx = build_solver_routing_context(
             dem_path=self.dem_watershed_path,
             output_dir=os.path.join(self.full_path, "_solver_routing"),
-            dem_correc_type=str(getattr(self.geographic, "dem_correc_type", "breach")),
+            dem_correc_type=str(getattr(self.geographic, "dem_correc_type", default)),
             crs_project=getattr(self.geographic, "crs_proj", None),
             engine_id=getattr(self.geographic, "terrain_engine", None),
         )

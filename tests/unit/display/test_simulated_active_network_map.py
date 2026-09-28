@@ -39,6 +39,9 @@ from ._network_comparison_run import (
 ACTIVE_CELLS = (cell(2, 0), cell(2, 1), cell(4, 2))
 """Two cells of the middle column and one on the far eastern flank."""
 
+FIELD = "accumulation_flux"
+"""Named by the persistence tests that draw a field cut, not the criterion's flowing."""
+
 
 @pytest.fixture
 def mpl():
@@ -147,7 +150,7 @@ def test_the_persistence_mode_keeps_its_scale(mpl, masked) -> None:
     )
     fig, ax = mpl.subplots()
 
-    SimulatedActiveNetworkMap().render(comparison_run(), ax)
+    SimulatedActiveNetworkMap().render(comparison_run(), ax, variable=FIELD)
 
     try:
         assert fig.axes[1:], "a fraction needs its scale"
@@ -167,7 +170,7 @@ def test_the_persistence_mode_says_the_reduction_it_performs(mpl, masked) -> Non
     )
     fig, ax = mpl.subplots()
 
-    SimulatedActiveNetworkMap().render(comparison_run(), ax)
+    SimulatedActiveNetworkMap().render(comparison_run(), ax, variable=FIELD)
 
     try:
         assert "persistence >= 0.5" not in legend_note(ax)
@@ -190,7 +193,7 @@ def test_a_cell_active_at_no_step_is_ground_and_not_the_foot_of_the_ramp(mpl, ma
     masked(fraction, mode="persistence", label="persistence >= 0.5")
     fig, ax = mpl.subplots()
 
-    SimulatedActiveNetworkMap().render(comparison_run(), ax)
+    SimulatedActiveNetworkMap().render(comparison_run(), ax, variable=FIELD)
 
     try:
         field = next(item for item in ax.collections if item.get_array() is not None)

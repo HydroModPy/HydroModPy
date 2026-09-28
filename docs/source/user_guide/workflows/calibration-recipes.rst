@@ -142,6 +142,17 @@ entry the transient stage adds when the gauging station is known from the
 file alone. A file that loads several stations keeps the protocol's older
 form there instead, a single ``variable`` and ``objective`` naming no output.
 
+The transient stage prints with a ``scoring_window`` even when the file writes
+none. Its first year starts from an initial condition the run did not produce,
+so the protocol scores it from one year after the ``start_datetime`` of
+``[simulation.time]``, for every block the stage scores. A ``scoring_window`` under
+``[calibration.protocol]`` replaces that start, and one under ``[calibration]``
+or a ``warmup_periods`` there removes it; a window starting on the run's own
+first day scores the spin-up year too. A run of one year or less has nothing
+past its spin-up and is scored whole. The protocol record lists the rule as the
+``spin_up_year`` departure: the published application scores June to October
+of one drought year, a window no default can carry.
+
 .. _recipe-staged-by-hand:
 
 The same method, written out instead of named

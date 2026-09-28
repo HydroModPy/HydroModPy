@@ -29,6 +29,17 @@ water table high, seepage appears far upslope, and the network is long. So the
 length of the simulated network is a reading of the ratio between what the
 aquifer can transmit and what it receives.
 
+This page derives and qualifies the criterion itself, ``(D_so, D_os)`` and
+everything computed from the pair; it is a metric like any other, so what it
+identifies depends on what parameter drives it, not on the criterion. Two
+extensions built on top of it, in :doc:`the calibration workflow
+</user_guide/workflows/stream-network-calibration>` rather than here: a
+**minimal (permanent) map** scored beside the maximal one, and a **transient
+two-bound mode** that compares a run's simulated flow duration, over whole
+calendar years, to both maps at once, instead of the one steady state this
+page derives everything against. Both reuse this same pair, evaluated once
+per bound; nothing on this page changes underneath them.
+
 The downslope topographic distance
 ----------------------------------
 
@@ -385,6 +396,14 @@ read the simulated network as the unthresholded one, because on every run
 measured so far that is what it is. A run whose release package really does
 dribble needs this answered before its network means anything.
 
+:math:`\tau` decides who *seeps*; it does not decide who is *visible*
+downstream of a seep. The transient two-bound mode adds a second, independent
+threshold, ``visible_flow``, on the routed discharge a cell of the downstream
+closure carries: see :doc:`the calibration workflow
+</user_guide/workflows/stream-network-calibration>` ("Two maps and two
+bounds"). The steady, one-state criterion this page derives never reads it:
+it stays purely geometric, the closure of the seeping cells and nothing more.
+
 Which cells enter which average
 -------------------------------
 
@@ -486,23 +505,60 @@ their gap measures the effect of the refinement directly. Which pair enters the
 criterion is what ``weighting`` selects; see
 :doc:`/user_guide/config_reference/calibration` for its default.
 
-:math:`L_{ref}` is the square root of the **median** cell area over the
-catchment, not the mean. On a mesh refined along the streams a handful of large
-buffer cells inflate the mean, and for a size ratio of three the two
-conventions differ enough to move :math:`r_{optim}` across its bound. Declaring
-``observed_position_accuracy`` raises :math:`L_{ref}` to that accuracy when it
-is the larger of the two, because a finer mesh otherwise divides the
-denominator without improving the agreement. That is not a hypothetical: the
-known biases below carry a measured case of :math:`r_{optim}` halving on a
-coarser grid with nothing else changed.
+:math:`L_{ref}` is :math:`h_{obs}`: the median distance between the centres of
+neighbouring cells that share an edge, taken over the mapped cells of the
+catchment (falling back to the catchment itself when it holds none). It
+replaces an earlier convention, the square root of the median cell area over
+the *whole* catchment: on a regular grid the two agree, since every cell has
+the same size, but on a mesh refined along the streams a catchment-wide
+median can land on the coarse hillslope cells rather than the fine ones the
+mapped network actually sits on, and for a size ratio of three the two
+conventions differ enough to move :math:`r_{optim}` across its bound.
+:math:`h_{obs}` is read on the *mapped* cells specifically, so it tracks the
+resolution where :math:`D_{os}` starts, not a catchment average one large
+buffer cell can pull away from it. It is measured once, on the raw map, and
+does not move under a snap of that map onto the model's talwegs (below).
+:math:`r_{optim} = D_{optim} / h_{obs}` is Equation 3 as printed, whatever
+the output declares, so it stays comparable with Table 1 of the paper.
+Declaring ``observed_position_accuracy`` no longer raises :math:`L_{ref}`: it
+raises the cell size the validity length is built on (next section), because
+a finer mesh shrinks two cells without improving the agreement. That is not a
+hypothetical: the known biases below carry a measured case of
+:math:`r_{optim}` halving on a coarser grid with nothing else changed, under
+the convention in force when it was measured.
 
 The validity bound and what it does not mean
 --------------------------------------------
 
-Equation 4 of the paper reads :math:`r_{optim} \leq 2`. HydroModPy computes it
-against ``roptim_max``, reports it as ``roptim`` and ``roptim_valid``, and
-**does not let it withhold the calibrated value**: a violation logs a warning
-and the value comes back. A calibration is asked for a number; a coarse
+Equation 4 of the paper reads :math:`r_{optim} \leq 2`, two pixels, one of
+which the paper budgets for the error of the mapped network ("an error of the
+order of 1 pixel is considered", HESS p. 3224). HydroModPy writes it as a
+length, :math:`D_{optim} \leq V`, with ``validity_length`` :math:`V` in metres.
+``"auto"``, the default, reads a cell size :math:`h = \max(h_{obs}, \sigma)`,
+:math:`\sigma` the declared ``observed_position_accuracy`` (:math:`h =
+h_{obs}` when none is declared), then
+
+.. math::
+
+   V = 2 h \quad \text{without the snap}, \qquad
+   V = h + \max(h, F) \quad \text{with the snap floor } F.
+
+The first is the paper's bound on a regular grid. The second exists only when
+``[geographic.snap_streams]`` runs in ``diagnose`` or ``apply``: one cell for
+the hydrogeology, and the map's cell replaced by :math:`F`, the
+:math:`D_{optim}` a model reproducing the snapped talwegs exactly still scores
+against the raw map, when :math:`F` is larger. That split of the two pixels
+is a reading, which the paper never writes, and the protocol declares it as a
+departure. It gives back the paper at its own resolution while :math:`F`
+stays under one cell (Nançon 75 m, proxies of :math:`F` from 25 to 41 m,
+:math:`V` = 150 m), and keeps one cell of margin above the representation
+error on a fine mesh (Nançon 25 m, a proxy of :math:`F` near 76 m,
+:math:`V` near 101 m instead of 50 m). A declared length replaces all of it. Each trial publishes
+``validity_length_m`` and ``validity_length_provenance`` beside ``roptim``
+and ``roptim_valid``, and the runner reads the bound once, at the returned
+trial, on each bound of the two-bound mode. It **does not let the bound
+withhold the calibrated value**: a violation logs a warning and the value
+comes back. A calibration is asked for a number; a coarse
 agreement qualifies that number, it does not replace it with nothing. Setting
 ``on_roptim_violation = "error"`` turns that warning into a raise, which is an
 explicit choice to be handed nothing rather than a qualified value.
@@ -510,8 +566,9 @@ explicit choice to be handed nothing rather than a qualified value.
 A companion absolute threshold, :math:`D_{optim} < 300` m, appears in Gauvain,
 Abherve, Boivin, Roques et al., EGUsphere preprint 2026-868 (a HydroModPy
 technical note, section 3.2), justified there as four pixels of a 75 m DEM,
-so resolution-dependent rather than a fixed physical bound; ``roptim_max = 2``
-already generalises it to any cell size through :math:`L_{ref}`. The same
+so resolution-dependent rather than a fixed physical bound; it is
+``validity_length = "300 m"`` here, and ``"auto"`` generalises two pixels to
+any cell size through :math:`h_{obs}`. The same
 note gives ``NSElog > 0.75`` as the transient stage's own acceptance
 threshold, on ten values of :math:`S_y` explored over a fixed grid rather than
 by dichotomy. Both are stated for context; neither is enforced here, and
@@ -675,17 +732,18 @@ either number is right.
 Declared deviations from the paper and from the authors' own code
 -------------------------------------------------------------------
 
-``MatchingHydrographicNetwork.deviations`` (version 1.1) declares each of
+``MatchingHydrographicNetwork.deviations`` (version 1.2) declares each of
 these departures in code, with the same key, paper value and reasoning as
 below; this section restates them so a reader is not sent to the code for a
 one-line answer. Where the key is a real option and its default is the
 paper's (``diagonal_neighbors``, ``weighting``, ``observed_position_accuracy``,
-``observed_rasterization``), the entry is an offered departure: the Methods
-paragraph a run writes names it only when the file moves it off the paper's
-value. Three departures already
-have their own section above because the reasoning does not fit in one line:
+``validity_length``, ``observed_rasterization``, ``dem_correc_type``), the
+entry is an offered departure: the Methods paragraph a run writes names it
+only when the file moves it off the paper's value. Four departures already have their own
+section above because the reasoning does not fit in one line:
 :math:`\tau_{ratio}` under "What counts as a seepage cell", ``weighting`` and
-``observed_position_accuracy`` under "Weighting, and the reference length".
+``observed_position_accuracy`` under "Weighting, and the reference length",
+and ``validity_length`` under "The validity bound and what it does not mean".
 The rest:
 
 Descent, D8 or D4
@@ -738,15 +796,17 @@ The bisection variable and its sweep
 
 Depression handling, breach or fill
    The paper's tool is ``FillDepressions``, which raises every depression to
-   its pour point, and the filled DEM serves both the delineation and the
-   distances. The default here is ``dem_correc_type = "breach"`` for the
-   raster delineation, which carves a channel through the barrier at the
-   depression's own minimal elevation change and moves far fewer cells. The
-   criterion does not descend that raster: it fills the model top on the mesh
-   graph, seeded on the domain border, which is the paper's fill, and reads
-   its catchment there. The departure reaches the criterion only through the
-   domain and the outlet, and ``catchment_mismatch`` measures it per trial.
-   Setting ``dem_correc_type = "fill"`` reproduces the paper's own tool.
+   its spill level, and the filled DEM serves both the delineation and the
+   distances. The default here is the same, ``dem_correc_type = "fill"``, so
+   one conditioning rule runs from the DEM to the score. The criterion does
+   not descend that raster: it fills the model top on the mesh graph, seeded
+   on the domain border, which is the paper's fill again, and reads its
+   catchment there. ``"breach"`` is offered and departs: it carves a channel
+   through the barrier at the least elevation change (Lindsay, 2016) and moves
+   far fewer cells, which a fine DEM crossed by road embankments can need.
+   A breached raster reaches the criterion only through the domain and the
+   outlet, and ``catchment_mismatch`` measures that gap per trial. The key
+   lives in ``[geographic]``, not in the network output.
 
 The mapped network's rasterisation
    The paper rasterises the mapped network onto the model grid with
@@ -795,10 +855,11 @@ one.** Between the two runs of the section above, :math:`r_{optim}` went from
 larger cells, :math:`L_{ref}` is the square root of the median cell area, and
 the denominator grew. Same catchment, same mapped network, indicator halved.
 Refining a mesh therefore degrades the indicator at constant agreement, which
-is what ``observed_position_accuracy`` is for: declaring the positional
-accuracy of the mapped network floors :math:`L_{ref}` at a length the model
-resolution cannot shrink. Two :math:`r_{optim}` values measured on different
-meshes are not comparable unless that floor is declared and identical.
+is why the bound is a length: declaring the positional accuracy of the mapped
+network, or letting the snap measure its floor :math:`F`, widens the validity
+length to what the model resolution cannot shrink, while :math:`r_{optim}`
+stays the paper's ratio. Two :math:`r_{optim}` values measured on different
+meshes are not comparable; two verdicts are, when their validity lengths are.
 
 **Publish** :math:`T/R`, **not** :math:`K`. The conductivity inherits the
 recharge series entirely: changing reanalysis moves it by +3, +25 and -28 per
@@ -870,6 +931,23 @@ nothing. A calibration declaring a network output recomputes the same ratio on
 the solver mesh and publishes it per trial as ``alpha_obs_closure``, together
 with ``alpha_obs_closure_catchment``, the same ratio restricted to the
 scored catchment.
+
+With ``[geographic.snap_streams]`` on, the map is first snapped on the talwegs
+of the conditioned raw DEM, on the raster grid, by the same algorithm the
+criterion uses on the mesh. In ``apply`` the trench is cut along the snapped
+cells rather than the raw lines, and :math:`\alpha` is measured against the
+snapped map the burn followed (``"snapped": true`` in the JSON). In
+``diagnose`` the raw lines are burned and measured, and the snap is only
+published, in ``stream_snap_raster.json``.
+
+That raster snap is not the one Eq. 4 scores. The criterion snaps the raw map
+again on the mesh graph, filled from the unburned model top, with a radius
+counted in mesh cells. On a mesh coarser than the DEM the two passes can put
+one reach on different talwegs near a meander or a confluence. In ``apply``
+the burn and the mesh river trace then follow the raster snap while the
+criterion scores its own. No agreement between the two is computed yet:
+compare ``stream_snap_raster.tif`` with the snapped map of the network card
+before trusting ``apply`` on a coarse mesh.
 
 The restriction is not cosmetic. Outside the catchment the mesh is a buffer, so
 no cell there is required to descend into the mapped network, and every reach

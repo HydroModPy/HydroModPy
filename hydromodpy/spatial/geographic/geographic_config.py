@@ -8,6 +8,7 @@ from pydantic import Field, ValidationInfo, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
+from hydromodpy.core.stream_snap import SnapStreamsConfig
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.core.units import UREG, LengthMeters
 from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
@@ -581,8 +582,18 @@ class GeographicConfig(HydroModelBase):
         description="Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the input DEM.",
     )
     dem_correc_type: Annotated[Literal["breach", "fill"], Profile.USER] = Field(
-        default="breach",
-        description="DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point.",
+        default="fill",
+        description=(
+            "How the DEM is conditioned before the catchment is delineated. 'fill' "
+            "(default) raises each closed depression to its spill level, then puts a "
+            "small gradient on the flats so every cell drains. 'breach' carves a "
+            "path through the barrier that closes a depression instead, and changes "
+            "far fewer cells (least-cost breaching, Lindsay 2016). 'fill' is the "
+            "default because it is the tool of the paper behind the network "
+            "criterion (FillDepressions, Abherve et al. 2023), and the criterion "
+            "itself fills the model top on the mesh by a priority flood: one "
+            "conditioning rule from the DEM to the score."
+        ),
     )
     terrain_engine: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -629,6 +640,17 @@ class GeographicConfig(HydroModelBase):
             "Optional stream burning of the routing DEM: lower the mapped network "
             "cells so the computed D8 paths follow the observed network, without "
             "touching the model grid top. Applied before the lake carve."
+        ),
+    )
+    snap_streams: Annotated[SnapStreamsConfig, Profile.USER] = Field(
+        default_factory=SnapStreamsConfig,
+        description=(
+            "Optional snapping of the mapped stream network onto the talwegs of the model "
+            "top, read on the network criterion graph. Off by default. 'diagnose' publishes "
+            "the displacement, the rejected cells and the floor F while the raw map is "
+            "scored; 'apply' scores the snapped map. It sits here, beside enforce_streams, "
+            "because it is common to every consumer of the mapped network (criterion, "
+            "figures, burning), not to one calibration output."
         ),
     )
     enforce_lakes: Annotated[LakeEnforcementConfig, Profile.USER] = Field(

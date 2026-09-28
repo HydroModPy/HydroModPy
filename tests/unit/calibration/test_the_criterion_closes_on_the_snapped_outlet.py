@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.calibration.config import validate_calib_output
-from hydromodpy.calibration.observations.network_geometry import geometry_from_run
+from hydromodpy.calibration.observations.network_geometry import network_maps_from_run
 from hydromodpy.calibration.observations.observed_network import delineated_outlet_xy
 from tests._helpers.ugrid_meshes import quad_mesh
 from tests._helpers.v_valley import (
@@ -93,14 +93,16 @@ class TestTheSnappedPointIsRead:
 class TestTheTrialClosesOnIt:
     def test_a_point_one_cell_off_the_outlet_lands_on_it(self, output) -> None:
         x, y = _centre(N_ROWS - 2, AXIS_COL + 1)
-        geometry, _, _ = geometry_from_run(_run_ctx(x_outlet_snapped=x, y_outlet_snapped=y), output)
+        maps = network_maps_from_run(_run_ctx(x_outlet_snapped=x, y_outlet_snapped=y), output)
+        geometry = maps.maximal
 
         assert geometry.outlet == cell_id(N_ROWS - 1, AXIS_COL)
         assert geometry.catchment.all()
 
     def test_a_point_on_a_hillslope_closes_a_smaller_catchment(self, output) -> None:
         x, y = _centre(N_ROWS - 1, 2)
-        geometry, _, _ = geometry_from_run(_run_ctx(x_outlet_snapped=x, y_outlet_snapped=y), output)
+        maps = network_maps_from_run(_run_ctx(x_outlet_snapped=x, y_outlet_snapped=y), output)
+        geometry = maps.maximal
 
         assert geometry.outlet != cell_id(N_ROWS - 1, AXIS_COL)
         assert 0 < int(geometry.catchment.sum()) < N_CELLS

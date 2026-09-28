@@ -8,7 +8,14 @@ network averages to ``D_os``. The criterion is
     J_signed = D_so - D_os        the residual a root search drives to zero
     J        = abs(J_signed)      the cost, Eq. 1 of the paper
     Doptim   = (D_so + D_os) / 2  Eq. 2, a diagnostic and never the cost
-    roptim   = Doptim / L_ref     Eq. 3, the validity indicator
+    roptim   = Doptim / h_obs     Eq. 3, the validity indicator
+    Doptim  <= validity_length    Eq. 4, the validity bound, in metres
+
+``roptim`` is the paper's ratio, published for comparison with its Table 1.
+The bound is a length (:func:`hydromodpy.core.stream_geometry.
+resolve_validity_length`): two cells ``2 h_obs`` by default, the paper's
+``roptim <= 2``, widened by a declared positional accuracy or by the snap
+floor, or set by the output.
 
 ``D_so`` large means a network spilling far outside the mapped one; ``D_os``
 large means one that never grew. Zero is the balance between excess and
@@ -25,6 +32,11 @@ detect, turning a misregistered network from rejected into accepted.
 Secondary diagnostics travel in the components and never reach the cost, see
 :func:`secondary_diagnostics`: the ratio ``D_so / D_os`` and the overlap indices
 of the authors' published code.
+
+With a minimal and a maximal map, each bound is this same cost evaluated once,
+on its own mask against its own map. Its components carry the suffix
+``_minimal`` or ``_maximal`` and its pair the bound's weight
+(:func:`weighted_pair`); the criterion sums the weighted gaps.
 """
 
 from __future__ import annotations
@@ -34,7 +46,12 @@ from typing import Literal
 
 import numpy as np
 
-from hydromodpy.core.stream_geometry import CriterionSupports, criterion_supports
+from hydromodpy.core.stream_geometry import (
+    CriterionSupports,
+    NetworkGeometry,
+    ValidityLength,
+    criterion_supports,
+)
 from hydromodpy.core.stream_network import SimulatedNetwork
 from hydromodpy.core.topographic_distance import (
     DownslopeMetric,
@@ -186,9 +203,16 @@ def seepage_distance_cost(
     excluded: np.ndarray | None = None,
     weighting: Weighting = "cell",
     max_unreachable_fraction: float = 0.05,
-    roptim_max: float = 2.0,
+    validity: ValidityLength | None = None,
 ) -> SeepageDistanceResult:
     """Evaluate the signed gap for one trial.
+
+    ``length_scale_m`` is ``h_obs``, the divisor of ``roptim`` (Eq. 3).
+    ``validity`` is the length ``Doptim`` is bounded by (Eq. 4); None is
+    ``2 * length_scale_m``, the paper's two cells. Each trial publishes
+    ``roptim_valid``, ``validity_length_m`` and the provenance code
+    ``validity_length_provenance``; the runner reads them once, at the trial
+    the search returns.
 
     ``distance_to_observed`` is the descent length to the mapped network with
     the outlet sealed in, and ``distance_to_observed_raw`` the same without it.
@@ -303,6 +327,8 @@ def seepage_distance_cost(
         status = "failed"
 
     roptim = optimal / float(length_scale_m) if np.isfinite(optimal) else float("nan")
+    bound = validity or ValidityLength(2.0 * float(length_scale_m), "auto")
+    within = bool(np.isfinite(optimal) and optimal <= bound.length_m)
 
     # Share of the simulated support whose descent meets the target only at the
     # sealed outlet: it says how much of D_so rests on that one added cell.
@@ -323,7 +349,9 @@ def seepage_distance_cost(
         "J_signed": signed_gap,
         "Doptim": optimal,
         "roptim": roptim,
-        "roptim_valid": float(roptim <= float(roptim_max)) if np.isfinite(roptim) else 0.0,
+        "roptim_valid": float(within),
+        "validity_length_m": float(bound.length_m),
+        "validity_length_provenance": bound.code,
         "D_so_seepage_only": d_so_seepage_only,
         "D_so_median": so["median"],
         "D_so_p90": so["p90"],
@@ -359,10 +387,81 @@ def seepage_distance_cost(
     )
 
 
+MINIMAL_SUFFIX = "_minimal"
+"""Suffix of every component of the minimal (permanent) bound."""
+
+MAXIMAL_SUFFIX = "_maximal"
+"""Suffix of every component of the maximal (complete) bound."""
+
+VALIDATION_SUFFIX = "_maximal_validation"
+"""Suffix of the maximal map scored beside a one-state cost on the minimal map.
+
+A distinct name on purpose: a search that finds ``J_signed_maximal`` reads a
+bound in the cost, and this one never is."""
+
+
+def score_on_geometry(
+    simulated: SimulatedNetwork,
+    geometry: NetworkGeometry,
+    *,
+    weighting: Weighting = "cell",
+    max_unreachable_fraction: float = 0.05,
+    validity_length_m: float | None = None,
+) -> SeepageDistanceResult:
+    """Score one simulated network against the map a geometry was built on.
+
+    ``validity_length_m`` is the output's declared ``validity_length`` in
+    metres, None for ``"auto"``, which the geometry resolves from its own
+    ``h_obs``, declared accuracy and snap floor
+    (:meth:`~hydromodpy.core.stream_geometry.NetworkGeometry.validity_length`).
+    Each map resolves its own, so the two bounds of an output may differ.
+    """
+    return seepage_distance_cost(
+        simulated=simulated,
+        observed=geometry.observed,
+        outlet=geometry.outlet,
+        catchment=geometry.catchment,
+        metric=geometry.metric,
+        distance_to_observed=geometry.distance_to_observed,
+        distance_to_observed_raw=geometry.distance_to_observed_raw,
+        cell_area_m2=geometry.cell_area_m2,
+        length_scale_m=geometry.h_obs_m,
+        saturation_cap_m=geometry.saturation_cap_m,
+        excluded=geometry.excluded,
+        weighting=weighting,
+        max_unreachable_fraction=max_unreachable_fraction,
+        validity=geometry.validity_length(validity_length_m),
+    )
+
+
+def weighted_pair(scored: SeepageDistanceResult, weight: float = 1.0) -> list[float]:
+    """Return ``weight * (D_so, D_os)``, the pair a block scores for one bound.
+
+    ``D_so`` has no support when the network is empty, so it is rebuilt from
+    ``D_os`` and the signed residual rather than read: that way the pair and
+    the residual the bracket closes on cannot disagree. The weight multiplies
+    both distances, so the criterion summing ``|D_so - D_os|`` over the pairs
+    of a vector returns ``w_minimal |J_minimal| + w_maximal |J_maximal|``.
+    """
+    d_os = float(scored.components["D_os"])
+    return [float(weight) * (d_os + float(scored.signed_gap)), float(weight) * d_os]
+
+
+def with_suffix(components: dict[str, float], suffix: str) -> dict[str, float]:
+    """Return the components renamed ``<key><suffix>``."""
+    return {f"{key}{suffix}": float(value) for key, value in components.items()}
+
+
 __all__ = (
     "DISTANCE_METHOD",
+    "MAXIMAL_SUFFIX",
+    "MINIMAL_SUFFIX",
+    "VALIDATION_SUFFIX",
     "SeepageDistanceResult",
     "Weighting",
+    "score_on_geometry",
     "secondary_diagnostics",
     "seepage_distance_cost",
+    "weighted_pair",
+    "with_suffix",
 )

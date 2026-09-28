@@ -78,8 +78,9 @@ every trial of a calibration:
 - ``D_os``: average observed-to-simulated downslope distance.
 - ``Doptim``: :math:`(D_{so} + D_{os}) / 2`, the paper's diagnostic, never the
   search cost.
-- ``roptim``: ``Doptim`` normalized by the reference length ``L_ref`` (the
-  mesh resolution on a regular grid).
+- ``roptim``: ``Doptim`` normalized by the reference length ``L_ref``, which
+  is ``h_obs``, the cell size on the mapped network (the mesh resolution on a
+  regular grid). Equation 4 bounds ``Doptim`` by ``validity_length_m``.
 
 Read :doc:`downslope-distance-calibration` for what each of those means and
 which of its known biases apply, and

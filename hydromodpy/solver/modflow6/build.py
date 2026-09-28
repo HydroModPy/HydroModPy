@@ -521,10 +521,14 @@ def ensure_solver_routing_context(model) -> SolverRoutingContext:
     if model.grid_ctx is None:
         raise ValueError("grid_ctx must exist before building solver routing products")
 
+    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+
+    # A geographic object without the key conditions the DEM as the config would.
+    default = GeographicConfig.model_fields["dem_correc_type"].default
     model.routing_ctx = build_solver_routing_context(
         dem_path=model.dem_watershed_path,
         output_dir=os.path.join(model.full_path, "_solver_routing"),
-        dem_correc_type=str(getattr(model.geographic, "dem_correc_type", "breach")),
+        dem_correc_type=str(getattr(model.geographic, "dem_correc_type", default)),
         crs_project=getattr(model.geographic, "crs_proj", None),
         engine_id=getattr(model.geographic, "terrain_engine", None),
     )

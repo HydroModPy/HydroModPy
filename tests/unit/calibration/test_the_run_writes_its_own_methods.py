@@ -24,7 +24,7 @@ class TestWhatItAlwaysSays:
         text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"])
 
         assert NAME in text
-        assert "version 1.1" in text
+        assert "version 1.2" in text
 
     def test_it_cites_the_publication(self) -> None:
         text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"])
@@ -157,6 +157,36 @@ class TestItReportsTheDepartures:
         assert text is not None
         assert "observed_rasterization was set to 'touch'" in text
         assert "diagonal_neighbors" not in text
+
+    def test_a_declared_validity_length_departs_in_metres_and_auto_does_not(self) -> None:
+        from types import SimpleNamespace
+
+        from hydromodpy.calibration.config import (
+            MatchingHydrographicNetworkOptions,
+            validate_calib_output,
+        )
+        from hydromodpy.calibration.runners.staged_runner import _methods_paragraph_for
+
+        def paragraph(**declared: object) -> str:
+            net = validate_calib_output(
+                {"support": "network", "stream_geometry_path": "map.gpkg", **declared}
+            )
+            cfg = SimpleNamespace(
+                protocol=MatchingHydrographicNetworkOptions(name=NAME), outputs={"net": net}
+            )
+            steady = SimpleNamespace(
+                name="steady_conductivity",
+                report=SimpleNamespace(best_parameters={"K": 1.0e-5}, best_objective=0.5, extra={}),
+            )
+            text = _methods_paragraph_for(cfg, [steady], [])
+            assert text is not None
+            return text
+
+        declared = paragraph(validity_length="300 m")
+
+        assert "validity_length was set to '300 m'" in declared
+        assert "roptim = Doptim / DEMres <= 2" in declared
+        assert "validity_length" not in paragraph()
 
 
 class TestItReportsTheBackend:

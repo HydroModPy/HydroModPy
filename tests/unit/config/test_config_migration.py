@@ -442,3 +442,57 @@ def test_bottom_path_dropped_when_a_substratum_is_already_declared() -> None:
     assert changes == ["geographic.bottom_path dropped ([data.substratum] already set)"]
     assert doc["data"]["substratum"]["sources"][0]["path"] == "new.tif"
     assert "bottom_path" not in doc["geographic"]
+
+
+_NETWORK_OUTPUT = (
+    "[calibration.outputs.seepage_network]\n"
+    'support = "network"\n'
+    'stream_geometry_path = "streams.gpkg"\n'
+    "# the paper's bound\n"
+    "roptim_max = {value}\n"
+    'observed_position_accuracy = "50 m"\n'
+)
+
+
+def test_the_paper_ratio_bound_is_dropped_and_auto_replaces_it(tmp_path: Path) -> None:
+    from hydromodpy.calibration.config import validate_calib_output
+
+    path = _write(tmp_path, _NETWORK_OUTPUT.format(value="2.0"))
+
+    changes = fix_config_file(path)
+
+    assert changes == [
+        "calibration.outputs.seepage_network.roptim_max dropped "
+        "(2 cells is validity_length = 'auto', the default)"
+    ]
+    output = tomllib.loads(path.read_text())["calibration"]["outputs"]["seepage_network"]
+    assert "roptim_max" not in output
+    assert output["observed_position_accuracy"] == "50 m"
+    assert validate_calib_output(output).validity_length == "auto"
+
+
+def test_an_integer_two_is_the_paper_bound_too() -> None:
+    doc = {"calibration": {"outputs": {"net": {"support": "network", "roptim_max": 2}}}}
+
+    assert len(migrate_config_doc(doc)) == 1
+    assert "roptim_max" not in doc["calibration"]["outputs"]["net"]
+
+
+def test_another_ratio_bound_is_refused_with_the_length_to_write(tmp_path: Path) -> None:
+    path = _write(tmp_path, _NETWORK_OUTPUT.format(value="3.0"))
+    before = path.read_bytes()
+
+    with pytest.raises(ValueError, match="validity_length") as raised:
+        fix_config_file(path)
+
+    assert "roptim_max = 3 has no exact equivalent" in str(raised.value)
+    assert path.read_bytes() == before
+
+
+def test_the_ratio_bound_migrates_on_load_and_a_current_file_is_untouched() -> None:
+    doc = {"calibration": {"outputs": {"net": {"support": "network", "roptim_max": 2.0}}}}
+    current = {"calibration": {"outputs": {"net": {"validity_length": "150 m"}}}}
+
+    assert migrate_config_doc_on_load(doc, source="calibration.toml")
+    assert migrate_config_doc(current) == []
+    assert current["calibration"]["outputs"]["net"] == {"validity_length": "150 m"}

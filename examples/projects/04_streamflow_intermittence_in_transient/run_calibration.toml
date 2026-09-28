@@ -3,9 +3,11 @@
 # calibrated result a name of its own, so it sits beside the assumed-values run
 # in the catalog instead of replacing it.
 #
-#   hmp run       .../run_calibration.toml          both stages, in order
-#   hmp calibrate .../run_calibration.toml          the same two stages
-#   hmp calibrate .../run_calibration.toml --check  every problem at once, no solve
+#   hmp run       .../run_calibration.toml                both stages, in order
+#   hmp calibrate .../run_calibration.toml                the same two stages
+#   hmp calibrate .../run_calibration.toml --list-phases  each stage: method, width, what it compares
+#   hmp calibrate .../run_calibration.toml --expand       the stages the protocol writes, as TOML
+#   hmp calibrate .../run_calibration.toml --check        every problem at once, no solve
 
 base_config = "project.toml"
 
@@ -23,7 +25,7 @@ description = "Nancon catchment, K from the mapped network then Sy from the gaug
 # line:
 #
 #   [calibration.protocol]
-#   steady_max_iter = 8
+#   steady_tolerance = 0.05   # five per cent on K, 12 trials instead of 15
 #
 #   [calibration.parameters.K]
 #   bounds = [1e-6, 1e-4]     # every other key of the table is kept

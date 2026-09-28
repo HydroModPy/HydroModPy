@@ -258,7 +258,8 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
     by name from what the calibration declares. An empty selection of outputs
     means the ones its blocks read, and an empty selection of blocks means every
     declared one. A phase declaring its own ``variable`` or ``objective`` takes
-    the single-metric route instead, and inherits neither. ``phases`` is cleared
+    the single-metric route instead: it inherits no block, and keeps only the
+    output its variable names, the phase's or the section's. ``phases`` is cleared
     so the sub-run is an ordinary calibration.
 
     ``objective_blocks`` as a list keeps each named block's declared weight. As a
@@ -301,8 +302,14 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
     if decl.is_single_metric:
         # The extractor prefers blocks over the variable whenever both are
         # present, so a phase inheriting the blocks of another one would be
-        # scored on that other criterion without saying so.
-        payload["outputs"] = {}
+        # scored on that other criterion without saying so. The output its
+        # variable names is kept: it holds the declaration the criterion reads
+        # (the maps, the extent table), and the model builds from it the one
+        # implicit block the whole-file (objective, variable) route builds.
+        variable = payload["variable"]
+        payload["outputs"] = {
+            name: value for name, value in payload["outputs"].items() if name == variable
+        }
         payload["objective_blocks"] = []
     else:
         if isinstance(decl.objective_blocks, dict):
@@ -1379,7 +1386,12 @@ def run_staged_calibration(
         ),
         methods_paragraph=(
             _methods_paragraph_for(
-                cfg, runs, frozen, backend=_backend_name(raw), steady_window=steady_window
+                cfg,
+                runs,
+                frozen,
+                backend=_backend_name(raw),
+                steady_window=steady_window,
+                geographic=_geographic_choices(raw),
             )
             if cfg.protocol is not None
             else None
@@ -1407,6 +1419,24 @@ def _backend_name(document: Mapping[str, Any]) -> str | None:
     if isinstance(backend, Mapping):
         backend = backend.get("backend")
     return str(backend) if backend else None
+
+
+_GEOGRAPHIC_DEVIATIONS = ("dem_correc_type",)
+"""Keys a protocol departs on that live under ``[geographic]``, not on an output."""
+
+
+def _geographic_choices(document: Mapping[str, Any]) -> dict[str, object]:
+    """Return the ``[geographic]`` values the file wrote on a key the protocol departs on.
+
+    Read from the raw document, as the backend is: a key present there is one
+    the file set, after ``base_config`` and the legacy migrations. A key left
+    unset takes the model's default, which the deviation table already
+    describes, so it stays out of the Methods paragraph.
+    """
+    geographic = document.get("geographic")
+    if not isinstance(geographic, Mapping):
+        return {}
+    return {key: geographic[key] for key in _GEOGRAPHIC_DEVIATIONS if key in geographic}
 
 
 def _steady_window_summary(
@@ -1468,8 +1498,14 @@ def _methods_paragraph_for(
     *,
     backend: str | None = None,
     steady_window: Mapping[str, Any] | None = None,
+    geographic: Mapping[str, object] | None = None,
 ) -> str | None:
-    """Return the Methods prose for the stages that actually completed."""
+    """Return the Methods prose for the stages that actually completed.
+
+    ``geographic`` carries the ``[geographic]`` values the file set on a key
+    the protocol departs on (:func:`_geographic_choices`). A network output
+    never declares those keys, so the two sources cannot disagree.
+    """
     from hydromodpy.calibration.protocols.boilerplate import methods_paragraph
 
     if cfg.protocol is None:
@@ -1486,13 +1522,20 @@ def _methods_paragraph_for(
         for key in (
             "tau_specific_ratio",
             "observed_position_accuracy",
+            "validity_length",
             "weighting",
             "diagonal_neighbors",
             "observed_rasterization",
         ):
             value = getattr(output, key, None)
-            if value is not None:
-                chosen.setdefault(key, value)
+            if value is None:
+                continue
+            # A length is a pint quantity; the paragraph prints it in metres.
+            if callable(getattr(value, "to", None)):
+                value = f"{float(value.to('m').magnitude):g} m"
+            chosen.setdefault(key, value)
+    for key, value in (geographic or {}).items():
+        chosen.setdefault(key, value)
     conditional_widths = {
         run.name: run.report.extra["parameter_uncertainty_note"]
         for run in runs

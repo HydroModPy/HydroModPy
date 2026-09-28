@@ -23,6 +23,9 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.geographic.core.derived_features import (
     resolve_river_mesh_trace,
 )
+from hydromodpy.spatial.geographic.core.raster_stream_snap import (
+    snapped_lines_for_mapped_file,
+)
 from hydromodpy.spatial.geographic.core.river_mesh_trace import (
     build_river_mesh_trace_from_vector,
 )
@@ -58,46 +61,69 @@ from hydromodpy.spatial.protocols import get_geology_data_source
 logger = get_logger(__name__)
 
 
+def _geographic_dir(
+    geographic_features: object | None, domain_geographic: object | None
+) -> Path | None:
+    """Return the directory the geographic step published its products in, if known."""
+    watershed = getattr(domain_geographic, "watershed_shp", None)
+    if watershed is None:
+        boundaries = getattr(geographic_features, "boundaries", None)
+        watershed = getattr(boundaries, "watershed_shp", None)
+    return None if watershed is None else Path(str(watershed)).parent
+
+
 def _resolve_river_trace_for_meshing(
     *,
     river_trace: object | None,
     geographic_features: object | None,
     rivers_cfg: ZoneConformalRiversConfig | None,
     config_path: Path,
+    domain_geographic: object | None = None,
 ) -> object | None:
-    """Resolve the in-memory river trace payload passed to the mesher."""
+    """Resolve the in-memory river trace payload passed to the mesher.
+
+    ``rivers.source = "file"`` names a mapped network and wins over a trace
+    passed in. With ``[geographic.snap_streams] mode = "apply"`` and a raster
+    snap of that same file published by the geographic step, the snapped lines
+    are read in its place (:func:`snapped_lines_for_mapped_file`).
+    """
+    if rivers_cfg is not None and rivers_cfg.source == "file":
+        raw_path = rivers_cfg.path
+        if raw_path is None:
+            return None
+        file_path = Path(str(raw_path)).expanduser()
+        if not file_path.is_absolute():
+            file_path = (config_path.parent / file_path).resolve()
+        if not file_path.exists():
+            return None
+        snapped = snapped_lines_for_mapped_file(
+            file_path, _geographic_dir(geographic_features, domain_geographic)
+        )
+        if snapped is not None:
+            return build_river_mesh_trace_from_vector(
+                vector_path=snapped,
+                source_kind="file",
+                clip_polygon_path=None,
+            )
+        try:
+            return build_river_mesh_trace_from_vector(
+                vector_path=file_path,
+                source_kind="file",
+                clip_polygon_path=None,
+            )
+        except Exception:
+            try:
+                rivers = gpd.read_file(str(file_path))
+                if rivers.empty:
+                    return None
+                rivers = rivers[_valid_geometry_mask(rivers.geometry)].copy()
+                if rivers.empty:
+                    return None
+                return SimpleNamespace(lines=tuple(rivers.geometry.tolist()))
+            except Exception:
+                return None
     if river_trace is not None:
         return river_trace
-    if rivers_cfg is not None:
-        source = rivers_cfg.source
-
-        if source == "file":
-            raw_path = rivers_cfg.path
-            if raw_path is None:
-                return None
-            file_path = Path(str(raw_path)).expanduser()
-            if not file_path.is_absolute():
-                file_path = (config_path.parent / file_path).resolve()
-            if not file_path.exists():
-                return None
-            try:
-                return build_river_mesh_trace_from_vector(
-                    vector_path=file_path,
-                    source_kind="file",
-                    clip_polygon_path=None,
-                )
-            except Exception:
-                try:
-                    rivers = gpd.read_file(str(file_path))
-                    if rivers.empty:
-                        return None
-                    rivers = rivers[_valid_geometry_mask(rivers.geometry)].copy()
-                    if rivers.empty:
-                        return None
-                    return SimpleNamespace(lines=tuple(rivers.geometry.tolist()))
-                except Exception:
-                    return None
-
     return resolve_river_mesh_trace(geographic_features=geographic_features)
 
 
@@ -747,6 +773,7 @@ def _build_linear_constraint_inputs(
             geographic_features=geographic_features,
             rivers_cfg=rivers_cfg,
             config_path=config_path,
+            domain_geographic=domain_geographic,
         )
         resolved_river_trace = (
             _clip_river_trace_to_domain(

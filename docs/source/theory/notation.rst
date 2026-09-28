@@ -194,16 +194,26 @@ Time and calibration
    * - ``roptim``
      - ``Doptim / L_ref``
      - dimensionless
-     - Validity indicator. It measures agreement, never correctness: measured
-       on synthetic truth it improves as the bias worsens, and it improved from
+     - Validity indicator, Equation 3 of the paper, kept to compare with its
+       Table 1. It measures agreement, never correctness: measured on
+       synthetic truth it improves as the bias worsens, and it improved from
        4.58 to 2.21 on one catchment purely because the grid was coarser. Two
        values from different meshes are not comparable.
    * - ``L_ref``
-     - Square root of the median cell area over the catchment
+     - ``h_obs``, the median distance between neighbouring cell centres over
+       the mapped cells of the catchment
      - m
-     - The median and not the mean: a few large buffer cells would otherwise
-       set the scale. Declaring ``observed_position_accuracy`` floors it, so
-       that refining the mesh stops shrinking the denominator on its own.
+     - The cell size where the mapped network lies, the DEM pixel on a
+       regular grid. The median and not the mean: a few large cells would
+       otherwise set the scale. A declared ``observed_position_accuracy``
+       does not change it; it enters ``validity_length`` only.
+   * - ``validity_length``
+     - ``2 h``, or ``h + max(h, F)`` when the snap measured its floor ``F``;
+       ``h = max(h_obs, observed_position_accuracy)``
+     - m
+     - Equation 4 as a length: valid when ``Doptim <= validity_length``.
+       ``"auto"`` by default, the paper's ``roptim <= 2`` on a regular grid
+       without the snap; a declared length replaces it.
    * - ``L_cap``
      - Longest downslope descent to the outlet inside the catchment
      - m

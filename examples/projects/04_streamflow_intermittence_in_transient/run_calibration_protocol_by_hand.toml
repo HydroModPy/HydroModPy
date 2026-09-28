@@ -2,6 +2,8 @@
 # orchestrated by hand, with nothing added. It runs what run_calibration.toml
 # runs, trial for trial; only the citation a protocol run records is lost.
 # run_calibration_by_hand.toml starts from the same stages and deviates once.
+# Written from matching_hydrographic_network 1.2: when the protocol writes
+# something else, `--expand` on run_calibration.toml shows what to follow.
 #
 #   1. K alone, one steady period over the record, moved until the simulated
 #      seepage network matches the mapped one. No discharge record enters it.
@@ -70,7 +72,9 @@ objective_blocks = ["network_extension"]
 # would be chosen unwritten; it is written because the sweep below is one of its
 # options, and options need their engine named.
 method = "bisection"
-max_iter = 18
+# No max_iter: "auto" lets the bisection count its budget before the first
+# solve, 15 trials for a root inside the bounds and 23 for one up to four
+# decades outside them. It stops on its tolerance either way.
 # The precision at which the stage stops: one per cent on K, the paper's.
 tolerance = 0.01
 # Stage two inherits this K and may not move it.
@@ -95,8 +99,10 @@ description = "Read Sy from the observed hydrograph, K frozen, transient."
 parameters = ["Sy"]
 regime = "transient"
 objective_blocks = ["hydrograph"]
-# The paper's engine, and the one a cost to minimise gets unwritten.
+# What the protocol writes, and what a cost to minimise gets unwritten.
 method = "scipy_nelder_mead"
+# The simplex cannot count what it needs, so the budget is a number: the
+# parent's 30, not the protocol's 120.
 max_iter = 30
 # Five per cent on Sy, which is not known to one per cent, and each evaluation
 # here is a full 36-month run.

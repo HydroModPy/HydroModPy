@@ -32,6 +32,15 @@ class RootConfigProvider(Protocol):
     def from_dict(self, payload: dict[str, Any]) -> BaseModel:
         """Build a validated root-config instance from a Python dict."""
 
+    def migrate_on_load(
+        self, payload: dict[str, Any], *, source: str | Path | None = None
+    ) -> list[str]:
+        """Migrate a raw TOML payload written for an earlier schema, in memory.
+
+        Rewrites ``payload`` in place and returns the changes applied. Raises
+        :class:`ValueError` on a legacy key that has no exact equivalent.
+        """
+
 
 _PROVIDER: RootConfigProvider | None = None
 

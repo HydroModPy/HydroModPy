@@ -40,7 +40,7 @@ def test_time_all_is_refused() -> None:
     message = str(excinfo.value)
     assert "one state" in message
     assert "'last' or 'first'" in message
-    assert "extents is a separate mode being designed" in message
+    assert "'extent' table" in message
 
 
 def test_time_list_of_dates_is_refused() -> None:
