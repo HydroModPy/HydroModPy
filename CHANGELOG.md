@@ -164,6 +164,10 @@ Each release section includes the following standard categories:
 - A single-metric phase whose variable names a calibration output keeps that output, so a network
   phase keeps its maps and its extent table.
 - `hmp calibrate` migrates legacy keys in memory when it reads a file, as the project loader does.
+- A station read back from the data cache keeps the variable its download gave it (`discharge`,
+  `groundwater_level`, `lake_level`), not the family name. A Hub'Eau gauge was stored as
+  `hydrometry_obs` from its second run on, and the hydrograph figures and the calibration did not
+  find it.
 
 ---
 

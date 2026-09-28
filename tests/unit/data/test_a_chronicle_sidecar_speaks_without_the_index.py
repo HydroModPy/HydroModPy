@@ -73,6 +73,8 @@ def test_the_unit_and_frequency_survive_a_deleted_index(tmp_path: Path) -> None:
 
     assert row.unit is None, "anti-vacuity: the rebuilt row must not know the unit"
     assert cached is not None
+    # The record reads as a fresh download does: discharge, not the family name.
+    assert cached.variable == "discharge"
     assert cached.unit == "m3/s"
     assert cached.frequency == "D"
     assert cached.source_unit == "L/s"

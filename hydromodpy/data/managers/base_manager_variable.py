@@ -521,7 +521,7 @@ class BaseVariableManager(BaseManagerCommon):
 
         return PointRecord(
             station_id=station_id,
-            variable=self.VARIABLE_NAME,
+            variable=self.RECORD_VARIABLE or self.VARIABLE_NAME,
             source=source,
             unit=sidecar.get("unit") or entry.unit or "",
             frequency=sidecar.get("frequency") or entry.frequency or "D",
