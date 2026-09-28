@@ -57,6 +57,7 @@ dependencies = [
     "plotly>=6.7.0,<7",
     "pint>=0.25.3,<1",
     "pydantic-pint>=0.4,<1",
+    "py7zr>=1.0,<2",
     "pyarrow>=23.0.1,<24",
     "pyproj>=3.7.2,<4",
     "rasterio>=1.4.0,<2",

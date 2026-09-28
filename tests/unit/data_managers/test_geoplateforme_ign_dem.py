@@ -14,6 +14,7 @@ from hydromodpy.data.variables.dem.apis.geoplateforme_download import (
 from hydromodpy.data.variables.dem.apis.ign_dem_fr import (
     _archive_extract_dir,
     _install_extracted_archive,
+    _mask_sea,
     _normalize_dem_nodata,
     _processed_cache_is_usable,
     _processed_cache_request,
@@ -163,6 +164,30 @@ def test_normalize_dem_nodata_converts_ign_sentinel_values():
 
     assert normalized.dtype == np.dtype("float32")
     assert normalized.tolist() == [[[-9999.0, -9999.0, -4.5, 123.0]]]
+
+
+@pytest.mark.fast
+def test_mask_sea_drops_the_zero_plateau_on_the_edge_and_keeps_an_inland_one():
+    data = np.array(
+        [
+            [
+                [0.0, 0.0, 5.0, 5.0, 5.0],
+                [0.0, 3.0, 5.0, 0.0, 5.0],
+                [5.0, 5.0, 5.0, 5.0, 5.0],
+                [5.0, 5.0, 0.0, 5.0, -9999.0],
+                [5.0, 5.0, 5.0, 0.0, -9999.0],
+            ]
+        ],
+        dtype="float32",
+    )
+
+    masked = _mask_sea(data.copy())[0]
+
+    assert masked[0, 0] == masked[0, 1] == masked[1, 0] == -9999.0
+    assert masked[1, 3] == 0.0
+    assert masked[4, 3] == -9999.0
+    assert masked[3, 2] == 0.0
+    assert masked[1, 1] == 3.0
 
 
 @pytest.mark.fast

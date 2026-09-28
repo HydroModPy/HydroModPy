@@ -184,6 +184,9 @@ examples/data/hydrography/*bdtopage_*.gpkg
 examples/data/**/*_hubeau_*.csv
 examples/data/**/*_sim2_*.nc
 examples/data/**/*.aux.xml
+examples/data/dem/raw_ign/
+examples/data/dem/extracted_ign/
+examples/data/dem/processed/dem_ign_geoplateforme_*
 # DuckDB lock files and empty tool folders.
 *.duckdb.lock
 /memory.duckdb*

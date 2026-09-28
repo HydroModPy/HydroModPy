@@ -171,6 +171,9 @@ Each release section includes the following standard categories:
   `groundwater_level`, `lake_level`), not the family name. A Hub'Eau gauge was stored as
   `hydrometry_obs` from its second run on, and the hydrograph figures and the calibration did not
   find it.
+- An IGN BD ALTI DEM sets its sea to nodata: the zero-valued regions touching the raster edge or a
+  nodata cell. The sea was one flat plateau the breach step could not route in reasonable time.
+  `py7zr` is declared, the fallback the BD ALTI archives are extracted with when `7z` is absent.
 
 ---
 
