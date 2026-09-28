@@ -285,7 +285,23 @@ def cleanup_stable_folder(geographic: Any, *, keep: bool = False) -> int:
         stable_path,
         freed / 1e6,
     )
+    _drop_empty_parents(stable_path)
     return freed
+
+
+def _drop_empty_parents(stable_path: Path) -> None:
+    """Remove the run's scratch folder, then ``.hmp/scratch/``, once they hold nothing.
+
+    A ``Project`` drops its tree when it closes, after the run's own scratch
+    scope ended, so the folder the tree sat in is left empty behind it.
+    """
+    parent = stable_path.parent
+    targets = [parent] if parent.name == "scratch" else [parent, parent.parent]
+    for target in targets:
+        try:
+            target.rmdir()
+        except OSError:
+            return
 
 
 def _directory_size(root: Path) -> int:

@@ -140,3 +140,18 @@ def test_the_cleanup_of_a_run_leaves_the_other_runs_alone(tmp_path: Path) -> Non
         assert not (own / "nancon_step1_minimal").exists()
         assert (own / "_preprocessing").is_dir()
     assert other.is_dir()
+
+
+def test_closing_a_project_leaves_no_empty_run_folder(tmp_path: Path) -> None:
+    from hydromodpy.spatial.geographic.store_ingestion import cleanup_stable_folder
+
+    root = scratch_root_for(tmp_path)
+    tree = root / "nancon_intermittence_mf6.p1" / "_preprocessing"
+    (tree / "geographic").mkdir(parents=True)
+    (tree / "geographic" / "outlet.shp").write_bytes(b"x")
+    (root / "other.p2" / "nancon").mkdir(parents=True)
+
+    cleanup_stable_folder(SimpleNamespace(stable_folder=tree))
+
+    assert not (root / "nancon_intermittence_mf6.p1").exists()
+    assert (root / "other.p2" / "nancon").is_dir()
