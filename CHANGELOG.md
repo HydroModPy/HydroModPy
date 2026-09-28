@@ -96,6 +96,9 @@ Each release section includes the following standard categories:
   count of each class. It needs a hydrography source that says which reaches flow all year.
 - Preflight refuses an extent table on a steady search, a minimal map file that does not exist,
   and a `data.hydrography` minimal map without a declared hydrography source.
+- `hmp run` on an overview ends on the catchment, its area, the web report and the figures folder;
+  `--verbose` keeps the full recap. The overview shows its phases and the data families load
+  under one progress bar.
 
 ### Changed
 - `optimizer_kwargs` is now `method_options`, and the protocol's `*_engine_options` are

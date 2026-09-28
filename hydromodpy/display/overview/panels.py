@@ -89,7 +89,7 @@ def render_dem_map(
 
     if station_points:
         target_crs = _read_raster_crs(dem_path)
-        _plot_station_points(ax, station_points, target_crs=target_crs)
+        _plot_station_points(ax, station_points, target_crs=target_crs, extent=extent)
 
     if outlet_xy is not None:
         ax.plot(
@@ -124,13 +124,11 @@ def render_dem_map(
         ax.set_xlabel("X (m)", fontsize=_font(8))
         ax.set_ylabel("Y (m)", fontsize=_font(8))
         ax.tick_params(labelsize=_font(7))
-    if handles and not station_points:
-        ax.legend(
-            handles=handles,
-            loc="lower right",
-            fontsize=_MAP_LEGEND_SIZE if relative_ticks else _font(7),
-            framealpha=0.92,
-        )
+    _map_legend(
+        ax,
+        handles + ax.get_legend_handles_labels()[0],
+        fontsize=_MAP_LEGEND_SIZE if relative_ticks else _font(7),
+    )
     return ax
 
 
@@ -140,10 +138,11 @@ def render_regional_context_map(
     regional_dem_path: str,
     watershed_shp: str | None = None,
     streams_gdf=None,
+    station_points: list[dict] | None = None,
     outlet_xy: tuple[float, float] | None = None,
     title: str = "",
 ) -> Axes:
-    """Render a regional DEM context with the watershed footprint."""
+    """Render a regional DEM context with the watershed footprint and stations."""
     import rasterio
     from matplotlib.lines import Line2D
     from rasterio.enums import Resampling
@@ -218,7 +217,10 @@ def render_regional_context_map(
     ax.set_aspect("equal", adjustable="box")
     ax.set_title(title or "Situation regionale", fontsize=_MAP_TITLE_SIZE)
     _apply_relative_ticks(ax, extent)
-    ax.legend(handles=handles, loc="lower right", fontsize=_MAP_LEGEND_SIZE, framealpha=0.92)
+    if station_points:
+        _plot_station_points(ax, station_points, target_crs=raster_crs, extent=extent)
+        handles += ax.get_legend_handles_labels()[0]
+    _map_legend(ax, handles, fontsize=_MAP_LEGEND_SIZE)
     return ax
 
 
@@ -414,6 +416,18 @@ def render_timeseries_multi(
     return ax
 
 
+# ONDE flow states, 1 = dry to 5 = visible flow, coloured as in HydroModPy v1.
+_ONDE_STATES = (
+    (1, "Dry", "#800000"),
+    (2, "Invisible", "#ff9800"),
+    (3, "Low", "#7aff7d"),
+    (4, "Acceptable", "#007dff"),
+    (5, "Visible", "#000080"),
+)
+_WQ_GAP_DAYS = 120
+_WQ_LEGEND_MAX = 12
+
+
 def render_intermittency(
     ax: Axes,
     *,
@@ -421,75 +435,39 @@ def render_intermittency(
     title: str,
     date_start=None,
     date_end=None,
-) -> Axes:
-    """Render ONDE flow-state observations as a step plot per station.
+    station_names: dict[str, str] | None = None,
+) -> list[Axes]:
+    """Render ONDE flow states, one strip per station.
 
-    The ordinal flow code (1 = dry, 5 = visible flow) is plotted with
-    discrete y-axis ticks. Sparse observations (Hub'Eau ONDE is monthly at
-    best) are connected with steps to ease readability.
+    Each observation is a coloured tick on the row of its flow state. The
+    given axes is split into one stacked axes per station, sharing time.
     """
-    if df is None or df.empty:
-        ax.text(
-            0.5,
-            0.5,
-            "No records",
-            ha="center",
-            va="center",
-            transform=ax.transAxes,
-            fontsize=_font(9),
-            color="grey",
-        )
-        ax.set_title(title, fontsize=_font(10))
-        return ax
+    stations = [] if df is None else [c for c in df.columns if not df[c].dropna().empty]
+    if not stations:
+        _no_records(ax, title)
+        return [ax]
 
-    plotted = 0
-    for station in df.columns:
-        serie = df[station].dropna()
-        if serie.empty:
-            continue
-        ax.step(
+    axes = _split_rows(ax, len(stations))
+    colors = {code: color for code, _label, color in _ONDE_STATES}
+    names = station_names or {}
+    for sub, station in zip(axes, stations, strict=True):
+        serie = df[station].dropna().round().clip(1, 5)
+        sub.scatter(
             serie.index,
             serie.values,
-            where="post",
-            linewidth=0.9,
-            alpha=0.85,
-            marker="o",
-            markersize=3,
-            label=station,
+            c=[colors[int(v)] for v in serie.values],
+            marker="|",
+            s=_font(110),
+            linewidths=_font(1.6),
         )
-        plotted += 1
-
-    if date_start is not None or date_end is not None:
-        import pandas as pd
-
-        lo = pd.to_datetime(date_start) if date_start is not None else None
-        hi = pd.to_datetime(date_end) if date_end is not None else None
-        ax.set_xlim(lo, hi)
-
-    ax.set_yticks([1, 2, 3, 4, 5])
-    ax.set_yticklabels(
-        ["1: Dry", "2: Non-visible", "3: Weak", "4: Acceptable", "5: Visible"],
-        fontsize=_font(7),
-    )
-    ax.set_ylim(0.5, 5.5)
-    ax.set_title(title, fontsize=_font(10))
-    ax.set_xlabel("Date", fontsize=_font(8))
-    ax.grid(True, ls=":", lw=0.4, alpha=0.6)
-    ax.tick_params(axis="x", labelsize=_font(7))
-    if 0 < plotted <= 10:
-        place_legend(ax, fontsize=_font(6), ncol=min(3, plotted))
-    if plotted == 0:
-        ax.text(
-            0.5,
-            0.5,
-            "No valid records",
-            ha="center",
-            va="center",
-            transform=ax.transAxes,
-            fontsize=_font(9),
-            color="grey",
-        )
-    return ax
+        sub.set_yticks([code for code, _label, _color in _ONDE_STATES])
+        sub.set_yticklabels([label for _code, label, _color in _ONDE_STATES], fontsize=_font(8))
+        sub.set_ylim(0.5, 5.5)
+        name = names.get(station)
+        sub.set_title(f"{station} - {name}" if name else station, fontsize=_font(9))
+        _time_axis(sub, date_start, date_end, last=sub is axes[-1])
+    axes[0].figure.suptitle(title, fontsize=_font(11))
+    return axes
 
 
 def render_water_quality(
@@ -499,73 +477,124 @@ def render_water_quality(
     title: str,
     date_start=None,
     date_end=None,
-) -> Axes:
-    """Render water-quality observations grouped by parameter.
+    units: dict[str, str] | None = None,
+    station_names: dict[str, str] | None = None,
+) -> list[Axes]:
+    """Render water-quality analyses, one strip per parameter.
 
     ``series_by_param`` maps parameter name to a dict of station_id -> Series.
-    Each parameter is plotted on its own twin y-axis (up to 3 parameters);
-    additional parameters are folded into the leftmost axis. The dataset is
-    typically sparse (a few analyses per year), so points are emphasised.
+    A station keeps one colour on every strip. Analyses more than
+    ``_WQ_GAP_DAYS`` apart are not joined, so a gap in sampling stays a gap.
     """
-    import pandas as pd  # noqa: F401  (only needed for date conversion below)
+    params = [p for p, by_station in series_by_param.items() if by_station]
+    if not params:
+        _no_records(ax, title)
+        return [ax]
 
-    if not series_by_param:
-        ax.text(
-            0.5,
-            0.5,
-            "No records",
-            ha="center",
-            va="center",
-            transform=ax.transAxes,
-            fontsize=_font(9),
-            color="grey",
-        )
-        ax.set_title(title, fontsize=_font(10))
-        return ax
+    from matplotlib import colormaps
 
-    palette = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple"]
-    plotted = 0
-    for color_idx, (param, station_series) in enumerate(series_by_param.items()):
-        color = palette[color_idx % len(palette)]
-        for station, serie in station_series.items():
+    stations = sorted({sid for p in params for sid in series_by_param[p]})
+    cmap = colormaps["tab10" if len(stations) <= 10 else "tab20"]
+    colors = {sid: cmap(i % cmap.N) for i, sid in enumerate(stations)}
+    names = station_names or {}
+    units = units or {}
+
+    axes = _split_rows(ax, len(params))
+    for sub, param in zip(axes, params, strict=True):
+        for sid, serie in series_by_param[param].items():
+            serie = serie.dropna().sort_index()
             if serie.empty:
                 continue
-            ax.plot(
-                serie.index,
-                serie.values,
-                linewidth=0.6,
-                alpha=0.7,
-                color=color,
+            sub.plot(
+                _break_gaps(serie, _WQ_GAP_DAYS),
+                color=colors[sid],
+                linewidth=1.0,
+                alpha=0.9,
                 marker="o",
-                markersize=3,
-                label=f"{param} ({station})",
+                markersize=3.5,
+                label=_station_label(sid, names.get(sid)),
             )
-            plotted += 1
+        unit = units.get(param)
+        sub.set_ylabel(f"{param} ({unit})" if unit else param, fontsize=_font(8))
+        sub.tick_params(axis="y", labelsize=_font(7))
+        sub.grid(True, axis="y", ls=":", lw=0.4, alpha=0.6)
+        _time_axis(sub, date_start, date_end, last=sub is axes[-1])
+
+    if len(stations) == 1:
+        axes[0].set_title(_station_label(stations[0], names.get(stations[0])), fontsize=_font(9))
+    elif len(stations) <= _WQ_LEGEND_MAX:
+        axes[0].legend(
+            loc="upper left",
+            bbox_to_anchor=(1.01, 1.0),
+            fontsize=_font(6.5),
+            frameon=False,
+            title=f"{len(stations)} station(s)",
+            title_fontsize=_font(7),
+        )
+    axes[0].figure.suptitle(title, fontsize=_font(11))
+    return axes
+
+
+def _split_rows(ax: Axes, n: int) -> list[Axes]:
+    """Replace ``ax`` by ``n`` stacked axes sharing the x axis."""
+    if n == 1:
+        return [ax]
+    fig = ax.figure
+    grid = ax.get_subplotspec().subgridspec(n, 1)
+    ax.remove()
+    first = fig.add_subplot(grid[0])
+    return [first] + [fig.add_subplot(grid[i], sharex=first) for i in range(1, n)]
+
+
+def _time_axis(ax: Axes, date_start, date_end, *, last: bool) -> None:
+    """Year ticks, one vertical line per year, labels on the bottom strip only."""
+    import matplotlib.dates as mdates
+    import pandas as pd
 
     if date_start is not None or date_end is not None:
         lo = pd.to_datetime(date_start) if date_start is not None else None
         hi = pd.to_datetime(date_end) if date_end is not None else None
         ax.set_xlim(lo, hi)
+    lo, hi = (mdates.num2date(v) for v in ax.get_xlim())
+    step = max(1, round((hi.year - lo.year) / 8))
+    ax.xaxis.set_major_locator(mdates.YearLocator(step))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+    ax.xaxis.set_minor_locator(mdates.MonthLocator(bymonth=(1, 7)))
+    ax.grid(True, axis="x", which="major", color="0.75", lw=0.8)
+    ax.tick_params(axis="x", labelsize=_font(7.5), labelbottom=last)
 
+
+def _break_gaps(serie, max_gap_days: int):
+    """Insert NaN between two values further apart than ``max_gap_days``."""
+    import pandas as pd
+
+    times = serie.index.values.astype("datetime64[s]")
+    gaps = np.diff(times) > np.timedelta64(max_gap_days, "D")
+    if not gaps.any():
+        return serie
+    breaks = pd.DatetimeIndex(times[1:][gaps] - np.timedelta64(1, "D"))
+    return pd.concat([serie, pd.Series(np.nan, index=breaks)]).sort_index()
+
+
+def _station_label(station_id: str, name: str | None) -> str:
+    if not name or name == station_id:
+        return station_id
+    short = name if len(name) <= 30 else name[:29] + "…"
+    return f"{station_id} {short}"
+
+
+def _no_records(ax: Axes, title: str) -> None:
+    ax.text(
+        0.5,
+        0.5,
+        "No records",
+        ha="center",
+        va="center",
+        transform=ax.transAxes,
+        fontsize=_font(9),
+        color="grey",
+    )
     ax.set_title(title, fontsize=_font(10))
-    ax.set_xlabel("Date", fontsize=_font(8))
-    ax.set_ylabel("Concentration / value", fontsize=_font(8))
-    ax.grid(True, ls=":", lw=0.4, alpha=0.6)
-    ax.tick_params(labelsize=_font(7))
-    if 0 < plotted <= 10:
-        place_legend(ax, fontsize=_font(6), ncol=min(2, plotted))
-    if plotted == 0:
-        ax.text(
-            0.5,
-            0.5,
-            "No valid records",
-            ha="center",
-            va="center",
-            transform=ax.transAxes,
-            fontsize=_font(9),
-            color="grey",
-        )
-    return ax
 
 
 def render_climatic_summary(
@@ -719,6 +748,28 @@ def render_station_inventory(ax: Axes, *, inventory: list[dict]) -> Axes:
 # ---------------------------------------------------------------------------
 
 
+def _map_legend(ax, handles: list, *, fontsize: float) -> None:
+    """Draw the map legend under the axes, so it never hides the map.
+
+    Three columns, or two when a label is long enough to make the legend
+    wider than the map.
+    """
+    if not handles:
+        return
+    longest = max(len(str(h.get_label())) for h in handles)
+    ax.legend(
+        handles=handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.14),
+        ncol=min(len(handles), 2 if longest > 20 else 3),
+        fontsize=fontsize,
+        frameon=False,
+        markerscale=0.9,
+        handlelength=1.6,
+        columnspacing=1.4,
+    )
+
+
 def _apply_relative_ticks(ax, extent: tuple[float, float, float, float]) -> None:
     """Display map coordinates relative to the lower-left extent corner."""
     from matplotlib.ticker import FuncFormatter, MaxNLocator
@@ -769,18 +820,33 @@ def _to_crs_safely(gdf, target_crs):
     return gdf
 
 
-def _plot_station_points(ax, points: list[dict], target_crs=None) -> None:
+def _plot_station_points(ax, points: list[dict], target_crs=None, extent=None) -> None:
     """Scatter station markers, reprojecting their coords to ``target_crs``.
 
     Hub'Eau locations come in EPSG:4326 (lon/lat) while map panels render in
     the project CRS (typically EPSG:2154). Without reprojection the markers
     would land far outside the visible bbox and only the legend would show.
+    A station outside ``extent`` (left, right, bottom, top) is not drawn. A
+    group with no station inside keeps its legend entry, which says how far
+    and in which direction its nearest station lies. The caller draws the
+    legend.
     """
     groups: dict[str, list[dict]] = {}
     for pt in points:
         groups.setdefault(pt.get("group", "stations"), []).append(pt)
     for group, items in groups.items():
         xs, ys = _reproject_points_xy(items, target_crs)
+        label = group
+        if extent is not None:
+            left, right, bottom, top = extent
+            inside = [
+                (x, y)
+                for x, y in zip(xs, ys, strict=True)
+                if left <= x <= right and bottom <= y <= top
+            ]
+            if not inside and xs:
+                label = f"{group} ({_off_map_hint(xs, ys, extent)})"
+            xs, ys = [x for x, _y in inside], [y for _x, y in inside]
         first = items[0]
         ax.scatter(
             xs,
@@ -791,10 +857,21 @@ def _plot_station_points(ax, points: list[dict], target_crs=None) -> None:
             linewidth=0.5,
             s=36,
             zorder=8,
-            label=group,
+            label=label,
         )
-    if groups:
-        ax.legend(loc="upper right", fontsize=_MAP_LEGEND_SIZE, markerscale=0.8, framealpha=0.92)
+
+
+def _off_map_hint(xs: list[float], ys: list[float], extent) -> str:
+    """Distance and compass direction of the nearest point from the map centre."""
+    left, right, bottom, top = extent
+    cx, cy = (left + right) / 2.0, (bottom + top) / 2.0
+    dx, dy = min(
+        ((x - cx, y - cy) for x, y in zip(xs, ys, strict=True)),
+        key=lambda d: d[0] ** 2 + d[1] ** 2,
+    )
+    bearing = np.degrees(np.arctan2(dx, dy)) % 360.0
+    direction = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")[int(round(bearing / 45.0)) % 8]
+    return f"off map, {np.hypot(dx, dy) / 1000.0:.0f} km {direction}"
 
 
 def _reproject_points_xy(items: list[dict], target_crs) -> tuple[list[float], list[float]]:

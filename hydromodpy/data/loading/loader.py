@@ -107,22 +107,25 @@ class DataManagersRuntimeLoader:
             else:
                 independent.append(type_name)
 
-        # Phase 1: sequential types (dependency order preserved).
-        for type_name in sequential:
-            self._load_single(result, type_name)
-
-        # Phase 2: independent types. The shared DuckDB catalog connection
-        # is not thread-safe (single internal cursor); concurrent loaders
-        # corrupt one another's result sets, e.g. dropping the runoff
-        # series mid-fetch with "Invalid Input Error: No open result set".
-        # Loading the rest sequentially is the simplest correct fix and
-        # the speed cost is negligible (only a handful of data managers
-        # per project, each < 1 s).
-        for type_name in independent:
-            try:
+        with progress.task("Data families", total=len(sequential) + len(independent)) as bar:
+            # Phase 1: sequential types (dependency order preserved).
+            for type_name in sequential:
                 self._load_single(result, type_name)
-            except Exception as exc:
-                logger.error("Load of '%s' failed: %s", type_name, exc)
+                bar.advance()
+
+            # Phase 2: independent types. The shared DuckDB catalog connection
+            # is not thread-safe (single internal cursor); concurrent loaders
+            # corrupt one another's result sets, e.g. dropping the runoff
+            # series mid-fetch with "Invalid Input Error: No open result set".
+            # Loading the rest sequentially is the simplest correct fix and
+            # the speed cost is negligible (only a handful of data managers
+            # per project, each < 1 s).
+            for type_name in independent:
+                try:
+                    self._load_single(result, type_name)
+                except Exception as exc:
+                    logger.error("Load of '%s' failed: %s", type_name, exc)
+                bar.advance()
 
     def _load_single(self, result: WorkflowContext, type_name: str) -> None:
         """Load a single data-manager type."""

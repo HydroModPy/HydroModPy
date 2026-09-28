@@ -416,6 +416,12 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     # workflows, which have no epilogue of their own, and for --verbose.
     if workflow == "simulation" and verbosity in ("quiet", "normal"):
         return
+    # An overview ends on what a reader opens next, not on the list of every
+    # PNG it wrote; --verbose keeps the full recap.
+    if workflow == "overview" and verbosity in ("quiet", "normal"):
+        if verbosity == "normal" and isinstance(summary, Mapping):
+            _print_overview_recap(summary)
+        return
     # A calibration ends on what it found and where to read it, one line per
     # phase; the full dict of phases, protocol and deviations is --verbose.
     if workflow == "calibration" and verbosity in ("quiet", "normal"):
@@ -434,6 +440,21 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         if value is None:
             continue
         print(f"  {key}: {value}", file=sys.stderr)
+
+
+def _print_overview_recap(summary: Mapping[str, Any]) -> None:
+    """Name the catchment, then the web page and the figures folder."""
+    head = f"Overview of {summary.get('name') or 'the catchment'} ready"
+    area = summary.get("catchment_area_km2")
+    if area is not None:
+        head += f" ({float(area):.1f} km²)"
+    print(head, file=sys.stderr)
+    if summary.get("web_report"):
+        print(f"  Report:  {display_path(summary['web_report'])}", file=sys.stderr)
+    figures = summary.get("report_paths") or []
+    if figures:
+        folder = display_path(Path(figures[0]).parent)
+        print(f"  Figures: {folder}/ ({len(figures)})", file=sys.stderr)
 
 
 def _print_calibration_recap(summary: Mapping[str, Any], config_path: Path) -> None:

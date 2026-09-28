@@ -33,7 +33,7 @@ def write_overview_web_report(
 ) -> Path:
     """Write the canonical block-based overview HTML report."""
     if output_path is None:
-        output_path = _resolve_web_output_path(state)
+        output_path = overview_web_report_path(state)
     blocks = build_overview_blocks(state, figure_paths=figure_paths, level=level)
     summary = compute_overview_summary(state)
     title = summary.watershed_name or "Vue donnees bassin"
@@ -56,7 +56,7 @@ def write_overview_review_web_reports(
     figure_paths: list[Path],
 ) -> list[Path]:
     """Write temporary compact/standard/audit review pages."""
-    output_root = _resolve_web_output_path(state).parent.parent / "web_review"
+    output_root = overview_web_report_path(state).parent.parent / "web_review"
     paths: list[Path] = []
     for level in ("compact", "standard", "audit"):
         paths.append(
@@ -148,9 +148,9 @@ def _spatial_context_block(
         required=False,
     )
     dem_context = ReportFigure(
-        "map_dem_context",
+        "map_dem",
         "Domaine simule",
-        figure_by_id.get("map_dem_context"),
+        figure_by_id.get("map_dem"),
         "",
     )
     figures: tuple[ReportFigure, ...]
@@ -186,9 +186,9 @@ def _hydrographic_network_block(
     data_cfg = _data_config(state)
     requested = _requested_data_types(state)
     figure = ReportFigure(
-        "map_hydrography_data",
+        "map_hydrography",
         "Reseau hydrographique observe",
-        figure_by_id.get("map_hydrography_data"),
+        figure_by_id.get("map_hydrography"),
         "Reseau observe disponible avant toute simulation.",
         required=False,
     )
@@ -792,7 +792,8 @@ def _first_non_empty(*values: Any) -> Any:
     return "-"
 
 
-def _resolve_web_output_path(state: DataOverviewState) -> Path:
+def overview_web_report_path(state: DataOverviewState) -> Path:
+    """Path of the overview web page, ``index.html`` beside the figures folder."""
     if state.workspace is not None and hasattr(state.workspace, "paths"):
         return state.workspace.paths.figures_folder.parent / "web" / "index.html"
     if state.workspace is not None:
@@ -801,7 +802,7 @@ def _resolve_web_output_path(state: DataOverviewState) -> Path:
 
 
 def _overview_level_links(state: DataOverviewState) -> dict[str, Path]:
-    review_root = _resolve_web_output_path(state).parent.parent / "web_review"
+    review_root = overview_web_report_path(state).parent.parent / "web_review"
     return {
         "compact": review_root / "compact" / "index.html",
         "standard": review_root / "standard" / "index.html",

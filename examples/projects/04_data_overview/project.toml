@@ -1,10 +1,8 @@
-# ======================================================================
-# HydroModPy Configuration (data-only example)
-# data-overview launcher: setup + domain + data loading, without process execution.
-# Canonical CLI:
+# A data overview built from nothing but an outlet coordinate. Every layer is
+# fetched from a public French service, the DEM included: no file ships with
+# this example. Needs network access; no service asks for a key.
+#
 #   hmp run examples/projects/04_data_overview/project.toml
-# ======================================================================
-
 
 [workflow]
 mode = "overview"
@@ -14,78 +12,76 @@ project_root = "."
 
 [geographic]
 crs_project = "EPSG:2154"
-dem_correc_type = "breach"
 
 [geographic.catchment]
 catch_def = "from_outlet_coord"
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
-x_outlet = 127348.427
-y_outlet = 6835802.564
+x_outlet = 389285.910
+y_outlet = 6816518.749
 snap_dist = "150 m"
-# "20%" is an area increase: the buffered domain covers 20 % more area than the catchment.
+# The buffered domain covers 20 % more area than the catchment.
 buff_area = "20%"
 
-[domain]
-[domain.depth_model]
-kind = "constant_thickness"
-thickness = "50.0 m"
-
 [data]
-types = ["geology", "hydrography", "hydrometry", "intermittency", "oceanic"]
-inference_mode = "strict"
+types = [
+    "dem",
+    "geology",
+    "hydrography",
+    "hydrometry",
+    "piezometry",
+    "intermittency",
+    "water_quality",
+    "precipitation",
+    "etp",
+]
 
-[data.geology]
-id = "field_geology"
-cell_samples_per_axis = 8
+# IGN BD ALTI 25 m, assembled from the department archives around the outlet.
+# No dem_init_path: the catchment is delineated on this download.
+[[data.dem.sources]]
+source = "ign_geoplateforme_dem"
 
+# BRGM 1:50 000 departmental map. At 1:1 000 000 a catchment this size holds
+# one or two polygons.
 [[data.geology.sources]]
-source = "brgm_1m"
+source = "brgm_50k"
 
-[data.hydrography]
-
+# BD TOPAGE, the Sandre reference network, asked over the delineated watershed.
 [[data.hydrography.sources]]
-source = "custom"
-path = "../../data/hydrography/regional_stream_network.shp"
-rasterize_field = "FID"
+source = "bdtopage"
 
-[data.hydrometry]
-date_start = "2019-01-01"
-date_end = "2025-12-31"
-
+# Hub'Eau daily mean discharge at the gauges inside the watershed.
 [[data.hydrometry.sources]]
 source = "hubeau"
 product = "QmnJ"
-extent = "watershed"
-require_observations = true
 
-[data.intermittency]
-date_start = "2019-01-01"
-date_end = "2025-12-31"
+# Hub'Eau groundwater levels. No piezometer lies inside the catchment; this one,
+# at Louvigné-du-Désert 11 km north, is the nearest still recording.
+[[data.piezometry.sources]]
+source = "hubeau"
+product = "level"
+station_ids = ["02478X0156/PZ"]
 
+# Hub'Eau ONDE flow-state observations.
 [[data.intermittency.sources]]
 source = "hubeau"
-extent = "watershed"
 
-[data.oceanic]
-date_start = "2003-01-01"
-date_end = "2003-01-30"
+# Hub'Eau river quality. A parameter is named as Hub'Eau labels it.
+[[data.water_quality.sources]]
+source = "hubeau"
+site_type = "river"
+parameters = ["Nitrates", "Température de l'Eau", "Conductivité à 25°C"]
 
-[[data.oceanic.sources]]
-source = "shom"
+# Meteo-France SIM2 reanalysis, 8 km grid. Both feed the climatic summary panel.
+[[data.precipitation.sources]]
+source = "sim2"
 
+[[data.etp.sources]]
+source = "sim2"
+
+[[data.recharge.sources]]
+source = "sim2"
+
+# Every [data.<type>] section above inherits this window.
 [overview]
-name = "Watershed Data Overview"
+name = "Nançon"
 date_start = "2019-01-01"
 date_end = "2025-12-31"
-
-[overview.panels]
-map_dem = true
-map_geology = true
-map_hydrography = true
-stats_card = true
-timeseries_discharge = true
-timeseries_piezometry = false
-climatic_summary = false
-timeseries_intermittency = true
-timeseries_water_quality = false
-station_inventory = true

@@ -69,6 +69,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
     date_end = getattr(overview_cfg, "date_end", None)
 
     paths: list[Path] = []
+    station_points = _build_station_points(ld)
 
     if regional_dem_path and watershed_shp:
         paths.append(
@@ -79,13 +80,13 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 regional_dem_path=str(regional_dem_path),
                 watershed_shp=str(watershed_shp),
                 streams_gdf=None,
+                station_points=station_points,
                 outlet_xy=_outlet_xy(dg),
                 title=regional_title,
             )
         )
 
     if panels_cfg.map_dem and dem_path:
-        station_points = _build_station_points(ld)
         paths.append(
             _render_panel(
                 output_dir / "map_dem.png",
@@ -96,23 +97,8 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 streams_gdf=streams_gdf,
                 station_points=station_points,
                 outlet_xy=_outlet_xy(dg),
-                title=f"{title} - MNT",
-            )
-        )
-
-    if dem_path:
-        paths.append(
-            _render_panel(
-                output_dir / "map_dem_context.png",
-                figsize=(7, 6),
-                render_fn=render_dem_map,
-                dem_path=str(dem_path),
-                watershed_shp=str(watershed_shp) if watershed_shp else None,
-                streams_gdf=None,
-                station_points=None,
-                outlet_xy=_outlet_xy(dg),
                 relative_ticks=True,
-                title="DEM, bassin versant et exutoire",
+                title=f"{title} - MNT",
             )
         )
 
@@ -131,21 +117,6 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
             )
         )
 
-    if dem_path and ld.geology is not None:
-        geology_gdf = _load_geology_gdf(ld.geology)
-        paths.append(
-            _render_panel(
-                output_dir / "map_geology_context.png",
-                figsize=(9, 6),
-                render_fn=render_geology_map,
-                dem_path=str(dem_path),
-                watershed_shp=str(watershed_shp) if watershed_shp else None,
-                geology_gdf=geology_gdf,
-                relative_ticks=True,
-                title="Contexte geologique du bassin",
-            )
-        )
-
     if panels_cfg.map_hydrography and dem_path:
         outlet_xy = None
         if dg and dg.x_outlet is not None and dg.y_outlet is not None:
@@ -159,23 +130,6 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 watershed_shp=str(watershed_shp) if watershed_shp else None,
                 streams_gdf=streams_gdf,
                 outlet_xy=outlet_xy,
-                relative_ticks=True,
-                stream_label="BD Topage",
-                title="Reseau hydrographique BD Topage",
-            )
-        )
-
-    if dem_path and streams_gdf is not None and not streams_gdf.empty:
-        paths.append(
-            _render_panel(
-                output_dir / "map_hydrography_data.png",
-                figsize=(7, 6),
-                render_fn=render_dem_map,
-                dem_path=str(dem_path),
-                watershed_shp=str(watershed_shp) if watershed_shp else None,
-                streams_gdf=streams_gdf,
-                station_points=None,
-                outlet_xy=_outlet_xy(dg),
                 relative_ticks=True,
                 stream_label="BD Topage",
                 title="Reseau hydrographique BD Topage",
@@ -222,15 +176,17 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
     if panels_cfg.timeseries_intermittency:
         onde_records = ld.intermittency.points if ld.intermittency else None
         onde_df = _records_to_timeseries_df(onde_records)
+        n_rows = 1 if onde_df is None else len(onde_df.columns)
         paths.append(
             _render_panel(
                 output_dir / "timeseries_intermittency.png",
-                figsize=(10, 4),
+                figsize=(9, 0.9 + 1.9 * n_rows),
                 render_fn=render_intermittency,
                 df=onde_df,
                 title=f"{title} - ONDE flow state",
                 date_start=date_start,
                 date_end=date_end,
+                station_names=_station_names(onde_records, "station_name"),
             )
         )
 
@@ -240,12 +196,14 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
         paths.append(
             _render_panel(
                 output_dir / "timeseries_water_quality.png",
-                figsize=(10, 4),
+                figsize=(10, 0.9 + 2.6 * max(1, len(series_by_param))),
                 render_fn=render_water_quality,
                 series_by_param=series_by_param,
                 title=f"{title} - Water quality",
                 date_start=date_start,
                 date_end=date_end,
+                units={str(r.variable): r.unit for r in wq_records or () if r.unit},
+                station_names=_station_names(wq_records, "name"),
             )
         )
 
@@ -459,6 +417,16 @@ def _piezo_altitude_hlines(records) -> list[dict] | None:
             }
         )
     return hlines or None
+
+
+def _station_names(records, key: str) -> dict[str, str]:
+    """Map station_id to the station name held under ``key`` in its location."""
+    names: dict[str, str] = {}
+    for rec in records or ():
+        name = (getattr(rec.location, "metadata", None) or {}).get(key)
+        if name:
+            names[rec.station_id] = str(name)
+    return names
 
 
 def _wq_series_by_parameter(records) -> dict:
