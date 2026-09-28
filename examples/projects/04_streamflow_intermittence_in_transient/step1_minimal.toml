@@ -1,7 +1,7 @@
 # Nancon, the shortest file that runs. Steady state on the local DEM, one
 # hydraulic conductivity, one recharge rate, seepage at the ground surface.
-# 27004 cells, six seconds. Only keys that are required or that differ from
-# the schema default are written.
+# 21406 cells of 75 m. Only keys that are required or that differ from the
+# schema default are written.
 #
 #   hmp run examples/projects/04_streamflow_intermittence_in_transient/step1_minimal.toml
 
@@ -30,15 +30,15 @@ crs_project = "EPSG:2154"
 
 # The catchment is cut out of a regional DEM by walking upslope from one point.
 # `snap_dist` is how far that point may move onto the DEM flow network, 130 m
-# of the 150 m allowed here. `buff_area` widens the area so the cells of
-# interest are not the boundary cells.
+# of the 150 m allowed here. `buff_area` widens the domain so the cells of
+# interest are not the boundary cells: "10%" is an area increase, the buffered
+# catchment covering 10 % more area than the catchment, a 150 m margin here.
 [geographic.catchment]
 catch_def = "from_outlet_coord"
 dem_init_path = "DEM_armorican_massif.tif"
 x_outlet = 389285.910
 y_outlet = 6816518.749
 snap_dist = "150 m"
-# "10%" is an area increase: the buffered domain covers 10 % more area than the catchment.
 buff_area = "10%"
 
 # Armorican regolith and fissured bedrock, against the 50 m default.

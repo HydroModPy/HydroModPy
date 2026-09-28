@@ -732,14 +732,14 @@ either number is right.
 Declared deviations from the paper and from the authors' own code
 -------------------------------------------------------------------
 
-``MatchingHydrographicNetwork.deviations`` (version 1.1) declares each of
+``MatchingHydrographicNetwork.deviations`` (version 1.2) declares each of
 these departures in code, with the same key, paper value and reasoning as
 below; this section restates them so a reader is not sent to the code for a
 one-line answer. Where the key is a real option and its default is the
 paper's (``diagonal_neighbors``, ``weighting``, ``observed_position_accuracy``,
-``validity_length``, ``observed_rasterization``), the entry is an offered
-departure: the Methods paragraph a run writes names it only when the file
-moves it off the paper's value. Four departures already have their own
+``validity_length``, ``observed_rasterization``, ``dem_correc_type``), the
+entry is an offered departure: the Methods paragraph a run writes names it
+only when the file moves it off the paper's value. Four departures already have their own
 section above because the reasoning does not fit in one line:
 :math:`\tau_{ratio}` under "What counts as a seepage cell", ``weighting`` and
 ``observed_position_accuracy`` under "Weighting, and the reference length",
@@ -796,15 +796,17 @@ The bisection variable and its sweep
 
 Depression handling, breach or fill
    The paper's tool is ``FillDepressions``, which raises every depression to
-   its pour point, and the filled DEM serves both the delineation and the
-   distances. The default here is ``dem_correc_type = "breach"`` for the
-   raster delineation, which carves a channel through the barrier at the
-   depression's own minimal elevation change and moves far fewer cells. The
-   criterion does not descend that raster: it fills the model top on the mesh
-   graph, seeded on the domain border, which is the paper's fill, and reads
-   its catchment there. The departure reaches the criterion only through the
-   domain and the outlet, and ``catchment_mismatch`` measures it per trial.
-   Setting ``dem_correc_type = "fill"`` reproduces the paper's own tool.
+   its spill level, and the filled DEM serves both the delineation and the
+   distances. The default here is the same, ``dem_correc_type = "fill"``, so
+   one conditioning rule runs from the DEM to the score. The criterion does
+   not descend that raster: it fills the model top on the mesh graph, seeded
+   on the domain border, which is the paper's fill again, and reads its
+   catchment there. ``"breach"`` is offered and departs: it carves a channel
+   through the barrier at the least elevation change (Lindsay, 2016) and moves
+   far fewer cells, which a fine DEM crossed by road embankments can need.
+   A breached raster reaches the criterion only through the domain and the
+   outlet, and ``catchment_mismatch`` measures that gap per trial. The key
+   lives in ``[geographic]``, not in the network output.
 
 The mapped network's rasterisation
    The paper rasterises the mapped network onto the model grid with
@@ -929,6 +931,23 @@ nothing. A calibration declaring a network output recomputes the same ratio on
 the solver mesh and publishes it per trial as ``alpha_obs_closure``, together
 with ``alpha_obs_closure_catchment``, the same ratio restricted to the
 scored catchment.
+
+With ``[geographic.snap_streams]`` on, the map is first snapped on the talwegs
+of the conditioned raw DEM, on the raster grid, by the same algorithm the
+criterion uses on the mesh. In ``apply`` the trench is cut along the snapped
+cells rather than the raw lines, and :math:`\alpha` is measured against the
+snapped map the burn followed (``"snapped": true`` in the JSON). In
+``diagnose`` the raw lines are burned and measured, and the snap is only
+published, in ``stream_snap_raster.json``.
+
+That raster snap is not the one Eq. 4 scores. The criterion snaps the raw map
+again on the mesh graph, filled from the unburned model top, with a radius
+counted in mesh cells. On a mesh coarser than the DEM the two passes can put
+one reach on different talwegs near a meander or a confluence. In ``apply``
+the burn and the mesh river trace then follow the raster snap while the
+criterion scores its own. No agreement between the two is computed yet:
+compare ``stream_snap_raster.tif`` with the snapped map of the network card
+before trusting ``apply`` on a coarse mesh.
 
 The restriction is not cosmetic. Outside the catchment the mesh is a buffer, so
 no cell there is required to descend into the mapped network, and every reach

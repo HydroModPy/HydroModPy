@@ -1,8 +1,9 @@
 # Nancon, the model of step 2 with the network and the gauge fetched instead of
 # read off disk. Only the provenance changes, so read it beside step 2 rather
 # than after it. Needs network access; both services are French national ones
-# and neither asks for a key. The DEM stays the local file of step 1: the IGN
-# Geoplateforme elevation endpoint answers 403 from here.
+# and neither asks for a key. The DEM stays the local file of step 1:
+# `source = "ign_geoplateforme_dem"` assembles the IGN BD ALTI at 25 m, another
+# surface, and the model would no longer be step 2's.
 #
 #   hmp run examples/projects/04_streamflow_intermittence_in_transient/step3_api_data.toml
 
@@ -14,9 +15,12 @@ name = "nancon_step3_api"
 [data]
 types = ["hydrography", "hydrometry"]
 
-# BD TOPAGE, the Sandre reference network, 99 features over this catchment. No
-# path and no layer name: the download box comes from the delineated watershed,
-# which is why step 1 sets [geographic] crs_project.
+# BD TOPAGE, the Sandre reference network: every reach with its permanence,
+# 1196 over the download box, 426 of them permanent, which are also written
+# beside it as the permanent network. No path and no layer name: the box comes
+# from the delineated watershed, which is why step 1 sets [geographic]
+# crs_project. It is not step 2's map, which holds the permanent BD TOPO class
+# alone, so the network differs and the heads do not.
 [[data.hydrography.sources]]
 source = "bdtopage"
 

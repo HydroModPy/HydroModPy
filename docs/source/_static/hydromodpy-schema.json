@@ -10714,8 +10714,8 @@
           "x-hmp-profile": "user"
         },
         "dem_correc_type": {
-          "default": "breach",
-          "description": "DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point.",
+          "default": "fill",
+          "description": "How the DEM is conditioned before the catchment is delineated. 'fill' (default) raises each closed depression to its spill level, then puts a small gradient on the flats so every cell drains. 'breach' carves a path through the barrier that closes a depression instead, and changes far fewer cells (least-cost breaching, Lindsay 2016). 'fill' is the default because it is the tool of the paper behind the network criterion (FillDepressions, Abherve et al. 2023), and the criterion itself fills the model top on the mesh by a priority flood: one conditioning rule from the DEM to the score.",
           "enum": [
             "breach",
             "fill"
@@ -14017,7 +14017,7 @@
             }
           ],
           "default": null,
-          "description": "Dates bounding the samples stage two scores on, as {start, end}. Use it to drop the spin-up year the transient stage still has to simulate.",
+          "description": "Dates bounding the samples stage two scores on, as {start, end}, for every block it scores, a network one included. Unset, and with neither scoring_window nor warmup_periods on [calibration], stage two scores from one year after [simulation.time].start_datetime: the first year is spin-up. A run of one year or less is scored whole. Write start = the run's own start to score the spin-up year too.",
           "title": "Scoring Window",
           "x-hmp-profile": "user"
         }
@@ -20741,11 +20741,11 @@
     },
     "SnapStreamsConfig": {
       "additionalProperties": false,
-      "description": "Snap the mapped stream network onto the talwegs of the criterion graph.\n\nOff by default. ``diagnose`` computes the snapped map, its indices and the\nfloor ``F`` and publishes them, while the criterion still scores the raw\nmap. ``apply`` scores the snapped map, and Eq. 4 then also bounds the\ndisplacement and the rejected share.",
+      "description": "Snap the mapped stream network onto the talwegs of the criterion graph.\n\nOff by default. ``diagnose`` computes the snapped map, its indices and the\nfloor ``F`` and publishes them, while every consumer still reads the raw\nmap. ``apply`` makes every consumer read the snapped map: the criterion,\nthe figures, the stream burn of the routing DEM, a mesh river constraint\nread from the mapped file, and the network metrics of a run. Eq. 4 then\nalso bounds the displacement and the rejected share.",
       "properties": {
         "mode": {
           "default": "off",
-          "description": "'off' computes nothing. 'diagnose' snaps the mapped network, publishes the displacement, the rejected cells, the length change and the floor F, and scores the raw map. 'apply' scores the snapped map; Eq. 4 then also asks the p90 displacement and the rejected share to stay within their bounds.",
+          "description": "'off' computes nothing. 'diagnose' snaps the mapped network, publishes the displacement, the rejected cells, the length change and the floor F, and every consumer reads the raw map. 'apply' makes every consumer read the snapped map: the criterion, the figures, the stream burn, a mesh river constraint read from the mapped file and the network metrics of a run; Eq. 4 then also asks the p90 displacement and the rejected share to stay within their bounds.",
           "enum": [
             "off",
             "diagnose",

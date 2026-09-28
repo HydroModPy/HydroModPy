@@ -8,6 +8,11 @@ weighting and, in the two-bound mode, the extent rules and the years its
 another partition than the one the numbers describe, so this module reads
 those settings from the configuration the run sealed.
 
+The window is the one of the phase the run was scored in, when that phase
+declares one: a phase's ``scoring_window`` replaces the calibration's, and
+the protocol writes its default spin-up window on its transient stage. The
+phase is the one of the calibration session the run's trial belongs to.
+
 The results layer may not import the calibration layer, so the output is read
 as the plain mapping the snapshot holds, with the defaults of
 :mod:`hydromodpy.core.stream_criterion_defaults` and
@@ -31,6 +36,7 @@ from hydromodpy.core.stream_criterion_defaults import (
 from hydromodpy.core.stream_extent import DEFAULT_VISIBLE_FLOW, parse_visible_flow
 from hydromodpy.core.stream_snap import SnapStreamsConfig
 from hydromodpy.core.units.length import parse_to_m
+from hydromodpy.results.calibration_trials import calibration_sessions, calibration_trials
 from hydromodpy.results.derive.snapped_network import snap_settings_of_run
 
 if TYPE_CHECKING:
@@ -96,11 +102,16 @@ class NetworkCriterionSettings:
     """How many network outputs the run sealed: more than one means a choice was made."""
 
     scoring_window: ScoringWindow | None = None
-    """The ``[calibration] scoring_window`` the run sealed, None when it sealed none.
+    """The scoring window the run was scored with, None when it sealed none.
 
-    The two-bound mode scores only the complete years it holds: a spin-up year
-    outside it is left out of the extents and of the year quorum.
+    The window of the run's phase when that phase declares one, else the
+    ``[calibration]`` one. The two-bound mode scores only the complete years it
+    holds: a spin-up year outside it is left out of the extents and of the year
+    quorum.
     """
+
+    scoring_window_phase: str | None = None
+    """The phase whose window :attr:`scoring_window` is, None for the calibration's."""
 
     snap: SnapStreamsConfig | None = field(default=None, compare=False)
     """The ``[geographic.snap_streams]`` setting the run sealed, None when off."""
@@ -126,6 +137,8 @@ class NetworkCriterionSettings:
         if self.scoring_window is not None:
             start, end = self.scoring_window
             source += f", scoring_window {_date_or_open(start)} to {_date_or_open(end)}"
+            if self.scoring_window_phase is not None:
+                source += f" of phase {self.scoring_window_phase!r}"
         return source
 
 
@@ -174,7 +187,6 @@ def network_criterion_settings(sim: Run, *, output: str | None = None) -> Networ
     """
     outputs = network_outputs_of_run(sim)
     snap = snap_settings_of_run(sim)
-    window = _scoring_window(_calibration_section(sim).get("scoring_window"))
     if output is not None and output not in outputs:
         held = ", ".join(repr(name) for name in outputs) or "none"
         raise ValueError(
@@ -184,9 +196,72 @@ def network_criterion_settings(sim: Run, *, output: str | None = None) -> Networ
     if not outputs:
         return NetworkCriterionSettings(output=None, snap=snap)
     name = next(iter(outputs)) if output is None else output
+    window, phase = _window_of_run(sim)
     return _settings_of_output(
-        name, outputs[name], n_outputs=len(outputs), snap=snap, scoring_window=window
+        name,
+        outputs[name],
+        n_outputs=len(outputs),
+        snap=snap,
+        scoring_window=window,
+        scoring_window_phase=phase,
     )
+
+
+def _window_of_run(sim: Run) -> tuple[ScoringWindow | None, str | None]:
+    """Return the scoring window the run was scored with, and its phase.
+
+    A phase declaring a ``scoring_window`` replaces the calibration's for every
+    block it scores, exactly as the staged runner builds that phase. A phase
+    declaring none, or a run tied to no phase, reads the calibration's.
+    """
+    calibration = _calibration_section(sim)
+    name = _phase_of_run(sim)
+    phase = _sealed_phase(calibration, name) if name is not None else None
+    if phase is not None and phase.get("scoring_window") is not None:
+        where = f"calibration.phases.{name}.scoring_window"
+        return _scoring_window(phase["scoring_window"], where=where), name
+    return _scoring_window(calibration.get("scoring_window")), None
+
+
+def _sealed_phase(calibration: Mapping[str, Any], name: str) -> Mapping[str, Any] | None:
+    """Return the sealed ``[[calibration.phases]]`` entry of that name, or None."""
+    for phase in calibration.get("phases") or ():
+        if isinstance(phase, Mapping) and phase.get("name") == name:
+            return phase
+    return None
+
+
+def _phase_of_run(sim: Run) -> str | None:
+    """Return the phase of the calibration session the run's trial belongs to.
+
+    None when the run belongs to no session, to several, or to a session that
+    ran no phase. Only the session rows say which phase a run was scored in.
+    """
+    try:
+        trials = calibration_trials(sim)
+    except (ValueError, AttributeError):
+        # No trial names this run, or a run-shaped view carries no queryable
+        # catalog: either way no session says which phase scored it.
+        return None
+    if "session_id" not in trials.columns:
+        return None
+    named = {_bare_id(value) for value in trials["session_id"] if value is not None}
+    if len(named) != 1:
+        return None
+    (session,) = named
+    sessions = calibration_sessions(sim)
+    if sessions.empty or "session_id" not in sessions.columns:
+        return None
+    for row in sessions.to_dict("records"):
+        if _bare_id(row["session_id"]) == session:
+            phase = row.get("phase_name")
+            return None if phase is None or pd.isna(phase) else str(phase)
+    return None
+
+
+def _bare_id(value: Any) -> str:
+    """Return a session id as bare lowercase hex, whatever its spelling."""
+    return str(value).replace("-", "").lower()
 
 
 def _settings_of_output(
@@ -196,6 +271,7 @@ def _settings_of_output(
     n_outputs: int,
     snap: SnapStreamsConfig | None,
     scoring_window: ScoringWindow | None,
+    scoring_window_phase: str | None,
 ) -> NetworkCriterionSettings:
     """Read one sealed network output, with the defaults for an absent key."""
     where = f"calibration output {name!r}"
@@ -226,6 +302,7 @@ def _settings_of_output(
         n_network_outputs=n_outputs,
         snap=snap,
         scoring_window=scoring_window,
+        scoring_window_phase=None if scoring_window is None else scoring_window_phase,
     )
 
 
@@ -260,7 +337,9 @@ def _extent_rules(payload: Any, *, where: str) -> NetworkExtentRules | None:
     )
 
 
-def _scoring_window(payload: Any) -> ScoringWindow | None:
+def _scoring_window(
+    payload: Any, *, where: str = "calibration.scoring_window"
+) -> ScoringWindow | None:
     """Return the sealed scoring window as naive timestamps, or None when unset.
 
     A zoned bound keeps its wall clock, the clock
@@ -269,7 +348,6 @@ def _scoring_window(payload: Any) -> ScoringWindow | None:
     """
     if payload is None:
         return None
-    where = "calibration.scoring_window"
     if not isinstance(payload, Mapping):
         raise ValueError(f"{where} is not a mapping, got {payload!r}.")
     bounds: list[pd.Timestamp | None] = []

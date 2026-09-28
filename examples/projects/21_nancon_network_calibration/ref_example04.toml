@@ -91,6 +91,11 @@ project_root = "."
 [geographic]
 source_mode = "standard"
 crs_project = "EPSG:2154"
+# La reference remplit le MNT (FillDepressions), et "fill" est le defaut
+# depuis la version 1.2 du protocole. "breach" est garde explicite, comme
+# `diagonal_neighbors = false`, pour que les neuf essais et le
+# `best_objective` mesures restent reproductibles ; la sortie Methods et
+# `hmp calibrate --check` le nomment comme un ecart au papier.
 dem_correc_type = "breach"
 reuse_existing_outputs = true
 
@@ -280,12 +285,14 @@ diagonal_neighbors = false
 #
 # Version epinglee : un point de comparaison qui glisse avec les versions
 # n'en est plus un. Passee a 1.1 (D8 par defaut, Eq. 4 lue au point rendu
-# seulement) : un pin sur "1.0" est refuse par le protocole depuis ce bump,
-# et `diagonal_neighbors = false` ci-dessus tient a lui seul la difference de
-# comportement qui comptait pour ce montage.
+# seulement), puis a 1.2 (MNT rempli par defaut, annee d'amorce ecartee de la
+# phase transitoire, Eq. 4 en metres) : un pin sur une version anterieure est
+# refuse. `diagonal_neighbors = false`, `dem_correc_type = "breach"` et la
+# `scoring_window` ci-dessous tiennent les differences de comportement qui
+# comptaient pour ce montage.
 [calibration.protocol]
 name = "matching_hydrographic_network"
-version = "1.1"
+version = "1.2"
 steady_metric = "distance_mean"
 steady_method = "scipy_nelder_mead"
 steady_max_iter = 60
@@ -308,13 +315,18 @@ fatol = 0.05
 # `xatol: 1e-5` normalise sur les 3,699 decades de [1e-4 ; 0,5] -> 3,7e-5
 # decade de Sy, inatteignable : c'est `maxiter` qui arrete la recherche,
 # comme dans la reference. `fatol: 1e-5`, cout 1 - NSE_log sans dimension.
-# Aucune `scoring_window` : la reference score toute la periode de calage,
-# sans annee d'amorce ecartee, et sans masque saisonnier.
 [calibration.protocol.transient_engine_options]
 maxiter = 120
 maxfev = 120
 xatol = 3.7e-5
 fatol = 1e-5
+
+# La reference score toute la periode de calage, sans annee d'amorce ecartee
+# et sans masque saisonnier. Sans fenetre ecrite, le protocole ecarte la
+# premiere annee de la phase transitoire : la fenetre ouvre donc ici au
+# premier jour de `[simulation.time]`.
+[calibration.protocol.scoring_window]
+start = "1995-01-01"
 
 # La reference ne sort qu'un K et un Sy. `cost_profile` relit la trace des
 # essais deja faits et rend, a cote, la plage que la recherche n'a pas su

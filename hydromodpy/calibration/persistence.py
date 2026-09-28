@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal, Protocol
@@ -186,12 +186,18 @@ class CalibrationPersistence:
         status: str = "completed",
         error: str | None = None,
         best_sim_id: str | None = None,
+        root_search: Mapping[str, Any] | None = None,
     ) -> None:
         """Close the session: outcome, best trial and promoted best run.
 
         ``best_sim_id`` is the run promotion produced for the best trial; it
         wins over the id the evaluation carried, which stays empty for the
         lightweight trial loop.
+
+        ``root_search`` is the final bracket or the two roots of a root
+        search, keyed ``bracket`` and ``roots`` as in the report. It goes to
+        ``session.json`` only: the index has no column for it, and a reader
+        of the session reads it from the disk.
         """
         if not self._persistence.save_catalog:
             return
@@ -206,6 +212,7 @@ class CalibrationPersistence:
                 best_objective=best.objective_value if best else None,
                 best_sim_id=best_run,
                 error_message=error,
+                root_search=root_search,
             )
         sid = _session_key(session_id)
         best_sim_uuid = None

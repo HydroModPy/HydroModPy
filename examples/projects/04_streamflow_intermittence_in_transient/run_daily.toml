@@ -12,7 +12,8 @@ description = "Nancon catchment, daily transient 2000-2002, seasonal seepage int
 
 # 1096 stress periods instead of 36: count about thirty times the monthly run,
 # in solver time and in stored fields, since every timestep writes its own
-# per-cell budget. The calibration window the parent declares still drops 2000.
+# per-cell budget. The spin-up year a calibration leaves out is written in
+# dates, not in steps, so 2000 is still the year left out here.
 [simulation.time]
 step_value = "1 day"
 
@@ -26,8 +27,8 @@ station_ids = ["NANCON_REA"]
 station_ids = ["NANCON_REA"]
 
 # 36 monthly points were too few to read a duration curve or a recession off,
-# 1096 daily ones are not. `__append` adds to the parent's eight figures; a
-# plain `figures = [...]` would replace them.
+# 1096 daily ones are not. `__append` adds to the parent's figures; a plain
+# `figures = [...]` would replace them.
 [display]
 figures__append = ["duration_curve", "recession"]
 

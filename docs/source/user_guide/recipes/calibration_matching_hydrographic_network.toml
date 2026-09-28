@@ -115,6 +115,8 @@ sweep_points = 7
 
 # The transient stage still has to simulate 1995 to reach 1996 with a state it
 # has forgotten its initial condition in. It simulates it and does not score it.
+# Left out, the protocol writes the same start, one year after the run's own;
+# written, it can say anything else, a low-flow season or the whole record.
 [calibration.protocol.scoring_window]
 start = "1996-01-01"
 end = "2020-12-31"

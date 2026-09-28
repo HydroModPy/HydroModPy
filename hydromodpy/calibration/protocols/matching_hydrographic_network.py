@@ -31,6 +31,8 @@ import copy
 from collections.abc import Mapping
 from typing import Any
 
+import pandas as pd
+
 from hydromodpy.calibration.config import MatchingHydrographicNetworkOptions, outputs_agree
 from hydromodpy.calibration.protocols.base import Deviation, Reference
 
@@ -45,11 +47,19 @@ class MatchingHydrographicNetwork:
     """Conductivity from the mapped stream network, storage from the hydrograph."""
 
     name = "matching_hydrographic_network"
-    version = "1.1"
-    """Bumped from 1.0: the descent used to build the criterion now defaults to
-    D8, and the validity bound of Eq. 4 is read only at the point the search
-    returns rather than at every trial. Both change results for a file that ran
-    under 1.0, so a pin on that version is refused rather than silently upgraded.
+    version = "1.2"
+    """Bumped from 1.1, which v2.0.0a1 released. Three defaults moved, and each
+    changes the result of a file re-run without a pin: the DEM is filled rather
+    than breached before the catchment is cut ([geographic].dem_correc_type),
+    the transient stage leaves the first year of the run out as spin-up, and
+    the bound of Eq. 4 is a length in metres (validity_length = 'auto') where
+    it was roptim_max = 2 on a ratio to the cell size.
+
+    Bumped from 1.0 to 1.1: the descent used to build the criterion defaulted
+    to D8, and the validity bound of Eq. 4 was read only at the point the
+    search returns rather than at every trial.
+
+    A pin on an older version is refused rather than silently upgraded.
     """
     title = "Matching the hydrographic network"
     summary = (
@@ -65,7 +75,8 @@ class MatchingHydrographicNetwork:
         "Steady state, mean recharge over the record: move the conductivity until the "
         "simulated seepage network matches the mapped one.",
         "Transient at the forcing step, conductivity frozen: move the specific yield "
-        "against the observed hydrograph.",
+        "against the observed hydrograph, scored after the first year of the run, the "
+        "spin-up, unless the file declares a scoring window.",
     )
     references = (
         Reference(
@@ -255,21 +266,22 @@ class MatchingHydrographicNetwork:
             key="dem_correc_type",
             paper="FillDepressions on the DEM, which then serves both the catchment "
             "delineation and the distances",
-            here="'breach' by default for the raster delineation, which only builds "
-            "the model domain and places the outlet; the criterion fills the model "
-            "top on the mesh graph by a priority flood seeded on the domain border, "
-            "and reads its catchment there, upstream of the outlet",
+            here="'fill' by default, the paper's tool, for the raster delineation, "
+            "which builds the model domain and places the outlet; 'breach' is "
+            "offered and departs. Either way the criterion fills the model top on "
+            "the mesh graph by a priority flood seeded on the domain border, and "
+            "reads its catchment there, upstream of the outlet",
             why=(
-                "breaching moves far fewer cells than filling, which is what a "
-                "delineation on a fine DEM with road embankments needs; WhiteboxTools "
-                "documents it as the preferred remedy. The criterion does not descend "
-                "that raster: sampled on another mesh it grows new pits, so the top is "
-                "filled on the graph the distances use, the paper's fill. What is left "
-                "of the departure reaches the criterion only through the outlet and "
-                "the domain, and the gap between the raster polygon and the scored "
-                "catchment is published per trial as catchment_mismatch (0.2 per cent "
-                "on the Nancon grid). 'fill' reproduces the paper's own tool."
+                "'breach' exists because it moves far fewer cells than filling, which "
+                "a delineation on a fine DEM with road embankments can need. The "
+                "criterion does not descend that raster: sampled on another mesh it "
+                "grows new pits, so the top is filled on the graph the distances use, "
+                "the paper's fill. A breached raster reaches the criterion only "
+                "through the outlet and the domain, and the gap between the raster "
+                "polygon and the scored catchment is published per trial as "
+                "catchment_mismatch. Choosing it leaves the publication."
             ),
+            paper_value="fill",
         ),
         Deviation(
             key="observed_rasterization",
@@ -292,6 +304,25 @@ class MatchingHydrographicNetwork:
                 "keeps every mapped reach on the mesh, so none disappears silently."
             ),
             paper_value="crossing",
+        ),
+        Deviation(
+            key="spin_up_year",
+            paper="stage two simulates 2020 to 2023 and scores June to October of the "
+            "drought year 2022 alone (WRR 2025, Fig. 5): the years before are simulated "
+            "and not scored",
+            here="with no scoring_window on the protocol or on [calibration], and no "
+            "warmup_periods, stage two leaves the first year of [simulation.time] out: "
+            "it scores from one year after start_datetime to the end of the run, every "
+            "block it scores alike. A declared window replaces it. A run of one year "
+            "or less has nothing past its spin-up and is scored whole",
+            why=(
+                "the first year starts from an initial condition the run did not "
+                "produce and still carries it; scored, it fits the storage to that "
+                "initial condition as much as to the aquifer. "
+                "The paper's low-flow months of one year are a choice for its site and "
+                "its question, which no default can carry, so the default keeps the "
+                "whole record past the spin-up and leaves that window to the file."
+            ),
         ),
     )
 
@@ -371,7 +402,10 @@ class MatchingHydrographicNetwork:
             )
         calibration["outputs"] = outputs
         calibration["objective_blocks"] = objective_blocks
-        calibration["phases"] = _phases(opts, scores_a_known_station=station is not None)
+        scored_from = _first_date_past_the_spin_up(document, opts) if opts.storage else None
+        calibration["phases"] = _phases(
+            opts, scores_a_known_station=station is not None, scored_from=scored_from
+        )
         expanded["calibration"] = calibration
         return expanded
 
@@ -491,8 +525,137 @@ def _write_hydrograph_output(
     outputs[HYDROGRAPH_OUTPUT] = written
 
 
+def _first_date_past_the_spin_up(
+    document: Mapping[str, Any], opts: MatchingHydrographicNetworkOptions
+) -> str | None:
+    """Return the first date the transient stage scores by default, or ``None``.
+
+    The transient stage runs the project's own time grid, whose first year
+    starts from an initial condition the run did not produce. Left unwindowed,
+    the hydrograph and any network block scored in that phase would read it,
+    and a two-bound network would count it as one more complete year. So the
+    default window opens one year after ``[simulation.time].start_datetime``.
+
+    ``None`` when a declaration already says what the phase scores, and wins:
+    ``scoring_window`` on the protocol, ``scoring_window`` or
+    ``warmup_periods`` on ``[calibration]``. ``None`` too for a document
+    already carrying a transient stage without a window: a run sealed before
+    this default replays the window it ran with. And ``None`` when no start
+    date is written, where the stage cannot run transient anyway.
+
+    A run that ends within its first year, or on its first anniversary, gets
+    no window either: nothing lies past the spin-up to score, and refusing
+    the file here would also refuse the steady stage, which reads the same
+    record and needs no spin-up.
+    """
+    if opts.scoring_window is not None:
+        return None
+    calibration = document.get("calibration")
+    calibration = calibration if isinstance(calibration, Mapping) else {}
+    if calibration.get("scoring_window") is not None or calibration.get("warmup_periods"):
+        return None
+    for phase in calibration.get("phases") or ():
+        if isinstance(phase, Mapping) and phase.get("name") == TRANSIENT_STAGE:
+            if phase.get("scoring_window") is None:
+                return None
+            break
+
+    simulation = document.get("simulation")
+    time = simulation.get("time") if isinstance(simulation, Mapping) else None
+    time = time if isinstance(time, Mapping) else {}
+    return _date_past_the_spin_up(time.get("start_datetime"), time.get("end_datetime"))
+
+
+def _date_past_the_spin_up(start: Any, end: Any) -> str | None:
+    """Return the first date scored once a one-year spin-up is left out.
+
+    ``start`` and ``end`` are ``[simulation.time]``'s bounds, as a date, a
+    datetime or a string. ``None`` when ``start`` is unset, or when the run
+    ends within its first year or on its first anniversary: nothing lies past
+    the spin-up to score, so the stage scores the whole run, and
+    :func:`why_the_spin_up_year_is_scored` says so.
+    """
+    first = _instant(start, "[simulation.time].start_datetime")
+    if first is None:
+        return None
+    first_scored = first + pd.DateOffset(years=1)
+    last = _instant(end, "[simulation.time].end_datetime")
+    if (
+        last is not None
+        and (last.tzinfo is None) == (first_scored.tzinfo is None)
+        and first_scored >= last
+    ):
+        return None
+    return _spelled(first_scored)
+
+
+def why_the_spin_up_year_is_scored(calibration: Any, time: Any) -> str | None:
+    """Return why the default spin-up window did not reach the transient stage.
+
+    ``calibration`` is the validated ``[calibration]`` section, expanded;
+    ``time`` is ``[simulation.time]``. ``None`` when the window reached the
+    stage, when a window or a warm-up the file declares replaces it, when the
+    protocol writes no transient stage, or when no start date is written.
+    The expansion drops the window without a word, so ``hmp calibrate
+    --check`` prints what this returns.
+    """
+    declared = getattr(calibration, "protocol", None)
+    if getattr(declared, "name", None) != MatchingHydrographicNetwork.name:
+        return None
+    if declared.storage is None or declared.scoring_window is not None:
+        return None
+    if calibration.scoring_window is not None or calibration.warmup_periods:
+        return None
+    phase = next((p for p in calibration.phases or () if p.name == TRANSIENT_STAGE), None)
+    if phase is None or phase.scoring_window is not None:
+        return None
+    start = getattr(time, "start_datetime", None)
+    if start is None:
+        return None
+    end = getattr(time, "end_datetime", None)
+    if _date_past_the_spin_up(start, end) is None:
+        return (
+            f"[simulation.time] ends on {pd.Timestamp(end):%Y-%m-%d}, within one year of "
+            f"its start {pd.Timestamp(start):%Y-%m-%d}, so nothing lies past the spin-up "
+            "to score. Lengthen the run, or write [calibration.protocol].scoring_window "
+            "to say what it scores."
+        )
+    return (
+        f"the {TRANSIENT_STAGE} phase this file writes has no scoring_window, so the "
+        "default window, one year after start_datetime, does not apply."
+    )
+
+
+def _instant(value: Any, source: str) -> pd.Timestamp | None:
+    """Return a TOML date, datetime or string as a timestamp, ``None`` when unset."""
+    if value is None or value == "":
+        return None
+    try:
+        stamp = pd.Timestamp(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{source} is not a date: {value!r}.") from exc
+    if stamp is pd.NaT:
+        raise ValueError(f"{source} is not a date: {value!r}.")
+    return stamp
+
+
+def _spelled(stamp: pd.Timestamp) -> str:
+    """Return one spelling of an instant: its date at midnight, ISO 8601 otherwise.
+
+    A TOML file writes the same start three ways, and the stage written from
+    it must not depend on which: a run re-read from its own dump has to expand
+    to the stages it ran.
+    """
+    if stamp.tzinfo is None and stamp == stamp.normalize():
+        return stamp.strftime("%Y-%m-%d")
+    return stamp.isoformat()
+
+
 def _phases(
-    opts: MatchingHydrographicNetworkOptions, *, scores_a_known_station: bool
+    opts: MatchingHydrographicNetworkOptions,
+    *,
+    scores_a_known_station: bool,
+    scored_from: str | None = None,
 ) -> list[dict[str, Any]]:
     # The regime says steady and runners/phase_regime.py writes what it means:
     # one period over the window, read from [simulation.time] unless the file
@@ -520,11 +683,18 @@ def _phases(
     if opts.storage is None:
         return [steady]
 
+    # The window bounds every block the phase scores, a network one included,
+    # so the spin-up year leaves the hydrograph and a two-bound extent alike.
+    spin_up = (
+        f", scored from {scored_from} on, the first year of the run left out as spin-up"
+        if opts.scoring_window is None and scored_from is not None
+        else ""
+    )
     transient: dict[str, Any] = {
         "name": TRANSIENT_STAGE,
         "description": (
             f"Read {opts.storage} from the observed hydrograph, "
-            f"{opts.conductivity} frozen, transient."
+            f"{opts.conductivity} frozen, transient{spin_up}."
         ),
         "method": opts.transient_method,
         "max_iter": opts.transient_max_iter,
@@ -547,6 +717,8 @@ def _phases(
         transient["optimizer_kwargs"] = dict(opts.transient_engine_options)
     if opts.scoring_window is not None:
         transient["scoring_window"] = dict(opts.scoring_window)
+    elif scored_from is not None:
+        transient["scoring_window"] = {"start": scored_from}
     return [steady, transient]
 
 
@@ -557,4 +729,5 @@ __all__ = [
     "STEADY_STAGE",
     "TRANSIENT_STAGE",
     "MatchingHydrographicNetwork",
+    "why_the_spin_up_year_is_scored",
 ]

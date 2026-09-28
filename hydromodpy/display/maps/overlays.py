@@ -18,18 +18,26 @@ the caller turns into an explicit skip.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.display.maps.axes import overlay_watershed_contour
 from hydromodpy.display.maps.mesh_geometry import face_centroids, face_polygons
+from hydromodpy.results.derive.snapped_network import (
+    snap_settings_of_run,
+    stored_snapped_network,
+)
 from hydromodpy.results.run.particles import read_particle_tracks
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
     from hydromodpy.results.run import Run
+
+logger = get_logger(__name__)
 
 
 class OverlayUnavailable(RuntimeError):
@@ -80,14 +88,124 @@ def draw_particles(ax: Axes, sim: Run, *, max_tracks: int = 400, **_) -> None:
         ax.plot(track[:, 0], track[:, 1], lw=0.5, color="0.15", alpha=0.7, zorder=4)
 
 
+_MAPPED_ROLES: dict[str, str] = {
+    "reference": "maximal",
+    "reference_permanent": "minimal",
+}
+"""The mapped network roles, and the snapped map a run stores for each."""
+
+SNAPPED_MARKER_SIZE = 4.0
+"""Marker area, in points squared, of one snapped cell on a map."""
+
+
+@dataclass(frozen=True)
+class NetworkMap:
+    """The network a map draws for one role, and which map of it that is.
+
+    ``kind`` is ``"snapped"`` when the frame is the snapped map the run
+    stored, one point per mapped cell at the centre of the cell it moved
+    onto, and ``"raw"`` when it is the network as persisted.
+    """
+
+    role: str
+    frame: Any
+    kind: str
+    snap_mode: str
+
+    @property
+    def snapped(self) -> bool:
+        """True when the frame is the snapped map."""
+        return self.kind == "snapped"
+
+    def label(self) -> str | None:
+        """Return the line naming the map drawn, or None when the snap is off."""
+        if self.role not in _MAPPED_ROLES or self.snap_mode == "off":
+            return None
+        if self.snapped:
+            return "snapped map ([geographic.snap_streams] apply)"
+        if self.snap_mode == "apply":
+            return "raw map: the run stored no snapped map"
+        return f"raw map ([geographic.snap_streams] {self.snap_mode})"
+
+
+def network_map_of_role(sim: Run, role: str = "reference") -> NetworkMap:
+    """Return the network a map draws for one role.
+
+    ``[geographic.snap_streams]`` applies to every consumer of the mapped
+    network. In ``apply`` the ``reference`` and ``reference_permanent`` roles
+    draw the snapped map the run stored
+    (:mod:`~hydromodpy.results.derive.snapped_network`), the map the network
+    metrics read. In ``diagnose`` and ``off``, and for any other role, the
+    raw network is drawn. A run in ``apply`` that stored no snapped map draws
+    the raw one and says so.
+    """
+    settings = snap_settings_of_run(sim)
+    snap_mode = "off" if settings is None else str(settings.mode)
+    map_role = _MAPPED_ROLES.get(role)
+    if map_role is not None and snap_mode == "apply":
+        snapped = stored_snapped_network(sim, map_role=map_role)
+        if snapped is not None:
+            return NetworkMap(role=role, frame=snapped, kind="snapped", snap_mode=snap_mode)
+        logger.warning(
+            "Run %s: [geographic.snap_streams] mode = 'apply', but the run stored no snapped "
+            "%s map. The %s network is drawn raw.",
+            getattr(sim, "sim_id", "?"),
+            map_role,
+            role,
+        )
+    frame = sim.hydrographic_network(role)
+    return NetworkMap(role=role, frame=frame, kind="raw", snap_mode=snap_mode)
+
+
+def plot_network_map(
+    ax: Axes,
+    network: NetworkMap,
+    frame: Any | None = None,
+    *,
+    color: str,
+    linewidth: float,
+    alpha: float,
+    zorder: int,
+    label: str | None = None,
+) -> None:
+    """Draw a network map: lines when raw, one square per cell when snapped.
+
+    ``frame`` replaces ``network.frame`` when the caller reprojected it.
+    """
+    gdf = network.frame if frame is None else frame
+    style: dict[str, Any] = {"color": color, "alpha": alpha, "zorder": zorder}
+    if label is not None:
+        style["label"] = label
+    if network.snapped:
+        gdf.plot(ax=ax, marker="s", markersize=SNAPPED_MARKER_SIZE, linewidth=0.0, **style)
+    else:
+        gdf.plot(ax=ax, linewidth=linewidth, **style)
+
+
 def draw_network(ax: Axes, sim: Run, *, role: str = "reference", **_) -> None:
-    """Reference (or generated) hydrographic network."""
+    """Reference (or generated) hydrographic network.
+
+    A mapped role draws the snapped map under ``[geographic.snap_streams]
+    mode = "apply"`` (:func:`network_map_of_role`); the artist's label names
+    the map drawn.
+    """
     if not sim.has_hydrographic_network(role):
         raise OverlayUnavailable(f"run has no '{role}' hydrographic network")
-    gdf = sim.hydrographic_network(role)
-    if gdf is None or gdf.empty:
+    network = network_map_of_role(sim, role)
+    if network.frame is None or network.frame.empty:
         raise OverlayUnavailable(f"'{role}' hydrographic network is empty")
-    gdf.plot(ax=ax, color="tab:blue", linewidth=0.9, alpha=0.9, zorder=4)
+    note = network.label()
+    plot_network_map(
+        ax,
+        network,
+        color="tab:blue",
+        linewidth=0.9,
+        alpha=0.9,
+        zorder=4,
+        label=None if note is None else f"{role} network, {note}",
+    )
+    if note is not None:
+        logger.info("Overlay 'network' draws the %s network: %s.", role, note)
 
 
 def draw_wells(ax: Axes, sim: Run, *, timestep: int | None = None, **_) -> None:
@@ -213,4 +331,12 @@ def apply_overlays(
     return drawn
 
 
-__all__ = ["apply_overlays", "OVERLAYS", "OverlayUnavailable"]
+__all__ = [
+    "OVERLAYS",
+    "SNAPPED_MARKER_SIZE",
+    "NetworkMap",
+    "OverlayUnavailable",
+    "apply_overlays",
+    "network_map_of_role",
+    "plot_network_map",
+]

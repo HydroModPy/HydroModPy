@@ -287,15 +287,34 @@ The validity length
    without rewriting it.
 
 Scope
-   Wired today: the criterion (every network output, one map or two) and its
-   figures. Not wired: ``[geographic.enforce_streams]`` runs on the routing
-   raster inside the geographic step, before the mesh and the criterion graph
-   exist, so it cannot read a snap defined on that graph; using a snapped map
-   to burn the routing surface needs its own bridge and is not built.
-   ``results/derive/snapped_network.py`` can write and read the snapped
-   geometry as a stored entity (one point per cell, with its displacement,
-   status and accumulation percentile), but no pipeline step calls that write
-   yet: it is available to a caller, not automatic.
+   The setting applies to every consumer of the mapped network. ``apply``
+   makes each one read the snapped map, ``diagnose`` leaves each one on the
+   raw map while the snap is computed and published, and ``off`` changes
+   nothing anywhere.
+
+   - The criterion (every network output, one map or two) and its figures
+     snap on the criterion graph of the mesh.
+   - A run stores the snapped map it scored as a geographic feature (one
+     point per mapped cell of the catchment, with its displacement, status
+     and accumulation percentile). The overlap and distance metrics of the
+     ``reference`` and ``reference_permanent`` roles read it in ``apply``,
+     and say which map they read under ``network_map``.
+   - ``[geographic.enforce_streams]`` burns the routing raster before any
+     mesh exists, so its snap runs on the raster grid: the raw DEM is
+     conditioned by ``dem_correc_type``, the rasterised map is snapped on the
+     eight-neighbour graph of that raster by the same algorithm and radius
+     rule, and ``apply`` burns the snapped cells instead of the raw lines.
+     The routing DEM is then conditioned again as usual. This pass runs
+     whenever the snap is on and ``enforce_streams.stream_geometry_path``
+     names a network, burning or not, and costs one extra conditioning pass
+     and a graph over the whole raster.
+   - That raster pass is published in the geographic directory:
+     ``stream_snap_raster.json`` (mode, mapped file, indices),
+     ``stream_snap_raster.tif`` (snapped map, per-cell status) and
+     ``stream_snap_raster_lines.gpkg``. A mesh whose ``rivers.source =
+     "file"`` names the same mapped file reads those lines in ``apply``, and
+     the stream/DEM agreement of the geographic step measures the snapped
+     map the burn followed.
 
 Two figures read the sealed setting of the run they were asked to draw, so an
 ``apply`` run's figures show the snapped map it scored, never the raw one:
@@ -664,7 +683,11 @@ Transient, the two-bound mode
    For every complete calendar year — a timestep belongs to the year its
    *midpoint* falls in, and a year the run does not cover whole is dropped —
    two masks are built from the count of timesteps each cell flowed that
-   year:
+   year. A phase ``scoring_window`` keeps only the complete years it holds,
+   which is how the spin-up year leaves the score. A hand-written phase says
+   it; the transient stage of ``matching_hydrographic_network`` writes one by
+   default, from one year after the run's start, so a network block scored
+   there leaves its first year out like the hydrograph does:
 
    - the **maximal** simulated mask holds the cells flowing at least
      ``maximal_flowing_steps`` timesteps of the year;
@@ -820,7 +843,11 @@ Deviations to declare
    ``matching_hydrographic_network`` protocol itself is unchanged by any of
    this: it still writes the paper's two steady/transient stages, and the
    extent table is something a hand-written phase, or a protocol-expanded one
-   edited afterwards, opts into on its network output.
+   edited afterwards, opts into on its network output. The ``scoring_window``
+   its transient stage prints under ``hmp calibrate --expand``, one year after
+   the run's start unless the file declares one, is the phase's: it bounds a
+   two-bound network block pasted into that stage as well, and is refused
+   beside a network block in one state, which has no year to cut.
 
 A figure outside any calibration
    ``network_extent_bounds_map`` draws the maximal and minimal simulated
@@ -1285,7 +1312,20 @@ network" above; both refuse by name on a run whose
 ``[geographic.snap_streams]`` is ``off``.
 
 ``matching_hydrographic_network_card`` is a grid of panels and draws through ``plot()``,
-not through ``render(sim, ax)``.
+not through ``render(sim, ax)``. It reads the keys the trial published, which follow
+the maps in the cost:
+
+- one bound: the unsuffixed ``J_signed``, ``Doptim``, ``validity_length_m``,
+  ``roptim``, ``L_ref`` (``h_obs``) and the three counts, as before;
+- two bounds: one bracket per bound on ``J_signed_minimal`` and
+  ``J_signed_maximal``, and each bound's ``Doptim`` against its own length, its
+  counts and its Eq. 4 verdict side by side, read at the trial the search
+  returned, where the run reads Eq. 4. The two roots, ``Delta`` and the combined
+  value are in the report and not in the trials: pass ``roots=report.extra["roots"]``
+  to ``plot()`` to write them on the card. A bound weighted zero is drawn and
+  marked outside the verdict;
+- one state with both maps: the minimal map in the cost, and the maximal map
+  scored as a validation (``_maximal_validation``) drawn beside it, with no verdict.
 
 What to publish
 ---------------

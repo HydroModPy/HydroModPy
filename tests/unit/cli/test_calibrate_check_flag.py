@@ -150,3 +150,46 @@ def test_a_named_method_is_announced_with_what_to_cite(tmp_path, capsys) -> None
     assert "matching_hydrographic_network" in printed
     assert "10.5194/hess-27-3221-2023" in printed
     assert "ready to run" in printed
+
+
+def _protocol_file(tmp_path: Path, *, end: str = "2000-12-31", geographic: str = "") -> Path:
+    path = tmp_path / "calib.toml"
+    text = _PROTOCOL.replace("PROJECT_ROOT", str(tmp_path)).replace(
+        'end_datetime = "2000-12-31"', f'end_datetime = "{end}"'
+    )
+    text = text.replace('source_mode = "synthetic"', f'source_mode = "synthetic"\n{geographic}')
+    path.write_text(text, encoding="utf-8")
+    (tmp_path / "streams.gpkg").write_bytes(b"")
+    return path
+
+
+def test_a_run_of_one_year_is_told_its_spin_up_year_is_scored(tmp_path, capsys) -> None:
+    """The protocol drops its default window silently; the check says so."""
+    _check(_protocol_file(tmp_path))
+
+    printed = capsys.readouterr().err
+    assert "stage 2 scores the whole run, spin-up year included" in printed
+    assert "ends on 2000-12-31, within one year of its start 2000-01-01" in printed
+    assert "ready to run" in printed
+
+
+def test_a_run_past_its_first_year_gets_no_such_line(tmp_path, capsys) -> None:
+    _check(_protocol_file(tmp_path, end="2002-12-31"))
+
+    assert "spin-up year included" not in capsys.readouterr().err
+
+
+def test_a_breach_written_under_geographic_is_announced(tmp_path, capsys) -> None:
+    _check(_protocol_file(tmp_path, geographic='dem_correc_type = "breach"'))
+
+    lines = capsys.readouterr().err.splitlines()
+    line = next(line for line in lines if "differs from the paper on dem_correc_type" in line)
+    assert line.endswith("this file sets 'breach'")
+
+
+def test_an_unwritten_dem_conditioning_is_not_claimed_by_the_file(tmp_path, capsys) -> None:
+    _check(_protocol_file(tmp_path))
+
+    lines = capsys.readouterr().err.splitlines()
+    line = next(line for line in lines if "differs from the paper on dem_correc_type" in line)
+    assert "this file sets" not in line

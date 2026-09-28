@@ -9,18 +9,28 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.geographic.core.derived_features import (
     coerce_geographic_derived_features,
     resolve_river_mesh_trace,
 )
+from hydromodpy.spatial.geographic.core.raster_stream_snap import (
+    raster_snap_settings,
+    snapped_lines_for_mapped_file,
+)
+from hydromodpy.spatial.geographic.core.river_mesh_trace import (
+    build_river_mesh_trace_from_vector,
+)
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
+from hydromodpy.spatial.mesh.config import MeshCatchmentConfig, MeshCatchmentRiversConfig
 from hydromodpy.spatial.mesh.gmsh_grid.bundle_export_contracts import (
     CatchmentBundleGeologyExportConfig,
     CatchmentBundleHydraulicPropertiesConfig,
     CatchmentBundleSummaryReference,
 )
 from hydromodpy.spatial.mesh.refinement.refinement_zones import build_refinement_zone_size_fields
+
+logger = get_logger(__name__)
 
 _RIVER_TRACE_CONSTRAINT_MODES = {"rivers_only", "geology_rivers"}
 
@@ -224,23 +234,102 @@ def _resolve_output_overrides(
     )
 
 
+def _geographic_dir(features: object | None, domain_geographic: object | None) -> Path | None:
+    """Return the directory the geographic step published its products in, if known."""
+    watershed = getattr(domain_geographic, "watershed_shp", None)
+    if watershed is None:
+        watershed = getattr(getattr(features, "boundaries", None), "watershed_shp", None)
+    return None if watershed in (None, "") else Path(str(watershed)).parent
+
+
+def _snap_mode(geographic_cfg: object) -> str:
+    """Return the ``[geographic.snap_streams]`` mode, ``"off"`` when the config has none."""
+    snap = getattr(geographic_cfg, "snap_streams", None)
+    return "off" if snap is None else str(snap.mode)
+
+
+def _mapped_river_trace(
+    *,
+    rivers_cfg: MeshCatchmentRiversConfig,
+    config_path: Path,
+    geographic_cfg: GeographicConfig,
+    geographic_dir: Path | None,
+) -> object:
+    """Return the trace of the mapped network a mesh conforms to.
+
+    ``[geographic.snap_streams]`` applies to every consumer of the mapped
+    network. In ``apply`` the trace is the snapped lines the raster snap
+    published for this same file (:func:`snapped_lines_for_mapped_file`),
+    the lines the mesher reads too. In ``diagnose`` and ``off`` it is the
+    raw file. The raster snap runs only when ``[geographic.enforce_streams]``
+    names the mapped network: without it, ``apply`` has no snapped line to
+    give and the raw file is read, which is logged as a warning.
+    """
+    mapped = Path(str(rivers_cfg.path)).expanduser()
+    if not mapped.is_absolute():
+        mapped = (config_path.parent / mapped).resolve()
+    if not mapped.is_file():
+        raise ValueError(f"mesh_catchment.rivers.path does not exist: {mapped}.")
+    if _snap_mode(geographic_cfg) == "apply" and raster_snap_settings(geographic_cfg) is None:
+        logger.warning(
+            "[geographic.snap_streams] mode = 'apply', but the mesh river constraint reads the "
+            "raw map %s: the snap on the raster runs only when "
+            "[geographic.enforce_streams] stream_geometry_path names the mapped network.",
+            mapped,
+        )
+    snapped = snapped_lines_for_mapped_file(mapped, geographic_dir)
+    trace = build_river_mesh_trace_from_vector(
+        vector_path=mapped if snapped is None else snapped,
+        source_kind="file",
+        target_crs=getattr(geographic_cfg, "crs_project", None),
+    )
+    if trace is None:
+        raise ValueError(
+            f"mesh_catchment.rivers.source = 'file', but {snapped or mapped} holds no line."
+        )
+    return trace
+
+
 def _resolve_river_trace(
     *,
     constraints_mode: str,
     geographic_cfg: GeographicConfig,
     geographic_features: object | None,
     domain_geographic: object | None,
+    rivers_cfg: MeshCatchmentRiversConfig,
+    config_path: Path,
 ) -> object | None:
-    """Return the in-memory river trace required by river-constrained meshing."""
+    """Return the in-memory river trace required by river-constrained meshing.
+
+    With ``rivers.source = "file"`` the mesh conforms to that mapped network,
+    so the trace is the file, snapped under ``[geographic.snap_streams] mode =
+    "apply"`` (:func:`_mapped_river_trace`), and not the DEM-generated trace.
+    With ``source = "geographic_features"`` the trace is the network generated
+    from the DEM: the snap moves the mapped network, not this one.
+    """
     features = coerce_geographic_derived_features(
         geographic_features=geographic_features,
         domain_geographic=domain_geographic,
     )
+    if constraints_mode_requires_river_trace(constraints_mode) and rivers_cfg.source == "file":
+        return _mapped_river_trace(
+            rivers_cfg=rivers_cfg,
+            config_path=config_path,
+            geographic_cfg=geographic_cfg,
+            geographic_dir=_geographic_dir(features, domain_geographic),
+        )
     river_trace = resolve_river_mesh_trace(
         geographic_features=features,
     )
     if not constraints_mode_requires_river_trace(constraints_mode):
         return river_trace
+    if _snap_mode(geographic_cfg) == "apply":
+        logger.info(
+            "[geographic.snap_streams] mode = 'apply' snaps the mapped network, but the mesh "
+            "river constraint is the network generated from the DEM "
+            "(mesh_catchment.rivers.source = 'geographic_features'). Set source = 'file' and "
+            "path to the mapped network for the mesh to follow the snapped map."
+        )
     if river_trace is not None:
         return river_trace
     if geographic_cfg.uses_synthetic_geographic():
@@ -472,6 +561,8 @@ def run_single_mesh_catchment_workflow_typed(
         geographic_cfg=geographic_cfg,
         geographic_features=geographic_features_for_trace,
         domain_geographic=prepared_runtime.domain_geographic,
+        rivers_cfg=section_cfg.rivers,
+        config_path=config_path,
     )
     resolved_outputs = _resolve_output_overrides(
         config_path=config_path,

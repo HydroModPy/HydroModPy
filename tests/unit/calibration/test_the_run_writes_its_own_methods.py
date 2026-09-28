@@ -24,7 +24,7 @@ class TestWhatItAlwaysSays:
         text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"])
 
         assert NAME in text
-        assert "version 1.1" in text
+        assert "version 1.2" in text
 
     def test_it_cites_the_publication(self) -> None:
         text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"])

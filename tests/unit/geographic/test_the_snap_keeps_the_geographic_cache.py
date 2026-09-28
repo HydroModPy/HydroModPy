@@ -1,8 +1,10 @@
-"""Toggling ``[geographic.snap_streams]`` keeps the geographic cache.
+"""Toggling ``[geographic.snap_streams]`` keeps the geographic cache without a burn map.
 
-The snap moves the mapped network onto the model graph after the run. It
-changes no geographic product, so a cache written with it off is reused with it
-on, and the reverse.
+With no mapped network named under ``[geographic.enforce_streams]``, the snap
+moves the mapped network onto the model graph after the run. It changes no
+geographic product, so a cache written with it off is reused with it on, and
+the reverse. With one named, the raster snap decides the burned cells, and the
+cache follows it (``tests/unit/spatial/test_the_burn_follows_the_snapped_map.py``).
 """
 
 from __future__ import annotations

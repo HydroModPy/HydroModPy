@@ -1030,8 +1030,6 @@ def _search_outcome_extra(session: CalibrationSession) -> dict[str, Any]:
     and final bracket, then ``delta_log10 = log10(K*_maximal / K*_minimal)``
     and the combined ``value``, the trial the search returns.
     """
-    from hydromodpy.calibration.optim.adapters.bisection_adapter import BisectionAdapter
-
     extra: dict[str, Any] = {
         "search": {
             "converged": bool(session.converged),
@@ -1041,15 +1039,31 @@ def _search_outcome_extra(session: CalibrationSession) -> dict[str, Any]:
             "n_evaluations": len(session.history),
         }
     }
-    if isinstance(session.optimizer, BisectionAdapter):
-        bracket = session.optimizer.bracket_record()
-        if bracket is not None:
-            extra["bracket"] = bracket
-        roots = session.optimizer.roots_record()
-        if roots is not None:
-            extra["roots"] = roots
-            _log_the_two_roots(roots)
+    root_search = _root_search_record(session) or {}
+    extra.update(root_search)
+    if "roots" in root_search:
+        _log_the_two_roots(root_search["roots"])
     return extra
+
+
+def _root_search_record(session: CalibrationSession | None) -> dict[str, Any] | None:
+    """Return the root search's ``bracket`` or ``roots``, None for any other search.
+
+    The session journal keeps this record, so a report read back later shows
+    what the live run printed.
+    """
+    from hydromodpy.calibration.optim.adapters.bisection_adapter import BisectionAdapter
+
+    if session is None or not isinstance(session.optimizer, BisectionAdapter):
+        return None
+    record: dict[str, Any] = {}
+    bracket = session.optimizer.bracket_record()
+    if bracket is not None:
+        record["bracket"] = bracket
+    roots = session.optimizer.roots_record()
+    if roots is not None:
+        record["roots"] = roots
+    return record or None
 
 
 def _closes_two_roots(session: CalibrationSession) -> bool:
@@ -1668,6 +1682,7 @@ def run_calibration_core(
             status=final_status,
             error=final_error,
             best_sim_id=best_sim_id,
+            root_search=_root_search_record(session),
         )
         close = getattr(catalog, "close", None)
         if close is not None:

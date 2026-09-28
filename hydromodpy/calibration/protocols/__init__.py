@@ -9,6 +9,7 @@ it writes the stages, their criteria and the model regimes they need. See
 from hydromodpy.calibration.protocols.base import CalibrationProtocol, Reference
 from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     MatchingHydrographicNetwork,
+    why_the_spin_up_year_is_scored,
 )
 from hydromodpy.calibration.protocols.registry import (
     WRITTEN_SECTIONS,
@@ -29,4 +30,5 @@ __all__ = [
     "get_protocol",
     "protocol_options_away_from_the_recipe",
     "protocol_record",
+    "why_the_spin_up_year_is_scored",
 ]

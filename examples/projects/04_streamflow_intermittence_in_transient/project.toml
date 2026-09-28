@@ -48,15 +48,15 @@ snap_dist = "150 m"
 # "10%" is an area increase: the buffered domain covers 10 % more area than the catchment.
 buff_area = "10%"
 
-[geographic.river_network]
-enabled = true
-threshold_area_km2 = 0.5
-
-# The criterion measures lengths along the flow paths of the DEM, so the mapped
-# network has to sit in them. Burnt from [[data.hydrography.sources]].
-[geographic.enforce_streams]
-enabled = true
-depth_m = 10.0
+# No stream burning: the network criterion fills the model top on the mesh and
+# descends that, not a routing DEM. Off by default, the snap below moves the
+# mapped network onto the talwegs of that surface, within two cells. "diagnose"
+# publishes how far the map sits from them and scores the raw map; "apply"
+# scores the snapped map. Either one changes the validity length of Eq. 4, and
+# "apply" the calibrated K, so the maintained results keep it off.
+#
+# [geographic.snap_streams]
+# mode = "diagnose"
 
 [domain.depth_model]
 kind = "constant_thickness"
@@ -93,6 +93,9 @@ station_ids = ["NANCON"]
 [flow]
 param_list = ["K", "Sy", "Ss"]
 active_sinks_sources = ["recharge"]
+# Seepage at the ground surface. No conductance is declared, so each drain
+# derives it from K, C = K * cell_area / drain_bed_thickness_m (1 m by default):
+# the drain follows K, which is why the network stage identifies K/R.
 active_bc = ["drainage"]
 
 [flow.param.K.field]
@@ -110,12 +113,10 @@ kind = "homogeneous"
 unit = "m-1"
 value = 1e-5
 
-[flow.bc.drainage]
-kind = "cauchy"
-
 # K from the extent of the mapped network in steady state, then Sy from the
-# gauged hydrograph with K frozen: the protocol of Abherve et al. (2023),
-# 10.5194/hess-27-3221-2023. run_calibration.toml runs it as is;
+# gauged hydrograph with K frozen: stage one is Abherve et al. (2023),
+# 10.5194/hess-27-3221-2023, stage two Abherve et al. (2025, WRR),
+# 10.1029/2025WR040083. run_calibration.toml runs it as is;
 # run_calibration_protocol_by_hand.toml writes the same two stages out;
 # run_calibration_by_hand.toml writes them out and deviates once.
 #
@@ -145,25 +146,47 @@ bounds = [5e-3, 0.35]
 # the protocol adds it as `hydrograph`, a point output that observes NANCON,
 # the one station [[data.hydrometry.sources]] lists. With several stations,
 # name the one to score with `observed_station_id`.
+#
+# The map is the permanent class of BD TOPO alone: 945 reaches, 181.7 km. The
+# criterion draws it one cell wide ("crossing"), descends D8 on the model top
+# filled from the domain border, and scores the catchment of its own outlet.
+# Eq. 4 qualifies the result, Doptim <= validity_length, "auto" being 2 h_obs,
+# 150 m on this 75 m grid.
 [calibration.outputs.seepage_network]
 support = "network"
 stream_geometry_path = "nancon_stream_network.gpkg"
-# A descent over shared edges cannot follow a talweg that runs diagonally to
-# the grid, which on this topography most of them do.
-diagonal_neighbors = true
+# validity_length = "300 m"
+#
+# One map is the 2023 method. The 2025 paper scores the permanent map and
+# validates on the complete one. The example ships no complete map, so both
+# lines change together: stream_geometry_path names the complete map, and this
+# file becomes the minimal one. Never the same file twice, --check misses it.
+# stream_geometry_path = "<complete map, not shipped>.gpkg"
+# minimal_stream_geometry_path = "nancon_stream_network.gpkg"
+#
+# Or both from BD TOPAGE: set [[data.hydrography.sources]] source = "bdtopage"
+# as step 3 does, drop stream_geometry_path, and set observed_network and
+# minimal_observed_network to "data.hydrography". A custom file carries no
+# permanence; --check passes it and the first trial fails.
+#
+# The transient two-bound mode scores the yearly maximal and minimal simulated
+# extents against the two maps. A steady stage refuses it, so it belongs to a
+# transient network phase written by hand.
+# [calibration.outputs.seepage_network.extent]
+# visible_flow = "1 L/s"
 
 # Stage one moves K alone over one steady period, the whole of
 # [simulation.time], by bisection on the signed network gap, and freezes it.
 # Stage two moves Sy alone in monthly transient, by Nelder-Mead on the NSE of
-# the log discharge at the gauge. The paper fixes both methods; the options
-# below set budgets and precisions only.
+# the log discharge at the gauge. The papers fix both methods; the options
+# below set budgets and precisions only. The bisection budgets itself
+# ("auto", 23 solves at worst on these bounds), the simplex does not.
 [calibration.protocol]
 name = "matching_hydrographic_network"
-steady_max_iter = 18
 # The precision at which a stage stops, relative to its parameter: one per cent
-# on K, the paper's, five on Sy, each evaluation being a 36-month run. Not the
-# width of the reported interval.
+# on K, the paper's, five on Sy. Not the width of the reported interval.
 steady_tolerance = 0.01
+# Each evaluation of stage two is a 36-month run: 30 of them, not 120.
 transient_max_iter = 30
 transient_tolerance = 0.05
 
@@ -172,15 +195,17 @@ transient_tolerance = 0.05
 [calibration.protocol.steady_engine_options]
 sweep_points = 7
 
-# 2000 is simulated and not scored.
+# 2000 is simulated and not scored. The protocol leaves the first year out
+# unwritten; the window is written so the figure below and the by-hand files
+# read the same dates.
 [calibration.protocol.scoring_window]
 start = "2001-01-01"
 end = "2002-12-31"
 
 # No [calibration.uncertainty]: each stage reports the width its criterion
-# calls for. Around K, the values within one mesh cell of network gap (75 m on
-# this grid); around Sy, those within 5 % of the best cost. The interval never
-# moves the calibrated value.
+# calls for. Around K, the values within one mesh cell of network gap, h_obs,
+# 75 m on this grid; around Sy, those within 5 % of the best cost. The
+# interval never moves the calibrated value.
 
 
 [display]
@@ -188,7 +213,8 @@ on_error = "raise"
 
 # The catchment, what enters and leaves it, the gauge, then the four that
 # answer which reaches dry up and when. `hmp viz show <name>` renders any other
-# figure on demand.
+# figure on demand, network_extent_bounds_map among them: the yearly maximal
+# and minimal simulated extents against the map.
 #
 # hydrograph_log_nse draws the same series as hydrograph_sim_obs on the axis an
 # intermittent catchment is read on, and marks the window stage two scores.
@@ -224,7 +250,7 @@ timestep = 33
 orientation = "sn"
 
 # Persistence answers over the three years, intermittence classifies inside one
-# cycle. Both name their window in the title, so the 787 cells that flowed in
+# cycle. Both name their window in the title, so the cells that flowed in
 # 2000-2001 and never in 2002 read as a dry year.
 [display.overrides.flow_intermittence_map]
 cycle = "2002"

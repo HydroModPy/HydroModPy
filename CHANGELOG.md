@@ -34,6 +34,16 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- `[geographic.snap_streams]` in `apply` mode reaches every consumer of the mapped network:
+  stream burning snaps the map on the raster's own D8 graph before burning it, a mesh built along
+  a mapped network (`rivers.source = "file"`) follows the snapped lines, and the network cells,
+  metrics, CSV exports and reference-network figures read the snapped map the run stored.
+  `diagnose` keeps the raw map everywhere while the snap is computed and reported.
+- A calibration session stores its root-search result (`bracket`, or `roots` with both roots,
+  Delta and the combined value) in `session.json`; the protocol card and the calibration report
+  read it back.
+- `hmp calibrate --check` says when stage two of the protocol scores the whole run, spin-up year
+  included.
 - A network calibration output takes a minimal (permanent) map beside its maximal one, as a file
   (`minimal_stream_geometry_path`) or as the permanent reaches of the hydrography data family
   (`minimal_observed_network = "data.hydrography"`, refused by name when the source says nothing
@@ -69,6 +79,17 @@ Each release section includes the following standard categories:
   and a `data.hydrography` minimal map without a declared hydrography source.
 
 ### Changed
+- `[geographic].dem_correc_type` defaults to `"fill"`, the paper's FillDepressions, instead of
+  `"breach"`. A file that writes `"breach"` keeps it, and the Methods paragraph and
+  `hmp calibrate --check` name it as a departure from the paper.
+- `matching_hydrographic_network` is version 1.2: the DEM is filled by default, stage two leaves
+  the first year of the run out as spin-up unless the file declares a window, and the Eq. 4
+  bound is a length. A pin on 1.1 is refused.
+- The protocol card reads the keys a trial published: both bounds side by side in the two-bound
+  mode, the validation map beside the scored one in a one-state run.
+- Example 04: every TOML follows the current code (budget `"auto"`, no retired key, comments on
+  the criterion, the maps, the buffer and the protocol version brought up to date), the new
+  options shown commented out; the burning of the routing DEM is dropped.
 - With both maps, a one-state network output is scored on the minimal map, as the WRR 2025 paper
   calibrates, and the maximal map is published as a validation outside the cost.
 - `L_ref`, the length that normalises roptim and sets the interval width of a network search, is
@@ -90,6 +111,8 @@ Each release section includes the following standard categories:
 - `geometry_from_run`, replaced by `network_maps_from_run`, which returns every declared map.
 
 ### Fixed
+- The MODFLOW 6 and MODFLOW-NWT routing context falls back on the `[geographic]` default, no
+  longer on a hard-coded `"breach"`.
 - A delineation refuses a log-transformed accumulation only where its outlets snap. The float32
   ranking bound was read on the whole regional raster, so a filled DEM whose main river drains
   more than a million cells refused an outlet on a tributary (example 04).

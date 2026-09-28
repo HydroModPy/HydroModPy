@@ -50,7 +50,7 @@ def test_a_swapped_estimator_and_engine_are_both_reported() -> None:
 
 def test_the_pinned_version_is_not_an_option_that_moved() -> None:
     # A pin is a replayability guarantee, not a departure from the method.
-    assert protocol_options_away_from_the_recipe(NAME, _declared(version="1.1")) == ()
+    assert protocol_options_away_from_the_recipe(NAME, _declared(version="1.2")) == ()
 
 
 def test_the_record_carries_the_departures_only_when_a_file_is_given() -> None:

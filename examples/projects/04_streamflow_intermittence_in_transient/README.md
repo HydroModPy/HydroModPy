@@ -17,4 +17,4 @@ HydroModPy est installé en mode développeur :D
 
 Comme expliqué durant la présentation, le fichier `step5_export.toml` est encore soumis à réflexion quant à la forme d'appel pour l'export des résultats, pour avoir une interface utilisateur, via le TOML, plus pratique et agréable.
 
-Les fichiers exportés par le step5 se trouvent dans le dossier `share`, et les figures dans `run/NOM_DE_LA_SIMULATION/figures`.
+Les fichiers exportés par le step5 se trouvent dans le dossier `share`, et les figures dans `runs/NOM_DE_LA_SIMULATION/figures`.

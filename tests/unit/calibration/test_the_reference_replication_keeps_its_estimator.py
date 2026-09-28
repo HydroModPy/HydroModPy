@@ -48,7 +48,7 @@ def test_the_two_stages_come_from_the_named_protocol(calibration) -> None:
     assert calibration.protocol is not None
     assert calibration.protocol.name == "matching_hydrographic_network"
     # Pinned, so the comparison cannot silently move with the recipe.
-    assert calibration.protocol.version == "1.1"
+    assert calibration.protocol.version == "1.2"
     assert [phase.name for phase in calibration.phases] == [STEADY_STAGE, TRANSIENT_STAGE]
     assert [block.name for block in calibration.objective_blocks] == [
         NETWORK_BLOCK,
@@ -135,7 +135,9 @@ def test_stage_two_reads_storage_from_the_hydrograph_with_conductivity_frozen(ca
     assert storage.max_iter == 120
     assert storage.optimizer_kwargs["xatol"] == pytest.approx(3.7e-5)
     # The reference scores the whole calibration window, with no spin-up year cut.
-    assert storage.scoring_window is None
+    # The protocol leaves the first year out by default, so the file says so.
+    assert storage.scoring_window is not None
+    assert (storage.scoring_window.start, storage.scoring_window.end) == ("1995-01-01", None)
 
     hydrograph = next(
         block for block in calibration.objective_blocks if block.name == HYDROGRAPH_BLOCK

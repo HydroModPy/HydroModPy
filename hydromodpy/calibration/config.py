@@ -213,8 +213,12 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
     )
     scoring_window: Annotated[dict[str, str] | None, Profile.USER] = Field(
         default=None,
-        description="Dates bounding the samples stage two scores on, as {start, end}. "
-        "Use it to drop the spin-up year the transient stage still has to simulate.",
+        description="Dates bounding the samples stage two scores on, as {start, end}, "
+        "for every block it scores, a network one included. Unset, and with neither "
+        "scoring_window nor warmup_periods on [calibration], stage two scores from one "
+        "year after [simulation.time].start_datetime: the first year is spin-up. A run "
+        "of one year or less is scored whole. Write start = the run's own start to "
+        "score the spin-up year too.",
     )
 
     @model_validator(mode="before")

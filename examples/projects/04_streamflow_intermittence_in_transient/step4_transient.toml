@@ -1,6 +1,6 @@
 # Nancon, the complete simulation: three years at a monthly step, with storage
 # and the observed forcing. K, Sy and Ss are assumed here, not calibrated;
-# run_calibration.toml fits them. About 44 s on 27004 cells.
+# run_calibration.toml fits K and Sy. Under a minute on 21406 cells.
 #
 #   hmp run examples/projects/04_streamflow_intermittence_in_transient/step4_transient.toml
 

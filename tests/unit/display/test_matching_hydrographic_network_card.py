@@ -712,3 +712,374 @@ def test_a_run_that_never_calibrated_is_skipped_with_its_reason() -> None:
 
     assert reason is not None
     assert "calibration_iterations" in reason
+
+
+# --------------------------------------------------------------------------- #
+# two bounds in the cost: the keys the trial publishes are suffixed
+# --------------------------------------------------------------------------- #
+
+# The sweep closes K*_minimal on [3.2e-05, 1e-04] at 3.2e-05 and K*_maximal on
+# [3.2e-04, 1e-03] at 3.2e-04. The last trial is the solve at the combined
+# value, their geometric mean weighted 0.5 / 0.5: the trial the search
+# returns, where the run reads Eq. 4 on each bound.
+TWO_VALUES = [1e-5, 1e-4, 1e-3, 3.2e-5, 3.2e-4, 1.0119e-4]
+TWO_RESIDUALS = {
+    "minimal": [200.0, -50.0, -300.0, 30.0, -120.0, -45.0],
+    "maximal": [400.0, 150.0, -80.0, 250.0, 20.0, 140.0],
+}
+COMBINED_TRIAL = 5
+
+AT_THE_RETURNED_TRIAL = {
+    "minimal": {
+        "Doptim": 217.5,
+        "roptim": 0.87,
+        "validity_length_m": 500.0,
+        "validity_length_provenance": 0.0,
+        "L_ref": 250.0,
+        "n_valid": 120.0,
+        "n_excess": 30.0,
+        "n_missing": 18.0,
+    },
+    "maximal": {
+        "Doptim": 820.0,
+        "roptim": 3.28,
+        "validity_length_m": 500.0,
+        "validity_length_provenance": 0.0,
+        "L_ref": 250.0,
+        "n_valid": 300.0,
+        "n_excess": 90.0,
+        "n_missing": 60.0,
+    },
+}
+"""What each bound publishes at the combined trial; every other trial carries 999."""
+
+ROOTS = {
+    "parameter": "K_over_R",
+    "minimal": {
+        "k_star": 3.2e-5,
+        "trial_id": 3,
+        "residual": 30.0,
+        "weight": 0.5,
+        "low": 3.2e-5,
+        "high": 1e-4,
+        "closed": True,
+    },
+    "maximal": {
+        "k_star": 3.2e-4,
+        "trial_id": 4,
+        "residual": 20.0,
+        "weight": 0.5,
+        "low": 3.2e-4,
+        "high": 1e-3,
+        "closed": True,
+    },
+    "delta_log10": 1.0,
+    "value": 1.0119e-4,
+    "combined_trial_id": COMBINED_TRIAL,
+    "closed": True,
+}
+"""The ``extra["roots"]`` record of the report, as ``roots_record`` writes it."""
+
+
+def _two_bound_rows(*, weights: tuple[float, float] = (0.5, 0.5)) -> list[dict]:
+    rows = []
+    for index, value in enumerate(TWO_VALUES):
+        metrics = {f"{OUTPUT}.n_bounds_scored": 2.0, f"{OUTPUT}.R_mean_m_s": 3.0e-8}
+        for bound, weight in zip(("minimal", "maximal"), weights, strict=True):
+            metrics[f"{OUTPUT}.J_signed_{bound}"] = TWO_RESIDUALS[bound][index]
+            metrics[f"{OUTPUT}.weight_{bound}"] = weight
+            for key, number in AT_THE_RETURNED_TRIAL[bound].items():
+                published = number if index == COMBINED_TRIAL else 999.0
+                metrics[f"{OUTPUT}.{key}_{bound}"] = published
+        rows.append(
+            {
+                "iteration": index,
+                "session_id": ROOT_ID,
+                "parameters": {"K_over_R": {"value": value}},
+                "metrics": metrics,
+                "objective_value": 1.0,
+                "status": "completed",
+            }
+        )
+    return rows
+
+
+def _two_bound_run(*, best_trial: int | None = COMBINED_TRIAL, **kwargs) -> SimpleNamespace:
+    sessions = _sessions(staged=False)
+    sessions.loc[0, "best_trial"] = best_trial
+    return _run(_two_bound_rows(**kwargs), sessions)
+
+
+def test_two_bounds_draw_one_bracket_per_bound_from_the_trials(mpl) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run())
+
+    try:
+        ax = _panel(fig, "Stage 1")
+        assert "two bounds" in ax.get_title()
+        minimal = _patch(ax, "bracket minimal")
+        assert minimal.get_x() == pytest.approx(3.2e-5)
+        assert minimal.get_x() + minimal.get_width() == pytest.approx(1e-4)
+        maximal = _patch(ax, "bracket maximal")
+        assert maximal.get_x() == pytest.approx(3.2e-4)
+        assert maximal.get_x() + maximal.get_width() == pytest.approx(1e-3)
+        assert _line(ax, "K*_minimal").get_xdata()[0] == pytest.approx(3.2e-5)
+        assert _line(ax, "K*_maximal").get_xdata()[0] == pytest.approx(3.2e-4)
+        note = _texts(ax)
+        assert "roots record not passed" in note
+        assert "diagnostics read at the returned trial, K_over_R = 0.0001012" in note
+        assert "3e-08 m/s" in note
+    finally:
+        mpl.close(fig)
+
+
+def test_two_bounds_write_the_roots_delta_and_the_combined_value_of_the_report(mpl) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(), roots=ROOTS)
+
+    try:
+        ax = _panel(fig, "Stage 1")
+        note = _texts(ax)
+        assert "K*_minimal = 3.2e-05, bracket [3.2e-05, 0.0001]" in note
+        assert "K*_maximal = 0.00032, bracket [0.00032, 0.001]" in note
+        assert "Delta = log10(K*_maximal / K*_minimal) = 1 decade(s)" in note
+        assert "combined K_over_R = 0.0001012, weighted geometric mean 0.5 / 0.5" in note
+        assert _line(ax, "K_over_R =").get_xdata()[0] == pytest.approx(1.0119e-4)
+        assert "roots record not passed" not in note
+    finally:
+        mpl.close(fig)
+
+
+def test_an_unsolved_combined_value_is_said_not_drawn(mpl) -> None:
+    roots = {**ROOTS, "value": None, "combined_trial_id": None, "closed": False}
+
+    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(), roots=roots)
+
+    try:
+        ax = _panel(fig, "Stage 1")
+        assert "combined value not solved" in _texts(ax)
+        assert not [line for line in ax.lines if str(line.get_label()).startswith("K_over_R =")]
+        # The session's best trial still says where the run read Eq. 4.
+        assert _patch(_panel(fig, "Validity"), "Doptim minimal").get_width() == pytest.approx(217.5)
+    finally:
+        mpl.close(fig)
+
+
+def test_two_bounds_qualify_each_bound_at_the_returned_trial(mpl) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run())
+
+    try:
+        ax = _panel(fig, "Validity")
+        assert [tick.get_text() for tick in ax.get_yticklabels()] == ["minimal", "maximal"]
+        minimal = _patch(ax, "Doptim minimal")
+        maximal = _patch(ax, "Doptim maximal")
+        assert minimal.get_width() == pytest.approx(217.5)
+        assert maximal.get_width() == pytest.approx(820.0)
+        assert minimal.get_facecolor() == _rgba(HIGH_CONTRAST_TRIPLET[0])
+        assert maximal.get_facecolor() == _rgba(HIGH_CONTRAST_TRIPLET[2])
+        assert _line(ax, "bound minimal").get_xdata()[0] == pytest.approx(500.0)
+        assert _line(ax, "bound maximal").get_xdata()[0] == pytest.approx(500.0)
+        note = _texts(ax)
+        assert "minimal (weight 0.5): Doptim = 217.5 m <= 500 m, Eq. 4 holds" in note
+        assert "maximal (weight 0.5): Doptim = 820 m > 500 m, Eq. 4 fails" in note
+        assert "J_signed = -45 m, roptim = 0.87, h_obs = 250 m, length: two cells, 2 h_obs" in note
+        assert "J_signed = 140 m, roptim = 3.28, h_obs = 250 m" in note
+        assert "not published" not in note
+        assert "999" not in note
+    finally:
+        mpl.close(fig)
+
+
+def test_two_bounds_split_the_cells_of_each_bound_side_by_side(mpl) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run())
+
+    try:
+        ax = _panel(fig, "Cells at the calibrated point")
+        widths = {
+            (label.split(":")[0], label.rsplit(", ", 1)[1].split(" ")[0]): patch.get_width()
+            for patch in ax.patches
+            for label in [str(patch.get_label())]
+        }
+        assert widths == {
+            ("valid", "minimal"): 120.0,
+            ("excess", "minimal"): 30.0,
+            ("missing", "minimal"): 18.0,
+            ("valid", "maximal"): 300.0,
+            ("excess", "maximal"): 90.0,
+            ("missing", "maximal"): 60.0,
+        }
+        hatched = {
+            str(patch.get_label()).rsplit(", ", 1)[1].split(" ")[0]: bool(patch.get_hatch())
+            for patch in ax.patches
+        }
+        assert hatched == {"minimal": False, "maximal": True}
+        assert "not published" not in _texts(ax)
+    finally:
+        mpl.close(fig)
+
+
+def test_the_combined_trial_of_the_report_wins_over_the_session_best(mpl) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(best_trial=0), roots=ROOTS)
+
+    try:
+        validity = _panel(fig, "Validity")
+        assert _patch(validity, "Doptim minimal").get_width() == pytest.approx(217.5)
+    finally:
+        mpl.close(fig)
+
+
+def test_two_bounds_without_a_returned_trial_qualify_nothing(mpl) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(best_trial=None))
+
+    try:
+        for title in ("Validity", "Cells at the calibrated point"):
+            ax = _panel(fig, title)
+            assert "the returned trial is not known" in _texts(ax)
+            assert not ax.patches
+        # The brackets are still proven by the trials.
+        assert _has_patch(_panel(fig, "Stage 1"), "bracket minimal")
+    finally:
+        mpl.close(fig)
+
+
+def test_a_bound_weighted_zero_is_drawn_outside_the_verdict(mpl) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(weights=(0.0, 1.0)))
+
+    try:
+        note = _texts(_panel(fig, "Validity"))
+        assert "minimal (weight 0, outside the verdict): " in note
+        assert "Doptim = 217.5 m <= 500 m, within the bound, no verdict" in note
+        assert "maximal (weight 1): Doptim = 820 m > 500 m, Eq. 4 fails" in note
+    finally:
+        mpl.close(fig)
+
+
+def test_an_applied_snap_breaks_the_verdict_of_its_own_bound_only(mpl) -> None:
+    rows = _two_bound_rows()
+    rows[COMBINED_TRIAL]["metrics"].update(
+        {
+            f"{OUTPUT}.snap_mode_minimal": 2.0,
+            f"{OUTPUT}.snap_displacement_p90_m_minimal": 300.0,
+            f"{OUTPUT}.snap_displacement_bound_m_minimal": 250.0,
+            f"{OUTPUT}.snap_rejected_share_minimal": 0.02,
+            f"{OUTPUT}.snap_rejected_share_max_minimal": 0.1,
+        }
+    )
+    sessions = _sessions(staged=False)
+    sessions.loc[0, "best_trial"] = COMBINED_TRIAL
+
+    fig = MatchingHydrographicNetworkCard().plot(_run(rows, sessions))
+
+    try:
+        note = _texts(_panel(fig, "Validity"))
+        assert "Doptim = 217.5 m <= 500 m, Eq. 4 fails" in note
+        assert note.count("snapped map breaks Eq. 4") == 1
+    finally:
+        mpl.close(fig)
+
+
+# --------------------------------------------------------------------------- #
+# one state with both maps: the maximal map is a validation
+# --------------------------------------------------------------------------- #
+
+
+VALIDATION = {
+    "Doptim": 640.0,
+    "roptim": 2.56,
+    "validity_length_m": 500.0,
+    "validity_length_provenance": 0.0,
+    "L_ref": 250.0,
+    "n_valid": 210.0,
+    "n_excess": 12.0,
+    "n_missing": 95.0,
+    "J_signed": -310.0,
+}
+
+
+def _with_validation() -> dict[str, float]:
+    """The one-state set: the minimal map unsuffixed and ``_minimal``, the maximal validated."""
+    return {
+        **PUBLISHED,
+        **{f"{key}_minimal": value for key, value in PUBLISHED.items()},
+        **{f"{key}_maximal_validation": value for key, value in VALIDATION.items()},
+    }
+
+
+def test_a_validation_map_is_drawn_beside_the_scored_map(mpl) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(diagnostics=_with_validation()))
+
+    try:
+        # One bound in the cost: the root search reads as it always did.
+        assert _line(_panel(fig, "Stage 1"), "K_over_R =").get_xdata()[0] == pytest.approx(
+            CLOSED_VALUE
+        )
+        ax = _panel(fig, "Validity")
+        assert _patch(ax, "Doptim minimal").get_width() == pytest.approx(217.5)
+        assert _patch(ax, "Doptim maximal").get_width() == pytest.approx(640.0)
+        note = _texts(ax)
+        assert "minimal (in the cost): Doptim = 217.5 m <= 500 m, Eq. 4 holds" in note
+        assert (
+            "maximal (validation outside the cost): Doptim = 640 m > 500 m, "
+            "beyond the bound, no verdict" in note
+        )
+        assert "J_signed = -310 m, roptim = 2.56" in note
+        counts = _panel(fig, "Cells at the calibrated point")
+        labels = {str(patch.get_label()) for patch in counts.patches}
+        assert any(label.endswith("maximal (210 cells)") for label in labels)
+        assert any(label.endswith("minimal (120 cells)") for label in labels)
+    finally:
+        mpl.close(fig)
+
+
+def test_one_map_with_its_bound_suffix_reads_as_one_map(mpl) -> None:
+    # A one-state output on the maximal map alone publishes its set twice,
+    # unsuffixed and _maximal: that is one map, not two.
+    published = {**PUBLISHED, **{f"{key}_maximal": value for key, value in PUBLISHED.items()}}
+
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(diagnostics=published))
+
+    try:
+        ax = _panel(fig, "Validity")
+        assert [str(patch.get_label()) for patch in ax.patches] == ["Doptim = 217.5 m"]
+        assert "roptim = Doptim / h_obs = 0.87, h_obs = 250 m" in _texts(ax)
+        counts = _panel(fig, "Cells at the calibrated point")
+        assert len(counts.patches) == 3
+        assert not any(patch.get_hatch() for patch in counts.patches)
+    finally:
+        mpl.close(fig)
+
+
+# --------------------------------------------------------------------------- #
+# the names the card spells by hand, held to their producers
+# --------------------------------------------------------------------------- #
+
+
+def test_the_suffixes_the_card_reads_are_the_ones_the_criterion_writes() -> None:
+    from hydromodpy.calibration.metrics.downslope_network import (
+        MAXIMAL_SUFFIX,
+        MINIMAL_SUFFIX,
+    )
+    from hydromodpy.calibration.metrics.downslope_network import (
+        VALIDATION_SUFFIX as CRITERION_VALIDATION_SUFFIX,
+    )
+    from hydromodpy.calibration.optim.adapters.bisection_adapter import ROOT_BOUNDS
+    from hydromodpy.display.figures.matching_hydrographic_network_card import (
+        BOUNDS,
+        VALIDATION_SUFFIX,
+    )
+
+    assert BOUNDS == ROOT_BOUNDS
+    assert tuple(f"_{bound}" for bound in BOUNDS) == (MINIMAL_SUFFIX, MAXIMAL_SUFFIX)
+    assert VALIDATION_SUFFIX == CRITERION_VALIDATION_SUFFIX
+
+
+def test_h_obs_is_read_under_the_key_the_run_verdict_reads() -> None:
+    from hydromodpy.calibration.runners.cli_runner import _eq4_verdict
+    from hydromodpy.display.figures.matching_hydrographic_network_card import H_OBS_KEY
+
+    found = {
+        f"{OUTPUT}.roptim_minimal": 0.87,
+        f"{OUTPUT}.Doptim_minimal": 217.5,
+        f"{OUTPUT}.validity_length_m_minimal": 500.0,
+        f"{OUTPUT}.{H_OBS_KEY}_minimal": 250.0,
+    }
+
+    assert _eq4_verdict(OUTPUT, found, suffix="_minimal")["h_obs_m"] == 250.0

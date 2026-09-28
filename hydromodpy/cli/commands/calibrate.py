@@ -107,7 +107,10 @@ def _announce_the_protocol(cfg) -> None:
     declared = getattr(getattr(cfg, "calibration", None), "protocol", None)
     if declared is None:
         return
-    from hydromodpy.calibration.protocols import protocol_record
+    from hydromodpy.calibration.protocols import (
+        protocol_record,
+        why_the_spin_up_year_is_scored,
+    )
 
     record = protocol_record(declared.name, declared)
     print(
@@ -116,6 +119,15 @@ def _announce_the_protocol(cfg) -> None:
     )
     for index, stage in enumerate(record["stages"], start=1):
         print(f"  stage {index}: {stage}", file=sys.stderr)
+    # The protocol drops its default window without a word on a short run, so
+    # this is where the reader learns the spin-up year is scored.
+    whole_run = why_the_spin_up_year_is_scored(
+        cfg.calibration, getattr(getattr(cfg, "simulation", None), "time", None)
+    )
+    if whole_run is not None:
+        print(
+            f"  stage 2 scores the whole run, spin-up year included: {whole_run}", file=sys.stderr
+        )
     for reference in record["references"]:
         print(f"  cite: {reference}", file=sys.stderr)
     # Where this run departs from the publication it cites. A reader comparing a
@@ -230,14 +242,24 @@ def _values_this_file_set(cfg, keys: list[str]) -> dict[str, object]:
     paper's or may be the departure. Only the network outputs are read: a gauge
     declares its own ``diagonal_neighbors``, false by default, and is not the
     criterion the deviations describe.
+
+    ``dem_correc_type`` lives under ``[geographic]``. It is reported only when
+    the file wrote it, read from ``model_fields_set``: a value left unset is
+    the default the deviation table already states.
     """
     calibration = getattr(cfg, "calibration", None)
     outputs = getattr(calibration, "outputs", None) or {}
     networks = [
         output for output in outputs.values() if getattr(output, "support", None) == "network"
     ]
+    geographic = getattr(cfg, "geographic", None)
+    written = getattr(geographic, "model_fields_set", set())
     found: dict[str, object] = {}
     for key in keys:
+        if key == "dem_correc_type":
+            if key in written:
+                found[key] = getattr(geographic, key)
+            continue
         for output in networks:
             value = getattr(output, key, None)
             if value is not None:

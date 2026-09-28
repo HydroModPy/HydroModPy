@@ -74,7 +74,11 @@ Exposed through
 ``GeographicDerivedFeatures.rivers.river_mesh_trace`` or passed as an
 explicit ``river_trace`` to the meshing case. The trace is already reprojected
 into the domain CRS and clipped to the catchment. No disk re-read happens
-during meshing unless ``rivers.source = "file"`` is selected.
+during meshing unless ``rivers.source = "file"`` is selected, and that file
+then wins over a trace passed in. When the geographic step published a raster
+snap of that same file (``stream_snap_raster.json`` in its directory) with
+``[geographic.snap_streams] mode = "apply"``, the snapped lines
+``stream_snap_raster_lines.gpkg`` are read in its place.
 
 Fields:
 
