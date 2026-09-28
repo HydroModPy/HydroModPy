@@ -39,6 +39,7 @@ __all__ = (
     "resolve_instant",
     "resolve_instants",
     "resolve_period",
+    "resolve_state",
 )
 
 _NO_DATES = 'this run has no dates; write "last"'
@@ -180,6 +181,23 @@ def resolve_instant(selector: Any, edges: Any, *, n_periods: int | None = None) 
     if instant == index[-1]:
         return n - 1
     return int(index.searchsorted(instant, side="right")) - 1
+
+
+def resolve_state(selector: Any, edges: Any, *, n_periods: int) -> int:
+    """Return the index of the one state a single-state reader takes.
+
+    ``selector`` is read as :func:`resolve_instant` reads it: a date takes the
+    period ``[s, e)`` that holds it. A run of one period with no dates serves
+    that state to any selector: nothing is there to tell a date from another.
+    ``edges`` are the run's ``n_periods + 1`` period edges, or ``None``.
+
+    The calibration scores a network output at this state, and a figure of the
+    run redraws it at the same one.
+    """
+    usable = edges if edges is not None and len(edges) >= 2 else None
+    if usable is None and n_periods == 1:
+        return 0
+    return resolve_instant(selector, usable, n_periods=n_periods)
 
 
 def _scalar(selectors: Any) -> bool:

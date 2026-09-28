@@ -45,7 +45,7 @@ from hydromodpy.calibration.optim.objective import build_objective_from_config
 from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.period_aggregation import period_edges
-from hydromodpy.core.time.selection import TimeSelectionError, period_label, resolve_instant
+from hydromodpy.core.time.selection import TimeSelectionError, period_label, resolve_state
 from hydromodpy.results.derive.time_alignment import first_period_start, time_method_for
 
 if TYPE_CHECKING:
@@ -180,12 +180,11 @@ def network_state_period(time: Any, boundaries: Sequence[Any] | None, *, n_perio
     its window, so every date of that window reads its one state. A run of one
     period with no dates serves that state to any selector: nothing is there to
     tell a date from another. ``boundaries`` are the run's ``n_periods + 1``
-    time-grid bounds, or ``None``.
+    time-grid bounds, or ``None``. The rule is
+    :func:`hydromodpy.core.time.selection.resolve_state`, which the results
+    layer reads a promoted run's state by too.
     """
-    edges = boundaries if boundaries is not None and len(boundaries) >= 2 else None
-    if edges is None and n_periods == 1:
-        return 0
-    return resolve_instant(time, edges, n_periods=n_periods)
+    return resolve_state(time, boundaries, n_periods=n_periods)
 
 
 def network_state_stamp(time: Any, boundaries: Sequence[Any] | None) -> pd.Timestamp | None:

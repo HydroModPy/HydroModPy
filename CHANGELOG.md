@@ -66,6 +66,11 @@ Each release section includes the following standard categories:
   watershed mean as the run stores it. The objective read runoff stations only, so
   `run_calibration_api_daily.toml` scored the drain alone against the total gauged flow while
   its runs reported drain plus runoff, which pushed K onto the lower bound.
+- A network output whose `time` is a date is redrawn at that date by the figures of the run,
+  on the period `[s, e)` that holds it, the state the trials scored. The derive path accepted
+  `last` and `first` only, so the promotion of `run_calibration_composite.toml`
+  (`time = "2002-10-15"`) failed in its display step. The period rule moved to
+  `core.time.selection.resolve_state`, shared by the calibration and the results layer.
 
 ---
 
