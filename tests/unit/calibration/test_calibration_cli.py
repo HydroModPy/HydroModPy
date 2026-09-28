@@ -552,3 +552,140 @@ class TestSessionLifecycle:
         row = self._read_latest_session(calib_toml.parent)
         assert row[0] == "failed"
         assert self._count_iterations(calib_toml.parent) == 5
+
+
+class TestAFailedPromotion:
+    def test_the_report_names_the_failed_promotions_and_keeps_the_search(
+        self, calib_toml, fake_pipeline, quadratic_metric, monkeypatch
+    ):
+        """A promotion that fails leaves the search sound: the report says which one."""
+        from hydromodpy.calibration.report import promotion_failures
+
+        def _fail_promote(*args, **kwargs):
+            del args, kwargs
+            raise RuntimeError("step 'display' failed")
+
+        monkeypatch.setattr(promotion_module, "promote_prepared_trial", _fail_promote)
+
+        summary = run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
+
+        assert summary["best_parameters"]
+        assert summary["promoted"] == 0
+        failures = summary["extra"]["promotion_failures"]
+        assert len(failures) == 2
+        assert all("step 'display' failed" in line for line in failures)
+        assert promotion_failures(summary) == failures
+
+    def test_a_calibration_whose_promotions_succeed_names_none(
+        self, calib_toml, fake_pipeline, quadratic_metric
+    ):
+        from hydromodpy.calibration.report import promotion_failures
+
+        summary = run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
+
+        assert "promotion_failures" not in summary["extra"]
+        assert promotion_failures(summary) == []
+
+
+class TestWhatTheSessionJournalSays:
+    def test_the_session_names_the_project_it_ran_in(
+        self, calib_toml, fake_pipeline, quadratic_metric
+    ):
+        """Not the placeholder 'calibration': the project a run registers under."""
+        from hydromodpy.results.catalog import Catalog
+        from hydromodpy.results.session_journal import read_descriptor, session_dirs_for
+
+        summary = run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
+
+        workspace_root = calib_toml.parent
+        with Catalog(workspace_root) as catalog:
+            row = catalog.connection.execute(
+                "SELECT project, objective_name FROM calibration_sessions WHERE session_id = ?",
+                [uuid.UUID(summary["session_id"])],
+            ).fetchone()
+        assert row == (workspace_root.name, "nse")
+        (session_dir,) = session_dirs_for(workspace_root)
+        assert read_descriptor(session_dir).project == workspace_root.name
+
+    def test_a_named_project_is_kept(self, calib_toml, fake_pipeline, quadratic_metric):
+        from hydromodpy.results.catalog import Catalog
+
+        summary = run_calibration_cli(calib_toml, metric_fn=quadratic_metric, project="demo")
+
+        with Catalog(calib_toml.parent) as catalog:
+            row = catalog.connection.execute(
+                "SELECT project FROM calibration_sessions WHERE session_id = ?",
+                [uuid.UUID(summary["session_id"])],
+            ).fetchone()
+        assert row == ("demo",)
+
+    def test_a_search_scored_by_blocks_journals_its_blocks_not_the_default_pair(self):
+        """A network phase used to journal objective 'nse' on variable 'head'."""
+        cfg = CalibrationConfig.model_validate(
+            {
+                "parameters": {"K": {"bounds": [1e-7, 1e-3], "path": "flow.param.K.field.value"}},
+                "outputs": {
+                    "net": {"support": "network", "stream_geometry_path": "streams.gpkg"},
+                    "gauge": {"support": "point", "observes": "J0014", "variable": "discharge"},
+                },
+                "objective_blocks": [
+                    {"name": "network", "metric": "distance_gap", "uses_outputs": ["net"]},
+                    {"name": "hydrograph", "metric": "nse_log", "uses_outputs": ["gauge"]},
+                ],
+            }
+        )
+
+        payload = runner_module._session_config_payload(cfg, evaluator=None)
+
+        assert "variable" not in payload
+        assert "objective" not in payload
+        assert [block["metric"] for block in payload["objective_blocks"]] == [
+            "distance_gap",
+            "nse_log",
+        ]
+        assert runner_module.session_objective_name(cfg) == "distance_gap + nse_log"
+
+    def test_a_single_metric_search_keeps_the_pair_it_scores(self):
+        cfg = CalibrationConfig.model_validate(
+            {
+                "parameters": {"K": {"bounds": [1e-7, 1e-3], "path": "flow.param.K.field.value"}},
+                "objective": "kge",
+                "variable": "discharge",
+                "outputs": {
+                    "discharge": {"support": "point", "observes": "J0014", "variable": "discharge"}
+                },
+            }
+        )
+
+        payload = runner_module._session_config_payload(cfg, evaluator=None)
+
+        assert payload["variable"] == "discharge"
+        assert payload["objective"] == "kge"
+        assert runner_module.session_objective_name(cfg) == "kge"
+
+
+class TestAnIntervalOfOneTrial:
+    def test_the_log_says_no_other_trial_rather_than_a_zero_width_interval(self, caplog):
+        import logging
+
+        from hydromodpy.calibration.optim.tolerance import ParameterInterval
+
+        interval = ParameterInterval(
+            name="K",
+            best=1e-6,
+            lower=1e-6,
+            upper=1e-6,
+            tolerance=0.05,
+            mode="relative",
+            threshold=0.0179,
+            n_within=1,
+            n_trials=5,
+            reaches_lower_bound=False,
+            reaches_upper_bound=False,
+        )
+
+        with caplog.at_level(logging.INFO, logger=runner_module.logger.name):
+            runner_module._log_parameter_interval(interval, None)
+
+        assert "no other trial within the tolerance" in caplog.text
+        assert "[1e-06, 1e-06]" not in caplog.text

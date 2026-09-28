@@ -109,7 +109,7 @@ def run_calibration_programmatic(
     *,
     project,
     workspace: Path | str | None = None,
-    project_label: str = "calibration",
+    project_label: str | None = None,
     metric_fn: TrialMetricFn | None = None,
     objective: str | None = None,
     return_report: bool = True,

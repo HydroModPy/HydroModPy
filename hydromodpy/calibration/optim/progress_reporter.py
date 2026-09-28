@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import threading
+from collections.abc import Callable
 
 from hydromodpy.calibration.optim.optimizer import EvaluationResult
 from hydromodpy.core import progress
@@ -19,10 +20,21 @@ class ConsoleProgressReporter:
     trial with live best/crashed/cached counters in the description.
     Counters are lock-guarded because updates may arrive from worker
     threads when the engine evaluates batches in parallel.
+
+    ``label`` replaces the lowest cost in the description when the method
+    answers with something else. A root search answers with a root, and the
+    lowest cost it saw is often a trial far from it.
     """
 
-    def __init__(self, method: str, max_iter: int) -> None:
+    def __init__(
+        self,
+        method: str,
+        max_iter: int,
+        *,
+        label: Callable[[], str | None] | None = None,
+    ) -> None:
         self._method = method
+        self._label = label
         self._lock = threading.Lock()
         self._best = math.inf
         self._crashed = 0
@@ -52,6 +64,14 @@ class ConsoleProgressReporter:
             result.from_cache,
         )
 
+    def refresh(self) -> None:
+        """Redraw the description once the method has read the latest batch."""
+        with self._lock:
+            if self._closed:
+                return
+            description = self._description()
+        self._handle.update(description=description)
+
     def close(self) -> None:
         with self._lock:
             if self._closed:
@@ -62,7 +82,10 @@ class ConsoleProgressReporter:
     def _description(self) -> str:
         head = f"Calibrating ({self._method})"
         details: list[str] = []
-        if math.isfinite(self._best):
+        label = self._label() if self._label is not None else None
+        if label:
+            details.append(label)
+        elif math.isfinite(self._best):
             details.append(f"best {self._best:.4g}")
         if self._crashed:
             details.append(f"{self._crashed} crashed")

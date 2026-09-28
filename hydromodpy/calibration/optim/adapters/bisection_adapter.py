@@ -899,6 +899,30 @@ class BisectionAdapter:
             "closed": closed,
         }
 
+    def progress_label(self) -> str:
+        """Return what the live progress line shows: the bracket, not a cost.
+
+        A root search answers with a root. The lowest cost seen is often a trial
+        far from it, so a progress line naming it contradicts the answer. The
+        line names the bracket, or the brackets on two bounds, and once solved
+        the combined value.
+        """
+        name = self._parameter.name
+        combined = self._combined_result()
+        if combined is not None:
+            return f"root {name} = {self._physical_of(combined.trial_id):.4g}"
+        if self._targets is None or not self._brackets:
+            return f"bracketing {name}"
+        parts = []
+        for target in self._targets:
+            bracket = self._brackets.get(target.component)
+            if bracket is None:
+                continue
+            low, high = (float(self._parameter.to_physical(end)) for end in bracket)
+            side = "" if target.bound is None else f"{target.bound} "
+            parts.append(f"{side}root {name} in [{low:.4g}, {high:.4g}]")
+        return ", ".join(parts) if parts else f"bracketing {name}"
+
     def bracket_record(self) -> dict[str, Any] | None:
         """Return the final bracket for the report, or None before a sign change.
 

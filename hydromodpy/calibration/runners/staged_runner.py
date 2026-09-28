@@ -1170,7 +1170,7 @@ def run_staged_calibration(
     phase: str | None = None,
     objective: str | None = None,
     workspace: Path | str | None = None,
-    project: str = "calibration",
+    project: str | None = None,
     metric_fn: TrialMetricFn | None = None,
     store_factory: CalibrationStoreFactory | None = None,
     return_report: bool = True,
@@ -1192,7 +1192,8 @@ def run_staged_calibration(
     workspace
         Override the project catalog root, otherwise resolved from the TOML.
     project
-        Project label written to ``calibration_sessions.project``.
+        Project label written to ``calibration_sessions.project``. Unset, the
+        name of the project root folder, as a run registers it.
     metric_fn
         Programmatic override for the metric extractor.
     store_factory

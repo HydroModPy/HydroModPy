@@ -169,3 +169,62 @@ def test_verbose_mode_keeps_the_full_dict(tmp_path, monkeypatch, capsys) -> None
     err = capsys.readouterr().err
     assert "Workflow 'calibration' complete: run_calibration.toml" in err
     assert "methods_paragraph: Hydraulic properties" in err
+
+
+def _failed_promotion_summary(tmp_path: Path) -> dict:
+    summary = _staged_summary(tmp_path)
+    summary["phases"][0]["report"]["extra"]["promotion_failures"] = [
+        "iteration 15: step 'display' failed"
+    ]
+    return summary
+
+
+@pytest.mark.parametrize("verbosity", ["normal", "quiet", "verbose"])
+def test_a_failed_promotion_is_named_and_exits_with_the_calibration_code(
+    tmp_path, monkeypatch, capsys, verbosity
+) -> None:
+    """The search results are printed and kept; the exit code says a run is missing."""
+    from hydromodpy.cli.helpers import EXIT_CALIBRATION
+
+    config = tmp_path / "run_calibration.toml"
+    config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(hydromodpy, "run", lambda path: _failed_promotion_summary(tmp_path))
+    args = argparse.Namespace(
+        dry_run=False, no_lock=True, no_display=False, verbosity=verbosity, profile=None
+    )
+    try:
+        with pytest.raises(SystemExit) as exited:
+            run_command._run_toml(config, args=args)
+    finally:
+        set_verbosity("normal")
+
+    assert exited.value.code == EXIT_CALIBRATION
+    err = capsys.readouterr().err
+    assert "Promotion failed: phase steady_conductivity: iteration 15: step 'display' failed" in err
+    if verbosity == "normal":
+        assert "1 steady_conductivity: bisection, 15 runs" in err
+        assert "promotion failed" in err.split("\n")[1]
+
+
+def test_a_calibration_whose_promotions_succeed_exits_zero(tmp_path, monkeypatch, capsys) -> None:
+    _run_calibration_file(tmp_path, monkeypatch, "normal")
+
+    assert "Promotion failed" not in capsys.readouterr().err
+
+
+@pytest.mark.fast
+def test_an_interval_holding_the_best_trial_alone_is_not_printed_as_zero_width(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    report = _staged_summary(tmp_path)["phases"][0]["report"]
+    report["extra"]["parameter_intervals"] = [
+        {"name": "K", "lower": 8.106887879884017e-05, "upper": 8.106887879884017e-05}
+    ]
+
+    run_command._print_calibration_recap(report, Path("calibrate_k.toml"))
+
+    line = capsys.readouterr().err.splitlines()[1]
+    assert "K = 8.107e-05 m/s (no other trial within the tolerance)" in line
+    assert " in [" not in line

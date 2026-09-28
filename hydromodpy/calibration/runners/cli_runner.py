@@ -67,6 +67,7 @@ from hydromodpy.calibration.persistence import (
     default_store_factory,
 )
 from hydromodpy.calibration.protocols import expand_calibration_protocol
+from hydromodpy.calibration.report import NO_OTHER_TRIAL, interval_is_degenerate
 from hydromodpy.calibration.runners.failure_watch import ConsecutiveFailureWatch
 from hydromodpy.calibration.runners.promotion import (
     promote_iterations,
@@ -543,7 +544,46 @@ def _session_config_payload(cfg: CalibrationConfig, evaluator: object) -> dict[s
     forward_model = getattr(evaluator, "forward_model_id", None)
     if forward_model is not None:
         payload["forward_model"] = forward_model
+    if _scores_declared_blocks(cfg):
+        # The blocks say what the phase scores. The single-metric pair left at
+        # its schema default ("head", "nse") names nothing it scored.
+        for key in ("variable", "objective"):
+            if payload.get(key) == CalibrationConfig.model_fields[key].default:
+                payload.pop(key, None)
     return payload
+
+
+def _scores_declared_blocks(cfg: CalibrationConfig) -> bool:
+    """Whether the search is scored by declared blocks, not by one variable and metric.
+
+    The block built from ``objective`` and ``variable`` when none is declared
+    does not count: that pair is then what the search scores.
+    """
+    blocks = list(cfg.objective_blocks or ())
+    if not blocks:
+        return False
+    if len(blocks) == 1:
+        block = blocks[0]
+        implicit = (
+            block.name == f"{cfg.objective}_{cfg.variable}"
+            and str(block.metric) == str(cfg.objective)
+            and list(block.uses_outputs) == [cfg.variable]
+        )
+        if implicit:
+            return False
+    return True
+
+
+def session_objective_name(cfg: CalibrationConfig) -> str:
+    """Return the metric a session scores on, as its objective blocks name it.
+
+    A search scored through blocks names their metrics, joined by ``" + "``
+    when there are several. A single-metric search names its ``objective``.
+    """
+    metrics = [str(block.metric) for block in cfg.objective_blocks or ()]
+    if metrics:
+        return " + ".join(dict.fromkeys(metrics))
+    return str(cfg.objective)
 
 
 def _persist_observed_for_report(catalog: Any, trial_ctx: Any, variable: str) -> None:
@@ -734,6 +774,16 @@ def _log_parameter_interval(interval: ParameterInterval, best: EvaluationResult 
             interval.best,
             " and ".join(reach),
             best.objective_value if best is not None else float("nan"),
+        )
+        return
+    if interval_is_degenerate(interval.to_dict()):
+        logger.info(
+            "%s = %.4g: %s (%.3g of the best), over %d trials.",
+            interval.name,
+            interval.best,
+            NO_OTHER_TRIAL,
+            interval.threshold,
+            interval.n_trials,
         )
         return
     logger.info(
@@ -1368,7 +1418,7 @@ def run_calibration_core(
     *,
     workspace: Path,
     space: ParameterSpace,
-    project_label: str = "calibration",
+    project_label: str | None = None,
     cfg_path: Path | None = None,
     metric_fn: TrialMetricFn | None = None,
     objective: str | None = None,
@@ -1488,9 +1538,11 @@ def run_calibration_core(
     session_id = chain.session_id if chain is not None else uuid.uuid4().hex
     persistence.start_session(
         session_id=session_id,
-        project=project_label,
+        # The project a run registers under is its root folder name; a
+        # session names the same project unless the caller named another.
+        project=project_label or Path(workspace).name,
         method=cfg.method,
-        objective_name=cfg.objective,
+        objective_name=session_objective_name(cfg),
         search_space=_search_space_payload(space),
         config=_session_config_payload(cfg, evaluator),
         parent_session_id=chain.parent_session_id if chain is not None else None,
@@ -1614,7 +1666,9 @@ def run_calibration_core(
         parallel=cfg.parallel,
         cache=engine_cache,
         cache_context=cache_context,
-        progress=ConsoleProgressReporter(cfg.method, budget),
+        progress=ConsoleProgressReporter(
+            cfg.method, budget, label=getattr(optimizer, "progress_label", None)
+        ),
         session_id=session_id,
         on_iteration=on_iteration,
     )
@@ -1770,6 +1824,17 @@ def run_calibration_core(
     )
     extra.update(_search_outcome_extra(session))
     extra.update(_roptim_verdict_extra(cfg.outputs, best.components if best else None))
+    if promotion_failures:
+        # Read by the console recap and the CLI exit code. The search itself is
+        # sound and kept: only the replayed runs are missing.
+        extra["promotion_failures"] = list(promotion_failures)
+        logger.error(
+            "Promotion failed for %d of %d run(s) of session %s; the search results are "
+            "kept, the failed runs were not written.",
+            len(promotion_failures),
+            len(promotion_failures) + promotion_count,
+            session_id,
+        )
     # Read by the console recap, which cannot reach the configuration.
     extra["parameter_units"] = parameter_units(cfg)
     extra["cost_metric"] = cost_metric_label(cfg)
@@ -1803,7 +1868,7 @@ def run_calibration_cli(
     *,
     objective: str | None = None,
     workspace: Path | str | None = None,
-    project: str = "calibration",
+    project: str | None = None,
     metric_fn: TrialMetricFn | None = None,
     return_report: bool = False,
     store_factory: CalibrationStoreFactory | None = None,
@@ -1823,7 +1888,8 @@ def run_calibration_cli(
         Override the project catalog root (defaults to the one resolved
         from the TOML).
     project
-        Project label written to ``calibration_sessions.project``.
+        Project label written to ``calibration_sessions.project``. Unset, the
+        name of the project root folder, as a run registers it.
     metric_fn
         Programmatic override for the metric extractor.
     return_report

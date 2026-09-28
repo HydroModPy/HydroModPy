@@ -27,6 +27,7 @@ from hydromodpy.cli.helpers import (
     EXIT_SIGINT,
     apply_verbosity,
     auto_scan_workspace,
+    exit_if_promotion_failed,
     profile_arg_from_toml,
     profile_run,
     resolve_profile_output,
@@ -427,6 +428,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     if workflow == "calibration" and verbosity in ("quiet", "normal"):
         if verbosity == "normal" and isinstance(summary, Mapping):
             _print_calibration_recap(summary, config_path)
+        exit_if_promotion_failed(summary)
         return
 
     print(f"Workflow '{workflow}' complete: {config_path.name}", file=sys.stderr)
@@ -440,6 +442,8 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         if value is None:
             continue
         print(f"  {key}: {value}", file=sys.stderr)
+    if workflow == "calibration":
+        exit_if_promotion_failed(summary)
 
 
 def _print_overview_recap(summary: Mapping[str, Any]) -> None:
@@ -464,6 +468,7 @@ def _print_calibration_recap(summary: Mapping[str, Any], config_path: Path) -> N
     unit and interval, and the best cost with the metric it is. A single-phase
     summary is read as one phase.
     """
+    from hydromodpy.calibration.report import NO_OTHER_TRIAL, interval_is_degenerate
     from hydromodpy.results.catalog.storage_paths import run_dirname
 
     phases = summary.get("phases")
@@ -492,7 +497,10 @@ def _print_calibration_recap(summary: Mapping[str, Any], config_path: Path) -> N
             text = f"{name} = {float(value):.4g}" + ("" if unit == "-" else f" {unit}")
             if name in intervals:
                 bounds = intervals[name]
-                text += f" in [{float(bounds['lower']):.4g}, {float(bounds['upper']):.4g}]"
+                if interval_is_degenerate(bounds):
+                    text += f" ({NO_OTHER_TRIAL})"
+                else:
+                    text += f" in [{float(bounds['lower']):.4g}, {float(bounds['upper']):.4g}]"
             values.append(text)
         parts = [f"{report.get('method')}, {int(report.get('n_iterations') or 0)} runs"]
         parts.append(", ".join(values) if values else "no best value")
@@ -502,6 +510,8 @@ def _print_calibration_recap(summary: Mapping[str, Any], config_path: Path) -> N
             parts.append(f"cost {float(best):.4g}" + (f" ({metric})" if metric else ""))
         if extra.get("reused_from_disk"):
             parts.append("reused from a previous session")
+        if extra.get("promotion_failures"):
+            parts.append("promotion failed")
         label = f"{int(phase.get('index', position)) + 1}"
         if phase.get("phase"):
             label += f" {phase['phase']}"

@@ -111,6 +111,23 @@ def exit_code_for(exc: BaseException) -> int:
     return EXIT_GENERIC
 
 
+def exit_if_promotion_failed(result: Any) -> None:
+    """Name each failed promotion, then exit with the calibration code.
+
+    Called once the search results are printed: they stay valid and are kept,
+    only the replayed runs are missing. Returns when every promotion succeeded.
+    """
+    from hydromodpy.calibration.report import promotion_failures
+    from hydromodpy.core.exceptions import CalibrationError
+
+    failures = promotion_failures(result)
+    if not failures:
+        return
+    for line in failures:
+        print(f"  Promotion failed: {line}", file=sys.stderr)
+    sys.exit(exit_code_for(CalibrationError(f"{len(failures)} promotion(s) failed")))
+
+
 # ---------------------------------------------------------------------------
 # Workspace / project discovery
 # ---------------------------------------------------------------------------
@@ -358,6 +375,7 @@ __all__ = (
     "EXIT_CATALOG_UNREADABLE",
     "EXIT_SIGINT",
     "exit_code_for",
+    "exit_if_promotion_failed",
     "find_project_root",
     "find_workspace_root",
     "find_data_workspace",

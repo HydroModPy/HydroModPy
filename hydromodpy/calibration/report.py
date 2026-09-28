@@ -29,6 +29,10 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+NO_OTHER_TRIAL = "no other trial within the tolerance"
+"""What a recap says in place of an interval that only holds the best trial."""
+
+
 # ---------------------------------------------------------------------------
 # CalibrationReport dataclass
 # ---------------------------------------------------------------------------
@@ -620,10 +624,52 @@ def _hex(value: Any) -> str:
     return str(value).replace("-", "")
 
 
+def interval_is_degenerate(interval: Mapping[str, Any]) -> bool:
+    """Whether an interval holds the best trial alone, so it has no width.
+
+    ``interval`` is a :meth:`ParameterInterval.to_dict` record. Printed as
+    ``[x, x]``, such an interval reads as a value known exactly, when it only
+    says that no other trial scored within the tolerance.
+    """
+    n_within = interval.get("n_within")
+    if n_within is not None and int(n_within) <= 1:
+        return True
+    return float(interval["lower"]) == float(interval["upper"])
+
+
+def promotion_failures(result: Any) -> list[str]:
+    """Return the promotions a finished calibration could not write, one line each.
+
+    Reads a calibration report or its ``to_dict`` summary, from one search or
+    from a run in phases. A line of a staged run starts with its phase name.
+    The search results stay valid: only the replayed runs are missing.
+    """
+    summary = result.to_dict() if hasattr(result, "to_dict") else result
+    if not isinstance(summary, Mapping):
+        return []
+    phases = summary.get("phases")
+    if not isinstance(phases, list):
+        phases = [{"phase": None, "report": summary}]
+    lines: list[str] = []
+    for phase in phases:
+        if not isinstance(phase, Mapping):
+            continue
+        report = phase.get("report")
+        extra = report.get("extra") if isinstance(report, Mapping) else None
+        failures = extra.get("promotion_failures") if isinstance(extra, Mapping) else None
+        name = phase.get("phase")
+        for failure in failures or ():
+            lines.append(f"phase {name}: {failure}" if name else str(failure))
+    return lines
+
+
 __all__ = (
+    "NO_OTHER_TRIAL",
     "CalibrationReport",
     "SessionReportData",
+    "interval_is_degenerate",
     "load_session_report_data",
+    "promotion_failures",
     "resolve_calibration_session_id",
     "resolve_session_in_workspace",
 )

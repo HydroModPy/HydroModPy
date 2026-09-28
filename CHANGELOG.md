@@ -75,6 +75,18 @@ Each release section includes the following standard categories:
   dropped the session's shared preprocessing tree, so with `save_runs = "all"` the next ones
   had no watershed: their catchment discharge summed the whole domain (PBIAS -95 % on the
   daily API grid of example 04) and 6 of 15 figures did not apply.
+- A calibration whose promotion fails says so and exits 21 (`CalibrationError`) from `hmp run`
+  and `hmp calibrate`, after printing the results of the search, which are kept. It printed
+  "done" and exited 0 while the promoted run was `failed` in the catalog.
+- The progress line of a bisection shows its bracket, then its root, instead of the lowest
+  cost met, which is not the answer of a root search (BD Topage: `best 71.8` at K = 1e-7 for a
+  root at K = 5.9e-6).
+- A calibrated value no other trial comes close to prints "no other trial within the
+  tolerance" instead of a zero-width interval `[x, x]`.
+- A session journal names its project (the project folder, as its runs do) and the metrics of
+  its objective blocks, and drops the `variable`/`objective` pair a block-scored phase leaves at
+  its defaults. It wrote `project = "calibration"`, `objective_name = "nse"` and
+  `variable = "head"` for a network phase scored on `distance_gap`.
 
 ---
 
