@@ -572,9 +572,9 @@ Sub-models are linked back to their per-section page.
       max_iter = "auto"
       # How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a log-transformed parameter that is a ratio, which is how a conductivity is known in the first place, and it holds wherever the value sits; on any other transform there is no scale on the value to be relative to before the search has one, so it reads as a fraction of the declared interval. Each engine's own stopping option is written from it, so the same number survives a change of engine, and the engine's own option stays available for reproducing a published call verbatim. Unset, the engine's default applies. An engine that stops on its budget rather than on a precision refuses this rather than ignore it.
       # tolerance = ...  # default = None
-      # Number of suggestions drawn per ask (for parallel optimizers).
+      # Number of suggestions drawn per ask, at least ``parallel``.
       batch_size = 1
-      # Number of trials evaluated concurrently inside one batch via a thread pool. parallel=1 keeps the legacy sequential loop.
+      # Trials solved side by side, each in its own folder. A grid or a random search gains the most: its points do not depend on one another. A root search and a simplex propose one point at a time and gain nothing. Each trial holds its own model in memory; 1 solves them one after the other.
       parallel = 1
       # Percent water-balance discrepancy past which a trial is rejected instead of scored. The solver reports the figure on every run; unset, it is recorded and nothing acts on it, so a run at twelve per cent is ranked beside one that closed even though part of the water it routed came from nowhere. There is no default because there is no universal value: a steady solve on a coarse mesh closes to a fraction of a per cent, a transient one with a lake and a routed network legitimately sits higher.
       # reject_water_budget_above = ...  # default = None

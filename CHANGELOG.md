@@ -53,6 +53,10 @@ Each release section includes the following standard categories:
   not found"). A child process inherits its parent's folder through `HMP_RUN_SCRATCH`; the next
   run of the project removes the folders of killed runs. `PREPROCESSING_DIR` is replaced by
   `core.state.paths.preprocessing_dir(root)`.
+- `batch_size` and `parallel` of a calibration and of a phase are user options, and `parallel`
+  alone now runs trials side by side: a batch holds at least `parallel` trials, where a batch of
+  one serialized them. Measured on the composite of example 04, 8 trials at `parallel = 4` take
+  278 s for 695 s of solves. `run_calibration_api_daily.toml` solves its five K at once.
 - `Run completed: <name> [<id>] <n>s` prints the run's duration, the `duration_s` the catalog
   stores, instead of the solver step alone (6 s printed for a 19 s run).
 - The help of `[simulation] if_exists` says what `replace` does: it trashes the predecessor,

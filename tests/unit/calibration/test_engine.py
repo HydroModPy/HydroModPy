@@ -212,6 +212,33 @@ class TestEngineEdgeCases:
         session = engine.run()
         assert len(session.history) == 3
 
+    def test_parallel_alone_runs_trials_side_by_side(self):
+        """``parallel`` alone fills each batch: batch_size 1 must not serialize it."""
+        import threading
+        import time
+
+        space = _unit_space()
+        opt = _StubOptimizer([{"x": 0.1}, {"x": 0.2}, {"x": 0.3}, {"x": 0.4}])
+        active = {"now": 0, "most": 0}
+        guard = threading.Lock()
+
+        def _slow(sugg):
+            with guard:
+                active["now"] += 1
+                active["most"] = max(active["most"], active["now"])
+            time.sleep(0.2)
+            with guard:
+                active["now"] -= 1
+            return _simple_evaluator(sugg)
+
+        engine = CalibrationEngine(
+            space=space, optimizer=opt, evaluator=_slow, max_iter=4, parallel=4
+        )
+        session = engine.run()
+
+        assert len(session.history) == 4
+        assert active["most"] == 4
+
     def test_empty_suggestion_list_terminates_without_error(self):
         """An optimizer that returns ``[]`` must stop the loop gracefully."""
         space = _unit_space()

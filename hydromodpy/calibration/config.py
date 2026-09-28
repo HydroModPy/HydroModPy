@@ -1558,16 +1558,19 @@ class CalibPhaseDecl(HydroModelBase):
             "than on a precision refuses this rather than ignore it."
         ),
     )
-    batch_size: Annotated[int, Profile.DEV] = Field(
+    batch_size: Annotated[int, Profile.USER] = Field(
         default=1,
         ge=1,
-        description="Suggestions drawn per ask. A root search returns one point at a "
-        "time during its refinement, whatever this asks for.",
+        description="Suggestions drawn per ask, at least ``parallel``. A root search "
+        "returns one point at a time during its refinement, whatever this asks for.",
     )
-    parallel: Annotated[int, Profile.DEV] = Field(
+    parallel: Annotated[int, Profile.USER] = Field(
         default=1,
         ge=1,
-        description="Trials evaluated concurrently inside one batch.",
+        description="Trials of this phase solved side by side, each in its own folder. "
+        "A grid or a random search gains the most: its points do not depend on one "
+        "another. A root search and a simplex propose one point at a time and gain "
+        "nothing. Each trial holds its own model in memory.",
     )
     parameters: Annotated[list[str], Profile.USER] = Field(
         min_length=1,
@@ -2001,17 +2004,19 @@ class CalibrationConfig(HydroModelBase):
             "than on a precision refuses this rather than ignore it."
         ),
     )
-    batch_size: Annotated[int, Profile.DEV] = Field(
+    batch_size: Annotated[int, Profile.USER] = Field(
         default=1,
         ge=1,
-        description="Number of suggestions drawn per ask (for parallel optimizers).",
+        description="Number of suggestions drawn per ask, at least ``parallel``.",
     )
-    parallel: Annotated[int, Profile.DEV] = Field(
+    parallel: Annotated[int, Profile.USER] = Field(
         default=1,
         ge=1,
         description=(
-            "Number of trials evaluated concurrently inside one batch via a "
-            "thread pool. parallel=1 keeps the legacy sequential loop."
+            "Trials solved side by side, each in its own folder. A grid or a random "
+            "search gains the most: its points do not depend on one another. A root "
+            "search and a simplex propose one point at a time and gain nothing. Each "
+            "trial holds its own model in memory; 1 solves them one after the other."
         ),
     )
     reject_water_budget_above: Annotated[float | None, Profile.USER] = Field(

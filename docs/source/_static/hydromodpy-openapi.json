@@ -2105,25 +2105,25 @@
           },
           "batch_size": {
             "default": 1,
-            "description": "Suggestions drawn per ask. A root search returns one point at a time during its refinement, whatever this asks for.",
+            "description": "Suggestions drawn per ask, at least ``parallel``. A root search returns one point at a time during its refinement, whatever this asks for.",
             "examples": [
               1
             ],
             "minimum": 1,
             "title": "Batch Size",
             "type": "integer",
-            "x-hmp-profile": "dev"
+            "x-hmp-profile": "user"
           },
           "parallel": {
             "default": 1,
-            "description": "Trials evaluated concurrently inside one batch.",
+            "description": "Trials of this phase solved side by side, each in its own folder. A grid or a random search gains the most: its points do not depend on one another. A root search and a simplex propose one point at a time and gain nothing. Each trial holds its own model in memory.",
             "examples": [
               1
             ],
             "minimum": 1,
             "title": "Parallel",
             "type": "integer",
-            "x-hmp-profile": "dev"
+            "x-hmp-profile": "user"
           },
           "parameters": {
             "description": "Names of the calibration parameters this phase may move. Every other parameter keeps the value it entered the phase with.",
@@ -2643,25 +2643,25 @@
           },
           "batch_size": {
             "default": 1,
-            "description": "Number of suggestions drawn per ask (for parallel optimizers).",
+            "description": "Number of suggestions drawn per ask, at least ``parallel``.",
             "examples": [
               1
             ],
             "minimum": 1,
             "title": "Batch Size",
             "type": "integer",
-            "x-hmp-profile": "dev"
+            "x-hmp-profile": "user"
           },
           "parallel": {
             "default": 1,
-            "description": "Number of trials evaluated concurrently inside one batch via a thread pool. parallel=1 keeps the legacy sequential loop.",
+            "description": "Trials solved side by side, each in its own folder. A grid or a random search gains the most: its points do not depend on one another. A root search and a simplex propose one point at a time and gain nothing. Each trial holds its own model in memory; 1 solves them one after the other.",
             "examples": [
               1
             ],
             "minimum": 1,
             "title": "Parallel",
             "type": "integer",
-            "x-hmp-profile": "dev"
+            "x-hmp-profile": "user"
           },
           "reject_water_budget_above": {
             "anyOf": [

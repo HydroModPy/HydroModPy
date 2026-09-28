@@ -230,7 +230,9 @@ class CalibrationEngine:
         would buy nothing, so no extension is granted then.
         """
         while n_done < budget:
-            take = min(self.batch_size, budget - n_done)
+            # A batch holds at least ``parallel`` trials: ``parallel`` alone must
+            # run trials side by side, not wait for a batch_size set beside it.
+            take = min(max(self.batch_size, self.parallel), budget - n_done)
             suggestions = self.optimizer.ask(n=take)
             if not suggestions:
                 return True
