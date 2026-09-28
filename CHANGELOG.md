@@ -174,6 +174,8 @@ Each release section includes the following standard categories:
 - An IGN BD ALTI DEM sets its sea to nodata: the zero-valued regions touching the raster edge or a
   nodata cell. The sea was one flat plateau the breach step could not route in reasonable time.
   `py7zr` is declared, the fallback the BD ALTI archives are extracted with when `7z` is absent.
+- A station named in `station_ids` survives the watershed mask, as `nearest = true` already did.
+  A piezometer or gauge asked for by id was dropped when it sat outside the catchment.
 
 ---
 

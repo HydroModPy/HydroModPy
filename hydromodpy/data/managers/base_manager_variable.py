@@ -172,12 +172,13 @@ class BaseVariableManager(BaseManagerCommon):
     ) -> list[PointRecord]:
         """Filter records by spatial mask (reprojected to WGS84).
 
-        ``nearest=True`` explicitly asks for the closest station even when it
-        lies outside the watershed mask (typical for piezometers). The mask is
-        still used by ``_resolve_bbox`` for API discovery, but we keep the
-        fallback record instead of stripping it here.
+        A station named in ``station_ids``, or asked for with ``nearest=True``,
+        is kept even when it lies outside the watershed mask (typical for
+        piezometers). The mask still bounds API discovery through
+        ``_resolve_bbox``; it only stops stripping what was asked for.
         """
-        if source_cfg.mask_path and getattr(source_cfg, "nearest", False):
+        named = bool(getattr(source_cfg, "station_ids", None))
+        if source_cfg.mask_path and (named or getattr(source_cfg, "nearest", False)):
             return records
         return super()._apply_mask(records, source_cfg)
 
