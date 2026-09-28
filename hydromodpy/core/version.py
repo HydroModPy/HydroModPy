@@ -19,7 +19,7 @@ import tomllib
 from importlib import metadata
 from pathlib import Path
 
-_FALLBACK_VERSION = "2.0.0a1"
+_FALLBACK_VERSION = "2.0.0a2"
 
 
 def _read_version() -> str:

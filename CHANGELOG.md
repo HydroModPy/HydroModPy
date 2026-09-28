@@ -33,6 +33,10 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+---
+
+## [v2.0.0a2] - 2026-09-28
+
 ### Added
 - `[[export]]`: one block per export request (`variables`, `time`, `period`, `format`, `folder`,
   `file`, `crs`, `resolution`, `layer`, `nodata`). The format follows the data: GeoTIFF for a field at
