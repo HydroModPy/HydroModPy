@@ -65,6 +65,11 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
         "comparison",
         (),
     ),
+    "calibration_progress": (
+        "hydromodpy.display.figures.calibration_progress.CalibrationProgressFigure",
+        "timeseries",
+        (),
+    ),
     "calibration_trace": (
         "hydromodpy.display.figures.calibration_trace.CalibrationTraceFigure",
         "timeseries",

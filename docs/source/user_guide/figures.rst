@@ -169,6 +169,39 @@ counts: the field is a yes or no per cell. The maps state the network
 criterion in words under the map: "a cell counts as seepage above 0.01 % of
 its recharge" is ``tau_specific_ratio = 1e-4``.
 
+Calibration progress
+--------------------
+
+``calibration_progress`` ("How the search converged") draws a calibration
+search on one 16:9 slide, run after run, for any method. It is drawn on a run
+the calibration promoted and reads the session of that run's own phase:
+
+- the value tried at each run, on a log axis for a log-transformed parameter,
+  each marker coloured by the cost of its run (darker is better), the best run
+  starred, and the range of runs within tolerance of the best as a band. A
+  bisection also shades the bracket that closes on ``J = 0``;
+- the cost of each run and the best so far, a staircase that only goes down.
+  The axis names the metric and its unit, ``|D_so - D_os| (m)`` for
+  ``distance_gap`` or ``1 - NSElog (-)`` for ``nse_log``, and a dashed line
+  marks the run from which the search stays within tolerance of its best;
+- what the search improves: for a network output, the cells the simulated
+  seepage network finds, adds and misses against the mapped streams, with the
+  size of the map as a dashed line; for a hydrograph, the efficiency itself
+  (NSElog, NSE, KGE) rising toward its best;
+- with two parameters, the runs in the parameter plane coloured by run order,
+  each new best joined in order: a simplex walks downhill, a sampler explores
+  then concentrates.
+
+The tolerance is the calibration's own: ``[calibration.uncertainty]`` when it
+writes one, else one mesh cell on a search scored on network distances in
+metres, else five per cent of the best cost. A sentence under the panels says
+what "better" means for the phase. ``session_id`` picks one session when the
+run belongs to several, and ``output`` names the network output to count.
+
+.. code-block:: bash
+
+   hmp viz show <promoted_run> calibration_progress --output progress.png
+
 Applicability rule
 ------------------
 

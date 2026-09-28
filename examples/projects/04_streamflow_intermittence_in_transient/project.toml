@@ -128,8 +128,10 @@ time = "2002-10-15"
 # hydrograph_log_nse draws the same series as hydrograph_sim_obs on the axis an
 # intermittent catchment is read on, and marks the window stage two scores.
 #
-# The four after the blank line only apply to a run the calibration promoted,
-# and skip themselves, with a reason, on a plain `hmp run`.
+# The five after the blank line only apply to a run the calibration promoted,
+# and skip themselves, with a reason, on a plain `hmp run`. calibration_progress
+# is the slide of the search: the value tried, the cost and what improves, run
+# after run.
 figures = [
     "watershed_id_card",
     "flux_timeseries",
@@ -144,6 +146,7 @@ figures = [
     "bisection_bracket_trace",
     "parameter_cost_profile",
     "matching_hydrographic_network_card",
+    "calibration_progress",
 ]
 
 # South to north through the outlet, so the section cuts the tributaries
