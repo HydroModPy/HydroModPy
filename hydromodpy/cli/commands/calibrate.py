@@ -22,6 +22,7 @@ from hydromodpy.cli.helpers import (
     EXIT_SIGINT,
     EXIT_USAGE,
     apply_verbosity,
+    exit_if_promotion_failed,
     profile_arg_from_toml,
     profile_run,
     resolve_profile_output,
@@ -526,6 +527,8 @@ def _format_calibration_result(result: Any) -> list[str]:
     report object, or a run that evaluated no candidate), so the caller stays
     silent rather than guessing.
     """
+    from hydromodpy.calibration.report import NO_OTHER_TRIAL, interval_is_degenerate
+
     best_parameters = getattr(result, "best_parameters", None)
     if not best_parameters:
         return []
@@ -541,6 +544,8 @@ def _format_calibration_result(result: Any) -> list[str]:
         interval = intervals.get(name)
         if width is not None:
             line += f"  (sigma {width.sigma:.3g})"
+        elif interval is not None and interval_is_degenerate(interval):
+            line += f"  ({NO_OTHER_TRIAL})"
         elif interval is not None:
             line += f"  [{interval['lower']:.6g}, {interval['upper']:.6g}]"
         if interval is not None and (
@@ -797,3 +802,4 @@ def run(args: argparse.Namespace) -> None:
     )
     for line in lines:
         print(line, file=sys.stderr)
+    exit_if_promotion_failed(result)

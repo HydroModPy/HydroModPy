@@ -47,6 +47,7 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import ConfigMissingError, PipelineError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.workspace.path_registry import project_run_lock
 from hydromodpy.project.accessors import ProjectDataAccessor, ProjectRunsAccessor
 from hydromodpy.project.catalog import ProjectCatalog
 from hydromodpy.project.runner import ProjectRunner, _pin_parent_sim_id
@@ -449,17 +450,18 @@ class Project:
         hydromodpy.results.run.Run
             Per-simulation result view returned by successful runs.
         """
-        return self._runner.run(
-            name=name,
-            resume=resume,
-            from_step=from_step,
-            until_step=until_step,
-            dry_run=dry_run,
-            frozen=frozen,
-            no_display=no_display,
-            parallel=parallel,
-            **overrides,
-        )
+        with project_run_lock(Path(self.config.workspace.project_root)):
+            return self._runner.run(
+                name=name,
+                resume=resume,
+                from_step=from_step,
+                until_step=until_step,
+                dry_run=dry_run,
+                frozen=frozen,
+                no_display=no_display,
+                parallel=parallel,
+                **overrides,
+            )
 
     def calibrate(
         self,
@@ -601,7 +603,7 @@ class Project:
                     embedded,
                     project=self,
                     workspace=kwargs.get("workspace"),
-                    project_label=kwargs.get("project_label", kwargs.get("project", "calibration")),
+                    project_label=kwargs.get("project_label", kwargs.get("project")),
                     metric_fn=kwargs.get("metric_fn"),
                     objective=kwargs.get("objective"),
                     return_report=kwargs.get("return_report", True),
@@ -661,7 +663,7 @@ class Project:
             cfg,
             project=self,
             workspace=kwargs.get("workspace"),
-            project_label=kwargs.get("project_label", kwargs.get("project", "calibration")),
+            project_label=kwargs.get("project_label", kwargs.get("project")),
             metric_fn=kwargs.get("metric_fn"),
             objective=kwargs.get("objective"),
             return_report=kwargs.get("return_report", True),

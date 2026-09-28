@@ -13,6 +13,7 @@ import pandas as pd
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.period_aggregation import period_mean_on_index
+from hydromodpy.spatial.field.aggregation import extract_homogeneous_series_from_fields
 
 logger = get_logger(__name__)
 
@@ -129,6 +130,52 @@ def _window_start(ctx: Any, index: pd.DatetimeIndex) -> pd.Timestamp | None:
     return start if start < first_stamp else None
 
 
+def _station_runoff_mm_per_day(points: Any) -> pd.Series | None:
+    """Return the mean of the runoff station series, in mm/day, or None."""
+    series_list: list[pd.Series] = []
+    for rec in points:
+        df = getattr(rec, "data", None)
+        if df is None or getattr(df, "empty", True):
+            continue
+        idx = pd.to_datetime(df["datetime"])
+        if getattr(idx, "dt", None) is not None and idx.dt.tz is not None:
+            idx = idx.dt.tz_localize(None)
+        s = pd.Series(df["value"].astype("float64").values, index=pd.DatetimeIndex(idx))
+        series_list.append(s)
+    if not series_list:
+        return None
+    return pd.concat(series_list, axis=1).mean(axis=1)
+
+
+def _gridded_runoff_mm_per_day(runoff: Any) -> pd.Series | None:
+    """Return the watershed mean of a gridded runoff, in mm/day, or None.
+
+    The reduction the run persists as ``forcing/runoff/_watershed``, which the
+    derived catchment discharge reads back: every cell of each field averaged,
+    in the data-manager unit, the index naive in UTC. What a trial is scored on
+    is then what its run reports.
+    """
+    try:
+        series = extract_homogeneous_series_from_fields(runoff)
+    except Exception:
+        logger.debug("Watershed-mean reduction of the runoff fields failed", exc_info=True)
+        return None
+    if series is None or len(series) == 0:
+        return None
+    idx = pd.DatetimeIndex(series.index)
+    if idx.tz is not None:
+        idx = idx.tz_convert("UTC").tz_localize(None)
+    return pd.Series(series.to_numpy(dtype="float64"), index=idx)
+
+
+def _warn_once_without_runoff(ctx: Any, message: str) -> None:
+    """Log one runoff warning per loaded-data context."""
+    ctx_id = id(getattr(ctx, "loaded_data", None))
+    if ctx_id not in _RUNOFF_WARNING_EMITTED:
+        logger.warning(message)
+        _RUNOFF_WARNING_EMITTED.add(ctx_id)
+
+
 def add_runoff_to_discharge(
     simulated: pd.Series,
     ctx: Any,
@@ -137,8 +184,10 @@ def add_runoff_to_discharge(
 ) -> pd.Series:
     """Add the surface-runoff forcing to a baseflow series in m³/s.
 
-    The runoff data manager exposes one or more station time-series in
-    ``mm/day``. Stations are averaged, then averaged OVER each stress period by
+    The runoff data manager exposes one or more station time-series, or
+    gridded fields, in ``mm/day``. Stations are averaged; fields are reduced to
+    their watershed mean, the series the run persists and the derived catchment
+    discharge reads. That rate is then averaged OVER each stress period by
     the one rule the derived catchment discharge also uses
     (``core.time.period_aggregation.period_mean_on_index``), and converted to
     ``m³/s`` using the catchment area read from the geographic runtime. When no runoff is loaded, a
@@ -147,20 +196,19 @@ def add_runoff_to_discharge(
     ``area_m2`` overrides that catchment area, which is what a gauge away from
     the outlet needs: it sees the runoff of the area it drains, not of the whole
     basin. The runoff is spatially uniform here, one rate averaged over its
-    stations, so scaling that rate by the upstream area is the exact
+    stations or its cells, so scaling that rate by the upstream area is the exact
     generalisation of the whole-basin formula and adds no assumption.
     """
     runoff = getattr(getattr(ctx, "loaded_data", None), "runoff", None)
     points = getattr(runoff, "points", None) if runoff is not None else None
-    if not points:
-        ctx_id = id(getattr(ctx, "loaded_data", None))
-        if ctx_id not in _RUNOFF_WARNING_EMITTED:
-            logger.warning(
-                "calibration discharge: no runoff data loaded — comparing "
-                "DRN baseflow only against total streamflow observations. "
-                "Add 'runoff' to [data.types] for an apples-to-apples fit."
-            )
-            _RUNOFF_WARNING_EMITTED.add(ctx_id)
+    fields = getattr(runoff, "fields", None) if runoff is not None else None
+    if not points and not fields:
+        _warn_once_without_runoff(
+            ctx,
+            "calibration discharge: no runoff data loaded — comparing "
+            "DRN baseflow only against total streamflow observations. "
+            "Add 'runoff' to [data.types] for an apples-to-apples fit.",
+        )
         return simulated
 
     if area_m2 is not None:
@@ -180,20 +228,21 @@ def add_runoff_to_discharge(
             return simulated
         catch_area_m2 = catch_area_km2 * 1e6
 
-    series_list: list[pd.Series] = []
-    for rec in points:
-        df = getattr(rec, "data", None)
-        if df is None or getattr(df, "empty", True):
-            continue
-        idx = pd.to_datetime(df["datetime"])
-        if getattr(idx, "dt", None) is not None and idx.dt.tz is not None:
-            idx = idx.dt.tz_localize(None)
-        s = pd.Series(df["value"].astype("float64").values, index=pd.DatetimeIndex(idx))
-        series_list.append(s)
-    if not series_list:
+    # Stations win, as they do when the run persists its forcings.
+    if points:
+        runoff_mm_per_d = _station_runoff_mm_per_day(points)
+    else:
+        runoff_mm_per_d = _gridded_runoff_mm_per_day(runoff)
+        if runoff_mm_per_d is None:
+            _warn_once_without_runoff(
+                ctx,
+                "calibration discharge: the gridded runoff could not be reduced to a "
+                "watershed mean — comparing DRN baseflow only against total streamflow "
+                "observations.",
+            )
+    if runoff_mm_per_d is None:
         return simulated
 
-    runoff_mm_per_d = pd.concat(series_list, axis=1).mean(axis=1)
     target_index = simulated.index
     runoff_index = runoff_mm_per_d.index
     if runoff_index.tz is None and target_index.tz is not None:

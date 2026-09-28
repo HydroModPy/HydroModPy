@@ -90,6 +90,18 @@ class TrialTable:
                 return _numeric_column(self.frame, column)
         return np.arange(len(self.frame), dtype="float64")
 
+    def row_of_trial(self, trial: int) -> int | None:
+        """Return the row of one trial number, None when no row carries it.
+
+        A table that recorded no trial number has only ranks, and a rank is
+        not the number a session declares, so it matches nothing.
+        """
+        column = next((name for name in _ORDER_COLUMNS if name in self.frame.columns), None)
+        if column is None:
+            return None
+        matches = np.flatnonzero(_numeric_column(self.frame, column) == float(trial))
+        return int(matches[0]) if matches.size else None
+
     def objective_values(self, name: str | None = None) -> tuple[str, np.ndarray]:
         """Return the name and the per-trial values of the objective."""
         column = self.objective_column(name)

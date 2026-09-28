@@ -8,9 +8,13 @@ the minimal map its two southern cells.
 
 from __future__ import annotations
 
+import numpy as np
 import pytest
 
-from hydromodpy.display.figures.network_extent_bounds_map import NetworkExtentBoundsMap
+from hydromodpy.display.figures.network_extent_bounds_map import (  # noqa: F401
+    NetworkExtentBoundsMap,
+    _draw_both,
+)
 from tests.unit.display._network_comparison_run import legend_labels, legend_note
 from tests.unit.results._transient_network_run import transient_run
 
@@ -209,3 +213,61 @@ def test_a_scoring_window_holding_no_complete_year_is_told_so() -> None:
     assert reason is not None
     assert "scoring window holds no complete calendar year" in reason
     assert "2001, 2002" in reason
+
+
+def _square(i: int) -> np.ndarray:
+    return np.array([[i, 0], [i + 1, 0], [i + 1, 1], [i, 1]], dtype=float)
+
+
+class _FakeExtents:
+    """A stand-in exposing only what ``_draw_both`` reads."""
+
+    def __init__(
+        self, sim_min: np.ndarray, sim_max: np.ndarray, obs_min: np.ndarray, obs_max: np.ndarray
+    ) -> None:
+        self._sim = {"minimal": sim_min, "maximal": sim_max}
+        self._obs = {"minimal": obs_min, "maximal": obs_max}
+
+    def simulated(self, bound: str, *, year: int | None = None) -> np.ndarray:
+        return self._sim[bound]
+
+    def observed(self, bound: str) -> np.ndarray:
+        return self._obs[bound]
+
+
+def test_both_bounds_counts_follow_the_declared_frame(mpl) -> None:
+    # Before the fix, ``_draw_both`` counted every legend entry over the whole
+    # mesh, ignoring ``scope``: on a run with a domain 1234 cells wide it read
+    # a simulated minimal extent of 1234 cells while the scored lines, built
+    # on the catchment, counted 714.
+    polygons = [_square(i) for i in range(4)]
+    extents = _FakeExtents(
+        sim_min=np.array([True, True, False, False]),
+        sim_max=np.array([True, True, True, False]),
+        obs_min=np.array([True, False, False, False]),
+        obs_max=np.array([True, True, False, True]),
+    )
+    # Cells 2 and 3 sit outside the declared frame.
+    scope = np.array([True, True, False, False])
+
+    fig, ax = mpl.subplots()
+    fig2, ax2 = mpl.subplots()
+    try:
+        handles_whole = _draw_both(ax, polygons, extents, None, None)
+        handles_scoped = _draw_both(ax2, polygons, extents, None, scope)
+
+        assert [h.get_label() for h in handles_whole] == [
+            "simulated minimal extent (2 cells)",
+            "maximal extent beyond it (1 cell)",
+            "minimal map (1 cell)",
+            "maximal map beyond it (2 cells)",
+        ]
+        assert [h.get_label() for h in handles_scoped] == [
+            "simulated minimal extent (2 cells)",
+            "maximal extent beyond it (0 cells)",
+            "minimal map (1 cell)",
+            "maximal map beyond it (1 cell)",
+        ]
+    finally:
+        mpl.close(fig)
+        mpl.close(fig2)

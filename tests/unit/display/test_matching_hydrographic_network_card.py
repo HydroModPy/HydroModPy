@@ -926,6 +926,42 @@ def test_the_combined_trial_of_the_report_wins_over_the_session_best(mpl) -> Non
         mpl.close(fig)
 
 
+def test_a_run_drawn_on_its_own_reads_the_roots_and_the_returned_trial_from_the_journal(
+    mpl, tmp_path
+) -> None:
+    # The auto-render of [display].figures passes no roots record, and the
+    # index keeps no best trial: the card read "roots record not passed" and
+    # left both lower panels empty. The session journal holds both.
+    from ._calibration_journal import journal_run
+
+    run = journal_run(
+        tmp_path,
+        _two_bound_rows(),
+        method="bisection",
+        phase="transient_conductivity",
+        config={"parameters": {"K_over_R": {"units": "-"}}},
+        search_space={"K_over_R": {"bounds": [1e-6, 1e-2]}},
+        best_trial=COMBINED_TRIAL,
+        root_search={"roots": ROOTS},
+    )
+
+    fig = MatchingHydrographicNetworkCard().plot(run)
+
+    try:
+        note = _texts(_panel(fig, "Stage 1"))
+        assert "roots record not passed" not in note
+        assert "Delta = log10(K*_maximal / K*_minimal) = 1 decade(s)" in note
+        assert "combined K_over_R = 0.0001012, weighted geometric mean 0.5 / 0.5" in note
+        validity = _panel(fig, "Validity")
+        assert _patch(validity, "Doptim minimal").get_width() == pytest.approx(217.5)
+        assert _patch(validity, "Doptim maximal").get_width() == pytest.approx(820.0)
+        counts = _panel(fig, "Cells at the calibrated point")
+        assert counts.patches
+        assert "the returned trial is not known" not in _texts(counts)
+    finally:
+        mpl.close(fig)
+
+
 def test_two_bounds_without_a_returned_trial_qualify_nothing(mpl) -> None:
     fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(best_trial=None))
 

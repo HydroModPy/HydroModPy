@@ -393,7 +393,8 @@ class SimulationConfig(HydroModelBase):
             "Behavior when registering a simulation whose ``name`` already exists "
             "in this project. ``version`` (default) mints the next ``stem.vN`` and "
             "keeps every run addressable; ``replace`` trashes the predecessor "
-            "(restorable) and takes the name; ``fail`` raises an error."
+            "(restorable, keeps its own name and version) and registers the new "
+            "run under the next free ``stem.vN``; ``fail`` raises an error."
         ),
     )
     description: Annotated[str, Profile.USER] = Field(

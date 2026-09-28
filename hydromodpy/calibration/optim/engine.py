@@ -241,6 +241,10 @@ class CalibrationEngine:
                 if self.on_iteration is not None:
                     self.on_iteration(sugg, result)
             self.optimizer.tell(results)
+            # A method that labels its own progress knows the batch only now.
+            refresh = getattr(reporter, "refresh", None)
+            if callable(refresh):
+                refresh()
             n_done += len(results)
             if self.optimizer.converged():
                 return False

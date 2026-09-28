@@ -20,8 +20,10 @@ phase it draws.
 
 The tolerance is read the way the calibration reads it: one mesh cell for a
 search scored on network distances in metres, five per cent of the best cost
-otherwise, unless ``[calibration.uncertainty]`` wrote another width. A failed
-run keeps its place on the run axis and carries no cost.
+otherwise, unless ``[calibration.uncertainty]`` wrote another width. A value
+combined from two roots gets no interval, as in the calibration summary. The
+run marked is the one the calibration returned, as the session journal names
+it. A failed run keeps its place on the run axis and carries no cost.
 """
 
 from __future__ import annotations
@@ -33,13 +35,31 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import pandas as pd
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._calibration_session import (
+    EFFICIENCIES,
+    NETWORK_METRICS,
+    RESIDUAL_COSTS,
+    CostBlock,
+    as_mapping,
+    chosen_session,
+    cost_blocks,
+    cost_label,
+    float_or,
+    metric_cost,
+    metric_unit,
+    parameter_declaration,
+    read_tolerance,
+    returned_row,
+    session_config,
+    session_descriptor,
+    text,
+    tolerance_interval,
+)
 from hydromodpy.display.figures._trial_diagnostics import TrialTable, trial_table
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, get_cmap
-from hydromodpy.results.calibration_trials import calibration_sessions, calibration_trials
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -51,26 +71,6 @@ if TYPE_CHECKING:
 
 _BLUE, _SAND, _RED = HIGH_CONTRAST_TRIPLET
 _GREY = "0.55"
-
-_NETWORK_METRICS: frozenset[str] = frozenset({"distance_gap", "distance_mean"})
-"""Metrics scored on a network, in metres unless normalised."""
-
-_EFFICIENCIES: dict[str, str] = {
-    "nse": "NSE",
-    "nse_log": "NSElog",
-    "kge": "KGE",
-    "nse_delta": "NSE on increments",
-    "nse_seasonal": "seasonal NSE",
-    "reservoir": "reservoir score",
-}
-"""Scores that rise with agreement: the search minimises one minus the score."""
-
-_NETWORK_COSTS: dict[str, str] = {
-    "distance_gap": "|D_so - D_os|",
-    "distance_mean": "(D_so + D_os) / 2",
-}
-
-_RESIDUAL_COSTS: dict[str, str] = {"rmse": "RMSE", "mae": "MAE"}
 
 _METHOD_NAMES: dict[str, str] = {
     "bisection": "bisection",
@@ -91,9 +91,6 @@ _PARAMETER_NAMES: dict[str, str] = {
     "K_over_R": "Ratio K/R",
     "R": "Recharge R",
 }
-
-_DEFAULT_TOLERANCE = 0.05
-"""Relative width the calibration reads its interval with, when nothing wrote one."""
 
 _DECADES = 10.0
 """A positive cost spanning more than a decade is drawn on a log axis."""
@@ -138,19 +135,6 @@ class _Parameter:
 
 
 @dataclass(frozen=True, slots=True)
-class _Block:
-    """One objective block: its metric, its weight and its cost per run."""
-
-    name: str
-    metric: str | None
-    weight: float
-    normalized: bool
-    transformed: bool
-    raw: np.ndarray | None
-    output: str | None
-
-
-@dataclass(frozen=True, slots=True)
 class _Network:
     """The confusion counts of the simulated network against the map, per run."""
 
@@ -168,13 +152,15 @@ class _Search:
     runs: np.ndarray
     cost: np.ndarray
     parameters: list[_Parameter]
-    blocks: list[_Block]
+    blocks: list[CostBlock]
     network: _Network | None
     method: str
     phase: str | None
     output_variable: str | None
     threshold: float | None = None
     tolerance_text: str = ""
+    missing: str = ""
+    returned: int | None = None
     intervals: dict[str, tuple[float, float]] = field(default_factory=dict)
     bracket: tuple[np.ndarray, np.ndarray] | None = None
     weights_verified: bool = False
@@ -185,12 +171,28 @@ class _Search:
         return _best_so_far(self.cost)
 
     @property
-    def best(self) -> int | None:
-        """Return the row of the best run, None when no run produced a cost."""
+    def lowest(self) -> int | None:
+        """Return the row of the lowest cost, None when no run produced a cost."""
         finite = np.flatnonzero(np.isfinite(self.cost))
         if not finite.size:
             return None
         return int(finite[np.argmin(self.cost[finite])])
+
+    @property
+    def best(self) -> int | None:
+        """Return the row of the run the calibration returned, else of the lowest cost.
+
+        A search combining two roots returns a value between them, where the
+        cost is not the lowest: the run marked is the one it returned.
+        """
+        if self.returned is not None and np.isfinite(self.cost[self.returned]):
+            return self.returned
+        return self.lowest
+
+    @property
+    def best_word(self) -> str:
+        """Return how the marked run is named: best, or returned when it is not the lowest."""
+        return "best" if self.best == self.lowest else "returned"
 
     @property
     def first_within(self) -> int | None:
@@ -239,7 +241,7 @@ class CalibrationProgressFigure(BaseFigure):
         if reason is not None:
             return reason
         try:
-            table = trial_table(sim, session_id=_chosen_session(sim, None))
+            table = trial_table(sim, session_id=chosen_session(sim, None))
         except ValueError as exc:
             return str(exc)
         if not table.has_objective():
@@ -294,69 +296,47 @@ class CalibrationProgressFigure(BaseFigure):
 # ---------------------------------------------------------------------------
 
 
-def _chosen_session(sim: Run, session_id: str | None) -> str | None:
-    """Return the session this figure draws, the latest one the run belongs to.
-
-    A run reused from the cache can belong to several sessions of the same
-    phase. The one that started last is the calibration the run was promoted
-    from; drawing them all together would mix two searches on one run axis.
-    """
-    if session_id is not None:
-        return str(session_id)
-    frame = calibration_trials(sim)
-    if "session_id" not in frame.columns:
-        return None
-    named = [str(value) for value in frame["session_id"] if _text(value) is not None]
-    seen = list(dict.fromkeys(named))
-    if len(seen) <= 1:
-        return seen[0] if seen else None
-    rows = _session_rows(sim)
-    started = {sid: str(rows.get(_key(sid), {}).get("started_at") or "") for sid in seen}
-    return max(seen, key=lambda sid: (started[sid], seen.index(sid)))
-
-
 def _read_search(sim: Run, *, session_id: str | None, output: str | None) -> _Search:
     """Read one session into what the slide draws."""
-    chosen = _chosen_session(sim, session_id)
+    chosen = chosen_session(sim, session_id)
     table = trial_table(sim, session_id=chosen)
-    descriptor = _session_rows(sim).get(_key(chosen), {}) if chosen is not None else {}
-    config = _session_config(descriptor)
+    descriptor = session_descriptor(sim, chosen)
+    config = session_config(descriptor)
 
     cost = table.objective_values()[1]
     if "status" in table.frame.columns:
         completed = table.frame["status"].astype(str).str.lower().to_numpy() == "completed"
         cost = np.where(completed, cost, np.nan)
 
-    blocks = _blocks(table, config)
+    blocks = cost_blocks(table, config)
     search = _Search(
         runs=table.iterations(),
         cost=cost,
-        parameters=_parameters(table, config),
+        parameters=_parameters(table, descriptor),
         blocks=blocks,
         network=_network(table, config, output),
         method=str(descriptor.get("method") or config.get("method") or ""),
-        phase=_text(descriptor.get("phase_name")),
+        phase=text(descriptor.get("phase_name")),
         output_variable=_series_variable(config, blocks),
+        returned=returned_row(table, descriptor),
     )
-    _read_tolerance(search, table, config)
+    _read_tolerance(search, table, descriptor)
     search.bracket = _bracket(table, search, output)
     search.weights_verified = _weights_match(search)
     return search
 
 
-def _parameters(table: TrialTable, config: Mapping[str, Any]) -> list[_Parameter]:
+def _parameters(table: TrialTable, descriptor: Mapping[str, Any]) -> list[_Parameter]:
     """Return the calibrated parameters in the order the session declared them."""
-    declared = config.get("parameters")
-    declared = declared if isinstance(declared, Mapping) else {}
+    declared = as_mapping(session_config(descriptor).get("parameters"))
     names = [name for name in declared if name in table.parameters]
     names += [name for name in table.parameters if name not in names]
     if not names:
         raise ValueError("the calibration session recorded no sampled parameter.")
-    meta = _parameter_meta(table.frame)
     parameters = []
     for name in names:
         _, values = table.parameter_values(name)
-        info = {**_as_mapping(declared.get(name)), **_as_mapping(meta.get(name))}
+        info = parameter_declaration(table, descriptor, name)
         bounds = _bounds(info.get("bounds"))
         positive = bool(np.all(values[np.isfinite(values)] > 0.0))
         transform = str(info.get("transform") or "").lower()
@@ -366,57 +346,11 @@ def _parameters(table: TrialTable, config: Mapping[str, Any]) -> list[_Parameter
                 name=name,
                 values=values,
                 log=log,
-                units=_text(info.get("units")) or "-",
+                units=text(info.get("units")) or "-",
                 bounds=bounds,
             )
         )
     return parameters
-
-
-def _parameter_meta(frame: pd.DataFrame) -> dict[str, Mapping[str, Any]]:
-    """Return what the first run recorded about each parameter: unit, bounds, transform."""
-    if "parameters" not in frame.columns:
-        return {}
-    for value in frame["parameters"]:
-        block = _as_mapping(value)
-        if block:
-            return {str(key): _as_mapping(item) for key, item in block.items()}
-    return {}
-
-
-def _blocks(table: TrialTable, config: Mapping[str, Any]) -> list[_Block]:
-    """Return the objective blocks, as declared, else as the trials name them."""
-    declared = [
-        block for block in config.get("objective_blocks") or () if isinstance(block, Mapping)
-    ]
-    if not declared:
-        prefixes = sorted(
-            {
-                str(column)[: -len(".raw_cost")]
-                for column in table.frame.columns
-                if str(column).endswith(".raw_cost")
-            }
-        )
-        declared = [{"name": name} for name in prefixes]
-        if not declared and config.get("objective"):
-            declared = [{"name": "", "metric": config.get("objective")}]
-    blocks = []
-    for block in declared:
-        name = str(block.get("name") or "")
-        column = f"{name}.raw_cost"
-        uses = block.get("uses_outputs") or ()
-        blocks.append(
-            _Block(
-                name=name,
-                metric=_text(block.get("metric")),
-                weight=_float(block.get("weight"), 1.0),
-                normalized=bool(block.get("normalize_cost")),
-                transformed=str(block.get("transform") or "identity") != "identity",
-                raw=table.diagnostic(column) if name and table.has_diagnostic(column) else None,
-                output=str(uses[0]) if uses else None,
-            )
-        )
-    return blocks
 
 
 def _network(table: TrialTable, config: Mapping[str, Any], output: str | None) -> _Network | None:
@@ -460,72 +394,35 @@ def _counts(table: TrialTable, key: str, output: str, size: int) -> np.ndarray:
     return np.full(size, np.nan)
 
 
-def _series_variable(config: Mapping[str, Any], blocks: Sequence[_Block]) -> str | None:
+def _series_variable(config: Mapping[str, Any], blocks: Sequence[CostBlock]) -> str | None:
     """Return the variable the series blocks compare, discharge for a gauge."""
     outputs = config.get("outputs")
     if not isinstance(outputs, Mapping):
         return None
     for block in blocks:
-        spec = _as_mapping(outputs.get(block.output)) if block.output else {}
+        spec = as_mapping(outputs.get(block.output)) if block.output else {}
         if spec.get("support") != "network" and spec.get("variable"):
             return str(spec["variable"])
     return None
 
 
-def _read_tolerance(search: _Search, table: TrialTable, config: Mapping[str, Any]) -> None:
+def _read_tolerance(search: _Search, table: TrialTable, descriptor: Mapping[str, Any]) -> None:
     """Set the cost the best is told apart from, and the interval it gives.
 
-    The width is the calibration's own: written in ``[calibration.uncertainty]``,
-    else one mesh cell on a search scored on network distances in metres, else
-    five per cent of the best cost.
+    The width and the interval are the calibration's own, read by the helper
+    every calibration figure shares, so the slide and the cost profile never
+    report two intervals for one answer.
     """
-    best = search.best
-    if best is None:
+    tolerance = read_tolerance(search.cost, search.blocks, table, descriptor)
+    search.threshold = tolerance.threshold
+    search.tolerance_text = tolerance.text
+    search.missing = tolerance.missing
+    if tolerance.threshold is None:
         return
-    best_cost = float(search.cost[best])
-    uncertainty = _as_mapping(config.get("uncertainty"))
-    on_distances = bool(search.blocks) and all(
-        block.metric in _NETWORK_METRICS and not block.normalized and not block.transformed
-        for block in search.blocks
-    )
-    mode = _text(uncertainty.get("mode")) or ("absolute" if on_distances else "relative")
-    tolerance = _float(uncertainty.get("tolerance"), float("nan"))
-    if not np.isfinite(tolerance):
-        if mode == "absolute" and on_distances:
-            tolerance = _cell_spacing(table)
-        elif mode == "relative":
-            tolerance = _DEFAULT_TOLERANCE
-    if not np.isfinite(tolerance):
-        return
-    if mode == "absolute":
-        search.threshold = best_cost + tolerance
-        unit = " m" if on_distances else ""
-        search.tolerance_text = (
-            f"one mesh cell ({tolerance:.3g}{unit})"
-            if on_distances and not np.isfinite(_float(uncertainty.get("tolerance"), np.nan))
-            else f"{tolerance:.3g}{unit}"
-        )
-    elif best_cost > 0.0:
-        search.threshold = best_cost * (1.0 + tolerance)
-        search.tolerance_text = f"{tolerance:.0%}"
-    else:
-        return
-    within = np.isfinite(search.cost) & (search.cost <= search.threshold)
     for parameter in search.parameters:
-        selected = parameter.values[within & np.isfinite(parameter.values)]
-        if selected.size:
-            search.intervals[parameter.name] = (float(selected.min()), float(selected.max()))
-
-
-def _cell_spacing(table: TrialTable) -> float:
-    """Return the mesh cell the network criterion measured, NaN when none did."""
-    for column in table.frame.columns:
-        if str(column).endswith(".cell_spacing_m"):
-            values = pd.to_numeric(table.frame[column], errors="coerce").to_numpy(dtype=float)
-            values = values[np.isfinite(values)]
-            if values.size:
-                return float(values[0])
-    return float("nan")
+        interval = tolerance_interval(parameter.values, search.cost, tolerance.threshold)
+        if interval is not None:
+            search.intervals[parameter.name] = (interval.low, interval.high)
 
 
 def _bracket(
@@ -593,55 +490,13 @@ def _weights_match(search: _Search) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _metric_cost(block: _Block) -> str:
-    """Return how the cost of one block reads, without its unit."""
-    metric = block.metric or ""
-    if metric in _EFFICIENCIES:
-        text = f"1 - {_EFFICIENCIES[metric]}"
-    elif metric in _NETWORK_COSTS:
-        text = _NETWORK_COSTS[metric]
-    elif metric in _RESIDUAL_COSTS:
-        text = _RESIDUAL_COSTS[metric]
-    else:
-        text = f"cost of {block.name}" if block.name else "cost"
-    if block.normalized and metric not in _EFFICIENCIES:
-        text = f"{text} / reference scale"
-    return text
-
-
-def _metric_unit(block: _Block) -> str:
-    """Return the unit of the cost of one block."""
-    metric = block.metric or ""
-    if block.normalized or block.transformed or metric in _EFFICIENCIES:
-        return "-"
-    if metric in _NETWORK_COSTS:
-        return "m"
-    if metric in _RESIDUAL_COSTS:
-        return "observed unit"
-    return "-"
-
-
-def _cost_label(search: _Search) -> str:
-    """Return the y label of the cost: the metric and its unit, never a column name."""
-    blocks = search.blocks
-    if len(blocks) == 1:
-        block = blocks[0]
-        label = f"{_metric_cost(block)} ({_metric_unit(block)})"
-        if block.normalized:
-            label = f"Normalised cost: {label}"
-        return label
-    if not blocks:
-        return "Cost (-)"
-    return "Weighted cost (-)"
-
-
 def _cost_formula(search: _Search) -> str:
     """Return how the weighted cost of several blocks is built, in words."""
     total = sum(block.weight for block in search.blocks)
     if search.weights_verified and total > 0.0:
-        terms = [f"{block.weight / total:.2g} x ({_metric_cost(block)})" for block in search.blocks]
+        terms = [f"{block.weight / total:.2g} x ({metric_cost(block)})" for block in search.blocks]
     else:
-        terms = [f"({_metric_cost(block)})" for block in search.blocks]
+        terms = [f"({metric_cost(block)})" for block in search.blocks]
     return " + ".join(terms)
 
 
@@ -649,7 +504,7 @@ def _cost_short(search: _Search) -> str:
     """Return the cost as a colorbar names it."""
     if len(search.blocks) == 1:
         block = search.blocks[0]
-        return f"{_metric_cost(block)} ({_metric_unit(block)})"
+        return f"{metric_cost(block)} ({metric_unit(block)})"
     return "weighted cost (-)"
 
 
@@ -674,7 +529,7 @@ def _subtitle(search: _Search) -> str:
         values = ", ".join(
             parameter.value_text(float(parameter.values[best])) for parameter in search.parameters
         )
-        line += f". Best at run {int(search.runs[best])}: {values}"
+        line += f". {search.best_word.capitalize()} at run {int(search.runs[best])}: {values}"
     return line
 
 
@@ -695,8 +550,8 @@ def _better_text(search: _Search) -> str:
                 "Better, for the stream network: a smaller mean of D_so and D_os, the two "
                 "distances between the simulated seepage cells and the mapped streams."
             )
-        elif metric in _EFFICIENCIES:
-            name = _EFFICIENCIES[metric]
+        elif metric in EFFICIENCIES:
+            name = EFFICIENCIES[metric]
             where = "at the gauge" if search.output_variable == "discharge" else ""
             detail = (
                 ", computed on log discharge so that low flows weigh as much as floods"
@@ -707,9 +562,9 @@ def _better_text(search: _Search) -> str:
                 f"Better, for the {_series_noun(search)}: a higher {name} {where}{detail} "
                 f"(1 is a perfect fit). The search minimises 1 - {name}.".replace("  ", " ")
             )
-        elif metric in _RESIDUAL_COSTS:
+        elif metric in RESIDUAL_COSTS:
             sentences.append(
-                f"Better: a smaller {_RESIDUAL_COSTS[metric]} between the simulated and the "
+                f"Better: a smaller {RESIDUAL_COSTS[metric]} between the simulated and the "
                 "observed values."
             )
     if len(search.blocks) > 1:
@@ -721,6 +576,8 @@ def _better_text(search: _Search) -> str:
             f"A run whose cost is within {search.tolerance_text} of the best is not told "
             "apart from it."
         )
+    elif search.missing:
+        sentences.append(f"{search.missing[:1].upper()}{search.missing[1:]}.")
     return " ".join(sentences)
 
 
@@ -739,7 +596,7 @@ def _draw_slide(fig: MplFigure, search: _Search) -> None:
     series = [
         block
         for block in search.blocks
-        if block.raw is not None and block.metric not in _NETWORK_METRICS
+        if block.raw is not None and block.metric not in NETWORK_METRICS
     ]
     two = len(search.parameters) == 2
     improvement = int(search.network is not None) + int(bool(series))
@@ -896,7 +753,7 @@ def _draw_parameter(
             edgecolor="black",
             linewidth=0.8,
             zorder=5,
-            label=f"best: {parameter.value_text(value)}",
+            label=f"{search.best_word}: {parameter.value_text(value)}",
         )
     _value_limits(ax, parameter, interval)
     _run_axis(ax, search)
@@ -966,10 +823,10 @@ def _draw_cost(ax: Axes, search: _Search, *, norm: Normalize, cmap: Any) -> None
             edgecolor="black",
             linewidth=0.8,
             zorder=5,
-            label=f"best: {cost[best]:.4g} at run {int(runs[best])}",
+            label=f"{search.best_word}: {cost[best]:.4g} at run {int(runs[best])}",
         )
     _run_axis(ax, search)
-    ax.set_ylabel(_cost_label(search))
+    ax.set_ylabel(cost_label(search.blocks))
     ax.set_title("Cost of each run, and the best so far")
     ax.legend(loc="upper right")
 
@@ -1110,7 +967,7 @@ def _draw_network(ax: Axes, search: _Search, network: _Network) -> None:
             lw=2.4,
             zorder=5,
             label=(
-                f"best run {int(runs[best])}: {valid[best]:.0f} found, "
+                f"{search.best_word} run {int(runs[best])}: {valid[best]:.0f} found, "
                 f"{excess[best]:.0f} extra, {missing[best]:.0f} missed"
             ),
         )
@@ -1166,7 +1023,7 @@ def _mark_cut_bars(
         )
 
 
-def _draw_series(ax: Axes, search: _Search, blocks: Sequence[_Block]) -> None:
+def _draw_series(ax: Axes, search: _Search, blocks: Sequence[CostBlock]) -> None:
     """Panel 3, series half: the efficiency itself per run, rising toward its best."""
     runs = search.runs
     colours = (_BLUE, _RED, _SAND)
@@ -1175,9 +1032,9 @@ def _draw_series(ax: Axes, search: _Search, blocks: Sequence[_Block]) -> None:
         colour = colours[index % len(colours)]
         metric = block.metric or ""
         raw = np.asarray(block.raw, dtype=float)
-        efficiency = metric in _EFFICIENCIES and not block.transformed
+        efficiency = metric in EFFICIENCIES and not block.transformed
         values = 1.0 - raw if efficiency else raw
-        name = _EFFICIENCIES[metric] if efficiency else _metric_cost(block)
+        name = EFFICIENCIES[metric] if efficiency else metric_cost(block)
         names.append(name)
         prefix = f"{block.name}: " if len(blocks) > 1 else ""
         finite = np.isfinite(values)
@@ -1214,23 +1071,18 @@ def _draw_series(ax: Axes, search: _Search, blocks: Sequence[_Block]) -> None:
                 edgecolor="black",
                 linewidth=0.8,
                 zorder=5,
-                label=f"{prefix}best run: {name} = {values[best]:.3f}",
+                label=f"{prefix}{search.best_word} run: {name} = {values[best]:.3f}",
             )
     finite = np.concatenate(
-        [
-            (1.0 - b.raw if (b.metric in _EFFICIENCIES) else b.raw)[np.isfinite(b.raw)]
-            for b in blocks
-        ]
+        [(1.0 - b.raw if (b.metric in EFFICIENCIES) else b.raw)[np.isfinite(b.raw)] for b in blocks]
     )
     if finite.size:
         low, high = float(finite.min()), float(finite.max())
         span = high - low or abs(high) or 1.0
         ax.set_ylim(low - 0.6 * span, high + 0.25 * span)
     _run_axis(ax, search)
-    unit = (
-        "-" if all(block.metric in _EFFICIENCIES for block in blocks) else _metric_unit(blocks[0])
-    )
-    rises = all(block.metric in _EFFICIENCIES for block in blocks)
+    unit = "-" if all(block.metric in EFFICIENCIES for block in blocks) else metric_unit(blocks[0])
+    rises = all(block.metric in EFFICIENCIES for block in blocks)
     way = "higher" if rises else "lower"
     ax.set_ylabel(f"{' / '.join(dict.fromkeys(names))} ({unit}), {way} is better")
     noun = "gauged discharge" if search.output_variable == "discharge" else "observed series"
@@ -1304,7 +1156,7 @@ def _draw_plane(sub: SubFigure, ax: Axes, search: _Search) -> None:
             edgecolor="black",
             linewidth=0.8,
             zorder=5,
-            label=f"best run {int(runs[best])}",
+            label=f"{search.best_word} run {int(runs[best])}",
         )
     for parameter, setter in ((first, ax.set_xlim), (second, ax.set_ylim)):
         if parameter.bounds is not None:
@@ -1330,37 +1182,6 @@ def _draw_plane(sub: SubFigure, ax: Axes, search: _Search) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _session_rows(sim: Run) -> dict[str, dict[str, Any]]:
-    """Return the session rows reachable from a run, keyed by bare session id."""
-    frame = calibration_sessions(sim)
-    if frame.empty or "session_id" not in frame.columns:
-        return {}
-    return {_key(row["session_id"]): dict(row) for row in frame.to_dict("records")}
-
-
-def _session_config(descriptor: Mapping[str, Any]) -> Mapping[str, Any]:
-    """Return the configuration a session recorded, parsed from the index text."""
-    return _as_mapping(descriptor.get("config"))
-
-
-def _key(session_id: Any) -> str:
-    """Return a session id as bare hex, whichever way a table wrote it."""
-    return str(session_id).replace("-", "").lower()
-
-
-def _as_mapping(value: Any) -> Mapping[str, Any]:
-    """Read one nested block, a dict in the journal and JSON text in the index."""
-    if isinstance(value, Mapping):
-        return value
-    if isinstance(value, str):
-        try:
-            parsed = json.loads(value)
-        except json.JSONDecodeError:
-            return {}
-        return parsed if isinstance(parsed, Mapping) else {}
-    return {}
-
-
 def _bounds(value: Any) -> tuple[float, float] | None:
     """Return the search bounds as two finite floats, None otherwise."""
     if isinstance(value, str):
@@ -1370,7 +1191,7 @@ def _bounds(value: Any) -> tuple[float, float] | None:
             return None
     if not isinstance(value, Sequence) or len(value) != 2:
         return None
-    low, high = _float(value[0], np.nan), _float(value[1], np.nan)
+    low, high = float_or(value[0], np.nan), float_or(value[1], np.nan)
     if not (np.isfinite(low) and np.isfinite(high)) or high <= low:
         return None
     return low, high
@@ -1380,25 +1201,3 @@ def _spans_decades(values: np.ndarray) -> bool:
     """Whether positive samples span more than a decade: a search in log space."""
     finite = values[np.isfinite(values)]
     return bool(finite.size) and float(finite.max() / finite.min()) > 10.0
-
-
-def _float(value: Any, default: float) -> float:
-    """Return ``value`` as a float, ``default`` when it is not a number."""
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return default
-    return number if np.isfinite(number) else default
-
-
-def _text(value: Any) -> str | None:
-    """Return a non-empty string, None for anything a table left empty."""
-    if value is None:
-        return None
-    try:
-        if bool(pd.isna(value)):
-            return None
-    except (TypeError, ValueError):
-        pass
-    text = str(value).strip()
-    return text or None

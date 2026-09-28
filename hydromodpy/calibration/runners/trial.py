@@ -600,6 +600,11 @@ def promote_prepared_trial(
             "raw_toml": dict(forked.raw_toml),
             "ctx": ctx,
             "skip_display": False,
+            # The geographic preprocessing tree is shared by every promotion of
+            # the session. Dropped by the export step of the first one, it left
+            # the next ones with no watershed to ingest, so their catchment
+            # series summed the whole domain. The session end drops it.
+            "keep_preprocessing": True,
             "spatial_support_registry": forked.spatial_support_registry,
             "requested_spatial_support_ids": forked.requested_spatial_support_ids,
             "requested_domain_supports": forked.requested_domain_supports,

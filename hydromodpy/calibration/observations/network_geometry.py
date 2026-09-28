@@ -16,6 +16,7 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_geometry import NetworkGeometry, build_network_geometry
+from hydromodpy.core.stream_recharge import criterion_mean_recharge
 from hydromodpy.core.stream_snap import SnapStreamsConfig
 
 if TYPE_CHECKING:
@@ -33,6 +34,13 @@ def mean_recharge_m_s(model: Any) -> float:
     Unit conversion and spatial distribution can diverge between what a user
     wrote and what the solver received, and the calibrated ratio is only a
     ratio if the recharge that divides it is the one the model actually used.
+
+    A station forcing is held as the rate it gives each period, a steady
+    spin-up period at its own rate: the solver writes the record mean there
+    only when it writes the package. A gridded forcing is held per cell as the
+    solver writes it. The mean is the criterion's one definition
+    (:func:`hydromodpy.core.stream_recharge.criterion_mean_recharge`), which a
+    figure redrawing the run rebuilds from the forcing the run stores.
     """
     recharge = getattr(model, "recharge", None)
     if recharge is None:
@@ -40,16 +48,11 @@ def mean_recharge_m_s(model: Any) -> float:
             "the built model declares no recharge, so the specific seepage threshold "
             "and the K/R ratio have no denominator."
         )
-    if isinstance(recharge, dict):
-        values = np.concatenate(
-            [np.asarray(item, dtype=float).reshape(-1) for item in recharge.values()]
-        )
-    else:
-        values = np.asarray(recharge, dtype=float).reshape(-1)
-    finite = values[np.isfinite(values)]
-    if finite.size == 0:
-        raise ValueError("the recharge the model holds is not a finite number.")
-    return float(np.mean(finite))
+    periods = list(recharge.values()) if isinstance(recharge, dict) else [recharge]
+    try:
+        return criterion_mean_recharge(periods)
+    except ValueError as exc:
+        raise ValueError("the recharge the model holds is not a finite number.") from exc
 
 
 def dense_face_connectivity(planar_mesh: Any) -> np.ndarray:

@@ -94,6 +94,7 @@ from hydromodpy.calibration.runners.state import (
 from hydromodpy.calibration.runners.trial import TrialMetricFn, prepare_trials
 from hydromodpy.core.exceptions import CalibrationError, ConfigValidationError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.workspace.path_registry import holds_project_run_lock, project_root_of_config
 
 if TYPE_CHECKING:
     import numpy as np
@@ -1164,13 +1165,17 @@ def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+@holds_project_run_lock(
+    lambda config_path, **kw: project_root_of_config(config_path, kw.get("workspace")),
+    check=lambda *_a, **kw: refuse_an_objective_that_is_not_an_entry_point(kw.get("objective")),
+)
 def run_staged_calibration(
     config_path: Path | str,
     *,
     phase: str | None = None,
     objective: str | None = None,
     workspace: Path | str | None = None,
-    project: str = "calibration",
+    project: str | None = None,
     metric_fn: TrialMetricFn | None = None,
     store_factory: CalibrationStoreFactory | None = None,
     return_report: bool = True,
@@ -1192,7 +1197,8 @@ def run_staged_calibration(
     workspace
         Override the project catalog root, otherwise resolved from the TOML.
     project
-        Project label written to ``calibration_sessions.project``.
+        Project label written to ``calibration_sessions.project``. Unset, the
+        name of the project root folder, as a run registers it.
     metric_fn
         Programmatic override for the metric extractor.
     store_factory

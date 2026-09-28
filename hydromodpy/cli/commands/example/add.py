@@ -80,6 +80,8 @@ def run(args: argparse.Namespace) -> None:
         f"[example add] {len(report.written)} file(s) written, "
         f"{len(report.unchanged)} already up to date."
     )
+    for label in report.stations_written:
+        print(f"[example add] station registry updated: {label}")
     for dest in report.kept:
         print(f"[example add] kept, differs from the manifest: {dest} (--force overwrites)")
     print()

@@ -47,6 +47,19 @@ def test_example_04_names_the_seven_data_files_it_reads() -> None:
     assert entry.entry_config == "step1_minimal.toml"
 
 
+def test_example_04_carries_the_registry_row_of_each_station_it_reads() -> None:
+    """A station file holds values only; its coordinates live in the registry."""
+    entry = find_entry("04", load_catalog())
+    shipped = {(station.dest, station.id) for station in entry.stations}
+    assert shipped == {
+        ("data/hydrometry/hydrometry_custom_LOC.csv", "NANCON"),
+        ("data/recharge/recharge_custom_LOC.csv", "NANCON"),
+        ("data/recharge/recharge_custom_LOC.csv", "NANCON_REA"),
+        ("data/runoff/runoff_custom_LOC.csv", "NANCON"),
+        ("data/runoff/runoff_custom_LOC.csv", "NANCON_REA"),
+    }
+
+
 def test_every_entry_writes_only_under_the_workspace() -> None:
     for entry in load_catalog():
         for item in entry.payload:

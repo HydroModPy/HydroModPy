@@ -33,6 +33,90 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Fixed
+- `hmp example add 04` merges the rows of the stations it reads (NANCON, NANCON_REA) into the
+  workspace registries `data/<variable>/<variable>_custom_LOC.csv`. `hmp workspace init` writes
+  those registries empty, so every hydrometry, recharge and runoff load failed and the full
+  transient runs diverged. A row already there with other values is kept unless `--force`.
+- `hydromodpy.__version__` reads the `pyproject.toml` of the checkout it is imported from before
+  the installed metadata. An editable install keeps the number it was installed at, so a
+  checkout bumped to 2.0.0a2 still reported 2.0.0a1 in `hmp doctor`, run provenance and PNG
+  metadata.
+- Two `hmp run` of one project no longer break each other's preprocessing. The geographic and
+  mesh builds hold `.hmp/locks/preprocessing.lock` while they write
+  `.hmp/scratch/_preprocessing/`, which is per project: four runs started together on example
+  04 lost three of them in `build_geographic` (a Whitebox panic, a missing `dem_fill.tif`, a
+  missing `outlet.shp`). A run also holds a shared use of that tree from its geographic build
+  to its cleanup, and a cleanup drops the tree only when no other run of the project holds one:
+  the last run out drops it, instead of the first one pulling it from under the others.
+- The runs of one project take turns. A simulation (`Project.simulate`, so `hmp run`) and a
+  calibration session (`run_calibration_cli`, `run_staged_calibration`,
+  `run_calibration_programmatic`, with every trial, phase and promotion inside) hold
+  `.hmp/locks/project-run.lock` from start to end; a run that has to wait says so once.
+  `.hmp/scratch/` is per project: run concurrently, the calibrations of example 04 read the
+  network another run wrote (no permanent reaches), shared one `_shared_recharge` across
+  different recharges, and a run that ended swept the solver folders of the others ("Solver
+  output directory is missing", "CBC file not found"). Runs of different projects stay
+  parallel.
+- `Run completed: <name> [<id>] <n>s` prints the run's duration, the `duration_s` the catalog
+  stores, instead of the solver step alone (6 s printed for a 19 s run).
+- The help of `[simulation] if_exists` says what `replace` does: it trashes the predecessor,
+  which keeps its name, and registers the new run under the next free `name.vN`. It said the
+  new run took the name.
+- `flux_timeseries`, `water_budget` and the testbed budget metrics read the catchment budget
+  zone, or the domain one when there is no catchment, and the figures name the frame. They
+  summed both zones: the catchment lies inside the MODFLOW 6 domain, so its water was counted
+  twice (1.68 m3/s of recharge drawn for 1.09 on the domain and 0.59 on the catchment).
+- `seepage_network_confusion_map` and `network_extent_bounds_map` count every legend class on
+  the frame they declare. "no stream" counted the whole grid (20 548 cells) under "frame: the
+  delineated catchment", and the both-bounds extents counted the domain (1234 cells) next to
+  scored counts taken in the catchment (714).
+- A GeoPackage or Shapefile export of `simulated_active_network` holds the active cells only,
+  with their attribute. It wrote every cell of the grid (21 406 polygons, 610 active, 5 MB).
+- The calibrated discharge adds a gridded runoff (SIM2, `extent = "watershed"`), reduced to its
+  watershed mean as the run stores it. The objective read runoff stations only, so
+  `run_calibration_api_daily.toml` scored the drain alone against the total gauged flow while
+  its runs reported drain plus runoff, which pushed K onto the lower bound.
+- A network output whose `time` is a date is redrawn at that date by the figures of the run,
+  on the period `[s, e)` that holds it, the state the trials scored. The derive path accepted
+  `last` and `first` only, so the promotion of `run_calibration_composite.toml`
+  (`time = "2002-10-15"`) failed in its display step. The period rule moved to
+  `core.time.selection.resolve_state`, shared by the calibration and the results layer.
+- Every run a calibration promotes keeps its watershed. The export step of the first promotion
+  dropped the session's shared preprocessing tree, so with `save_runs = "all"` the next ones
+  had no watershed: their catchment discharge summed the whole domain (PBIAS -95 % on the
+  daily API grid of example 04) and 6 of 15 figures did not apply.
+- A calibration whose promotion fails says so and exits 21 (`CalibrationError`) from `hmp run`
+  and `hmp calibrate`, after printing the results of the search, which are kept. It printed
+  "done" and exited 0 while the promoted run was `failed` in the catalog.
+- The progress line of a bisection shows its bracket, then its root, instead of the lowest
+  cost met, which is not the answer of a root search (BD Topage: `best 71.8` at K = 1e-7 for a
+  root at K = 5.9e-6).
+- A calibrated value no other trial comes close to prints "no other trial within the
+  tolerance" instead of a zero-width interval `[x, x]`.
+- A session journal names its project (the project folder, as its runs do) and the metrics of
+  its objective blocks, and drops the `variable`/`objective` pair a block-scored phase leaves at
+  its defaults. It wrote `project = "calibration"`, `objective_name = "nse"` and
+  `variable = "head"` for a network phase scored on `distance_gap`.
+- The calibration figures read what they need from the session journal:
+  - `parameter_cost_profile` marks the trial the calibration returned, not the lowest cost:
+    the BD Topage profile named K = 1e-7 for a returned K of 5.9e-6.
+  - `matching_hydrographic_network_card` of a two-bound search shows Delta, the combined value,
+    the validity and the cells without being passed the roots.
+  - `bisection_bracket_trace` draws a two-bound search, both residual series and both roots.
+  - `parameter_cost_profile` and `calibration_progress` share the interval of the calibration
+    summary (one mesh cell for a distance cost, 5 % otherwise). The profile drew a +10 % rise
+    instead, `[8.094e-05, 8.115e-05]` for a summary of `[7.499e-05, 1e-4]`, and its `rise`
+    option is removed.
+  - The axes carry their units: `K (m/s)`, `|D_so - D_os| (m)`, `1 - NSElog (-)`.
+- The figures of a run redraw the stream network with the mean recharge its trials scored
+  with. The trials averaged the rate the forcing gives each period; the redraw averaged the
+  budget, where a steady spin-up period holds the record mean in place of its month (8.656e-9
+  against 9.075e-9 m/s on the monthly Nancon), so the drawn network was cut at another
+  threshold than the scored one and "The mean recharge moved" was logged for an unchanged
+  forcing. Both now apply one rule (`core.stream_recharge`) to the forcing, the redraw reading
+  the station forcing the run stores; a real change of data or window still warns.
+
 ---
 
 ## [v2.0.0a2] - 2026-09-28

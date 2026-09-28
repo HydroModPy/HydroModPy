@@ -53,6 +53,7 @@ from hydromodpy.results.derive.stream_extent import (
     FLOW_FIELD,
     NetworkExtents,
     network_extents_from_run,
+    scored_cells,
     unavailable_reason_for_extents,
 )
 from hydromodpy.results.derive.stream_network import (
@@ -185,8 +186,9 @@ class NetworkExtentBoundsMap(BaseFigure):
         )
         chosen_year = _chosen_year(extents, year, figure=self.spec.name)
         polygons = face_polygons(sim)
+        scope = scored_cells(extents.geometry) if extent == "catchment" else None
         if bound == "both":
-            handles = _draw_both(ax, polygons, extents, chosen_year)
+            handles = _draw_both(ax, polygons, extents, chosen_year, scope)
         else:
             handles = _draw_one(ax, polygons, extents, bound, chosen_year)
 
@@ -305,8 +307,20 @@ def _window(extents: NetworkExtents, year: int | None) -> str:
     return f"climatological extents over {span}"
 
 
-def _draw_both(ax: Axes, polygons, extents: NetworkExtents, year: int | None) -> list[Patch]:
-    """Fill the two simulated extents and outline the two maps."""
+def _draw_both(
+    ax: Axes,
+    polygons,
+    extents: NetworkExtents,
+    year: int | None,
+    scope: np.ndarray | None = None,
+) -> list[Patch]:
+    """Fill the two simulated extents and outline the two maps.
+
+    ``scope`` restricts the legend counts to the declared frame (the scored
+    cells of the catchment); ``None`` counts every cell of the mesh. Drawing
+    stays over the whole mesh regardless, since the map is cropped visually
+    by the window, not by this mask.
+    """
     from matplotlib.patches import Patch
 
     n_cells = len(polygons)
@@ -316,6 +330,7 @@ def _draw_both(ax: Axes, polygons, extents: NetworkExtents, year: int | None) ->
     obs_min = checked_cells(extents.observed("minimal"), n_cells, "minimal map")
     sim_added = sim_max & ~sim_min
     obs_added = obs_max & ~obs_min
+    keep = np.ones(n_cells, dtype=bool) if scope is None else np.asarray(scope, dtype=bool)
 
     draw_cells(
         ax,
@@ -363,24 +378,24 @@ def _draw_both(ax: Axes, polygons, extents: NetworkExtents, year: int | None) ->
         Patch(
             facecolor=SIMULATED_MINIMAL_COLOR,
             edgecolor=CASING_COLOR,
-            label=f"simulated minimal extent ({cell_count(sim_min)})",
+            label=f"simulated minimal extent ({cell_count(sim_min & keep)})",
         ),
         Patch(
             facecolor=SIMULATED_MAXIMAL_COLOR,
             edgecolor=CASING_COLOR,
-            label=f"maximal extent beyond it ({cell_count(sim_added)})",
+            label=f"maximal extent beyond it ({cell_count(sim_added & keep)})",
         ),
         Patch(
             facecolor="none",
             edgecolor=OBSERVED_MINIMAL_COLOR,
             linewidth=_OUTLINE_WEIGHT_PT,
-            label=f"minimal map ({cell_count(obs_min)})",
+            label=f"minimal map ({cell_count(obs_min & keep)})",
         ),
         Patch(
             facecolor="none",
             edgecolor=OBSERVED_MAXIMAL_COLOR,
             linewidth=_OUTLINE_WEIGHT_PT,
-            label=f"maximal map beyond it ({cell_count(obs_added)})",
+            label=f"maximal map beyond it ({cell_count(obs_added & keep)})",
         ),
     ]
 

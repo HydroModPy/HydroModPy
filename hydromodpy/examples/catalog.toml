@@ -137,3 +137,23 @@ repo_path = "examples/data/runoff/runoff_custom_NANCON_REA_19900101_20201231_D.c
 dest = "data/runoff/runoff_custom_NANCON_REA_19900101_20201231_D.csv"
 size = 226475
 sha256 = "ce34f674eb53787883431b1535c1ce80834b8c136fb40a6b9faed83698662151"
+
+[[example.station]]
+dest = "data/hydrometry/hydrometry_custom_LOC.csv"
+row = { "id" = "NANCON", "x" = "389285.910", "y" = "6816518.749", "crs" = "EPSG:2154", "name" = "Nancon", "unit" = "m3/s", "constant" = "false" }
+
+[[example.station]]
+dest = "data/recharge/recharge_custom_LOC.csv"
+row = { "id" = "NANCON", "x" = "389285.91", "y" = "6816518.749", "crs" = "EPSG:2154", "name" = "Nancon", "unit" = "mm/day" }
+
+[[example.station]]
+dest = "data/recharge/recharge_custom_LOC.csv"
+row = { "id" = "NANCON_REA", "x" = "389285.91", "y" = "6816518.749", "crs" = "EPSG:2154", "name" = "Nancon areal mean (REA)", "unit" = "mm/day" }
+
+[[example.station]]
+dest = "data/runoff/runoff_custom_LOC.csv"
+row = { "id" = "NANCON", "x" = "389285.91", "y" = "6816518.749", "crs" = "EPSG:2154", "unit" = "mm/day" }
+
+[[example.station]]
+dest = "data/runoff/runoff_custom_LOC.csv"
+row = { "id" = "NANCON_REA", "x" = "389285.91", "y" = "6816518.749", "crs" = "EPSG:2154", "unit" = "mm/day" }

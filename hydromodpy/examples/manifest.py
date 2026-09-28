@@ -46,6 +46,24 @@ class ExampleFile:
 
 
 @dataclass(frozen=True, slots=True)
+class ExampleStation:
+    """One row an example needs in a station registry, ``<var>_custom_LOC.csv``.
+
+    The registry is shared by every project of the workspace, so the row is
+    merged into it instead of shipping a file that would replace it.
+    ``row`` keeps the registry's column order, values as the CSV writes them.
+    """
+
+    dest: str
+    row: tuple[tuple[str, str], ...]
+
+    @property
+    def id(self) -> str:
+        """The station id, the key a registry row is matched on."""
+        return dict(self.row)["id"]
+
+
+@dataclass(frozen=True, slots=True)
 class ExampleEntry:
     """One catalogued example: what it is, and every file it needs."""
 
@@ -57,6 +75,7 @@ class ExampleEntry:
     entry_config: str
     files: tuple[ExampleFile, ...]
     data: tuple[ExampleFile, ...]
+    stations: tuple[ExampleStation, ...] = ()
 
     @property
     def payload(self) -> tuple[ExampleFile, ...]:
@@ -125,6 +144,12 @@ def render_catalog(entries: tuple[ExampleEntry, ...]) -> str:
                 lines.append(f"size = {item.size}")
                 lines.append(f"sha256 = {_quote(item.sha256)}")
                 lines.append("")
+        for station in entry.stations:
+            cells = ", ".join(f"{_quote(key)} = {_quote(value)}" for key, value in station.row)
+            lines.append("[[example.station]]")
+            lines.append(f"dest = {_quote(station.dest)}")
+            lines.append(f"row = {{ {cells} }}")
+            lines.append("")
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
@@ -138,6 +163,7 @@ def _entry_from_toml(raw: dict) -> ExampleEntry:
         entry_config=str(raw["entry_config"]),
         files=tuple(_file_from_toml(item) for item in raw.get("file", ())),
         data=tuple(_file_from_toml(item) for item in raw.get("data", ())),
+        stations=tuple(_station_from_toml(item) for item in raw.get("station", ())),
     )
 
 
@@ -147,6 +173,13 @@ def _file_from_toml(raw: dict) -> ExampleFile:
         dest=str(raw["dest"]),
         size=int(raw["size"]),
         sha256=str(raw["sha256"]),
+    )
+
+
+def _station_from_toml(raw: dict) -> ExampleStation:
+    return ExampleStation(
+        dest=str(raw["dest"]),
+        row=tuple((str(key), str(value)) for key, value in raw["row"].items()),
     )
 
 

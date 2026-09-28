@@ -1,4 +1,4 @@
-"""Water-balance components through time, over the whole model domain.
+"""Water-balance components through time, over the delineated catchment or the domain.
 
 The complement of :class:`~hydromodpy.display.figures.water_budget.WaterBudget`:
 that one sums each component over the run, this one shows how they evolve.
@@ -7,7 +7,10 @@ on the storage change.
 
 Components are read from the budget table, whose names are normalized to the
 public field vocabulary (``recharge``, ``drain``, ``well``, ...) whatever the
-solver, so the figure needs no per-backend knowledge.
+solver, so the figure needs no per-backend knowledge. The table may hold a
+row for the whole model domain and one for the delineated catchment; the
+catchment one is drawn when it exists, so the figure never sums the two
+overlapping zones into one another.
 """
 
 from __future__ import annotations
@@ -17,6 +20,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.field_routing import select_budget_zone
 from hydromodpy.core.units.labels import AXIS_LABELS, axis_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
@@ -86,6 +90,7 @@ class FluxTimeseries(BaseFigure):
         frame = sim.budget()
         if frame.empty:
             raise ValueError(f"no budget rows stored for sim {sim.sim_id}")
+        frame, frame_label = select_budget_zone(frame)
 
         net = (
             frame.assign(net=frame["flux_in"] - frame["flux_out"])
@@ -160,7 +165,10 @@ class FluxTimeseries(BaseFigure):
             handles += extra[0]
             labels += extra[1]
         ax.legend(handles, labels, fontsize=9, framealpha=0.9, ncols=min(len(labels), 4))
-        ax.set_title(f"{self.spec.title} - {sim.name or sim.sim_id}\npositive = into the aquifer")
+        ax.set_title(
+            f"{self.spec.title} - {sim.name or sim.sim_id}\n"
+            f"positive = into the aquifer, frame: {frame_label}"
+        )
         if isinstance(index, pd.DatetimeIndex):
             style_date_axis(ax)
         return ax

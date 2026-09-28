@@ -422,3 +422,33 @@ def test_a_promoted_run_reads_its_latest_session_from_the_index(mpl, tmp_path: P
 
     assert "|D_so - D_os| (m)" in _ylabels(fig)
     assert "Steady conductivity phase: bisection on K, 14 runs" in _texts(fig)
+
+
+def test_a_value_combined_from_two_roots_is_marked_and_gets_no_interval(mpl, tmp_path) -> None:
+    """The slide agrees with the summary: the returned run, and no interval of runs."""
+    from ._calibration_journal import (
+        K_SPACE,
+        TWO_ROOT_CONFIG,
+        TWO_ROOTS,
+        journal_run,
+        two_root_rows,
+    )
+
+    run = journal_run(
+        tmp_path,
+        two_root_rows(),
+        method="bisection",
+        phase="transient_conductivity",
+        config=TWO_ROOT_CONFIG,
+        search_space=K_SPACE,
+        best_trial=24,
+        root_search=TWO_ROOTS,
+    )
+
+    fig = CalibrationProgressFigure().plot(run)
+
+    text = _texts(fig)
+    assert "Returned at run 24: K = 5.9e-06 m/s" in text
+    assert "returned: 185.4 at run 24" in text
+    assert "within tolerance" not in text
+    assert "No interval of trials around a value combined from two roots" in " ".join(text.split())

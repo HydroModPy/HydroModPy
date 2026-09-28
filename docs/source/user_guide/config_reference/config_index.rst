@@ -5557,37 +5557,37 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `simulation <simulation.html#simulation-scientific-objective>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L403>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L404>`__
    * - ``simulation.contact_email``
      - ``str | None``
      - user
      - -
      - `simulation <simulation.html#simulation-contact-email>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L407>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L408>`__
    * - ``simulation.doi``
      - ``str | None``
      - user
      - -
      - `simulation <simulation.html#simulation-doi>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L411>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L412>`__
    * - ``simulation.study_area_name``
      - ``str | None``
      - user
      - -
      - `simulation <simulation.html#simulation-study-area-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L415>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L416>`__
    * - ``simulation.outlet_x``
      - ``float | None``
      - user
      - -
      - `simulation <simulation.html#simulation-outlet-x>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L419>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L420>`__
    * - ``simulation.outlet_y``
      - ``float | None``
      - user
      - -
      - `simulation <simulation.html#simulation-outlet-y>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L423>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L424>`__
    * - ``simulation.time``
      - ``SimulationTimeConfig | None``
      - user
@@ -5665,7 +5665,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `simulation <simulation.html#simulation-results>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L443>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L444>`__
    * - ``simulation.results.persistence``
      - ``PersistenceConfig``
      - user
@@ -5791,7 +5791,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `simulation <simulation.html#simulation-rng-seed>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L451>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L452>`__
    * - ``solver.backend``
      - ``Modflow6Backend | ModflowNwtBackend | BoussinesqBackend | CustomBackend``
      - user

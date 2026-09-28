@@ -22,6 +22,11 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._calibration_session import (
+    chosen_session,
+    declared_units,
+    session_descriptor,
+)
 from hydromodpy.display.figures._trial_diagnostics import TrialTable, trial_table
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, place_legend
 
@@ -38,10 +43,10 @@ _MAPPED_TO_SIMULATED = HIGH_CONTRAST_TRIPLET[2]
 class DownslopeDistanceCrossingFigure(BaseFigure):
     """``D_so`` and ``D_os`` versus the calibrated parameter, on a log axis.
 
-    ``parameter_units`` defaults to the dimensionless mark, since the
-    parameter this criterion calibrates is the ratio ``K/R``; a figure drawn
-    over a conductivity passes its own. ``band_m`` defaults to the ``L_ref``
-    the criterion published with each trial.
+    ``parameter_units`` defaults to the unit the session declared for the
+    parameter (``m/s`` for a conductivity), and to the dimensionless mark
+    when it declared none, as for the ratio ``K/R``. ``band_m`` defaults to
+    the ``L_ref`` the criterion published with each trial.
     """
 
     spec = FigureSpec(
@@ -80,7 +85,7 @@ class DownslopeDistanceCrossingFigure(BaseFigure):
         ax: Axes,
         *,
         parameter: str | None = None,
-        parameter_units: str = "-",
+        parameter_units: str | None = None,
         session_id: str | None = None,
         output: str | None = None,
         band_m: float | None = None,
@@ -88,8 +93,10 @@ class DownslopeDistanceCrossingFigure(BaseFigure):
     ) -> Axes:
         from matplotlib.patches import Patch
 
-        table = trial_table(sim, session_id=session_id)
+        chosen = chosen_session(sim, session_id)
+        table = trial_table(sim, session_id=chosen)
         name, values = table.parameter_values(parameter)
+        units = parameter_units or declared_units(table, session_descriptor(sim, chosen), name)
         d_so = table.diagnostic("D_so", output=output)
         d_os = table.diagnostic("D_os", output=output)
 
@@ -187,7 +194,7 @@ class DownslopeDistanceCrossingFigure(BaseFigure):
             )
 
         ax.set_xscale("log")
-        ax.set_xlabel(f"{name} ({parameter_units})")
+        ax.set_xlabel(f"{name} ({units})")
         ax.set_ylabel("Downslope distance (m)")
         ax.set_ylim(bottom=0.0)
         ax.grid(True, which="both", ls=":", lw=0.4)

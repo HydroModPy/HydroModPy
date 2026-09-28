@@ -391,7 +391,9 @@ def test_the_simulated_network_is_exported_by_date_and_over_the_run(dated_run, m
         sid,
         ExportRequest(variables="simulated_active_network", time="last", format="geopackage"),
     )
-    assert gpd.read_file(gpkg)["simulated_active_network"].tolist() == flowing[2]
+    # Only the active cells are written: flowing[2] holds one inactive cell,
+    # and a network export is not a raster of the whole domain.
+    assert gpd.read_file(gpkg)["simulated_active_network"].tolist() == [1.0, 1.0, 1.0]
 
     (nc,) = catalog.export(sid, ExportRequest(variables=["head", "simulated_active_network"]))
     with xr.open_dataset(nc) as ds:

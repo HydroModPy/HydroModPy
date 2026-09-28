@@ -167,18 +167,31 @@ def step_seal_store(
 def _run_epilogue_lines(
     ctx: WorkflowContext, *, store: Catalog, wall_seconds: float, status: str
 ) -> tuple[str, ...]:
-    """Best-effort self-teaching epilogue: identity card + next commands."""
+    """Best-effort self-teaching epilogue: identity card + next commands.
+
+    ``wall_seconds`` only covers the ``run_solver`` step, not the geographic
+    and mesh preprocessing, data loading, extraction or export that surround
+    it, so it understates the run by as much as those steps take. ``finalize``
+    (called just above, before this runs) has already stamped
+    ``simulations.duration_s`` from ``ended_at - started_at``: the same figure
+    ``hmp catalog show`` reads. That is what is printed here; ``wall_seconds``
+    is only a fallback for a store that has none.
+    """
     try:
         sid = str(ctx.sim_id)
-        row = store.backend.fetch_one("SELECT name FROM simulations WHERE sim_id = ?", [sid])
+        row = store.backend.fetch_one(
+            "SELECT name, duration_s FROM simulations WHERE sim_id = ?", [sid]
+        )
         name = (row[0] if row else None) or sid[:8]
+        run_duration_s = row[1] if row else None
         nse = store.backend.fetch_one(
             "SELECT value FROM metrics WHERE sim_id = ? "
             "AND station_id = '__outlet__' AND metric_name = 'nse'",
             [sid],
         )
         metric = f" nse={nse[0]:.2f}" if nse and nse[0] is not None else ""
-        duration = f" {wall_seconds:.0f}s" if wall_seconds else ""
+        duration_s = run_duration_s if run_duration_s is not None else wall_seconds
+        duration = f" {duration_s:.0f}s" if duration_s else ""
     except Exception:  # noqa: BLE001 - the epilogue must never disrupt a run
         return ()
     return (
@@ -205,9 +218,12 @@ def step_cleanup_scratch(
 ) -> None:
     """Remove the solver scratch folders unless keep_solver_files is True.
 
-    Only the run's own children of ``.hmp/scratch/`` go: the geographic
-    ``_preprocessing/`` tree living beside them belongs to the session, and
-    :func:`step_cleanup_preprocessing` is the one entitled to drop it.
+    Every child of ``.hmp/scratch/`` goes but the geographic
+    ``_preprocessing/`` tree, which belongs to the session and which
+    :func:`step_cleanup_preprocessing` is the one entitled to drop. A run
+    holds the project run lock (``core.workspace.path_registry.project_run_lock``),
+    so no other run of the project owns a folder here: what is swept beside
+    this run's own folder was left by runs that ended.
     """
     if keep_solver_files:
         return
