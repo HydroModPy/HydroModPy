@@ -52,6 +52,10 @@ Each release section includes the following standard categories:
 - The help of `[simulation] if_exists` says what `replace` does: it trashes the predecessor,
   which keeps its name, and registers the new run under the next free `name.vN`. It said the
   new run took the name.
+- `flux_timeseries`, `water_budget` and the testbed budget metrics read the catchment budget
+  zone, or the domain one when there is no catchment, and the figures name the frame. They
+  summed both zones: the catchment lies inside the MODFLOW 6 domain, so its water was counted
+  twice (1.68 m3/s of recharge drawn for 1.09 on the domain and 0.59 on the catchment).
 
 ---
 

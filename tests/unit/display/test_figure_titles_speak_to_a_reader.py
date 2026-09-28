@@ -209,3 +209,37 @@ def test_a_flux_is_drawn_over_its_own_period(mpl) -> None:
     # January is drawn from 1 January to 1 February, not from its closing stamp.
     assert starts.tolist() == pytest.approx(edges.tolist())
     assert recharge.get_ydata().tolist() == [3.0, 2.0, 1.0, 1.0]
+
+
+class _ZonedBudgetRun:
+    """A run whose ``budgets`` table holds both the domain and the catchment."""
+
+    sim_id = "sim-c"
+    name = "nancon"
+    periods = SimpleNamespace(edges=pd.DatetimeIndex(["2000-01-01", "2000-02-01"]))
+
+    def budget(self) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "component": ["recharge", "recharge"],
+                "zone_id": ["0", "catchment"],
+                "timestep": [0, 0],
+                "flux_in": [1.093, 0.586],
+                "flux_out": [0.0, 0.0],
+            }
+        )
+
+
+def test_flux_timeseries_reads_the_catchment_zone_not_the_domain_sum(mpl) -> None:
+    # ``budgets`` holds one row for the whole domain (zone_id "0") and one for
+    # the delineated catchment, for the same component and timestep. Summing
+    # both, as a plain groupby("component", "timestep") does, drew
+    # 1.093 + 0.586 m3/s of January recharge; only the catchment row is a
+    # gauge-comparable value.
+    fig, ax = mpl.subplots()
+
+    FluxTimeseries().render(_ZonedBudgetRun(), ax)
+
+    recharge = next(line for line in ax.lines if line.get_label() == "recharge")
+    assert recharge.get_ydata().tolist() == pytest.approx([0.586, 0.586])
+    assert "frame: the delineated catchment" in ax.get_title()

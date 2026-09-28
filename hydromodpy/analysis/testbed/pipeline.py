@@ -16,6 +16,7 @@ from hydromodpy.analysis.testbed.config import (
     TestbedMetricConfig,
 )
 from hydromodpy.analysis.testbed.io import _jsonable
+from hydromodpy.core.field_routing import select_budget_zone
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.derive.config_flags import log_missing_field
 
@@ -280,6 +281,7 @@ def _extract_budget_metrics(run: Any) -> tuple[dict[str, Any], dict[str, float |
         or "flux_out" not in budget
     ):
         return {}, {}
+    budget, _frame = select_budget_zone(budget)
     budget_summary: dict[str, Any] = {}
     flow_metrics: dict[str, float | int] = {}
     try:

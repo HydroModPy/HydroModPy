@@ -25,6 +25,31 @@ DRAIN_BUDGET_KEYS = ("drain",)
 # ``simulation.extraction.derivation.catchment_aggregation``.
 CATCHMENT_BUDGET_ZONE = "catchment"
 
+#: Budget zone of the whole model domain.
+DOMAIN_BUDGET_ZONE = "0"
+
+
+def select_budget_zone(frame: Any) -> tuple[Any, str]:
+    """Return the budget rows of one zone, and the frame they cover.
+
+    A budget table may hold a model-domain row (zone ``"0"``) and a
+    catchment row (:data:`CATCHMENT_BUDGET_ZONE`) for the same component and
+    timestep. The catchment lies inside the domain, so summing the two counts
+    its water twice. The catchment rows are returned when they exist, since
+    every catchment series and the hydrograph read them; otherwise the domain
+    rows, otherwise the table as it is.
+    """
+    if "zone_id" not in frame.columns:
+        return frame, "the model domain"
+    zone_id = frame["zone_id"].astype(str)
+    catchment = frame.loc[zone_id == CATCHMENT_BUDGET_ZONE]
+    if not catchment.empty:
+        return catchment, "the delineated catchment"
+    domain = frame.loc[zone_id == DOMAIN_BUDGET_ZONE]
+    if not domain.empty:
+        return domain, "the model domain"
+    return frame, "the model domain"
+
 
 def find_drain_budget_key(mapping: Any) -> str | None:
     """Return the first stored drain-budget key found in a mapping/group."""
@@ -420,6 +445,7 @@ def accumulate_on_downhill_graph(graph: DownhillGraph, local_values: Any) -> np.
 
 __all__ = [
     "CATCHMENT_BUDGET_ZONE",
+    "DOMAIN_BUDGET_ZONE",
     "DRAIN_BAND_DEPTH_ATTR",
     "DRAIN_BUDGET_KEYS",
     "DownhillGraph",
