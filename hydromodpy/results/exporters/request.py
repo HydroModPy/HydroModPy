@@ -361,6 +361,9 @@ class _Writer:
                 period=period or None,
             )
         if fmt is ExportFormat.geopackage:
+            if name == SIMULATED_ACTIVE_NETWORK:
+                return self._active_network_vector(name, step, dest, values, driver="GPKG")
+
             from hydromodpy.results.exporters.geopackage import export_geopackage
 
             return export_geopackage(
@@ -374,6 +377,11 @@ class _Writer:
                 values=values,
             )
         if fmt is ExportFormat.shapefile:
+            if name == SIMULATED_ACTIVE_NETWORK:
+                return self._active_network_vector(
+                    name, step, dest, values, driver="ESRI Shapefile"
+                )
+
             from hydromodpy.results.exporters.shapefile import export_shapefile
 
             return export_shapefile(
@@ -393,6 +401,43 @@ class _Writer:
                 self.zarr_path, self.sim_id, name, step, dest, layer=request.layer, values=values
             )
         raise ExportError(f"a field at one date is not written as {fmt.value}.")
+
+    def _active_network_vector(
+        self,
+        name: str,
+        step: int,
+        dest: Path,
+        values: np.ndarray | None,
+        *,
+        driver: str,
+    ) -> Path:
+        """Write only the active cells of the simulated network, keeping the attribute.
+
+        The generic cell exporter writes one polygon per mesh cell, which for a
+        network holding a handful of active cells out of an entire domain is a
+        file of mostly zeros. A network export names features, not a raster, so
+        it keeps only the cells the network flows through.
+        """
+        from hydromodpy.results.exporters.shapefile import build_cell_geodataframe
+
+        gdf = build_cell_geodataframe(
+            self.zarr_path,
+            self.sim_id,
+            name,
+            step,
+            layer=self.request.layer,
+            crs=self.crs,
+            values=values,
+            fmt=driver,
+        )
+        active = gdf.loc[gdf[name] != 0]
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if driver == "GPKG":
+            active.to_file(str(dest), driver=driver, layer=name)
+        else:
+            active.to_file(str(dest))
+        logger.info("Exported %s: %s (%d active cell(s))", driver, dest, len(active))
+        return dest
 
     def _series(self, item: PlannedFile, dest: Path) -> Path:
         from hydromodpy.results.exporters.csv import export_csv

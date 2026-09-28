@@ -60,6 +60,8 @@ Each release section includes the following standard categories:
   the frame they declare. "no stream" counted the whole grid (20 548 cells) under "frame: the
   delineated catchment", and the both-bounds extents counted the domain (1234 cells) next to
   scored counts taken in the catchment (714).
+- A GeoPackage or Shapefile export of `simulated_active_network` holds the active cells only,
+  with their attribute. It wrote every cell of the grid (21 406 polygons, 610 active, 5 MB).
 
 ---
 
